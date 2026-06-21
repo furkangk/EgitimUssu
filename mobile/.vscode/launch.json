@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mobile (Flutter Medium Phone API 36.0)",
+      "request": "launch",
+      "type": "dart",
+      "preLaunchTask": "sync-mobile-ascii",
+      "cwd": "C:\\Users\\furkan.gokdemir\\AppData\\Local\\Temp\\egitimussu_mobile_workspace",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "mobile",
+      "request": "launch",
+      "type": "dart",
+      "preLaunchTask": "sync-mobile-ascii",
+      "cwd": "C:\\Users\\furkan.gokdemir\\AppData\\Local\\Temp\\egitimussu_mobile_workspace",
+      "program": "lib/main.dart"
+    }
+  ]
+}

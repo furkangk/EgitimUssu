@@ -1,0 +1,66 @@
+# OS / editor
+.DS_Store
+.idea/
+.vs/
+.vscode/.cache/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
+
+# Logs and temporary files
+*.log
+tmp_*.txt
+tmp_*.log
+
+# .NET
+bin/
+obj/
+TestResults/
+*.nupkg
+*.snupkg
+*.coverage
+*.coveragexml
+coverage/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Mobile native generated output
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/macos/Pods/
+mobile/macos/.symlinks/
+mobile/macos/Flutter/ephemeral/
+mobile/windows/flutter/ephemeral/
+mobile/linux/flutter/ephemeral/
+
+# Generated release artifacts
+mobile/artifacts/
+
+# Local SDK/cache folders
+.dotnet/

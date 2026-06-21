@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Domain\EgitimUssu.Modules.Payments.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Kernel\EgitimUssu.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Application\EgitimUssu.Shared.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Contracts\EgitimUssu.Shared.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+

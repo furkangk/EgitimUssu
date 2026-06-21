@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "sync-mobile-ascii",
+      "type": "shell",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/infra/scripts/sync_mobile.js"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

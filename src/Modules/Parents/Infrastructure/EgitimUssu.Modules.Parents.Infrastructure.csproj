@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Domain\EgitimUssu.Modules.Parents.Domain.csproj" />
+    <ProjectReference Include="..\Application\EgitimUssu.Modules.Parents.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Kernel\EgitimUssu.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Application\EgitimUssu.Shared.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Contracts\EgitimUssu.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Infrastructure\EgitimUssu.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+

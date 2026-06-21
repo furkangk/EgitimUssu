@@ -1,0 +1,225 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/API.Host/">
+    <Project Path="src/API.Host/EgitimUssu.API.Host.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Assignments/" />
+  <Folder Name="/src/Modules/Assignments/API/">
+    <Project Path="src/Modules/Assignments/API/EgitimUssu.Modules.Assignments.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Assignments/Application/">
+    <Project Path="src/Modules/Assignments/Application/EgitimUssu.Modules.Assignments.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Assignments/Domain/">
+    <Project Path="src/Modules/Assignments/Domain/EgitimUssu.Modules.Assignments.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Assignments/Infrastructure/">
+    <Project Path="src/Modules/Assignments/Infrastructure/EgitimUssu.Modules.Assignments.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/" />
+  <Folder Name="/src/Modules/Identity/API/">
+    <Project Path="src/Modules/Identity/API/EgitimUssu.Modules.Identity.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Application/">
+    <Project Path="src/Modules/Identity/Application/EgitimUssu.Modules.Identity.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Domain/">
+    <Project Path="src/Modules/Identity/Domain/EgitimUssu.Modules.Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/Infrastructure/">
+    <Project Path="src/Modules/Identity/Infrastructure/EgitimUssu.Modules.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/LessonSessions/" />
+  <Folder Name="/src/Modules/LessonSessions/API/">
+    <Project Path="src/Modules/LessonSessions/API/EgitimUssu.Modules.LessonSessions.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/LessonSessions/Application/">
+    <Project Path="src/Modules/LessonSessions/Application/EgitimUssu.Modules.LessonSessions.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/LessonSessions/Domain/">
+    <Project Path="src/Modules/LessonSessions/Domain/EgitimUssu.Modules.LessonSessions.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/LessonSessions/Infrastructure/">
+    <Project Path="src/Modules/LessonSessions/Infrastructure/EgitimUssu.Modules.LessonSessions.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Matching/" />
+  <Folder Name="/src/Modules/Matching/API/">
+    <Project Path="src/Modules/Matching/API/EgitimUssu.Modules.Matching.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Matching/Application/">
+    <Project Path="src/Modules/Matching/Application/EgitimUssu.Modules.Matching.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Matching/Domain/">
+    <Project Path="src/Modules/Matching/Domain/EgitimUssu.Modules.Matching.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Matching/Infrastructure/">
+    <Project Path="src/Modules/Matching/Infrastructure/EgitimUssu.Modules.Matching.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/" />
+  <Folder Name="/src/Modules/Notifications/API/">
+    <Project Path="src/Modules/Notifications/API/EgitimUssu.Modules.Notifications.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/Application/">
+    <Project Path="src/Modules/Notifications/Application/EgitimUssu.Modules.Notifications.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/Domain/">
+    <Project Path="src/Modules/Notifications/Domain/EgitimUssu.Modules.Notifications.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/Infrastructure/">
+    <Project Path="src/Modules/Notifications/Infrastructure/EgitimUssu.Modules.Notifications.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Parents/" />
+  <Folder Name="/src/Modules/Parents/API/">
+    <Project Path="src/Modules/Parents/API/EgitimUssu.Modules.Parents.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Parents/Application/">
+    <Project Path="src/Modules/Parents/Application/EgitimUssu.Modules.Parents.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Parents/Domain/">
+    <Project Path="src/Modules/Parents/Domain/EgitimUssu.Modules.Parents.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Parents/Infrastructure/">
+    <Project Path="src/Modules/Parents/Infrastructure/EgitimUssu.Modules.Parents.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Payments/" />
+  <Folder Name="/src/Modules/Payments/API/">
+    <Project Path="src/Modules/Payments/API/EgitimUssu.Modules.Payments.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Payments/Application/">
+    <Project Path="src/Modules/Payments/Application/EgitimUssu.Modules.Payments.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Payments/Domain/">
+    <Project Path="src/Modules/Payments/Domain/EgitimUssu.Modules.Payments.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Payments/Infrastructure/">
+    <Project Path="src/Modules/Payments/Infrastructure/EgitimUssu.Modules.Payments.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ProgressTracking/" />
+  <Folder Name="/src/Modules/ProgressTracking/API/">
+    <Project Path="src/Modules/ProgressTracking/API/EgitimUssu.Modules.ProgressTracking.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ProgressTracking/Application/">
+    <Project Path="src/Modules/ProgressTracking/Application/EgitimUssu.Modules.ProgressTracking.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ProgressTracking/Domain/">
+    <Project Path="src/Modules/ProgressTracking/Domain/EgitimUssu.Modules.ProgressTracking.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ProgressTracking/Infrastructure/">
+    <Project Path="src/Modules/ProgressTracking/Infrastructure/EgitimUssu.Modules.ProgressTracking.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reporting/" />
+  <Folder Name="/src/Modules/Reporting/API/">
+    <Project Path="src/Modules/Reporting/API/EgitimUssu.Modules.Reporting.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reporting/Application/">
+    <Project Path="src/Modules/Reporting/Application/EgitimUssu.Modules.Reporting.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reporting/Domain/">
+    <Project Path="src/Modules/Reporting/Domain/EgitimUssu.Modules.Reporting.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reporting/Infrastructure/">
+    <Project Path="src/Modules/Reporting/Infrastructure/EgitimUssu.Modules.Reporting.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reviews/" />
+  <Folder Name="/src/Modules/Reviews/API/">
+    <Project Path="src/Modules/Reviews/API/EgitimUssu.Modules.Reviews.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reviews/Application/">
+    <Project Path="src/Modules/Reviews/Application/EgitimUssu.Modules.Reviews.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reviews/Domain/">
+    <Project Path="src/Modules/Reviews/Domain/EgitimUssu.Modules.Reviews.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reviews/Infrastructure/">
+    <Project Path="src/Modules/Reviews/Infrastructure/EgitimUssu.Modules.Reviews.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/" />
+  <Folder Name="/src/Modules/Scheduling/API/">
+    <Project Path="src/Modules/Scheduling/API/EgitimUssu.Modules.Scheduling.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/Application/">
+    <Project Path="src/Modules/Scheduling/Application/EgitimUssu.Modules.Scheduling.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/Domain/">
+    <Project Path="src/Modules/Scheduling/Domain/EgitimUssu.Modules.Scheduling.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Scheduling/Infrastructure/">
+    <Project Path="src/Modules/Scheduling/Infrastructure/EgitimUssu.Modules.Scheduling.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Settings/" />
+  <Folder Name="/src/Modules/Settings/API/">
+    <Project Path="src/Modules/Settings/API/EgitimUssu.Modules.Settings.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Settings/Application/">
+    <Project Path="src/Modules/Settings/Application/EgitimUssu.Modules.Settings.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Settings/Domain/">
+    <Project Path="src/Modules/Settings/Domain/EgitimUssu.Modules.Settings.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Settings/Infrastructure/">
+    <Project Path="src/Modules/Settings/Infrastructure/EgitimUssu.Modules.Settings.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Students/" />
+  <Folder Name="/src/Modules/Students/API/">
+    <Project Path="src/Modules/Students/API/EgitimUssu.Modules.Students.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Students/Application/">
+    <Project Path="src/Modules/Students/Application/EgitimUssu.Modules.Students.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Students/Domain/">
+    <Project Path="src/Modules/Students/Domain/EgitimUssu.Modules.Students.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Students/Infrastructure/">
+    <Project Path="src/Modules/Students/Infrastructure/EgitimUssu.Modules.Students.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Study/" />
+  <Folder Name="/src/Modules/Study/API/">
+    <Project Path="src/Modules/Study/API/EgitimUssu.Modules.Study.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Study/Application/">
+    <Project Path="src/Modules/Study/Application/EgitimUssu.Modules.Study.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Study/Domain/">
+    <Project Path="src/Modules/Study/Domain/EgitimUssu.Modules.Study.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Study/Infrastructure/">
+    <Project Path="src/Modules/Study/Infrastructure/EgitimUssu.Modules.Study.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Teachers/" />
+  <Folder Name="/src/Modules/Teachers/API/">
+    <Project Path="src/Modules/Teachers/API/EgitimUssu.Modules.Teachers.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Teachers/Application/">
+    <Project Path="src/Modules/Teachers/Application/EgitimUssu.Modules.Teachers.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Teachers/Domain/">
+    <Project Path="src/Modules/Teachers/Domain/EgitimUssu.Modules.Teachers.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Teachers/Infrastructure/">
+    <Project Path="src/Modules/Teachers/Infrastructure/EgitimUssu.Modules.Teachers.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/" />
+  <Folder Name="/src/Shared/Application/">
+    <Project Path="src/Shared/Application/EgitimUssu.Shared.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/Contracts/">
+    <Project Path="src/Shared/Contracts/EgitimUssu.Shared.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/Infrastructure/">
+    <Project Path="src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/Kernel/">
+    <Project Path="src/Shared/Kernel/EgitimUssu.Shared.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Architecture/">
+    <Project Path="tests/Architecture/EgitimUssu.Tests.Architecture.csproj" />
+  </Folder>
+  <Folder Name="/tests/Integration/">
+    <Project Path="tests/Integration/EgitimUssu.Tests.Integration.csproj" />
+  </Folder>
+  <Folder Name="/tests/Unit/">
+    <Project Path="tests/Unit/EgitimUssu.Tests.Unit.csproj" />
+  </Folder>
+</Solution>
