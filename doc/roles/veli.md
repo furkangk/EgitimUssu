@@ -1,0 +1,106 @@
+# 👪 Veli Rolü — Detaylı Tasarım Dokümanı
+
+> **Öncelik: 3️⃣** · **Faz 2-3 — Veli Paneli** · **Durum: 🔴 İskelet**
+>
+> **Amaç:** Veli, çocuğunun gelişimini **şeffaf** ve **grafik/rapor ağırlıklı** biçimde takip etsin; özel ders alıyorsa
+> ödemeleri ve öğretmen etkileşimlerini izlesin.
+>
+> İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`ogretmen.md`](ogretmen.md) · [`../modules/m09_parents.md`](../modules/m09_parents.md)
+> **Güncelleme:** 2026-06-24
+
+---
+
+## 1. Tasarım İlkesi
+Veli, **kendi verisi üretmeyen**, çoğunlukla diğer modüllerin verisini veli perspektifinden **okuyan/birleştiren** bir roldür (read-model). Velinin önceliği çocuğun **gelişim takibidir** ve bu güçlü **grafik ve raporlarla** desteklenmelidir.
+
+> **Önemli kural:** Veli **yalnızca gerçek, kayıtlı bir kullanıcı** olabilir (öğrenci manuel olabilir; veli olamaz). Veli–çocuk bağı **onaya** dayalıdır ve bir velinin **birden çok çocuğu** olabilir.
+
+---
+
+## 2. Kullanıcı Tipi ve Giriş
+- Kayıt: `Parent` rolüyle (gerçek kişi) — [`../modules/m01_identity.md`](../modules/m01_identity.md) (`UserRole.Parent = 4`).
+- Çocuğa bağlanma: davet kodu / öğrenci e-postası ile **onaylı** bağ (`ParentChildLink`). Bağ noktası kodda hazır: `StudentProfile.ParentUserId`.
+
+---
+
+## 3. İki Veri Kaynağı (PRD M09)
+
+| Kaynak | İçerik | Önkoşul | Modül |
+|--------|--------|---------|-------|
+| **Bireysel çalışma** | Haftalık çalışma süresi, konu dağılımı, test performansı, seri | Öğretmen gerekmez | [`m08_study`](../modules/m08_study.md) |
+| **Öğretmen bağlıysa** | Son ders özeti, ödevler, öğretmen notları, **ödeme özeti** | Öğrenci bir öğretmene bağlı | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md), [`m06_assignments`](../modules/m06_assignments.md), [`m07_payments`](../modules/m07_payments.md) |
+
+---
+
+## 4. Yetenek Haritası
+
+| Yetenek | Modül | Durum |
+|---------|-------|-------|
+| Veli profili + çocuğa onaylı bağ (çoklu çocuk) | [`m09_parents`](../modules/m09_parents.md) | 🔴 |
+| Çocuğun ders durumu/programı | [`m04_scheduling`](../modules/m04_scheduling.md) / [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | 👁️ |
+| Çocuğun **hedef + gelişim** (grafik/rapor) | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) / [`m14_reporting`](../modules/m14_reporting.md) | 🔴 |
+| Bireysel çalışma verisi (süre/test/seri) | [`m08_study`](../modules/m08_study.md) | 🔴 |
+| **Özel ders ödemeleri** (paylaşılırsa) | [`m07_payments`](../modules/m07_payments.md) | 🟢 veri / ⚠️ paylaşım bayrağı |
+| Öğretmen-öğrenci **etkileşimleri** | [`m05`](../modules/m05_lesson_sessions.md)/[`m06`](../modules/m06_assignments.md) | 👁️ |
+| Öğretmenle **mesajlaşma** | [`m16_messaging`](../modules/m16_messaging.md) | 🔴 |
+| Bildirimler (ödev kaçırma vb.) | [`m11_notifications`](../modules/m11_notifications.md) | 🟡 |
+| Profil/bildirim/üyelik | [`m15_settings`](../modules/m15_settings.md) / [`m17_membership`](../modules/m17_membership.md) | 🟡/🔴 |
+
+---
+
+## 5. Altın Akış (Golden Path)
+
+```
+Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
+  → Veli paneli: bu hafta kaç saat çalıştı, hangi derslere ne kadar
+    → Test performansı + gelişim grafikleri
+      → (öğretmen bağlıysa) son ders, ödevler, öğretmen notları, ödeme özeti
+        → Öğretmenle mesajlaş → ödev kaçırma bildirimleri
+```
+
+---
+
+## 6. Rol-Özel İş Kuralları
+
+1. **Gerçek kişi zorunlu** (promp): veli manuel olamaz.
+2. **Onaylı bağ:** Veli–çocuk bağı onay gerektirir (özellikle büyük yaş grubu için); KVKK gereği reşit öğrencide öğrenci onayı esas, reşit olmayanda veli erişimi varsayılan.
+3. **Çoklu çocuk:** Bir veli birden çok öğrenciye bağlanabilir; panelde çocuk seçici bulunur.
+4. **Yalnız görüntüleme:** Veli ders/ödev/ödeme verisini **düzenleyemez**, yalnızca görüntüler.
+5. **Gizlilik:** Öğrenci, hangi verilerin veliye yansıyacağını kontrol edebilir (M15); ödeme yalnızca `IsSharedWithParent` ise görünür (M07).
+6. **Ödev kaçırma bildirimi:** Öğrenci ödevini son tarihten önce yüklemezse veliye bildirim gider (M06 + M11).
+
+---
+
+## 7. Mobil Ekranlar
+
+**Mevcut ✅:** Yok (veli akışı henüz kodda yok).
+
+**Planlanan ⚠️** (UI tasarımı §10.14–10.15):
+`parent-onboarding` (kayıt + çocuk bağlama), `parent-dashboard` (çocuk seçici + haftalık özet kartları + bar chart), `parent-child-detail` (detaylı gelişim, donut/line chart), `parent-notifications` (bildirim tercihleri), mesajlaşma.
+
+---
+
+## 8. Bireysel vs Eşleşmiş Kullanım
+- **Öğretmensiz (Faz 2):** Çocuğun bireysel çalışma verisini izler.
+- **Öğretmen bağlıysa (Faz 3):** Ders/ödev/öğretmen notu + ödeme özeti + öğretmenle mesajlaşma eklenir.
+
+## 9. Üyelik Etkisi (Free/Premium)
+Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalışma süresi geçmişi, gelişmiş bildirimler. Free: temel özet + reklam (PRD §9.3, [`../modules/m17_membership.md`](../modules/m17_membership.md)).
+
+## 10. Kabul Kriterleri
+**Faz 2 (öğretmensiz):**
+- [ ] Veli profili + çocuğa onaylı bağ (çoklu çocuk).
+- [ ] Çocuğun bireysel çalışma verisi (süre, konu, test, seri).
+- [ ] İzin bazlı görünürlük + bildirim tercihleri.
+
+**Faz 3 (öğretmen verisi):**
+- [ ] Son ders, ödevler, öğretmen notları, ödeme özeti.
+- [ ] Öğretmenle mesajlaşma + ödev kaçırma bildirimi.
+
+## 11. İlişkili Dokümanlar
+- Çocuğun verisi → [`ogrenci.md`](ogrenci.md) · Öğretmen verisi → [`ogretmen.md`](ogretmen.md)
+- Teknik → [`../modules/m09_parents.md`](../modules/m09_parents.md), [`m07_payments`](../modules/m07_payments.md), [`m10_progress_tracking`](../modules/m10_progress_tracking.md), [`m11_notifications`](../modules/m11_notifications.md)
+
+---
+
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-06-24*

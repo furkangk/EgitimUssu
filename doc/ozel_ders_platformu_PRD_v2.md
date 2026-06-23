@@ -1,5 +1,6 @@
-# Özel Ders Yönetim ve Eşleştirme Platformu
-## Ürün Gereksinim Dokümanı (PRD) v2.0 — Nisan 2025
+# EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu
+## Ürün Gereksinim Dokümanı (PRD) v2.1
+> İlk sürüm Nisan 2025 · **v2.1 güncellemesi: 2026-06-24** (`doc/promp.txt` vizyonu işlendi: mesajlaşma, üyelik+reklam+kampanya, iki taraflı ilan, online ders linki, takvim tatilleri, ders kaynağı, öğrenci ödev yükleme→veli bildirimi, çakışma önceliği, başarım/seri/kronometre, konu bazlı gelişim). Uygulama adı: **EğitimÜssü** (kod adı: `EgitimUssu`).
 
 > **📱 Mobil Öncelikli** — Web desteği sonraki aşamada  
 > **👥 3 Kullanıcı Tipi** — Öğretmen · Öğrenci · Veli  
@@ -28,7 +29,8 @@ Temel yaklaşım iki parçadan oluşur:
 - Öğrenciyi öğretmenden bağımsız çek — bireysel çalışma takibi ile.
 - Veliyi platforma dahil et — çocuğunun gelişimini şeffaf şekilde görüntülesin.
 - Eşleştirme sonrası öğretmene günlük operasyon aracı ver.
-- Zamanla abonelik ve premium özelliklerle gelir üret.
+- Zamanla **abonelik (üyelik) ve reklam** ile gelir üret; ücretli üyelik reklamsız + sınırsız + ekstra özellik sunar (bkz. §9, M17).
+- Rolleri **önce bireysel/ortak** kullanımla doldur, **eşleştirmeyi (ilan/keşif) en son** aç — böylece "ilk gün boş pazar yeri" sorunu (ilk kaydolan kimseyi göremez/mesaj alamaz) yaşanmaz.
 
 > **Kritik fark:** Öğrenci ve veli, platforma öğretmenden **ÖNCE** girebilir. Bireysel çalışma takibi ile sisteme girip zamanla öğretmen arayışına geçebilirler. Bu, eşleştirme modülüne iki taraftan da kullanıcı akışı sağlar.
 
@@ -112,6 +114,12 @@ Beklentileri:
 
 > **Başlangıçta en önemli amaç**, öğretmeni ve öğrenciyi platformda uzun süre tutacak çekirdek kullanım değerini oluşturmaktır. Gelir ikincil önceliktir.
 
+**İki gelir kaynağı (promp.txt):**
+- **Reklam:** Ücretsiz kullanıcılar reklam görür; ücretli üyeler görmez.
+- **Üyelik (abonelik):** Ücretli üyelik reklamsız + sınırsız + ekstra özellik sunar.
+
+**Kullanıcı çekme kampanyaları:** İlk ay ücretsiz; **arkadaşını getir → 1 ay ücretsiz** (referans). Teknik tasarım: [`modules/m17_membership.md`](modules/m17_membership.md).
+
 ---
 
 ## 6. Modül Listesi
@@ -129,10 +137,13 @@ Beklentileri:
 | M09 | Veli Paneli | Veli | Faz 2 |
 | M10 | Öğrenci Gelişim Takibi | Öğretmen / Veli | Faz 3 |
 | M11 | Bildirim ve Hatırlatma | Tümü | Faz 3 |
-| M12 | Eşleştirme ve Keşif | Öğrenci / Öğretmen | Faz 4 |
+| M12 | Eşleştirme, İlan ve Keşif (iki taraflı: öğretmen **sunduğu** ders ilanı / öğrenci **aradığı** ders ilanı; konum + yıldız + ücretli öne çıkarma) | Öğrenci / Öğretmen | Faz 4 |
 | M13 | Puanlama ve Yorum | Öğrenci | Faz 4 |
 | M14 | Raporlama ve Analiz | Öğretmen | Faz 5 |
 | M15 | Ayarlar ve Güvenlik | Tümü | Faz 0+ |
+| M16 | Mesajlaşma (öğretmen↔öğrenci, öğretmen↔veli) | Öğretmen / Öğrenci / Veli | Faz 2-3 |
+| M17 | Üyelik & Para Kazanma (abonelik + reklam + kampanya/referans) | Tümü | Faz 5 (temel: Faz 0+) |
+| M18 | Geri Bildirim & Şikayet (hata bildirimi + kötüye kullanım/şikayet + moderasyon) | Tümü | Faz 1+ (şikayet: Faz 4) |
 
 ---
 
@@ -353,9 +364,59 @@ Her ders oturumu içerir: tarih, saat, süre, konu, işlenen içerik, ders durum
 
 ---
 
+### M16 — Mesajlaşma
+**Amaç:** Platform içi iletişim — bugün dağınık (telefon/WhatsApp) yürüyen öğretmen-öğrenci/veli iletişimini sisteme taşımak.
+
+- Mesajlaşma **yalnızca** şu çiftler arasında: **öğretmen ↔ öğrenci** ve **öğretmen ↔ veli**. (Öğrenci↔veli, öğrenci↔öğrenci, öğretmen↔öğretmen yoktur.)
+- Birebir konuşma, okundu bilgisi, yeni mesaj bildirimi (M11), engelleme ve şikayet (M18).
+- Detay: [`modules/m16_messaging.md`](modules/m16_messaging.md).
+
+---
+
+### M17 — Üyelik ve Para Kazanma
+**Amaç:** Gelir modeli — **reklam + üyelik**. Platform parayı reklam ve ücretli üyelikten kazanır.
+
+- **Ücretsiz üyelik:** reklam görür + özellik limitleri (örn. öğretmende öğrenci limiti).
+- **Ücretli üyelik:** reklamsız + sınırlama yok + ekstra özellikler (rol bazlı — bkz. §9).
+- **Kampanyalar:** ilk ay ücretsiz; **arkadaşını getir → 1 ay ücretsiz** (referans).
+- Reklam yerleşimi istemci tarafında; ücretli kullanıcıda gizlenir. Detay: [`modules/m17_membership.md`](modules/m17_membership.md).
+
+---
+
+### M18 — Geri Bildirim ve Şikayet
+**Amaç:** Güven ve ürün kalitesi.
+
+- **Hata/geri bildirim:** kullanıcılar geliştirme bug'larını/önerilerini bildirir.
+- **Bildirme ve şikayet:** kötüye kullanım — bir kullanıcıyı, yorumu veya mesajı şikayet etme → admin moderasyonu.
+- M13 yorum şikayeti (`ReviewFlag`) ve M16 mesaj şikayeti ile ortak moderasyon kuyruğu. Detay: [`modules/m18_feedback.md`](modules/m18_feedback.md).
+
+---
+
+## 7.A promp.txt ile Gelen Yeni İş Kuralları (Modüllere Dağıtılmış)
+
+> Bu kurallar v2.1 ile eklendi; teknik tasarımları ilgili modül dokümanlarındadır.
+
+| Kural | Açıklama | Modül(ler) |
+|-------|----------|-----------|
+| **Online ders linki** | Online derste öğretmen bağlantı (MeetingUrl) girer; öğrenciler linkle katılır | [M04](modules/m04_scheduling.md) / [M05](modules/m05_lesson_sessions.md) |
+| **Takvim tatilleri** | Takvimde tatil/izin/blackout günleri; dersler/ödevler/ödemeler tek takvimde | [M04](modules/m04_scheduling.md) |
+| **Ders kaynağı (kaynak)** | Öğretmen ders notuna ek olarak **kaynak/materyal** paylaşır; öğrenci görür | [M06](modules/m06_assignments.md) |
+| **Öğrenci ödev yükleme + veli bildirimi** | Öğrenci ödevini yükler; son tarihten önce yüklemezse **veliye bildirim** | [M06](modules/m06_assignments.md) + [M11](modules/m11_notifications.md) + [M09](modules/m09_parents.md) |
+| **Çakışma önceliği** | Öğrencinin kendi planı ile özel ders çakışırsa **öncelik özel derste**, öğrenci uyarılır | [M04](modules/m04_scheduling.md) / [M08](modules/m08_study.md) |
+| **Veli = gerçek kişi** | Öğrenci manuel olabilir; **veli yalnızca gerçek kayıtlı kullanıcı** olabilir | [M03](modules/m03_students.md) / [M09](modules/m09_parents.md) |
+| **Ödeme veliyle paylaşım** | Ödeme bilgisi veliyle paylaşılabilir (bayrak) | [M07](modules/m07_payments.md) |
+| **Başarım + seri + kronometre** | Öğrenciyi teşvik/elde tutma: streak, başarımlar, odak süresi sayacı | [M08](modules/m08_study.md) |
+| **Konu bazlı gelişim** | Konu eksikleri, konu gelişimi, konu gelişim hedefleri | [M10](modules/m10_progress_tracking.md) |
+| **İki taraflı ilan + öne çıkarma** | Öğretmen/öğrenci ilan verir; konum + yıldız + ücretli üyelik öne çıkarma | [M12](modules/m12_matching.md) |
+| **Yıldız + yorum (güven)** | Puanlama/yorum sistemi; yalnız ders almış öğrenci yorumlar | [M13](modules/m13_reviews.md) |
+
+---
+
 ## 8. Platform Fazları ve Yol Haritası
 
-> Teknoloji kararı (React Native, Flutter, vb.) henüz verilmemiştir. Aşağıdaki faz planı teknolojiden bağımsız olarak hazırlanmıştır. Mobil öncelikli geliştirme yapılacak, web desteği sonraki aşamada eklenecektir.
+> **Teknoloji kararı verildi (v2.1):** Backend **.NET 9** modüler monolit; mobil **Flutter**; web **Angular** (sonraki aşama). Mobil öncelikli geliştirme, web sonraki aşamada.
+>
+> **Yeni modüllerin faz yerleşimi (v2.1):** **M16 Mesajlaşma** → Faz 2-3 (öğrenci/veli akışlarıyla birlikte); **M18 Geri Bildirim/hata** temel → Faz 1+, **şikayet/moderasyon** → Faz 4 (eşleştirme ile); **M17 Üyelik & Para Kazanma** → Faz 5 (temel altyapı Faz 0+'tan itibaren hazırlanır, çünkü "sistem baştan buna uygun olmalı").
 
 ### FAZ 0 — Temel & Altyapı *(Tahmini: 2–3 hafta)*
 
@@ -506,6 +567,20 @@ Hedef: Platforma dışarıdan öğretmen ve öğrenci çeken büyüme motoru.
 
 ---
 
+### 9.4 Reklam ve Kampanyalar (Tüm Roller)
+
+| Özellik | Free | Premium |
+|---------|------|---------|
+| Reklam gösterimi | ✅ Görür | ❌ Görmez |
+| Özellik limitleri (öğrenci sayısı, geçmiş, analiz vb.) | ✅ Sınırlı | ❌ Sınırsız |
+| İlk ay ücretsiz (yeni kullanıcı) | ✅ | ✅ |
+| Arkadaşını getir → 1 ay ücretsiz (referans) | ✅ | ✅ |
+| İlanda öne çıkarma (öğretmen) | ❌ | ✅ |
+
+> Detaylı entitlement/kampanya/reklam tasarımı: [`modules/m17_membership.md`](modules/m17_membership.md).
+
+---
+
 ## 10. Stratejik Notlar ve Riskler
 
 ### 10.1 Öncelik Sırası
@@ -536,4 +611,4 @@ Hedef: Platforma dışarıdan öğretmen ve öğrenci çeken büyüme motoru.
 
 ---
 
-*Özel Ders Yönetim ve Eşleştirme Platformu — Ürün Gereksinim Dokümanı | v2.0*
+*EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu — Ürün Gereksinim Dokümanı | v2.1 (2026-06-24)*

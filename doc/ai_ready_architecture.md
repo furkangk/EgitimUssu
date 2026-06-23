@@ -1,5 +1,12 @@
 # 🧠 AI-READY ARCHITECTURE DOCUMENT  
-## Özel Ders Platformu (Tutoring Platform)
+## EğitimÜssü — Özel Ders Platformu (Tutoring Platform)
+
+---
+
+> ⚠️ **Doküman notu:** Bu, sistemin **yüksek seviyeli / erken dönem** mimari vizyonudur ve soyut kalır
+> (ör. modüller "AUTH / USER / LESSON" gibi gruplanmıştır). **Koddan doğrulanmış güncel mimari, modül listesi,
+> gerçek endpoint envanteri ve durum tablosu için** → [`modules/00_genel_bakis.md`](modules/00_genel_bakis.md).
+> Çelişki halinde `00_genel_bakis.md` esastır.
 
 ---
 
@@ -40,7 +47,7 @@ Client Layer
  ├── Mobile (Flutter)
  └── Web (Angular - future)
 
-Backend Layer (.NET 8)
+Backend Layer (.NET 9)
  ├── API Host
  ├── Modules
  └── Shared Core
@@ -138,6 +145,19 @@ Handles:
 - Manual tracking (initial)
 - Future: subscription system
 
+### MESSAGING MODULE (M16 — new)
+- Teacher↔Student and Teacher↔Parent only
+- Conversations, messages, read receipts
+
+### MEMBERSHIP / MONETIZATION MODULE (M17 — new)
+- Free vs paid tiers, feature limits
+- Ads (free users), campaigns/referral
+
+### FEEDBACK / MODERATION MODULE (M18 — new)
+- Bug/feedback reports, abuse reports, admin moderation
+
+> Tam ve güncel modül listesi (M01–M18) + durum: `modules/00_genel_bakis.md`.
+
 ---
 
 # 🔁 DATA FLOW
@@ -196,6 +216,7 @@ Purpose:
 - Redis
 - Middleware
 - Outbox
+- File storage (⚠️ planned — `IFileStorage` abstraction; needed for assignment uploads, lesson resources, profile photos — see `modules/mimari_inceleme.md` O8)
 
 ---
 

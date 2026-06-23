@@ -90,6 +90,33 @@ Angular tabanlı admin ve raporlama ekranları (M14) devreye alınır; eşleşti
 
 ---
 
+## 5.5 Rol Bazlı Navigasyon ve Yeni Özellik Alanları (v2.1)
+
+> `promp.txt` vizyonuyla gelen genişleme. Detaylar: [`roles/`](roles/00_roller_genel_bakis.md) ve ilgili modül dokümanları.
+
+### Rol bazlı navigasyon
+Mevcut app **öğretmen odaklıdır**. `app_router.dart` redirect mantığı kullanıcı rolüne göre farklı dashboard'a yönlendirecek şekilde genişletilmeli:
+- **Öğretmen:** Ana Sayfa · Dersler · Öğrenciler · Takvim · Finans · Diğer
+- **Öğrenci:** Ana Sayfa · Çalışma (kronometre) · Dersler · Gelişim · Profil
+- **Veli:** Ana Sayfa · Raporlar · Bildirimler · Profil
+
+### Yeni özellik alanları (feature klasörleri — planlanan)
+| Alan | Açıklama | Modül |
+|------|----------|-------|
+| `study` | Öğrenci kronometre/test/seri/başarım | [M08](modules/m08_study.md) |
+| `progress` | Konu bazlı gelişim/grafik | [M10](modules/m10_progress_tracking.md) |
+| `parent` | Veli paneli (read-model) | [M09](modules/m09_parents.md) |
+| `messaging` | Öğretmen↔öğrenci/veli sohbet | [M16](modules/m16_messaging.md) |
+| `listings` | İlan ver/keşfet (iki taraflı) + filtre | [M12](modules/m12_matching.md) |
+| `reviews` | Yıldız + yorum | [M13](modules/m13_reviews.md) |
+| `membership` | Üyelik/paywall + reklam yerleşimi | [M17](modules/m17_membership.md) |
+| `feedback` | Hata bildirimi + şikayet | [M18](modules/m18_feedback.md) |
+
+> **Reklam:** Ücretsiz kullanıcılarda reklam yerleşimi (banner/araya giren); ücretli üyede gizlenir (M17).
+> **Paywall:** Premium özellikler kilit/CTA ile gösterilir.
+
+---
+
 ## 6. 🧾 Sonuç
 
 Bu tasarım dokümanı; öğretmen, öğrenci ve veli akışlarını tek platformda birleştiren, mobil öncelikli, Bileşen Tabanlı ve ileride mikroservislere ayrılmaya hazır bir yapı sunar.

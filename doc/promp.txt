@@ -1,0 +1,31 @@
+Projemde ne yapmak istediğimi sana anlatıyorum. Öncelikle projem eğitim alanına hizmet eden bir proje. Türkiyede çok fazla özel ders veren öğretmen ve özel ders alan öğrenci var. 
+Ben bu özel ders sürecini tamamen dijitale taşımak istiyorum. Hem özel dersi dijitalden bulabilmeli hemde özel dersi dijitalden yönetebilmeli. Projemde 3 farklı rol planlıyorum.
+Bu roller öğretmen, öğrenci ve veli. Projem ilk planlarken sadece özel ders bulma olsa da karşıma çıkan müşteri kitlesine ulaşma nedenlerinden biraz değişime uğradı. 
+Öğretmen öğrenci arasında özel ders bulma uygulaması yaparsam bu uygulama ilk yayında hem öğretmen hem öğrenci olmadığı için sisteme ilk kaydolan kişi hiçbir ilan göremez veya
+ilan yayınladığında kimse mesaj atmaz. Bu yüzden öğretmen ve öğrenciyi tekil olarak da sistemde tutacak bir fikir geliştirdim. öğretmen öğrencilerinin takibini yaparak sistemde aktif olucak.
+Öğrenci ise kendi ders planlarını takip ederek sitemde olucak. Bu sayede 2 rolden de belirli kitle oluştuğunda artık özel ders yayınlama ve bulma cazip gelicek. O yüzden ilk etapta rollerin bireysel ve ortak kullanımını sağlamak.
+daha sonrasında özel ders bulma özelliğini getirmek. Projenin rollerinde neler olmasını istediğimi tek tek anlatayım. İlk öğretmen rolünü geliştirmek istiyorum.
+Türkiyede şuan özel ders veren öğretmenler şu şekilde yönetiyor. armut veya sahibinden gibi uygulamalar aracılığı ile yada tanıdıklar sayesinde öğrenciyi buluyor. Buldukları öğrenci ile iletişimi telefon veya whatsapp üzerinden yapıyor.
+Ödemeyi elden yapıyor. Konu takibi ödev takibi gelişim takibi olmuyor en fazla whatsapp dan pdf göndererek ödevler veriyorlar bitiş tarihi bunlar genel olarak sözel olarak söyleniyor takip ediliyor. 
+Veli arasında ki iletişimde genellikle yüzyüze sözel veya telefon ve whatsapp dan yapılıyor. Ödemeleri elden alıyorlar.
+Ben öğretmen modülümde yapmak istediklerim şuanlar; Öncelikle şuan öğretmenler ders takvimini kendi zihinlerinde veya excelde yönettiği için bu işi takvime taşımak istiyorum.
+Uygulamada takviminden dersleri, ödevleri, notları, tatilleri, ödemeleri vb. herşeyi görebilsin ve yönetebilsin isttiyorum. Takvimin kullanışlı olması öğretmen için çok önemli.
+Bu takvim daha sonrasında özel ders bulma özelliği eklendiğinde öğrenciler içinde öğretmeninin takvimini takib edebilmesine olanak sağlayacak şekilde olmalı.
+Öğretmen takip edebilmesi için öğrenci ekleyebilmeli. Bu iki türlü olabilir. 1- öğrenci uygulamayı kullanıyordur veya kullanmaya karar verir ve gerçekten uygulama da hesap oluşturur bir birine bağlar.
+2- öğrenci uygulamayı kullanmayı reddeder. Bu durumda öğretmen öğrenciyi takip edebilmesi için kendisi bir öğrenci ekler. Öğretmen yeni dersler planlayabilir. Ders planlamaları tek seferlik veya tekrarlı olabilir. 
+Ayrıca ders türü online veya yüz yüze ayarlanabilir. Online için link girer öğrenciler o linkden derse giriş yapar. Öğretmen öğrenci ile eşleşmiş veliyi görebilir. Öğrenci manuel olup velisi gerçek kişi olabilir.
+Veli sadece gerçek kişi olmalıdır. Öğretmen planlanan derslerin ödemesini takip edebilmeli. Burada ödemeyi sistem üzerinden almayacağız. Öğretmen kendi eliyle girerek takip edecek. Örneğin a dersinin öemesini aldım gibi.
+Dersin ödeme bilgileri veli ile de paylaşılacak. Öğretmen derslere not, kaynak ve ödev verebilecektir. Öğretmen ödev takibi yapabilecektir. Öğretmen aylık gelir takibini istatistikleri ve raporları görebilecektir.
+Öğretmen öğrenci gelişimlerini takip edebilecektir. Öğrenci rolünü anlatayım. Öğrencinin sistemi kullanması için öğretmene ihtiyaç yoktur. Öğrenci sisteme girdiğinde kendi ders programını takip edebilecektir
+Eğer öğretmen ile özel ders eşlemesi yapmış ise o ders de otomatik olarak ders programına eklenecektir. Öğretmen ile yaptığı özel ders eğer kendi yaptığı ders planı ile çakışırsa öncelik özel dersindir öğrenciyi çakışma olduğunda uyarır.
+Öğrenci hedefler belirleyebilmeli, hedefleri takip edebilmeli, gelişimini takip edebilmeli. Örneğin deneme de net hedefi vardır. Girdiği bütün deneme netlerini doğru yanlış sayılarını girerek artış azalış vb analizler yapabilmelidir.
+öğrenciye ders çalışmaya teşvik için ve sistemde tutmak için seri ve başarımlar olmalıdır. Öğrenci derse ne kadar odaklandığını ne kadar zaman ayırdığını takip edebilmek için kronometre sayacı olmalıdır. 
+Öğrenci hangi konuda eksiklerinin olduğunu ve konularda ki gelişimini. Konu gelişim hedeflerini takip edebilmelidir. Öğrenci öğretmen ile eşleşir ve ders alırsa öğretmen ödev verebilir ödevlerini takip edebilir.
+Öğrenci ödevlerini yüklemesi gerekir. Son teslim tarihinden önce yüklemezse velisine bildirim gidebilir. öğrenci öğretmenin paylaştığı ders notu ve kaynakları görebilir takib edebilir. Veli modülünü anlatıyorum
+Velinin birden fazla öğrencisi olabilir. Öğrencilerin ders durumlarını, hedeflerini ve gelişimlerini takip edebilir. Özel ders almış ise ödemeleri ve öğretmen öğrenci etkileşimlerini takip edebilir. Özel ders 
+ödemelerini takip edebilir. Veli için öğrencinin gelişim takibi çok önemlidir grafik ve raporlar ile desteklenmelidir. Öğretmen <-> öğrenci ve Öğretmen <-> veli arasında  mesajlaşma olmalıdır. Sistemde bedava üyelik ve 
+ücretli üyelik sistemi olmalıdır. Uygulamadan parayı reklam ve üyelikten kazanmayı planlıyorum. Ücretli üyelik alanlar reklam görmeyecek ve sınırlamalar olmayacak ayrıca ekstra özellikler olacak.
+ Kullanıcı çekmek için ilk ay ücretsiz ve arkadaşını getirirsen 1 ay ücretsiz gibi kampanyalar düşünüyorum.
+Öğretmen,öğrenci,veli profillerini düzenleyebilmeliler. Bildirim izinlerini düzenleyebilmeliler. Bu işler tamamlandığında özel ders arama ve bulmayı geliştireceğim o yüzden sistem baştan buna uygun olmalı
+Öğretmenler kendilerinin ilanını verebilmeli, Öğrenciler aradıkları dersin ilanını verebilmeli. yıldız sistemi ve yorum sistemi olmalı ki sistemde ki kişilere güvenilmeli. Bildirme ve şikayet olmalı, Geliştirme buglarını geri bildirim yapabilmeliler.
+Konumuna göre yakınlıta bulunan ilanlar ve yıldızı yüksek ücretli üyelikli ilanlar ön planda olmalı 
