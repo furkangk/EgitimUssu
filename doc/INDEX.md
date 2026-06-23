@@ -32,6 +32,7 @@
 |---------|--------------|---------|
 | [`promp.txt`](promp.txt) | Kullanıcının kendi sözleriyle proje vizyonu (kaynak girdi) | Vizyon kaynağı |
 | [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD_v2.md) | **PRD v2.1**: vizyon, kullanıcılar, M01–M18 modül listesi, 6 fazlı yol haritası, iş modeli, free/premium, reklam/kampanya | Ürün için **esas** |
+| [`yol_haritasi.md`](yol_haritasi.md) | **Geliştirme yol haritası**: Faz 0–5, epic→faz eşlemesi, bağımlılıklar, milestone'lar | Planlama |
 | [`ai_ready_architecture.md`](ai_ready_architecture.md) | Yüksek seviye / erken dönem mimari (soyut) | ⚠️ Eski — kod gerçeği için `modules/00_genel_bakis` |
 | [`design.md`](design.md) | Frontend tasarım yaklaşımı (Atomic/CBD, klasör yapısı, faz) | Yön gösterici |
 
@@ -80,7 +81,7 @@
 
 | Dosya | Ne işe yarar |
 |-------|--------------|
-| [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) | Modül eksiklerinden türetilmiş Jira backlog. Modül docs değişince yeniden türetilmeli |
+| [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) | Jira backlog (Epic/Story/Task). Her görevde `faz-N` etiketi → [`yol_haritasi.md`](yol_haritasi.md) ile hizalı. Modül docs değişince güncellenmeli |
 
 ---
 
@@ -92,3 +93,4 @@
 - **"Tablolar nasıl ilişkili?"** → [`modules/veri_modeli`](modules/veri_modeli.md)
 - **"Bu ekran nasıl görünmeli / ne yapıyor?"** → [`tutormatch_flutter_ui_design`](tutormatch_flutter_ui_design.md) + [`pages/`](pages/00_pages_index.md)
 - **"Hangi açıkları düzeltmeliyim?"** → [`modules/mimari_inceleme`](modules/mimari_inceleme.md)
+- **"Hangi sırayla / hangi fazda geliştireyim?"** → [`yol_haritasi.md`](yol_haritasi.md) + [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv)
