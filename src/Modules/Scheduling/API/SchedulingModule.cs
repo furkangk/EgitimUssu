@@ -29,51 +29,75 @@ public sealed class SchedulingModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapPost("/lessons", async (
-            HttpContext context,
-            CreateLessonScheduleRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost("/lessons", CreateLessonScheduleAsync)
+        .WithSummary("Ders planı oluşturur");
 
-        group.MapPost("/lessons/{lessonId:guid}/cancel", async (
-            HttpContext context,
-            Guid lessonId,
-            CancelLessonScheduleRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new CancelLessonScheduleCommand(lessonId, request.CancellationNote), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost("/lessons/{lessonId:guid}/cancel", CancelLessonScheduleAsync)
+        .WithSummary("Ders planını iptal eder");
 
-        group.MapGet("/lessons/{lessonId:guid}", async (
-            HttpContext context,
-            Guid lessonId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetLessonScheduleByIdQuery(lessonId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/lessons/{lessonId:guid}", GetLessonScheduleByIdAsync)
+        .WithSummary("Ders planı detayını getirir");
 
-        group.MapGet("/teachers/{teacherUserId:guid}/lessons", async (
-            HttpContext context,
-            Guid teacherUserId,
-            DateTime startAtUtc,
-            DateTime endAtUtc,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(
-                new ListLessonSchedulesForTeacherQuery(teacherUserId, startAtUtc, endAtUtc),
-                cancellationToken);
+        group.MapGet("/teachers/{teacherUserId:guid}/lessons", ListLessonSchedulesForTeacherAsync)
+        .WithSummary("Öğretmenin ders planlarını listeler");
+    }
 
-            return ToHttpResult(context, result);
-        });
+    /// <summary>
+    /// Öğretmen ve öğrenci için tarih, format, tekrar ve hatırlatma bilgileriyle ders planı oluşturur.
+    /// </summary>
+    private static async Task<IResult> CreateLessonScheduleAsync(
+        HttpContext context,
+        CreateLessonScheduleRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Planlı dersi isteğe bağlı iptal notuyla iptal eder.
+    /// </summary>
+    private static async Task<IResult> CancelLessonScheduleAsync(
+        HttpContext context,
+        Guid lessonId,
+        CancelLessonScheduleRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new CancelLessonScheduleCommand(lessonId, request.CancellationNote), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Planlı ders detayını ders planı kimliğiyle getirir.
+    /// </summary>
+    private static async Task<IResult> GetLessonScheduleByIdAsync(
+        HttpContext context,
+        Guid lessonId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetLessonScheduleByIdQuery(lessonId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin belirli UTC tarih aralığındaki ders planlarını listeler.
+    /// </summary>
+    private static async Task<IResult> ListLessonSchedulesForTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListLessonSchedulesForTeacherQuery(teacherUserId, startAtUtc, endAtUtc),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
@@ -93,6 +117,9 @@ public sealed class SchedulingModule : ModuleDefinition
     }
 }
 
+/// <summary>
+/// Ders planı oluşturmak için öğretmen, öğrenci, zaman, format, tekrar ve hatırlatma verilerini taşır.
+/// </summary>
 public sealed record CreateLessonScheduleRequest(
     Guid TeacherUserId,
     Guid StudentId,
@@ -123,4 +150,7 @@ public sealed record CreateLessonScheduleRequest(
     }
 }
 
+/// <summary>
+/// Planlı ders iptal edilirken tutulacak isteğe bağlı açıklamayı taşır.
+/// </summary>
 public sealed record CancelLessonScheduleRequest(string? CancellationNote);

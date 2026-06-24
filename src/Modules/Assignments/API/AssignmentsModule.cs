@@ -28,40 +28,58 @@ public sealed class AssignmentsModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapPost("/lesson-sessions/{lessonSessionId:guid}/follow-up", async (
-            HttpContext context,
-            Guid lessonSessionId,
-            CreateLessonSessionFollowUpRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToCommand(lessonSessionId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost("/lesson-sessions/{lessonSessionId:guid}/follow-up", CreateLessonSessionFollowUpAsync)
+        .WithSummary("Ders oturumu takip notu ve ödevlerini oluşturur");
 
-        group.MapGet("/lesson-sessions/{lessonSessionId:guid}/follow-up", async (
-            HttpContext context,
-            Guid lessonSessionId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetLessonSessionFollowUpQuery(lessonSessionId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/lesson-sessions/{lessonSessionId:guid}/follow-up", GetLessonSessionFollowUpAsync)
+        .WithSummary("Ders oturumu takip notunu getirir");
 
-        group.MapGet(string.Empty, async (
-            HttpContext context,
-            Guid? teacherUserId,
-            Guid? studentId,
-            Guid? lessonSessionId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(
-                new ListAssignmentsQuery(teacherUserId, studentId, lessonSessionId),
-                cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet(string.Empty, ListAssignmentsAsync)
+        .WithSummary("Ödevleri listeler");
+    }
+
+    /// <summary>
+    /// Tamamlanan ders oturumu için takip notunu ve varsa öğrenciye verilen ödevleri oluşturur.
+    /// </summary>
+    private static async Task<IResult> CreateLessonSessionFollowUpAsync(
+        HttpContext context,
+        Guid lessonSessionId,
+        CreateLessonSessionFollowUpRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(lessonSessionId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Ders oturumuna bağlı takip notunu ve bu takipten üretilen ödevleri getirir.
+    /// </summary>
+    private static async Task<IResult> GetLessonSessionFollowUpAsync(
+        HttpContext context,
+        Guid lessonSessionId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetLessonSessionFollowUpQuery(lessonSessionId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen, öğrenci veya ders oturumu filtresine göre ödevleri listeler.
+    /// </summary>
+    private static async Task<IResult> ListAssignmentsAsync(
+        HttpContext context,
+        Guid? teacherUserId,
+        Guid? studentId,
+        Guid? lessonSessionId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListAssignmentsQuery(teacherUserId, studentId, lessonSessionId),
+            cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
@@ -82,12 +100,18 @@ public sealed class AssignmentsModule : ModuleDefinition
     }
 }
 
+/// <summary>
+/// Ders sonrası takip kaydıyla birlikte oluşturulacak tekil ödev bilgisini taşır.
+/// </summary>
 public sealed record CreateLessonSessionFollowUpAssignmentRequest(
     string Title,
     string? Description,
     DateTime? DueDateUtc,
     string? AttachmentUrl);
 
+/// <summary>
+/// Ders sonrası özet, işlenen konular, öneriler ve isteğe bağlı ödev listesini taşır.
+/// </summary>
 public sealed record CreateLessonSessionFollowUpRequest(
     string Summary,
     string? CoveredTopics,

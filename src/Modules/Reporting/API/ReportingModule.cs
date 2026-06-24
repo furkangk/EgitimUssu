@@ -23,12 +23,21 @@ public sealed class ReportingModule : ModuleDefinition
     {
         var group = CreateModuleGroup(endpoints);
 
-        group.MapGet("/status", () => TypedResults.Ok(new
+        group.MapGet("/status", GetStatus)
+        .WithSummary("Raporlama modül durumunu getirir");
+    }
+
+    /// <summary>
+    /// Raporlama modülünün API host tarafından yüklendiğini doğrulamak için geçici durum bilgisini döndürür.
+    /// </summary>
+    private IResult GetStatus()
+    {
+        return TypedResults.Ok(new
         {
             module = Name,
             route = RoutePrefix,
             state = "placeholder"
-        }));
+        });
     }
 }
 

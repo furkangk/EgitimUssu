@@ -128,12 +128,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = registration => registration.Tags.Contains("ready")
 });
 
-app.MapGet("/api/meta/version", (IReadOnlyCollection<IModule> modules) => Results.Ok(new
-{
-    service = "EgitimUssu.API.Host",
-    version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0",
-    modules = modules.Select(module => new { module.Name, module.RoutePrefix })
-}));
+app.MapGet("/api/meta/version", GetApiVersion)
+.WithSummary("API sürüm ve modül bilgilerini getirir");
 
 app.MapDiscoveredModules();
 
@@ -145,4 +141,18 @@ if (databaseOptions.ApplyMigrationsOnStartup)
 
 await app.RunAsync();
 
-public partial class Program;
+public partial class Program
+{
+    /// <summary>
+    /// API host sürümünü ve çalışma zamanında keşfedilen modüllerin ad ile route prefix bilgilerini döndürür.
+    /// </summary>
+    private static IResult GetApiVersion(IReadOnlyCollection<IModule> modules)
+    {
+        return Results.Ok(new
+        {
+            service = "EgitimUssu.API.Host",
+            version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0",
+            modules = modules.Select(module => new { module.Name, module.RoutePrefix })
+        });
+    }
+}

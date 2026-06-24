@@ -29,61 +29,85 @@ public sealed class LessonSessionsModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapPost(string.Empty, async (
-            HttpContext context,
-            CreateLessonSessionRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost(string.Empty, CreateLessonSessionAsync)
+        .WithSummary("Ders oturumu oluşturur");
 
-        group.MapPost("/{lessonSessionId:guid}/complete", async (
-            HttpContext context,
-            Guid lessonSessionId,
-            CompleteLessonSessionRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(
-                new CompleteLessonSessionCommand(
-                    lessonSessionId,
-                    request.ActualStartAtUtc,
-                    request.ActualEndAtUtc,
-                    request.AttendanceStatus,
-                    request.TopicTitle,
-                    request.CoveredContent,
-                    request.TeacherNotes),
-                cancellationToken);
+        group.MapPost("/{lessonSessionId:guid}/complete", CompleteLessonSessionAsync)
+        .WithSummary("Ders oturumunu tamamlar");
 
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/{lessonSessionId:guid}", GetLessonSessionByIdAsync)
+        .WithSummary("Ders oturumu detayını getirir");
 
-        group.MapGet("/{lessonSessionId:guid}", async (
-            HttpContext context,
-            Guid lessonSessionId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetLessonSessionByIdQuery(lessonSessionId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet(string.Empty, ListLessonSessionsAsync)
+        .WithSummary("Ders oturumlarını listeler");
+    }
 
-        group.MapGet(string.Empty, async (
-            HttpContext context,
-            Guid? teacherUserId,
-            Guid? studentId,
-            DateTime? dateFromUtc,
-            DateTime? dateToUtc,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(
-                new ListLessonSessionsQuery(teacherUserId, studentId, dateFromUtc, dateToUtc),
-                cancellationToken);
-            return ToHttpResult(context, result);
-        });
+    /// <summary>
+    /// Planlı ya da bağımsız bir ders için oturum kaydı oluşturur.
+    /// </summary>
+    private static async Task<IResult> CreateLessonSessionAsync(
+        HttpContext context,
+        CreateLessonSessionRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Ders oturumunu gerçek saat, yoklama, işlenen konu ve öğretmen notlarıyla tamamlanmış duruma getirir.
+    /// </summary>
+    private static async Task<IResult> CompleteLessonSessionAsync(
+        HttpContext context,
+        Guid lessonSessionId,
+        CompleteLessonSessionRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new CompleteLessonSessionCommand(
+                lessonSessionId,
+                request.ActualStartAtUtc,
+                request.ActualEndAtUtc,
+                request.AttendanceStatus,
+                request.TopicTitle,
+                request.CoveredContent,
+                request.TeacherNotes),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Ders oturumu detayını oturum kimliğiyle getirir.
+    /// </summary>
+    private static async Task<IResult> GetLessonSessionByIdAsync(
+        HttpContext context,
+        Guid lessonSessionId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetLessonSessionByIdQuery(lessonSessionId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen, öğrenci ve tarih aralığı filtreleriyle ders oturumlarını listeler.
+    /// </summary>
+    private static async Task<IResult> ListLessonSessionsAsync(
+        HttpContext context,
+        Guid? teacherUserId,
+        Guid? studentId,
+        DateTime? dateFromUtc,
+        DateTime? dateToUtc,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListLessonSessionsQuery(teacherUserId, studentId, dateFromUtc, dateToUtc),
+            cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
@@ -102,6 +126,9 @@ public sealed class LessonSessionsModule : ModuleDefinition
     }
 }
 
+/// <summary>
+/// Ders oturumu oluşturmak için plan, öğretmen, öğrenci, ders ve başlangıç bilgilerini taşır.
+/// </summary>
 public sealed record CreateLessonSessionRequest(
     Guid? LessonScheduleId,
     Guid TeacherUserId,
@@ -122,6 +149,9 @@ public sealed record CreateLessonSessionRequest(
     }
 }
 
+/// <summary>
+/// Ders oturumunu tamamlamak için gerçek süre, yoklama durumu ve ders içeriği bilgilerini taşır.
+/// </summary>
 public sealed record CompleteLessonSessionRequest(
     DateTime ActualStartAtUtc,
     DateTime ActualEndAtUtc,

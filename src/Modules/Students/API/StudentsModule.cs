@@ -29,45 +29,69 @@ public sealed class StudentsModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapPost("/profiles", async (
-            HttpContext context,
-            CreateStudentProfileRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost("/profiles", CreateStudentProfileAsync)
+        .WithSummary("Öğrenci profili oluşturur");
 
-        group.MapGet("/profiles/{studentId:guid}", async (
-            HttpContext context,
-            Guid studentId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetStudentProfileByIdQuery(studentId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/profiles/{studentId:guid}", GetStudentProfileByIdAsync)
+        .WithSummary("Öğrenci profilini getirir");
 
-        group.MapGet("/profiles/by-user/{userId:guid}", async (
-            HttpContext context,
-            Guid userId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetStudentProfileByUserIdQuery(userId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/profiles/by-user/{userId:guid}", GetStudentProfileByUserIdAsync)
+        .WithSummary("Kullanıcıya ait öğrenci profilini getirir");
 
-        group.MapGet("/profiles/by-teacher/{teacherUserId:guid}", async (
-            HttpContext context,
-            Guid teacherUserId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new ListStudentsByTeacherQuery(teacherUserId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/profiles/by-teacher/{teacherUserId:guid}", ListStudentsByTeacherAsync)
+        .WithSummary("Öğretmene bağlı öğrencileri listeler");
+    }
+
+    /// <summary>
+    /// Öğrenciye ait temel profil, hedef, seviye ve ders alanı bilgilerini oluşturur.
+    /// </summary>
+    private static async Task<IResult> CreateStudentProfileAsync(
+        HttpContext context,
+        CreateStudentProfileRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğrenci profilini öğrenci profil kimliği üzerinden getirir.
+    /// </summary>
+    private static async Task<IResult> GetStudentProfileByIdAsync(
+        HttpContext context,
+        Guid studentId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetStudentProfileByIdQuery(studentId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Uygulama kullanıcısına bağlı öğrenci profilini getirir.
+    /// </summary>
+    private static async Task<IResult> GetStudentProfileByUserIdAsync(
+        HttpContext context,
+        Guid userId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetStudentProfileByUserIdQuery(userId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Belirli bir öğretmen tarafından oluşturulan veya yönetilen öğrenci profillerini listeler.
+    /// </summary>
+    private static async Task<IResult> ListStudentsByTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ListStudentsByTeacherQuery(teacherUserId), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
@@ -87,8 +111,14 @@ public sealed class StudentsModule : ModuleDefinition
     }
 }
 
+/// <summary>
+/// Öğrencinin takip ettiği ders alanını ve hedef seviyesini belirtir.
+/// </summary>
 public sealed record StudentSubjectItem(string Subject, string? TargetLevel);
 
+/// <summary>
+/// Öğrenci profili oluşturmak için gerekli kimlik, iletişim, hedef ve ders bilgilerini taşır.
+/// </summary>
 public sealed record CreateStudentProfileRequest(
     Guid? UserId,
     Guid? CreatedByTeacherUserId,

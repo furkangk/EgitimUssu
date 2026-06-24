@@ -23,12 +23,21 @@ public sealed class SettingsModule : ModuleDefinition
     {
         var group = CreateModuleGroup(endpoints);
 
-        group.MapGet("/status", () => TypedResults.Ok(new
+        group.MapGet("/status", GetStatus)
+        .WithSummary("Ayarlar modül durumunu getirir");
+    }
+
+    /// <summary>
+    /// Ayarlar modülünün API host tarafından yüklendiğini doğrulamak için geçici durum bilgisini döndürür.
+    /// </summary>
+    private IResult GetStatus()
+    {
+        return TypedResults.Ok(new
         {
             module = Name,
             route = RoutePrefix,
             state = "placeholder"
-        }));
+        });
     }
 }
 

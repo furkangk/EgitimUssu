@@ -28,16 +28,22 @@ public sealed class NotificationsModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapGet("/teachers/{teacherUserId:guid}/lesson-reminders", async (
-            HttpContext context,
-            Guid teacherUserId,
-            bool activeOnly,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new ListTeacherLessonRemindersQuery(teacherUserId, activeOnly), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/teachers/{teacherUserId:guid}/lesson-reminders", ListTeacherLessonRemindersAsync)
+        .WithSummary("Öğretmenin ders hatırlatmalarını listeler");
+    }
+
+    /// <summary>
+    /// Öğretmenin ders planlarından üretilen hatırlatma kayıtlarını listeler; istenirse yalnızca aktif olanları döndürür.
+    /// </summary>
+    private static async Task<IResult> ListTeacherLessonRemindersAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        bool activeOnly,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ListTeacherLessonRemindersQuery(teacherUserId, activeOnly), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)

@@ -29,36 +29,54 @@ public sealed class TeachersModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapPost("/profiles", async (
-            HttpContext context,
-            UpsertTeacherProfileRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToCreateCommand(), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost("/profiles", CreateTeacherProfileAsync)
+        .WithSummary("Öğretmen profili oluşturur");
 
-        group.MapPut("/profiles/{userId:guid}", async (
-            HttpContext context,
-            Guid userId,
-            UpsertTeacherProfileRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToUpdateCommand(userId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPut("/profiles/{userId:guid}", UpdateTeacherProfileAsync)
+        .WithSummary("Öğretmen profilini günceller");
 
-        group.MapGet("/profiles/{userId:guid}", async (
-            HttpContext context,
-            Guid userId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetTeacherProfileByUserIdQuery(userId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/profiles/{userId:guid}", GetTeacherProfileAsync)
+        .WithSummary("Öğretmen profilini getirir");
+    }
+
+    /// <summary>
+    /// Öğretmenin uzmanlık, ücret, konum ve müsaitlik bilgilerini içeren yeni profil kaydını oluşturur.
+    /// </summary>
+    private static async Task<IResult> CreateTeacherProfileAsync(
+        HttpContext context,
+        UpsertTeacherProfileRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCreateCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Var olan öğretmen profilinin ders, ücret, doğrulama ve müsaitlik bilgilerini günceller.
+    /// </summary>
+    private static async Task<IResult> UpdateTeacherProfileAsync(
+        HttpContext context,
+        Guid userId,
+        UpsertTeacherProfileRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToUpdateCommand(userId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Kullanıcı kimliğine göre öğretmen profil detayını getirir.
+    /// </summary>
+    private static async Task<IResult> GetTeacherProfileAsync(
+        HttpContext context,
+        Guid userId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetTeacherProfileByUserIdQuery(userId), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
@@ -78,6 +96,9 @@ public sealed class TeachersModule : ModuleDefinition
     }
 }
 
+/// <summary>
+/// Öğretmenin haftalık tekrar eden müsaitlik aralığını ve ders formatı tercihlerini taşır.
+/// </summary>
 public sealed record TeacherAvailabilityItem(
     DayOfWeek DayOfWeek,
     TimeOnly StartTime,
@@ -85,6 +106,9 @@ public sealed record TeacherAvailabilityItem(
     bool IsOnlineAvailable,
     bool IsInPersonAvailable);
 
+/// <summary>
+/// Öğretmen profili oluşturma ve güncelleme işlemlerinde kullanılan profil, ücret ve müsaitlik verilerini taşır.
+/// </summary>
 public sealed record UpsertTeacherProfileRequest(
     Guid UserId,
     string FullName,

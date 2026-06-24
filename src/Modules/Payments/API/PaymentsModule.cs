@@ -29,80 +29,116 @@ public sealed class PaymentsModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
-        group.MapPost("/records", async (
-            HttpContext context,
-            UpsertPaymentRecordRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToCreateCommand(), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPost("/records", CreatePaymentRecordAsync)
+        .WithSummary("Ödeme kaydı oluşturur");
 
-        group.MapPut("/records/{paymentRecordId:guid}", async (
-            HttpContext context,
-            Guid paymentRecordId,
-            UpsertPaymentRecordRequest request,
-            ICommandDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(request.ToUpdateCommand(paymentRecordId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapPut("/records/{paymentRecordId:guid}", UpdatePaymentRecordAsync)
+        .WithSummary("Ödeme kaydını günceller");
 
-        group.MapGet("/records/{paymentRecordId:guid}", async (
-            HttpContext context,
-            Guid paymentRecordId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetPaymentRecordByIdQuery(paymentRecordId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/records/{paymentRecordId:guid}", GetPaymentRecordByIdAsync)
+        .WithSummary("Ödeme kaydı detayını getirir");
 
-        group.MapGet("/teachers/{teacherUserId:guid}/records", async (
-            HttpContext context,
-            Guid teacherUserId,
-            bool outstandingOnly,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new ListPaymentRecordsForTeacherQuery(teacherUserId, outstandingOnly), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/teachers/{teacherUserId:guid}/records", ListPaymentRecordsForTeacherAsync)
+        .WithSummary("Öğretmenin ödeme kayıtlarını listeler");
 
-        group.MapGet("/teachers/{teacherUserId:guid}/summary", async (
-            HttpContext context,
-            Guid teacherUserId,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(new GetTeacherPaymentSummaryQuery(teacherUserId), cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/teachers/{teacherUserId:guid}/summary", GetTeacherPaymentSummaryAsync)
+        .WithSummary("Öğretmenin ödeme özetini getirir");
 
-        group.MapGet("/teachers/{teacherUserId:guid}/records/filter", async (
-            HttpContext context,
-            Guid teacherUserId,
-            bool outstanding,
-            bool overdue,
-            bool paid,
-            DateTime? dateFromUtc,
-            DateTime? dateToUtc,
-            IQueryDispatcher dispatcher,
-            CancellationToken cancellationToken) =>
-        {
-            var result = await dispatcher.Dispatch(
-                new ListFilteredPaymentRecordsForTeacherQuery(
-                    teacherUserId,
-                    outstanding,
-                    overdue,
-                    paid,
-                    dateFromUtc,
-                    dateToUtc),
-                cancellationToken);
-            return ToHttpResult(context, result);
-        });
+        group.MapGet("/teachers/{teacherUserId:guid}/records/filter", ListFilteredPaymentRecordsForTeacherAsync)
+        .WithSummary("Öğretmenin ödeme kayıtlarını filtreler");
+    }
+
+    /// <summary>
+    /// Öğretmen ve öğrenci ilişkisine bağlı beklenen, tahsil edilen ve vade bilgilerini içeren ödeme kaydı oluşturur.
+    /// </summary>
+    private static async Task<IResult> CreatePaymentRecordAsync(
+        HttpContext context,
+        UpsertPaymentRecordRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCreateCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Var olan ödeme kaydının tutar, durum, tahsilat tarihi ve dönem bilgilerini günceller.
+    /// </summary>
+    private static async Task<IResult> UpdatePaymentRecordAsync(
+        HttpContext context,
+        Guid paymentRecordId,
+        UpsertPaymentRecordRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToUpdateCommand(paymentRecordId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Ödeme kaydı detayını ödeme kaydı kimliğiyle getirir.
+    /// </summary>
+    private static async Task<IResult> GetPaymentRecordByIdAsync(
+        HttpContext context,
+        Guid paymentRecordId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetPaymentRecordByIdQuery(paymentRecordId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmene ait ödeme kayıtlarını listeler; istenirse sadece açık alacakları döndürür.
+    /// </summary>
+    private static async Task<IResult> ListPaymentRecordsForTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        bool outstandingOnly,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ListPaymentRecordsForTeacherQuery(teacherUserId, outstandingOnly), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin para birimi bazında tahsilat, açık alacak ve gecikmiş ödeme özetini getirir.
+    /// </summary>
+    private static async Task<IResult> GetTeacherPaymentSummaryAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetTeacherPaymentSummaryQuery(teacherUserId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin ödeme kayıtlarını açık, gecikmiş, ödenmiş ve tarih aralığı kriterleriyle filtreler.
+    /// </summary>
+    private static async Task<IResult> ListFilteredPaymentRecordsForTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        bool outstanding,
+        bool overdue,
+        bool paid,
+        DateTime? dateFromUtc,
+        DateTime? dateToUtc,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListFilteredPaymentRecordsForTeacherQuery(
+                teacherUserId,
+                outstanding,
+                overdue,
+                paid,
+                dateFromUtc,
+                dateToUtc),
+            cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
@@ -121,6 +157,9 @@ public sealed class PaymentsModule : ModuleDefinition
     }
 }
 
+/// <summary>
+/// Ödeme kaydı oluşturma ve güncelleme işlemlerinde kullanılan tutar, vade, durum ve dönem bilgilerini taşır.
+/// </summary>
 public sealed record UpsertPaymentRecordRequest(
     Guid TeacherUserId,
     Guid StudentId,

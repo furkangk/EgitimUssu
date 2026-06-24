@@ -5,6 +5,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <LangVersion>preview</LangVersion>
     <AnalysisLevel>latest</AnalysisLevel>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 </Project>
