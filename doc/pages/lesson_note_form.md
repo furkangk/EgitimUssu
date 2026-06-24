@@ -11,4 +11,4 @@ Yeni ders notu oluşturma: öğrenci/ders seçimi, başlık, not içeriği, dosy
 - ⚠️ Backend bağlantısı yok. İlgili: `POST /api/assignments/lesson-sessions/{id}/follow-up` (not+ödev birleşik).
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.8 · Modül: [`../modules/m06_assignments.md`](../modules/m06_assignments.md) (M06)
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.8 · Modül: [`../modules/m06_assignments.md`](../modules/m06_assignments.md) (M06)

@@ -23,5 +23,5 @@
 > Not: Önceki sürümde yaklaşan dersler ve aktiviteler **statik** veriydi; artık `DashboardState`'teki gerçek verilere bağlı.
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.3
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.3
 - Önizleme varyantı: [`dashboard_preview.md`](dashboard_preview.md)

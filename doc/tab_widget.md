@@ -1,8 +1,8 @@
 # EğitimÜssü Tab Widget Tasarım Dokümanı
 
-> Bu doküman, ana UI tasarımından ([`tutormatch_flutter_ui_design.md`](tutormatch_flutter_ui_design.md) §9.6 `AppSegmentedTab`) ayrılan
-> **Tab / Segment Control Widget** bileşeninin detaylı tasarım, kullanım ve Flutter implementasyon kurallarını açıklar.
-> Renkler ana palet (`tutormatch_flutter_ui_design.md` §3 `AppColors`) ile aynıdır; aşağıda yalnızca tab'a özel ek token'lar (ör. `tabBackground`) tanımlanır.
+> Bu doküman, ortak widget kataloğundaki ([`architecture/widgets.md`](architecture/widgets.md) → `AppSegmentedTab`) **Tab / Segment
+> Control Widget** bileşeninin detaylı tasarım, kullanım ve Flutter implementasyon kurallarını açıklar.
+> Renkler ana palet ([`architecture/design_system.md`](architecture/design_system.md) §3 `AppColors`) ile aynıdır; aşağıda yalnızca tab'a özel ek token'lar (ör. `tabBackground`) tanımlanır.
 
 ---
 
@@ -79,7 +79,7 @@ fontWeight: FontWeight.w500
 
 ## 4. Renk Paleti
 
-> Aşağıdaki değerler ana palet (`tutormatch_flutter_ui_design.md` §3.1) ile aynıdır; `tabBackground` tab'a özgü ek token'dır.
+> Aşağıdaki değerler ana palet ([`architecture/design_system.md`](architecture/design_system.md) §3) ile aynıdır; `tabBackground` tab'a özgü ek token'dır.
 
 ```dart
 class AppColors {

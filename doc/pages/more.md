@@ -14,4 +14,4 @@ Ayar/profil merkezi: profil özeti, hesap bilgisi, abonelik, raporlar, genel aya
 - Profil özet kartı, ayar bölümü panelleri, detaylar için modal bottom-sheet'ler. Bottom nav'da "Diğer" aktif.
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.20 · Hesap: [`account_info.md`](account_info.md) · Modül: M15
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.20 · Hesap: [`account_info.md`](account_info.md) · Modül: M15

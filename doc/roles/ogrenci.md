@@ -75,7 +75,7 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 
 **Mevcut ✅:** Öğrenci için adanmış akış **henüz yok**; mevcut app öğretmen odaklı. Auth ekranları ortak.
 
-**Planlanan ⚠️** (UI tasarımında öngörülmüş — bkz. [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md)):
+**Planlanan ⚠️** (UI tasarımında öngörülmüş — bkz. [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)):
 `student-onboarding`, `student-dashboard`, `study-room` (kronometre), `study-history`, `test-entry`/`test-performance`, `goals-streak`, `progress` (gelişim analizi), `my-lessons` (ders geçmişi + ödevler), mesajlaşma.
 
 > Rol bazlı navigasyon: `app_router.dart` redirect mantığı role (`Teacher`/`Student`) göre farklı dashboard'a yönlendirecek şekilde genişletilmeli.

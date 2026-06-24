@@ -15,4 +15,4 @@ Ders takvimi; gün/hafta/ay görünümü. Dersler, müsait olmayan slotlar, öde
 - ⚠️ Eksik: ders çakışması kontrolü, ders güncelleme (bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md) §3.2).
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.6 · Modül: M04
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.6 · Modül: M04

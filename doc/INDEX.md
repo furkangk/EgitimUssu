@@ -33,8 +33,20 @@
 | [`promp.txt`](promp.txt) | Kullanıcının kendi sözleriyle proje vizyonu (kaynak girdi) | Vizyon kaynağı |
 | [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD_v2.md) | **PRD v2.1**: vizyon, kullanıcılar, M01–M18 modül listesi, 6 fazlı yol haritası, iş modeli, free/premium, reklam/kampanya | Ürün için **esas** |
 | [`yol_haritasi.md`](yol_haritasi.md) | **Geliştirme yol haritası**: Faz 0–5, epic→faz eşlemesi, bağımlılıklar, milestone'lar | Planlama |
-| [`ai_ready_architecture.md`](ai_ready_architecture.md) | Yüksek seviye / erken dönem mimari (soyut) | ⚠️ Eski — kod gerçeği için `modules/00_genel_bakis` |
-| [`design.md`](design.md) | Frontend tasarım yaklaşımı (Atomic/CBD, klasör yapısı, faz) | Yön gösterici |
+| [`architecture/00_genel_bakis.md`](architecture/00_genel_bakis.md) | **Mimari genel bakış**: platformlar, aktörler, katmanlar, veri akışı, event/Outbox, ölçeklenebilirlik, fazlar | Mimari için **buradan başla** |
+
+## 1.1 Mimari (`doc/architecture/`) — Platforma Göre, Koddan Doğrulanmış
+
+> Eski tek-parça `ai_ready_architecture.md` + `design.md` + `tutormatch_flutter_ui_design.md` bu klasöre bölündü/birleştirildi.
+
+| Doküman | Kapsam |
+|---------|--------|
+| [`architecture/00_genel_bakis.md`](architecture/00_genel_bakis.md) | Sistem geneli + bu klasörün haritası |
+| [`architecture/backend.md`](architecture/backend.md) | .NET 9 modüler monolit: çözüm yapısı, modül anatomisi, Shared/Kernel, CQRS, Outbox, persistence, JWT |
+| [`architecture/mobile_flutter.md`](architecture/mobile_flutter.md) | Flutter mimari (bloc/get_it/go_router/dio) + tasarım uygulaması + 20 ekran görsel rehberi |
+| [`architecture/web_angular.md`](architecture/web_angular.md) | Angular web — 🔴 planlanan (Faz 4-5) |
+| [`architecture/design_system.md`](architecture/design_system.md) | Platformlar-arası ortak görsel token (renk/tipografi/spacing) + Atomic/CBD — **token tek doğruluk kaynağı** |
+| [`architecture/widgets.md`](architecture/widgets.md) | Ortak widget kataloğu: paylaşılan bileşenlerin API + kural + durumu (🟢/🟡/🔴) |
 
 ## 2. Roller (`doc/roles/`) — Rol Perspektifi
 
@@ -70,8 +82,10 @@
 
 | Doküman | Ne işe yarar |
 |---------|--------------|
-| [`tutormatch_flutter_ui_design.md`](tutormatch_flutter_ui_design.md) | Flutter UI rehberi: renk/tipografi/spacing, ortak widget'lar, 20 ekran tasarımı. ⚠️ §13 (veri modeli) ve §19 (API) idealize/eski — gerçeği modüllerde |
-| [`tab_widget.md`](tab_widget.md) | Tab/Segment widget tasarımı + Flutter kodu |
+| [`architecture/mobile_flutter.md`](architecture/mobile_flutter.md) | Flutter mimari + UI rehberi: renk/tipografi/spacing, ortak widget'lar, **20 ekran** (§13). ⚠️ §14 veri modeli idealize — gerçeği modüllerde |
+| [`architecture/design_system.md`](architecture/design_system.md) | Ortak görsel token + Atomic/CBD (Flutter & Angular) — token tek doğruluk kaynağı |
+| [`architecture/widgets.md`](architecture/widgets.md) | **Ortak widget kataloğu**: paylaşılan bileşenlerin API + kural + durumu (🟢/🟡/🔴) |
+| [`tab_widget.md`](tab_widget.md) | Tab/Segment widget tasarımı + Flutter kodu (katalogda `AppSegmentedTab`) |
 
 ## 5. Sayfa (Ekran) Dokümanları (`doc/pages/`)
 
@@ -91,6 +105,7 @@
 - **"Bu rol neler yapabilir / akışı nedir?"** → [`roles/`](roles/00_roller_genel_bakis.md)
 - **"Gerçekte hangi endpoint/domain var?"** → [`modules/00_genel_bakis`](modules/00_genel_bakis.md) §4 + ilgili `mNN_*`
 - **"Tablolar nasıl ilişkili?"** → [`modules/veri_modeli`](modules/veri_modeli.md)
-- **"Bu ekran nasıl görünmeli / ne yapıyor?"** → [`tutormatch_flutter_ui_design`](tutormatch_flutter_ui_design.md) + [`pages/`](pages/00_pages_index.md)
+- **"Sistem mimarisi / katmanlar / event akışı nasıl?"** → [`architecture/00_genel_bakis`](architecture/00_genel_bakis.md) (backend → `architecture/backend.md`, mobil → `architecture/mobile_flutter.md`)
+- **"Bu ekran nasıl görünmeli / ne yapıyor?"** → [`architecture/mobile_flutter`](architecture/mobile_flutter.md) §13 + [`pages/`](pages/00_pages_index.md)
 - **"Hangi açıkları düzeltmeliyim?"** → [`modules/mimari_inceleme`](modules/mimari_inceleme.md)
 - **"Hangi sırayla / hangi fazda geliştireyim?"** → [`yol_haritasi.md`](yol_haritasi.md) + [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv)

@@ -13,4 +13,4 @@ Bir öğrencinin profili + sekmeli görünüm: Genel / Dersler / Performans / Ö
 - Avatarlı profil başlığı, tab switcher, sekme içerikleri (ders listesi, performans metrikleri, ödeme listesi).
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.5 · Modül: [`../modules/m03_students.md`](../modules/m03_students.md) (M03)
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.5 · Modül: [`../modules/m03_students.md`](../modules/m03_students.md) (M03)

@@ -13,4 +13,4 @@ Ders listesi; sekmeler: Yaklaşan / Geçmiş / İptal Edilen. Ders kartında ö�
 - `StudentsCubit` + `SchedulingCubit` üzerinden; bir kısmı demo. Backend: `GET /api/scheduling/teachers/{teacherUserId}/lessons`, `POST /api/lesson-sessions/{id}/complete`.
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.16, tab: [`../tab_widget.md`](../tab_widget.md) · Modül: [`../modules/m05_lesson_sessions.md`](../modules/m05_lesson_sessions.md) (M05)
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.16, tab: [`../tab_widget.md`](../tab_widget.md) · Modül: [`../modules/m05_lesson_sessions.md`](../modules/m05_lesson_sessions.md) (M05)

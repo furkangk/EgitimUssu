@@ -227,7 +227,7 @@ POST /lesson-sessions/{id}/complete (Completed)
 - Bildirim → [`m11_notifications.md`](m11_notifications.md) · Raporlama → [`m14_reporting.md`](m14_reporting.md)
 - Roller → [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md)
 - Veri modeli → [`veri_modeli.md`](veri_modeli.md) · Mimari → [`mimari_inceleme.md`](mimari_inceleme.md) · Genel → [`00_genel_bakis.md`](00_genel_bakis.md)
-- PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md)
+- PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)
 
 ---
 

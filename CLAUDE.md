@@ -13,6 +13,7 @@ Tüm dokümanların haritası → **[`doc/INDEX.md`](doc/INDEX.md)**. Bir konuda
 sonra ilgili dokümanı aç. Kanonik gerçekler (ad, .NET sürümü, ana renk vb.) INDEX §0'dadır; çelişkide o esastır.
 
 Doküman yapısı:
+- **Mimari** (platforma göre, koddan doğrulanmış): `doc/architecture/` — `00_genel_bakis.md`, `backend.md`, `mobile_flutter.md`, `web_angular.md`, `design_system.md`, `widgets.md` (ortak widget kataloğu).
 - **Roller** (rol perspektifi): `doc/roles/` — `00_roller_genel_bakis.md`, `ogretmen.md`, `ogrenci.md`, `veli.md`, `admin.md`.
 - **Modüller** (saf teknik, her backend modülü): `doc/modules/mNN_<ad>.md` (m01–m18) + çapraz-kesit `00_genel_bakis.md`, `mimari_inceleme.md`, `veri_modeli.md`.
 - **Sayfalar** (kodda var olan ekranlar): `doc/pages/`. **Ürün:** `doc/ozel_ders_platformu_PRD_v2.md` (v2.1).
@@ -29,6 +30,8 @@ Tetikleyiciler ve yapılacaklar:
 - **Bir modülün durumu değiştiyse** (🔴 İskelet → 🟡 → 🟢) → `00_genel_bakis.md` modül indeksi + ilgili `mNN_*.md` + `doc/INDEX.md` durum sütunu.
 - **Yeni ekran/sayfa** eklediysen → `doc/pages/<ekran>.md`'sini oluştur/güncelle ve `doc/pages/00_pages_index.md`'ye satır ekle. Mevcut ekran değiştiyse ilgili sayfa md'sini güncelle.
 - **Yeni doküman ekledin/sildin/amacı değişti** → `doc/INDEX.md` tablosunu güncelle.
+- **Mimari yapı/katman/teknoloji değiştiyse** (yeni katman, state mgmt, DI, routing, persistence deseni vb.) → ilgili `doc/architecture/*.md` (backend/mobile_flutter/web_angular) ve gerekiyorsa `design_system.md` güncelle.
+- **Ortak widget eklendi/değişti** (`mobile/lib/shared/widgets/`) → `doc/architecture/widgets.md` katalogundaki satırı + durumu (🟢/🟡/🔴) ve gerekiyorsa karmaşık widget'ın kendi md'sini güncelle.
 - **Mimari açık kapandıysa** → `doc/modules/mimari_inceleme.md` ilgili maddeyi "✅ Düzeltildi" işaretle.
 - Her güncellediğin dokümanın altındaki **"Güncelleme: YYYY-MM-DD"** tarihini o günkü tarihe çek.
 

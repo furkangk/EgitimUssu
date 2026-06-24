@@ -13,4 +13,4 @@
 - Avatarlı ödeme kartları (öğrenci, ders, tutar, vade, durum rozeti) → detaya dokunma.
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.10 · Form: [`payment_form.md`](payment_form.md) · Modül: M07
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.10 · Form: [`payment_form.md`](payment_form.md) · Modül: M07

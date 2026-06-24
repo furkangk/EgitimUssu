@@ -278,7 +278,7 @@ MatchRequestDeclined / Expired  → başlatan tarafa bilgi bildirimi (m11)
 
 ### 6.1 Mobil (Flutter — `mobile/lib/features/matching/`)
 
-`design.md`: matching feature mobilde planlıdır (`features/matching/ # Öğretmen Keşfi (M12)`).
+Mimari ([`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §9): `matching` feature mobilde planlanan feature klasörlerindendir (öğretmen keşfi/ilan).
 
 | Route (öneri) | Sayfa | Açıklama |
 |---------------|-------|----------|
@@ -295,7 +295,7 @@ MatchRequestDeclined / Expired  → başlatan tarafa bilgi bildirimi (m11)
 
 ### 6.2 Web (Angular — `src/app/features/matching/`)
 
-`design.md`: *"M12: Öğretmen Listeleme ve Detaylı Filtreleme"* web tarafında **öncelikli**; eşleştirme her iki
+Mimari ([`../architecture/web_angular.md`](../architecture/web_angular.md) §1): *"M12: Öğretmen Listeleme ve Detaylı Filtreleme"* web tarafında **öncelikli**; eşleştirme her iki
 platformda da aktif edilecek. Büyük ekranda gelişmiş filtre paneli, harita üzerinde konuma göre keşif ve
 karşılaştırma tablosu hedeflenir (Tailwind CSS, responsive `sm/md/lg`).
 

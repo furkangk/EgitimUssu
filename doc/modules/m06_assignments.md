@@ -258,7 +258,7 @@ POST /assignments/{id}/complete
 - Gelişim takibi → [`m10_progress_tracking.md`](m10_progress_tracking.md) · Öğrenci çalışma → [`m08_study.md`](m08_study.md)
 - Roller → [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md)
 - Veri modeli → [`veri_modeli.md`](veri_modeli.md) · Mimari (dosya depolama) → [`mimari_inceleme.md`](mimari_inceleme.md) · Genel → [`00_genel_bakis.md`](00_genel_bakis.md)
-- PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md)
+- PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)
 
 ---
 

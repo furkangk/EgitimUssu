@@ -246,7 +246,7 @@ POST /lessons/{id}/cancel
 - Öğrenci bireysel plan + öncelik → [`m08_study.md`](m08_study.md)
 - Veli takip → [`m09_parents.md`](m09_parents.md)
 - Veri modeli (ER) → [`veri_modeli.md`](veri_modeli.md) · Mimari → [`mimari_inceleme.md`](mimari_inceleme.md)
-- Genel bakış → [`00_genel_bakis.md`](00_genel_bakis.md) · PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md)
+- Genel bakış → [`00_genel_bakis.md`](00_genel_bakis.md) · PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)
 
 ---
 

@@ -14,4 +14,4 @@
 - `AssignmentFollowUpCubit.create()` → `POST /api/assignments/lesson-sessions/{lessonSessionId}/follow-up`.
 
 ## İlgili
-- Tasarım: [`../tutormatch_flutter_ui_design.md`](../tutormatch_flutter_ui_design.md) §10.9 · Modül: M06
+- Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.9 · Modül: M06
