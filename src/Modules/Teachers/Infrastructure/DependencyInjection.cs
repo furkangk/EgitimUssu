@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandValidator<UpdateTeacherProfileCommand>, UpdateTeacherProfileCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<UpdateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();
         return services;
     }
 }

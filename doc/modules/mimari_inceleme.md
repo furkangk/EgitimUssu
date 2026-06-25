@@ -36,12 +36,10 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 
 ---
 
-### K3 — Yetkilendirme "opt-in" ve emniyet ağı yok → eksik kayıt = sessiz açık erişim
-`CommandDispatcher`/`QueryDispatcher`, DI'dan **kayıtlı** authorizer'ları çalıştırır. Bir komut/sorgu için authorizer **kaydedilmezse**, istek doğrudan handler'a geçer — endpoint'teki `RequireAuthorization("AuthenticatedUser")` dışında sahiplik/rol kontrolü olmaz.
-
-**Somut kanıt:** `GetTeacherProfileByUserIdQuery` için handler kayıtlı ama **authorizer YOK** → giriş yapmış herhangi bir kullanıcı herhangi bir öğretmenin profilini okuyabilir.
-
-**Öneri:** Startup'ta her handler için authorizer var mı diye doğrulayan **fail-fast guard**; veya "varsayılan reddet" + açık `[AllowAnonymous...]` işareti.
+### ✅ K3 — Yetkilendirme "opt-in" ve emniyet ağı yok → eksik kayıt = sessiz açık erişim — **Düzeltildi 2026-06-26**
+`AuthorizationCoverageValidator` startup guard eklendi: her `ICommandHandler`/`IQueryHandler` için ya authorizer kaydı ya `IAllowAnonymous` işareti zorunlu — eksik kayıt uygulama başlatılırken hata fırlatır.
+`TeacherProfileQueryAuthorizer` (`GetTeacherProfileByUserIdQuery`) eklendi — öğretmen profili artık yalnızca kimlik doğrulanmış kullanıcılara açık.
+`CompleteLessonScheduleCommand` için `LessonScheduleCommandAuthorizer` kaydı eklendi; handler DI'a bağlandı.
 
 ---
 

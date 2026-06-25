@@ -43,9 +43,7 @@ public sealed record UpdateTeacherProfileCommand(
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots) : ICommand<Result<TeacherProfileResponse>>;
 
-// IAllowAnonymous: HTTP katmanı "AuthenticatedUser" politikasıyla auth'u sağlıyor;
-// dispatcher düzeyinde ek rol/sahiplik kontrolü yok (K3 — ilerleyen sürümde authorizer eklenecek).
-public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>, IAllowAnonymous;
+public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>;
 
 public sealed record TeacherAvailabilityResponse(
     DayOfWeek DayOfWeek,

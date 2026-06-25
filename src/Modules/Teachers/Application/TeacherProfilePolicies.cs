@@ -83,3 +83,21 @@ public sealed class TeacherProfileCommandAuthorizer :
         return isAdmin || (isTeacher && Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == userId);
     }
 }
+
+public sealed class TeacherProfileQueryAuthorizer : IQueryAuthorizer<GetTeacherProfileByUserIdQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+
+    public TeacherProfileQueryAuthorizer(ICurrentUser currentUser)
+    {
+        _currentUser = currentUser;
+    }
+
+    public Task<Result> Authorize(GetTeacherProfileByUserIdQuery query, CancellationToken cancellationToken)
+    {
+        // Öğretmen profilleri tüm kimlik doğrulanmış kullanıcılara (öğretmen/öğrenci/veli/admin) açıktır.
+        // Dispatcher bu authorizer olmaksızın çağrıya izin veriyordu (K3); artık açık onay gerekiyor.
+        return Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+    }
+}

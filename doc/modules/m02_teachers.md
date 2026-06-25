@@ -28,7 +28,7 @@
 | Komut yetkilendirmesi (create/update) | ✅ var | `TeacherProfileCommandAuthorizer` |
 | Domain event yayını | ✅ var | `TeacherProfileCreatedDomainEvent`, `TeacherProfileUpdatedDomainEvent` |
 | **`IsVerified`'in yalnız admin tarafından yazılması** | ✅ kapatıldı | `UpdateTeacherProfileCommand`/`UpsertTeacherProfileRequest`/`TeacherProfile.Update()` metodundan çıkarıldı; update akışı `IsVerified`'e dokunmuyor — bkz. mimari_inceleme **Y1** |
-| **`GET /profiles/{userId}` yetkilendirici** | 🔴 eksik | mimari_inceleme **K3** — `GetTeacherProfileByUserIdQuery` için authorizer yok |
+| **`GET /profiles/{userId}` yetkilendirici** | ✅ kapatıldı (2026-06-26) | `TeacherProfileQueryAuthorizer` eklendi — kimlik doğrulanmış tüm roller okuyabilir; bkz. mimari_inceleme **K3** |
 | Profil fotoğrafı için dosya-depolama altyapısı | 🔴 eksik | `ProfilePhotoUrl` string; yükleme/saklama servisi yok |
 | Öğretmen listeleme / arama (şehir/branş filtresi) | 🔴 eksik | Yalnızca tekil `GET by userId` var (eşleştirme M12'de) |
 | Tatil/izin istisnaları (ScheduleException) | 🔴 eksik | Modellenmedi → **M04 Scheduling**'de ele alınacak |
@@ -214,7 +214,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 - [x] Yalnız admin veya profilin sahibi öğretmen create/update yapabilir.
 - [x] Profil yanıtı uygunluk slotlarını gün+saat sıralı döndürür.
 - [x] **`IsVerified` update akışından çıkarıldı** — client değeri artık yazılamaz; regresyon testi eklendi.
-- [ ] **`GET /profiles/{userId}` yetkilendirilir** veya public/özel projeksiyon ayrılır (K3 kapanır).
+- [x] **`GET /profiles/{userId}` yetkilendirildi** — `TeacherProfileQueryAuthorizer` (K3 kapandı).
 - [ ] **Profil fotoğrafı** güvenli depolamaya yüklenebilir.
 
 ---
