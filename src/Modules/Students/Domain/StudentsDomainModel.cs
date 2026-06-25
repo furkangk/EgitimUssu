@@ -68,6 +68,26 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     public DateTime UpdatedOnUtc { get; private set; }
 
     public List<StudentSubject> Subjects { get; private set; } = [];
+
+    public void Update(
+        string fullName,
+        string gradeLevel,
+        string? contactEmail,
+        string? contactPhone,
+        string? goalSummary,
+        string? levelNotes,
+        bool isActive,
+        DateTime updatedOnUtc)
+    {
+        FullName = fullName.Trim();
+        GradeLevel = gradeLevel.Trim();
+        ContactEmail = contactEmail?.Trim();
+        ContactPhone = contactPhone?.Trim();
+        GoalSummary = goalSummary?.Trim();
+        LevelNotes = levelNotes?.Trim();
+        IsActive = isActive;
+        UpdatedOnUtc = updatedOnUtc;
+    }
 }
 
 public sealed class StudentSubject : Entity<Guid>

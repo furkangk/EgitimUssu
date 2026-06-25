@@ -8,6 +8,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+class AssignmentFormContext {
+  const AssignmentFormContext({
+    required this.studentName,
+    required this.lessonName,
+    this.lockSelection = false,
+  });
+
+  final String studentName;
+  final String lessonName;
+  final bool lockSelection;
+}
+
 class AssignmentFollowUpPage extends StatefulWidget {
   const AssignmentFollowUpPage({
     super.key,
@@ -22,16 +34,23 @@ class AssignmentFollowUpPage extends StatefulWidget {
   State<AssignmentFollowUpPage> createState() => _AssignmentFollowUpPageState();
 }
 
-class AssignmentFormContext {
-  const AssignmentFormContext({
-    required this.studentName,
-    required this.lessonName,
-    this.lockSelection = false,
-  });
+class _AssignmentEntry {
+  _AssignmentEntry()
+    : titleController = TextEditingController(),
+      descriptionController = TextEditingController(),
+      dueDateController = TextEditingController();
 
-  final String studentName;
-  final String lessonName;
-  final bool lockSelection;
+  final TextEditingController titleController;
+  final TextEditingController descriptionController;
+  final TextEditingController dueDateController;
+  DateTime? selectedDueDate;
+  PlatformFile? selectedFile;
+
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    dueDateController.dispose();
+  }
 }
 
 class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
@@ -40,55 +59,25 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
   static const _background = Color(0xFFF4F8FC);
   static const _border = Color(0xFFD7E7F8);
   static const _divider = Color(0xFFE5EEF7);
+  static const _navy = Color(0xFF082B4F);
   static const _blue = Color(0xFF3D8BFF);
   static const _emerald = Color(0xFF20B486);
+  static const _red = Color(0xFFFF5A5F);
 
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _dueDateController = TextEditingController();
-
-  DateTime? _selectedDueDate;
-  PlatformFile? _selectedFile;
-  late String _selectedStudent;
-  late String _selectedLesson;
-
-  static const _studentOptions = <String>[
-    'Zeynep Demir',
-    'Ali Yilmaz',
-    'Merve Kaya',
-    'Ece Aydin',
-  ];
-
-  static const _lessonsByStudent = <String, List<String>>{
-    'Zeynep Demir': <String>['Matematik', 'Geometri'],
-    'Ali Yilmaz': <String>['Fizik', 'Matematik'],
-    'Merve Kaya': <String>['Geometri', 'Kimya'],
-    'Ece Aydin': <String>['Matematik', 'Turkce'],
-  };
-
-  bool get _isSelectionLocked => widget.initialContext?.lockSelection ?? false;
+  final List<_AssignmentEntry> _assignments = [];
 
   @override
   void initState() {
     super.initState();
-    _selectedStudent =
-        widget.initialContext?.studentName ?? _studentOptions.first;
-    _selectedLesson =
-        widget.initialContext?.lessonName ??
-        _lessonsForStudent(_selectedStudent).first;
-    _titleController.text = 'Polinomlar tekrar testi';
-    _descriptionController.text =
-        'Kaynak kitaptan 42-45. sayfalardaki 24 soruyu coz. Yanlis yaptigin sorulari isaretle.';
-    _selectedDueDate = DateTime.now().add(const Duration(days: 3));
-    _dueDateController.text = _formatDate(_selectedDueDate!);
+    _assignments.add(_AssignmentEntry());
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _dueDateController.dispose();
+    for (final entry in _assignments) {
+      entry.dispose();
+    }
     super.dispose();
   }
 
@@ -102,14 +91,23 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
           child: BlocConsumer<AssignmentFollowUpCubit, AssignmentFollowUpState>(
             listener: (context, state) {
               if (state.successMessage != null) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Ders takibi kaydedildi.'),
+                    backgroundColor: _emerald,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                if (context.canPop()) context.pop();
               }
               if (state.errorMessage != null) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage!),
+                    backgroundColor: _red,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               }
             },
             builder: (context, state) {
@@ -125,81 +123,47 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                     },
                   ),
                   Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
-                      children: <Widget>[
-                        Form(
-                          key: _formKey,
-                          child: Column(
-                            children: <Widget>[
-                              if (!_isSelectionLocked) ...<Widget>[
-                                _SelectionFields(
-                                  selectedStudent: _selectedStudent,
-                                  selectedLesson: _selectedLesson,
-                                  studentOptions: _studentOptions,
-                                  lessonOptions: _lessonsForStudent(
-                                    _selectedStudent,
+                    child: Form(
+                      key: _formKey,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                        children: <Widget>[
+                          if (widget.initialContext != null)
+                            _ContextCard(ctx: widget.initialContext!),
+                          const SizedBox(height: 16),
+                          _SectionHeader(
+                            icon: Icons.assignment_rounded,
+                            title: 'Ödevler',
+                            trailing: Text(
+                              '${_assignments.length} ödev',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelMedium
+                                  ?.copyWith(
+                                    color: _slate,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                  onStudentChanged: (value) {
-                                    if (value == null) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      _selectedStudent = value;
-                                      _selectedLesson = _lessonsForStudent(
-                                        value,
-                                      ).first;
-                                    });
-                                  },
-                                  onLessonChanged: (value) {
-                                    if (value == null) {
-                                      return;
-                                    }
-                                    setState(() => _selectedLesson = value);
-                                  },
-                                ),
-                                const SizedBox(height: 14),
-                              ],
-                              AppTextField(
-                                controller: _titleController,
-                                labelText: 'Baslik',
-                                hintText: 'Odev basligi',
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                validator: _required,
-                              ),
-                              const SizedBox(height: 14),
-                              AppTextField(
-                                controller: _descriptionController,
-                                labelText: 'Aciklama',
-                                hintText: 'Odev detaylarini yaz',
-                                minLines: 5,
-                                maxLines: 8,
-                                textCapitalization:
-                                    TextCapitalization.sentences,
-                                validator: _required,
-                              ),
-                              const SizedBox(height: 14),
-                              AppTextField(
-                                controller: _dueDateController,
-                                labelText: 'Son teslim tarihi',
-                                hintText: 'Tarih sec',
-                                readOnly: true,
-                                onTap: _pickDueDate,
-                                suffixIcon: const Icon(Icons.event_rounded),
-                                validator: _required,
-                              ),
-                              const SizedBox(height: 14),
-                              _FilePickerCard(
-                                selectedFile: _selectedFile,
-                                onPick: _pickFile,
-                                onClear: () =>
-                                    setState(() => _selectedFile = null),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          ...List<Widget>.generate(_assignments.length, (i) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: _AssignmentEntryCard(
+                                index: i,
+                                entry: _assignments[i],
+                                canRemove: _assignments.length > 1,
+                                onRemove: () => _removeAssignment(i),
+                                onPickDate: () => _pickDueDate(i),
+                                onPickFile: () => _pickFile(i),
+                                onClearFile: () =>
+                                    setState(() => _assignments[i].selectedFile = null),
+                              ),
+                            );
+                          }),
+                          _AddAssignmentButton(onTap: _addAssignment),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -222,7 +186,7 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                     MediaQuery.of(context).padding.bottom + 12,
                   ),
                   child: AppPrimaryButton(
-                    label: 'Odevi Gonder',
+                    label: 'Takibi Kaydet',
                     isLoading: state.isSaving,
                     onPressed: () => _save(context),
                   ),
@@ -233,88 +197,89 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
     );
   }
 
-  Future<void> _pickDueDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDueDate ?? now.add(const Duration(days: 1)),
-      firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year + 2),
-    );
-    if (picked == null) {
-      return;
-    }
+  void _addAssignment() {
+    setState(() => _assignments.add(_AssignmentEntry()));
+  }
+
+  void _removeAssignment(int index) {
     setState(() {
-      _selectedDueDate = picked;
-      _dueDateController.text = _formatDate(picked);
+      _assignments[index].dispose();
+      _assignments.removeAt(index);
     });
   }
 
-  Future<void> _pickFile() async {
+  Future<void> _pickDueDate(int index) async {
+    final now = DateTime.now();
+    final entry = _assignments[index];
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: entry.selectedDueDate ?? now.add(const Duration(days: 1)),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked == null) return;
+    setState(() {
+      entry.selectedDueDate = picked;
+      entry.dueDateController.text = _formatDate(picked);
+    });
+  }
+
+  Future<void> _pickFile(int index) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
       type: FileType.custom,
       allowedExtensions: const <String>['pdf', 'doc', 'docx', 'jpg', 'png'],
     );
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-    final file = result.files.first;
-    setState(() => _selectedFile = file);
+    if (result == null || result.files.isEmpty) return;
+    setState(() => _assignments[index].selectedFile = result.files.first);
   }
 
   void _save(BuildContext context) {
-    if (!(_formKey.currentState?.validate() ?? false)) {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final hasValidAssignment = _assignments.any(
+      (e) => e.titleController.text.trim().isNotEmpty,
+    );
+    if (!hasValidAssignment) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('En az bir ödev başlığı giriniz.'),
+          backgroundColor: _red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
+
+    final assignmentItems = _assignments
+        .where((e) => e.titleController.text.trim().isNotEmpty)
+        .map(
+          (e) => AssignmentItem(
+            title: e.titleController.text.trim(),
+            description: e.descriptionController.text.trim(),
+            dueDateUtc: e.selectedDueDate?.toUtc(),
+            attachmentUrl: e.selectedFile?.path ?? e.selectedFile?.name,
+          ),
+        )
+        .toList();
+
     context.read<AssignmentFollowUpCubit>().save(
       FollowUpAssignment(
-        lessonSessionId: widget.lessonSessionId.isEmpty
-            ? 'manual-$_selectedStudent-$_selectedLesson'
-            : widget.lessonSessionId,
+        lessonSessionId: widget.lessonSessionId,
         summary: '',
         coveredTopics: '',
         recommendations: '',
-        assignments: <AssignmentItem>[
-          AssignmentItem(
-            title: _titleController.text.trim(),
-            description: _descriptionController.text.trim(),
-            dueDateUtc: _selectedDueDate?.toUtc(),
-            attachmentUrl: _selectedFile?.path ?? _selectedFile?.name,
-            status: 'Pending',
-          ),
-        ],
+        assignments: assignmentItems,
       ),
     );
   }
 
-  String? _required(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Bu alan zorunlu.';
-    }
-    return null;
-  }
-
   String _formatDate(DateTime date) {
     const months = <String>[
-      'Ocak',
-      'Subat',
-      'Mart',
-      'Nisan',
-      'Mayis',
-      'Haziran',
-      'Temmuz',
-      'Agustos',
-      'Eylul',
-      'Ekim',
-      'Kasim',
-      'Aralik',
+      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
-  List<String> _lessonsForStudent(String student) {
-    return _lessonsByStudent[student] ?? const <String>['Matematik'];
   }
 }
 
@@ -336,7 +301,7 @@ class _TopBar extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Odev Ver',
+              'Ödev Ver',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: _AssignmentFollowUpPageState._text,
                 fontWeight: FontWeight.w800,
@@ -349,146 +314,343 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _SelectionFields extends StatelessWidget {
-  const _SelectionFields({
-    required this.selectedStudent,
-    required this.selectedLesson,
-    required this.studentOptions,
-    required this.lessonOptions,
-    required this.onStudentChanged,
-    required this.onLessonChanged,
-  });
+class _ContextCard extends StatelessWidget {
+  const _ContextCard({required this.ctx});
 
-  final String selectedStudent;
-  final String selectedLesson;
-  final List<String> studentOptions;
-  final List<String> lessonOptions;
-  final ValueChanged<String?> onStudentChanged;
-  final ValueChanged<String?> onLessonChanged;
+  final AssignmentFormContext ctx;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _AssignmentFollowUpPageState._navy.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: _AssignmentFollowUpPageState._border,
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _AssignmentFollowUpPageState._navy.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: _AssignmentFollowUpPageState._navy,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  ctx.studentName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: _AssignmentFollowUpPageState._text,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  ctx.lessonName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: _AssignmentFollowUpPageState._slate,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: <Widget>[
-        const AppFieldLabel(text: 'Ogrenci'),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: selectedStudent,
-          decoration: appInputDecoration('Ogrenci sec'),
-          items: studentOptions
-              .map(
-                (student) => DropdownMenuItem<String>(
-                  value: student,
-                  child: Text(student),
-                ),
-              )
-              .toList(),
-          onChanged: onStudentChanged,
+        Icon(icon, size: 20, color: _AssignmentFollowUpPageState._navy),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: _AssignmentFollowUpPageState._text,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
-        const SizedBox(height: 14),
-        const AppFieldLabel(text: 'Ders'),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          key: ValueKey<String>('lesson-$selectedStudent'),
-          initialValue: selectedLesson,
-          decoration: appInputDecoration('Ders sec'),
-          items: lessonOptions
-              .map(
-                (lesson) => DropdownMenuItem<String>(
-                  value: lesson,
-                  child: Text(lesson),
-                ),
-              )
-              .toList(),
-          onChanged: onLessonChanged,
-        ),
+        if (trailing != null) trailing!,
       ],
     );
   }
 }
 
-class _FilePickerCard extends StatelessWidget {
-  const _FilePickerCard({
-    required this.selectedFile,
+class _AssignmentEntryCard extends StatelessWidget {
+  const _AssignmentEntryCard({
+    required this.index,
+    required this.entry,
+    required this.canRemove,
+    required this.onRemove,
+    required this.onPickDate,
+    required this.onPickFile,
+    required this.onClearFile,
+  });
+
+  final int index;
+  final _AssignmentEntry entry;
+  final bool canRemove;
+  final VoidCallback onRemove;
+  final VoidCallback onPickDate;
+  final VoidCallback onPickFile;
+  final VoidCallback onClearFile;
+
+  @override
+  Widget build(BuildContext context) {
+    final file = entry.selectedFile;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _AssignmentFollowUpPageState._border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _AssignmentFollowUpPageState._blue
+                      .withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${index + 1}',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: _AssignmentFollowUpPageState._blue,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Ödev ${index + 1}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: _AssignmentFollowUpPageState._text,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (canRemove)
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  color: _AssignmentFollowUpPageState._red,
+                  iconSize: 20,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          AppTextField(
+            controller: entry.titleController,
+            labelText: 'Başlık',
+            hintText: 'Ödev başlığı',
+            textCapitalization: TextCapitalization.sentences,
+            validator: index == 0
+                ? (v) => (v == null || v.trim().isEmpty)
+                    ? 'İlk ödev başlığı zorunlu.'
+                    : null
+                : null,
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            controller: entry.descriptionController,
+            labelText: 'Açıklama',
+            hintText: 'Ödev detayları (isteğe bağlı)',
+            minLines: 2,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            controller: entry.dueDateController,
+            labelText: 'Son Teslim Tarihi',
+            hintText: 'Tarih seç (isteğe bağlı)',
+            readOnly: true,
+            onTap: onPickDate,
+            suffixIcon: const Icon(Icons.event_rounded),
+          ),
+          const SizedBox(height: 12),
+          _FilePicker(
+            file: file,
+            onPick: onPickFile,
+            onClear: onClearFile,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilePicker extends StatelessWidget {
+  const _FilePicker({
+    required this.file,
     required this.onPick,
     required this.onClear,
   });
 
-  final PlatformFile? selectedFile;
+  final PlatformFile? file;
   final VoidCallback onPick;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    final file = selectedFile;
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       onTap: onPick,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: _AssignmentFollowUpPageState._background,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _AssignmentFollowUpPageState._border),
         ),
         child: Row(
           children: <Widget>[
             Container(
-              width: 46,
-              height: 46,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color:
-                    (file == null
-                            ? _AssignmentFollowUpPageState._blue
-                            : _AssignmentFollowUpPageState._emerald)
-                        .withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
+                color: (file == null
+                        ? _AssignmentFollowUpPageState._blue
+                        : _AssignmentFollowUpPageState._emerald)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                file == null ? Icons.attach_file_rounded : Icons.check_rounded,
+                file == null
+                    ? Icons.attach_file_rounded
+                    : Icons.check_rounded,
+                size: 20,
                 color: file == null
                     ? _AssignmentFollowUpPageState._blue
                     : _AssignmentFollowUpPageState._emerald,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    file?.name ?? 'Dosya ekle',
+                    file?.name ?? 'Dosya Ekle',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
                       color: _AssignmentFollowUpPageState._text,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    file == null
-                        ? 'PDF, Word veya gorsel dosya sec'
-                        : '${(file.size / 1024).ceil()} KB',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _AssignmentFollowUpPageState._slate,
+                  if (file == null)
+                    Text(
+                      'PDF, Word veya görsel',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _AssignmentFollowUpPageState._slate,
+                      ),
+                    )
+                  else
+                    Text(
+                      '${(file!.size / 1024).ceil()} KB',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _AssignmentFollowUpPageState._slate,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
             if (file != null)
               IconButton(
                 onPressed: onClear,
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(Icons.close_rounded, size: 18),
                 color: _AssignmentFollowUpPageState._slate,
-              )
-            else
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: _AssignmentFollowUpPageState._slate,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddAssignmentButton extends StatelessWidget {
+  const _AddAssignmentButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: _AssignmentFollowUpPageState._blue.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(
+              Icons.add_rounded,
+              color: _AssignmentFollowUpPageState._blue,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Ödev Ekle',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: _AssignmentFollowUpPageState._blue,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ],
         ),
       ),

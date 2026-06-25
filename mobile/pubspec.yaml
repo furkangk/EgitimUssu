@@ -23,11 +23,31 @@ dependencies:
   shared_preferences: ^2.5.3
   syncfusion_flutter_calendar: ^30.2.7
   syncfusion_localizations: ^30.2.7
+  # UI yardımcıları
+  flutter_screenutil: ^5.9.3
+  flutter_svg: ^2.0.17
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  lottie: ^3.3.1
+  modal_bottom_sheet: ^3.0.0-pre
+  # Model
+  freezed_annotation: ^2.4.4
+  # Grafik
+  fl_chart: ^0.70.2
+  # Bildirim
+  firebase_messaging: ^15.2.4
+  flutter_local_notifications: ^18.0.1
+  # Chat & medya
+  flutter_chat_ui: ^1.6.15
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true

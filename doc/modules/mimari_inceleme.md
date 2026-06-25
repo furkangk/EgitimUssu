@@ -47,21 +47,17 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 
 ## 🟠 YÜKSEK
 
-### Y1 — Öğretmen kendi profilini "doğrulanmış" yapabiliyor (yetki yükseltme)
-`UpsertTeacherProfileRequest` → `ToUpdateCommand` → `UpdateTeacherProfileCommand.IsVerified` **client'tan alınıyor** ve doğrudan `profile.Update(..., command.IsVerified, ...)` ile yazılıyor. Authorizer yalnızca **sahiplik** kontrol ediyor. Öğretmen `isVerified: true` göndererek kendini doğrulanmış işaretleyebilir → sahte güven rozeti.
-> **Create** yolu güvenli (handler `false` set ediyor). Açık yalnızca **Update** yolunda.
-
-**Öneri:** `IsVerified`'ı update DTO/command'inden çıkar; yalnızca admin/doğrulama akışı (ayrı endpoint + `Admin` rolü).
+### ✅ Y1 — Öğretmen kendi profilini "doğrulanmış" yapabiliyor (yetki yükseltme) — **Düzeltildi 2026-06-24 (backend) / 2026-06-26 (client)**
+`IsVerified`, `UpsertTeacherProfileRequest`, `UpdateTeacherProfileCommand` ve `TeacherProfile.Update()` metodundan kaldırıldı. Client `toUpdatePayload()` artık `isVerified` göndermez; regresyon testi eklendi.
+> **Kalan:** Admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent` henüz eklenmedi.
 
 ### Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar
 `appsettings.json`: `Jwt:SigningKey = "change-this-development-signing-key"`, Postgres `Password=postgres`; kod-içi varsayılan `"replace-with-a-long-development-key"`. Prod'da override edilmezse token **taklit edilebilir**.
 
 **Öneri:** Sırları environment/secret manager'dan al; varsayılanı boş bırak + **prod'da yoksa fail-fast**.
 
-### Y3 — Mobil: token yenileme (refresh) akışı yok → kullanıcı 60 dk'da bir atılıyor
-`TokenStorage` yalnız access token saklıyor; `ApiClient` 401'de sadece logout event'i yayınlıyor, **silent refresh denemiyor**; backend'de `POST /api/identity/refresh` var ama mobil kullanmıyor.
-
-**Öneri:** Refresh token'ı güvenli sakla; 401'de sessiz yenileme yapan interceptor ekle.
+### ✅ Y3 — Mobil: token yenileme (refresh) akışı yok → kullanıcı 60 dk'da bir atılıyor — **Düzeltildi 2026-06-25**
+`TokenStorage`'a `readRefreshToken`/`writeRefreshToken` eklendi. `TokenRefreshInterceptor` (`QueuedInterceptorsWrapper`) 401'de `POST /api/identity/refresh` ile sessiz yenileme yapar; yenileme de başarısız olursa `_onUnauthorized` callback'i tetikler. `ApiClient` lazy closure ile `AuthRepository.refreshSession()`'ı çağırır (döngüsel bağımlılık önlendi).
 
 ### Y4 — Handler'lar idempotent değil (at-least-once teslimat varsayımıyla çelişir)
 Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegrationEventHandler`) tekrarı engellemiyor → çift kayıt riski.
@@ -93,7 +89,9 @@ Her dispatch'te `MakeGenericType` + `dynamic` + `GetMethod(...).Invoke`. Cache/p
 Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) birden çok modülün verisini birleştirecek. Şu an yalnız integration event var; **senkron sorgu/kontrat** yok. **Öneri:** `Shared/Contracts` read kontratları veya ACL/projeksiyon. (Bu, M09/M12/M14 için **kritik önkoşul**.)
 
 ### O6 — `LessonSchedule` durum yaşam döngüsü kısmen
-✅ _Düzeltme (2026-06-24):_ **Ders çakışması kontrolü ASLINDA mevcut** — `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) ve `scheduling.invalid_range` (400) koddan doğrulandı; teacher-lesson liste endpoint'i `startAtUtc`/`endAtUtc` tarih filtresi alıyor. **Gerçekten eksik kalan:** `Status` (`Draft/Planned/Cancelled/Completed`) için yalnız `Cancel()` davranışı var; `Complete`/`Reschedule` geçişleri ve `Planned→Completed` yok; ayrıca online ders linki (`MeetingUrl`), tekrar açılımı, tatil/blackout ve **öğrenci tarafı çakışma önceliği** yok (bkz. [`m04_scheduling.md`](m04_scheduling.md)).
+✅ _Düzeltme (2026-06-24):_ **Ders çakışması kontrolü ASLINDA mevcut** — `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) ve `scheduling.invalid_range` (400) koddan doğrulandı; teacher-lesson liste endpoint'i `startAtUtc`/`endAtUtc` tarih filtresi alıyor.
+✅ _Düzeltme (2026-06-26):_ **`Planned → Completed` geçişi eklendi** — `Complete(updatedOnUtc)` domain metodu, `CompleteLessonScheduleCommand`/handler, `POST /lessons/{id}/complete` endpoint ve mobil `completeLesson` cubit metodu + UI butonu eklendi.
+**Hâlâ eksik:** `Reschedule` geçişi; online ders linki (`MeetingUrl`), tekrar açılımı, tatil/blackout ve **öğrenci tarafı çakışma önceliği** (bkz. [`m04_scheduling.md`](m04_scheduling.md)).
 
 ### O7 — Test kapsamı çok düşük
 Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test edilmiyor; Y1, K3 bir test olsa yakalanırdı.
@@ -144,4 +142,4 @@ Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-06-24 — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-06-26 — Düzeltmeler yapıldıkça güncellenmeli.*

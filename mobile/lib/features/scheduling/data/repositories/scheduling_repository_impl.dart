@@ -122,6 +122,33 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
   }
 
   @override
+  Future<LessonSchedule> completeLesson({required String lessonId}) async {
+    try {
+      final response = await _apiClient.post(
+        '/api/scheduling/lessons/$lessonId/complete',
+        data: <String, dynamic>{},
+      );
+      return LessonScheduleModel.fromJson(response);
+    } on ApiException {
+      if (_config.isMockFallbackEnabled('scheduling')) {
+        final now = DateTime.now().toUtc();
+        return LessonScheduleModel(
+          id: lessonId,
+          teacherUserId: 'mock-teacher-user',
+          studentId: 'student-1',
+          subject: 'Tamamlanan ders',
+          lessonFormat: 'Online',
+          startAtUtc: now,
+          endAtUtc: now.add(const Duration(hours: 1)),
+          timeZone: 'Europe/Istanbul',
+          status: 'Completed',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<List<LessonSchedule>> listTeacherLessons({
     required String teacherUserId,
     DateTime? startAtUtc,

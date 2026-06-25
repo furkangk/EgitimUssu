@@ -54,6 +54,35 @@ class StudentRepositoryImpl implements StudentRepository {
   }
 
   @override
+  Future<StudentProfile> updateStudent(StudentProfile studentProfile) async {
+    final model = StudentProfileModel(
+      id: studentProfile.id,
+      fullName: studentProfile.fullName,
+      gradeLevel: studentProfile.gradeLevel,
+      origin: studentProfile.origin,
+      teacherUserId: studentProfile.teacherUserId,
+      contactEmail: studentProfile.contactEmail,
+      contactPhone: studentProfile.contactPhone,
+      goalSummary: studentProfile.goalSummary,
+      levelNotes: studentProfile.levelNotes,
+      isActive: studentProfile.isActive,
+      subjects: studentProfile.subjects,
+    );
+    try {
+      final response = await _apiClient.put(
+        '/api/students/profiles/${studentProfile.id}',
+        data: model.toUpdatePayload(),
+      );
+      return StudentProfileModel.fromJson(response);
+    } on ApiException {
+      if (_config.isMockFallbackEnabled('students')) {
+        return studentProfile;
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<StudentProfile> getStudent(String studentId) async {
     try {
       final response = await _apiClient.get(

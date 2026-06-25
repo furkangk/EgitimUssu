@@ -53,4 +53,23 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<List<AssignmentItem>> listByTeacher(String teacherUserId) async {
+    try {
+      final response = await _apiClient.getList(
+        '/api/assignments',
+        queryParameters: <String, dynamic>{'teacherUserId': teacherUserId},
+      );
+      return response
+          .whereType<Map<String, dynamic>>()
+          .map(AssignmentItemModel.fromJson)
+          .toList();
+    } on ApiException {
+      if (_config.isMockFallbackEnabled('assignments')) {
+        return AssignmentItemModel.demoList();
+      }
+      rethrow;
+    }
+  }
 }

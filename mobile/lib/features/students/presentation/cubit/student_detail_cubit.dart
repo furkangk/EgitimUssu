@@ -63,4 +63,43 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
       emit(state.copyWith(isLoading: false, errorMessage: error.message));
     }
   }
+
+  Future<void> updateStudent(StudentProfile updated) async {
+    if (isClosed) return;
+    emit(state.copyWith(isSaving: true, clearMessages: true));
+    try {
+      final saved = await _studentRepository.updateStudent(updated);
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isSaving: false,
+          student: saved,
+          successMessage: 'Ogrenci guncellendi.',
+          clearMessages: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isSaving: false, errorMessage: error.message));
+    }
+  }
+
+  Future<void> setIsActive({required bool isActive}) async {
+    final current = state.student;
+    if (current == null) return;
+    final updated = StudentProfile(
+      id: current.id,
+      fullName: current.fullName,
+      gradeLevel: current.gradeLevel,
+      origin: current.origin,
+      subjects: current.subjects,
+      teacherUserId: current.teacherUserId,
+      contactEmail: current.contactEmail,
+      contactPhone: current.contactPhone,
+      goalSummary: current.goalSummary,
+      levelNotes: current.levelNotes,
+      isActive: isActive,
+    );
+    await updateStudent(updated);
+  }
 }

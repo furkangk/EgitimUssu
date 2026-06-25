@@ -122,7 +122,6 @@ public sealed record UpsertTeacherProfileRequest(
     string EducationLevel,
     decimal HourlyRateAmount,
     string Currency,
-    bool IsVerified,
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots)
 {
@@ -167,7 +166,6 @@ public sealed record UpsertTeacherProfileRequest(
             EducationLevel,
             HourlyRateAmount,
             Currency,
-            IsVerified,
             ProfilePhotoUrl,
             AvailabilitySlots
                 .Select(slot => new TeacherAvailabilityRequest(

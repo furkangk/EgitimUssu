@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
@@ -21,6 +22,9 @@ class DashboardState extends Equatable {
     this.students = const <StudentProfile>[],
     this.lessons = const <LessonSchedule>[],
     this.paymentRecords = const <PaymentRecord>[],
+    this.todayLessons = const <DashboardTodayLesson>[],
+    this.pendingAssignments = const <DashboardPendingAssignment>[],
+    this.overduePayments = const <DashboardOverduePayment>[],
     this.errorMessage,
   });
 
@@ -39,6 +43,9 @@ class DashboardState extends Equatable {
   final List<StudentProfile> students;
   final List<LessonSchedule> lessons;
   final List<PaymentRecord> paymentRecords;
+  final List<DashboardTodayLesson> todayLessons;
+  final List<DashboardPendingAssignment> pendingAssignments;
+  final List<DashboardOverduePayment> overduePayments;
   final String? errorMessage;
 
   String get todayLessonDurationLabel {
@@ -54,6 +61,8 @@ class DashboardState extends Equatable {
   }
 
   factory DashboardState.preview() {
+    final now = DateTime.now().toUtc();
+    final today = DateTime.utc(now.year, now.month, now.day);
     return DashboardState(
       streakCount: 6,
       studentCount: 8,
@@ -100,6 +109,47 @@ class DashboardState extends Equatable {
           accent: Color(0xFF3D8BFF),
         ),
       ],
+      todayLessons: <DashboardTodayLesson>[
+        DashboardTodayLesson(
+          id: 'prev-1',
+          studentId: 'student-1',
+          subject: 'Matematik',
+          lessonFormat: 'Online',
+          startAtUtc: today.add(const Duration(hours: 15, minutes: 30)),
+          endAtUtc: today.add(const Duration(hours: 16, minutes: 30)),
+        ),
+        DashboardTodayLesson(
+          id: 'prev-2',
+          studentId: 'student-2',
+          subject: 'Fizik',
+          lessonFormat: 'InPerson',
+          startAtUtc: today.add(const Duration(hours: 18)),
+          endAtUtc: today.add(const Duration(hours: 19, minutes: 30)),
+          locationLabel: 'Calisma odasi',
+        ),
+      ],
+      pendingAssignments: const <DashboardPendingAssignment>[
+        DashboardPendingAssignment(
+          id: 'asgn-1',
+          studentId: 'student-1',
+          title: 'Problem foyu 1',
+        ),
+        DashboardPendingAssignment(
+          id: 'asgn-2',
+          studentId: 'student-2',
+          title: 'Fizik deney raporu',
+        ),
+      ],
+      overduePayments: <DashboardOverduePayment>[
+        DashboardOverduePayment(
+          id: 'pay-1',
+          studentId: 'student-2',
+          description: 'Mayis ayi ders ucreti',
+          currency: 'TRY',
+          outstandingAmount: 850,
+          dueDateUtc: today.subtract(const Duration(days: 5)),
+        ),
+      ],
     );
   }
 
@@ -119,6 +169,9 @@ class DashboardState extends Equatable {
     List<StudentProfile>? students,
     List<LessonSchedule>? lessons,
     List<PaymentRecord>? paymentRecords,
+    List<DashboardTodayLesson>? todayLessons,
+    List<DashboardPendingAssignment>? pendingAssignments,
+    List<DashboardOverduePayment>? overduePayments,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -138,6 +191,9 @@ class DashboardState extends Equatable {
       students: students ?? this.students,
       lessons: lessons ?? this.lessons,
       paymentRecords: paymentRecords ?? this.paymentRecords,
+      todayLessons: todayLessons ?? this.todayLessons,
+      pendingAssignments: pendingAssignments ?? this.pendingAssignments,
+      overduePayments: overduePayments ?? this.overduePayments,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
@@ -159,6 +215,9 @@ class DashboardState extends Equatable {
     students,
     lessons,
     paymentRecords,
+    todayLessons,
+    pendingAssignments,
+    overduePayments,
     errorMessage,
   ];
 }

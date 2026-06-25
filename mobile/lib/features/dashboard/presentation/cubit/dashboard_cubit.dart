@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_state.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
@@ -14,20 +15,24 @@ class DashboardCubit extends Cubit<DashboardState> {
     required StudentRepository studentRepository,
     required SchedulingRepository schedulingRepository,
     required PaymentRepository paymentRepository,
+    required DashboardRepository dashboardRepository,
   }) : _studentRepository = studentRepository,
        _schedulingRepository = schedulingRepository,
        _paymentRepository = paymentRepository,
+       _dashboardRepository = dashboardRepository,
        super(const DashboardState());
 
   final StudentRepository _studentRepository;
   final SchedulingRepository _schedulingRepository;
   final PaymentRepository _paymentRepository;
+  final DashboardRepository _dashboardRepository;
 
   factory DashboardCubit.create() {
     return DashboardCubit(
       studentRepository: injector<StudentRepository>(),
       schedulingRepository: injector<SchedulingRepository>(),
       paymentRepository: injector<PaymentRepository>(),
+      dashboardRepository: injector<DashboardRepository>(),
     );
   }
 
@@ -35,17 +40,24 @@ class DashboardCubit extends Cubit<DashboardState> {
     if (isClosed) return;
     emit(state.copyWith(isLoading: true, clearError: true));
     try {
-      final students = await _studentRepository.listByTeacher(teacherUserId);
-      if (isClosed) return;
-      final lessons = await _schedulingRepository.listTeacherLessons(
+      // Start all network calls in parallel.
+      final studentsFuture = _studentRepository.listByTeacher(teacherUserId);
+      final lessonsFuture = _schedulingRepository.listTeacherLessons(
         teacherUserId: teacherUserId,
       );
+      final paymentSummaryFuture = _paymentRepository.getSummary(teacherUserId);
+      final paymentRecordsFuture = _paymentRepository.listTeacherRecords(teacherUserId);
+      final dashboardSummaryFuture = _dashboardRepository.getSummary(teacherUserId);
+
+      final students = await studentsFuture;
       if (isClosed) return;
-      final paymentSummary = await _paymentRepository.getSummary(teacherUserId);
+      final lessons = await lessonsFuture;
       if (isClosed) return;
-      final paymentRecords = await _paymentRepository.listTeacherRecords(
-        teacherUserId,
-      );
+      final paymentSummary = await paymentSummaryFuture;
+      if (isClosed) return;
+      final paymentRecords = await paymentRecordsFuture;
+      if (isClosed) return;
+      final dashboardSummary = await dashboardSummaryFuture;
       if (isClosed) return;
 
       final now = DateTime.now();
@@ -90,6 +102,9 @@ class DashboardCubit extends Cubit<DashboardState> {
           students: students,
           lessons: lessons,
           paymentRecords: paymentRecords,
+          todayLessons: dashboardSummary.todayLessons,
+          pendingAssignments: dashboardSummary.pendingAssignments,
+          overduePayments: dashboardSummary.overduePayments,
           clearError: true,
         ),
       );

@@ -89,6 +89,7 @@ mobile/lib/features/<ozellik>/
 | Assignments | `assignments` | ödev/takip |
 | Payments | `payments` | ödeme liste/form |
 | Settings | `more` | ayarlar/hesap |
+| API.Host (BFF) | `dashboard` | öğretmen pano özeti (bugünkü ders + bekleyen ödev + geciken ödeme) |
 | Study/Parents/ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | _(yok)_ | planlanan (öğrenci/veli/yeni özellik ekranları) |
 
 ---
@@ -106,9 +107,14 @@ POST /logout (auth)   GET /users/{userId} (auth)
 ```
 POST /profiles   PUT /profiles/{userId}   GET /profiles/{userId}
 ```
+### API.Host BFF — (compose root, modül sınırları dışı)
+```
+GET /api/teachers/profiles/{teacherUserId}/dashboard-summary  (auth)
+    → Scheduling + Assignments + Payments paralel sorgula; bugünkü dersler, bekleyen ödevler, geciken ödemeleri tek yanıtta döndür
+```
 ### Students — `/api/students`
 ```
-POST /profiles   GET /profiles/{studentId}
+POST /profiles   PUT /profiles/{studentId}   GET /profiles/{studentId}
 GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}
 ```
 ### Scheduling — `/api/scheduling`
@@ -152,4 +158,4 @@ GET /api/study/status   /api/parents/status   /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-06-24*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-06-24 (BFF dashboard endpoint + mobil dashboard feature eklendi)*

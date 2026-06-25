@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
+import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignments_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/login_page.dart';
@@ -137,6 +138,10 @@ class AppRouter {
                 ? state.extra as LessonNoteViewPayload
                 : null,
           ),
+        ),
+        GoRoute(
+          path: '/assignments',
+          builder: (context, state) => const AssignmentsPage(),
         ),
         GoRoute(
           path: '/assignments/new',

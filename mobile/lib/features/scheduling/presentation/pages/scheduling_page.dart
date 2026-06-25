@@ -1,5 +1,8 @@
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_state.dart';
+import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:flutter/material.dart';
@@ -30,22 +33,73 @@ class _SchedulingPageState extends State<SchedulingPage> {
   static const _background = Color(0xFFF4F8FC);
   static const _border = Color(0xFFE5EEF7);
 
+  late final SchedulingCubit _schedulingCubit;
+  late final StudentsCubit _studentsCubit;
+  bool _loaded = false;
+
   late DateTime _visibleDate;
-  late List<LessonSchedule> _lessons;
   late List<_CalendarEvent> _events;
   _CalendarView _view = _CalendarView.month;
 
   @override
   void initState() {
     super.initState();
+    _schedulingCubit = SchedulingCubit.create();
+    _studentsCubit = StudentsCubit.create();
     final now = DateTime.now();
     _visibleDate = DateTime(now.year, now.month, now.day);
-    _lessons = _seedLessons(_visibleDate);
     _events = _seedEvents(_visibleDate);
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_loaded) {
+      _loaded = true;
+      final userId = _authSessionOrNull(context)?.userId;
+      if (userId != null) {
+        _schedulingCubit.loadForCalendar(userId);
+        _studentsCubit.load(userId);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _schedulingCubit.close();
+    _studentsCubit.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: <BlocProvider<dynamic>>[
+        BlocProvider<SchedulingCubit>.value(value: _schedulingCubit),
+        BlocProvider<StudentsCubit>.value(value: _studentsCubit),
+      ],
+      child: BlocListener<SchedulingCubit, SchedulingState>(
+        listener: (context, state) {
+          if (state.successMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.successMessage!)),
+            );
+          }
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: _red,
+                content: Text(state.errorMessage!),
+              ),
+            );
+          }
+        },
+        child: _buildContent(context),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final session = _authSessionOrNull(context);
     final teacherName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
@@ -133,7 +187,9 @@ class _SchedulingPageState extends State<SchedulingPage> {
 
   List<_CalendarEvent> get _calendarEvents {
     return <_CalendarEvent>[
-      ..._lessons.map(_CalendarEvent.fromLesson),
+      ..._schedulingCubit.state.lessons
+          .where((l) => l.status != 'Cancelled')
+          .map(_CalendarEvent.fromLesson),
       ..._events,
     ]..sort((a, b) => a.start.compareTo(b.start));
   }
@@ -167,7 +223,9 @@ class _SchedulingPageState extends State<SchedulingPage> {
     final edited = lesson != null;
     final baseDate =
         lesson?.startAtUtc.toLocal() ?? initialDate ?? _visibleDate;
-    var selectedStudentId = lesson?.studentId ?? _students.first.id;
+    final students = _studentsCubit.state.students;
+    var selectedStudentId =
+        lesson?.studentId ?? (students.isNotEmpty ? students.first.id : '');
     var selectedFormat = lesson?.lessonFormat ?? 'Online';
     var selectedDate = DateTime(baseDate.year, baseDate.month, baseDate.day);
     var selectedTime = TimeOfDay.fromDateTime(
@@ -254,14 +312,15 @@ class _SchedulingPageState extends State<SchedulingPage> {
                         ],
                       ),
                       const SizedBox(height: 18),
+                      if (students.isNotEmpty)
                       AppDropdownField<String>(
                         value: selectedStudentId,
-                        labelText: 'Ogrenci',
-                        items: _students
+                        labelText: 'Öğrenci',
+                        items: students
                             .map(
                               (student) => DropdownMenuItem<String>(
                                 value: student.id,
-                                child: Text(student.name),
+                                child: Text(student.fullName),
                               ),
                             )
                             .toList(),
@@ -422,11 +481,13 @@ class _SchedulingPageState extends State<SchedulingPage> {
                             return;
                           }
 
+                          final session = _authSessionOrNull(context);
                           final newLesson = LessonSchedule(
-                            id:
-                                lesson?.id ??
-                                'lesson-${DateTime.now().microsecondsSinceEpoch}',
-                            teacherUserId: lesson?.teacherUserId ?? 'teacher-1',
+                            id: lesson?.id ?? '',
+                            teacherUserId:
+                                lesson?.teacherUserId ??
+                                session?.userId ??
+                                '',
                             studentId: selectedStudentId,
                             subject: subjectController.text.trim(),
                             lessonFormat: selectedFormat,
@@ -439,34 +500,15 @@ class _SchedulingPageState extends State<SchedulingPage> {
                             notes: notesController.text.trim(),
                           );
 
-                          setState(() {
-                            if (edited) {
-                              _lessons = _lessons
-                                  .map(
-                                    (item) => item.id == newLesson.id
-                                        ? newLesson
-                                        : item,
-                                  )
-                                  .toList();
-                            } else {
-                              _lessons = <LessonSchedule>[
-                                ..._lessons,
-                                newLesson,
-                              ];
-                            }
-                            _sortLessons();
-                            _visibleDate = selectedDate;
-                          });
+                          setState(() => _visibleDate = selectedDate);
                           Navigator.of(sheetContext).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                edited
-                                    ? 'Ders guncellendi.'
-                                    : 'Ders takvime eklendi.',
-                              ),
-                            ),
-                          );
+                          if (!edited) {
+                            _schedulingCubit.createLesson(newLesson);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Ders güncellendi.')),
+                            );
+                          }
                         },
                       ),
                       if (edited) ...<Widget>[
@@ -483,15 +525,8 @@ class _SchedulingPageState extends State<SchedulingPage> {
                               ),
                             ),
                             onPressed: () {
-                              setState(() {
-                                _lessons = _lessons
-                                    .where((item) => item.id != lesson.id)
-                                    .toList();
-                              });
                               Navigator.of(sheetContext).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Ders silindi.')),
-                              );
+                              _schedulingCubit.cancelLesson(lesson: lesson);
                             },
                             icon: const Icon(Icons.delete_outline_rounded),
                             label: const Text('Dersi Sil'),
@@ -514,7 +549,7 @@ class _SchedulingPageState extends State<SchedulingPage> {
     required DateTime end,
     String? ignoredLessonId,
   }) {
-    return _lessons.any((lesson) {
+    return _schedulingCubit.state.lessons.any((lesson) {
       if (lesson.id == ignoredLessonId || lesson.status == 'Cancelled') {
         return false;
       }
@@ -524,36 +559,12 @@ class _SchedulingPageState extends State<SchedulingPage> {
     });
   }
 
-  void _sortLessons() {
-    _lessons.sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
-  }
-
-  // ignore: unused_element
-  List<LessonSchedule> _lessonsForDay(DateTime date) {
-    final day = DateTime(date.year, date.month, date.day);
-    return _lessons.where((lesson) {
-      final local = lesson.startAtUtc.toLocal();
-      return local.year == day.year &&
-          local.month == day.month &&
-          local.day == day.day;
-    }).toList()..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
-  }
-
-  // ignore: unused_element
-  List<LessonSchedule> _lessonsForRange(DateTime start, DateTime end) {
-    return _lessons.where((lesson) {
-      final local = lesson.startAtUtc.toLocal();
-      return !local.isBefore(start) && local.isBefore(end);
-    }).toList()..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
-  }
 
   String _studentNameFor(String id) {
-    return _students
-        .firstWhere(
-          (student) => student.id == id,
-          orElse: () => _Student(id: id, name: id, level: ''),
-        )
-        .name;
+    final found = _studentsCubit.state.students
+        .where((s) => s.id == id)
+        .firstOrNull;
+    return found?.fullName ?? id;
   }
 
   String _weekRangeLabel(DateTime date) {
@@ -2695,13 +2706,6 @@ class _BottomNavItem {
   final VoidCallback? onTap;
 }
 
-class _Student {
-  const _Student({required this.id, required this.name, required this.level});
-
-  final String id;
-  final String name;
-  final String level;
-}
 
 class _CalendarEvent {
   const _CalendarEvent({
@@ -2743,13 +2747,6 @@ class _CalendarEvent {
   final bool isAllDay;
 }
 
-const _students = <_Student>[
-  _Student(id: 'student-1', name: 'Zeynep Demir', level: '10. Sinif'),
-  _Student(id: 'student-2', name: 'Ali Yilmaz', level: '8. Sinif'),
-  _Student(id: 'student-3', name: 'Merve Kaya', level: '11. Sinif'),
-  _Student(id: 'student-4', name: 'Ege Arslan', level: '7. Sinif'),
-];
-
 List<_CalendarEvent> _seedEvents(DateTime today) {
   final monday = _SchedulingPageState._startOfWeek(today);
   return <_CalendarEvent>[
@@ -2783,96 +2780,6 @@ List<_CalendarEvent> _seedEvents(DateTime today) {
   ];
 }
 
-List<LessonSchedule> _seedLessons(DateTime today) {
-  final monday = _SchedulingPageState._startOfWeek(today);
-  return <LessonSchedule>[
-    _lesson(
-      id: 'lesson-1',
-      day: monday,
-      hour: 10,
-      minute: 30,
-      duration: 60,
-      studentId: 'student-1',
-      subject: 'Matematik - Trigonometri',
-      format: 'Online',
-      location: 'Zoom',
-      notes: 'Sinus teoremi tekrar',
-    ),
-    _lesson(
-      id: 'lesson-2',
-      day: monday.add(const Duration(days: 1)),
-      hour: 17,
-      duration: 90,
-      studentId: 'student-2',
-      subject: 'Fizik - Kuvvet ve Hareket',
-      format: 'InPerson',
-      location: 'Kadikoy etut merkezi',
-      notes: 'Deneme analizi ile basla',
-    ),
-    _lesson(
-      id: 'lesson-3',
-      day: monday.add(const Duration(days: 2)),
-      hour: 19,
-      duration: 60,
-      studentId: 'student-3',
-      subject: 'Geometri - Problem Cozumu',
-      format: 'Online',
-      location: 'Google Meet',
-      notes: 'Cember sorulari',
-    ),
-    _lesson(
-      id: 'lesson-4',
-      day: monday.add(const Duration(days: 4)),
-      hour: 15,
-      minute: 30,
-      duration: 60,
-      studentId: 'student-4',
-      subject: 'Turkce - Paragraf',
-      format: 'Online',
-      location: 'Zoom',
-      notes: 'Sure tutarak coz',
-    ),
-    _lesson(
-      id: 'lesson-5',
-      day: monday.add(const Duration(days: 5)),
-      hour: 11,
-      duration: 75,
-      studentId: 'student-1',
-      subject: 'Matematik - Deneme Analizi',
-      format: 'InPerson',
-      location: 'Besiktas',
-      notes: 'Yanlis defteri kontrol',
-    ),
-  ]..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
-}
-
-LessonSchedule _lesson({
-  required String id,
-  required DateTime day,
-  required int hour,
-  required int duration,
-  required String studentId,
-  required String subject,
-  required String format,
-  required String location,
-  required String notes,
-  int minute = 0,
-}) {
-  final start = DateTime(day.year, day.month, day.day, hour, minute);
-  return LessonSchedule(
-    id: id,
-    teacherUserId: 'teacher-1',
-    studentId: studentId,
-    subject: subject,
-    lessonFormat: format,
-    startAtUtc: start.toUtc(),
-    endAtUtc: start.add(Duration(minutes: duration)).toUtc(),
-    timeZone: 'Europe/Istanbul',
-    reminderOffsetMinutes: 60,
-    locationLabel: location,
-    notes: notes,
-  );
-}
 
 bool _sameDay(DateTime first, DateTime second) {
   return first.year == second.year &&

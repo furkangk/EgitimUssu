@@ -1,7 +1,11 @@
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
+import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
+import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 
 class TeacherProfilePage extends StatefulWidget {
   const TeacherProfilePage({super.key});
@@ -22,6 +26,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   static const _border = Color(0xFFE5EEF7);
   static const _surfaceLow = Color(0xFFEAF3FF);
 
+  late final TeacherProfileCubit _cubit;
+  bool _profilePopulated = false;
+  bool _loaded = false;
+
   late _TeacherProfileData _profile;
   late List<String> _expertise;
   late List<_AvailabilitySlot> _availability;
@@ -33,6 +41,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   @override
   void initState() {
     super.initState();
+    _cubit = TeacherProfileCubit.create();
     _profile = _TeacherProfileData.initial();
     _expertise = <String>[
       'LGS Matematik',
@@ -49,19 +58,59 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final session = context.select((AuthCubit cubit) => cubit.state.session);
-    if (session?.fullName.trim().isNotEmpty == true &&
-        _profile.fullName == _TeacherProfileData.initial().fullName) {
-      _profile = _profile.copyWith(fullName: session!.fullName);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_loaded) {
+      _loaded = true;
+      final userId = context.read<AuthCubit>().state.session?.userId;
+      if (userId != null) _cubit.load(userId);
     }
+  }
 
-    return Scaffold(
-      backgroundColor: _background,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-          children: <Widget>[
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<TeacherProfileCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<TeacherProfileCubit, TeacherProfileState>(
+        listener: (context, state) {
+          if (!_profilePopulated && state.profile != null && !state.isLoading) {
+            _profilePopulated = true;
+            final session = context.read<AuthCubit>().state.session;
+            setState(() => _populateFromProfile(state.profile!, session?.email));
+          }
+          if (state.successMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.successMessage!)),
+            );
+          }
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: _red,
+                content: Text(state.errorMessage!),
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state.isLoading && !_profilePopulated) {
+            return const Scaffold(
+              backgroundColor: _background,
+              body: SafeArea(child: _ShimmerProfile()),
+            );
+          }
+          return Scaffold(
+            backgroundColor: _background,
+            body: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                children: <Widget>[
             _TopBar(onBack: () => context.pop()),
             const SizedBox(height: 22),
             _PhotoHeader(profile: _profile, onChangePhoto: _showPhotoOptions),
@@ -322,10 +371,131 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 setState(() => _availability.remove(slot));
               },
             ),
+            const SizedBox(height: 22),
+            _SaveButton(
+              isSaving: state.isSaving,
+              onPressed: () => _saveToCubit(context),
+            ),
           ],
         ),
       ),
     );
+        },
+      ),
+    );
+  }
+
+  void _populateFromProfile(TeacherProfile profile, String? email) {
+    final lessonFormat = switch (profile.lessonFormat) {
+      'InPerson' => 'Yüz yüze',
+      'Online' => 'Online',
+      _ => 'Online + Yüz yüze',
+    };
+    _profile = _TeacherProfileData(
+      fullName: profile.fullName,
+      title: profile.headline ?? '',
+      subject: profile.subject,
+      city: profile.city,
+      district: profile.district,
+      phone: '',
+      email: email ?? '',
+      education: profile.educationLevel,
+      experience: '${profile.experienceYears} yıl',
+      hourlyRate:
+          '${profile.hourlyRateAmount.toStringAsFixed(0)} ${profile.currency}',
+      lessonFormat: lessonFormat,
+      photoUrl: profile.profilePhotoUrl ?? 'https://i.pravatar.cc/240?img=12',
+      biography: profile.biography ?? '',
+      parentNote: '',
+    );
+    _onlineAvailable = profile.lessonFormat == 'Online' ||
+        profile.lessonFormat == 'OnlineAndInPerson';
+    _inPersonAvailable = profile.lessonFormat == 'InPerson' ||
+        profile.lessonFormat == 'OnlineAndInPerson';
+    _availability = profile.availabilitySlots
+        .map(
+          (slot) => _AvailabilitySlot(
+            day: _dayIntToName(slot.dayOfWeek),
+            start: slot.startTime.length >= 5
+                ? slot.startTime.substring(0, 5)
+                : slot.startTime,
+            end: slot.endTime.length >= 5
+                ? slot.endTime.substring(0, 5)
+                : slot.endTime,
+          ),
+        )
+        .toList();
+  }
+
+  void _saveToCubit(BuildContext context) {
+    final session = context.read<AuthCubit>().state.session;
+    final lessonFormat = switch (_profile.lessonFormat) {
+      'Yüz yüze' => 'InPerson',
+      'Online' => 'Online',
+      _ => 'OnlineAndInPerson',
+    };
+    final profile = TeacherProfile(
+      id: _cubit.state.profile?.id ?? '',
+      userId: session?.userId ?? '',
+      fullName: _profile.fullName,
+      subject: _profile.subject,
+      city: _profile.city,
+      district: _profile.district,
+      biography: _profile.biography.isEmpty ? null : _profile.biography,
+      headline: _profile.title.isEmpty ? null : _profile.title,
+      lessonFormat: lessonFormat,
+      experienceYears: _parseExperienceYears(_profile.experience),
+      educationLevel: _profile.education,
+      hourlyRateAmount: _parseHourlyRate(_profile.hourlyRate),
+      currency: 'TRY',
+      availabilitySlots: _availability
+          .map(
+            (slot) => TeacherAvailability(
+              dayOfWeek: _dayNameToInt(slot.day),
+              startTime: '${slot.start}:00',
+              endTime: '${slot.end}:00',
+              isOnlineAvailable: _onlineAvailable,
+              isInPersonAvailable: _inPersonAvailable,
+            ),
+          )
+          .toList(),
+    );
+    _cubit.save(profile);
+  }
+
+  static int _parseExperienceYears(String experience) {
+    final match = RegExp(r'\d+').firstMatch(experience);
+    return match != null ? int.tryParse(match.group(0) ?? '0') ?? 0 : 0;
+  }
+
+  static double _parseHourlyRate(String hourlyRate) {
+    final match = RegExp(r'[\d.]+').firstMatch(hourlyRate);
+    return match != null ? double.tryParse(match.group(0) ?? '0') ?? 0 : 0;
+  }
+
+  static String _dayIntToName(int dayOfWeek) {
+    const days = <String>[
+      'Pazartesi',
+      'Salı',
+      'Çarşamba',
+      'Perşembe',
+      'Cuma',
+      'Cumartesi',
+      'Pazar',
+    ];
+    return dayOfWeek >= 1 && dayOfWeek <= 7 ? days[dayOfWeek - 1] : 'Pazartesi';
+  }
+
+  static int _dayNameToInt(String day) {
+    return switch (day) {
+      'Salı' => 2,
+      'Çarşamba' => 3,
+      'Perşembe' => 4,
+      'Cuma' => 5,
+      'Cumartesi' => 6,
+      'Pazar' => 7,
+      _ => 1,
+    };
   }
 
   void _showPhotoOptions() {
@@ -1640,6 +1810,71 @@ class _DividerLine extends StatelessWidget {
       height: 1,
       indent: 68,
       color: _TeacherProfilePageState._border,
+    );
+  }
+}
+
+class _ShimmerProfile extends StatelessWidget {
+  const _ShimmerProfile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE5EEF7),
+      highlightColor: Colors.white,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+        children: List<Widget>.generate(
+          7,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({required this.isSaving, required this.onPressed});
+
+  final bool isSaving;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton(
+        onPressed: isSaving ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: _TeacherProfilePageState._navy,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text(
+                'Profili Kaydet',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+      ),
     );
   }
 }

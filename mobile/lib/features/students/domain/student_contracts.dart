@@ -20,6 +20,7 @@ class StudentProfile {
     this.contactPhone,
     this.goalSummary,
     this.levelNotes,
+    this.isActive = true,
   });
 
   final String id;
@@ -32,10 +33,12 @@ class StudentProfile {
   final String? goalSummary;
   final String? levelNotes;
   final List<StudentSubjectTarget> subjects;
+  final bool isActive;
 }
 
 abstract interface class StudentRepository {
   Future<StudentProfile> createStudent(StudentProfile studentProfile);
+  Future<StudentProfile> updateStudent(StudentProfile studentProfile);
   Future<StudentProfile> getStudent(String studentId);
   Future<List<StudentProfile>> listByTeacher(String teacherUserId);
 }

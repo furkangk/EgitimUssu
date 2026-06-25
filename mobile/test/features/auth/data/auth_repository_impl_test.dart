@@ -23,6 +23,7 @@ void main() {
           useMockFallback: false,
           mockFallbackFeatures: <String>{},
         ),
+        refreshDio: Dio(BaseOptions(baseUrl: 'http://localhost')),
       );
       await localCache.writeString(
         'user_session',

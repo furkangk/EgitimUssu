@@ -29,7 +29,7 @@
 | Tatil / blackout (`ScheduleException`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
 | Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🔴 **Alan var, mantık yok** | Alan saklanıyor ama somut tekrar üretimi yok |
 | Ders güncelleme (`PUT /lessons/{id}`) | 🔴 **Yok** | Yalnızca oluştur + iptal var |
-| `Planned → Completed` geçişi | 🔴 **Yok** | Enum değeri var, davranış yok |
+| `Planned → Completed` geçişi | ✅ **Mevcut** | `Complete()` domain metodu + `POST /lessons/{id}/complete` + `CompleteLessonScheduleCommand` (2026-06-26) |
 
 > **Önemli düzeltme:** Önceki dokümanda "çakışma kontrolü eksik" yazıyordu; **kodda `HasTeacherConflictAsync`
 > ile uygulanmıştır** ve `POST /lessons` sırasında devrededir. Eksik olan, öğrenci tarafındaki **öncelik
@@ -64,6 +64,7 @@
 **Davranışlar (kodda):**
 - **Constructor** → durum dışarıdan verilir; `CreateLessonScheduleCommandHandler` her zaman `LessonScheduleStatus.Planned` ile çağırır. Oluşturmada `LessonScheduledDomainEvent` yayılır.
 - `Cancel(cancellationNote, updatedOnUtc)` → `Status = Cancelled`, not eklenir (varsa mevcut nota satır eklenir), `LessonScheduleCancelledDomainEvent` yayılır.
+- `Complete(updatedOnUtc)` → `Status = Completed`, `LessonSessionCompletedDomainEvent` yayılır. Zaten `Completed` ise `scheduling.already_completed (409)` döner.
 
 **Enum'lar (koddan birebir):**
 ```
@@ -76,6 +77,7 @@ LessonScheduleStatus  : Draft = 1, Planned = 2, Cancelled = 3, Completed = 4
 |-------|---------|
 | `LessonScheduledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, CreatedOnUtc` |
 | `LessonScheduleCancelledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CancelledOnUtc` |
+| `LessonSessionCompletedDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CompletedOnUtc` |
 
 ### 2.2 ⚠️ Önerilen (henüz kodda yok)
 
@@ -121,6 +123,7 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 |---------|----------------|---------------|--------|
 | Ders planla | `POST /api/scheduling/lessons` | `CreateLessonScheduleRequest` → `LessonScheduleResponse` | Çakışma/aralık kontrolü uygulanır; durum `Planned` set edilir; hatırlatma planlanır |
 | Ders iptal | `POST /api/scheduling/lessons/{lessonId}/cancel` | `CancelLessonScheduleRequest { CancellationNote? }` → `LessonScheduleResponse` | `Cancel()` → event + hatırlatma iptali |
+| Ders tamamla | `POST /api/scheduling/lessons/{lessonId}/complete` | (gövde yok) → `LessonScheduleResponse` | `Complete()` → `LessonSessionCompletedDomainEvent`; zaten tamamsa `409 scheduling.already_completed` |
 | Ders getir | `GET /api/scheduling/lessons/{lessonId}` | → `LessonScheduleResponse` | Yoksa `404 scheduling.lesson_not_found` |
 | Takvim (aralık) | `GET /api/scheduling/teachers/{teacherUserId}/lessons?startAtUtc=&endAtUtc=` | → `LessonScheduleResponse[]` | **Tarih aralığı filtresi MEVCUT**; sonuç `StartAtUtc` artan sıralı |
 
@@ -135,6 +138,7 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 | `scheduling.teacher_conflict` | `409` | Öğretmenin bu aralıkta başka dersi var |
 | `scheduling.invalid_range` | `400` | `EndAtUtc <= StartAtUtc` |
 | `scheduling.lesson_not_found` | `404` | Ders planı yok |
+| `scheduling.already_completed` | `409` | Ders zaten tamamlanmış |
 | `shared.forbidden` | `403` | Yetki yok |
 | (varsayılan) | `400` | Diğer doğrulama hataları |
 

@@ -55,7 +55,7 @@ class AuthCubit extends Cubit<AuthState> {
       emit(
         const AuthState(
           status: AuthStatus.unauthenticated,
-          errorMessage: 'Oturum suresi doldu. Lutfen tekrar giris yap.',
+          errorMessage: 'Oturumun süresi doldu. Lütfen tekrar giriş yap.',
         ),
       );
     }

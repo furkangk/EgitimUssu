@@ -44,7 +44,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         state.copyWith(
           isSaving: false,
           records: <PaymentRecord>[created, ...state.records],
-          successMessage: 'Odeme kaydi olusturuldu.',
+          successMessage: 'Ödeme kaydı oluşturuldu.',
           clearMessages: true,
         ),
       );
@@ -85,7 +85,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         state.copyWith(
           isSaving: false,
           records: records,
-          successMessage: 'Odeme tahsil edildi olarak isaretlendi.',
+          successMessage: 'Ödeme tahsil edildi olarak işaretlendi.',
           clearMessages: true,
         ),
       );

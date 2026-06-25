@@ -1,8 +1,12 @@
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
+import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_cubit.dart';
+import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 
 class PaymentsPage extends StatefulWidget {
   const PaymentsPage({super.key});
@@ -22,114 +26,244 @@ class _PaymentsPageState extends State<PaymentsPage> {
   static const _background = Color(0xFFF4F8FC);
   static const _border = Color(0xFFE5EEF7);
 
-  static final _payments = <_StudentPayment>[
-    _StudentPayment(
-      studentName: 'Zeynep Demir',
-      lessonName: 'Matematik - Trigonometri',
-      dueDate: DateTime(2026, 5, 18),
-      amount: 2400,
-      status: _PaymentStatus.paid,
-      accent: _emerald,
-      photoUrl: 'https://i.pravatar.cc/120?img=47',
-    ),
-    _StudentPayment(
-      studentName: 'Ali Yılmaz',
-      lessonName: 'Fizik - Kuvvet ve Hareket',
-      dueDate: DateTime(2026, 5, 22),
-      amount: 1800,
-      status: _PaymentStatus.pending,
-      accent: _blue,
-      photoUrl: 'https://i.pravatar.cc/120?img=12',
-    ),
-    _StudentPayment(
-      studentName: 'Merve Kaya',
-      lessonName: 'Geometri - Problem Çözümü',
-      dueDate: DateTime(2026, 5, 12),
-      amount: 2100,
-      status: _PaymentStatus.overdue,
-      accent: _red,
-      photoUrl: 'https://i.pravatar.cc/120?img=32',
-    ),
-    _StudentPayment(
-      studentName: 'Ege Arslan',
-      lessonName: 'Kimya - Mol Kavrami',
-      dueDate: DateTime(2026, 5, 25),
-      amount: 1600,
-      status: _PaymentStatus.pending,
-      accent: _amber,
-      photoUrl: 'https://i.pravatar.cc/120?img=15',
-    ),
-    _StudentPayment(
-      studentName: 'Defne Sahin',
-      lessonName: 'Türkçe - Paragraf',
-      dueDate: DateTime(2026, 5, 16),
-      amount: 1500,
-      status: _PaymentStatus.paid,
-      accent: _emerald,
-      photoUrl: 'https://i.pravatar.cc/120?img=44',
-    ),
-    _StudentPayment(
-      studentName: 'Can Koç',
-      lessonName: 'Biyoloji - Hücre',
-      dueDate: DateTime(2026, 5, 9),
-      amount: 1750,
-      status: _PaymentStatus.overdue,
-      accent: _red,
-      photoUrl: 'https://i.pravatar.cc/120?img=18',
-    ),
-  ];
-
+  late final PaymentsCubit _cubit;
   _PaymentFilter _selectedFilter = _PaymentFilter.all;
 
   @override
+  void initState() {
+    super.initState();
+    _cubit = PaymentsCubit.create();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userId = context.read<AuthCubit>().state.session?.userId;
+    if (userId != null && _cubit.state.records.isEmpty && !_cubit.state.isLoading) {
+      _cubit.load(userId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final session = context.select((AuthCubit cubit) => cubit.state.session);
+    final session = context.select((AuthCubit c) => c.state.session);
     final teacherName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Ahmet Yılmaz';
-    final visiblePayments = _payments
-        .where((payment) => _selectedFilter.matches(payment.status))
-        .toList();
+        : 'Öğretmen';
 
-    return Scaffold(
-      backgroundColor: _background,
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _navy,
-        foregroundColor: Colors.white,
-        onPressed: () => context.push('/payments/new'),
-        label: const Text('Ödeme Ekle'),
-        icon: const Icon(Icons.add_card_rounded),
-      ),
-      bottomNavigationBar: _FinanceBottomNav(
-        onHomeTap: () => context.go('/dashboard'),
-        onLessonsTap: () => context.go('/lesson-sessions'),
-        onStudentsTap: () => context.go('/students'),
-        onCalendarTap: () => context.go('/scheduling'),
-        onMoreTap: () => context.go('/more'),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 116),
-          children: <Widget>[
-            _FinanceHeader(teacherName: teacherName),
-            const SizedBox(height: 22),
-            _FinanceSummaryPanel(payments: _payments),
-            const SizedBox(height: 18),
-            _PaymentTabs(
-              selectedFilter: _selectedFilter,
-              onChanged: (filter) => setState(() => _selectedFilter = filter),
+    return BlocProvider<PaymentsCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<PaymentsCubit, PaymentsState>(
+        listener: (context, state) {
+          if (state.successMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.successMessage!),
+                backgroundColor: _emerald,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage!),
+                backgroundColor: _red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          final filtered = state.records
+              .where((r) => _selectedFilter.matches(r))
+              .toList();
+
+          return Scaffold(
+            backgroundColor: _background,
+            floatingActionButton: FloatingActionButton.extended(
+              backgroundColor: _navy,
+              foregroundColor: Colors.white,
+              onPressed: () {
+                context.push('/payments/new').then((_) {
+                  if (!context.mounted) return;
+                  final userId =
+                      context.read<AuthCubit>().state.session?.userId;
+                  if (userId != null) _cubit.load(userId);
+                });
+              },
+              label: const Text('Ödeme Ekle'),
+              icon: const Icon(Icons.add_card_rounded),
             ),
-            const SizedBox(height: 14),
-            _PaymentList(
-              payments: visiblePayments,
-              selectedFilter: _selectedFilter,
+            bottomNavigationBar: _FinanceBottomNav(
+              onHomeTap: () => context.go('/dashboard'),
+              onLessonsTap: () => context.go('/lesson-sessions'),
+              onStudentsTap: () => context.go('/students'),
+              onCalendarTap: () => context.go('/scheduling'),
+              onMoreTap: () => context.go('/more'),
             ),
-          ],
+            body: SafeArea(
+              child: RefreshIndicator(
+                color: _navy,
+                onRefresh: () {
+                  final userId =
+                      context.read<AuthCubit>().state.session?.userId;
+                  if (userId != null) return _cubit.load(userId);
+                  return Future<void>.value();
+                },
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 116),
+                  children: <Widget>[
+                    _FinanceHeader(teacherName: teacherName),
+                    const SizedBox(height: 22),
+                    if (state.isLoading)
+                      const _ShimmerSummary()
+                    else
+                      _FinanceSummaryPanel(records: state.records),
+                    const SizedBox(height: 18),
+                    _PaymentTabs(
+                      selectedFilter: _selectedFilter,
+                      onChanged: (f) => setState(() => _selectedFilter = f),
+                    ),
+                    const SizedBox(height: 14),
+                    if (state.isLoading)
+                      const _ShimmerList()
+                    else if (state.errorMessage != null && state.records.isEmpty)
+                      _ErrorCard(
+                        message: state.errorMessage!,
+                        onRetry: () {
+                          final userId =
+                              context.read<AuthCubit>().state.session?.userId;
+                          if (userId != null) _cubit.load(userId);
+                        },
+                      )
+                    else if (filtered.isEmpty)
+                      _EmptyPanel(
+                        title: '${_selectedFilter.label} ödeme yok',
+                        subtitle:
+                            'Bu durumda görüntülenecek ödeme kaydı bulunmuyor.',
+                      )
+                    else
+                      _PaymentList(
+                        records: filtered,
+                        isSaving: state.isSaving,
+                        onMarkPaid: (record) => _cubit.markPaid(record),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Shimmer ──────────────────────────────────────────────────────────────────
+
+class _ShimmerSummary extends StatelessWidget {
+  const _ShimmerSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFD0DFF0),
+      highlightColor: const Color(0xFFECF4FF),
+      child: Container(
+        height: 150,
+        decoration: BoxDecoration(
+          color: _PaymentsPageState._navy,
+          borderRadius: BorderRadius.circular(22),
         ),
       ),
     );
   }
 }
+
+class _ShimmerList extends StatelessWidget {
+  const _ShimmerList();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFEEF4FB),
+      highlightColor: Colors.white,
+      child: Column(
+        children: List<Widget>.generate(
+          4,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              height: 90,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Hata kartı ──────────────────────────────────────────────────────────────
+
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _PaymentsPageState._border),
+      ),
+      child: Column(
+        children: <Widget>[
+          Icon(
+            Icons.error_outline_rounded,
+            size: 36,
+            color: _PaymentsPageState._red,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Ödemeler yüklenemedi',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: _PaymentsPageState._text,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: _PaymentsPageState._slate,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sayfa bileşenleri ────────────────────────────────────────────────────────
 
 class _FinanceHeader extends StatelessWidget {
   const _FinanceHeader({required this.teacherName});
@@ -151,32 +285,28 @@ class _FinanceHeader extends StatelessWidget {
             ),
           ),
         ),
-        _HeaderIconButton(
-          icon: Icons.notifications_none_rounded,
-          badgeText: '3',
-          onTap: () {},
-        ),
+        _HeaderIconButton(icon: Icons.notifications_none_rounded, onTap: () {}),
       ],
     );
   }
 }
 
 class _FinanceSummaryPanel extends StatelessWidget {
-  const _FinanceSummaryPanel({required this.payments});
+  const _FinanceSummaryPanel({required this.records});
 
-  final List<_StudentPayment> payments;
+  final List<PaymentRecord> records;
 
   @override
   Widget build(BuildContext context) {
-    final paid = payments
-        .where((payment) => payment.status == _PaymentStatus.paid)
-        .fold<double>(0, (total, payment) => total + payment.amount);
-    final pending = payments
-        .where((payment) => payment.status == _PaymentStatus.pending)
-        .fold<double>(0, (total, payment) => total + payment.amount);
-    final overdue = payments
-        .where((payment) => payment.status == _PaymentStatus.overdue)
-        .fold<double>(0, (total, payment) => total + payment.amount);
+    final collected = records
+        .where((r) => r.status == 'Paid')
+        .fold<double>(0, (t, r) => t + r.collectedAmount);
+    final outstanding = records
+        .where((r) => !r.isOverdue && r.status != 'Paid')
+        .fold<double>(0, (t, r) => t + r.outstandingAmount);
+    final overdue = records
+        .where((r) => r.isOverdue)
+        .fold<double>(0, (t, r) => t + r.outstandingAmount);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -203,7 +333,7 @@ class _FinanceSummaryPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Mayıs 2026 ders ödeme durumu',
+            '${records.length} ödeme kaydı',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Colors.white.withValues(alpha: 0.72),
               fontWeight: FontWeight.w600,
@@ -214,8 +344,8 @@ class _FinanceSummaryPanel extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Bu ay gelir',
-                  value: _money(paid),
+                  label: 'Tahsil edilen',
+                  value: _money(collected),
                   icon: Icons.trending_up_rounded,
                   color: _PaymentsPageState._emerald,
                 ),
@@ -224,7 +354,7 @@ class _FinanceSummaryPanel extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   label: 'Bekleyen',
-                  value: _money(pending),
+                  value: _money(outstanding),
                   icon: Icons.schedule_rounded,
                   color: _PaymentsPageState._amber,
                 ),
@@ -339,7 +469,9 @@ class _PaymentTabs extends StatelessWidget {
                     filter.label,
                     maxLines: 1,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: selected ? Colors.white : _PaymentsPageState._slate,
+                      color: selected
+                          ? Colors.white
+                          : _PaymentsPageState._slate,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -355,44 +487,80 @@ class _PaymentTabs extends StatelessWidget {
 
 class _PaymentList extends StatelessWidget {
   const _PaymentList({
-    required this.payments,
-    required this.selectedFilter,
+    required this.records,
+    required this.isSaving,
+    required this.onMarkPaid,
   });
 
-  final List<_StudentPayment> payments;
-  final _PaymentFilter selectedFilter;
+  final List<PaymentRecord> records;
+  final bool isSaving;
+  final ValueChanged<PaymentRecord> onMarkPaid;
 
   @override
   Widget build(BuildContext context) {
-    if (payments.isEmpty) {
-      return _EmptyPanel(
-        title: '${selectedFilter.label} ödeme yok',
-        subtitle: 'Bu durumda görüntülenecek ders ödemesi bulunmuyor.',
-      );
-    }
-
     return Column(
-      children: payments
-          .map(
-            (payment) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _PaymentTile(payment: payment),
-            ),
-          )
-          .toList(),
+      children: List<Widget>.generate(records.length, (index) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == records.length - 1 ? 0 : 12,
+          ),
+          child: _PaymentTile(
+            record: records[index],
+            accentColor: _accentForIndex(index),
+            isSaving: isSaving,
+            onMarkPaid: () => onMarkPaid(records[index]),
+          ),
+        );
+      }),
     );
+  }
+
+  Color _accentForIndex(int index) {
+    const colors = <Color>[
+      _PaymentsPageState._emerald,
+      _PaymentsPageState._blue,
+      _PaymentsPageState._amber,
+      _PaymentsPageState._red,
+    ];
+    return colors[index % colors.length];
   }
 }
 
 class _PaymentTile extends StatelessWidget {
-  const _PaymentTile({required this.payment});
+  const _PaymentTile({
+    required this.record,
+    required this.accentColor,
+    required this.isSaving,
+    required this.onMarkPaid,
+  });
 
-  final _StudentPayment payment;
+  final PaymentRecord record;
+  final Color accentColor;
+  final bool isSaving;
+  final VoidCallback onMarkPaid;
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = payment.status.color;
-    final dueDate = _dateLabel(payment.dueDate);
+    final isPaid = record.status == 'Paid';
+    final isOverdue = record.isOverdue;
+    final statusColor = isPaid
+        ? _PaymentsPageState._emerald
+        : isOverdue
+            ? _PaymentsPageState._red
+            : record.status == 'PartiallyPaid'
+                ? _PaymentsPageState._blue
+                : _PaymentsPageState._amber;
+    final statusLabel = isPaid
+        ? 'Ödendi'
+        : isOverdue
+            ? 'Geciken'
+            : record.status == 'PartiallyPaid'
+                ? 'Kısmi'
+                : 'Bekleyen';
+    final displayAmount = isPaid ? record.collectedAmount : record.outstandingAmount;
+    final dueLabel = record.dueDateUtc != null
+        ? _dateLabel(record.dueDateUtc!)
+        : '';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -409,59 +577,73 @@ class _PaymentTile extends StatelessWidget {
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _StudentPhoto(
-            name: payment.studentName,
-            accent: payment.accent,
-            photoUrl: payment.photoUrl,
-          ),
+          _InitialsAvatar(name: record.description, accent: accentColor),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  payment.studentName,
-                  maxLines: 1,
+                  record.description,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: _PaymentsPageState._text,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  payment.lessonName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _PaymentsPageState._slate,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      Icons.event_rounded,
-                      size: 15,
-                      color: _PaymentsPageState._slate.withValues(alpha: 0.84),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        dueDate,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                if (dueLabel.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.event_rounded,
+                        size: 15,
+                        color: _PaymentsPageState._slate
+                            .withValues(alpha: 0.84),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        dueLabel,
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: _PaymentsPageState._slate,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
+                    ],
+                  ),
+                ],
+                if (!isPaid) ...<Widget>[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 34,
+                    child: OutlinedButton.icon(
+                      onPressed: isSaving ? null : onMarkPaid,
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                      label: const Text('Tahsil Et'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _PaymentsPageState._navy,
+                        side: const BorderSide(
+                          color: _PaymentsPageState._navy,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 0,
+                        ),
+                        textStyle: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -470,45 +652,17 @@ class _PaymentTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               Text(
-                _money(payment.amount),
+                _money(displayAmount),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: _PaymentsPageState._text,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 8),
-              _StatusPill(label: payment.status.label, color: statusColor),
+              _StatusPill(label: statusLabel, color: statusColor),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StudentPhoto extends StatelessWidget {
-  const _StudentPhoto({
-    required this.name,
-    required this.accent,
-    required this.photoUrl,
-  });
-
-  final String name;
-  final Color accent;
-  final String photoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: SizedBox(
-        width: 54,
-        height: 54,
-        child: Image.network(
-          photoUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              _InitialsAvatar(name: name, accent: accent),
-        ),
       ),
     );
   }
@@ -523,6 +677,8 @@ class _InitialsAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: 54,
+      height: 54,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: <Color>[
@@ -532,6 +688,7 @@ class _InitialsAvatar extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: Text(
@@ -571,10 +728,9 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({required this.icon, this.badgeText, this.onTap});
+  const _HeaderIconButton({required this.icon, this.onTap});
 
   final IconData icon;
-  final String? badgeText;
   final VoidCallback? onTap;
 
   @override
@@ -582,39 +738,15 @@ class _HeaderIconButton extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _PaymentsPageState._border),
-            ),
-            child: Icon(icon, color: _PaymentsPageState._text),
-          ),
-          if (badgeText != null)
-            Positioned(
-              top: -3,
-              right: -3,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _PaymentsPageState._emerald,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  badgeText!,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _PaymentsPageState._border),
+        ),
+        child: Icon(icon, color: _PaymentsPageState._text),
       ),
     );
   }
@@ -757,25 +889,7 @@ class _FinanceBottomNav extends StatelessWidget {
   }
 }
 
-class _StudentPayment {
-  const _StudentPayment({
-    required this.studentName,
-    required this.lessonName,
-    required this.dueDate,
-    required this.amount,
-    required this.status,
-    required this.accent,
-    required this.photoUrl,
-  });
-
-  final String studentName;
-  final String lessonName;
-  final DateTime dueDate;
-  final double amount;
-  final _PaymentStatus status;
-  final Color accent;
-  final String photoUrl;
-}
+// ── Enum + yardımcı ──────────────────────────────────────────────────────────
 
 enum _PaymentFilter {
   all('Tümü'),
@@ -787,25 +901,15 @@ enum _PaymentFilter {
 
   final String label;
 
-  bool matches(_PaymentStatus status) {
+  bool matches(PaymentRecord record) {
     return switch (this) {
       _PaymentFilter.all => true,
-      _PaymentFilter.paid => status == _PaymentStatus.paid,
-      _PaymentFilter.pending => status == _PaymentStatus.pending,
-      _PaymentFilter.overdue => status == _PaymentStatus.overdue,
+      _PaymentFilter.paid => record.status == 'Paid',
+      _PaymentFilter.pending =>
+        record.status != 'Paid' && !record.isOverdue,
+      _PaymentFilter.overdue => record.isOverdue,
     };
   }
-}
-
-enum _PaymentStatus {
-  paid('Ödendi', _PaymentsPageState._emerald),
-  pending('Bekleyen', _PaymentsPageState._amber),
-  overdue('Geciken', _PaymentsPageState._red);
-
-  const _PaymentStatus(this.label, this.color);
-
-  final String label;
-  final Color color;
 }
 
 class _BottomNavItem {
@@ -825,30 +929,25 @@ String _money(double amount) {
 String _dateLabel(DateTime date) {
   const months = <String>[
     'Ocak',
-    'Subat',
+    'Şubat',
     'Mart',
     'Nisan',
     'Mayıs',
     'Haziran',
     'Temmuz',
     'Ağustos',
-    'Eylul',
+    'Eylül',
     'Ekim',
     'Kasım',
-    'Aralik',
+    'Aralık',
   ];
-
   return '${date.day} ${months[date.month - 1]} ${date.year}';
 }
 
 String _initials(String value) {
   final parts = value.trim().split(RegExp(r'\s+'));
-  if (parts.isEmpty || parts.first.isEmpty) {
-    return '?';
-  }
-  if (parts.length == 1) {
-    return parts.first.substring(0, 1).toUpperCase();
-  }
+  if (parts.isEmpty || parts.first.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
   return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
       .toUpperCase();
 }

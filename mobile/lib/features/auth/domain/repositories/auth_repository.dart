@@ -12,5 +12,6 @@ abstract interface class AuthRepository {
   });
 
   Future<UserSession?> restoreSession();
+  Future<UserSession> refreshSession();
   Future<void> logout();
 }

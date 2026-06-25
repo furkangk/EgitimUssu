@@ -40,6 +40,9 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapGet("/profiles/by-teacher/{teacherUserId:guid}", ListStudentsByTeacherAsync)
         .WithSummary("Öğretmene bağlı öğrencileri listeler");
+
+        group.MapPut("/profiles/{studentId:guid}", UpdateStudentProfileAsync)
+        .WithSummary("Öğrenci profilini günceller veya pasifleştirir");
     }
 
     /// <summary>
@@ -94,6 +97,20 @@ public sealed class StudentsModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// Mevcut öğrenci profilinin bilgilerini ve aktiflik durumunu günceller.
+    /// </summary>
+    private static async Task<IResult> UpdateStudentProfileAsync(
+        HttpContext context,
+        Guid studentId,
+        UpdateStudentProfileRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(studentId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -115,6 +132,34 @@ public sealed class StudentsModule : ModuleDefinition
 /// Öğrencinin takip ettiği ders alanını ve hedef seviyesini belirtir.
 /// </summary>
 public sealed record StudentSubjectItem(string Subject, string? TargetLevel);
+
+/// <summary>
+/// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.
+/// </summary>
+public sealed record UpdateStudentProfileRequest(
+    string FullName,
+    string GradeLevel,
+    string? ContactEmail,
+    string? ContactPhone,
+    string? GoalSummary,
+    string? LevelNotes,
+    bool IsActive,
+    IReadOnlyCollection<StudentSubjectItem> Subjects)
+{
+    public UpdateStudentProfileCommand ToCommand(Guid studentId)
+    {
+        return new UpdateStudentProfileCommand(
+            studentId,
+            FullName,
+            GradeLevel,
+            ContactEmail,
+            ContactPhone,
+            GoalSummary,
+            LevelNotes,
+            IsActive,
+            Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray());
+    }
+}
 
 /// <summary>
 /// Öğrenci profili oluşturmak için gerekli kimlik, iletişim, hedef ve ders bilgilerini taşır.

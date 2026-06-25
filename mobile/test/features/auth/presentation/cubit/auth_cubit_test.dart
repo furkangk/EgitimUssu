@@ -32,7 +32,7 @@ void main() {
 
     expect(repository.logoutCount, 1);
     expect(cubit.state.status, AuthStatus.unauthenticated);
-    expect(cubit.state.errorMessage, contains('Oturum suresi doldu'));
+    expect(cubit.state.errorMessage, contains('Oturumun süresi doldu'));
 
     await unauthorizedEvents.close();
     await cubit.close();
@@ -62,6 +62,11 @@ class _RestoringAuthRepository implements AuthRepository {
       accessToken: 'cached-token',
       expiresAtUtc: DateTime.now().toUtc().add(const Duration(days: 1)),
     );
+  }
+
+  @override
+  Future<UserSession> refreshSession() {
+    throw UnimplementedError();
   }
 
   @override

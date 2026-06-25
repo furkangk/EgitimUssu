@@ -89,6 +89,63 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     }
   }
 
+  Future<void> loadForCalendar(String teacherUserId) async {
+    if (isClosed) return;
+    final now = DateTime.now().toUtc();
+    final start = DateTime.utc(now.year, now.month - 2, 1);
+    final end = DateTime.utc(now.year, now.month + 4, 1);
+    emit(
+      state.copyWith(
+        isLoading: true,
+        weekStartAtUtc: start,
+        weekEndAtUtc: end,
+        clearMessages: true,
+      ),
+    );
+    try {
+      final lessons = await _repository.listTeacherLessons(
+        teacherUserId: teacherUserId,
+        startAtUtc: start,
+        endAtUtc: end,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          lessons: lessons,
+          clearMessages: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isLoading: false, errorMessage: error.message));
+    }
+  }
+
+  Future<void> completeLesson({required String lessonId}) async {
+    if (isClosed) return;
+    emit(state.copyWith(isSaving: true, clearMessages: true));
+    try {
+      final completed = await _repository.completeLesson(lessonId: lessonId);
+      if (isClosed) return;
+      final lessons = state.lessons
+          .map((item) => item.id == completed.id ? completed : item)
+          .toList();
+      emit(
+        state.copyWith(
+          isSaving: false,
+          lessons: lessons,
+          selectedLesson: completed,
+          successMessage: 'Ders tamamlandı olarak işaretlendi.',
+          clearMessages: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isSaving: false, errorMessage: error.message));
+    }
+  }
+
   Future<void> cancelLesson({
     required LessonSchedule lesson,
     String? cancellationNote,

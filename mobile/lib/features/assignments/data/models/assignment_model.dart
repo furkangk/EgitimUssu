@@ -2,20 +2,26 @@ import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contra
 
 class AssignmentItemModel extends AssignmentItem {
   const AssignmentItemModel({
+    super.id,
     required super.title,
     required super.description,
+    super.studentId,
     super.dueDateUtc,
     super.attachmentUrl,
     super.status,
+    super.createdOnUtc,
   });
 
   factory AssignmentItemModel.fromJson(Map<String, dynamic> json) {
     return AssignmentItemModel(
+      id: json['id']?.toString(),
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
+      studentId: json['studentId']?.toString(),
       dueDateUtc: _parseDate(json['dueDateUtc']),
       attachmentUrl: json['attachmentUrl']?.toString(),
       status: json['status']?.toString(),
+      createdOnUtc: _parseDate(json['createdOnUtc']),
     );
   }
 
@@ -28,10 +34,65 @@ class AssignmentItemModel extends AssignmentItem {
     };
   }
 
+  static List<AssignmentItemModel> demoList() {
+    final now = DateTime.now().toUtc();
+    return <AssignmentItemModel>[
+      AssignmentItemModel(
+        id: 'demo-1',
+        title: 'Polinomlar Alıştırmaları',
+        description: '42–45. sayfa 24 soru çöz.',
+        dueDateUtc: now.add(const Duration(days: 3)),
+        status: 'Pending',
+        createdOnUtc: now.subtract(const Duration(days: 1)),
+      ),
+      AssignmentItemModel(
+        id: 'demo-2',
+        title: 'Kuvvet ve Hareket Tekrar',
+        description: 'Hız–zaman grafiği soruları.',
+        dueDateUtc: now.add(const Duration(days: 5)),
+        status: 'InProgress',
+        createdOnUtc: now.subtract(const Duration(days: 2)),
+      ),
+      AssignmentItemModel(
+        id: 'demo-3',
+        title: 'Trigonometri Sınavı Hazırlık',
+        description: '30 soruluk test çöz.',
+        dueDateUtc: now.subtract(const Duration(days: 1)),
+        status: 'Completed',
+        createdOnUtc: now.subtract(const Duration(days: 7)),
+      ),
+    ];
+  }
+
   static DateTime? _parseDate(Object? value) {
-    if (value == null) {
-      return null;
-    }
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString())?.toUtc();
+  }
+}
+
+class LessonNoteModel extends LessonNote {
+  const LessonNoteModel({
+    required super.id,
+    required super.lessonSessionId,
+    required super.summary,
+    super.coveredTopics,
+    super.recommendations,
+    required super.createdOnUtc,
+  });
+
+  factory LessonNoteModel.fromJson(Map<String, dynamic> json) {
+    return LessonNoteModel(
+      id: json['id']?.toString() ?? '',
+      lessonSessionId: json['lessonSessionId']?.toString() ?? '',
+      summary: json['summary']?.toString() ?? '',
+      coveredTopics: json['coveredTopics']?.toString(),
+      recommendations: json['recommendations']?.toString(),
+      createdOnUtc: _parseDate(json['createdOnUtc']) ?? DateTime.now().toUtc(),
+    );
+  }
+
+  static DateTime? _parseDate(Object? value) {
+    if (value == null) return null;
     return DateTime.tryParse(value.toString())?.toUtc();
   }
 }
@@ -89,11 +150,11 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
       'recommendations': recommendations,
       'assignments': assignments
           .map(
-            (assignment) => AssignmentItemModel(
-              title: assignment.title,
-              description: assignment.description,
-              dueDateUtc: assignment.dueDateUtc,
-              attachmentUrl: assignment.attachmentUrl,
+            (a) => AssignmentItemModel(
+              title: a.title,
+              description: a.description,
+              dueDateUtc: a.dueDateUtc,
+              attachmentUrl: a.attachmentUrl,
             ).toCreatePayload(),
           )
           .toList(),

@@ -681,6 +681,212 @@ public sealed class TeacherWorkflowIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task UpdateTeacherProfile_Should_Not_Change_IsVerified()
+    {
+        var previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
+        Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", "InMemory:isverified-immutable-tests");
+
+        try
+        {
+            await using var factory = new WebApplicationFactory<Program>();
+            using var client = factory.CreateClient();
+
+            var registerResponse = await client.PostAsJsonAsync("/api/identity/register", new
+            {
+                email = "teacher_verify_test@example.com",
+                password = "Teacher123!",
+                firstName = "Test",
+                lastName = "Ogretmen",
+                phoneNumber = "5559998877",
+                roles = new[] { 2 }
+            });
+            registerResponse.EnsureSuccessStatusCode();
+            var authPayload = await ReadJsonAsync(registerResponse);
+            var teacherUserId = authPayload.GetProperty("userId").GetGuid();
+            var accessToken = authPayload.GetProperty("accessToken").GetString();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var createResponse = await client.PostAsJsonAsync("/api/teachers/profiles", new
+            {
+                userId = teacherUserId,
+                fullName = "Test Ogretmen",
+                subject = "Matematik",
+                city = "Istanbul",
+                district = "Kadikoy",
+                biography = (string?)null,
+                headline = (string?)null,
+                lessonFormat = 2,
+                experienceYears = 3,
+                educationLevel = "Lisans",
+                hourlyRateAmount = 1000,
+                currency = "TRY",
+                profilePhotoUrl = (string?)null,
+                availabilitySlots = Array.Empty<object>()
+            });
+            createResponse.EnsureSuccessStatusCode();
+            var createPayload = await ReadJsonAsync(createResponse);
+            Assert.False(createPayload.GetProperty("isVerified").GetBoolean());
+
+            // isVerified = true gönderilse bile görmezden gelinmeli
+            var updateResponse = await client.PutAsJsonAsync($"/api/teachers/profiles/{teacherUserId}", new
+            {
+                userId = teacherUserId,
+                fullName = "Test Ogretmen Guncel",
+                subject = "Matematik",
+                city = "Istanbul",
+                district = "Kadikoy",
+                biography = (string?)null,
+                headline = (string?)null,
+                lessonFormat = 2,
+                experienceYears = 4,
+                educationLevel = "Lisans",
+                hourlyRateAmount = 1100,
+                currency = "TRY",
+                isVerified = true,
+                profilePhotoUrl = (string?)null,
+                availabilitySlots = Array.Empty<object>()
+            });
+            updateResponse.EnsureSuccessStatusCode();
+            var updatePayload = await ReadJsonAsync(updateResponse);
+            Assert.False(updatePayload.GetProperty("isVerified").GetBoolean());
+
+            var getResponse = await client.GetAsync($"/api/teachers/profiles/{teacherUserId}");
+            getResponse.EnsureSuccessStatusCode();
+            var getPayload = await ReadJsonAsync(getResponse);
+            Assert.False(getPayload.GetProperty("isVerified").GetBoolean());
+            Assert.Equal("Test Ogretmen Guncel", getPayload.GetProperty("fullName").GetString());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", previousConnectionString);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateStudentProfile_Should_Block_Other_Teacher_And_Allow_Owner()
+    {
+        var previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
+        Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", "InMemory:student-ownership-tests");
+
+        try
+        {
+            await using var factory = new WebApplicationFactory<Program>();
+            using var clientA = factory.CreateClient();
+            using var clientB = factory.CreateClient();
+
+            // Teacher A: register + login
+            var registerA = await clientA.PostAsJsonAsync("/api/identity/register", new
+            {
+                email = "teacher-a@ownership.test",
+                password = "Teacher123!",
+                firstName = "Ali",
+                lastName = "A",
+                phoneNumber = "5550000001",
+                roles = new[] { 2 }
+            });
+            registerA.EnsureSuccessStatusCode();
+            var authA = await ReadJsonAsync(registerA);
+            var teacherAUserId = authA.GetProperty("userId").GetGuid();
+            var tokenA = authA.GetProperty("accessToken").GetString();
+            clientA.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenA);
+
+            // Teacher B: register + login
+            var registerB = await clientB.PostAsJsonAsync("/api/identity/register", new
+            {
+                email = "teacher-b@ownership.test",
+                password = "Teacher123!",
+                firstName = "Buse",
+                lastName = "B",
+                phoneNumber = "5550000002",
+                roles = new[] { 2 }
+            });
+            registerB.EnsureSuccessStatusCode();
+            var authB = await ReadJsonAsync(registerB);
+            var tokenB = authB.GetProperty("accessToken").GetString();
+            clientB.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenB);
+
+            // Teacher A creates a student
+            var createStudentResponse = await clientA.PostAsJsonAsync("/api/students/profiles", new
+            {
+                userId = (Guid?)null,
+                createdByTeacherUserId = teacherAUserId,
+                parentUserId = (Guid?)null,
+                fullName = "Mert Demir",
+                gradeLevel = "10. Sinif",
+                contactEmail = (string?)null,
+                contactPhone = (string?)null,
+                goalSummary = "YKS hazirligi",
+                levelNotes = (string?)null,
+                origin = 1,
+                subjects = new[] { new { subject = "Matematik", targetLevel = "TYT" } }
+            });
+            createStudentResponse.EnsureSuccessStatusCode();
+            var studentPayload = await ReadJsonAsync(createStudentResponse);
+            var studentId = studentPayload.GetProperty("id").GetGuid();
+            Assert.True(studentPayload.GetProperty("isActive").GetBoolean());
+
+            // Teacher B tries to update Teacher A's student → 403
+            var forbiddenResponse = await clientB.PutAsJsonAsync($"/api/students/profiles/{studentId}", new
+            {
+                fullName = "Mert Demir (B hack)",
+                gradeLevel = "10. Sinif",
+                contactEmail = (string?)null,
+                contactPhone = (string?)null,
+                goalSummary = (string?)null,
+                levelNotes = (string?)null,
+                isActive = true,
+                subjects = Array.Empty<object>()
+            });
+            Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
+
+            // Teacher A updates their own student → 200; fullName and isActive change persisted
+            var updateResponse = await clientA.PutAsJsonAsync($"/api/students/profiles/{studentId}", new
+            {
+                fullName = "Mert Demir Guncel",
+                gradeLevel = "10. Sinif",
+                contactEmail = (string?)null,
+                contactPhone = (string?)null,
+                goalSummary = "YKS Matematik odakli",
+                levelNotes = "Cebir guclendirilecek",
+                isActive = false,
+                subjects = new[] { new { subject = "Matematik", targetLevel = "TYT 2027" } }
+            });
+            updateResponse.EnsureSuccessStatusCode();
+            var updatedPayload = await ReadJsonAsync(updateResponse);
+            Assert.Equal("Mert Demir Guncel", updatedPayload.GetProperty("fullName").GetString());
+            Assert.False(updatedPayload.GetProperty("isActive").GetBoolean());
+            Assert.Equal("YKS Matematik odakli", updatedPayload.GetProperty("goalSummary").GetString());
+
+            // GET confirms persistence
+            var getResponse = await clientA.GetAsync($"/api/students/profiles/{studentId}");
+            getResponse.EnsureSuccessStatusCode();
+            var getPayload = await ReadJsonAsync(getResponse);
+            Assert.Equal("Mert Demir Guncel", getPayload.GetProperty("fullName").GetString());
+            Assert.False(getPayload.GetProperty("isActive").GetBoolean());
+
+            // Teacher A reactivates the student
+            var reactivateResponse = await clientA.PutAsJsonAsync($"/api/students/profiles/{studentId}", new
+            {
+                fullName = "Mert Demir Guncel",
+                gradeLevel = "10. Sinif",
+                contactEmail = (string?)null,
+                contactPhone = (string?)null,
+                goalSummary = "YKS Matematik odakli",
+                levelNotes = "Cebir guclendirilecek",
+                isActive = true,
+                subjects = Array.Empty<object>()
+            });
+            reactivateResponse.EnsureSuccessStatusCode();
+            var reactivatedPayload = await ReadJsonAsync(reactivateResponse);
+            Assert.True(reactivatedPayload.GetProperty("isActive").GetBoolean());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", previousConnectionString);
+        }
+    }
+
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
     {
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();

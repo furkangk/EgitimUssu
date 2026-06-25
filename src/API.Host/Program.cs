@@ -24,6 +24,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 builder.Services.AddSharedInfrastructure(builder.Configuration);
 builder.Services.AddDiscoveredModules(builder.Configuration, ModuleAssemblies.All);
+builder.Services.ValidateAuthorizationCoverage();
 builder.Services
     .AddHealthChecks()
     .AddCheck<ConfigurationHealthCheck>("configuration", tags: ["ready"])
@@ -132,6 +133,7 @@ app.MapGet("/api/meta/version", GetApiVersion)
 .WithSummary("API sürüm ve modül bilgilerini getirir");
 
 app.MapDiscoveredModules();
+app.MapTeacherDashboard();
 
 var databaseOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<DatabaseOptions>>().Value;
 if (databaseOptions.ApplyMigrationsOnStartup)

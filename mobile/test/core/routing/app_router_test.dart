@@ -45,6 +45,11 @@ class _FakeAuthRepository implements AuthRepository {
   Future<UserSession?> restoreSession() async => null;
 
   @override
+  Future<UserSession> refreshSession() {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<UserSession> register({
     required String email,
     required String password,

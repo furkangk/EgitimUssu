@@ -139,15 +139,18 @@ Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/
 
 ## 7. Ağ Katmanı, Config & Depolama
 
-**`ApiClient`** — `Dio` sarmalayıcı. İstekte interceptor access token'ı `Authorization: Bearer` ekler;
-`401` gelirse `unauthorizedEvents` yayını ile oturum düşürülür. `post/put/get/getList` metotları `ApiException`'a çevirir.
+**`ApiClient`** — `Dio` sarmalayıcı. İki interceptor içerir:
 
-```dart
-_dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) async {
-  final token = await _tokenStorage.readAccessToken();
-  if (token != null && token.isNotEmpty) options.headers['Authorization'] = 'Bearer $token';
-  handler.next(options);
-}));
+1. **Request interceptor** — `TokenStorage`'dan access token okuyup `Authorization: Bearer` ekler.
+2. **`TokenRefreshInterceptor`** (`QueuedInterceptorsWrapper`) — 401 yanıtını yakalar; `onRefreshToken` callback'i ile `POST /api/identity/refresh` çağırır.
+   - Refresh **başarılıysa:** orijinal isteği yeni token ile yeniden gönderir (caller'a şeffaftır).
+   - Refresh **başarısızsa:** `unauthorizedEvents` stream'ine event basar → `AuthCubit.expireSession()` → oturumu kapat.
+   - Eş zamanlı birden fazla 401 geldiğinde **tek bir refresh isteği** gönderilir; diğerleri kuyrukta bekler.
+
+```
+TokenStorage: access_token + refresh_token → flutter_secure_storage
+ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refreshDio──> POST /api/identity/refresh
+                                                                         (auth interceptor'ından bağımsız ham Dio)
 ```
 
 **`AppConfig`** — `--dart-define` ile ortam değişkenleri:
@@ -161,7 +164,7 @@ _dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) async {
 
 `isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır; geliştirmede backend hazır olmayan feature'lar mock veri döndürür.
 
-**Depolama:** `SecureTokenStorage` (token'lar — secure storage), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
+**Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
 
 ## 8. Feature ↔ Backend Modül Eşlemesi
 

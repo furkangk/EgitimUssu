@@ -19,6 +19,9 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListStudentsByTeacherQuery, Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>, ListStudentsByTeacherQueryHandler>();
         services.AddScoped<ICommandValidator<CreateStudentProfileCommand>, CreateStudentProfileCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateStudentProfileCommand>, CreateStudentProfileCommandAuthorizer>();
+        services.AddScoped<ICommandHandler<UpdateStudentProfileCommand, Result<StudentProfileResponse>>, UpdateStudentProfileCommandHandler>();
+        services.AddScoped<ICommandValidator<UpdateStudentProfileCommand>, UpdateStudentProfileCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<UpdateStudentProfileCommand>, UpdateStudentProfileCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudentProfileByIdQuery>, StudentProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudentProfileByUserIdQuery>, StudentProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListStudentsByTeacherQuery>, StudentProfileQueryAuthorizer>();

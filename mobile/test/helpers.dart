@@ -2,19 +2,29 @@ import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/core/storage/token_storage.dart';
 
 class InMemoryTokenStorage implements TokenStorage {
-  String? _token;
+  String? _accessToken;
+  String? _refreshToken;
 
   @override
   Future<void> clear() async {
-    _token = null;
+    _accessToken = null;
+    _refreshToken = null;
   }
 
   @override
-  Future<String?> readAccessToken() async => _token;
+  Future<String?> readAccessToken() async => _accessToken;
 
   @override
   Future<void> writeAccessToken(String token) async {
-    _token = token;
+    _accessToken = token;
+  }
+
+  @override
+  Future<String?> readRefreshToken() async => _refreshToken;
+
+  @override
+  Future<void> writeRefreshToken(String token) async {
+    _refreshToken = token;
   }
 }
 

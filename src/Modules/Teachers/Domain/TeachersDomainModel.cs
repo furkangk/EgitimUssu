@@ -93,7 +93,6 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         string educationLevel,
         decimal hourlyRateAmount,
         string currency,
-        bool isVerified,
         string? profilePhotoUrl,
         IReadOnlyCollection<TeacherAvailabilitySlot> availabilitySlots,
         DateTime updatedOnUtc)
@@ -109,7 +108,6 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         EducationLevel = educationLevel;
         HourlyRateAmount = hourlyRateAmount;
         Currency = currency;
-        IsVerified = isVerified;
         ProfilePhotoUrl = profilePhotoUrl;
         UpdatedOnUtc = updatedOnUtc;
 

@@ -1,4 +1,5 @@
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_state.dart';
 import 'package:flutter/material.dart';
@@ -84,55 +85,14 @@ class TeacherPanelView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const staticUpcomingLessons = <DashboardUpcomingLesson>[
-      DashboardUpcomingLesson(
-        title: 'Matematik - Trigonometri',
-        studentName: 'Zeynep Demir',
-        timeRange: '15:30 - 16:30',
-        modeLabel: 'Online',
-        isOnline: true,
-      ),
-      DashboardUpcomingLesson(
-        title: 'Fizik - Kuvvet ve Hareket',
-        studentName: 'Ali Yilmaz',
-        timeRange: '17:00 - 18:30',
-        modeLabel: 'Yuz yuze',
-        isOnline: false,
-      ),
-      DashboardUpcomingLesson(
-        title: 'Geometri - Problem Cozumu',
-        studentName: 'Merve Kaya',
-        timeRange: '19:00 - 20:00',
-        modeLabel: 'Online',
-        isOnline: true,
-      ),
-    ];
-
-    const staticActivities = <DashboardActivity>[
-      DashboardActivity(
-        studentName: 'Ali Yilmaz',
-        description: 'Odev teslim edildi',
-        timeLabel: 'Bugun 10:30',
-        accent: TeacherPanelView.emerald,
-      ),
-      DashboardActivity(
-        studentName: 'Zeynep Demir',
-        description: 'Ders notu eklendi',
-        timeLabel: 'Bugun 09:20',
-        accent: Color(0xFF3D8BFF),
-      ),
-      DashboardActivity(
-        studentName: 'Merve Kaya',
-        description: 'Odeme eklendi',
-        timeLabel: 'Dun 18:40',
-        accent: TeacherPanelView.amber,
-      ),
-    ];
-
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
       children: <Widget>[
         _TeacherHeader(teacherName: teacherName),
+        if (state.errorMessage != null) ...<Widget>[
+          const SizedBox(height: 12),
+          _ErrorBanner(message: state.errorMessage!),
+        ],
         const SizedBox(height: 20),
         _SummaryCards(
           streakCount: state.streakCount,
@@ -172,16 +132,52 @@ class TeacherPanelView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SectionHeader(
+          title: 'Bugunun dersleri',
+          actionLabel: 'Tumunu gor',
+          onTap: onOpenSchedule,
+        ),
+        const SizedBox(height: 12),
+        _TodayLessonsSection(
+          lessons: state.todayLessons,
+          isLoading: state.isLoading,
+        ),
+        const SizedBox(height: 24),
+        _SectionHeader(
           title: 'Yaklasan dersler',
           actionLabel: 'Tumunu gor',
           onTap: onOpenSchedule,
         ),
         const SizedBox(height: 12),
-        const _UpcomingLessonsSection(lessons: staticUpcomingLessons),
+        _UpcomingLessonsSection(lessons: state.upcomingLessons),
+        const SizedBox(height: 24),
+        _SectionHeader(
+          title: 'Bekleyen odevler',
+          actionLabel: state.pendingAssignments.isNotEmpty
+              ? '${state.pendingAssignments.length} odev'
+              : null,
+        ),
+        const SizedBox(height: 12),
+        _PendingAssignmentsSection(
+          assignments: state.pendingAssignments,
+          isLoading: state.isLoading,
+        ),
+        if (state.overduePayments.isNotEmpty || state.isLoading) ...<Widget>[
+          const SizedBox(height: 24),
+          _SectionHeader(
+            title: 'Geciken odemeler',
+            actionLabel: 'Tumunu gor',
+            onTap: onOpenPayments,
+          ),
+          const SizedBox(height: 12),
+          _OverduePaymentsSection(
+            payments: state.overduePayments,
+            isLoading: state.isLoading,
+          ),
+        ],
         const SizedBox(height: 24),
         _SectionHeader(title: 'Son aktiviteler'),
         const SizedBox(height: 12),
-        const _ActivitySection(activities: staticActivities),
+        _ActivitySection(activities: state.recentActivities),
       ],
     );
 
@@ -935,6 +931,309 @@ class _EmptyPanel extends StatelessWidget {
             ).textTheme.bodyMedium?.copyWith(color: TeacherPanelView.slate),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3F3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFCDD2)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFD32F2F),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayLessonsSection extends StatelessWidget {
+  const _TodayLessonsSection({
+    required this.lessons,
+    required this.isLoading,
+  });
+
+  final List<DashboardTodayLesson> lessons;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && lessons.isEmpty) {
+      return const _LoadingPanel();
+    }
+
+    if (lessons.isEmpty) {
+      return const _EmptyPanel(
+        icon: Icons.today_outlined,
+        title: 'Bugune ait ders yok',
+        subtitle: 'Bugunun dersleri burada gorunecek.',
+      );
+    }
+
+    return Column(
+      children: lessons.map((lesson) {
+        final start = lesson.startAtUtc.toLocal();
+        final end = lesson.endAtUtc.toLocal();
+        final timeRange =
+            '${_fmt(start)} - ${_fmt(end)}';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _DashboardCard(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: <Widget>[
+                _SoftIcon(
+                  icon: lesson.isOnline
+                      ? Icons.videocam_rounded
+                      : Icons.place_rounded,
+                  color: lesson.isOnline
+                      ? TeacherPanelView.emerald
+                      : TeacherPanelView.amber,
+                  background: lesson.isOnline
+                      ? TeacherPanelView.emerald.withValues(alpha: 0.12)
+                      : TeacherPanelView.amber.withValues(alpha: 0.12),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        lesson.subject,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: TeacherPanelView.text,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        lesson.locationLabel != null
+                            ? '$timeRange · ${lesson.locationLabel}'
+                            : timeRange,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: TeacherPanelView.slate,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  lesson.isOnline ? 'Online' : 'Yuz yuze',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: lesson.isOnline
+                        ? TeacherPanelView.emerald
+                        : TeacherPanelView.amber,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _fmt(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+}
+
+class _PendingAssignmentsSection extends StatelessWidget {
+  const _PendingAssignmentsSection({
+    required this.assignments,
+    required this.isLoading,
+  });
+
+  final List<DashboardPendingAssignment> assignments;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && assignments.isEmpty) {
+      return const _LoadingPanel();
+    }
+
+    if (assignments.isEmpty) {
+      return const _EmptyPanel(
+        icon: Icons.assignment_turned_in_outlined,
+        title: 'Bekleyen odev yok',
+        subtitle: 'Tum odevler tamamlandi.',
+      );
+    }
+
+    return _DashboardCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Column(
+        children: assignments.map((assignment) {
+          final isLast = assignment == assignments.last;
+          return Column(
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF3D8BFF),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        assignment.title,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: TeacherPanelView.text,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (assignment.dueDateUtc != null)
+                      Text(
+                        _dueDateLabel(assignment.dueDateUtc!),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: _isDueOverdue(assignment.dueDateUtc!)
+                              ? const Color(0xFFD32F2F)
+                              : TeacherPanelView.slate,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (!isLast)
+                const Divider(color: TeacherPanelView.divider, height: 1),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _dueDateLabel(DateTime due) {
+    final local = due.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
+  }
+
+  bool _isDueOverdue(DateTime due) => due.toLocal().isBefore(DateTime.now());
+}
+
+class _OverduePaymentsSection extends StatelessWidget {
+  const _OverduePaymentsSection({
+    required this.payments,
+    required this.isLoading,
+  });
+
+  final List<DashboardOverduePayment> payments;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && payments.isEmpty) {
+      return const _LoadingPanel();
+    }
+
+    if (payments.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: payments.map((payment) {
+        final local = payment.dueDateUtc.toLocal();
+        final dateLabel =
+            '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _DashboardCard(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: <Widget>[
+                _SoftIcon(
+                  icon: Icons.warning_amber_rounded,
+                  color: const Color(0xFFD32F2F),
+                  background: const Color(0xFFFFEBEE),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        payment.description,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: TeacherPanelView.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Son odeme: $dateLabel',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFFD32F2F),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${payment.outstandingAmount.toStringAsFixed(0)} ${payment.currency}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFFD32F2F),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _LoadingPanel extends StatelessWidget {
+  const _LoadingPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return _DashboardCard(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: TeacherPanelView.navy,
+          ),
+        ),
       ),
     );
   }

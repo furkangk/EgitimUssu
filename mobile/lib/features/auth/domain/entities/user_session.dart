@@ -8,6 +8,7 @@ class UserSession extends Equatable {
     required this.roles,
     required this.accessToken,
     required this.expiresAtUtc,
+    this.refreshToken,
   });
 
   final String userId;
@@ -16,11 +17,28 @@ class UserSession extends Equatable {
   final List<String> roles;
   final String accessToken;
   final DateTime expiresAtUtc;
+  final String? refreshToken;
 
   bool get isExpired => expiresAtUtc.isBefore(DateTime.now().toUtc());
   bool get isExpiringSoon => expiresAtUtc.isBefore(
     DateTime.now().toUtc().add(const Duration(minutes: 1)),
   );
+
+  UserSession copyWith({
+    String? accessToken,
+    DateTime? expiresAtUtc,
+    String? refreshToken,
+  }) {
+    return UserSession(
+      userId: userId,
+      email: email,
+      fullName: fullName,
+      roles: roles,
+      accessToken: accessToken ?? this.accessToken,
+      expiresAtUtc: expiresAtUtc ?? this.expiresAtUtc,
+      refreshToken: refreshToken ?? this.refreshToken,
+    );
+  }
 
   @override
   List<Object?> get props => <Object?>[
@@ -30,5 +48,6 @@ class UserSession extends Equatable {
     roles,
     accessToken,
     expiresAtUtc,
+    refreshToken,
   ];
 }

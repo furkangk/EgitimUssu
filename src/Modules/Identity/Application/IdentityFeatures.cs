@@ -4,14 +4,14 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Identity.Application;
 
-public sealed record RegisterUserCommand(string Email, string Password, string FirstName, string LastName, string? PhoneNumber, IReadOnlyCollection<UserRole> Roles) : ICommand<Result<AuthResponse>>;
-public sealed record LoginUserCommand(string Email, string Password, string? DeviceName) : ICommand<Result<AuthResponse>>;
-public sealed record RefreshTokenCommand(string RefreshToken, string? DeviceName) : ICommand<Result<AuthResponse>>;
-public sealed record LogoutCommand(string RefreshToken) : ICommand<Result>;
-public sealed record RequestPasswordResetCommand(string Email) : ICommand<Result>;
-public sealed record ResetPasswordCommand(string Email, string Token, string NewPassword) : ICommand<Result>;
-public sealed record RequestEmailVerificationCommand(string Email) : ICommand<Result>;
-public sealed record ConfirmEmailVerificationCommand(string Email, string Token) : ICommand<Result>;
+public sealed record RegisterUserCommand(string Email, string Password, string FirstName, string LastName, string? PhoneNumber, IReadOnlyCollection<UserRole> Roles) : ICommand<Result<AuthResponse>>, IAllowAnonymous;
+public sealed record LoginUserCommand(string Email, string Password, string? DeviceName) : ICommand<Result<AuthResponse>>, IAllowAnonymous;
+public sealed record RefreshTokenCommand(string RefreshToken, string? DeviceName) : ICommand<Result<AuthResponse>>, IAllowAnonymous;
+public sealed record LogoutCommand(string RefreshToken) : ICommand<Result>, IAllowAnonymous;
+public sealed record RequestPasswordResetCommand(string Email) : ICommand<Result>, IAllowAnonymous;
+public sealed record ResetPasswordCommand(string Email, string Token, string NewPassword) : ICommand<Result>, IAllowAnonymous;
+public sealed record RequestEmailVerificationCommand(string Email) : ICommand<Result>, IAllowAnonymous;
+public sealed record ConfirmEmailVerificationCommand(string Email, string Token) : ICommand<Result>, IAllowAnonymous;
 public sealed record GetUserByIdQuery(Guid UserId) : IQuery<Result<UserAccountResponse>>;
 
 public sealed record AuthResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, string AccessToken, DateTime ExpiresAtUtc, string RefreshToken);

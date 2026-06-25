@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
@@ -11,6 +12,7 @@ void main() {
       studentRepository: _FakeStudentRepository(),
       schedulingRepository: _FakeSchedulingRepository(now),
       paymentRepository: _FakePaymentRepository(),
+      dashboardRepository: _FakeDashboardRepository(),
     );
 
     await cubit.load('teacher-1');
@@ -35,6 +37,11 @@ class _FakeStudentRepository implements StudentRepository {
 
   @override
   Future<StudentProfile> getStudent(String studentId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<StudentProfile> updateStudent(StudentProfile studentProfile) {
     throw UnimplementedError();
   }
 
@@ -73,6 +80,11 @@ class _FakeSchedulingRepository implements SchedulingRepository {
   }
 
   @override
+  Future<LessonSchedule> completeLesson({required String lessonId}) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<LessonSchedule> createLesson(LessonSchedule lessonSchedule) {
     throw UnimplementedError();
   }
@@ -107,6 +119,13 @@ class _FakeSchedulingRepository implements SchedulingRepository {
       endAtUtc: start.add(const Duration(hours: 1)),
       timeZone: 'Europe/Istanbul',
     );
+  }
+}
+
+class _FakeDashboardRepository implements DashboardRepository {
+  @override
+  Future<TeacherDashboardSummary> getSummary(String teacherUserId) async {
+    return TeacherDashboardSummary.empty;
   }
 }
 

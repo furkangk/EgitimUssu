@@ -21,6 +21,8 @@ public sealed record CancelLessonScheduleCommand(
     Guid LessonId,
     string? CancellationNote) : ICommand<Result<LessonScheduleResponse>>;
 
+public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
+
 public sealed record GetLessonScheduleByIdQuery(Guid LessonId) : IQuery<Result<LessonScheduleResponse>>;
 
 public sealed record ListLessonSchedulesForTeacherQuery(
@@ -156,6 +158,38 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
         lesson.Cancel(command.CancellationNote?.Trim(), _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         await _notificationService.CancelReminderAsync(lesson, cancellationToken);
+        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+    }
+}
+
+public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<CompleteLessonScheduleCommand, Result<LessonScheduleResponse>>
+{
+    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error AlreadyCompleted = new("scheduling.already_completed", "Ders zaten tamamlanmis.");
+    private readonly ILessonScheduleRepository _repository;
+    private readonly IClock _clock;
+
+    public CompleteLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<LessonScheduleResponse>> Handle(CompleteLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        if (lesson is null)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotFound);
+        }
+
+        if (lesson.Status == LessonScheduleStatus.Completed)
+        {
+            return Result<LessonScheduleResponse>.Failure(AlreadyCompleted);
+        }
+
+        lesson.Complete(_clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
     }
 }

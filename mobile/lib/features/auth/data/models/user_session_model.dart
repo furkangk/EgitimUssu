@@ -10,6 +10,7 @@ class UserSessionModel extends UserSession {
     required super.roles,
     required super.accessToken,
     required super.expiresAtUtc,
+    super.refreshToken,
   });
 
   factory UserSessionModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class UserSessionModel extends UserSession {
           .toList(),
       accessToken: json['accessToken'].toString(),
       expiresAtUtc: DateTime.parse(json['expiresAtUtc'].toString()).toUtc(),
+      refreshToken: json['refreshToken']?.toString(),
     );
   }
 
@@ -39,6 +41,7 @@ class UserSessionModel extends UserSession {
       'roles': roles,
       'accessToken': accessToken,
       'expiresAtUtc': expiresAtUtc.toIso8601String(),
+      'refreshToken': refreshToken,
     });
   }
 }

@@ -41,7 +41,7 @@ class TeacherProfileCubit extends Cubit<TeacherProfileState> {
         state.copyWith(
           isSaving: false,
           profile: saved,
-          successMessage: 'Ogretmen profili kaydedildi.',
+          successMessage: 'Öğretmen profili kaydedildi.',
         ),
       );
     } on ApiException catch (error) {

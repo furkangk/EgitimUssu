@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
@@ -13,15 +14,20 @@ class AuthRepositoryImpl implements AuthRepository {
     required TokenStorage tokenStorage,
     required LocalCache localCache,
     required AppConfig config,
-  }) : _apiClient = apiClient,
-       _tokenStorage = tokenStorage,
-       _localCache = localCache,
-       _config = config;
+    required Dio refreshDio,
+  })  : _apiClient = apiClient,
+        _tokenStorage = tokenStorage,
+        _localCache = localCache,
+        _config = config,
+        _refreshDio = refreshDio;
 
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
   final LocalCache _localCache;
   final AppConfig _config;
+
+  /// Auth interceptor'ından bağımsız ham Dio — yalnızca token yenileme için.
+  final Dio _refreshDio;
 
   static const _sessionKey = 'user_session';
 
@@ -97,18 +103,48 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<UserSession?> restoreSession() async {
     final cached = await _localCache.readString(_sessionKey);
-    if (cached == null) {
-      return null;
-    }
+    if (cached == null) return null;
 
     final session = UserSessionModel.fromCache(cached);
     if (session.isExpiringSoon) {
+      // Refresh token varsa sessizce yenile; yoksa oturumu kapat
+      if (session.refreshToken != null) {
+        try {
+          return await refreshSession();
+        } catch (_) {
+          await logout();
+          return null;
+        }
+      }
       await logout();
       return null;
     }
 
     await _tokenStorage.writeAccessToken(session.accessToken);
     return session;
+  }
+
+  @override
+  Future<UserSession> refreshSession() async {
+    final storedRefreshToken = await _tokenStorage.readRefreshToken();
+    if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
+      throw const ApiException(
+        message: 'Oturum yenileme bilgisi bulunamadı.',
+        statusCode: 401,
+      );
+    }
+
+    try {
+      final response = await _refreshDio.post<Map<String, dynamic>>(
+        '/api/identity/refresh',
+        data: <String, dynamic>{'refreshToken': storedRefreshToken},
+      );
+      final session = UserSessionModel.fromJson(response.data ?? <String, dynamic>{});
+      await _persistSession(session);
+      return session;
+    } on DioException catch (e) {
+      throw ApiException.fromDioException(e);
+    }
   }
 
   UserSessionModel _buildMockSession({
@@ -118,7 +154,7 @@ class AuthRepositoryImpl implements AuthRepository {
     return UserSessionModel(
       userId: 'mock-teacher-user',
       email: email,
-      fullName: fullName ?? 'Demo Ogretmen',
+      fullName: fullName ?? 'Demo Öğretmen',
       roles: const <String>['Teacher'],
       accessToken: 'mock-access-token',
       expiresAtUtc: DateTime.now().toUtc().add(const Duration(days: 7)),
@@ -127,6 +163,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   Future<void> _persistSession(UserSessionModel session) async {
     await _tokenStorage.writeAccessToken(session.accessToken);
+    if (session.refreshToken != null) {
+      await _tokenStorage.writeRefreshToken(session.refreshToken!);
+    }
     await _localCache.writeString(_sessionKey, session.toCache());
   }
 }

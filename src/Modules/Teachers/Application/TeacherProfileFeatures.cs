@@ -40,11 +40,12 @@ public sealed record UpdateTeacherProfileCommand(
     string EducationLevel,
     decimal HourlyRateAmount,
     string Currency,
-    bool IsVerified,
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots) : ICommand<Result<TeacherProfileResponse>>;
 
-public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>;
+// IAllowAnonymous: HTTP katmanı "AuthenticatedUser" politikasıyla auth'u sağlıyor;
+// dispatcher düzeyinde ek rol/sahiplik kontrolü yok (K3 — ilerleyen sürümde authorizer eklenecek).
+public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>, IAllowAnonymous;
 
 public sealed record TeacherAvailabilityResponse(
     DayOfWeek DayOfWeek,
@@ -217,7 +218,6 @@ public sealed class UpdateTeacherProfileCommandHandler : ICommandHandler<UpdateT
             command.EducationLevel.Trim(),
             command.HourlyRateAmount,
             command.Currency.Trim().ToUpperInvariant(),
-            command.IsVerified,
             command.ProfilePhotoUrl?.Trim(),
             slots,
             _clock.UtcNow);

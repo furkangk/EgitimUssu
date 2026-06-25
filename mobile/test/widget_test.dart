@@ -49,4 +49,9 @@ class _DelayedAuthRepository implements AuthRepository {
   }) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<UserSession> refreshSession() {
+    throw UnimplementedError();
+  }
 }

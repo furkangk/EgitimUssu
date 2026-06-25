@@ -30,6 +30,7 @@ class StudentProfileModel extends StudentProfile {
     super.contactPhone,
     super.goalSummary,
     super.levelNotes,
+    super.isActive,
   });
 
   factory StudentProfileModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +44,7 @@ class StudentProfileModel extends StudentProfile {
       contactPhone: json['contactPhone']?.toString(),
       goalSummary: json['goalSummary']?.toString(),
       levelNotes: json['levelNotes']?.toString(),
+      isActive: json['isActive'] as bool? ?? true,
       subjects: ((json['subjects'] as List<dynamic>? ?? <dynamic>[]))
           .whereType<Map<String, dynamic>>()
           .map(StudentSubjectTargetModel.fromJson)
@@ -56,6 +58,7 @@ class StudentProfileModel extends StudentProfile {
       fullName: json['fullName']?.toString() ?? '',
       gradeLevel: json['gradeLevel']?.toString() ?? '',
       origin: json['origin']?.toString() ?? 'TeacherManaged',
+      isActive: json['isActive'] as bool? ?? true,
       subjects: const <StudentSubjectTargetModel>[],
     );
   }
@@ -76,6 +79,7 @@ class StudentProfileModel extends StudentProfile {
       contactPhone: '5554443322',
       goalSummary: 'LGS hazirligi',
       levelNotes: 'Temel guclendirilecek',
+      isActive: true,
       subjects: const <StudentSubjectTargetModel>[
         StudentSubjectTargetModel(
           subject: 'Matematik',
@@ -97,6 +101,26 @@ class StudentProfileModel extends StudentProfile {
       'goalSummary': goalSummary,
       'levelNotes': levelNotes,
       'origin': 1,
+      'subjects': subjects
+          .map(
+            (subject) => StudentSubjectTargetModel(
+              subject: subject.subject,
+              targetLevel: subject.targetLevel,
+            ).toJson(),
+          )
+          .toList(),
+    };
+  }
+
+  Map<String, dynamic> toUpdatePayload() {
+    return <String, dynamic>{
+      'fullName': fullName,
+      'gradeLevel': gradeLevel,
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
+      'goalSummary': goalSummary,
+      'levelNotes': levelNotes,
+      'isActive': isActive,
       'subjects': subjects
           .map(
             (subject) => StudentSubjectTargetModel(

@@ -1,9 +1,12 @@
+import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
-import 'package:egitim_ussu_mobile/features/students/data/student_demo_data.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
+import 'package:egitim_ussu_mobile/features/students/presentation/cubit/student_detail_cubit.dart';
+import 'package:egitim_ussu_mobile/features/students/presentation/cubit/student_detail_state.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -36,49 +39,215 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final student = StudentDemoData.studentById(widget.studentId);
-    final lessons = StudentDemoData.lessonsFor(student.id);
-    final payments = StudentDemoData.paymentsFor(student.id);
-    final outstandingAmount = payments.fold<double>(
-      0,
-      (total, payment) => total + payment.outstandingAmount,
-    );
+    final session = context.select((AuthCubit c) => c.state.session);
+    final teacherUserId = session?.userId ?? '';
 
-    return Scaffold(
-      backgroundColor: _background,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-          children: <Widget>[
-            _TopBar(onBack: () => context.pop()),
-            const SizedBox(height: 12),
-            _ProfileHero(student: student),
-            const SizedBox(height: 14),
-            _StudentDetailTabs(
-              tabs: _tabs,
-              selectedIndex: _selectedTab,
-              onChanged: (index) => setState(() {
-                _selectedTab = index;
-              }),
-            ),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: KeyedSubtree(
-                key: ValueKey<int>(_selectedTab),
-                child: _buildTabContent(
-                  context,
-                  student,
-                  lessons,
-                  payments,
-                  outstandingAmount,
+    return BlocProvider(
+      create: (_) => StudentDetailCubit.create()
+        ..load(studentId: widget.studentId, teacherUserId: teacherUserId),
+      child: BlocConsumer<StudentDetailCubit, StudentDetailState>(
+        listenWhen: (prev, next) =>
+            prev.successMessage != next.successMessage ||
+            (prev.errorMessage != next.errorMessage && !next.isLoading),
+        listener: (context, state) {
+          if (state.successMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.successMessage!),
+                backgroundColor: _emerald,
+              ),
+            );
+          } else if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage!),
+                backgroundColor: _red,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          final student = state.student;
+
+          if (state.isLoading && student == null) {
+            return Scaffold(
+              backgroundColor: _background,
+              body: SafeArea(
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: _TopBar(onBack: () => context.pop()),
+                    ),
+                    const Expanded(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: _StudentDetailPageState._navy,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            );
+          }
+
+          if (student == null) {
+            return Scaffold(
+              backgroundColor: _background,
+              body: SafeArea(
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: _TopBar(onBack: () => context.pop()),
+                    ),
+                    Expanded(
+                      child: EmptyStateView(
+                        title: 'Ogrenci bulunamadi',
+                        subtitle:
+                            state.errorMessage ?? 'Lutfen yeniden deneyin.',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Scaffold(
+            backgroundColor: _background,
+            body: SafeArea(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                children: <Widget>[
+                  _TopBar(
+                    onBack: () => context.pop(),
+                    onMore: () => _showMoreMenu(context, student),
+                  ),
+                  const SizedBox(height: 12),
+                  _ProfileHero(student: student),
+                  const SizedBox(height: 14),
+                  _StudentDetailTabs(
+                    tabs: _tabs,
+                    selectedIndex: _selectedTab,
+                    onChanged: (index) =>
+                        setState(() => _selectedTab = index),
+                  ),
+                  const SizedBox(height: 16),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: KeyedSubtree(
+                      key: ValueKey<int>(_selectedTab),
+                      child: _buildTabContent(
+                        context,
+                        student,
+                        state.lessons,
+                        state.payments,
+                        state.outstandingAmount,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showMoreMenu(BuildContext context, StudentProfile student) {
+    final cubit = context.read<StudentDetailCubit>();
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.edit_rounded, color: _navy),
+                title: const Text('Duzenle'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditSheet(context, student, cubit);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  student.isActive
+                      ? Icons.person_off_rounded
+                      : Icons.person_rounded,
+                  color: student.isActive ? _red : _emerald,
+                ),
+                title: Text(student.isActive ? 'Pasifles' : 'Aktifles'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmToggleActive(context, student, cubit);
+                },
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  void _showEditSheet(
+    BuildContext context,
+    StudentProfile student,
+    StudentDetailCubit cubit,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _EditStudentSheet(student: student, cubit: cubit),
+    );
+  }
+
+  void _confirmToggleActive(
+    BuildContext context,
+    StudentProfile student,
+    StudentDetailCubit cubit,
+  ) {
+    final willDeactivate = student.isActive;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          willDeactivate ? 'Ogrenciyi Pasifles' : 'Ogrenciyi Aktifles',
+        ),
+        content: Text(
+          willDeactivate
+              ? '${student.fullName} pasif olarak isaretlenecek.'
+              : '${student.fullName} tekrar aktif hale getirilecek.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Iptal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              cubit.setIsActive(isActive: !student.isActive);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: willDeactivate ? _red : _emerald,
+            ),
+            child: Text(willDeactivate ? 'Pasifles' : 'Aktifles'),
+          ),
+        ],
       ),
     );
   }
@@ -114,9 +283,10 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onBack});
+  const _TopBar({required this.onBack, this.onMore});
 
   final VoidCallback onBack;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +303,7 @@ class _TopBar extends StatelessWidget {
             ),
           ),
         ),
-        const _RoundIconButton(icon: Icons.more_horiz_rounded),
+        _RoundIconButton(icon: Icons.more_horiz_rounded, onTap: onMore),
       ],
     );
   }
@@ -1190,6 +1360,250 @@ class _TargetPerformanceRow extends StatelessWidget {
             color: _StudentDetailPageState._emerald,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EditStudentSheet extends StatefulWidget {
+  const _EditStudentSheet({required this.student, required this.cubit});
+
+  final StudentProfile student;
+  final StudentDetailCubit cubit;
+
+  @override
+  State<_EditStudentSheet> createState() => _EditStudentSheetState();
+}
+
+class _EditStudentSheetState extends State<_EditStudentSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _fullNameCtrl;
+  late final TextEditingController _gradeLevelCtrl;
+  late final TextEditingController _contactEmailCtrl;
+  late final TextEditingController _contactPhoneCtrl;
+  late final TextEditingController _goalSummaryCtrl;
+  late final TextEditingController _levelNotesCtrl;
+  late final TextEditingController _subjectCtrl;
+  late final TextEditingController _targetLevelCtrl;
+  late bool _isActive;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.student;
+    _fullNameCtrl = TextEditingController(text: s.fullName);
+    _gradeLevelCtrl = TextEditingController(text: s.gradeLevel);
+    _contactEmailCtrl = TextEditingController(text: s.contactEmail ?? '');
+    _contactPhoneCtrl = TextEditingController(text: s.contactPhone ?? '');
+    _goalSummaryCtrl = TextEditingController(text: s.goalSummary ?? '');
+    _levelNotesCtrl = TextEditingController(text: s.levelNotes ?? '');
+    _subjectCtrl = TextEditingController(
+      text: s.subjects.isNotEmpty ? s.subjects.first.subject : '',
+    );
+    _targetLevelCtrl = TextEditingController(
+      text: s.subjects.isNotEmpty ? s.subjects.first.targetLevel : '',
+    );
+    _isActive = s.isActive;
+  }
+
+  @override
+  void dispose() {
+    _fullNameCtrl.dispose();
+    _gradeLevelCtrl.dispose();
+    _contactEmailCtrl.dispose();
+    _contactPhoneCtrl.dispose();
+    _goalSummaryCtrl.dispose();
+    _levelNotesCtrl.dispose();
+    _subjectCtrl.dispose();
+    _targetLevelCtrl.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final subjects = <StudentSubjectTarget>[];
+    final subjectText = _subjectCtrl.text.trim();
+    if (subjectText.isNotEmpty) {
+      subjects.add(
+        StudentSubjectTarget(
+          subject: subjectText,
+          targetLevel: _targetLevelCtrl.text.trim(),
+        ),
+      );
+    }
+    final updated = StudentProfile(
+      id: widget.student.id,
+      fullName: _fullNameCtrl.text.trim(),
+      gradeLevel: _gradeLevelCtrl.text.trim(),
+      origin: widget.student.origin,
+      teacherUserId: widget.student.teacherUserId,
+      contactEmail: _emptyToNull(_contactEmailCtrl.text),
+      contactPhone: _emptyToNull(_contactPhoneCtrl.text),
+      goalSummary: _emptyToNull(_goalSummaryCtrl.text),
+      levelNotes: _emptyToNull(_levelNotesCtrl.text),
+      isActive: _isActive,
+      subjects: subjects,
+    );
+    widget.cubit.updateStudent(updated);
+    Navigator.pop(context);
+  }
+
+  String? _emptyToNull(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Ogrenci Guncelle',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: _StudentDetailPageState._text,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _FormField(
+                controller: _fullNameCtrl,
+                label: 'Ad Soyad',
+                validator: (v) =>
+                    (v == null || v.trim().length < 2) ? 'Ad soyad giriniz' : null,
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _gradeLevelCtrl,
+                label: 'Sinif / Seviye',
+                validator: (v) =>
+                    (v == null || v.trim().length < 2) ? 'Sinif giriniz' : null,
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _subjectCtrl,
+                label: 'Ders',
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _targetLevelCtrl,
+                label: 'Hedef Seviye',
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _contactEmailCtrl,
+                label: 'E-posta',
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _contactPhoneCtrl,
+                label: 'Telefon',
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _goalSummaryCtrl,
+                label: 'Hedef / Amaç',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              _FormField(
+                controller: _levelNotesCtrl,
+                label: 'Seviye Notu',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Aktif Ogrenci',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: _StudentDetailPageState._text,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _isActive,
+                    activeThumbColor: _StudentDetailPageState._emerald,
+                    onChanged: (value) => setState(() => _isActive = value),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _save,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _StudentDetailPageState._navy,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Kaydet',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FormField extends StatelessWidget {
+  const _FormField({
+    required this.controller,
+    required this.label,
+    this.validator,
+    this.keyboardType,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? Function(String?)? validator;
+  final TextInputType? keyboardType;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );
   }

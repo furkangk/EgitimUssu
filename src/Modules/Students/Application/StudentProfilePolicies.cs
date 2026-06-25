@@ -60,6 +60,61 @@ public sealed class CreateStudentProfileCommandAuthorizer : ICommandAuthorizer<C
     }
 }
 
+public sealed class UpdateStudentProfileCommandValidator : ICommandValidator<UpdateStudentProfileCommand>
+{
+    private static readonly Error InvalidRequest = new("students.invalid_request", "Öğrenci profili bilgileri eksik veya hatalı.");
+
+    public Task<Result> Validate(UpdateStudentProfileCommand command, CancellationToken cancellationToken)
+    {
+        var isValid = !string.IsNullOrWhiteSpace(command.FullName)
+            && !string.IsNullOrWhiteSpace(command.GradeLevel);
+
+        return Task.FromResult(isValid ? Result.Success() : Result.Failure(InvalidRequest));
+    }
+}
+
+public sealed class UpdateStudentProfileCommandAuthorizer : ICommandAuthorizer<UpdateStudentProfileCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+    private readonly ICurrentUser _currentUser;
+    private readonly IStudentProfileRepository _repository;
+
+    public UpdateStudentProfileCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    {
+        _currentUser = currentUser;
+        _repository = repository;
+    }
+
+    public async Task<Result> Authorize(UpdateStudentProfileCommand command, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var profile = await _repository.GetByIdAsync(command.StudentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        if (_currentUser.Roles.Contains("Teacher")
+            && Guid.TryParse(_currentUser.UserId, out var teacherUserId)
+            && profile.CreatedByTeacherUserId == teacherUserId)
+        {
+            return Result.Success();
+        }
+
+        return Result.Failure(Forbidden);
+    }
+}
+
 public sealed class StudentProfileQueryAuthorizer :
     IQueryAuthorizer<GetStudentProfileByIdQuery>,
     IQueryAuthorizer<GetStudentProfileByUserIdQuery>,

@@ -112,7 +112,11 @@ class TeacherProfileModel extends TeacherProfile {
       'district': district,
       'biography': biography,
       'headline': headline,
-      'lessonFormat': lessonFormat == 'OnlineAndInPerson' ? 3 : 2,
+      'lessonFormat': switch (lessonFormat) {
+        'InPerson' => 1,
+        'Online' => 2,
+        _ => 3, // OnlineAndInPerson / Hybrid
+      },
       'experienceYears': experienceYears,
       'educationLevel': educationLevel,
       'hourlyRateAmount': hourlyRateAmount,
@@ -133,6 +137,6 @@ class TeacherProfileModel extends TeacherProfile {
   }
 
   Map<String, dynamic> toUpdatePayload() {
-    return <String, dynamic>{...toCreatePayload(), 'isVerified': isVerified};
+    return toCreatePayload();
   }
 }

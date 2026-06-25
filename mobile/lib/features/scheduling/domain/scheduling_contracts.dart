@@ -37,6 +37,7 @@ abstract interface class SchedulingRepository {
     required String lessonId,
     String? cancellationNote,
   });
+  Future<LessonSchedule> completeLesson({required String lessonId});
   Future<List<LessonSchedule>> listTeacherLessons({
     required String teacherUserId,
     DateTime? startAtUtc,

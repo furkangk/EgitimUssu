@@ -30,14 +30,13 @@
 | Kullanıcı başına tek profil | ✅ var | `students.user_profile_exists` (409) |
 | Veli referansı (gerçek kullanıcı) | ✅ var | `ParentUserId` (Guid?) |
 | Komut + sorgu yetkilendirmesi | ✅ var | `CreateStudentProfileCommandAuthorizer`, `StudentProfileQueryAuthorizer` |
-| **Öğrenci güncelleme / pasifleştirme ucu** | 🔴 eksik | `IsActive` set/`PUT` endpoint yok (yalnız create'te `true`) |
+| **Öğrenci güncelleme / pasifleştirme** | ✅ var | `UpdateStudentProfileCommand`, `PUT /profiles/{studentId}`, sahiplik yetkisi |
 | **Manuel öğrenciyi gerçek hesaba bağlama (davet/eşleşme)** | 🔴 eksik | Manuel profil sonradan `UserId` ile ilişkilendirilemiyor |
-| **`StudentSubject` ekle/sil ucu** | 🔴 eksik | Branşlar yalnız create anında set ediliyor |
 | ContactEmail benzersizlik kontrolü | 🟡 kısmi | `ExistsByContactEmailAsync` repo'da var ama create handler'da kullanılmıyor |
 | Self-register mobil akışı | 🔴 eksik | Öğrenci `students` feature'ı öğretmen odaklı; öğrenci kendi profil ekranı yok |
 
-> **Özet:** Öğretmen tarafı (manuel ekle/listele/getir) **çalışır durumdadır**. Self-register backend'de hazırdır ama
-> **mobil akış ve manuel→gerçek bağlama** tamamlanmamıştır; öğrenci güncelleme/pasifleştirme ucu eksiktir.
+> **Özet:** Öğretmen tarafı (manuel ekle/**güncelle**/listele/getir) **çalışır durumdadır**. Self-register backend'de hazırdır ama
+> **mobil akış ve manuel→gerçek bağlama** tamamlanmamıştır.
 
 ---
 
@@ -65,7 +64,7 @@ Tablolar: `student_profiles`, `student_subjects`.
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `Subjects` | List&lt;`StudentSubject`&gt; | Branş + hedef seviye |
 
-**Davranış:** Yapıcı `StudentProfileCreatedDomainEvent` yayar. (Not: Şu an domain üzerinde `Update`/`Deactivate` gibi davranış **yok** — bkz. §2.4 öneriler.)
+**Davranış:** Yapıcı `StudentProfileCreatedDomainEvent` yayar. `Update(...)` metodu tüm scalar alanları (ad, sınıf, iletişim, hedef, `IsActive`) günceller; `Subjects` yeniden yazımı `ReplaceSubjectsAsync` (repository) ile yapılır.
 
 ### 2.2 🟢 Mevcut (koddan) — `StudentSubject` (Entity&lt;Guid&gt;)
 
@@ -91,7 +90,6 @@ StudentProfileCreatedDomainEvent(Guid StudentProfileId, Guid? UserId,
 
 | Öneri | Gerekçe |
 |-------|---------|
-| `StudentProfile.Update(...)` + `Deactivate()` davranışları | Profil düzenleme ve pasifleştirme için domain davranışı; `UpdatedOnUtc` güncellensin |
 | `LinkToUserAccount(userId)` davranışı + `StudentLinkedToUserDomainEvent` | Manuel (`TeacherManaged`) öğrenciyi sonradan **gerçek** öğrenci hesabına bağlama (davet/eşleşme akışı) |
 | `LinkParent(parentUserId)` / `UnlinkParent()` | Veli bağlama/çözme; veli daima gerçek kullanıcı (kuralı domain'de garanti eder) |
 | `StudentProfileUpdatedDomainEvent` | Diğer modüllerin (M04/M06/M09) değişimi yakalaması için |
@@ -109,6 +107,7 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 | Yetenek | Method + Route | Yetki kontrolü | İstek | Yanıt |
 |---------|----------------|----------------|-------|-------|
 | Öğrenci ekle | `POST /profiles` | `CreateStudentProfileCommandAuthorizer` | `CreateStudentProfileRequest` | `StudentProfileResponse` |
+| Öğrenci güncelle / pasifleştir | `PUT /profiles/{studentId:guid}` | `UpdateStudentProfileCommandAuthorizer` | `UpdateStudentProfileRequest` | `StudentProfileResponse` |
 | Öğrenci getir (id) | `GET /profiles/{studentId:guid}` | `StudentProfileQueryAuthorizer` | — | `StudentProfileResponse` |
 | Öğrenci getir (userId) | `GET /profiles/by-user/{userId:guid}` | `StudentProfileQueryAuthorizer` | — | `StudentProfileResponse` |
 | Öğretmenin öğrencileri | `GET /profiles/by-teacher/{teacherUserId:guid}` | `StudentProfileQueryAuthorizer` | — | `IReadOnlyCollection<StudentProfileSummaryResponse>` |
@@ -122,6 +121,10 @@ CreateStudentProfileRequest(Guid? UserId, Guid? CreatedByTeacherUserId, Guid? Pa
                             string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                             string? GoalSummary, string? LevelNotes, StudentOrigin Origin,
                             IReadOnlyCollection<StudentSubjectItem> Subjects)
+
+UpdateStudentProfileRequest(string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
+                            string? GoalSummary, string? LevelNotes, bool IsActive,
+                            IReadOnlyCollection<StudentSubjectItem> Subjects)  // branşlar tam yeniden yazar
 
 StudentProfileResponse(Guid Id, Guid? UserId, Guid? CreatedByTeacherUserId, Guid? ParentUserId,
                        string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
@@ -144,11 +147,12 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 > **Not:** `StudentProfileQueryAuthorizer`, tekil getirme uçlarında profili önce yükler; bulunamazsa `shared.forbidden` yerine
 > `students.profile_not_found` (404) döner (varlık sızdırmadan, sahip değilse yetki reddi).
+>
+> **Not (PUT):** `UpdateStudentProfileCommandAuthorizer` sahipliği kontrol eder: admin her zaman, öğretmen yalnızca kendi eklediği öğrenciyi (`CreatedByTeacherUserId == currentUserId`) güncelleyebilir. Branşlar PUT ile **tam yeniden yazılır** (merge değil).
 
 ### 3.3 Eksik / Önerilen Endpoint'ler ⚠️
 
-- [ ] **`PUT /profiles/{studentId}`** — profil güncelleme (ad, sınıf, hedef, iletişim, branşlar).
-- [ ] **`PATCH /profiles/{studentId}/status`** — pasifleştirme/aktifleştirme (`IsActive`).
+- [ ] **`PATCH /profiles/{studentId}/status`** — ayrı pasifleştirme ucu (şimdilik PUT ile `isActive: false` göndererek yapılıyor).
 - [ ] **`POST /profiles/{studentId}/link-user`** — manuel öğrenciyi gerçek öğrenci hesabına bağlama (davet/eşleşme).
 - [ ] **`POST /profiles/{studentId}/link-parent`** — gerçek veli kullanıcısı bağlama (kural: veli daima kayıtlı kullanıcı).
 - [ ] **`POST` / `DELETE /profiles/{studentId}/subjects`** — branş ekleme/çıkarma (şu an yalnız create'te).
@@ -165,9 +169,9 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 3. **Kullanıcı başına tek profil:** `UserId` doluysa, o kullanıcı için zaten profil varsa `students.user_profile_exists` (409).
 4. **Manuel öğrenci, gerçek olmayabilir:** `TeacherManaged` profilde `UserId` **null** olabilir — öğrencinin platform hesabı olması gerekmez. Profil tamamen öğretmenin verisidir.
 5. **🔑 Veli daima gerçek kullanıcı:** `ParentUserId`, varsa **Identity'deki gerçek bir `UserAccount`'a** işaret eder. Manuel/sahte veli kaydı yoktur. Veli bağlama akışı [`m09_parents.md`](m09_parents.md)'de detaylanır.
-6. **Varsayılan aktiflik:** Create'te `IsActive = true` set edilir (pasifleştirme ucu eksik — §3.3).
-7. **Branş temizliği:** `Subjects` içinden `Subject` boş/whitespace olanlar **atlanır**; kalanlar `Trim()` edilir.
-8. **Validator:** `FullName` ve `GradeLevel` zorunlu (`students.invalid_request`).
+6. **Varsayılan aktiflik:** Create'te `IsActive = true` set edilir; sonradan PUT ile `isActive: false` göndererek pasifleştirilebilir.
+7. **Branş yeniden yazımı:** PUT isteğindeki `Subjects` mevcut branşları **tamamen değiştirir** (merge değil). Boş/whitespace olanlar atlanır; kalanlar `Trim()` edilir.
+8. **Validator:** `FullName` ve `GradeLevel` zorunlu (hem create hem update için `students.invalid_request`).
 9. **Create yetkisi (`CreateStudentProfileCommandAuthorizer`):**
    - **Admin** → her zaman.
    - `TeacherManaged` + rol `Teacher` + `currentUserId == CreatedByTeacherUserId` → izin.
@@ -176,7 +180,11 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 10. **Okuma yetkisi (`StudentProfileQueryAuthorizer`):**
     - Tekil getirme: profil yüklenir; yoksa `students.profile_not_found`. **Admin** veya `currentUserId`'nin profilin `UserId` / `CreatedByTeacherUserId` / `ParentUserId` alanlarından biriyle eşleşmesi gerekir.
     - Liste (`by-teacher`): **admin** veya `Teacher` rolü + `currentUserId == teacherUserId` (kendi listesi).
-11. **Sahiplik üçlüsü:** Bir profile erişebilen taraflar = bağlı öğrenci (UserId) + ekleyen öğretmen (CreatedByTeacherUserId) + bağlı veli (ParentUserId). Bu, öğretmen-öğrenci-veli ilişkisinin yetki temelidir.
+11. **Güncelleme yetkisi (`UpdateStudentProfileCommandAuthorizer`):**
+    - **Admin** → her zaman.
+    - `Teacher` rolü + `CreatedByTeacherUserId == currentUserId` → yalnız kendi eklediği öğrenci.
+    - Aksi halde `shared.forbidden` (403). Diğer öğretmen 403 alır (sahiplik testi entegrasyon testinde doğrulanmıştır).
+12. **Sahiplik üçlüsü:** Bir profile erişebilen taraflar = bağlı öğrenci (UserId) + ekleyen öğretmen (CreatedByTeacherUserId) + bağlı veli (ParentUserId). Bu, öğretmen-öğrenci-veli ilişkisinin yetki temelidir.
 
 ---
 
@@ -203,11 +211,10 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 | Route | Sayfa | Durum | Açıklama |
 |-------|-------|-------|----------|
 | `/students` | `StudentsPage` | ✅ | Öğretmenin öğrenci listesi (`by-teacher`) |
-| `/students/:studentId` | `StudentDetailPage` | ✅ | Öğrenci detayı (profil + branşlar) |
+| `/students/:studentId` | `StudentDetailPage` | ✅ | Öğrenci detayı + düzenleme formu (`_EditStudentSheet`) + aktif/pasif toggle |
 
 ### Eksik / planlanan mobil ekranlar ⚠️
 - [ ] **Öğrenci ekleme formu zenginleştirme** — `StudentSubject` (branş + hedef seviye) çoklu giriş + **veli bağlama** alanı.
-- [ ] **Öğrenci düzenleme / pasifleştirme** ekranı (PUT/PATCH uçlarına bağlı).
 - [ ] **Öğrenci self-register akışı** — öğrencinin kendi profilini oluşturduğu ekran (`SelfRegistered`).
 - [ ] **Manuel→gerçek bağlama** — öğretmenin öğrenciyi davet etmesi / öğrencinin daveti kabul etmesi.
 
@@ -221,7 +228,8 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 - [x] Aynı kullanıcı için ikinci profil 409 ile engellenir.
 - [x] Profil erişimi sahiplik üçlüsü (öğrenci/öğretmen/veli) + admin ile sınırlıdır.
 - [x] Veli alanı yalnızca gerçek kullanıcı kimliği (`ParentUserId`) ile doldurulur.
-- [ ] **Öğrenci güncellenebilir / pasifleştirilebilir** (PUT/PATCH uçları).
+- [x] **Öğrenci güncellenebilir / pasifleştirilebilir** — `PUT /profiles/{studentId}`, `IsActive`, branş yeniden yazımı, sahiplik yetki testi.
+- [x] **Başka öğretmen başkasının öğrencisini güncelleyemez** (403) — entegrasyon testinde doğrulandı.
 - [ ] **Manuel öğrenci, gerçek öğrenci hesabına bağlanabilir** (davet/eşleşme akışı).
 - [ ] **Self-register mobil akışı** uçtan uca çalışır.
 
@@ -229,8 +237,7 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 ## 8. Eksikler ve Yapılacaklar (öncelik sırasıyla)
 
-1. **Öğrenci güncelleme/pasifleştirme** — `StudentProfile.Update(...)`/`Deactivate()` davranışları + `PUT`/`PATCH` uçları + `StudentProfileUpdatedDomainEvent`.
-2. **Manuel→gerçek bağlama akışı** — `LinkToUserAccount` + davet (`StudentInvitation`) + `StudentLinkedToUserDomainEvent`; ders/ödev/ödeme geçmişinin korunması.
+1. **Manuel→gerçek bağlama akışı** — `LinkToUserAccount` + davet (`StudentInvitation`) + `StudentLinkedToUserDomainEvent`; ders/ödev/ödeme geçmişinin korunması.
 3. **Veli bağlama ucu** — `link-parent` + gerçek kullanıcı doğrulaması (M01 ile); kuralı domain'de zorla.
 4. **`StudentSubject` yönetimi** — branş ekle/sil uçları (create dışında).
 5. **Self-register mobil akışı** — öğrenci kendi profil ekranı; öğrenci paneli ([`../roles/ogrenci.md`](../roles/ogrenci.md)) ve bireysel çalışma (M08) ile bağ.

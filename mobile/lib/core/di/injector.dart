@@ -7,6 +7,8 @@ import 'package:egitim_ussu_mobile/features/assignments/data/repositories/assign
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:egitim_ussu_mobile/features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/data/repositories/lesson_session_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/data/repositories/payment_repository_impl.dart';
@@ -47,15 +49,37 @@ Future<void> configureDependencies() async {
       () => ApiClient(
         dio: injector<Dio>(),
         tokenStorage: injector<TokenStorage>(),
+        // Lazy: AuthRepository henüz çözülmemiş olabilir; callback çağrıldığında çözülür.
+        onRefreshToken: () async {
+          try {
+            final session = await injector<AuthRepository>().refreshSession();
+            return session.accessToken;
+          } catch (_) {
+            return null;
+          }
+        },
       ),
     )
     ..registerLazySingleton<AuthRepository>(
-      () => AuthRepositoryImpl(
-        apiClient: injector<ApiClient>(),
-        tokenStorage: injector<TokenStorage>(),
-        localCache: injector<LocalCache>(),
-        config: injector<AppConfig>(),
-      ),
+      () {
+        final config = injector<AppConfig>();
+        final refreshDio = Dio(
+          BaseOptions(
+            baseUrl: config.apiBaseUrl,
+            connectTimeout: const Duration(seconds: 15),
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 15),
+            contentType: 'application/json',
+          ),
+        );
+        return AuthRepositoryImpl(
+          apiClient: injector<ApiClient>(),
+          tokenStorage: injector<TokenStorage>(),
+          localCache: injector<LocalCache>(),
+          config: config,
+          refreshDio: refreshDio,
+        );
+      },
     )
     ..registerLazySingleton<TeacherRepository>(
       () => TeacherRepositoryImpl(
@@ -94,6 +118,12 @@ Future<void> configureDependencies() async {
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
         localCache: injector<LocalCache>(),
+      ),
+    )
+    ..registerLazySingleton<DashboardRepository>(
+      () => DashboardRepositoryImpl(
+        apiClient: injector<ApiClient>(),
+        config: injector<AppConfig>(),
       ),
     );
 }

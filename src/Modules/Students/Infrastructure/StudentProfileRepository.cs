@@ -47,6 +47,15 @@ internal sealed class StudentProfileRepository : IStudentProfileRepository
         return _dbContext.StudentProfiles.AddAsync(profile, cancellationToken).AsTask();
     }
 
+    public async Task ReplaceSubjectsAsync(Guid studentProfileId, IReadOnlyList<StudentSubject> newSubjects, CancellationToken cancellationToken)
+    {
+        var existing = await _dbContext.StudentSubjects
+            .Where(s => s.StudentProfileId == studentProfileId)
+            .ToListAsync(cancellationToken);
+        _dbContext.StudentSubjects.RemoveRange(existing);
+        await _dbContext.StudentSubjects.AddRangeAsync(newSubjects, cancellationToken);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _dbContext.SaveChangesAsync(cancellationToken);

@@ -25,6 +25,17 @@ public sealed record GetStudentProfileByUserIdQuery(Guid UserId) : IQuery<Result
 
 public sealed record ListStudentsByTeacherQuery(Guid TeacherUserId) : IQuery<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>;
 
+public sealed record UpdateStudentProfileCommand(
+    Guid StudentId,
+    string FullName,
+    string GradeLevel,
+    string? ContactEmail,
+    string? ContactPhone,
+    string? GoalSummary,
+    string? LevelNotes,
+    bool IsActive,
+    IReadOnlyCollection<StudentSubjectRequest> Subjects) : ICommand<Result<StudentProfileResponse>>;
+
 public sealed record StudentSubjectResponse(string Subject, string? TargetLevel);
 
 public sealed record StudentProfileSummaryResponse(
@@ -63,6 +74,8 @@ public interface IStudentProfileRepository
     Task<IReadOnlyCollection<StudentProfile>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken cancellationToken);
 
     Task AddAsync(StudentProfile profile, CancellationToken cancellationToken);
+
+    Task ReplaceSubjectsAsync(Guid studentProfileId, IReadOnlyList<StudentSubject> newSubjects, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
@@ -201,9 +214,58 @@ public sealed class ListStudentsByTeacherQueryHandler : IQueryHandler<ListStuden
     }
 }
 
+public sealed class UpdateStudentProfileCommandHandler : ICommandHandler<UpdateStudentProfileCommand, Result<StudentProfileResponse>>
+{
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+    private readonly IStudentProfileRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+
+    public UpdateStudentProfileCommandHandler(IStudentProfileRepository repository, IIdGenerator idGenerator, IClock clock)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+        _clock = clock;
+    }
+
+    public async Task<Result<StudentProfileResponse>> Handle(UpdateStudentProfileCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetByIdAsync(command.StudentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<StudentProfileResponse>.Failure(NotFound);
+        }
+
+        profile.Update(
+            command.FullName,
+            command.GradeLevel,
+            command.ContactEmail,
+            command.ContactPhone,
+            command.GoalSummary,
+            command.LevelNotes,
+            command.IsActive,
+            _clock.UtcNow);
+
+        var newSubjects = command.Subjects
+            .Where(s => !string.IsNullOrWhiteSpace(s.Subject))
+            .Select(s => new StudentSubject(_idGenerator.New(), profile.Id, s.Subject.Trim(), s.TargetLevel?.Trim()))
+            .ToList();
+
+        await _repository.ReplaceSubjectsAsync(profile.Id, newSubjects, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<StudentProfileResponse>.Success(profile.ToResponseWithSubjects(newSubjects));
+    }
+}
+
 internal static class StudentProfileMappings
 {
     public static StudentProfileResponse ToResponse(this StudentProfile profile)
+    {
+        return profile.ToResponseWithSubjects(profile.Subjects);
+    }
+
+    public static StudentProfileResponse ToResponseWithSubjects(this StudentProfile profile, IEnumerable<StudentSubject> subjects)
     {
         return new StudentProfileResponse(
             profile.Id,
@@ -218,7 +280,7 @@ internal static class StudentProfileMappings
             profile.LevelNotes,
             profile.Origin.ToString(),
             profile.IsActive,
-            profile.Subjects.Select(subject => new StudentSubjectResponse(subject.Subject, subject.TargetLevel)).ToArray(),
+            subjects.Select(subject => new StudentSubjectResponse(subject.Subject, subject.TargetLevel)).ToArray(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
     }

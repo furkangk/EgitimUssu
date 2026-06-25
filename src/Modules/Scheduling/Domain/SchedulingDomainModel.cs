@@ -85,6 +85,14 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
         Raise(new LessonScheduleCancelledDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
     }
+
+    public void Complete(DateTime updatedOnUtc)
+    {
+        Status = LessonScheduleStatus.Completed;
+        UpdatedOnUtc = updatedOnUtc;
+
+        Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
+    }
 }
 
 public enum ScheduledLessonFormat
@@ -115,3 +123,9 @@ public sealed record LessonScheduleCancelledDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime CancelledOnUtc) : DomainEvent;
+
+public sealed record LessonSessionCompletedDomainEvent(
+    Guid LessonScheduleId,
+    Guid TeacherUserId,
+    Guid StudentId,
+    DateTime CompletedOnUtc) : DomainEvent;

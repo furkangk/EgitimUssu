@@ -1,7 +1,10 @@
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_state.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 class LessonDetailPayload {
@@ -12,6 +15,8 @@ class LessonDetailPayload {
     required this.timeLabel,
     required this.modeLabel,
     required this.accent,
+    this.lessonId,
+    this.lessonStatus,
   });
 
   final String studentName;
@@ -20,6 +25,8 @@ class LessonDetailPayload {
   final String timeLabel;
   final String modeLabel;
   final Color accent;
+  final String? lessonId;
+  final String? lessonStatus;
 }
 
 class LessonDetailPage extends StatefulWidget {
@@ -65,6 +72,8 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   static const _tabs = <String>['Ders notu', 'Odevler', 'Odeme'];
 
   LessonDetailPayload? _editedPayload;
+  SchedulingCubit? _schedulingCubit;
+  String? _lessonStatus;
 
   LessonDetailPayload get _payload =>
       _editedPayload ??
@@ -78,11 +87,29 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
         accent: _blue,
       );
 
+  bool get _canComplete =>
+      _payload.lessonId != null && _lessonStatus == 'Planned';
+
+  @override
+  void initState() {
+    super.initState();
+    _lessonStatus = widget.payload?.lessonStatus;
+    if (widget.payload?.lessonId != null) {
+      _schedulingCubit = SchedulingCubit.create();
+    }
+  }
+
+  @override
+  void dispose() {
+    _schedulingCubit?.close();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final payload = _payload;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: _background,
       appBar: AppBar(
         backgroundColor: _background,
@@ -131,6 +158,42 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   ),
                 ],
               ),
+              if (_canComplete) ...<Widget>[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: BlocBuilder<SchedulingCubit, SchedulingState>(
+                    bloc: _schedulingCubit,
+                    builder: (context, state) {
+                      return FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _emerald,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: state.isSaving
+                            ? null
+                            : () => _schedulingCubit!
+                                .completeLesson(lessonId: _payload.lessonId!),
+                        icon: state.isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_circle_outline_rounded),
+                        label: const Text('Dersi Tamamla'),
+                      );
+                    },
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
               _DetailTabs(
                 tabs: _tabs,
@@ -151,6 +214,32 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           ),
         ),
       ),
+    );
+
+    final cubit = _schedulingCubit;
+    if (cubit == null) return scaffold;
+
+    return BlocListener<SchedulingCubit, SchedulingState>(
+      bloc: cubit,
+      listener: (context, state) {
+        if (state.successMessage != null) {
+          if (state.successMessage!.contains('tamamland')) {
+            setState(() => _lessonStatus = 'Completed');
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.successMessage!)),
+          );
+        }
+        if (state.errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.errorMessage!),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      child: scaffold,
     );
   }
 

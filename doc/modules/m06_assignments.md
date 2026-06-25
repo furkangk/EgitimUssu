@@ -208,9 +208,19 @@ POST /assignments/{id}/complete
 ### ✅ Mevcut
 | Route | Sayfa | Açıklama |
 |-------|-------|----------|
-| `/assignments/new`, `/assignments/:lessonSessionId` | `AssignmentFollowUpPage` | Ders sonrası not + ödev (follow-up) |
+| `/assignments` | `AssignmentsPage` | Tüm ödevler listesi; filtre (Tümü/Bekleyen/Devam/Tamamlanan), özet kartı, shimmer yükleme |
+| `/assignments/new`, `/assignments/:lessonSessionId` | `AssignmentFollowUpPage` | Ders takibi: ders notu (özet + işlenen konular + öneriler) + çoklu ödev formu |
 | `/lesson-notes/new` | `LessonNoteFormPage` | Ders notu formu |
 | `/lesson-sessions/detail/note` | `LessonNoteViewPage` | Not görüntüleme |
+
+**Cubit'ler:**
+- `AssignmentsListCubit` / `AssignmentsListState` — `GET /api/assignments?teacherUserId=` listeler.
+- `AssignmentFollowUpCubit` / `AssignmentFollowUpState` — mevcut (follow-up kaydetme/yükleme).
+
+**Domain:**
+- `AssignmentItem`: `id, title, description, studentId, dueDateUtc, attachmentUrl, status, createdOnUtc` eklendi.
+- `LessonNote`: yeni domain sınıfı (`id, lessonSessionId, summary, coveredTopics, recommendations, createdOnUtc`).
+- `AssignmentRepository.listByTeacher(teacherUserId)`: yeni method.
 
 > `mobile/lib/features/assignments`, `flutter_bloc` (Cubit).
 
@@ -218,6 +228,7 @@ POST /assignments/{id}/complete
 - **Kaynak paylaşımı ekranı** (`LessonResource`): PDF/video/link ekleme + öğrenci listesi.
 - **Öğrenci tarafı:** "Ödevlerim", "Notlarım", "Kaynaklarım" listeleri + ödev **yükleme** (dosya seç).
 - **Ödev durum yönetimi:** tamamla / geç teslim rozeti / son teslim geri sayımı.
+- **Ödev detay sayfası** (assignment detail, status update).
 - **Veli görünümü:** çocuğun ödev durumu + geç teslim uyarısı.
 
 ---
@@ -262,4 +273,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-06-24 (mobil: AssignmentsPage + AssignmentFollowUpPage revamp + AssignmentsListCubit + LessonNote domain sınıfı)*
