@@ -16,15 +16,15 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
 
   @override
   Future<FollowUpAssignment> getFollowUp(String lessonSessionId) async {
+    if (_config.isMockFallbackEnabled('assignments')) {
+      return FollowUpAssignmentModel.demo(lessonSessionId);
+    }
     try {
       final response = await _apiClient.get(
         '/api/assignments/lesson-sessions/$lessonSessionId/follow-up',
       );
       return FollowUpAssignmentModel.fromJson(response);
     } on ApiException {
-      if (_config.isMockFallbackEnabled('assignments')) {
-        return FollowUpAssignmentModel.demo(lessonSessionId);
-      }
       rethrow;
     }
   }
@@ -56,19 +56,16 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
 
   @override
   Future<List<AssignmentItem>> listByTeacher(String teacherUserId) async {
+    if (_config.isMockFallbackEnabled('assignments')) {
+      return AssignmentItemModel.demoList();
+    }
     try {
       final response = await _apiClient.getList(
         '/api/assignments',
         queryParameters: <String, dynamic>{'teacherUserId': teacherUserId},
       );
-      return response
-          .whereType<Map<String, dynamic>>()
-          .map(AssignmentItemModel.fromJson)
-          .toList();
+      return response.whereType<Map<String, dynamic>>().map(AssignmentItemModel.fromJson).toList();
     } on ApiException {
-      if (_config.isMockFallbackEnabled('assignments')) {
-        return AssignmentItemModel.demoList();
-      }
       rethrow;
     }
   }

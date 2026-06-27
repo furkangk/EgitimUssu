@@ -16,15 +16,15 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
   @override
   Future<TeacherDashboardSummary> getSummary(String teacherUserId) async {
+    if (_config.isMockFallbackEnabled('dashboard')) {
+      return _mockSummary();
+    }
     try {
       final response = await _apiClient.get(
         '/api/teachers/profiles/$teacherUserId/dashboard-summary',
       );
       return TeacherDashboardSummaryModel.fromJson(response);
     } on ApiException {
-      if (_config.isMockFallbackEnabled('dashboard')) {
-        return _mockSummary();
-      }
       rethrow;
     }
   }
@@ -51,36 +51,42 @@ class DashboardRepositoryImpl implements DashboardRepository {
           endAtUtc: today.add(const Duration(hours: 19, minutes: 30)),
           locationLabel: 'Çalışma odası',
         ),
+        DashboardTodayLesson(
+          id: 'mock-lesson-3',
+          studentId: 'student-4',
+          subject: 'Matematik',
+          lessonFormat: 'Online',
+          startAtUtc: today.add(const Duration(hours: 20)),
+          endAtUtc: today.add(const Duration(hours: 21)),
+        ),
       ],
-      pendingAssignmentsCount: 3,
+      pendingAssignmentsCount: 5,
       pendingAssignments: const [
-        DashboardPendingAssignment(
-          id: 'asgn-1',
-          studentId: 'student-1',
-          title: 'Problem föyü 1',
-        ),
-        DashboardPendingAssignment(
-          id: 'asgn-2',
-          studentId: 'student-2',
-          title: 'Fizik deney raporu',
-        ),
-        DashboardPendingAssignment(
-          id: 'asgn-3',
-          studentId: 'student-1',
-          title: 'Mini tekrar testi',
-        ),
+        DashboardPendingAssignment(id: 'asgn-1', studentId: 'student-1', title: 'Problem föyü — Denklemler'),
+        DashboardPendingAssignment(id: 'asgn-2', studentId: 'student-2', title: 'Fizik deney raporu'),
+        DashboardPendingAssignment(id: 'asgn-3', studentId: 'student-3', title: 'Hücre bölünmesi özeti'),
+        DashboardPendingAssignment(id: 'asgn-4', studentId: 'student-4', title: 'Paragraf soruları (10 adet)'),
+        DashboardPendingAssignment(id: 'asgn-5', studentId: 'student-5', title: 'TYT deneme analizi'),
       ],
-      overduePaymentsCount: 1,
+      overduePaymentsCount: 2,
       overduePaymentsCurrency: 'TRY',
-      overduePaymentsTotal: 850,
+      overduePaymentsTotal: 1600,
       overduePayments: [
         DashboardOverduePayment(
           id: 'pay-1',
           studentId: 'student-2',
-          description: 'Mayıs ayı ders ücreti',
+          description: 'Haziran ayı ders ücreti',
           currency: 'TRY',
-          outstandingAmount: 850,
+          outstandingAmount: 900,
           dueDateUtc: today.subtract(const Duration(days: 5)),
+        ),
+        DashboardOverduePayment(
+          id: 'pay-2',
+          studentId: 'student-3',
+          description: 'Mayıs + Haziran dersleri',
+          currency: 'TRY',
+          outstandingAmount: 700,
+          dueDateUtc: today.subtract(const Duration(days: 12)),
         ),
       ],
     );

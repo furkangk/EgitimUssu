@@ -60,23 +60,24 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
 
   @override
   Future<LessonSchedule> getLesson(String lessonId) async {
-    try {
-      final response = await _apiClient.get(
-        '/api/scheduling/lessons/$lessonId',
-      );
-      return LessonScheduleModel.fromJson(response);
-    } on ApiException {
-      if (_config.isMockFallbackEnabled('scheduling')) {
-        final now = DateTime.now().toUtc();
-        return LessonScheduleModel.demo(
+    if (_config.isMockFallbackEnabled('scheduling')) {
+      final now = DateTime.now().toUtc();
+      return _mockLessons('mock-teacher-user', now).firstWhere(
+        (l) => l.id == lessonId,
+        orElse: () => LessonScheduleModel.demo(
           teacherUserId: 'mock-teacher-user',
           studentId: 'student-1',
           id: lessonId,
           subject: 'Matematik',
           startAtUtc: now.add(const Duration(hours: 3)),
           endAtUtc: now.add(const Duration(hours: 4)),
-        );
-      }
+        ),
+      );
+    }
+    try {
+      final response = await _apiClient.get('/api/scheduling/lessons/$lessonId');
+      return LessonScheduleModel.fromJson(response);
+    } on ApiException {
       rethrow;
     }
   }
@@ -154,6 +155,9 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     DateTime? startAtUtc,
     DateTime? endAtUtc,
   }) async {
+    if (_config.isMockFallbackEnabled('scheduling')) {
+      return _mockLessons(teacherUserId, DateTime.now().toUtc());
+    }
     final start =
         (startAtUtc ?? DateTime.now().toUtc().subtract(const Duration(days: 7)))
             .toIso8601String();
@@ -164,10 +168,7 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     try {
       final response = await _apiClient.getList(
         '/api/scheduling/teachers/$teacherUserId/lessons',
-        queryParameters: <String, dynamic>{
-          'startAtUtc': start,
-          'endAtUtc': end,
-        },
+        queryParameters: <String, dynamic>{'startAtUtc': start, 'endAtUtc': end},
       );
       await _localCache.writeString(cacheKey, jsonEncode(response));
       return response
@@ -176,33 +177,20 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
           .toList();
     } on ApiException {
       final cached = await _readCachedLessons(cacheKey);
-      if (cached.isNotEmpty) {
-        return cached;
-      }
-      if (_config.isMockFallbackEnabled('scheduling')) {
-        final now = DateTime.now().toUtc();
-        return <LessonSchedule>[
-          LessonScheduleModel.demo(
-            teacherUserId: teacherUserId,
-            studentId: 'student-1',
-            id: 'lesson-1',
-            subject: 'Matematik',
-            startAtUtc: now.add(const Duration(hours: 3)),
-            endAtUtc: now.add(const Duration(hours: 4)),
-          ),
-          LessonScheduleModel.demo(
-            teacherUserId: teacherUserId,
-            studentId: 'student-2',
-            id: 'lesson-2',
-            subject: 'Geometri',
-            startAtUtc: now.add(const Duration(days: 1, hours: 2)),
-            endAtUtc: now.add(const Duration(days: 1, hours: 3)),
-          ),
-        ];
-      }
+      if (cached.isNotEmpty) return cached;
       rethrow;
     }
   }
+
+  List<LessonSchedule> _mockLessons(String teacherUserId, DateTime now) => [
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-1', id: 'lesson-1', subject: 'Matematik', startAtUtc: now.add(const Duration(hours: 3)), endAtUtc: now.add(const Duration(hours: 4))),
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-2', id: 'lesson-2', subject: 'Fizik', startAtUtc: now.add(const Duration(days: 1, hours: 2)), endAtUtc: now.add(const Duration(days: 1, hours: 3, minutes: 30))),
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-3', id: 'lesson-3', subject: 'Biyoloji', startAtUtc: now.add(const Duration(days: 2, hours: 4)), endAtUtc: now.add(const Duration(days: 2, hours: 5))),
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-4', id: 'lesson-4', subject: 'Matematik', startAtUtc: now.add(const Duration(days: 3, hours: 5)), endAtUtc: now.add(const Duration(days: 3, hours: 6))),
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-5', id: 'lesson-5', subject: 'TYT Sayısal', startAtUtc: now.add(const Duration(days: 4, hours: 6)), endAtUtc: now.add(const Duration(days: 4, hours: 8))),
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-1', id: 'lesson-6', subject: 'Geometri', startAtUtc: now.subtract(const Duration(days: 1, hours: 2)), endAtUtc: now.subtract(const Duration(days: 1, hours: 1))),
+    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-2', id: 'lesson-7', subject: 'Kimya', startAtUtc: now.subtract(const Duration(days: 2, hours: 3)), endAtUtc: now.subtract(const Duration(days: 2, hours: 2))),
+  ];
 
   Future<List<LessonSchedule>> _readCachedLessons(String cacheKey) async {
     final cached = await _localCache.readString(cacheKey);

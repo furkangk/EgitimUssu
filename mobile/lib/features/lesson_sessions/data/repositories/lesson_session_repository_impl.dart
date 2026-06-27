@@ -41,22 +41,20 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
 
   @override
   Future<LessonSession> getSession(String lessonSessionId) async {
-    try {
-      final response = await _apiClient.get(
-        '/api/lesson-sessions/$lessonSessionId',
+    if (_config.isMockFallbackEnabled('lesson_sessions')) {
+      return LessonSessionModel.demo(
+        id: lessonSessionId,
+        lessonScheduleId: 'lesson-1',
+        teacherUserId: 'mock-teacher-user',
+        studentId: 'student-1',
+        subject: 'Matematik',
+        plannedStartAtUtc: DateTime.now().toUtc(),
       );
+    }
+    try {
+      final response = await _apiClient.get('/api/lesson-sessions/$lessonSessionId');
       return LessonSessionModel.fromJson(response);
     } on ApiException {
-      if (_config.isMockFallbackEnabled('lesson_sessions')) {
-        return LessonSessionModel.demo(
-          id: lessonSessionId,
-          lessonScheduleId: 'lesson-1',
-          teacherUserId: 'mock-teacher-user',
-          studentId: 'student-1',
-          subject: 'Matematik',
-          plannedStartAtUtc: DateTime.now().toUtc(),
-        );
-      }
       rethrow;
     }
   }
