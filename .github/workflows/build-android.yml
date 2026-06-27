@@ -1,0 +1,56 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java kurulumu
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Flutter kurulumu
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: Bağımlılıkları yükle
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: APK build
+        working-directory: mobile
+        run: |
+          flutter build apk \
+            --dart-define=API_BASE_URL=https://egitimussu-api.onrender.com \
+            --dart-define=APP_ENV=production \
+            --dart-define=USE_MOCK_FALLBACK=false
+
+      - name: APK'yı yeniden adlandır
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk \
+             mobile/build/app/outputs/flutter-apk/egitimussu-${SHORT_SHA}.apk
+
+      - name: GitHub Release oluştur / güncelle
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Son Build"
+          prerelease: true
+          body: |
+            Otomatik build — commit: ${{ github.sha }}
+            Tarih: ${{ github.event.head_commit.timestamp }}
+          files: mobile/build/app/outputs/flutter-apk/egitimussu-*.apk
+          make_latest: true
