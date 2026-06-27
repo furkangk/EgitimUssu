@@ -36,26 +36,23 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    try {
-      final response = await _apiClient.post(
-        '/api/identity/login',
-        data: <String, dynamic>{
-          'email': email,
-          'password': password,
-          'deviceName': 'flutter-mobile',
-        },
-      );
-      final session = UserSessionModel.fromJson(response);
+    // Mock önce kontrol edilir — API timeout beklenmez
+    if (_config.isMockFallbackEnabled('auth')) {
+      final session = _buildMockSession(email: email);
       await _persistSession(session);
       return session;
-    } on ApiException {
-      if (_config.isMockFallbackEnabled('auth')) {
-        final session = _buildMockSession(email: email);
-        await _persistSession(session);
-        return session;
-      }
-      rethrow;
     }
+    final response = await _apiClient.post(
+      '/api/identity/login',
+      data: <String, dynamic>{
+        'email': email,
+        'password': password,
+        'deviceName': 'flutter-mobile',
+      },
+    );
+    final session = UserSessionModel.fromJson(response);
+    await _persistSession(session);
+    return session;
   }
 
   @override
@@ -72,32 +69,28 @@ class AuthRepositoryImpl implements AuthRepository {
     required String lastName,
     String? phoneNumber,
   }) async {
-    try {
-      final response = await _apiClient.post(
-        '/api/identity/register',
-        data: <String, dynamic>{
-          'email': email,
-          'password': password,
-          'firstName': firstName,
-          'lastName': lastName,
-          'phoneNumber': phoneNumber,
-          'roles': <int>[2],
-        },
+    if (_config.isMockFallbackEnabled('auth')) {
+      final session = _buildMockSession(
+        email: email,
+        fullName: '$firstName $lastName',
       );
-      final session = UserSessionModel.fromJson(response);
       await _persistSession(session);
       return session;
-    } on ApiException {
-      if (_config.isMockFallbackEnabled('auth')) {
-        final session = _buildMockSession(
-          email: email,
-          fullName: '$firstName $lastName',
-        );
-        await _persistSession(session);
-        return session;
-      }
-      rethrow;
     }
+    final response = await _apiClient.post(
+      '/api/identity/register',
+      data: <String, dynamic>{
+        'email': email,
+        'password': password,
+        'firstName': firstName,
+        'lastName': lastName,
+        'phoneNumber': phoneNumber,
+        'roles': <int>[2],
+      },
+    );
+    final session = UserSessionModel.fromJson(response);
+    await _persistSession(session);
+    return session;
   }
 
   @override
@@ -162,10 +155,11 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   Future<void> _persistSession(UserSessionModel session) async {
-    await _tokenStorage.writeAccessToken(session.accessToken);
-    if (session.refreshToken != null) {
-      await _tokenStorage.writeRefreshToken(session.refreshToken!);
-    }
-    await _localCache.writeString(_sessionKey, session.toCache());
+    await Future.wait(<Future<void>>[
+      _tokenStorage.writeAccessToken(session.accessToken),
+      if (session.refreshToken != null)
+        _tokenStorage.writeRefreshToken(session.refreshToken!),
+      _localCache.writeString(_sessionKey, session.toCache()),
+    ]);
   }
 }
