@@ -1,0 +1,54 @@
+# render.yaml — EğitimÜssü Render.com IaC
+# Doküman: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: egitimussu-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free          # Ücretsiz plan: 15 dk. hareketsizlikte uyur
+    port: 8080
+    healthCheckPath: /health/live
+
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # PostgreSQL — Render managed DB'den otomatik alınır
+      - key: ConnectionStrings__Postgres
+        fromDatabase:
+          name: egitimussu-db
+          property: connectionString
+
+      # Redis — Render'da ücretsiz Redis yok; Upstash Redis kullanın.
+      # https://upstash.com → Redis oluştur → "Endpoint:Port" kopyala
+      # Render dashboard'da bu değeri elle girin: redis://<user>:<pass>@<host>:<port>
+      - key: Redis__Configuration
+        sync: false
+
+      - key: Jwt__Issuer
+        value: EgitimUssu
+      - key: Jwt__Audience
+        value: EgitimUssu.Clients
+      - key: Jwt__ExpiryMinutes
+        value: "60"
+      - key: Jwt__SigningKey
+        generateValue: true   # Render otomatik güvenli bir değer üretir
+
+      # Uygulama başlarken migration'ları uygula
+      - key: Database__ApplyMigrationsOnStartup
+        value: "true"
+
+      - key: Outbox__DispatchEnabled
+        value: "true"
+      - key: Outbox__BatchSize
+        value: "20"
+      - key: Outbox__PollIntervalSeconds
+        value: "15"
+
+databases:
+  - name: egitimussu-db
+    plan: free            # 90 gün sonra sona erer; ücretli plana geçebilirsiniz
+    databaseName: egitimussu
+    user: egitimussu_user
