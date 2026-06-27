@@ -5,6 +5,8 @@ import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/core/storage/token_storage.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/repositories/assignment_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
+import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/data/repositories/dashboard_repository_impl.dart';
@@ -129,6 +131,12 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<DashboardRepository>(
       () => DashboardRepositoryImpl(
+        apiClient: injector<ApiClient>(),
+        config: injector<AppConfig>(),
+      ),
+    )
+    ..registerLazySingleton<NotificationRepository>(
+      () => NotificationRepositoryImpl(
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
       ),

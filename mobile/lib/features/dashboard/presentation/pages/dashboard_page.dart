@@ -220,7 +220,7 @@ class _TeacherHeader extends StatelessWidget {
         _HeaderIconButton(
           icon: Icons.notifications_none_rounded,
           badgeText: '2',
-          onTap: () {},
+          onTap: () => context.push('/notifications'),
         ),
       ],
     );

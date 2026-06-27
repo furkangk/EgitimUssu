@@ -9,6 +9,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/pages/register_pag
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/role_selection_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
@@ -168,6 +169,10 @@ class AppRouter {
         GoRoute(
           path: '/payments',
           builder: (context, state) => const PaymentsPage(),
+        ),
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationsPage(),
         ),
       ],
     );
