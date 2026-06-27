@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
@@ -28,9 +31,31 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController(text: 'Teacher123!');
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _showWakeUpHint = false;
+  Timer? _wakeUpTimer;
+
+  void _startLogin() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    context.read<AuthCubit>().login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
+    final isProduction = AppConfig.fromEnvironment().isProductionLike;
+    if (isProduction) {
+      _wakeUpTimer = Timer(const Duration(seconds: 6), () {
+        if (mounted) setState(() => _showWakeUpHint = true);
+      });
+    }
+  }
+
+  void _cancelWakeUpHint() {
+    _wakeUpTimer?.cancel();
+    if (mounted) setState(() => _showWakeUpHint = false);
+  }
 
   @override
   void dispose() {
+    _wakeUpTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -48,7 +73,12 @@ class _LoginPageState extends State<LoginPage> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
-              child: BlocBuilder<AuthCubit, AuthState>(
+              child: BlocConsumer<AuthCubit, AuthState>(
+                listener: (context, state) {
+                  if (state.status != AuthStatus.loading) {
+                    _cancelWakeUpHint();
+                  }
+                },
                 builder: (context, state) {
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -255,15 +285,8 @@ class _LoginPageState extends State<LoginPage> {
                                   onPressed: state.status == AuthStatus.loading
                                       ? null
                                       : () {
-                                          if (_formKey.currentState
-                                                  ?.validate() ??
-                                              false) {
-                                            context.read<AuthCubit>().login(
-                                              email: _emailController.text.trim(),
-                                              password: _passwordController.text
-                                                  .trim(),
-                                            );
-                                          }
+                                          _cancelWakeUpHint();
+                                          _startLogin();
                                         },
                                   style: FilledButton.styleFrom(
                                     backgroundColor: _primary,
@@ -293,6 +316,27 @@ class _LoginPageState extends State<LoginPage> {
                                         ),
                                 ),
                               ),
+                              if (_showWakeUpHint &&
+                                  state.status == AuthStatus.loading) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.cloud_outlined,
+                                      size: 14,
+                                      color: _textSecondary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Sunucu uyandırılıyor, lütfen bekleyin...',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: _textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               const _AuthDivider(),
                               const SizedBox(height: 16),

@@ -41,7 +41,11 @@ class AppRouter {
             state.matchedLocation == '/teacher-panel-preview' ||
             state.matchedLocation == '/account-info-preview';
 
-        if (status == AuthStatus.initial || status == AuthStatus.loading) {
+        if (status == AuthStatus.loading) {
+          return null;
+        }
+
+        if (status == AuthStatus.initial) {
           return state.matchedLocation == '/' || onPreviewScreen ? null : '/';
         }
 

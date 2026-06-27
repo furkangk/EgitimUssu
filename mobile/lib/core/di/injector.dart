@@ -35,15 +35,22 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<TokenStorage>(SecureTokenStorage.new)
     ..registerLazySingleton<LocalCache>(() => cache)
     ..registerLazySingleton<Dio>(
-      () => Dio(
-        BaseOptions(
-          baseUrl: injector<AppConfig>().apiBaseUrl,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-          sendTimeout: const Duration(seconds: 15),
-          contentType: 'application/json',
-        ),
-      ),
+      () {
+        final config = injector<AppConfig>();
+        // Render free tier uykudan uyanmak için 60 sn gerekebilir
+        final connectTimeout = config.isProductionLike
+            ? const Duration(seconds: 60)
+            : const Duration(seconds: 15);
+        return Dio(
+          BaseOptions(
+            baseUrl: config.apiBaseUrl,
+            connectTimeout: connectTimeout,
+            receiveTimeout: const Duration(seconds: 30),
+            sendTimeout: const Duration(seconds: 15),
+            contentType: 'application/json',
+          ),
+        );
+      },
     )
     ..registerLazySingleton<ApiClient>(
       () => ApiClient(
@@ -66,8 +73,8 @@ Future<void> configureDependencies() async {
         final refreshDio = Dio(
           BaseOptions(
             baseUrl: config.apiBaseUrl,
-            connectTimeout: const Duration(seconds: 15),
-            receiveTimeout: const Duration(seconds: 15),
+            connectTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 30),
             sendTimeout: const Duration(seconds: 15),
             contentType: 'application/json',
           ),
