@@ -4,8 +4,8 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_state.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
-import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -191,12 +191,8 @@ class _StudentsPageState extends State<StudentsPage> {
                 ),
               ),
             ),
-            bottomNavigationBar: _StudentsBottomNav(
-              onHomeTap: () => context.go('/dashboard'),
-              onLessonsTap: () => context.go('/lesson-sessions'),
-              onCalendarTap: () => context.go('/scheduling'),
-              onMoreTap: () => context.go('/more'),
-              onFinanceTap: () => context.go('/payments'),
+            bottomNavigationBar: const AppBottomNav(
+              current: AppNavTab.students,
             ),
             floatingActionButton: FloatingActionButton.extended(
               backgroundColor: AppColors.primary,
@@ -231,14 +227,8 @@ class _StudentsPageState extends State<StudentsPage> {
     final profile = await showModalBottomSheet<StudentProfile>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: 0.94,
-        child: _AddStudentSheet(teacherUserId: teacherUserId),
-      ),
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _AddStudentSheet(teacherUserId: teacherUserId),
     );
 
     if (profile == null || !context.mounted) return;
@@ -409,74 +399,73 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 14,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  children: <Widget>[
-                    Container(
-                      width: 48,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AppColors.divider,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _SheetHeader(selectedTab: _selectedTab),
-                    const SizedBox(height: 16),
-                    _StudentAddTabs(
-                      selectedIndex: _selectedTab,
-                      onChanged: (index) =>
-                          setState(() => _selectedTab = index),
-                    ),
-                    const SizedBox(height: 18),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      child: _selectedTab == 0
-                          ? _ManualAddForm(
-                              key: const ValueKey<String>('manual'),
-                              formKey: _manualFormKey,
-                              nameController: _nameController,
-                              gradeController: _gradeController,
-                              emailController: _emailController,
-                              phoneController: _phoneController,
-                              subjectController: _subjectController,
-                              targetController: _targetController,
-                              goalController: _goalController,
-                              levelNotesController: _levelNotesController,
-                              onSubmit: _submitManual,
-                            )
-                          : _InviteStudentForm(
-                              key: const ValueKey<String>('invite'),
-                              formKey: _inviteFormKey,
-                              role: _inviteRole,
-                              onRoleChanged: (value) => setState(
-                                () => _inviteRole = value ?? _inviteRole,
-                              ),
-                              emailController: _inviteEmailController,
-                              messageController: _inviteMessageController,
-                              onSubmit: _submitInvite,
-                            ),
-                    ),
-                  ],
+    final media = MediaQuery.of(context);
+    final isInvite = _selectedTab == 1;
+
+    // Durum cubugunun altindan ekranin tamamini kaplar; ust koseleri yuvarlatilir.
+    return SizedBox(
+      height: media.size.height - media.padding.top,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          // Scaffold klavye acilinca govdeyi kucultur, CTA cubugunu klavyenin
+          // ustunde tutar.
+          body: Column(
+            children: <Widget>[
+              _PremiumSheetHeader(
+                isInvite: isInvite,
+                onClose: () => Navigator.of(context).maybePop(),
+              ),
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _StudentAddTabs(
+                  selectedIndex: _selectedTab,
+                  onChanged: (index) => setState(() => _selectedTab = index),
                 ),
               ),
-            );
-          },
+              const SizedBox(height: 18),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: isInvite
+                        ? _InviteStudentForm(
+                            key: const ValueKey<String>('invite'),
+                            formKey: _inviteFormKey,
+                            role: _inviteRole,
+                            onRoleChanged: (value) => setState(
+                              () => _inviteRole = value ?? _inviteRole,
+                            ),
+                            emailController: _inviteEmailController,
+                            messageController: _inviteMessageController,
+                          )
+                        : _ManualAddForm(
+                            key: const ValueKey<String>('manual'),
+                            formKey: _manualFormKey,
+                            nameController: _nameController,
+                            gradeController: _gradeController,
+                            emailController: _emailController,
+                            phoneController: _phoneController,
+                            subjectController: _subjectController,
+                            targetController: _targetController,
+                            goalController: _goalController,
+                            levelNotesController: _levelNotesController,
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          bottomNavigationBar: _SubmitBar(
+            label: isInvite ? 'Davet Gönder' : 'Öğrenciyi Kaydet',
+            icon: isInvite ? Icons.send_rounded : Icons.check_rounded,
+            onPressed: isInvite ? _submitInvite : _submitManual,
+          ),
         ),
       ),
     );
@@ -535,53 +524,147 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
 
 // ── Sheet alt bileşenleri ────────────────────────────────────────────────────
 
-class _SheetHeader extends StatelessWidget {
-  const _SheetHeader({required this.selectedTab});
+/// Tam ekran "Öğrenci Ekle" formunun premium başlığı: primary gradient zemin,
+/// sağ üstte kapatma (X) butonu, ikon rozeti + başlık/alt başlık.
+class _PremiumSheetHeader extends StatelessWidget {
+  const _PremiumSheetHeader({required this.isInvite, required this.onClose});
 
-  final int selectedTab;
+  final bool isInvite;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    final isInvite = selectedTab == 1;
-    return Row(
-      children: <Widget>[
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            isInvite ? Icons.send_rounded : Icons.person_add_alt_1_rounded,
-            color: Colors.white,
-          ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 14, 14, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                isInvite ? 'Davet gönder' : 'Yeni öğrenci ekle',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerRight,
+            child: Semantics(
+              button: true,
+              label: 'Kapat',
+              child: Material(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onClose,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                isInvite
-                    ? 'Öğrenci veya veliyi uygulamaya davet et.'
-                    : 'Öğrencinin temel bilgilerini hemen kaydet.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: <Widget>[
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(
+                  isInvite
+                      ? Icons.send_rounded
+                      : Icons.person_add_alt_1_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      isInvite ? 'Davet gönder' : 'Yeni öğrenci ekle',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isInvite
+                          ? 'Öğrenci veya veliyi uygulamaya davet et.'
+                          : 'Öğrencinin temel bilgilerini hemen kaydet.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tam ekran formun altina sabitlenen birincil aksiyon cubugu (premium CTA).
+class _SubmitBar extends StatelessWidget {
+  const _SubmitBar({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.divider)),
+        boxShadow: AppShadows.soft,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onPressed,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              icon: Icon(icon, size: 20),
+              label: Text(label),
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -645,7 +728,6 @@ class _ManualAddForm extends StatelessWidget {
     required this.targetController,
     required this.goalController,
     required this.levelNotesController,
-    required this.onSubmit,
   });
 
   final GlobalKey<FormState> formKey;
@@ -657,7 +739,6 @@ class _ManualAddForm extends StatelessWidget {
   final TextEditingController targetController;
   final TextEditingController goalController;
   final TextEditingController levelNotesController;
-  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -729,8 +810,6 @@ class _ManualAddForm extends StatelessWidget {
             minLines: 2,
             maxLines: 3,
           ),
-          const SizedBox(height: 18),
-          AppPrimaryButton(label: 'Öğrenciyi Kaydet', onPressed: onSubmit),
         ],
       ),
     );
@@ -745,7 +824,6 @@ class _InviteStudentForm extends StatelessWidget {
     required this.onRoleChanged,
     required this.emailController,
     required this.messageController,
-    required this.onSubmit,
   });
 
   final GlobalKey<FormState> formKey;
@@ -753,7 +831,6 @@ class _InviteStudentForm extends StatelessWidget {
   final ValueChanged<String?> onRoleChanged;
   final TextEditingController emailController;
   final TextEditingController messageController;
-  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -796,8 +873,6 @@ class _InviteStudentForm extends StatelessWidget {
             maxLines: 4,
             maxLength: 180,
           ),
-          const SizedBox(height: 18),
-          AppPrimaryButton(label: 'Davet Gönder', onPressed: onSubmit),
         ],
       ),
     );
@@ -977,107 +1052,3 @@ class _StudentAvatar extends StatelessWidget {
 }
 
 // ── Alt navigasyon ───────────────────────────────────────────────────────────
-
-class _StudentsBottomNav extends StatelessWidget {
-  const _StudentsBottomNav({
-    this.onHomeTap,
-    this.onLessonsTap,
-    this.onCalendarTap,
-    this.onMoreTap,
-    this.onFinanceTap,
-  });
-
-  final VoidCallback? onHomeTap;
-  final VoidCallback? onLessonsTap;
-  final VoidCallback? onCalendarTap;
-  final VoidCallback? onMoreTap;
-  final VoidCallback? onFinanceTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_BottomNavItem>[
-      _BottomNavItem(Icons.home_rounded, 'Ana sayfa', false, onHomeTap),
-      _BottomNavItem(Icons.menu_book_rounded, 'Dersler', false, onLessonsTap),
-      const _BottomNavItem(Icons.groups_rounded, 'Öğrenciler', true),
-      _BottomNavItem(
-        Icons.calendar_month_rounded,
-        'Takvim',
-        false,
-        onCalendarTap,
-      ),
-      _BottomNavItem(
-        Icons.account_balance_wallet_rounded,
-        'Finans',
-        false,
-        onFinanceTap,
-      ),
-      _BottomNavItem(Icons.widgets_rounded, 'Diğer', false, onMoreTap),
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.divider)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
-      child: Row(
-        children: items
-            .map(
-              (item) => Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: item.onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(
-                          item.icon,
-                          color: item.selected
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            item.label,
-                            maxLines: 1,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: item.selected
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                  fontWeight: item.selected
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  fontSize: 11,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _BottomNavItem {
-  const _BottomNavItem(this.icon, this.label, this.selected, [this.onTap]);
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-}

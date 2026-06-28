@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_state.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -47,13 +48,7 @@ class _MorePageState extends State<MorePage> {
 
           return Scaffold(
             backgroundColor: AppColors.background,
-            bottomNavigationBar: _MoreBottomNav(
-              onHomeTap: () => context.go('/dashboard'),
-              onLessonsTap: () => context.go('/lesson-sessions'),
-              onStudentsTap: () => context.go('/students'),
-              onCalendarTap: () => context.go('/scheduling'),
-              onFinanceTap: () => context.go('/payments'),
-            ),
+            bottomNavigationBar: const AppBottomNav(current: AppNavTab.more),
             body: SafeArea(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
@@ -1168,106 +1163,4 @@ class _DividerLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Divider(height: 1, indent: 66, color: AppColors.border);
   }
-}
-
-class _MoreBottomNav extends StatelessWidget {
-  const _MoreBottomNav({
-    required this.onHomeTap,
-    required this.onLessonsTap,
-    required this.onStudentsTap,
-    required this.onCalendarTap,
-    required this.onFinanceTap,
-  });
-
-  final VoidCallback onHomeTap;
-  final VoidCallback onLessonsTap;
-  final VoidCallback onStudentsTap;
-  final VoidCallback onCalendarTap;
-  final VoidCallback onFinanceTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_BottomNavItem>[
-      _BottomNavItem(Icons.home_rounded, 'Ana sayfa', false, onHomeTap),
-      _BottomNavItem(Icons.menu_book_rounded, 'Dersler', false, onLessonsTap),
-      _BottomNavItem(Icons.groups_rounded, 'Ogrenciler', false, onStudentsTap),
-      _BottomNavItem(
-        Icons.calendar_month_rounded,
-        'Takvim',
-        false,
-        onCalendarTap,
-      ),
-      _BottomNavItem(
-        Icons.account_balance_wallet_rounded,
-        'Finans',
-        false,
-        onFinanceTap,
-      ),
-      const _BottomNavItem(Icons.widgets_rounded, 'Diger', true),
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
-      child: Row(
-        children: items.map((item) {
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: item.onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      item.icon,
-                      color: item.selected
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        item.label,
-                        maxLines: 1,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: item.selected
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                              fontWeight: item.selected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              fontSize: 11,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _BottomNavItem {
-  const _BottomNavItem(this.icon, this.label, this.selected, [this.onTap]);
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
 }

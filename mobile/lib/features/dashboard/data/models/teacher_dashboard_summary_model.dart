@@ -45,6 +45,7 @@ class DashboardTodayLessonModel extends DashboardTodayLesson {
     required super.lessonFormat,
     required super.startAtUtc,
     required super.endAtUtc,
+    super.status,
     super.locationLabel,
     super.meetingUrl,
   });
@@ -57,6 +58,7 @@ class DashboardTodayLessonModel extends DashboardTodayLesson {
       lessonFormat: json['lessonFormat'] as String? ?? '',
       startAtUtc: DateTime.parse(json['startAtUtc'] as String),
       endAtUtc: DateTime.parse(json['endAtUtc'] as String),
+      status: json['status'] as String? ?? 'Planned',
       locationLabel: json['locationLabel'] as String?,
       meetingUrl: json['meetingUrl'] as String?,
     );

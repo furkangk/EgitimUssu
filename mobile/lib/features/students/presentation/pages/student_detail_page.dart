@@ -3,6 +3,8 @@ import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/student_detail_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/student_detail_state.dart';
@@ -260,12 +262,12 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         student: student,
         lessons: lessons,
         payments: payments,
-        onPlanLesson: () => context.push('/scheduling'),
+        onPlanLesson: () => _openLessonForm(context, student, lessons),
         onAddPayment: () => context.push('/payments'),
       ),
       1 => _LessonsTab(
         lessons: lessons,
-        onPlanLesson: () => context.push('/scheduling'),
+        onPlanLesson: () => _openLessonForm(context, student, lessons),
       ),
       2 => _PerformanceTab(student: student, lessons: lessons),
       3 => _PaymentsTab(
@@ -275,6 +277,44 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       ),
       _ => const SizedBox.shrink(),
     };
+  }
+
+  /// Ortak ders olusturma formunu (LessonFormSheet) bu ogrenci secili olarak
+  /// modal acar. Tek elemanli [students] verildigi icin form ogrenciyi otomatik
+  /// secer. Form kapaninca ogrenci detayi (ders listesi vb.) tazelenir.
+  Future<void> _openLessonForm(
+    BuildContext context,
+    StudentProfile student,
+    List<LessonSchedule> lessons,
+  ) async {
+    final teacherUserId = context.read<AuthCubit>().state.session?.userId ?? '';
+    final detailCubit = context.read<StudentDetailCubit>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) {
+        return BlocProvider<SchedulingCubit>(
+          create: (_) => SchedulingCubit.create(),
+          child: LessonFormSheet(
+            teacherUserId: teacherUserId,
+            students: <StudentProfile>[student],
+            existingLessons: lessons,
+          ),
+        );
+      },
+    );
+
+    if (context.mounted) {
+      detailCubit.load(
+        studentId: widget.studentId,
+        teacherUserId: teacherUserId,
+      );
+    }
   }
 }
 

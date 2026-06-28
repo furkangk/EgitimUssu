@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
+
 class TeacherDashboardSummary {
   const TeacherDashboardSummary({
     required this.todayLessons,
@@ -36,8 +38,10 @@ class DashboardTodayLesson {
     required this.lessonFormat,
     required this.startAtUtc,
     required this.endAtUtc,
+    this.status = 'Planned',
     this.locationLabel,
     this.meetingUrl,
+    this.lesson,
   });
 
   final String id;
@@ -46,8 +50,14 @@ class DashboardTodayLesson {
   final String lessonFormat;
   final DateTime startAtUtc;
   final DateTime endAtUtc;
+
+  /// Ders durumu ('Planned'/'Completed'/'Cancelled'/'Draft').
+  final String status;
   final String? locationLabel;
   final String? meetingUrl;
+
+  /// Kaynak ders planı; ders detayında tamamlama/kalıcı düzenleme için taşınır.
+  final LessonSchedule? lesson;
 
   bool get isOnline => lessonFormat.toLowerCase().contains('online');
 }

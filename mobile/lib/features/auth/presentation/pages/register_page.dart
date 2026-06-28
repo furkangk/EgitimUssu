@@ -40,236 +40,253 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Center(
-          child: Padding(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
-              child: BlocBuilder<AuthCubit, AuthState>(
-                builder: (context, state) {
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      const _LogoHeader(),
-                      const SizedBox(height: 8),
-                      _RoleSelectionReturnBanner(
-                        onTap: () => context.go('/role-selection'),
-                      ),
-                      const SizedBox(height: 10),
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: AppColors.border),
-                            boxShadow: AppShadows.soft,
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 20,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: BlocBuilder<AuthCubit, AuthState>(
+                    builder: (context, state) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const _LogoHeader(),
+                          const SizedBox(height: 8),
+                          _RoleSelectionReturnBanner(
+                            onTap: () => context.go('/role-selection'),
                           ),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                if (state.errorMessage != null) ...<Widget>[
-                                  ErrorStateView(message: state.errorMessage!),
-                                  const SizedBox(height: 10),
-                                ],
-                                Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: _LabeledField(
-                                        label: 'Ad',
-                                        child: TextFormField(
-                                          controller: _firstNameController,
-                                          decoration: _inputDecoration(
-                                            hintText: 'Adiniz',
-                                            icon: Icons.person_outline_rounded,
-                                          ),
-                                          validator: _requiredValidator,
-                                        ),
-                                      ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: AppColors.border),
+                              boxShadow: AppShadows.soft,
+                            ),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  if (state.errorMessage != null) ...<Widget>[
+                                    ErrorStateView(
+                                      message: state.errorMessage!,
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _LabeledField(
-                                        label: 'Soyad',
-                                        child: TextFormField(
-                                          controller: _lastNameController,
-                                          decoration: _inputDecoration(
-                                            hintText: 'Soyadiniz',
-                                            icon: Icons.badge_outlined,
-                                          ),
-                                          validator: _requiredValidator,
-                                        ),
-                                      ),
-                                    ),
+                                    const SizedBox(height: 10),
                                   ],
-                                ),
-                                const SizedBox(height: 10),
-                                _LabeledField(
-                                  label: 'Telefon',
-                                  child: TextFormField(
-                                    controller: _phoneController,
-                                    keyboardType: TextInputType.phone,
-                                    decoration: _inputDecoration(
-                                      hintText: '5xx xxx xx xx',
-                                      icon: Icons.phone_outlined,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                _LabeledField(
-                                  label: 'E-posta',
-                                  child: TextFormField(
-                                    controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    decoration: _inputDecoration(
-                                      hintText: 'ornek@mail.com',
-                                      icon: Icons.mail_outline_rounded,
-                                    ),
-                                    validator: (value) {
-                                      if (value == null ||
-                                          !value.contains('@')) {
-                                        return 'Gecerli bir e-posta gir.';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                _LabeledField(
-                                  label: 'Sifre',
-                                  child: TextFormField(
-                                    controller: _passwordController,
-                                    obscureText: _obscurePassword,
-                                    decoration: _inputDecoration(
-                                      hintText: '••••••••',
-                                      icon: Icons.lock_outline_rounded,
-                                      suffixIcon: IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _obscurePassword =
-                                                !_obscurePassword;
-                                          });
-                                        },
-                                        icon: Icon(
-                                          _obscurePassword
-                                              ? Icons.visibility_outlined
-                                              : Icons.visibility_off_outlined,
+                                  Row(
+                                    children: <Widget>[
+                                      Expanded(
+                                        child: _LabeledField(
+                                          label: 'Ad',
+                                          child: TextFormField(
+                                            controller: _firstNameController,
+                                            decoration: _inputDecoration(
+                                              hintText: 'Adiniz',
+                                              icon:
+                                                  Icons.person_outline_rounded,
+                                            ),
+                                            validator: _requiredValidator,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.length < 8) {
-                                        return 'Sifre en az 8 karakter olmali.';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Container(
-                                  height: 1,
-                                  color: const Color(0xFFEFF2F6),
-                                ),
-                                const SizedBox(height: 14),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton(
-                                    onPressed:
-                                        state.status == AuthStatus.loading
-                                        ? null
-                                        : () {
-                                            if (_formKey.currentState
-                                                    ?.validate() ??
-                                                false) {
-                                              context
-                                                  .read<AuthCubit>()
-                                                  .register(
-                                                    email: _emailController.text
-                                                        .trim(),
-                                                    password:
-                                                        _passwordController.text
-                                                            .trim(),
-                                                    firstName:
-                                                        _firstNameController
-                                                            .text
-                                                            .trim(),
-                                                    lastName:
-                                                        _lastNameController.text
-                                                            .trim(),
-                                                    phoneNumber:
-                                                        _phoneController.text
-                                                            .trim(),
-                                                  );
-                                            }
-                                          },
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size.fromHeight(50),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: state.status == AuthStatus.loading
-                                        ? const SizedBox(
-                                            width: 22,
-                                            height: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.2,
-                                              color: Colors.white,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _LabeledField(
+                                          label: 'Soyad',
+                                          child: TextFormField(
+                                            controller: _lastNameController,
+                                            decoration: _inputDecoration(
+                                              hintText: 'Soyadiniz',
+                                              icon: Icons.badge_outlined,
                                             ),
-                                          )
-                                        : Text(
-                                            'Kayit Ol',
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
+                                            validator: _requiredValidator,
                                           ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: RichText(
-                          text: TextSpan(
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            children: <InlineSpan>[
-                              const TextSpan(text: 'Zaten hesabin var mi? '),
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      context.go('/login?role=ogretmen'),
-                                  child: Text(
-                                    'Giris Yap',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w700,
+                                  const SizedBox(height: 10),
+                                  _LabeledField(
+                                    label: 'Telefon',
+                                    child: TextFormField(
+                                      controller: _phoneController,
+                                      keyboardType: TextInputType.phone,
+                                      decoration: _inputDecoration(
+                                        hintText: '5xx xxx xx xx',
+                                        icon: Icons.phone_outlined,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(height: 10),
+                                  _LabeledField(
+                                    label: 'E-posta',
+                                    child: TextFormField(
+                                      controller: _emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      decoration: _inputDecoration(
+                                        hintText: 'ornek@mail.com',
+                                        icon: Icons.mail_outline_rounded,
+                                      ),
+                                      validator: (value) {
+                                        if (value == null ||
+                                            !value.contains('@')) {
+                                          return 'Gecerli bir e-posta gir.';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _LabeledField(
+                                    label: 'Sifre',
+                                    child: TextFormField(
+                                      controller: _passwordController,
+                                      obscureText: _obscurePassword,
+                                      decoration: _inputDecoration(
+                                        hintText: '••••••••',
+                                        icon: Icons.lock_outline_rounded,
+                                        suffixIcon: IconButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscurePassword =
+                                                  !_obscurePassword;
+                                            });
+                                          },
+                                          icon: Icon(
+                                            _obscurePassword
+                                                ? Icons.visibility_outlined
+                                                : Icons.visibility_off_outlined,
+                                          ),
+                                        ),
+                                      ),
+                                      validator: (value) {
+                                        if (value == null || value.length < 8) {
+                                          return 'Sifre en az 8 karakter olmali.';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Container(
+                                    height: 1,
+                                    color: const Color(0xFFEFF2F6),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton(
+                                      onPressed:
+                                          state.status == AuthStatus.loading
+                                          ? null
+                                          : () {
+                                              if (_formKey.currentState
+                                                      ?.validate() ??
+                                                  false) {
+                                                context
+                                                    .read<AuthCubit>()
+                                                    .register(
+                                                      email: _emailController
+                                                          .text
+                                                          .trim(),
+                                                      password:
+                                                          _passwordController
+                                                              .text
+                                                              .trim(),
+                                                      firstName:
+                                                          _firstNameController
+                                                              .text
+                                                              .trim(),
+                                                      lastName:
+                                                          _lastNameController
+                                                              .text
+                                                              .trim(),
+                                                      phoneNumber:
+                                                          _phoneController.text
+                                                              .trim(),
+                                                    );
+                                              }
+                                            },
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size.fromHeight(50),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                      child: state.status == AuthStatus.loading
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Text(
+                                              'Kayit Ol',
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                          const SizedBox(height: 12),
+                          Center(
+                            child: RichText(
+                              text: TextSpan(
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                children: <InlineSpan>[
+                                  const TextSpan(
+                                    text: 'Zaten hesabin var mi? ',
+                                  ),
+                                  WidgetSpan(
+                                    alignment: PlaceholderAlignment.middle,
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          context.go('/login?role=ogretmen'),
+                                      child: Text(
+                                        'Giris Yap',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
           ),

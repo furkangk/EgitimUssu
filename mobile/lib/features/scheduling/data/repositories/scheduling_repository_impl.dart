@@ -294,13 +294,16 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
         startAtUtc: today.subtract(const Duration(hours: 15)),
         endAtUtc: today.subtract(const Duration(hours: 14)),
       ),
-      LessonScheduleModel.demo(
+      LessonScheduleModel(
+        id: 'lesson-9',
         teacherUserId: teacherUserId,
         studentId: 'student-5',
-        id: 'lesson-9',
         subject: 'Fizik',
+        lessonFormat: 'Online',
         startAtUtc: today.subtract(const Duration(hours: 34)),
         endAtUtc: today.subtract(const Duration(hours: 33)),
+        timeZone: 'Europe/Istanbul',
+        status: 'Completed',
       ),
     ];
   }

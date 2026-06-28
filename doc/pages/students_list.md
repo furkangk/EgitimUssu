@@ -1,7 +1,7 @@
 # Öğrenci Listesi (`/students`)
 
 > **Feature:** `students` · **Dosya:** `mobile/lib/features/students/presentation/pages/students_page.dart`
-> **State:** `StudentsCubit` (BlocProvider.value) · **Veri:** ✅ Gerçek API · **Güncelleme:** 2026-06-25
+> **State:** `StudentsCubit` (BlocProvider.value) · **Veri:** ✅ Gerçek API · **Güncelleme:** 2026-06-28
 
 ## Amaç
 Öğretmenin öğrencilerini arama/filtreyle listelemesi; ad, sınıf, aktif durumu.
@@ -24,7 +24,7 @@
 - `_ErrorCard` — hata görünümü + retry
 - `_StudentCard` — ad / sınıf / Aktif-Pasif rozeti / chevron, `onTap → /students/{id}`
 - `_SearchField` — client-side `_query` filtresi
-- `_AddStudentSheet` — "Manuel Ekle" / "Davet Gönder" sekme; pops `StudentProfile` → cubit.addStudent()
+- `_AddStudentSheet` — **premium tam ekran** ekleme formu (`showModalBottomSheet(isScrollControlled, backgroundColor: transparent)`; durum çubuğunun altından ekranın tamamını kaplar, üst köşeler 28 radius). İç `Scaffold` klavyeyi yönetir. Bileşenler: `_PremiumSheetHeader` (primary gradient zemin + sağ üstte **kapatma (X)** butonu + ikon rozeti/başlık), `_StudentAddTabs` ("Manuel Ekle" / "Davet Gönder"), kaydırılan form ve alta **sabit CTA** (`_SubmitBar` — `FilledButton.icon`, sekmeye göre "Öğrenciyi Kaydet" / "Davet Gönder"). Manuel form `StudentProfile` pop'lar → `cubit.addStudent()`. (Önceki sürüm 0.94 yükseklikli, tutaçlı, butonu form içinde olan sheet idi.)
 - `RefreshIndicator` — pull-to-refresh → `_cubit.load(userId)`
 
 ## İlgili

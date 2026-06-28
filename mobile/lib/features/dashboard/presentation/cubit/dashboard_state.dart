@@ -130,6 +130,7 @@ class DashboardState extends Equatable {
           lessonFormat: 'InPerson',
           startAtUtc: today.add(const Duration(hours: 18)),
           endAtUtc: today.add(const Duration(hours: 19, minutes: 30)),
+          status: 'Completed',
           locationLabel: 'Calisma odasi',
         ),
       ],
@@ -235,7 +236,9 @@ class DashboardUpcomingLesson extends Equatable {
     required this.modeLabel,
     required this.isOnline,
     required this.startAtUtc,
+    this.status = 'Planned',
     this.meetingUrl,
+    this.lesson,
   });
 
   final String title;
@@ -244,7 +247,13 @@ class DashboardUpcomingLesson extends Equatable {
   final String modeLabel;
   final bool isOnline;
   final DateTime startAtUtc;
+
+  /// Ders durumu ('Planned'/'Completed'/'Cancelled'/'Draft').
+  final String status;
   final String? meetingUrl;
+
+  /// Kaynak ders planı; ders detayında tamamlama/kalıcı düzenleme için taşınır.
+  final LessonSchedule? lesson;
 
   @override
   List<Object?> get props => <Object?>[
@@ -254,7 +263,9 @@ class DashboardUpcomingLesson extends Equatable {
     modeLabel,
     isOnline,
     startAtUtc,
+    status,
     meetingUrl,
+    lesson,
   ];
 }
 

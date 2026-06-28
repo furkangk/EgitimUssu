@@ -79,6 +79,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   SchedulingCubit? _schedulingCubit;
   String? _lessonStatus;
 
+  /// Bu detayda kalici bir degisiklik (tamamlama/duzenleme) olduysa geri
+  /// donulurken kaynak ekran (dersler listesi / ana sayfa) tazelensin diye
+  /// `true` dondurulur.
+  bool _didChange = false;
+
   LessonDetailPayload get _payload =>
       _editedPayload ??
       widget.payload ??
@@ -112,6 +117,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   @override
   Widget build(BuildContext context) {
     final payload = _payload;
+    final lessonStart = payload.lesson?.startAtUtc;
+    final lessonStarted =
+        lessonStart != null && !lessonStart.isAfter(DateTime.now().toUtc());
 
     final scaffold = Scaffold(
       backgroundColor: AppColors.background,
@@ -126,7 +134,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           child: Column(
             children: <Widget>[
-              _HeroCard(payload: payload),
+              _HeroCard(
+                payload: payload,
+                status: _lessonStatus,
+                started: lessonStarted,
+              ),
               const SizedBox(height: 16),
               Row(
                 children: <Widget>[
@@ -227,29 +239,43 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     );
 
     final cubit = _schedulingCubit;
-    if (cubit == null) return scaffold;
-
-    return BlocListener<SchedulingCubit, SchedulingState>(
-      bloc: cubit,
-      listener: (context, state) {
-        if (state.successMessage != null) {
-          if (state.successMessage!.contains('tamamland')) {
-            setState(() => _lessonStatus = 'Completed');
-          }
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
-        }
-        if (state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.errorMessage!),
-              backgroundColor: Colors.red,
-            ),
+    final Widget body = cubit == null
+        ? scaffold
+        : BlocListener<SchedulingCubit, SchedulingState>(
+            bloc: cubit,
+            listener: (context, state) {
+              if (state.successMessage != null) {
+                if (state.successMessage!.contains('tamamland')) {
+                  setState(() {
+                    _lessonStatus = 'Completed';
+                    _didChange = true;
+                  });
+                }
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
+              }
+              if (state.errorMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage!),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: scaffold,
           );
-        }
+
+    // Geri donulurken degisiklik bilgisini kaynaga dondur (PopScope ile sistem/
+    // geri butonu pop'u yakalanir; sonuc `_didChange`).
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop(_didChange);
       },
-      child: scaffold,
+      child: body,
     );
   }
 
@@ -582,7 +608,10 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
 
     final matches = cubit.state.lessons.where((l) => l.id == lesson.id);
     if (matches.isNotEmpty && mounted) {
-      setState(() => _editedPayload = _payloadFromLesson(matches.first, base));
+      setState(() {
+        _editedPayload = _payloadFromLesson(matches.first, base);
+        _didChange = true;
+      });
     }
   }
 
@@ -994,12 +1023,38 @@ class _JoinMeetingCard extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.payload});
+  const _HeroCard({required this.payload, this.status, this.started = false});
 
   final LessonDetailPayload payload;
 
+  /// Dersin guncel durumu ('Planned'/'Completed'/'Cancelled'/'Draft'). Bilinen
+  /// her durumda basliga bir durum rozeti eklenir.
+  final String? status;
+
+  /// Dersin baslama saati gecmis mi (planli ders "Bekliyor" mu gosterilsin).
+  final bool started;
+
   @override
   Widget build(BuildContext context) {
+    final (statusLabel, statusColor, statusIcon) = switch (status) {
+      'Completed' => (
+        'Tamamlandı',
+        AppColors.accentGreen,
+        Icons.check_circle_rounded,
+      ),
+      'Cancelled' => ('İptal edildi', AppColors.accentRed, Icons.cancel_rounded),
+      'Draft' => ('Taslak', AppColors.textMuted, Icons.edit_note_rounded),
+      'Planned' =>
+        started
+            ? ('Bekliyor', AppColors.amber, Icons.hourglass_bottom_rounded)
+            : (
+                'Planlandı',
+                AppColors.secondary,
+                Icons.event_available_rounded,
+              ),
+      _ => (null, AppColors.textSecondary, Icons.info_outline_rounded),
+    };
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1017,12 +1072,46 @@ class _HeroCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  payload.studentName,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        payload.studentName,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (statusLabel != null) ...<Widget>[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(statusIcon, size: 14, color: statusColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              statusLabel,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: statusColor,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(

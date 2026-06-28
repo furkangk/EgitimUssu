@@ -4,10 +4,10 @@ import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contra
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignments_list_cubit.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignments_list_state.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
 class AssignmentsPage extends StatefulWidget {
@@ -69,13 +69,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
       value: _cubit,
       child: Scaffold(
         backgroundColor: AppColors.background,
-        bottomNavigationBar: _AssignmentsBottomNav(
-          onHomeTap: () => context.go('/dashboard'),
-          onLessonsTap: () => context.go('/lesson-sessions'),
-          onStudentsTap: () => context.go('/students'),
-          onCalendarTap: () => context.go('/scheduling'),
-          onMoreTap: () => context.go('/more'),
-        ),
+        bottomNavigationBar: const AppBottomNav(current: AppNavTab.none),
         body: SafeArea(
           child: BlocBuilder<AssignmentsListCubit, AssignmentsListState>(
             builder: (context, state) {
@@ -569,96 +563,4 @@ class _ErrorCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _AssignmentsBottomNav extends StatelessWidget {
-  const _AssignmentsBottomNav({
-    required this.onHomeTap,
-    required this.onLessonsTap,
-    required this.onStudentsTap,
-    required this.onCalendarTap,
-    required this.onMoreTap,
-  });
-
-  final VoidCallback onHomeTap;
-  final VoidCallback onLessonsTap;
-  final VoidCallback onStudentsTap;
-  final VoidCallback onCalendarTap;
-  final VoidCallback onMoreTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_NavItem>[
-      _NavItem(Icons.home_rounded, 'Ana sayfa', false, onHomeTap),
-      _NavItem(Icons.menu_book_rounded, 'Dersler', false, onLessonsTap),
-      _NavItem(Icons.groups_rounded, 'Öğrenciler', false, onStudentsTap),
-      _NavItem(Icons.calendar_month_rounded, 'Takvim', false, onCalendarTap),
-      const _NavItem(Icons.assignment_rounded, 'Ödevler', true),
-      _NavItem(Icons.widgets_rounded, 'Diğer', false, onMoreTap),
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
-      child: Row(
-        children: items.map((item) {
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: item.onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      item.icon,
-                      color: item.selected
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        item.label,
-                        maxLines: 1,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: item.selected
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                              fontWeight: item.selected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              fontSize: 11,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem(this.icon, this.label, this.selected, [this.onTap]);
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
 }

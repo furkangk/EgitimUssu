@@ -16,7 +16,7 @@
 - **Durum bantları:** yükleniyor (ince progress), hata (tekrar dene), ve geciken ödeme varsa **aksiyon alınabilir uyarı bandı** (→ Ödemeler).
 - **Özet (2×2 metrik kart):** Günlük streak · Bugünün dersleri (→ Takvim) · **Bekleyen ödev** (→ Dersler) · **Geciken ödeme** (→ Ödemeler). Kartlar tıklanabilir.
 - **Hızlı işlemler:** Ders Ekle / Ödev Ver / Not Ekle / Ödeme Ekle. "Ders Ekle", takvim ve dersler ekranlarıyla **ortak** `LessonFormSheet`'i modal olarak açar (gezinmeden); form kapanınca dashboard yenilenir. Tüm girişler aynı formu açtığı için tek isim "Ders Ekle" kullanılır.
-- **Yaklaşan dersler:** gerçek veriyle yatay liste (online/yüz yüze rozetli); boş durum paneli.
+- **Yaklaşan dersler:** gerçek veriyle yatay liste (online/yüz yüze rozetli); boş durum paneli. Bugünün ve yaklaşan derslerin **her kartında durum rozeti** gösterilir: 🔵 **Planlandı** · 🟠 **Bekliyor** (saati geçmiş ama tamamlanmamış) · 🟢 **Tamamlandı** · 🔴 **İptal** · ⚪ **Taslak**. `status` zinciri `LessonSchedule.status` → `DashboardTodayLesson`/`DashboardUpcomingLesson.status`; rozet mantığı `_dashboardStatusBadge` (her zaman bir rozet döner). Hızlı tamamlama dersler listesinde yapılır (bkz. [`lesson_sessions_list.md`](lesson_sessions_list.md)). Karta tıklayıp açılan detayda tamamlama/düzenleme yapılıp geri dönülürse dashboard `DashboardCubit.load` ile **otomatik yenilenir** (detay `PopScope` ile `true` döndürür; tam `LessonSchedule` artık karttan taşındığı için detay birebir aynı çalışır).
 - **Son aktiviteler:** gerçek veriyle liste; boş durum paneli.
 - Bottom nav: Ana sayfa · Dersler · Öğrenciler · Takvim · Finans · Diğer.
 

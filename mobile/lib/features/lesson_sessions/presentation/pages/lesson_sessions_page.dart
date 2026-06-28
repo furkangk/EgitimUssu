@@ -8,6 +8,7 @@ import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/schedu
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_state.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -73,7 +74,28 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: BlocBuilder<SchedulingCubit, SchedulingState>(
+                    child: BlocConsumer<SchedulingCubit, SchedulingState>(
+                      listenWhen: (prev, curr) =>
+                          prev.successMessage != curr.successMessage ||
+                          prev.errorMessage != curr.errorMessage,
+                      listener: (context, schedulingState) {
+                        final message =
+                            schedulingState.errorMessage ??
+                            schedulingState.successMessage;
+                        if (message == null) return;
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(message),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor:
+                                  schedulingState.errorMessage != null
+                                  ? AppColors.accentRed
+                                  : AppColors.accentGreen,
+                            ),
+                          );
+                      },
                       builder: (context, schedulingState) =>
                           BlocBuilder<StudentsCubit, StudentsState>(
                             builder: (context, studentsState) =>
@@ -84,6 +106,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
                                   child: KeyedSubtree(
                                     key: ValueKey<int>(_selectedTab),
                                     child: _buildContent(
+                                      context,
                                       schedulingState,
                                       studentsState,
                                     ),
@@ -106,69 +129,28 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
             icon: const Icon(Icons.add_rounded),
             label: const Text('Ders Ekle'),
           ),
-          bottomNavigationBar: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: AppColors.divider)),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              10,
-              8,
-              10,
-              MediaQuery.of(context).padding.bottom + 8,
-            ),
-            child: Row(
-              children: <Widget>[
-                _BottomNavItem(
-                  icon: Icons.home_rounded,
-                  label: 'Ana sayfa',
-                  selected: false,
-                  onTap: () => context.go('/dashboard'),
-                ),
-                const _BottomNavItem(
-                  icon: Icons.menu_book_rounded,
-                  label: 'Dersler',
-                  selected: true,
-                ),
-                _BottomNavItem(
-                  icon: Icons.groups_rounded,
-                  label: 'Ogrenciler',
-                  selected: false,
-                  onTap: () => context.go('/students'),
-                ),
-                _BottomNavItem(
-                  icon: Icons.calendar_month_rounded,
-                  label: 'Takvim',
-                  selected: false,
-                  onTap: () => context.go('/scheduling'),
-                ),
-                _BottomNavItem(
-                  icon: Icons.account_balance_wallet_rounded,
-                  label: 'Finans',
-                  selected: false,
-                  onTap: () => context.go('/payments'),
-                ),
-                _BottomNavItem(
-                  icon: Icons.widgets_rounded,
-                  label: 'Diger',
-                  selected: false,
-                  onTap: () => context.go('/more'),
-                ),
-              ],
-            ),
-          ),
+          bottomNavigationBar: const AppBottomNav(current: AppNavTab.lessons),
         ),
       ),
     );
   }
 
   Widget _buildContent(
+    BuildContext context,
     SchedulingState schedulingState,
     StudentsState studentsState,
   ) {
     if (schedulingState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    void onComplete(_LessonCardData data) {
+      final lessonId = data.lesson?.id;
+      if (lessonId == null) return;
+      context.read<SchedulingCubit>().completeLesson(lessonId: lessonId);
+    }
+
+    final isBusy = schedulingState.isSaving;
 
     final now = DateTime.now().toUtc();
     final namesById = <String, String>{
@@ -195,15 +177,19 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
       case 0:
         return _DateGroupedLessonsView(
           lessons: upcoming.map((l) => _toCardData(l, namesById)).toList(),
+          onComplete: onComplete,
+          isBusy: isBusy,
         );
       case 1:
         return _LessonListView(
           lessons: past.map((l) => _toCardData(l, namesById)).toList(),
+          onComplete: onComplete,
+          isBusy: isBusy,
         );
       case 2:
         return _LessonListView(
           lessons: cancelled
-              .map((l) => _toCardData(l, namesById, detail: 'Iptal edildi'))
+              .map((l) => _toCardData(l, namesById))
               .toList(),
         );
       default:
@@ -211,16 +197,12 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
     }
   }
 
-  _LessonCardData _toCardData(
-    LessonSchedule l,
-    Map<String, String> namesById, {
-    String? detail,
-  }) {
+  _LessonCardData _toCardData(LessonSchedule l, Map<String, String> namesById) {
     final studentName = namesById[l.studentId] ?? 'Ogrenci';
     final isOnline = l.lessonFormat.toLowerCase().contains('online');
     final start = l.startAtUtc.toLocal();
     final end = l.endAtUtc.toLocal();
-    final fmt = (DateTime dt) =>
+    String fmt(DateTime dt) =>
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     final modeStr = isOnline ? 'Online' : 'Yuz yuze';
     final levelAndMode = (l.locationLabel != null && l.locationLabel != modeStr)
@@ -233,7 +215,6 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
       levelAndMode: levelAndMode,
       date: _LessonDate(start.year, start.month, start.day),
       accent: _accentForStudentId(l.studentId),
-      detail: detail,
       isOnline: isOnline,
       meetingUrl: l.meetingUrl,
       lesson: l,
@@ -337,9 +318,15 @@ class _EgittimUssuTabBar extends StatelessWidget {
 }
 
 class _DateGroupedLessonsView extends StatelessWidget {
-  const _DateGroupedLessonsView({required this.lessons});
+  const _DateGroupedLessonsView({
+    required this.lessons,
+    this.onComplete,
+    this.isBusy = false,
+  });
 
   final List<_LessonCardData> lessons;
+  final ValueChanged<_LessonCardData>? onComplete;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -379,6 +366,10 @@ class _DateGroupedLessonsView extends StatelessWidget {
                   child: _LessonTimelineCard(
                     data: lesson,
                     onTap: () => _openDetail(context, lesson),
+                    onComplete: onComplete == null
+                        ? null
+                        : () => onComplete!(lesson),
+                    isBusy: isBusy,
                   ),
                 );
               }),
@@ -389,8 +380,8 @@ class _DateGroupedLessonsView extends StatelessWidget {
     );
   }
 
-  void _openDetail(BuildContext context, _LessonCardData lesson) {
-    context.push(
+  Future<void> _openDetail(BuildContext context, _LessonCardData lesson) async {
+    final changed = await context.push<bool>(
       '/lesson-sessions/detail',
       extra: LessonDetailPayload(
         studentName: lesson.student,
@@ -405,13 +396,24 @@ class _DateGroupedLessonsView extends StatelessWidget {
         lesson: lesson.lesson,
       ),
     );
+    if (changed == true && context.mounted) {
+      final teacherUserId =
+          context.read<AuthCubit>().state.session?.userId ?? '';
+      await context.read<SchedulingCubit>().loadForCalendar(teacherUserId);
+    }
   }
 }
 
 class _LessonListView extends StatelessWidget {
-  const _LessonListView({required this.lessons});
+  const _LessonListView({
+    required this.lessons,
+    this.onComplete,
+    this.isBusy = false,
+  });
 
   final List<_LessonCardData> lessons;
+  final ValueChanged<_LessonCardData>? onComplete;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -420,17 +422,20 @@ class _LessonListView extends StatelessWidget {
       itemCount: lessons.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        final lesson = lessons[index];
         return _LessonTimelineCard(
-          data: lessons[index],
+          data: lesson,
           showDate: true,
-          onTap: () => _openDetail(context, lessons[index]),
+          onTap: () => _openDetail(context, lesson),
+          onComplete: onComplete == null ? null : () => onComplete!(lesson),
+          isBusy: isBusy,
         );
       },
     );
   }
 
-  void _openDetail(BuildContext context, _LessonCardData lesson) {
-    context.push(
+  Future<void> _openDetail(BuildContext context, _LessonCardData lesson) async {
+    final changed = await context.push<bool>(
       '/lesson-sessions/detail',
       extra: LessonDetailPayload(
         studentName: lesson.student,
@@ -445,6 +450,11 @@ class _LessonListView extends StatelessWidget {
         lesson: lesson.lesson,
       ),
     );
+    if (changed == true && context.mounted) {
+      final teacherUserId =
+          context.read<AuthCubit>().state.session?.userId ?? '';
+      await context.read<SchedulingCubit>().loadForCalendar(teacherUserId);
+    }
   }
 }
 
@@ -453,14 +463,26 @@ class _LessonTimelineCard extends StatelessWidget {
     required this.data,
     this.showDate = false,
     this.onTap,
+    this.onComplete,
+    this.isBusy = false,
   });
 
   final _LessonCardData data;
   final bool showDate;
   final VoidCallback? onTap;
 
+  /// Karttan hizli "Dersi Tamamla" aksiyonu. null ise buton gosterilmez
+  /// (or. iptal sekmesi).
+  final VoidCallback? onComplete;
+
+  /// Tamamlama isteği surerken butonu kilitler ve spinner gosterir.
+  final bool isBusy;
+
   @override
   Widget build(BuildContext context) {
+    final status = _LessonStatusView.of(data.lesson?.status, data.lesson);
+    final canComplete = status.isCompletable && onComplete != null;
+
     return InkWell(
       borderRadius: BorderRadius.circular(22),
       onTap: onTap,
@@ -472,59 +494,181 @@ class _LessonTimelineCard extends StatelessWidget {
           border: Border.all(color: AppColors.border),
           boxShadow: AppShadows.soft,
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _AvatarCircle(label: data.student, accent: data.accent),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    data.student,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _AvatarCircle(label: data.student, accent: data.accent),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        data.student,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        data.subject,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        showDate
+                            ? '${data.date.formattedLabel} - ${data.timeRange}'
+                            : data.timeRange,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        data.levelAndMode,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _StatusChip(status: status),
+              ],
+            ),
+            if (canComplete) ...<Widget>[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accentGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    data.subject,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    showDate
-                        ? '${data.date.formattedLabel} - ${data.timeRange}'
-                        : data.timeRange,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    data.detail ?? data.levelAndMode,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
+                  onPressed: isBusy ? null : onComplete,
+                  icon: isBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  label: const Text('Dersi Tamamla'),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary.withValues(alpha: 0.9),
-              size: 28,
-            ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Bir dersin durumunu (renk + etiket + ikon) ve tamamlanabilirligini tarif eder.
+class _LessonStatusView {
+  const _LessonStatusView({
+    required this.label,
+    required this.color,
+    required this.icon,
+    required this.isCompletable,
+  });
+
+  final String label;
+  final Color color;
+  final IconData icon;
+  final bool isCompletable;
+
+  /// [status] ham backend durumu ('Planned'/'Completed'/'Cancelled'/'Draft').
+  /// Planli ve baslama saati gecmis dersler "tamamlanabilir" sayilir.
+  factory _LessonStatusView.of(String? status, LessonSchedule? lesson) {
+    switch (status) {
+      case 'Completed':
+        return const _LessonStatusView(
+          label: 'Tamamlandı',
+          color: AppColors.accentGreen,
+          icon: Icons.check_circle_rounded,
+          isCompletable: false,
+        );
+      case 'Cancelled':
+        return const _LessonStatusView(
+          label: 'İptal edildi',
+          color: AppColors.accentRed,
+          icon: Icons.cancel_rounded,
+          isCompletable: false,
+        );
+      case 'Draft':
+        return const _LessonStatusView(
+          label: 'Taslak',
+          color: AppColors.textMuted,
+          icon: Icons.edit_note_rounded,
+          isCompletable: false,
+        );
+      default:
+        final started =
+            lesson != null &&
+            !lesson.startAtUtc.isAfter(DateTime.now().toUtc());
+        if (started) {
+          return const _LessonStatusView(
+            label: 'Bekliyor',
+            color: AppColors.amber,
+            icon: Icons.hourglass_bottom_rounded,
+            isCompletable: true,
+          );
+        }
+        return const _LessonStatusView(
+          label: 'Planlandı',
+          color: AppColors.secondary,
+          icon: Icons.event_available_rounded,
+          isCompletable: false,
+        );
+    }
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final _LessonStatusView status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: status.color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(status.icon, size: 14, color: status.color),
+          const SizedBox(width: 4),
+          Text(
+            status.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: status.color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -568,57 +712,6 @@ class _AvatarCircle extends StatelessWidget {
   }
 }
 
-class _BottomNavItem extends StatelessWidget {
-  const _BottomNavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                icon,
-                color: selected ? AppColors.primary : AppColors.textSecondary,
-              ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: selected
-                        ? AppColors.primary
-                        : AppColors.textSecondary,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _LessonCardData {
   const _LessonCardData({
     required this.student,
@@ -627,7 +720,6 @@ class _LessonCardData {
     required this.levelAndMode,
     required this.date,
     required this.accent,
-    this.detail,
     this.isOnline = false,
     this.meetingUrl,
     this.lesson,
@@ -639,7 +731,6 @@ class _LessonCardData {
   final String levelAndMode;
   final _LessonDate date;
   final Color accent;
-  final String? detail;
   final bool isOnline;
   final String? meetingUrl;
   final LessonSchedule? lesson;

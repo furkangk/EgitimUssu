@@ -5,8 +5,10 @@ import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_state.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -137,6 +139,7 @@ class TeacherPanelView extends StatelessWidget {
           isLoading: state.isLoading,
           studentNamesById: {for (final s in state.students) s.id: s.fullName},
           onViewAll: onOpenLessons,
+          onRefresh: onRefresh,
         ),
         const SizedBox(height: 24),
         _PendingAssignmentsSection(
@@ -173,13 +176,7 @@ class TeacherPanelView extends StatelessWidget {
                 child: body,
               ),
       ),
-      bottomNavigationBar: _TeacherBottomNav(
-        onLessonsTap: onOpenLessons,
-        onStudentsTap: onOpenStudents,
-        onCalendarTap: onOpenSchedule,
-        onMoreTap: onOpenProfile,
-        onFinanceTap: onOpenPayments,
-      ),
+      bottomNavigationBar: const AppBottomNav(current: AppNavTab.home),
     );
   }
 }
@@ -399,8 +396,10 @@ class _LessonCardData {
     required this.isOnline,
     required this.isToday,
     required this.startAt,
+    this.status = 'Planned',
     this.studentName,
     this.meetingUrl,
+    this.lesson,
   });
 
   final String dateLabel;
@@ -409,8 +408,12 @@ class _LessonCardData {
   final bool isOnline;
   final bool isToday;
   final DateTime startAt;
+  final String status;
   final String? studentName;
   final String? meetingUrl;
+
+  /// Kaynak ders planı; ders detayında tamamlama/kalıcı düzenleme için taşınır.
+  final LessonSchedule? lesson;
 }
 
 class _LessonsSection extends StatelessWidget {
@@ -420,6 +423,7 @@ class _LessonsSection extends StatelessWidget {
     required this.isLoading,
     required this.studentNamesById,
     this.onViewAll,
+    this.onRefresh,
   });
 
   final List<DashboardTodayLesson> todayLessons;
@@ -427,6 +431,10 @@ class _LessonsSection extends StatelessWidget {
   final bool isLoading;
   final Map<String, String> studentNamesById;
   final VoidCallback? onViewAll;
+
+  /// Ders detayinda tamamlama/duzenleme yapilip geri donulunce dashboard'i
+  /// tazeler (detay degisiklik dondururse cagrilir).
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -447,8 +455,10 @@ class _LessonsSection extends StatelessWidget {
           isOnline: l.isOnline,
           isToday: true,
           startAt: l.startAtUtc,
+          status: l.status,
           studentName: studentNamesById[l.studentId],
           meetingUrl: l.meetingUrl,
+          lesson: l.lesson,
         ),
       ),
       ...upcomingLessons
@@ -468,8 +478,10 @@ class _LessonsSection extends StatelessWidget {
               isOnline: l.isOnline,
               isToday: false,
               startAt: l.startAtUtc,
+              status: l.status,
               studentName: l.studentName,
               meetingUrl: l.meetingUrl,
+              lesson: l.lesson,
             ),
           ),
     ]..sort((a, b) => a.startAt.compareTo(b.startAt));
@@ -496,8 +508,8 @@ class _LessonsSection extends StatelessWidget {
     );
   }
 
-  void _openDetail(BuildContext context, _LessonCardData data) {
-    context.push(
+  Future<void> _openDetail(BuildContext context, _LessonCardData data) async {
+    final changed = await context.push<bool>(
       '/lesson-sessions/detail',
       extra: LessonDetailPayload(
         studentName: data.studentName ?? 'Ogrenci',
@@ -507,8 +519,14 @@ class _LessonsSection extends StatelessWidget {
         modeLabel: data.isOnline ? 'Online' : 'Yuz yuze',
         accent: data.isOnline ? AppColors.accentGreen : AppColors.amber,
         meetingUrl: data.meetingUrl,
+        lessonId: data.lesson?.id,
+        lessonStatus: data.lesson?.status ?? data.status,
+        lesson: data.lesson,
       ),
     );
+    if (changed == true && context.mounted) {
+      await onRefresh?.call();
+    }
   }
 
   static String _fmt(DateTime dt) {
@@ -567,6 +585,7 @@ class _LessonCard extends StatelessWidget {
         ? Colors.white.withValues(alpha: 0.18)
         : AppColors.primaryLight;
     final badgeText = isToday ? Colors.white : AppColors.primary;
+    final statusBadge = _dashboardStatusBadge(data);
 
     return GestureDetector(
       onTap: onTap,
@@ -582,20 +601,29 @@ class _LessonCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: badgeBg,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                data.dateLabel,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: badgeText,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
+            Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    data.dateLabel,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: badgeText,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
                 ),
-              ),
+                const Spacer(),
+                _LessonStatusPill(badge: statusBadge),
+              ],
             ),
             const Spacer(),
             Text(
@@ -659,6 +687,86 @@ class _LessonCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Ders kartinda gosterilecek durum rozeti tanimi (etiket + renk + ikon).
+class _StatusBadge {
+  const _StatusBadge(this.label, this.color, this.icon);
+
+  final String label;
+  final Color color;
+  final IconData icon;
+}
+
+/// Ana sayfa ders karti icin durum rozetini cozer. Her ders icin bir rozet
+/// doner: Tamamlandi / Iptal / Taslak / (planli ve saati gecmisse) Bekliyor /
+/// (gelecek planli) Planlandi.
+_StatusBadge _dashboardStatusBadge(_LessonCardData data) {
+  switch (data.status) {
+    case 'Completed':
+      return const _StatusBadge(
+        'Tamamlandı',
+        AppColors.accentGreen,
+        Icons.check_circle_rounded,
+      );
+    case 'Cancelled':
+      return const _StatusBadge(
+        'İptal',
+        AppColors.accentRed,
+        Icons.cancel_rounded,
+      );
+    case 'Draft':
+      return const _StatusBadge(
+        'Taslak',
+        AppColors.textMuted,
+        Icons.edit_note_rounded,
+      );
+    default:
+      final started = !data.startAt.isAfter(DateTime.now().toUtc());
+      return started
+          ? const _StatusBadge(
+              'Bekliyor',
+              AppColors.amber,
+              Icons.hourglass_bottom_rounded,
+            )
+          : const _StatusBadge(
+              'Planlandı',
+              AppColors.secondary,
+              Icons.event_available_rounded,
+            );
+  }
+}
+
+class _LessonStatusPill extends StatelessWidget {
+  const _LessonStatusPill({required this.badge});
+
+  final _StatusBadge badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: badge.color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(badge.icon, size: 11, color: Colors.white),
+          const SizedBox(width: 3),
+          Text(
+            badge.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -777,101 +885,6 @@ class _ActivityRow extends StatelessWidget {
       return Icons.assignment_turned_in_rounded;
     }
     return Icons.notifications_rounded;
-  }
-}
-
-class _TeacherBottomNav extends StatelessWidget {
-  const _TeacherBottomNav({
-    this.onLessonsTap,
-    this.onStudentsTap,
-    this.onCalendarTap,
-    this.onMoreTap,
-    this.onFinanceTap,
-  });
-
-  final VoidCallback? onLessonsTap;
-  final VoidCallback? onStudentsTap;
-  final VoidCallback? onCalendarTap;
-  final VoidCallback? onMoreTap;
-  final VoidCallback? onFinanceTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_BottomNavItem>[
-      const _BottomNavItem(Icons.home_rounded, 'Ana sayfa', true),
-      _BottomNavItem(Icons.menu_book_rounded, 'Dersler', false, onLessonsTap),
-      _BottomNavItem(Icons.groups_rounded, 'Ogrenciler', false, onStudentsTap),
-      _BottomNavItem(
-        Icons.calendar_month_rounded,
-        'Takvim',
-        false,
-        onCalendarTap,
-      ),
-      _BottomNavItem(
-        Icons.account_balance_wallet_rounded,
-        'Finans',
-        false,
-        onFinanceTap,
-      ),
-      _BottomNavItem(Icons.widgets_rounded, 'Diger', false, onMoreTap),
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.divider)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
-      child: Row(
-        children: items
-            .map(
-              (item) => Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: item.onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Icon(
-                          item.icon,
-                          color: item.selected
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            item.label,
-                            maxLines: 1,
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: item.selected
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                  fontWeight: item.selected
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  fontSize: 11,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
   }
 }
 
@@ -1717,14 +1730,5 @@ class _QuickAction {
   final IconData icon;
   final String label;
   final Color accent;
-  final VoidCallback? onTap;
-}
-
-class _BottomNavItem {
-  const _BottomNavItem(this.icon, this.label, this.selected, [this.onTap]);
-
-  final IconData icon;
-  final String label;
-  final bool selected;
   final VoidCallback? onTap;
 }

@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_state.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -99,12 +100,8 @@ class _PaymentsPageState extends State<PaymentsPage> {
               label: const Text('Ödeme Ekle'),
               icon: const Icon(Icons.add_card_rounded),
             ),
-            bottomNavigationBar: _FinanceBottomNav(
-              onHomeTap: () => context.go('/dashboard'),
-              onLessonsTap: () => context.go('/lesson-sessions'),
-              onStudentsTap: () => context.go('/students'),
-              onCalendarTap: () => context.go('/scheduling'),
-              onMoreTap: () => context.go('/more'),
+            bottomNavigationBar: const AppBottomNav(
+              current: AppNavTab.finance,
             ),
             body: SafeArea(
               child: RefreshIndicator(
@@ -732,98 +729,6 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
-class _FinanceBottomNav extends StatelessWidget {
-  const _FinanceBottomNav({
-    required this.onHomeTap,
-    required this.onLessonsTap,
-    required this.onStudentsTap,
-    required this.onCalendarTap,
-    required this.onMoreTap,
-  });
-
-  final VoidCallback onHomeTap;
-  final VoidCallback onLessonsTap;
-  final VoidCallback onStudentsTap;
-  final VoidCallback onCalendarTap;
-  final VoidCallback onMoreTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <_BottomNavItem>[
-      _BottomNavItem(Icons.home_rounded, 'Ana sayfa', false, onHomeTap),
-      _BottomNavItem(Icons.menu_book_rounded, 'Dersler', false, onLessonsTap),
-      _BottomNavItem(Icons.groups_rounded, 'Öğrenciler', false, onStudentsTap),
-      _BottomNavItem(
-        Icons.calendar_month_rounded,
-        'Takvim',
-        false,
-        onCalendarTap,
-      ),
-      const _BottomNavItem(
-        Icons.account_balance_wallet_rounded,
-        'Finans',
-        true,
-      ),
-      _BottomNavItem(Icons.widgets_rounded, 'Diğer', false, onMoreTap),
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        MediaQuery.of(context).padding.bottom + 8,
-      ),
-      child: Row(
-        children: items.map((item) {
-          return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: item.onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      item.icon,
-                      color: item.selected
-                          ? AppColors.primary
-                          : AppColors.textSecondary,
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        item.label,
-                        maxLines: 1,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: item.selected
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
-                              fontWeight: item.selected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              fontSize: 11,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
 // ── Enum + yardımcı ──────────────────────────────────────────────────────────
 
 enum _PaymentFilter {
@@ -844,15 +749,6 @@ enum _PaymentFilter {
       _PaymentFilter.overdue => record.isOverdue,
     };
   }
-}
-
-class _BottomNavItem {
-  const _BottomNavItem(this.icon, this.label, this.selected, [this.onTap]);
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
 }
 
 String _money(double amount) {

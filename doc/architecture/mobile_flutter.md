@@ -187,7 +187,7 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 Mevcut app öğretmen odaklı. `app_router.dart` redirect'i ileride role göre farklı kabuğa yönlendirecek:
 
-- **Öğretmen:** Ana Sayfa · Dersler · Öğrenciler · Takvim · Finans · Diğer
+- **Öğretmen:** Ana Sayfa · Dersler · Öğrenciler · Takvim · Finans · Diğer — kodda **uygulandı**: ortak `AppBottomNav` widget'ı (`AppNavTab` sekmeleri, `shared/widgets/app_bottom_nav.dart`).
 - **Öğrenci:** Ana Sayfa · Çalışma (kronometre) · Dersler · Gelişim · Profil
 - **Veli:** Ana Sayfa · Raporlar · Bildirimler · Profil
 
@@ -303,7 +303,7 @@ Sürdürülebilirlik için tüm ekranlar şu component'leri kullanır:
 - **AppButton** — varyantlar: primary (koyu lacivert, ~48px, radius 12), secondary outline, danger, icon, small.
 - **AppCard** — beyaz zemin, hafif border + `softShadow`, radius 16, padding 14-16.
 - **AppHeader** — geri/bildirim/menü/sadece-başlık varyantları.
-- **AppBottomNav** — rol bazlı item seti (§9); aktif item primary, pasif gri.
+- **AppBottomNav** (🟢 `app_bottom_nav.dart`) — tüm ana ekranların ortak alt menüsü; şu an öğretmen seti (6 sekme, §9). Sayfa `current: AppNavTab.x` verir, widget `context.go` ile yönlendirir. İleride rol bazlı item setine genişler.
 - **MetricCard** — başlık + ana değer + alt açıklama (+ ikon/trend/progress). KPI/özet kartları.
 - **AppSegmentedTab** — segment kontrolü (aktif: koyu lacivert+beyaz; pasif: açık gri+gri). Detay → [`../tab_widget.md`](../tab_widget.md).
 - Liste tile'ları: `StudentListTile`, `LessonCard`, `AssignmentTile`, `PaymentTile`, `NotificationTile`, `ProfileMenuTile`.

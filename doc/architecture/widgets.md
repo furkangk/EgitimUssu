@@ -36,7 +36,7 @@
 | AppFieldLabel | `AppFieldLabel` @ `form_fields.dart` | `text` | Form alanı etiketi (w700) | 🟢 |
 | AppCard | _(yok)_ | `child, padding?` | Beyaz zemin + `border` + `softShadow`, radius 16, padding 14-16 | 🔴 |
 | AppHeader | `AppPageHeader` @ `app_page_header.dart` | `title, subtitle?, trailing?` | Tüm ana ekranların ortak başlığı: sol başlık (+alt başlık), sağda bildirim zili. Zil her zaman `/notifications`'a gider; rozet global `NotificationsCubit.state.unreadCount`'tan gelir (`context.select`). Renkler `AppColors` token'larından (sabit kodlu **değil**). Tek tanım → tüm sayfalara yansır. Geri/menü varyantı henüz yok | 🟡 |
-| AppBottomNav | _(yok)_ | `items, currentIndex, onTap` | **Rol bazlı** item seti (bkz. [`mobile_flutter.md`](mobile_flutter.md) §9); aktif primary, pasif gri | 🔴 |
+| AppBottomNav | `AppBottomNav` @ `app_bottom_nav.dart` | `current` (`AppNavTab`) | Tüm ana ekranların ortak alt navigasyon menüsü (master page): 6 sabit sekme (Ana sayfa/Dersler/Öğrenciler/Takvim/Finans/Diğer), ikonlar + etiketler + hedef rotalar tek yerde. Sayfa yalnızca aktif sekmeyi (`AppNavTab`) bildirir; widget `context.go` ile yönlendirir. Aktif primary, pasif gri (`AppColors`). Ana sekmeye uymayan alt sayfalar `AppNavTab.none`. Tek tanım → tüm sayfalara yansır | 🟢 |
 | AppAvatar | _(yok)_ | `imageUrl?, size, initials?` | Dairesel; görsel yoksa baş harf | 🔴 |
 | AppBadge | _(yok)_ | `text/count, color` | Durum/sayaç rozeti (10-12px) | 🔴 |
 | AppSegmentedTab | `EgitimUssuTabBar` (tasarım) @ _(yok)_ | `tabs, selectedIndex, onChanged` | 2-4 sekme; aktif lacivert+beyaz, pasif şeffaf+gri. **Derin tasarım →** [`../tab_widget.md`](../tab_widget.md) | 🔴 |
@@ -64,15 +64,16 @@
 
 ## 4. Önerilen Tamamlama Sırası (🔴/🟡)
 
-Ekranların çoğu bunlara dayanır; sıra: **AppCard → AppHeader → AppBottomNav → AppSegmentedTab → MetricCard →
+Ekranların çoğu bunlara dayanır; sıra: **AppCard → AppSegmentedTab → MetricCard →
 StudentListTile → LessonCard → AssignmentTile → PaymentTile → NotificationTile → AppAvatar → AppBadge →
-ProfileMenuTile → SectionHeader**. `AppButton`'ı tam varyant setine (outline/danger/icon/small) genişlet.
+ProfileMenuTile → SectionHeader**. (AppHeader ve AppBottomNav 🟢 tamamlandı.) `AppButton`'ı tam varyant setine (outline/danger/icon/small) genişlet.
 
 ## 5. Bilinen Tutarlılık Notları
 
 - **`form_fields.dart` artık `AppColors`'a bağlı:** Eski sabit-kodlu renkler (`_appFieldBorder`, `_appFieldFocus`, `_appFieldText`, `_appFieldError`) kaldırıldı; `AppColors.border/primary/textPrimary/accentRed` kullanılıyor.
 - **`AppPrimaryButton`** yalnızca primary varyantı sağlıyor; tasarımdaki `AppButton` varyantları (outline/danger/icon/small) eksik (🟡).
 - **`AppPageHeader` öncesi** her ana ekran (dashboard, payments, assignments, scheduling, students, lesson_sessions) kendi başlık + bildirim butonunu ayrı tanımlıyordu; bildirim yalnızca dashboard'da çalışıyordu, rozetler sabit "2" idi. Artık tek widget'ta toplandı, buton her yerde `/notifications`'a gidiyor, rozet gerçek okunmamış sayısını gösteriyor ve renkleri `AppColors` token'larından çağırıyor.
+- **`AppBottomNav` öncesi** alt navigasyon menüsü 7 sayfada ayrı ayrı kopyalanmıştı (her biri kendi `_XxxBottomNav` + `_BottomNavItem`/`_NavItem` sınıfıyla); etiketler ("Ogrenciler"/"Öğrenciler", "Diger"/"Diğer") ve üst kenarlık (`border`/`divider`) sayfadan sayfaya tutarsızdı, hatta assignments sayfası 5. sekmede "Finans" yerine "Ödevler" gösteriyordu. Artık tek `AppBottomNav` widget'ında toplandı: 6 kanonik sekme, tutarlı etiket/renk, hedef rotalar tek yerde. Sayfa sadece `current: AppNavTab.x` veriyor; assignments gibi ana sekmeye uymayan sayfalar `AppNavTab.none` kullanıyor.
 - **Renk migrasyonu:** Tüm sayfa/widget'lardaki yerel renk sabitleri **ve** token'a birebir eşleşen inline `Color(0x…)` literalleri `AppColors`'a taşındı.
 - **Gölge migrasyonu:** Tüm ekranlardaki elle yazılmış `BoxShadow`'lar tek `AppShadows.soft` (`core/theme/app_shadows.dart`) token'ına indirgendi; ekran başına ayrı gölge yok.
 - **Semantik durum token'ları:** Hata/aciliyet tint'leri `AppColors`'a semantik token oldu (`error`/`errorSurface`/`errorSurfaceStrong`/`errorBorder`, `warning*`, `infoSurface`, `successSurface`); aciliyet-kademeli kartlar (geciken ödev/ödeme) bunları kullanıyor. Geriye yalnızca near-white yüzeyler ve gradient durakları gibi tekil/özel literaller kaldı.

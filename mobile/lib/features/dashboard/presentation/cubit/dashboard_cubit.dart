@@ -83,8 +83,10 @@ class DashboardCubit extends Cubit<DashboardState> {
               lessonFormat: l.lessonFormat,
               startAtUtc: l.startAtUtc,
               endAtUtc: l.endAtUtc,
+              status: l.status,
               locationLabel: l.locationLabel,
               meetingUrl: l.meetingUrl,
+              lesson: l,
             ),
           )
           .toList();
@@ -190,7 +192,9 @@ class DashboardCubit extends Cubit<DashboardState> {
         modeLabel: isOnline ? 'Online' : 'Yuz yuze',
         isOnline: isOnline,
         startAtUtc: lesson.startAtUtc,
+        status: lesson.status,
         meetingUrl: lesson.meetingUrl,
+        lesson: lesson,
       );
     }).toList();
   }
