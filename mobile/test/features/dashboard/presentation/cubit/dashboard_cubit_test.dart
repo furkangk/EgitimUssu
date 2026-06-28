@@ -90,6 +90,11 @@ class _FakeSchedulingRepository implements SchedulingRepository {
   }
 
   @override
+  Future<LessonSchedule> updateLesson(LessonSchedule lessonSchedule) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<LessonSchedule> getLesson(String lessonId) {
     throw UnimplementedError();
   }

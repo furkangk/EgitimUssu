@@ -15,11 +15,11 @@ class AuthRepositoryImpl implements AuthRepository {
     required LocalCache localCache,
     required AppConfig config,
     required Dio refreshDio,
-  })  : _apiClient = apiClient,
-        _tokenStorage = tokenStorage,
-        _localCache = localCache,
-        _config = config,
-        _refreshDio = refreshDio;
+  }) : _apiClient = apiClient,
+       _tokenStorage = tokenStorage,
+       _localCache = localCache,
+       _config = config,
+       _refreshDio = refreshDio;
 
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
@@ -132,7 +132,9 @@ class AuthRepositoryImpl implements AuthRepository {
         '/api/identity/refresh',
         data: <String, dynamic>{'refreshToken': storedRefreshToken},
       );
-      final session = UserSessionModel.fromJson(response.data ?? <String, dynamic>{});
+      final session = UserSessionModel.fromJson(
+        response.data ?? <String, dynamic>{},
+      );
       await _persistSession(session);
       return session;
     } on DioException catch (e) {

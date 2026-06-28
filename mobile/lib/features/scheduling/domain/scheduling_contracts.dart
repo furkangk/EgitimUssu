@@ -12,6 +12,7 @@ class LessonSchedule {
     this.recurrenceRule,
     this.reminderOffsetMinutes,
     this.locationLabel,
+    this.meetingUrl,
     this.notes,
   });
 
@@ -27,11 +28,15 @@ class LessonSchedule {
   final String? recurrenceRule;
   final int? reminderOffsetMinutes;
   final String? locationLabel;
+
+  /// Online dersler icin toplanti baglantisi (Zoom/Meet vb.).
+  final String? meetingUrl;
   final String? notes;
 }
 
 abstract interface class SchedulingRepository {
   Future<LessonSchedule> createLesson(LessonSchedule lessonSchedule);
+  Future<LessonSchedule> updateLesson(LessonSchedule lessonSchedule);
   Future<LessonSchedule> getLesson(String lessonId);
   Future<LessonSchedule> cancelLesson({
     required String lessonId,

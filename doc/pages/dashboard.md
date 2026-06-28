@@ -1,7 +1,7 @@
 # Öğretmen Paneli / Dashboard (`/dashboard`)
 
 > **Feature:** `dashboard` · **Dosya:** `mobile/lib/features/dashboard/presentation/pages/dashboard_page.dart`
-> **State:** `DashboardCubit` / `DashboardState` · **Veri:** Cubit (`load(teacherUserId)`) — gerçek (Students/Scheduling/Payments) · **Güncelleme:** 2026-06-24
+> **State:** `DashboardCubit` / `DashboardState` · **Veri:** Cubit (`load(teacherUserId)`) — gerçek (Students/Scheduling/Payments) · **Güncelleme:** 2026-06-28
 
 ## Amaç
 Öğretmenin günlük operasyon ana ekranı: karşılama + günlük özet (streak, bugünün dersi, bekleyen ödev, geciken ödeme), yaklaşan dersler, son aktiviteler, hızlı işlemler.
@@ -15,7 +15,7 @@
 - **Karşılama başlığı:** "Merhaba, {ad} 👋" + günlük özet alt metni + bildirim ikonu (badge).
 - **Durum bantları:** yükleniyor (ince progress), hata (tekrar dene), ve geciken ödeme varsa **aksiyon alınabilir uyarı bandı** (→ Ödemeler).
 - **Özet (2×2 metrik kart):** Günlük streak · Bugünün dersleri (→ Takvim) · **Bekleyen ödev** (→ Dersler) · **Geciken ödeme** (→ Ödemeler). Kartlar tıklanabilir.
-- **Hızlı işlemler:** Ders Planla / Ödev Ver / Not Ekle / Ödeme Ekle.
+- **Hızlı işlemler:** Ders Ekle / Ödev Ver / Not Ekle / Ödeme Ekle. "Ders Ekle", takvim ve dersler ekranlarıyla **ortak** `LessonFormSheet`'i modal olarak açar (gezinmeden); form kapanınca dashboard yenilenir. Tüm girişler aynı formu açtığı için tek isim "Ders Ekle" kullanılır.
 - **Yaklaşan dersler:** gerçek veriyle yatay liste (online/yüz yüze rozetli); boş durum paneli.
 - **Son aktiviteler:** gerçek veriyle liste; boş durum paneli.
 - Bottom nav: Ana sayfa · Dersler · Öğrenciler · Takvim · Finans · Diğer.

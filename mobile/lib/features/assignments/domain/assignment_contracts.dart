@@ -56,6 +56,8 @@ class FollowUpAssignment {
 
 abstract interface class AssignmentRepository {
   Future<FollowUpAssignment> getFollowUp(String lessonSessionId);
-  Future<FollowUpAssignment> saveFollowUp(FollowUpAssignment followUpAssignment);
+  Future<FollowUpAssignment> saveFollowUp(
+    FollowUpAssignment followUpAssignment,
+  );
   Future<List<AssignmentItem>> listByTeacher(String teacherUserId);
 }

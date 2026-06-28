@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_cubit.dart';
@@ -20,12 +21,6 @@ class PaymentFormPage extends StatefulWidget {
 }
 
 class _PaymentFormPageState extends State<PaymentFormPage> {
-  static const _emerald = Color(0xFF20B486);
-  static const _red = Color(0xFFFF5A5F);
-  static const _text = Color(0xFF10233D);
-  static const _background = Color(0xFFF4F8FC);
-  static const _divider = Color(0xFFE5EEF7);
-
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController(text: '750');
@@ -54,7 +49,9 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final userId = context.read<AuthCubit>().state.session?.userId;
-    if (userId != null && _studentsCubit.state.students.isEmpty && !_studentsCubit.state.isLoading) {
+    if (userId != null &&
+        _studentsCubit.state.students.isEmpty &&
+        !_studentsCubit.state.isLoading) {
       _studentsCubit.load(userId);
     }
   }
@@ -90,7 +87,7 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
           }
         },
         child: Scaffold(
-          backgroundColor: _background,
+          backgroundColor: AppColors.background,
           body: SafeArea(
             child: BlocConsumer<PaymentsCubit, PaymentsState>(
               listener: (context, state) {
@@ -98,7 +95,7 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(state.successMessage!),
-                      backgroundColor: _emerald,
+                      backgroundColor: AppColors.accentGreen,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -108,7 +105,7 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(state.errorMessage!),
-                      backgroundColor: _red,
+                      backgroundColor: AppColors.accentRed,
                       behavior: SnackBarBehavior.floating,
                     ),
                   );
@@ -238,7 +235,7 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
               return Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(top: BorderSide(color: _divider)),
+                  border: Border(top: BorderSide(color: AppColors.divider)),
                 ),
                 padding: EdgeInsets.fromLTRB(
                   16,
@@ -278,10 +275,12 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
   void _syncDescription() {
     if (_selectedProfile == null) return;
-    final subject = _selectedSubject ?? _selectedProfile!.subjects.firstOrNull?.subject;
+    final subject =
+        _selectedSubject ?? _selectedProfile!.subjects.firstOrNull?.subject;
     final name = _selectedProfile!.fullName;
-    _descriptionController.text =
-        subject != null ? '$subject dersi — $name' : '$name dersi';
+    _descriptionController.text = subject != null
+        ? '$subject dersi — $name'
+        : '$name dersi';
   }
 
   Future<void> _pickDueDate() async {
@@ -309,11 +308,12 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
       );
       return;
     }
-    final teacherUserId =
-        context.read<AuthCubit>().state.session?.userId ?? '';
+    final teacherUserId = context.read<AuthCubit>().state.session?.userId ?? '';
     final expected = double.parse(_amountController.text.trim());
     final collected = double.parse(_collectedController.text.trim());
-    final outstanding = (expected - collected).clamp(0, double.infinity).toDouble();
+    final outstanding = (expected - collected)
+        .clamp(0, double.infinity)
+        .toDouble();
 
     _paymentsCubit.create(
       PaymentRecord(
@@ -328,8 +328,8 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
         status: collected >= expected
             ? 'Paid'
             : collected > 0
-                ? 'PartiallyPaid'
-                : 'Pending',
+            ? 'PartiallyPaid'
+            : 'Pending',
         dueDateUtc: _selectedDueDate.toUtc(),
         collectedOnUtc: collected > 0 ? DateTime.now().toUtc() : null,
         notes: _buildNotes(),
@@ -358,8 +358,18 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
   static String _formatDate(DateTime date) {
     const months = <String>[
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -404,10 +414,7 @@ class _StudentSection extends StatelessWidget {
                 .map(
                   (s) => DropdownMenuItem<StudentProfile>(
                     value: s,
-                    child: Text(
-                      s.fullName,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(s.fullName, overflow: TextOverflow.ellipsis),
                   ),
                 )
                 .toList(),
@@ -461,20 +468,24 @@ class _NoStudentsHint extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F8FC),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFD7E7F8)),
+        border: Border.all(color: AppColors.skyBorder),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF6B7A90)),
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Kayıtlı öğrenci bulunamadı. Önce öğrenci ekleyin.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF6B7A90),
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -499,13 +510,13 @@ class _TopBar extends StatelessWidget {
           IconButton(
             onPressed: onBack,
             icon: const Icon(Icons.arrow_back_rounded),
-            color: _PaymentFormPageState._text,
+            color: AppColors.textPrimary,
           ),
           Expanded(
             child: Text(
               'Ödeme Ekle',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _PaymentFormPageState._text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),

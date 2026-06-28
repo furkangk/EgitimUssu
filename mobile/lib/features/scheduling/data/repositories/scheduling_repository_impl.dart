@@ -35,6 +35,7 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
       recurrenceRule: lessonSchedule.recurrenceRule,
       reminderOffsetMinutes: lessonSchedule.reminderOffsetMinutes,
       locationLabel: lessonSchedule.locationLabel,
+      meetingUrl: lessonSchedule.meetingUrl,
       notes: lessonSchedule.notes,
     );
     try {
@@ -59,6 +60,38 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
   }
 
   @override
+  Future<LessonSchedule> updateLesson(LessonSchedule lessonSchedule) async {
+    final model = LessonScheduleModel(
+      id: lessonSchedule.id,
+      teacherUserId: lessonSchedule.teacherUserId,
+      studentId: lessonSchedule.studentId,
+      subject: lessonSchedule.subject,
+      lessonFormat: lessonSchedule.lessonFormat,
+      startAtUtc: lessonSchedule.startAtUtc,
+      endAtUtc: lessonSchedule.endAtUtc,
+      timeZone: lessonSchedule.timeZone,
+      status: lessonSchedule.status,
+      recurrenceRule: lessonSchedule.recurrenceRule,
+      reminderOffsetMinutes: lessonSchedule.reminderOffsetMinutes,
+      locationLabel: lessonSchedule.locationLabel,
+      meetingUrl: lessonSchedule.meetingUrl,
+      notes: lessonSchedule.notes,
+    );
+    try {
+      final response = await _apiClient.put(
+        '/api/scheduling/lessons/${lessonSchedule.id}',
+        data: model.toUpdatePayload(),
+      );
+      return LessonScheduleModel.fromJson(response);
+    } on ApiException {
+      if (_config.isMockFallbackEnabled('scheduling')) {
+        return model;
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<LessonSchedule> getLesson(String lessonId) async {
     if (_config.isMockFallbackEnabled('scheduling')) {
       final now = DateTime.now().toUtc();
@@ -75,7 +108,9 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
       );
     }
     try {
-      final response = await _apiClient.get('/api/scheduling/lessons/$lessonId');
+      final response = await _apiClient.get(
+        '/api/scheduling/lessons/$lessonId',
+      );
       return LessonScheduleModel.fromJson(response);
     } on ApiException {
       rethrow;
@@ -168,7 +203,10 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     try {
       final response = await _apiClient.getList(
         '/api/scheduling/teachers/$teacherUserId/lessons',
-        queryParameters: <String, dynamic>{'startAtUtc': start, 'endAtUtc': end},
+        queryParameters: <String, dynamic>{
+          'startAtUtc': start,
+          'endAtUtc': end,
+        },
       );
       await _localCache.writeString(cacheKey, jsonEncode(response));
       return response
@@ -182,15 +220,90 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     }
   }
 
-  List<LessonSchedule> _mockLessons(String teacherUserId, DateTime now) => [
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-1', id: 'lesson-1', subject: 'Matematik', startAtUtc: now.add(const Duration(hours: 3)), endAtUtc: now.add(const Duration(hours: 4))),
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-2', id: 'lesson-2', subject: 'Fizik', startAtUtc: now.add(const Duration(days: 1, hours: 2)), endAtUtc: now.add(const Duration(days: 1, hours: 3, minutes: 30))),
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-3', id: 'lesson-3', subject: 'Biyoloji', startAtUtc: now.add(const Duration(days: 2, hours: 4)), endAtUtc: now.add(const Duration(days: 2, hours: 5))),
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-4', id: 'lesson-4', subject: 'Matematik', startAtUtc: now.add(const Duration(days: 3, hours: 5)), endAtUtc: now.add(const Duration(days: 3, hours: 6))),
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-5', id: 'lesson-5', subject: 'TYT Sayısal', startAtUtc: now.add(const Duration(days: 4, hours: 6)), endAtUtc: now.add(const Duration(days: 4, hours: 8))),
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-1', id: 'lesson-6', subject: 'Geometri', startAtUtc: now.subtract(const Duration(days: 1, hours: 2)), endAtUtc: now.subtract(const Duration(days: 1, hours: 1))),
-    LessonScheduleModel.demo(teacherUserId: teacherUserId, studentId: 'student-2', id: 'lesson-7', subject: 'Kimya', startAtUtc: now.subtract(const Duration(days: 2, hours: 3)), endAtUtc: now.subtract(const Duration(days: 2, hours: 2))),
-  ];
+  List<LessonSchedule> _mockLessons(String teacherUserId, DateTime now) {
+    final today = DateTime.utc(now.year, now.month, now.day);
+    return [
+      // Bugün — 3 ders
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-1',
+        id: 'lesson-1',
+        subject: 'Matematik',
+        startAtUtc: today.add(const Duration(hours: 12, minutes: 30)),
+        endAtUtc: today.add(const Duration(hours: 13, minutes: 30)),
+      ),
+      LessonScheduleModel(
+        id: 'lesson-2',
+        teacherUserId: teacherUserId,
+        studentId: 'student-2',
+        subject: 'Fizik',
+        lessonFormat: 'InPerson',
+        startAtUtc: today.add(const Duration(hours: 15)),
+        endAtUtc: today.add(const Duration(hours: 16, minutes: 30)),
+        timeZone: 'Europe/Istanbul',
+        locationLabel: 'Çalışma odası',
+        status: 'Planned',
+      ),
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-4',
+        id: 'lesson-3',
+        subject: 'Türkçe',
+        startAtUtc: today.add(const Duration(hours: 18)),
+        endAtUtc: today.add(const Duration(hours: 19)),
+      ),
+      // Yaklaşan — 4 ders
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-3',
+        id: 'lesson-4',
+        subject: 'Biyoloji',
+        startAtUtc: today.add(const Duration(days: 1, hours: 10)),
+        endAtUtc: today.add(const Duration(days: 1, hours: 11)),
+      ),
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-5',
+        id: 'lesson-5',
+        subject: 'TYT Sayısal',
+        startAtUtc: today.add(const Duration(days: 2, hours: 14)),
+        endAtUtc: today.add(const Duration(days: 2, hours: 16)),
+      ),
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-1',
+        id: 'lesson-6',
+        subject: 'Geometri',
+        startAtUtc: today.add(const Duration(days: 4, hours: 11)),
+        endAtUtc: today.add(const Duration(days: 4, hours: 12)),
+      ),
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-3',
+        id: 'lesson-7',
+        subject: 'Kimya',
+        startAtUtc: today.add(const Duration(days: 5, hours: 16)),
+        endAtUtc: today.add(const Duration(days: 5, hours: 17)),
+      ),
+      // Geçmiş — 2 ders
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-2',
+        id: 'lesson-8',
+        subject: 'Matematik',
+        startAtUtc: today.subtract(const Duration(hours: 15)),
+        endAtUtc: today.subtract(const Duration(hours: 14)),
+      ),
+      LessonScheduleModel.demo(
+        teacherUserId: teacherUserId,
+        studentId: 'student-5',
+        id: 'lesson-9',
+        subject: 'Fizik',
+        startAtUtc: today.subtract(const Duration(hours: 34)),
+        endAtUtc: today.subtract(const Duration(hours: 33)),
+      ),
+    ];
+  }
 
   Future<List<LessonSchedule>> _readCachedLessons(String cacheKey) async {
     final cached = await _localCache.readString(cacheKey);

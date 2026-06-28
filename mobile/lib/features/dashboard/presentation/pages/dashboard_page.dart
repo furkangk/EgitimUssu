@@ -1,7 +1,13 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_state.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -62,18 +68,6 @@ class TeacherPanelView extends StatelessWidget {
     this.onOpenProfile,
   });
 
-  static const navy = Color(0xFF082B4F);
-  static const navySurface = Color(0xFF10365E);
-  static const sky = Color(0xFFE9F4FF);
-  static const skyBorder = Color(0xFFD7E7F8);
-  static const amber = Color(0xFFFFB84D);
-  static const emerald = Color(0xFF20B486);
-  static const slate = Color(0xFF6B7A90);
-  static const text = Color(0xFF10233D);
-  static const background = Color(0xFFF4F8FC);
-  static const card = Color(0xFFFFFFFF);
-  static const divider = Color(0xFFE5EEF7);
-
   final String teacherName;
   final DashboardState state;
   final Future<void> Function()? onRefresh;
@@ -88,7 +82,7 @@ class TeacherPanelView extends StatelessWidget {
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
       children: <Widget>[
-        _TeacherHeader(teacherName: teacherName),
+        AppPageHeader(title: teacherName),
         if (state.errorMessage != null) ...<Widget>[
           const SizedBox(height: 12),
           _ErrorBanner(message: state.errorMessage!),
@@ -106,72 +100,59 @@ class TeacherPanelView extends StatelessWidget {
           actions: <_QuickAction>[
             _QuickAction(
               icon: Icons.add_alarm_rounded,
-              label: 'Ders planla',
-              accent: const Color(0xFF3D8BFF),
-              onTap: () => context.push('/lesson-sessions?create=1'),
+              label: 'Ders Ekle',
+              accent: AppColors.accentBlue,
+              onTap: () => _showLessonForm(context, state),
             ),
             _QuickAction(
               icon: Icons.post_add_rounded,
               label: 'Odev ver',
-              accent: emerald,
+              accent: AppColors.accentGreen,
               onTap: () => context.push('/assignments/new'),
             ),
             _QuickAction(
               icon: Icons.edit_note_rounded,
               label: 'Not ekle',
-              accent: const Color(0xFF3D8BFF),
+              accent: AppColors.accentBlue,
               onTap: () => context.push('/lesson-notes/new'),
             ),
             _QuickAction(
               icon: Icons.payments_rounded,
               label: 'Odeme ekle',
-              accent: amber,
+              accent: AppColors.amber,
               onTap: () => context.push('/payments/new'),
             ),
           ],
         ),
         const SizedBox(height: 24),
         _SectionHeader(
-          title: 'Bugunun dersleri',
+          title: 'Dersler',
           actionLabel: 'Tumunu gor',
-          onTap: onOpenSchedule,
+          onTap: onOpenLessons,
         ),
         const SizedBox(height: 12),
-        _TodayLessonsSection(
-          lessons: state.todayLessons,
+        _LessonsSection(
+          todayLessons: state.todayLessons,
+          upcomingLessons: state.upcomingLessons,
           isLoading: state.isLoading,
+          studentNamesById: {for (final s in state.students) s.id: s.fullName},
+          onViewAll: onOpenLessons,
         ),
         const SizedBox(height: 24),
-        _SectionHeader(
-          title: 'Yaklasan dersler',
-          actionLabel: 'Tumunu gor',
-          onTap: onOpenSchedule,
-        ),
-        const SizedBox(height: 12),
-        _UpcomingLessonsSection(lessons: state.upcomingLessons),
-        const SizedBox(height: 24),
-        _SectionHeader(
-          title: 'Bekleyen odevler',
-          actionLabel: state.pendingAssignments.isNotEmpty
-              ? '${state.pendingAssignments.length} odev'
-              : null,
-        ),
-        const SizedBox(height: 12),
         _PendingAssignmentsSection(
           assignments: state.pendingAssignments,
           isLoading: state.isLoading,
+          studentNamesById: {for (final s in state.students) s.id: s.fullName},
         ),
-        if (state.overduePayments.isNotEmpty || state.isLoading) ...<Widget>[
+        if (state.overduePayments.isNotEmpty || state.isLoading) ...[
           const SizedBox(height: 24),
-          _SectionHeader(
-            title: 'Geciken odemeler',
-            actionLabel: 'Tumunu gor',
-            onTap: onOpenPayments,
-          ),
-          const SizedBox(height: 12),
           _OverduePaymentsSection(
             payments: state.overduePayments,
             isLoading: state.isLoading,
+            studentNamesById: {
+              for (final s in state.students) s.id: s.fullName,
+            },
+            onViewAll: onOpenPayments,
           ),
         ],
         const SizedBox(height: 24),
@@ -182,11 +163,15 @@ class TeacherPanelView extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: onRefresh == null
             ? body
-            : RefreshIndicator(color: navy, onRefresh: onRefresh!, child: body),
+            : RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: onRefresh!,
+                child: body,
+              ),
       ),
       bottomNavigationBar: _TeacherBottomNav(
         onLessonsTap: onOpenLessons,
@@ -199,31 +184,30 @@ class TeacherPanelView extends StatelessWidget {
   }
 }
 
-class _TeacherHeader extends StatelessWidget {
-  const _TeacherHeader({required this.teacherName});
-
-  final String teacherName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            teacherName,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: TeacherPanelView.text,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+Future<void> _showLessonForm(BuildContext context, DashboardState state) async {
+  final session = context.read<AuthCubit>().state.session;
+  final teacherUserId = session?.userId ?? 'mock-teacher-user';
+  final dashboardCubit = context.read<DashboardCubit>();
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    ),
+    builder: (sheetContext) {
+      return BlocProvider<SchedulingCubit>(
+        create: (_) => SchedulingCubit.create(),
+        child: LessonFormSheet(
+          teacherUserId: teacherUserId,
+          students: state.students,
+          existingLessons: state.lessons,
         ),
-        _HeaderIconButton(
-          icon: Icons.notifications_none_rounded,
-          badgeText: '2',
-          onTap: () => context.push('/notifications'),
-        ),
-      ],
-    );
+      );
+    },
+  );
+  if (context.mounted) {
+    dashboardCubit.load(teacherUserId);
   }
 }
 
@@ -246,7 +230,7 @@ class _SummaryCards extends StatelessWidget {
           child: SizedBox(
             height: 142,
             child: _DashboardCard(
-              color: TeacherPanelView.navy,
+              color: AppColors.primary,
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +239,7 @@ class _SummaryCards extends StatelessWidget {
                     children: <Widget>[
                       _SoftIcon(
                         icon: Icons.local_fire_department_rounded,
-                        color: TeacherPanelView.amber,
+                        color: AppColors.amber,
                         background: Colors.white.withValues(alpha: 0.16),
                         size: 38,
                         iconSize: 19,
@@ -292,7 +276,7 @@ class _SummaryCards extends StatelessWidget {
           child: SizedBox(
             height: 142,
             child: _DashboardCard(
-              color: TeacherPanelView.card,
+              color: AppColors.card,
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,8 +285,8 @@ class _SummaryCards extends StatelessWidget {
                     children: <Widget>[
                       _SoftIcon(
                         icon: Icons.schedule_rounded,
-                        color: TeacherPanelView.navy,
-                        background: TeacherPanelView.sky,
+                        color: AppColors.primary,
+                        background: AppColors.primaryLight,
                         size: 38,
                         iconSize: 19,
                       ),
@@ -312,7 +296,7 @@ class _SummaryCards extends StatelessWidget {
                           'Bugunun Dersleri',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
-                                color: TeacherPanelView.text,
+                                color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
                               ),
@@ -328,7 +312,7 @@ class _SummaryCards extends StatelessWidget {
                         '$todayLessonCount',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
-                              color: TeacherPanelView.text,
+                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.w800,
                             ),
                       ),
@@ -336,7 +320,7 @@ class _SummaryCards extends StatelessWidget {
                       Text(
                         'Toplam $todayDurationLabel',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: TeacherPanelView.slate,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -396,7 +380,7 @@ class _QuickActionTile extends StatelessWidget {
             child: Text(
               action.label,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: TeacherPanelView.text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -407,105 +391,274 @@ class _QuickActionTile extends StatelessWidget {
   }
 }
 
-class _UpcomingLessonsSection extends StatelessWidget {
-  const _UpcomingLessonsSection({required this.lessons});
+class _LessonCardData {
+  const _LessonCardData({
+    required this.dateLabel,
+    required this.subject,
+    required this.timeRange,
+    required this.isOnline,
+    required this.isToday,
+    required this.startAt,
+    this.studentName,
+    this.meetingUrl,
+  });
 
-  final List<DashboardUpcomingLesson> lessons;
+  final String dateLabel;
+  final String subject;
+  final String timeRange;
+  final bool isOnline;
+  final bool isToday;
+  final DateTime startAt;
+  final String? studentName;
+  final String? meetingUrl;
+}
+
+class _LessonsSection extends StatelessWidget {
+  const _LessonsSection({
+    required this.todayLessons,
+    required this.upcomingLessons,
+    required this.isLoading,
+    required this.studentNamesById,
+    this.onViewAll,
+  });
+
+  final List<DashboardTodayLesson> todayLessons;
+  final List<DashboardUpcomingLesson> upcomingLessons;
+  final bool isLoading;
+  final Map<String, String> studentNamesById;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
-    if (lessons.isEmpty) {
+    if (isLoading && todayLessons.isEmpty && upcomingLessons.isEmpty) {
+      return const _LoadingPanel();
+    }
+
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+
+    final items = <_LessonCardData>[
+      ...todayLessons.map(
+        (l) => _LessonCardData(
+          dateLabel: 'Bugun',
+          subject: l.subject,
+          timeRange:
+              '${_fmt(l.startAtUtc.toLocal())} - ${_fmt(l.endAtUtc.toLocal())}',
+          isOnline: l.isOnline,
+          isToday: true,
+          startAt: l.startAtUtc,
+          studentName: studentNamesById[l.studentId],
+          meetingUrl: l.meetingUrl,
+        ),
+      ),
+      ...upcomingLessons
+          .where((l) {
+            final day = DateTime(
+              l.startAtUtc.toLocal().year,
+              l.startAtUtc.toLocal().month,
+              l.startAtUtc.toLocal().day,
+            );
+            return day != todayDate;
+          })
+          .map(
+            (l) => _LessonCardData(
+              dateLabel: _dateLabel(l.startAtUtc.toLocal(), now),
+              subject: l.title,
+              timeRange: l.timeRange,
+              isOnline: l.isOnline,
+              isToday: false,
+              startAt: l.startAtUtc,
+              studentName: l.studentName,
+              meetingUrl: l.meetingUrl,
+            ),
+          ),
+    ]..sort((a, b) => a.startAt.compareTo(b.startAt));
+
+    if (items.isEmpty) {
       return const _EmptyPanel(
         icon: Icons.event_busy_outlined,
-        title: 'Yaklasan ders bulunmuyor',
-        subtitle: 'Yeni planlanan dersler burada gorunecek.',
+        title: 'Ders bulunmuyor',
+        subtitle: 'Planlanan dersler burada gorunecek.',
       );
     }
 
     return SizedBox(
-      height: 166,
+      height: 172,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: lessons.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final lesson = lessons[index];
-          return SizedBox(
-            width: 274,
-            child: _DashboardCard(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _AvatarBadge(
-                        name: lesson.studentName,
-                        accent: lesson.isOnline
-                            ? TeacherPanelView.emerald
-                            : TeacherPanelView.amber,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              lesson.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: TeacherPanelView.text,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              lesson.studentName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: TeacherPanelView.slate),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Divider(color: TeacherPanelView.divider, height: 1),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          lesson.timeRange,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: TeacherPanelView.text,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      Text(
-                        lesson.modeLabel,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: lesson.isOnline
-                              ? TeacherPanelView.emerald
-                              : TeacherPanelView.amber,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) => _LessonCard(
+          data: items[index],
+          onTap: () => _openDetail(context, items[index]),
+        ),
+      ),
+    );
+  }
+
+  void _openDetail(BuildContext context, _LessonCardData data) {
+    context.push(
+      '/lesson-sessions/detail',
+      extra: LessonDetailPayload(
+        studentName: data.studentName ?? 'Ogrenci',
+        subject: data.subject,
+        dateLabel: data.dateLabel,
+        timeLabel: data.timeRange,
+        modeLabel: data.isOnline ? 'Online' : 'Yuz yuze',
+        accent: data.isOnline ? AppColors.accentGreen : AppColors.amber,
+        meetingUrl: data.meetingUrl,
+      ),
+    );
+  }
+
+  static String _fmt(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  static bool _sameDate(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static String _dateLabel(DateTime local, DateTime now) {
+    final day = DateTime(local.year, local.month, local.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    if (_sameDate(day, today)) return 'Bugun';
+    if (_sameDate(day, tomorrow)) return 'Yarin';
+    const dayNames = ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz'];
+    if (day.difference(today).inDays <= 7) return dayNames[local.weekday - 1];
+    const months = [
+      'Oca',
+      'Sub',
+      'Mar',
+      'Nis',
+      'May',
+      'Haz',
+      'Tem',
+      'Agu',
+      'Eyl',
+      'Eki',
+      'Kas',
+      'Ara',
+    ];
+    return '${local.day} ${months[local.month - 1]}';
+  }
+}
+
+class _LessonCard extends StatelessWidget {
+  const _LessonCard({required this.data, required this.onTap});
+
+  final _LessonCardData data;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isToday = data.isToday;
+    final cardColor = isToday ? AppColors.primary : AppColors.card;
+    final titleColor = isToday ? Colors.white : AppColors.textPrimary;
+    final subColor = isToday
+        ? Colors.white.withValues(alpha: 0.68)
+        : AppColors.textSecondary;
+    final modeColor = data.isOnline
+        ? (isToday ? const Color(0xFF5CDFC4) : AppColors.accentGreen)
+        : (isToday ? const Color(0xFFFFD27A) : AppColors.amber);
+    final badgeBg = isToday
+        ? Colors.white.withValues(alpha: 0.18)
+        : AppColors.primaryLight;
+    final badgeText = isToday ? Colors.white : AppColors.primary;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 172,
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: isToday ? null : Border.all(color: AppColors.skyBorder),
+          boxShadow: AppShadows.soft,
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: badgeBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                data.dateLabel,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: badgeText,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
               ),
             ),
-          );
-        },
+            const Spacer(),
+            Text(
+              data.subject,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: titleColor,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
+            ),
+            if (data.studentName != null) ...<Widget>[
+              const SizedBox(height: 2),
+              Text(
+                data.studentName!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: subColor),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Row(
+              children: <Widget>[
+                Icon(Icons.schedule_rounded, size: 12, color: subColor),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    data.timeRange,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: subColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: <Widget>[
+                Icon(
+                  data.isOnline ? Icons.videocam_rounded : Icons.place_rounded,
+                  size: 12,
+                  color: modeColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  data.isOnline ? 'Online' : 'Yuz yuze',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: modeColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -526,61 +679,104 @@ class _ActivitySection extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: activities
-          .map(
-            (activity) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _DashboardCard(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: <Widget>[
-                    _AvatarBadge(
-                      name: activity.studentName,
-                      accent: activity.accent,
-                      radius: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text.rich(
-                            TextSpan(
-                              children: <InlineSpan>[
-                                TextSpan(
-                                  text: activity.studentName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                TextSpan(text: ' - ${activity.description}'),
-                              ],
-                            ),
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(color: TeacherPanelView.text),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            activity.timeLabel,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: TeacherPanelView.slate),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: TeacherPanelView.slate,
-                    ),
-                  ],
+    return _DashboardCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (int i = 0; i < activities.length; i++) ...[
+            _ActivityRow(activity: activities[i]),
+            if (i < activities.length - 1)
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.skyBorder,
+                indent: 66,
+                endIndent: 16,
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({required this.activity});
+
+  final DashboardActivity activity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: activity.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              _iconFor(activity.description),
+              color: activity.accent,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 1),
+                Text(
+                  activity.studentName,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  activity.description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(
+              activity.timeLabel,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          )
-          .toList(),
+          ),
+        ],
+      ),
     );
+  }
+
+  IconData _iconFor(String description) {
+    final lower = description.toLowerCase();
+    if (lower.contains('ders')) return Icons.menu_book_rounded;
+    if (lower.contains('odeme') || lower.contains('ödeme')) {
+      return lower.contains('alindi')
+          ? Icons.check_circle_rounded
+          : Icons.receipt_long_rounded;
+    }
+    if (lower.contains('odev') || lower.contains('ödev')) {
+      return Icons.assignment_turned_in_rounded;
+    }
+    return Icons.notifications_rounded;
   }
 }
 
@@ -623,7 +819,7 @@ class _TeacherBottomNav extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: TeacherPanelView.divider)),
+        border: Border(top: BorderSide(color: AppColors.divider)),
       ),
       padding: EdgeInsets.fromLTRB(
         10,
@@ -646,8 +842,8 @@ class _TeacherBottomNav extends StatelessWidget {
                         Icon(
                           item.icon,
                           color: item.selected
-                              ? TeacherPanelView.navy
-                              : TeacherPanelView.slate,
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
                         ),
                         const SizedBox(height: 4),
                         FittedBox(
@@ -658,8 +854,8 @@ class _TeacherBottomNav extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
                                   color: item.selected
-                                      ? TeacherPanelView.navy
-                                      : TeacherPanelView.slate,
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                                   fontWeight: item.selected
                                       ? FontWeight.w800
                                       : FontWeight.w600,
@@ -694,7 +890,7 @@ class _SectionHeader extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: TeacherPanelView.text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -705,7 +901,7 @@ class _SectionHeader extends StatelessWidget {
             child: Text(
               actionLabel!,
               style: const TextStyle(
-                color: TeacherPanelView.navy,
+                color: AppColors.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -737,16 +933,10 @@ class _DashboardCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: color == Colors.white
-              ? TeacherPanelView.skyBorder
+              ? AppColors.skyBorder
               : Colors.white.withValues(alpha: 0.08),
         ),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x12082B4F),
-            blurRadius: 24,
-            offset: Offset(0, 10),
-          ),
-        ],
+        boxShadow: AppShadows.soft,
       ),
       child: child,
     );
@@ -792,107 +982,6 @@ class _SoftIcon extends StatelessWidget {
   }
 }
 
-class _AvatarBadge extends StatelessWidget {
-  const _AvatarBadge({
-    required this.name,
-    required this.accent,
-    this.radius = 28,
-  });
-
-  final String name;
-  final Color accent;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: radius * 2,
-      height: radius * 2,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            accent.withValues(alpha: 0.86),
-            accent.withValues(alpha: 0.58),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        _initials(name),
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  String _initials(String value) {
-    final parts = value.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) {
-      return '??';
-    }
-    if (parts.length == 1) {
-      return parts.first.substring(0, 1).toUpperCase();
-    }
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
-        .toUpperCase();
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({required this.icon, this.badgeText, this.onTap});
-
-  final IconData icon;
-  final String? badgeText;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: TeacherPanelView.skyBorder),
-            ),
-            child: Icon(icon, color: TeacherPanelView.text),
-          ),
-          if (badgeText != null)
-            Positioned(
-              top: -3,
-              right: -3,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: TeacherPanelView.emerald,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  badgeText!,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _EmptyPanel extends StatelessWidget {
   const _EmptyPanel({
     required this.icon,
@@ -911,14 +1000,14 @@ class _EmptyPanel extends StatelessWidget {
         children: <Widget>[
           _SoftIcon(
             icon: icon,
-            color: TeacherPanelView.navy,
-            background: TeacherPanelView.sky,
+            color: AppColors.primary,
+            background: AppColors.primaryLight,
           ),
           const SizedBox(height: 12),
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: TeacherPanelView.text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -928,7 +1017,7 @@ class _EmptyPanel extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
-            ).textTheme.bodyMedium?.copyWith(color: TeacherPanelView.slate),
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -946,20 +1035,24 @@ class _ErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3F3),
+        color: AppColors.errorSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFFCDD2)),
+        border: Border.all(color: AppColors.errorBorder),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F), size: 20),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.error,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFFD32F2F),
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.error),
             ),
           ),
         ],
@@ -968,252 +1061,626 @@ class _ErrorBanner extends StatelessWidget {
   }
 }
 
-class _TodayLessonsSection extends StatelessWidget {
-  const _TodayLessonsSection({
-    required this.lessons,
-    required this.isLoading,
-  });
-
-  final List<DashboardTodayLesson> lessons;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading && lessons.isEmpty) {
-      return const _LoadingPanel();
-    }
-
-    if (lessons.isEmpty) {
-      return const _EmptyPanel(
-        icon: Icons.today_outlined,
-        title: 'Bugune ait ders yok',
-        subtitle: 'Bugunun dersleri burada gorunecek.',
-      );
-    }
-
-    return Column(
-      children: lessons.map((lesson) {
-        final start = lesson.startAtUtc.toLocal();
-        final end = lesson.endAtUtc.toLocal();
-        final timeRange =
-            '${_fmt(start)} - ${_fmt(end)}';
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _DashboardCard(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: <Widget>[
-                _SoftIcon(
-                  icon: lesson.isOnline
-                      ? Icons.videocam_rounded
-                      : Icons.place_rounded,
-                  color: lesson.isOnline
-                      ? TeacherPanelView.emerald
-                      : TeacherPanelView.amber,
-                  background: lesson.isOnline
-                      ? TeacherPanelView.emerald.withValues(alpha: 0.12)
-                      : TeacherPanelView.amber.withValues(alpha: 0.12),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        lesson.subject,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: TeacherPanelView.text,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        lesson.locationLabel != null
-                            ? '$timeRange · ${lesson.locationLabel}'
-                            : timeRange,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: TeacherPanelView.slate,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  lesson.isOnline ? 'Online' : 'Yuz yuze',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: lesson.isOnline
-                        ? TeacherPanelView.emerald
-                        : TeacherPanelView.amber,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  String _fmt(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-}
-
-class _PendingAssignmentsSection extends StatelessWidget {
+class _PendingAssignmentsSection extends StatefulWidget {
   const _PendingAssignmentsSection({
     required this.assignments,
     required this.isLoading,
+    required this.studentNamesById,
   });
 
   final List<DashboardPendingAssignment> assignments;
   final bool isLoading;
+  final Map<String, String> studentNamesById;
 
   @override
-  Widget build(BuildContext context) {
-    if (isLoading && assignments.isEmpty) {
-      return const _LoadingPanel();
-    }
-
-    if (assignments.isEmpty) {
-      return const _EmptyPanel(
-        icon: Icons.assignment_turned_in_outlined,
-        title: 'Bekleyen odev yok',
-        subtitle: 'Tum odevler tamamlandi.',
-      );
-    }
-
-    return _DashboardCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      child: Column(
-        children: assignments.map((assignment) {
-          final isLast = assignment == assignments.last;
-          return Column(
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  children: <Widget>[
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF3D8BFF),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        assignment.title,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: TeacherPanelView.text,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (assignment.dueDateUtc != null)
-                      Text(
-                        _dueDateLabel(assignment.dueDateUtc!),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: _isDueOverdue(assignment.dueDateUtc!)
-                              ? const Color(0xFFD32F2F)
-                              : TeacherPanelView.slate,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (!isLast)
-                const Divider(color: TeacherPanelView.divider, height: 1),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  String _dueDateLabel(DateTime due) {
-    final local = due.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
-  }
-
-  bool _isDueOverdue(DateTime due) => due.toLocal().isBefore(DateTime.now());
+  State<_PendingAssignmentsSection> createState() =>
+      _PendingAssignmentsSectionState();
 }
 
-class _OverduePaymentsSection extends StatelessWidget {
-  const _OverduePaymentsSection({
-    required this.payments,
-    required this.isLoading,
-  });
-
-  final List<DashboardOverduePayment> payments;
-  final bool isLoading;
+class _PendingAssignmentsSectionState
+    extends State<_PendingAssignmentsSection> {
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading && payments.isEmpty) {
-      return const _LoadingPanel();
-    }
-
-    if (payments.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final overdueCount = widget.assignments
+        .where(
+          (a) =>
+              a.dueDateUtc != null &&
+              a.dueDateUtc!.toLocal().isBefore(DateTime.now()),
+        )
+        .length;
 
     return Column(
-      children: payments.map((payment) {
-        final local = payment.dueDateUtc.toLocal();
-        final dateLabel =
-            '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _DashboardCard(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: <Widget>[
-                _SoftIcon(
-                  icon: Icons.warning_amber_rounded,
-                  color: const Color(0xFFD32F2F),
-                  background: const Color(0xFFFFEBEE),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        GestureDetector(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Bekleyen Odevler',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              if (overdueCount > 0) ...<Widget>[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorSurfaceStrong,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$overdueCount gecikti',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (widget.assignments.isNotEmpty)
+                Text(
+                  '${widget.assignments.length} odev',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              AnimatedRotation(
+                turns: _isExpanded ? 0 : -0.25,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                child: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+          child: _isExpanded
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const SizedBox(height: 12),
+                    if (widget.isLoading && widget.assignments.isEmpty)
+                      const _LoadingPanel()
+                    else if (widget.assignments.isEmpty)
+                      const _EmptyPanel(
+                        icon: Icons.assignment_turned_in_outlined,
+                        title: 'Bekleyen odev yok',
+                        subtitle: 'Tum odevler tamamlandi.',
+                      )
+                    else ...[
+                      ...widget.assignments.map((assignment) {
+                        final studentName =
+                            widget.studentNamesById[assignment.studentId] ??
+                            'Ogrenci';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _AssignmentCard(
+                            assignment: assignment,
+                            studentName: studentName,
+                            onTap: () => context.push('/assignments'),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 4),
+                      _ViewAllButton(onTap: () => context.push('/assignments')),
+                    ],
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _AssignmentCard extends StatelessWidget {
+  const _AssignmentCard({
+    required this.assignment,
+    required this.studentName,
+    this.onTap,
+  });
+
+  final DashboardPendingAssignment assignment;
+  final String studentName;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final urgency = _urgencyLevel();
+    final label = _urgencyLabel();
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: urgency.cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: urgency.borderColor),
+          boxShadow: AppShadows.soft,
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Container(width: 4, color: urgency.accent),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                  child: Row(
                     children: <Widget>[
-                      Text(
-                        payment.description,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: TeacherPanelView.text,
-                          fontWeight: FontWeight.w700,
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: urgency.avatarBg,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _initials(studentName),
+                          style: TextStyle(
+                            color: urgency.accent,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Son odeme: $dateLabel',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFFD32F2F),
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              assignment.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              studentName,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.textSecondary),
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: urgency.badgeBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: urgency.accent,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textSecondary,
+                        size: 18,
                       ),
                     ],
                   ),
                 ),
-                Text(
-                  '${payment.outstandingAmount.toStringAsFixed(0)} ${payment.currency}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFD32F2F),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  _AssignmentUrgency _urgencyLevel() {
+    if (assignment.dueDateUtc == null) return _AssignmentUrgency.later;
+    final days = assignment.dueDateUtc!
+        .toLocal()
+        .difference(DateTime.now())
+        .inDays;
+    if (days < 0) return _AssignmentUrgency.overdue;
+    if (days <= 2) return _AssignmentUrgency.urgent;
+    if (days <= 7) return _AssignmentUrgency.soon;
+    return _AssignmentUrgency.later;
+  }
+
+  String _urgencyLabel() {
+    if (assignment.dueDateUtc == null) return 'Tarih yok';
+    final due = assignment.dueDateUtc!.toLocal();
+    final days = due.difference(DateTime.now()).inDays;
+    if (days < 0) return 'Gecikti!';
+    if (days == 0) return 'Bugun!';
+    if (days == 1) return 'Yarin!';
+    return '$days gun';
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return name.isEmpty ? '?' : name[0].toUpperCase();
+  }
+}
+
+enum _AssignmentUrgency {
+  overdue,
+  urgent,
+  soon,
+  later;
+
+  Color get accent {
+    return switch (this) {
+      overdue => AppColors.error,
+      urgent => AppColors.warning,
+      soon => AppColors.accentBlue,
+      later => AppColors.accentGreen,
+    };
+  }
+
+  Color get cardBg {
+    return switch (this) {
+      overdue => AppColors.errorSurface,
+      urgent => AppColors.warningSurface,
+      _ => Colors.white,
+    };
+  }
+
+  Color get borderColor {
+    return switch (this) {
+      overdue => AppColors.errorBorder,
+      urgent => AppColors.warningBorder,
+      _ => AppColors.skyBorder,
+    };
+  }
+
+  Color get avatarBg {
+    return switch (this) {
+      overdue => AppColors.errorSurfaceStrong,
+      urgent => AppColors.warningSurfaceStrong,
+      soon => AppColors.infoSurface,
+      later => AppColors.successSurface,
+    };
+  }
+
+  Color get badgeBg => avatarBg;
+}
+
+class _OverduePaymentsSection extends StatefulWidget {
+  const _OverduePaymentsSection({
+    required this.payments,
+    required this.isLoading,
+    required this.studentNamesById,
+    this.onViewAll,
+  });
+
+  final List<DashboardOverduePayment> payments;
+  final bool isLoading;
+  final Map<String, String> studentNamesById;
+  final VoidCallback? onViewAll;
+
+  @override
+  State<_OverduePaymentsSection> createState() =>
+      _OverduePaymentsSectionState();
+}
+
+class _OverduePaymentsSectionState extends State<_OverduePaymentsSection> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalAmount = widget.payments.fold(
+      0.0,
+      (sum, p) => sum + p.outstandingAmount,
+    );
+    final currency = widget.payments.isNotEmpty
+        ? widget.payments.first.currency
+        : 'TRY';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Geciken Odemeler',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+              ),
+              if (widget.payments.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorSurfaceStrong,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${totalAmount.toStringAsFixed(0)} $currency',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
               ],
-            ),
+              AnimatedRotation(
+                turns: _isExpanded ? 0 : -0.25,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                child: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
-        );
-      }).toList(),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+          child: _isExpanded
+              ? Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    if (widget.isLoading && widget.payments.isEmpty)
+                      const _LoadingPanel()
+                    else ...[
+                      ...widget.payments.map((payment) {
+                        final studentName =
+                            widget.studentNamesById[payment.studentId] ??
+                            'Ogrenci';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _PaymentCard(
+                            payment: payment,
+                            studentName: studentName,
+                            onTap: widget.onViewAll,
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 4),
+                      _ViewAllButton(onTap: widget.onViewAll),
+                    ],
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaymentCard extends StatelessWidget {
+  const _PaymentCard({
+    required this.payment,
+    required this.studentName,
+    this.onTap,
+  });
+
+  final DashboardOverduePayment payment;
+  final String studentName;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final daysLate = DateTime.now()
+        .difference(payment.dueDateUtc.toLocal())
+        .inDays;
+    final isVeryLate = daysLate > 7;
+
+    final accentColor = isVeryLate ? AppColors.error : AppColors.warning;
+    final cardBg = isVeryLate
+        ? AppColors.errorSurface
+        : AppColors.warningSurface;
+    final borderColor = isVeryLate
+        ? AppColors.errorBorder
+        : AppColors.warningBorder;
+    final avatarBg = isVeryLate
+        ? AppColors.errorSurfaceStrong
+        : AppColors.warningSurfaceStrong;
+    final badgeLabel = daysLate <= 0 ? 'Bugun' : '$daysLate gun gecikti';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+          boxShadow: AppShadows.soft,
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 4, color: accentColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: avatarBg,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _initials(studentName),
+                          style: TextStyle(
+                            color: accentColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              payment.description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              studentName,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${payment.outstandingAmount.toStringAsFixed(0)} ${payment.currency}',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: avatarBg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              badgeLabel,
+                              style: TextStyle(
+                                color: accentColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    return name.isEmpty ? '?' : name[0].toUpperCase();
+  }
+}
+
+class _ViewAllButton extends StatelessWidget {
+  const _ViewAllButton({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+          boxShadow: AppShadows.soft,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Tumunu Gor',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 16,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1231,7 +1698,7 @@ class _LoadingPanel extends StatelessWidget {
           height: 24,
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
-            color: TeacherPanelView.navy,
+            color: AppColors.primary,
           ),
         ),
       ),

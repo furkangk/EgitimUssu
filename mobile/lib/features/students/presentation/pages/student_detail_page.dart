@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
@@ -20,19 +22,6 @@ class StudentDetailPage extends StatefulWidget {
 }
 
 class _StudentDetailPageState extends State<StudentDetailPage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _amber = Color(0xFFFFB84D);
-  static const _red = Color(0xFFFF6B6B);
-  static const _teal = Color(0xFF20A4A9);
-  static const _text = Color(0xFF10233D);
-  static const _slate = Color(0xFF6B7A90);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EAF0);
-  static const _divider = Color(0xFFE5EEF7);
-  static const _tabBackground = Color(0xFFF3F5F8);
-
   static const _tabs = <String>['Genel', 'Dersler', 'Performans', 'Odemeler'];
 
   int _selectedTab = 0;
@@ -43,8 +32,9 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final teacherUserId = session?.userId ?? '';
 
     return BlocProvider(
-      create: (_) => StudentDetailCubit.create()
-        ..load(studentId: widget.studentId, teacherUserId: teacherUserId),
+      create: (_) =>
+          StudentDetailCubit.create()
+            ..load(studentId: widget.studentId, teacherUserId: teacherUserId),
       child: BlocConsumer<StudentDetailCubit, StudentDetailState>(
         listenWhen: (prev, next) =>
             prev.successMessage != next.successMessage ||
@@ -54,14 +44,14 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.successMessage!),
-                backgroundColor: _emerald,
+                backgroundColor: AppColors.accentGreen,
               ),
             );
           } else if (state.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.errorMessage!),
-                backgroundColor: _red,
+                backgroundColor: AppColors.accentRed,
               ),
             );
           }
@@ -71,7 +61,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
 
           if (state.isLoading && student == null) {
             return Scaffold(
-              backgroundColor: _background,
+              backgroundColor: AppColors.background,
               body: SafeArea(
                 child: Column(
                   children: <Widget>[
@@ -82,7 +72,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                     const Expanded(
                       child: Center(
                         child: CircularProgressIndicator(
-                          color: _StudentDetailPageState._navy,
+                          color: AppColors.primary,
                         ),
                       ),
                     ),
@@ -94,7 +84,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
 
           if (student == null) {
             return Scaffold(
-              backgroundColor: _background,
+              backgroundColor: AppColors.background,
               body: SafeArea(
                 child: Column(
                   children: <Widget>[
@@ -116,7 +106,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           }
 
           return Scaffold(
-            backgroundColor: _background,
+            backgroundColor: AppColors.background,
             body: SafeArea(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
@@ -131,8 +121,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   _StudentDetailTabs(
                     tabs: _tabs,
                     selectedIndex: _selectedTab,
-                    onChanged: (index) =>
-                        setState(() => _selectedTab = index),
+                    onChanged: (index) => setState(() => _selectedTab = index),
                   ),
                   const SizedBox(height: 16),
                   AnimatedSwitcher(
@@ -173,7 +162,10 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.edit_rounded, color: _navy),
+                leading: const Icon(
+                  Icons.edit_rounded,
+                  color: AppColors.primary,
+                ),
                 title: const Text('Duzenle'),
                 onTap: () {
                   Navigator.pop(context);
@@ -185,7 +177,9 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   student.isActive
                       ? Icons.person_off_rounded
                       : Icons.person_rounded,
-                  color: student.isActive ? _red : _emerald,
+                  color: student.isActive
+                      ? AppColors.accentRed
+                      : AppColors.accentGreen,
                 ),
                 title: Text(student.isActive ? 'Pasifles' : 'Aktifles'),
                 onTap: () {
@@ -243,7 +237,9 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
               cubit.setIsActive(isActive: !student.isActive);
             },
             style: TextButton.styleFrom(
-              foregroundColor: willDeactivate ? _red : _emerald,
+              foregroundColor: willDeactivate
+                  ? AppColors.accentRed
+                  : AppColors.accentGreen,
             ),
             child: Text(willDeactivate ? 'Pasifles' : 'Aktifles'),
           ),
@@ -298,7 +294,7 @@ class _TopBar extends StatelessWidget {
           child: Text(
             'Ogrenci Detayi',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: _StudentDetailPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -326,16 +322,10 @@ class _RoundIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _StudentDetailPageState._border),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x0D082B4F),
-              blurRadius: 18,
-              offset: Offset(0, 10),
-            ),
-          ],
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadows.soft,
         ),
-        child: Icon(icon, color: _StudentDetailPageState._text),
+        child: Icon(icon, color: AppColors.textPrimary),
       ),
     );
   }
@@ -353,14 +343,8 @@ class _ProfileHero extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _StudentDetailPageState._border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x12082B4F),
-            blurRadius: 24,
-            offset: Offset(0, 12),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         children: <Widget>[
@@ -375,7 +359,7 @@ class _ProfileHero extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: _StudentDetailPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -383,7 +367,7 @@ class _ProfileHero extends StatelessWidget {
                 _Pill(
                   icon: Icons.school_rounded,
                   label: student.gradeLevel,
-                  color: _StudentDetailPageState._navy,
+                  color: AppColors.primary,
                 ),
               ],
             ),
@@ -406,21 +390,12 @@ class _LargeAvatar extends StatelessWidget {
       height: 66,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: <Color>[
-            _StudentDetailPageState._navy,
-            _StudentDetailPageState._blue,
-          ],
+          colors: <Color>[AppColors.primary, AppColors.accentBlue],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         shape: BoxShape.circle,
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x24082B4F),
-            blurRadius: 18,
-            offset: Offset(0, 10),
-          ),
-        ],
+        boxShadow: AppShadows.soft,
       ),
       alignment: Alignment.center,
       child: Text(
@@ -463,9 +438,9 @@ class _StudentDetailTabs extends StatelessWidget {
       height: 42,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: _StudentDetailPageState._tabBackground,
+        color: AppColors.tabBackground,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _StudentDetailPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: List<Widget>.generate(tabs.length, (index) {
@@ -479,9 +454,7 @@ class _StudentDetailTabs extends StatelessWidget {
                 curve: Curves.easeOut,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: selected
-                      ? _StudentDetailPageState._navy
-                      : Colors.transparent,
+                  color: selected ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
@@ -491,9 +464,7 @@ class _StudentDetailTabs extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                    color: selected
-                        ? Colors.white
-                        : _StudentDetailPageState._slate,
+                    color: selected ? Colors.white : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -536,7 +507,7 @@ class _OverviewTab extends StatelessWidget {
                 label: 'Ders',
                 value: lessons.length.toString(),
                 caption: 'Toplam kayit',
-                color: _StudentDetailPageState._blue,
+                color: AppColors.accentBlue,
               ),
             ),
             const SizedBox(width: 10),
@@ -546,8 +517,8 @@ class _OverviewTab extends StatelessWidget {
                 value: outstanding.toStringAsFixed(0),
                 caption: 'Bekleyen TRY',
                 color: outstanding > 0
-                    ? _StudentDetailPageState._amber
-                    : _StudentDetailPageState._emerald,
+                    ? AppColors.amber
+                    : AppColors.accentGreen,
               ),
             ),
           ],
@@ -560,7 +531,7 @@ class _OverviewTab extends StatelessWidget {
                 label: 'Hedef',
                 value: student.subjects.length.toString(),
                 caption: 'Ders hedefi',
-                color: _StudentDetailPageState._teal,
+                color: AppColors.accentTeal,
               ),
             ),
             const SizedBox(width: 10),
@@ -570,8 +541,8 @@ class _OverviewTab extends StatelessWidget {
                 value: outstanding > 0 ? 'Takip' : 'Temiz',
                 caption: outstanding > 0 ? 'Odeme var' : 'Borcsuz',
                 color: outstanding > 0
-                    ? _StudentDetailPageState._red
-                    : _StudentDetailPageState._emerald,
+                    ? AppColors.accentRed
+                    : AppColors.accentGreen,
               ),
             ),
           ],
@@ -702,7 +673,7 @@ class _PerformanceTab extends StatelessWidget {
               valueText: hasRealCompletion
                   ? '%${(completionRatio * 100).round()}'
                   : 'Takip basladi',
-              color: _StudentDetailPageState._emerald,
+              color: AppColors.accentGreen,
             ),
             const SizedBox(height: 14),
             _ProgressLine(
@@ -713,7 +684,7 @@ class _PerformanceTab extends StatelessWidget {
               valueText: student.goalSummary?.trim().isNotEmpty == true
                   ? 'Net'
                   : 'Eksik',
-              color: _StudentDetailPageState._blue,
+              color: AppColors.accentBlue,
             ),
             const SizedBox(height: 14),
             _ProgressLine(
@@ -722,7 +693,7 @@ class _PerformanceTab extends StatelessWidget {
                   ? 0.2
                   : (student.subjects.length / 4).clamp(0.25, 1).toDouble(),
               valueText: '${student.subjects.length} hedef',
-              color: _StudentDetailPageState._teal,
+              color: AppColors.accentTeal,
             ),
           ],
         ),
@@ -733,7 +704,7 @@ class _PerformanceTab extends StatelessWidget {
               ? <Widget>[
                   const Text(
                     'Hedef ders eklenince performans takibi burada zenginlesir.',
-                    style: TextStyle(color: _StudentDetailPageState._slate),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ]
               : student.subjects
@@ -777,7 +748,7 @@ class _PaymentsTab extends StatelessWidget {
                 label: 'Tahsil',
                 value: collectedAmount.toStringAsFixed(0),
                 caption: 'Toplam TRY',
-                color: _StudentDetailPageState._emerald,
+                color: AppColors.accentGreen,
               ),
             ),
             const SizedBox(width: 10),
@@ -787,8 +758,8 @@ class _PaymentsTab extends StatelessWidget {
                 value: outstandingAmount.toStringAsFixed(0),
                 caption: 'Toplam TRY',
                 color: outstandingAmount > 0
-                    ? _StudentDetailPageState._amber
-                    : _StudentDetailPageState._emerald,
+                    ? AppColors.amber
+                    : AppColors.accentGreen,
               ),
             ),
           ],
@@ -840,7 +811,7 @@ class _MetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _StudentDetailPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -848,7 +819,7 @@ class _MetricCard extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: _StudentDetailPageState._slate,
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -865,9 +836,9 @@ class _MetricCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             caption,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: _StudentDetailPageState._slate,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -889,7 +860,7 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _StudentDetailPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -897,7 +868,7 @@ class _InfoCard extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _StudentDetailPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -927,7 +898,7 @@ class _InfoLine extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, color: _StudentDetailPageState._navy, size: 20),
+          Icon(icon, color: AppColors.primary, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -936,14 +907,14 @@ class _InfoLine extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _StudentDetailPageState._slate,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   value,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: _StudentDetailPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -969,7 +940,7 @@ class _SubjectTargetsCard extends StatelessWidget {
           ? <Widget>[
               const Text(
                 'Ogrenci hedefleri eklendiginde burada gorunur.',
-                style: TextStyle(color: _StudentDetailPageState._slate),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ]
           : student.subjects
@@ -1004,7 +975,7 @@ class _ActionButton extends StatelessWidget {
       child: FilledButton(
         onPressed: onTap,
         style: FilledButton.styleFrom(
-          backgroundColor: _StudentDetailPageState._navy,
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           shape: RoundedRectangleBorder(
@@ -1046,7 +1017,7 @@ class _SectionHeader extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _StudentDetailPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1060,7 +1031,7 @@ class _SectionHeader extends StatelessWidget {
               child: FilledButton(
                 onPressed: onActionTap,
                 style: FilledButton.styleFrom(
-                  backgroundColor: _StudentDetailPageState._navy,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   shape: RoundedRectangleBorder(
@@ -1120,12 +1091,12 @@ class _LessonCard extends StatelessWidget {
   Color _statusColor(String status) {
     final normalized = status.toLowerCase();
     if (normalized == 'completed') {
-      return _StudentDetailPageState._emerald;
+      return AppColors.accentGreen;
     }
     if (normalized == 'cancelled' || normalized == 'canceled') {
-      return _StudentDetailPageState._red;
+      return AppColors.accentRed;
     }
-    return _StudentDetailPageState._blue;
+    return AppColors.accentBlue;
   }
 }
 
@@ -1140,8 +1111,8 @@ class _PaymentCard extends StatelessWidget {
         ? 'Tarih yok'
         : DateFormat('dd.MM.yyyy').format(payment.dueDateUtc!.toLocal());
     final color = payment.outstandingAmount > 0
-        ? _StudentDetailPageState._amber
-        : _StudentDetailPageState._emerald;
+        ? AppColors.amber
+        : AppColors.accentGreen;
 
     return _ListCard(
       leadingColor: color,
@@ -1179,7 +1150,7 @@ class _ListCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _StudentDetailPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1201,7 +1172,7 @@ class _ListCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: _StudentDetailPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1209,14 +1180,14 @@ class _ListCard extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _StudentDetailPageState._slate,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   footer,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _StudentDetailPageState._navy,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1280,7 +1251,7 @@ class _ProgressLine extends StatelessWidget {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _StudentDetailPageState._text,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1301,7 +1272,7 @@ class _ProgressLine extends StatelessWidget {
             minHeight: 8,
             value: value.clamp(0, 1).toDouble(),
             color: color,
-            backgroundColor: _StudentDetailPageState._divider,
+            backgroundColor: AppColors.divider,
           ),
         ),
       ],
@@ -1325,12 +1296,12 @@ class _TargetPerformanceRow extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: _StudentDetailPageState._teal.withValues(alpha: 0.12),
+              color: AppColors.accentTeal.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.trending_up_rounded,
-              color: _StudentDetailPageState._teal,
+              color: AppColors.accentTeal,
             ),
           ),
           const SizedBox(width: 12),
@@ -1341,7 +1312,7 @@ class _TargetPerformanceRow extends StatelessWidget {
                 Text(
                   subject,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: _StudentDetailPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1349,16 +1320,13 @@ class _TargetPerformanceRow extends StatelessWidget {
                 Text(
                   level,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _StudentDetailPageState._slate,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          const _StatusPill(
-            label: 'Aktif',
-            color: _StudentDetailPageState._emerald,
-          ),
+          const _StatusPill(label: 'Aktif', color: AppColors.accentGreen),
         ],
       ),
     );
@@ -1474,7 +1442,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                       'Ogrenci Guncelle',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: _StudentDetailPageState._text,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
@@ -1488,8 +1456,9 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
               _FormField(
                 controller: _fullNameCtrl,
                 label: 'Ad Soyad',
-                validator: (v) =>
-                    (v == null || v.trim().length < 2) ? 'Ad soyad giriniz' : null,
+                validator: (v) => (v == null || v.trim().length < 2)
+                    ? 'Ad soyad giriniz'
+                    : null,
               ),
               const SizedBox(height: 12),
               _FormField(
@@ -1499,15 +1468,9 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                     (v == null || v.trim().length < 2) ? 'Sinif giriniz' : null,
               ),
               const SizedBox(height: 12),
-              _FormField(
-                controller: _subjectCtrl,
-                label: 'Ders',
-              ),
+              _FormField(controller: _subjectCtrl, label: 'Ders'),
               const SizedBox(height: 12),
-              _FormField(
-                controller: _targetLevelCtrl,
-                label: 'Hedef Seviye',
-              ),
+              _FormField(controller: _targetLevelCtrl, label: 'Hedef Seviye'),
               const SizedBox(height: 12),
               _FormField(
                 controller: _contactEmailCtrl,
@@ -1540,13 +1503,13 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                       'Aktif Ogrenci',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: _StudentDetailPageState._text,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
                   Switch(
                     value: _isActive,
-                    activeThumbColor: _StudentDetailPageState._emerald,
+                    activeThumbColor: AppColors.accentGreen,
                     onChanged: (value) => setState(() => _isActive = value),
                   ),
                 ],
@@ -1557,7 +1520,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 child: FilledButton(
                   onPressed: _save,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _StudentDetailPageState._navy,
+                    backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -1602,8 +1565,10 @@ class _FormField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
       ),
     );
   }

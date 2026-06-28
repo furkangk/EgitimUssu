@@ -15,12 +15,29 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   Future<void> load(String teacherUserId) async {
     emit(state.copyWith(status: NotificationsStatus.loading, clearError: true));
     try {
-      final reminders = await _repository.listReminders(teacherUserId: teacherUserId);
-      emit(state.copyWith(status: NotificationsStatus.loaded, reminders: reminders));
+      final reminders = await _repository.listReminders(
+        teacherUserId: teacherUserId,
+      );
+      emit(
+        state.copyWith(
+          status: NotificationsStatus.loaded,
+          reminders: reminders,
+        ),
+      );
     } on ApiException catch (e) {
-      emit(state.copyWith(status: NotificationsStatus.error, errorMessage: e.message));
+      emit(
+        state.copyWith(
+          status: NotificationsStatus.error,
+          errorMessage: e.message,
+        ),
+      );
     } catch (_) {
-      emit(state.copyWith(status: NotificationsStatus.error, errorMessage: 'Bildirimler yüklenemedi.'));
+      emit(
+        state.copyWith(
+          status: NotificationsStatus.error,
+          errorMessage: 'Bildirimler yüklenemedi.',
+        ),
+      );
     }
   }
 

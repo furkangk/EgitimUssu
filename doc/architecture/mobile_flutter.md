@@ -8,7 +8,7 @@
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > Mevcut app **öğretmen odaklıdır**; öğrenci/veli ekranları planlanandır.
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-06-28
 
 ---
 
@@ -36,7 +36,7 @@ Feature-based **Clean Architecture**. Her özellik (feature) kendi `data / domai
 mobile/lib/
 ├── main.dart                  # giriş: DI kur → runApp(EgitimUssuApp)
 ├── app/
-│   └── app.dart               # MaterialApp.router, BlocProvider<AuthCubit>, tema, tr-TR locale
+│   └── app.dart               # MaterialApp.router, MultiBlocProvider<AuthCubit + NotificationsCubit>, tema, tr-TR locale
 ├── core/
 │   ├── config/                # AppConfig (--dart-define ile ortam)
 │   ├── constants/             # app_strings.dart
@@ -94,6 +94,8 @@ class AuthCubit extends Cubit<AuthState> {
 ```
 
 `AuthCubit` uygulama kökünde `BlocProvider.value` ile sağlanır; oturum durumu router redirect'ini besler (§6).
+
+Kökte `MultiBlocProvider` ile ayrıca **`NotificationsCubit` global** sağlanır. `app.dart`'taki bir `BlocListener<AuthCubit>` oturum (`session.userId`) değiştiğinde bildirimi yükler. Ortak başlık [`AppPageHeader`](widgets.md) zilin rozetini `context.select((NotificationsCubit c) => c.state.unreadCount)` ile okur; böylece tüm ana ekranlarda bildirim butonu çalışır ve rozet gerçek okunmamış sayısını gösterir.
 
 ## 5. Bağımlılık Enjeksiyonu — `get_it`
 
@@ -224,24 +226,48 @@ dependencies:
 
 > Token **değerleri** [`design_system.md`](design_system.md)'dendir; çelişkide o esastır. Aşağıdaki Dart sınıfları
 > o token'ların Flutter karşılığıdır (`core/theme/`).
+>
+> **Durum:** `AppColors` (`core/theme/app_colors.dart`) **gerçeklendi** ve **tüm ekran sayfaları** sayfa-içi `static const`
+> renk sabitlerinden buna taşındı (sayfalarda yerel renk sabiti yok). Öğretmen-paneli varyant değerleri kanonik token'lara
+> yakınsatıldı; token'ı olmayan birkaç renk ek token oldu (`amber`, `skyBorder`, `tabBackground`, `purple`). Token'a
+> eşleşen inline hex literalleri de taşındı. **`AppShadows.soft`** (`core/theme/app_shadows.dart`) gerçeklendi ve tüm
+> ekranlardaki elle yazılmış `BoxShadow`'lar buna indirgendi. `AppTextStyles`/`AppSpacing`/`AppRadius` henüz yok (planlanan).
 
 ```dart
-class AppColors {
+abstract final class AppColors {
   static const Color primary = Color(0xFF082B4F);
   static const Color primaryDark = Color(0xFF061F3A);
   static const Color primaryLight = Color(0xFFEAF2FB);
   static const Color secondary = Color(0xFF3D8BFF);
+  static const Color accentBlue = Color(0xFF3D8BFF);
   static const Color accentOrange = Color(0xFFFFA726);
   static const Color accentGreen = Color(0xFF20B486);
   static const Color accentRed = Color(0xFFFF5A5F);
   static const Color accentTeal = Color(0xFF20A4A9);
   static const Color background = Color(0xFFF7F9FC);
   static const Color surface = Color(0xFFFFFFFF);
+  static const Color card = Color(0xFFFFFFFF);
   static const Color textPrimary = Color(0xFF111827);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color textMuted = Color(0xFF9CA3AF);
   static const Color border = Color(0xFFE5E7EB);
   static const Color divider = Color(0xFFF0F2F5);
+  // §3 token'ı olmayan, koddaki ekranlarda yaygın ek aksanlar:
+  static const Color amber = Color(0xFFFFB84D);
+  static const Color skyBorder = Color(0xFFD7E7F8);
+  static const Color tabBackground = Color(0xFFF3F5F8);
+  static const Color purple = Color(0xFF8B5CF6);
+  // Semantik durum (hata/aciliyet kartları): accent + surface + surfaceStrong + border
+  static const Color error = Color(0xFFD32F2F);
+  static const Color errorSurface = Color(0xFFFFF5F5);
+  static const Color errorSurfaceStrong = Color(0xFFFFEBEE);
+  static const Color errorBorder = Color(0xFFFFCDD2);
+  static const Color warning = Color(0xFFE65100);
+  static const Color warningSurface = Color(0xFFFFF9F0);
+  static const Color warningSurfaceStrong = Color(0xFFFFF3E0);
+  static const Color warningBorder = Color(0xFFFFE0B2);
+  static const Color infoSurface = Color(0xFFE8F1FF);
+  static const Color successSurface = Color(0xFFE8F8F4);
 }
 
 class AppTextStyles {
@@ -257,7 +283,12 @@ class AppTextStyles {
 class AppSpacing { static const xs=4.0, sm=8.0, md=12.0, lg=16.0, xl=20.0, xxl=24.0, xxxl=32.0; }
 class AppRadius  { static const sm=8.0, md=12.0, lg=16.0, xl=20.0, pill=999.0; }
 
-final softShadow = [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 14, offset: const Offset(0, 6))];
+// core/theme/app_shadows.dart — GERÇEKLENDİ; tüm kart/sheet/panel bunu kullanır.
+abstract final class AppShadows {
+  static const List<BoxShadow> soft = <BoxShadow>[
+    BoxShadow(color: Color(0x12082B4F), blurRadius: 24, offset: Offset(0, 12)),
+  ];
+}
 ```
 
 **Layout kuralları:** `SafeArea`, yatay padding sabit 16, geniş ekranda içerik maks. 430-480 px. Genel şablon:
@@ -418,4 +449,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-06-24*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-06-28*

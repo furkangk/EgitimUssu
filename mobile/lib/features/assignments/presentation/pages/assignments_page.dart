@@ -1,7 +1,10 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignments_list_cubit.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignments_list_state.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -36,17 +39,6 @@ enum _AssignmentFilter {
 }
 
 class _AssignmentsPageState extends State<AssignmentsPage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _text = Color(0xFF10233D);
-  static const _slate = Color(0xFF6B7A90);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EEF7);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _amber = Color(0xFFFFB84D);
-  static const _red = Color(0xFFFF5A5F);
-  static const _purple = Color(0xFF8B5CF6);
-
   _AssignmentFilter _filter = _AssignmentFilter.all;
   late AssignmentsListCubit _cubit;
 
@@ -76,7 +68,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
     return BlocProvider<AssignmentsListCubit>.value(
       value: _cubit,
       child: Scaffold(
-        backgroundColor: _background,
+        backgroundColor: AppColors.background,
         bottomNavigationBar: _AssignmentsBottomNav(
           onHomeTap: () => context.go('/dashboard'),
           onLessonsTap: () => context.go('/lesson-sessions'),
@@ -92,10 +84,13 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                   .toList();
 
               return RefreshIndicator(
-                color: _navy,
+                color: AppColors.primary,
                 onRefresh: () {
-                  final userId =
-                      context.read<AuthCubit>().state.session?.userId;
+                  final userId = context
+                      .read<AuthCubit>()
+                      .state
+                      .session
+                      ?.userId;
                   if (userId != null) {
                     return _cubit.refresh(userId);
                   }
@@ -104,7 +99,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
                   children: <Widget>[
-                    _PageHeader(onNotificationTap: () {}),
+                    const AppPageHeader(title: 'Ödevler'),
                     const SizedBox(height: 20),
                     _SummaryRow(assignments: state.assignments),
                     const SizedBox(height: 18),
@@ -119,8 +114,11 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                       _ErrorCard(
                         message: state.errorMessage!,
                         onRetry: () {
-                          final userId =
-                              context.read<AuthCubit>().state.session?.userId;
+                          final userId = context
+                              .read<AuthCubit>()
+                              .state
+                              .session
+                              ?.userId;
                           if (userId != null) {
                             _cubit.load(userId);
                           }
@@ -146,46 +144,6 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
   }
 }
 
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.onNotificationTap});
-
-  final VoidCallback onNotificationTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            'Ödevler',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: _AssignmentsPageState._text,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onNotificationTap,
-          child: Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _AssignmentsPageState._border),
-            ),
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: _AssignmentsPageState._text,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SummaryRow extends StatelessWidget {
   const _SummaryRow({required this.assignments});
 
@@ -194,21 +152,17 @@ class _SummaryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = assignments.where((a) => a.status == 'Pending').length;
-    final inProgress = assignments.where((a) => a.status == 'InProgress').length;
+    final inProgress = assignments
+        .where((a) => a.status == 'InProgress')
+        .length;
     final completed = assignments.where((a) => a.status == 'Completed').length;
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _AssignmentsPageState._navy,
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x22082B4F),
-            blurRadius: 24,
-            offset: Offset(0, 12),
-          ),
-        ],
+        boxShadow: AppShadows.soft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,7 +190,7 @@ class _SummaryRow extends StatelessWidget {
                   label: 'Bekleyen',
                   value: '$pending',
                   icon: Icons.hourglass_empty_rounded,
-                  color: _AssignmentsPageState._amber,
+                  color: AppColors.amber,
                 ),
               ),
               const SizedBox(width: 10),
@@ -245,7 +199,7 @@ class _SummaryRow extends StatelessWidget {
                   label: 'Devam',
                   value: '$inProgress',
                   icon: Icons.autorenew_rounded,
-                  color: _AssignmentsPageState._blue,
+                  color: AppColors.accentBlue,
                 ),
               ),
               const SizedBox(width: 10),
@@ -254,7 +208,7 @@ class _SummaryRow extends StatelessWidget {
                   label: 'Tamamlanan',
                   value: '$completed',
                   icon: Icons.check_circle_outline_rounded,
-                  color: _AssignmentsPageState._emerald,
+                  color: AppColors.accentGreen,
                 ),
               ),
             ],
@@ -329,7 +283,7 @@ class _FilterTabs extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _AssignmentsPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: _AssignmentFilter.values.map((f) {
@@ -342,9 +296,7 @@ class _FilterTabs extends StatelessWidget {
                 duration: const Duration(milliseconds: 160),
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? _AssignmentsPageState._navy
-                      : Colors.transparent,
+                  color: isSelected ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: FittedBox(
@@ -355,7 +307,7 @@ class _FilterTabs extends StatelessWidget {
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: isSelected
                           ? Colors.white
-                          : _AssignmentsPageState._slate,
+                          : AppColors.textSecondary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -384,14 +336,8 @@ class _AssignmentTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _AssignmentsPageState._border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x0F082B4F),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         children: <Widget>[
@@ -414,7 +360,7 @@ class _AssignmentTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: _AssignmentsPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -425,7 +371,7 @@ class _AssignmentTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _AssignmentsPageState._slate,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -436,13 +382,13 @@ class _AssignmentTile extends StatelessWidget {
                       Icon(
                         Icons.event_rounded,
                         size: 13,
-                        color: _AssignmentsPageState._slate,
+                        color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         dueText,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: _AssignmentsPageState._slate,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -474,31 +420,15 @@ class _AssignmentTile extends StatelessWidget {
 
   static (Color, IconData, String) _statusMeta(String? status) {
     return switch (status) {
-      'Pending' => (
-        _AssignmentsPageState._amber,
-        Icons.hourglass_empty_rounded,
-        'Bekleyen',
-      ),
-      'InProgress' => (
-        _AssignmentsPageState._blue,
-        Icons.autorenew_rounded,
-        'Devam',
-      ),
+      'Pending' => (AppColors.amber, Icons.hourglass_empty_rounded, 'Bekleyen'),
+      'InProgress' => (AppColors.accentBlue, Icons.autorenew_rounded, 'Devam'),
       'Completed' => (
-        _AssignmentsPageState._emerald,
+        AppColors.accentGreen,
         Icons.check_circle_outline_rounded,
         'Tamamlandı',
       ),
-      'Cancelled' => (
-        _AssignmentsPageState._red,
-        Icons.cancel_outlined,
-        'İptal',
-      ),
-      _ => (
-        _AssignmentsPageState._purple,
-        Icons.assignment_outlined,
-        status ?? '-',
-      ),
+      'Cancelled' => (AppColors.accentRed, Icons.cancel_outlined, 'İptal'),
+      _ => (AppColors.purple, Icons.assignment_outlined, status ?? '-'),
     };
   }
 
@@ -561,14 +491,14 @@ class _EmptyCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _AssignmentsPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: <Widget>[
           Icon(
             Icons.assignment_outlined,
             size: 40,
-            color: _AssignmentsPageState._slate.withValues(alpha: 0.5),
+            color: AppColors.textSecondary.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
@@ -576,7 +506,7 @@ class _EmptyCard extends StatelessWidget {
                 ? 'Henüz ödev yok'
                 : '${filter.label} ödev yok',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _AssignmentsPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -584,9 +514,9 @@ class _EmptyCard extends StatelessWidget {
           Text(
             'Ders sonrası ödev vermek için ders detayından takip ekleyebilirsiniz.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: _AssignmentsPageState._slate,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -608,20 +538,20 @@ class _ErrorCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _AssignmentsPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: <Widget>[
           Icon(
             Icons.error_outline_rounded,
             size: 36,
-            color: _AssignmentsPageState._red,
+            color: AppColors.accentRed,
           ),
           const SizedBox(height: 10),
           Text(
             'Ödevler yüklenemedi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _AssignmentsPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -629,15 +559,12 @@ class _ErrorCard extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: _AssignmentsPageState._slate,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('Tekrar Dene'),
-          ),
+          TextButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
         ],
       ),
     );
@@ -673,7 +600,7 @@ class _AssignmentsBottomNav extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: _AssignmentsPageState._border)),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       padding: EdgeInsets.fromLTRB(
         10,
@@ -695,8 +622,8 @@ class _AssignmentsBottomNav extends StatelessWidget {
                     Icon(
                       item.icon,
                       color: item.selected
-                          ? _AssignmentsPageState._navy
-                          : _AssignmentsPageState._slate,
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(height: 4),
                     FittedBox(
@@ -707,8 +634,8 @@ class _AssignmentsBottomNav extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: item.selected
-                                  ? _AssignmentsPageState._navy
-                                  : _AssignmentsPageState._slate,
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
                               fontWeight: item.selected
                                   ? FontWeight.w800
                                   : FontWeight.w600,

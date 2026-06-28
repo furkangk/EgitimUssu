@@ -20,7 +20,7 @@
 |--------|-------|-------|
 | Domain (`LessonSchedule`) | ✅ Mevcut | `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` |
 | Application (CQRS + handler) | ✅ Mevcut | `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` |
-| API endpoint'leri | ✅ Mevcut (4 endpoint) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
+| API endpoint'leri | ✅ Mevcut (6 endpoint: planla/güncelle/iptal/tamamla/getir/takvim) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
 | Infrastructure (DbContext + repo + migration) | ✅ Mevcut | `src/Modules/Scheduling/Infrastructure/*` |
 | Çakışma kontrolü (aynı öğretmen) | ✅ **Mevcut** | `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) |
 | Hatırlatma planlama | ✅ Mevcut | `ILessonScheduleNotificationService.ScheduleReminderAsync` |
@@ -28,7 +28,7 @@
 | Online ders linki (`MeetingUrl`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
 | Tatil / blackout (`ScheduleException`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
 | Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🔴 **Alan var, mantık yok** | Alan saklanıyor ama somut tekrar üretimi yok |
-| Ders güncelleme (`PUT /lessons/{id}`) | 🔴 **Yok** | Yalnızca oluştur + iptal var |
+| Ders güncelleme (`PUT /lessons/{id}`) | ✅ **Mevcut** | `UpdateDetails()` domain metodu + `PUT /lessons/{id}` + `UpdateLessonScheduleCommand`; kendini hariç tutan çakışma kontrolü + hatırlatma yeniden planlanır; yalnızca Planli/Taslak düzenlenebilir (2026-06-28) |
 | `Planned → Completed` geçişi | ✅ **Mevcut** | `Complete()` domain metodu + `POST /lessons/{id}/complete` + `CompleteLessonScheduleCommand` (2026-06-26) |
 
 > **Önemli düzeltme:** Önceki dokümanda "çakışma kontrolü eksik" yazıyordu; **kodda `HasTeacherConflictAsync`
@@ -122,6 +122,7 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 | Yetenek | Method + Route | İstek / Yanıt | Notlar |
 |---------|----------------|---------------|--------|
 | Ders planla | `POST /api/scheduling/lessons` | `CreateLessonScheduleRequest` → `LessonScheduleResponse` | Çakışma/aralık kontrolü uygulanır; durum `Planned` set edilir; hatırlatma planlanır |
+| Ders güncelle | `PUT /api/scheduling/lessons/{lessonId}` | `UpdateLessonScheduleRequest` → `LessonScheduleResponse` | Konu/zaman/format/tekrar/hatırlatma/konum/not değişimi. Kendini hariç tutan çakışma kontrolü (`409 teacher_conflict`); aralık `400 invalid_range`; yalnızca Planlı/Taslak (`409 scheduling.not_editable`); hatırlatma yeniden planlanır |
 | Ders iptal | `POST /api/scheduling/lessons/{lessonId}/cancel` | `CancelLessonScheduleRequest { CancellationNote? }` → `LessonScheduleResponse` | `Cancel()` → event + hatırlatma iptali |
 | Ders tamamla | `POST /api/scheduling/lessons/{lessonId}/complete` | (gövde yok) → `LessonScheduleResponse` | `Complete()` → `LessonSessionCompletedDomainEvent`; zaten tamamsa `409 scheduling.already_completed` |
 | Ders getir | `GET /api/scheduling/lessons/{lessonId}` | → `LessonScheduleResponse` | Yoksa `404 scheduling.lesson_not_found` |
@@ -146,8 +147,7 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 
 | Yetenek | Öneri | Gerekçe |
 |---------|-------|---------|
-| Ders güncelle | `PUT /api/scheduling/lessons/{lessonId}` | Saat/konu/format/`MeetingUrl`/not değişikliği. Şu an yalnızca oluştur+iptal var. Güncellemede çakışma yeniden kontrol edilmeli + hatırlatma yeniden planlanmalı |
-| Tamamlandı işaretle | `POST /api/scheduling/lessons/{lessonId}/complete` | `Planned → Completed` geçişi (enum'da `Completed=4` var, davranış yok). Ya da bu, M05 oturum tamamlama ile köprülenir (bkz. §5) |
+| `MeetingUrl` alanı | Domain'e `MeetingUrl` ekle (DB migration) | Online ders linki şu an yalnızca `LocationLabel`'da tutulabiliyor; ayrı alan + create/update request'lerine eklenmeli (mobilde `meetingUrl` mevcut) |
 | Tatil ekle/listele | `POST /api/scheduling/holidays`, `GET /api/scheduling/teachers/{id}/holidays` | `ScheduleException` için |
 | Seri oluştur | `POST /api/scheduling/lessons/series` | `RecurrenceRule` açılımı + `SeriesId` üretimi |
 | Seri iptal | `POST /api/scheduling/lessons/series/{seriesId}/cancel?scope=instance|all` | Tek örnek / tüm seri |
@@ -219,8 +219,8 @@ POST /lessons/{id}/cancel
 - [x] Aynı öğretmende çakışan ders engellenir (`scheduling.teacher_conflict`).
 - [x] Ders iptal edilebilir ve hatırlatma geri alınır.
 - [x] Tarih aralığıyla takvim listesi alınabilir.
-- [ ] ⚠️ Ders güncelleme (`PUT /lessons/{id}`) + güncellemede çakışma/hatırlatma yeniden değerlendirme.
-- [ ] ⚠️ Online ders linki (`MeetingUrl`) uçtan uca (öğretmen girer, öğrenci katılır).
+- [x] Ders güncelleme (`PUT /lessons/{id}`) + güncellemede kendini hariç tutan çakışma + hatırlatma yeniden planlama (2026-06-28).
+- [ ] ⚠️ Online ders linki (`MeetingUrl`) **domain alanı** uçtan uca (şu an mobilde var, backend'de `LocationLabel`'a sığdırılıyor).
 - [ ] ⚠️ Tekrarlı ders **açılımı** (seri materyalizasyonu + tekil/tüm seri iptali).
 - [ ] ⚠️ Tatil / blackout (`ScheduleException`) ve planlamada uyarı.
 - [ ] ⚠️ Öğrenci tarafı öncelik kuralı (özel ders > bireysel plan, m08).
@@ -232,8 +232,8 @@ POST /lessons/{id}/cancel
 
 > Öncelik sırasıyla:
 
-1. **Ders güncelleme + yeniden çakışma kontrolü** (`PUT /lessons/{id}`).
-2. **`MeetingUrl` / online ders linki** — domain alanı + DTO + mobil "Derse Katıl".
+1. ✅ **Ders güncelleme + yeniden çakışma kontrolü** (`PUT /lessons/{id}`) — tamamlandı (2026-06-28).
+2. **`MeetingUrl` / online ders linki** — backend **domain alanı** + DTO (mobil tarafı ve "Toplantıya Katıl" hazır).
 3. **Tekrarlı ders açılımı** — `RecurrenceRule` çözümleyici + `SeriesId` + seri iptali.
 4. **`ScheduleException` (tatil/blackout)** — aggregate + endpoint + takvim katmanı + planlama uyarısı.
 5. **Öğrenci öncelik kuralı (m08 entegrasyonu)** — çakışmada özel ders önceliği + öğrenci uyarısı.
@@ -254,4 +254,4 @@ POST /lessons/{id}/cancel
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-06-28*

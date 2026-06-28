@@ -37,6 +37,7 @@ class DashboardTodayLesson {
     required this.startAtUtc,
     required this.endAtUtc,
     this.locationLabel,
+    this.meetingUrl,
   });
 
   final String id;
@@ -46,6 +47,7 @@ class DashboardTodayLesson {
   final DateTime startAtUtc;
   final DateTime endAtUtc;
   final String? locationLabel;
+  final String? meetingUrl;
 
   bool get isOnline => lessonFormat.toLowerCase().contains('online');
 }

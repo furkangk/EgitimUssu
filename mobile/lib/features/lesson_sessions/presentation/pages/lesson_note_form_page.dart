@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:file_picker/file_picker.dart';
@@ -26,14 +27,6 @@ class LessonNoteFormContext {
 }
 
 class _LessonNoteFormPageState extends State<LessonNoteFormPage> {
-  static const _text = Color(0xFF10233D);
-  static const _slate = Color(0xFF6B7A90);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFD7E7F8);
-  static const _divider = Color(0xFFE5EEF7);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _noteController = TextEditingController();
@@ -81,7 +74,7 @@ class _LessonNoteFormPageState extends State<LessonNoteFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: <Widget>[
@@ -163,7 +156,7 @@ class _LessonNoteFormPageState extends State<LessonNoteFormPage> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: _divider)),
+          border: Border(top: BorderSide(color: AppColors.divider)),
         ),
         padding: EdgeInsets.fromLTRB(
           16,
@@ -223,13 +216,13 @@ class _TopBar extends StatelessWidget {
           IconButton(
             onPressed: onBack,
             icon: const Icon(Icons.arrow_back_rounded),
-            color: _LessonNoteFormPageState._text,
+            color: AppColors.textPrimary,
           ),
           Expanded(
             child: Text(
               'Ders Notu Ekle',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _LessonNoteFormPageState._text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -321,7 +314,7 @@ class _FilePickerCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _LessonNoteFormPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: <Widget>[
@@ -331,16 +324,16 @@ class _FilePickerCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color:
                     (file == null
-                            ? _LessonNoteFormPageState._blue
-                            : _LessonNoteFormPageState._emerald)
+                            ? AppColors.accentBlue
+                            : AppColors.accentGreen)
                         .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 file == null ? Icons.attach_file_rounded : Icons.check_rounded,
                 color: file == null
-                    ? _LessonNoteFormPageState._blue
-                    : _LessonNoteFormPageState._emerald,
+                    ? AppColors.accentBlue
+                    : AppColors.accentGreen,
               ),
             ),
             const SizedBox(width: 12),
@@ -353,7 +346,7 @@ class _FilePickerCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: _LessonNoteFormPageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -363,7 +356,7 @@ class _FilePickerCard extends StatelessWidget {
                         ? 'PDF, Word veya gorsel dosya sec'
                         : '${(file.size / 1024).ceil()} KB',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _LessonNoteFormPageState._slate,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -373,12 +366,12 @@ class _FilePickerCard extends StatelessWidget {
               IconButton(
                 onPressed: onClear,
                 icon: const Icon(Icons.close_rounded),
-                color: _LessonNoteFormPageState._slate,
+                color: AppColors.textSecondary,
               )
             else
               const Icon(
                 Icons.chevron_right_rounded,
-                color: _LessonNoteFormPageState._slate,
+                color: AppColors.textSecondary,
               ),
           ],
         ),

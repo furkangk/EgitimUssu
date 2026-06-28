@@ -2,12 +2,12 @@ import 'dart:math';
 
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/cubit/dashboard_state.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class DashboardCubit extends Cubit<DashboardState> {
@@ -46,8 +46,12 @@ class DashboardCubit extends Cubit<DashboardState> {
         teacherUserId: teacherUserId,
       );
       final paymentSummaryFuture = _paymentRepository.getSummary(teacherUserId);
-      final paymentRecordsFuture = _paymentRepository.listTeacherRecords(teacherUserId);
-      final dashboardSummaryFuture = _dashboardRepository.getSummary(teacherUserId);
+      final paymentRecordsFuture = _paymentRepository.listTeacherRecords(
+        teacherUserId,
+      );
+      final dashboardSummaryFuture = _dashboardRepository.getSummary(
+        teacherUserId,
+      );
 
       final students = await studentsFuture;
       if (isClosed) return;
@@ -61,14 +65,29 @@ class DashboardCubit extends Cubit<DashboardState> {
       if (isClosed) return;
 
       final now = DateTime.now();
-      final todayLessons = lessons.where((lesson) => _isSameDay(lesson, now));
-      final todayLessonCount = todayLessons.length;
-      final todayLessonDuration = todayLessons.fold(
+      final todayScheduled = lessons.where((l) => _isSameDay(l, now)).toList()
+        ..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
+      final todayLessonCount = todayScheduled.length;
+      final todayLessonDuration = todayScheduled.fold(
         Duration.zero,
         (total, lesson) =>
             total +
             lesson.endAtUtc.toLocal().difference(lesson.startAtUtc.toLocal()),
       );
+      final todayLessons = todayScheduled
+          .map(
+            (l) => DashboardTodayLesson(
+              id: l.id,
+              studentId: l.studentId,
+              subject: l.subject,
+              lessonFormat: l.lessonFormat,
+              startAtUtc: l.startAtUtc,
+              endAtUtc: l.endAtUtc,
+              locationLabel: l.locationLabel,
+              meetingUrl: l.meetingUrl,
+            ),
+          )
+          .toList();
       final streakCount = _calculateStreak(lessons, now);
       final upcomingLessons = _buildUpcomingLessons(
         lessons: lessons,
@@ -102,7 +121,7 @@ class DashboardCubit extends Cubit<DashboardState> {
           students: students,
           lessons: lessons,
           paymentRecords: paymentRecords,
-          todayLessons: dashboardSummary.todayLessons,
+          todayLessons: todayLessons,
           pendingAssignments: dashboardSummary.pendingAssignments,
           overduePayments: dashboardSummary.overduePayments,
           clearError: true,
@@ -170,6 +189,8 @@ class DashboardCubit extends Cubit<DashboardState> {
         timeRange: '${_formatTime(start)} - ${_formatTime(end)}',
         modeLabel: isOnline ? 'Online' : 'Yuz yuze',
         isOnline: isOnline,
+        startAtUtc: lesson.startAtUtc,
+        meetingUrl: lesson.meetingUrl,
       );
     }).toList();
   }
@@ -199,7 +220,7 @@ class DashboardCubit extends Cubit<DashboardState> {
             studentName: studentName,
             description: 'Ders planlandi',
             timeLabel: _relativeTimeLabel(lessonTime, now),
-            accent: const Color(0xFF3D8BFF),
+            accent: AppColors.accentBlue,
           ),
         ),
       );
@@ -222,8 +243,8 @@ class DashboardCubit extends Cubit<DashboardState> {
                 : 'Odeme eklendi',
             timeLabel: _relativeTimeLabel(paymentTime, now),
             accent: payment.collectedAmount > 0
-                ? const Color(0xFF20B486)
-                : const Color(0xFFFFB84D),
+                ? AppColors.accentGreen
+                : AppColors.amber,
           ),
         ),
       );
@@ -246,9 +267,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         studentName: student.fullName,
         description: 'Odev teslim edildi',
         timeLabel: index == 0 ? 'Bugun 10:30' : 'Dun 18:40',
-        accent: index.isEven
-            ? const Color(0xFF20B486)
-            : const Color(0xFF3D8BFF),
+        accent: index.isEven ? AppColors.accentGreen : AppColors.accentBlue,
       );
     });
   }

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -24,12 +26,6 @@ class LessonNoteViewPage extends StatelessWidget {
 
   final LessonNoteViewPayload? payload;
 
-  static const _navy = Color(0xFF062B52);
-  static const _text = Color(0xFF10233D);
-  static const _slate = Color(0xFF7A8494);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EAF0);
-
   LessonNoteViewPayload get _note =>
       payload ??
       const LessonNoteViewPayload(
@@ -37,7 +33,7 @@ class LessonNoteViewPage extends StatelessWidget {
         meta: '1.2 MB  20 Mayis',
         noteText:
             'Polinomlarda temel kavramlar, dereceler ve carpma-toplama kurallari anlatildi. Ders sonunda kisa bir soru cozum tekrarina yer verildi.',
-        accent: Color(0xFF3D8BFF),
+        accent: AppColors.accentBlue,
         sourceFilePath: null,
       );
 
@@ -46,9 +42,9 @@ class LessonNoteViewPage extends StatelessWidget {
     final note = _note;
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: _background,
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         title: const Text('Ders Notu'),
       ),
@@ -61,14 +57,8 @@ class LessonNoteViewPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: _border),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x12082B4F),
-                    blurRadius: 24,
-                    offset: Offset(0, 10),
-                  ),
-                ],
+                border: Border.all(color: AppColors.border),
+                boxShadow: AppShadows.soft,
               ),
               child: Row(
                 children: <Widget>[
@@ -94,16 +84,15 @@ class LessonNoteViewPage extends StatelessWidget {
                           note.title,
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
-                                color: _text,
+                                color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w800,
                               ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           note.meta,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: _slate),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -117,7 +106,7 @@ class LessonNoteViewPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +114,7 @@ class LessonNoteViewPage extends StatelessWidget {
                   Text(
                     'Ders Notu Icerigi',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: _text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -133,7 +122,7 @@ class LessonNoteViewPage extends StatelessWidget {
                   Text(
                     note.noteText,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: _slate,
+                      color: AppColors.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -148,9 +137,13 @@ class LessonNoteViewPage extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _navy,
-                        side: BorderSide(color: _navy.withValues(alpha: 0.18)),
-                        backgroundColor: _navy.withValues(alpha: 0.04),
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(
+                          color: AppColors.primary.withValues(alpha: 0.18),
+                        ),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.04,
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -165,7 +158,7 @@ class LessonNoteViewPage extends StatelessWidget {
                   Expanded(
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: _navy,
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
@@ -14,16 +16,6 @@ class MorePage extends StatefulWidget {
 }
 
 class _MorePageState extends State<MorePage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _amber = Color(0xFFFFB84D);
-  static const _red = Color(0xFFFF5A5F);
-  static const _slate = Color(0xFF6B7A90);
-  static const _text = Color(0xFF10233D);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EEF7);
-
   bool _lessonReminders = true;
   bool _paymentReminders = true;
   bool _parentNotifications = false;
@@ -54,7 +46,7 @@ class _MorePageState extends State<MorePage> {
               : fallbackName;
 
           return Scaffold(
-            backgroundColor: _background,
+            backgroundColor: AppColors.background,
             bottomNavigationBar: _MoreBottomNav(
               onHomeTap: () => context.go('/dashboard'),
               onLessonsTap: () => context.go('/lesson-sessions'),
@@ -83,7 +75,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.person_outline_rounded,
                         title: 'Profil Bilgileri',
                         subtitle: 'Vitrin, brans, biyografi ve musaitlik',
-                        color: _blue,
+                        color: AppColors.accentBlue,
                         onTap: () => context.push('/teacher-profile'),
                       ),
                       _DividerLine(),
@@ -91,7 +83,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.manage_accounts_outlined,
                         title: 'Hesap bilgileri',
                         subtitle: 'E-posta, rol ve oturum bilgileri',
-                        color: _emerald,
+                        color: AppColors.accentGreen,
                         onTap: () => context.push('/account-info'),
                       ),
                       _DividerLine(),
@@ -99,7 +91,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.workspace_premium_outlined,
                         title: 'Abonelik ayarlari',
                         subtitle: 'Plus uyelik, fatura ve paket bilgileri',
-                        color: _amber,
+                        color: AppColors.amber,
                         onTap: _showSubscriptionSheet,
                       ),
                       _DividerLine(),
@@ -107,7 +99,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.bar_chart_rounded,
                         title: 'Raporlar',
                         subtitle: 'Ders, devam ve tahsilat ozetleri',
-                        color: _amber,
+                        color: AppColors.amber,
                         onTap: _showReportsSheet,
                       ),
                     ],
@@ -119,7 +111,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.tune_rounded,
                         title: 'Ayarlar',
                         subtitle: 'Genel uygulama tercihleri',
-                        color: _blue,
+                        color: AppColors.accentBlue,
                         onTap: _showGeneralSettingsSheet,
                       ),
                       _DividerLine(),
@@ -127,7 +119,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.notifications_active_outlined,
                         title: 'Bildirim ayarlari',
                         subtitle: 'Ders, odeme, veli ve rapor bildirimleri',
-                        color: _red,
+                        color: AppColors.accentRed,
                         onTap: _showNotificationSettingsSheet,
                       ),
                       _DividerLine(),
@@ -135,7 +127,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.work_outline_rounded,
                         title: 'Calisma ayarlari',
                         subtitle: 'Ders modu ve uygunluk tercihleri',
-                        color: _emerald,
+                        color: AppColors.accentGreen,
                         onTap: _showWorkSettingsSheet,
                       ),
                       _DividerLine(),
@@ -143,7 +135,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.event_busy_outlined,
                         title: 'Tatil ayarlari',
                         subtitle: 'Kapali gunler ve tatil takvimi',
-                        color: _amber,
+                        color: AppColors.amber,
                         onTap: _showHolidaySettingsSheet,
                       ),
                     ],
@@ -155,7 +147,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.help_outline_rounded,
                         title: 'Yardim (SSS)',
                         subtitle: 'Sik sorulan sorular',
-                        color: _blue,
+                        color: AppColors.accentBlue,
                         onTap: _showHelpSheet,
                       ),
                       _DividerLine(),
@@ -163,7 +155,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.support_agent_rounded,
                         title: 'Bize ulasin',
                         subtitle: 'Hata, talep veya gelistirme fikri',
-                        color: _emerald,
+                        color: AppColors.accentGreen,
                         onTap: _showContactSheet,
                       ),
                       _DividerLine(),
@@ -171,7 +163,7 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.info_outline_rounded,
                         title: 'Hakkimizda',
                         subtitle: 'EgitimUssu ve uygulama bilgileri',
-                        color: _slate,
+                        color: AppColors.textSecondary,
                         onTap: _showAboutSheet,
                       ),
                       _DividerLine(),
@@ -179,8 +171,8 @@ class _MorePageState extends State<MorePage> {
                         icon: Icons.logout_rounded,
                         title: 'Cikis yap',
                         subtitle: 'Oturumu kapat ve giris ekranina don',
-                        color: _red,
-                        titleColor: _red,
+                        color: AppColors.accentRed,
+                        titleColor: AppColors.accentRed,
                         onTap: _confirmLogout,
                       ),
                     ],
@@ -475,9 +467,9 @@ class _MorePageState extends State<MorePage> {
               const SizedBox(height: 10),
               Text(
                 'Hesabinizdan cikis yapmak istiyor musunuz?',
-                style: Theme.of(
-                  sheetContext,
-                ).textTheme.bodyMedium?.copyWith(color: _slate),
+                style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 18),
               Row(
@@ -491,7 +483,9 @@ class _MorePageState extends State<MorePage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: _red),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accentRed,
+                      ),
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
                         context.read<AuthCubit>().logout();
@@ -561,7 +555,10 @@ class _MorePageState extends State<MorePage> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(value),
                   trailing: selected == value
-                      ? const Icon(Icons.check_rounded, color: _navy)
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: AppColors.primary,
+                        )
                       : null,
                   onTap: () {
                     onSelected(value);
@@ -587,7 +584,7 @@ class _TopBar extends StatelessWidget {
         Text(
           'Diger',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: _MorePageState._text,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -626,14 +623,8 @@ class _ProfileSummary extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: _MorePageState._border),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x0F082B4F),
-              blurRadius: 28,
-              offset: Offset(0, 12),
-            ),
-          ],
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadows.soft,
         ),
         child: Column(
           children: <Widget>[
@@ -645,7 +636,7 @@ class _ProfileSummary extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _MorePageState._text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -670,11 +661,9 @@ class _PlusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _MorePageState._amber.withValues(alpha: 0.14),
+        color: AppColors.amber.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: _MorePageState._amber.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -682,13 +671,13 @@ class _PlusBadge extends StatelessWidget {
           const Icon(
             Icons.workspace_premium_rounded,
             size: 18,
-            color: _MorePageState._amber,
+            color: AppColors.amber,
           ),
           const SizedBox(width: 7),
           Text(
             'Plus uye',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: _MorePageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -709,7 +698,7 @@ class _SubscriptionSummary extends StatelessWidget {
         children: <Widget>[
           const _TintedIcon(
             icon: Icons.workspace_premium_rounded,
-            color: _MorePageState._amber,
+            color: AppColors.amber,
             size: 44,
           ),
           const SizedBox(width: 12),
@@ -720,16 +709,16 @@ class _SubscriptionSummary extends StatelessWidget {
                 Text(
                   'Plus uyelik aktif',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _MorePageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   'Gelismis raporlar ve oncelikli destek kullanilabilir.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: _MorePageState._slate),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -755,15 +744,9 @@ class _ProfileAvatar extends StatelessWidget {
       height: 104,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: _MorePageState._navy,
+        color: AppColors.primary,
         border: Border.all(color: Colors.white, width: 4),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x1A082B4F),
-            blurRadius: 24,
-            offset: Offset(0, 10),
-          ),
-        ],
+        boxShadow: AppShadows.soft,
       ),
       clipBehavior: Clip.antiAlias,
       child: hasPhoto
@@ -819,12 +802,12 @@ class _RatingLine extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
-        const Icon(Icons.star_rounded, size: 22, color: _MorePageState._amber),
+        const Icon(Icons.star_rounded, size: 22, color: AppColors.amber),
         const SizedBox(width: 5),
         Text(
           rating.toStringAsFixed(1),
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: _MorePageState._text,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -833,7 +816,7 @@ class _RatingLine extends StatelessWidget {
           '($reviewCount degerlendirme)',
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: _MorePageState._slate),
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );
@@ -851,7 +834,7 @@ class _MenuPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _MorePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(children: children),
     );
@@ -892,7 +875,7 @@ class _MenuTile extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: titleColor ?? _MorePageState._text,
+                      color: titleColor ?? AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -902,7 +885,7 @@ class _MenuTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _MorePageState._slate,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -910,7 +893,7 @@ class _MenuTile extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: _MorePageState._slate,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -940,7 +923,7 @@ class _SwitchRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       child: Row(
         children: <Widget>[
-          _TintedIcon(icon: icon, color: _MorePageState._blue, size: 40),
+          _TintedIcon(icon: icon, color: AppColors.accentBlue, size: 40),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -949,23 +932,23 @@ class _SwitchRow extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _MorePageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: _MorePageState._slate),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
           Switch.adaptive(
             value: value,
-            activeThumbColor: _MorePageState._navy,
+            activeThumbColor: AppColors.primary,
             onChanged: onChanged,
           ),
         ],
@@ -995,7 +978,7 @@ class _ChoiceRow extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Row(
           children: <Widget>[
-            _TintedIcon(icon: icon, color: _MorePageState._emerald, size: 40),
+            _TintedIcon(icon: icon, color: AppColors.accentGreen, size: 40),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1004,7 +987,7 @@ class _ChoiceRow extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: _MorePageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1012,7 +995,7 @@ class _ChoiceRow extends StatelessWidget {
                   Text(
                     value,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _MorePageState._slate,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -1020,7 +1003,7 @@ class _ChoiceRow extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: _MorePageState._slate,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -1042,12 +1025,12 @@ class _FaqTile extends StatelessWidget {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 14),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        iconColor: _MorePageState._navy,
-        collapsedIconColor: _MorePageState._slate,
+        iconColor: AppColors.primary,
+        collapsedIconColor: AppColors.textSecondary,
         title: Text(
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: _MorePageState._text,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1058,7 +1041,7 @@ class _FaqTile extends StatelessWidget {
               body,
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: _MorePageState._slate),
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
           ),
         ],
@@ -1084,7 +1067,7 @@ class _InfoRow extends StatelessWidget {
               label,
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: _MorePageState._slate),
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
           ),
           Flexible(
@@ -1093,7 +1076,7 @@ class _InfoRow extends StatelessWidget {
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: _MorePageState._text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1115,9 +1098,9 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _MorePageState._background,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _MorePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1125,7 +1108,7 @@ class _StatTile extends StatelessWidget {
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: _MorePageState._navy,
+              color: AppColors.primary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1134,7 +1117,7 @@ class _StatTile extends StatelessWidget {
             label,
             style: Theme.of(
               context,
-            ).textTheme.bodySmall?.copyWith(color: _MorePageState._slate),
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -1152,7 +1135,7 @@ class _SheetTitle extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: _MorePageState._navy,
+        color: AppColors.primary,
         fontWeight: FontWeight.w800,
       ),
     );
@@ -1183,7 +1166,7 @@ class _TintedIcon extends StatelessWidget {
 class _DividerLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Divider(height: 1, indent: 66, color: _MorePageState._border);
+    return const Divider(height: 1, indent: 66, color: AppColors.border);
   }
 }
 
@@ -1226,7 +1209,7 @@ class _MoreBottomNav extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: _MorePageState._border)),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       padding: EdgeInsets.fromLTRB(
         10,
@@ -1248,8 +1231,8 @@ class _MoreBottomNav extends StatelessWidget {
                     Icon(
                       item.icon,
                       color: item.selected
-                          ? _MorePageState._navy
-                          : _MorePageState._slate,
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(height: 4),
                     FittedBox(
@@ -1260,8 +1243,8 @@ class _MoreBottomNav extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: item.selected
-                                  ? _MorePageState._navy
-                                  : _MorePageState._slate,
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
                               fontWeight: item.selected
                                   ? FontWeight.w800
                                   : FontWeight.w600,

@@ -1,10 +1,12 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_state.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
-import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
-import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,16 +25,6 @@ class SchedulingPage extends StatefulWidget {
 }
 
 class _SchedulingPageState extends State<SchedulingPage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _navySoft = Color(0xFFE9F4FF);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _red = Color(0xFFFF5A5F);
-  static const _slate = Color(0xFF6B7A90);
-  static const _text = Color(0xFF10233D);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EEF7);
-
   late final SchedulingCubit _schedulingCubit;
   late final StudentsCubit _studentsCubit;
   bool _loaded = false;
@@ -81,14 +73,14 @@ class _SchedulingPageState extends State<SchedulingPage> {
       child: BlocListener<SchedulingCubit, SchedulingState>(
         listener: (context, state) {
           if (state.successMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.successMessage!)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
           }
           if (state.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                backgroundColor: _red,
+                backgroundColor: AppColors.accentRed,
                 content: Text(state.errorMessage!),
               ),
             );
@@ -111,13 +103,13 @@ class _SchedulingPageState extends State<SchedulingPage> {
     };
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: _navy,
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        onPressed: () => _openLessonSheet(initialDate: _visibleDate),
+        onPressed: _showCreateSheet,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Ders Planla'),
+        label: const Text('Ders Ekle'),
       ),
       body: SafeArea(
         child: CustomScrollView(
@@ -128,7 +120,7 @@ class _SchedulingPageState extends State<SchedulingPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    _Header(teacherName: teacherName),
+                    AppPageHeader(title: teacherName, subtitle: 'Takvim'),
                     const SizedBox(height: 12),
                     _ViewSwitcher(
                       value: _view,
@@ -215,350 +207,31 @@ class _SchedulingPageState extends State<SchedulingPage> {
     });
   }
 
-  Future<void> _openLessonSheet({
-    LessonSchedule? lesson,
-    DateTime? initialDate,
-    int initialHour = 10,
-  }) async {
-    final edited = lesson != null;
-    final baseDate =
-        lesson?.startAtUtc.toLocal() ?? initialDate ?? _visibleDate;
-    final students = _studentsCubit.state.students;
-    var selectedStudentId =
-        lesson?.studentId ?? (students.isNotEmpty ? students.first.id : '');
-    var selectedFormat = lesson?.lessonFormat ?? 'Online';
-    var selectedDate = DateTime(baseDate.year, baseDate.month, baseDate.day);
-    var selectedTime = TimeOfDay.fromDateTime(
-      lesson?.startAtUtc.toLocal() ??
-          DateTime(baseDate.year, baseDate.month, baseDate.day, initialHour),
-    );
-
-    final subjectController = TextEditingController(
-      text: lesson?.subject ?? 'Matematik',
-    );
-    final durationController = TextEditingController(
-      text: lesson == null
-          ? '60'
-          : lesson.endAtUtc.difference(lesson.startAtUtc).inMinutes.toString(),
-    );
-    final locationController = TextEditingController(
-      text: lesson?.locationLabel ?? 'Zoom',
-    );
-    final notesController = TextEditingController(text: lesson?.notes ?? '');
-    final formKey = GlobalKey<FormState>();
-
+  Future<void> _showCreateSheet() async {
+    final teacherUserId = _authSessionOrNull(context)?.userId ?? '';
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final start = DateTime(
-              selectedDate.year,
-              selectedDate.month,
-              selectedDate.day,
-              selectedTime.hour,
-              selectedTime.minute,
-            );
-            final duration = int.tryParse(durationController.text.trim()) ?? 60;
-            final end = start.add(Duration(minutes: duration));
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 14,
-                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-              ),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Center(
-                        child: Container(
-                          width: 38,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: _border,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              edited ? 'Dersi duzenle' : 'Ders planla',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: _text,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                          ),
-                          _TimePill(
-                            label:
-                                '${DateFormat('HH:mm').format(start)} - ${DateFormat('HH:mm').format(end)}',
-                            color: _navy,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      if (students.isNotEmpty)
-                      AppDropdownField<String>(
-                        value: selectedStudentId,
-                        labelText: 'Öğrenci',
-                        items: students
-                            .map(
-                              (student) => DropdownMenuItem<String>(
-                                value: student.id,
-                                child: Text(student.fullName),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) => setSheetState(
-                          () => selectedStudentId = value ?? selectedStudentId,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: subjectController,
-                        labelText: 'Ders konusu',
-                        hintText: 'Matematik - Fonksiyonlar',
-                        validator: _required,
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: AppTextField(
-                              controller: TextEditingController(
-                                text: DateFormat(
-                                  'dd.MM.yyyy',
-                                ).format(selectedDate),
-                              ),
-                              labelText: 'Tarih',
-                              readOnly: true,
-                              suffixIcon: const Icon(Icons.event_rounded),
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: sheetContext,
-                                  initialDate: selectedDate,
-                                  firstDate: DateTime(2025),
-                                  lastDate: DateTime(2028),
-                                );
-                                if (picked != null) {
-                                  setSheetState(
-                                    () => selectedDate = DateTime(
-                                      picked.year,
-                                      picked.month,
-                                      picked.day,
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: AppTextField(
-                              controller: TextEditingController(
-                                text: selectedTime.format(context),
-                              ),
-                              labelText: 'Saat',
-                              readOnly: true,
-                              suffixIcon: const Icon(Icons.schedule_rounded),
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: sheetContext,
-                                  initialTime: selectedTime,
-                                );
-                                if (picked != null) {
-                                  setSheetState(() => selectedTime = picked);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: AppTextField(
-                              controller: durationController,
-                              labelText: 'Sure',
-                              hintText: '60',
-                              keyboardType: TextInputType.number,
-                              validator: _durationValidator,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: AppDropdownField<String>(
-                              value: selectedFormat,
-                              labelText: 'Format',
-                              items: const <DropdownMenuItem<String>>[
-                                DropdownMenuItem(
-                                  value: 'Online',
-                                  child: Text('Online'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'InPerson',
-                                  child: Text('Yuz yuze'),
-                                ),
-                              ],
-                              onChanged: (value) => setSheetState(
-                                () => selectedFormat = value ?? selectedFormat,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: locationController,
-                        labelText: selectedFormat == 'Online'
-                            ? 'Baglanti / platform'
-                            : 'Konum',
-                        validator: _required,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: notesController,
-                        labelText: 'Not',
-                        hintText: 'Haftalik tekrar, kaynak, odev bilgisi',
-                        maxLines: 2,
-                        maxLength: 160,
-                      ),
-                      const SizedBox(height: 16),
-                      _ProgramPreview(
-                        weekStart: _startOfWeek(selectedDate),
-                        events: _calendarEvents,
-                        previewEvent: _CalendarEvent(
-                          id: lesson?.id ?? 'preview',
-                          type: _CalendarEventType.lesson,
-                          title: subjectController.text.trim().isEmpty
-                              ? 'Yeni ders'
-                              : subjectController.text.trim(),
-                          start: start,
-                          end: end,
-                          studentId: selectedStudentId,
-                          format: selectedFormat,
-                          status: lesson?.status ?? 'Planlandi',
-                        ),
-                        editingId: lesson?.id,
-                        studentNameFor: _studentNameFor,
-                      ),
-                      const SizedBox(height: 16),
-                      AppPrimaryButton(
-                        label: 'Kaydet',
-                        onPressed: () {
-                          if (!(formKey.currentState?.validate() ?? false)) {
-                            return;
-                          }
-
-                          if (_hasConflict(
-                            start: start,
-                            end: end,
-                            ignoredLessonId: lesson?.id,
-                          )) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Bu saat araliginda baska bir ders var.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          final session = _authSessionOrNull(context);
-                          final newLesson = LessonSchedule(
-                            id: lesson?.id ?? '',
-                            teacherUserId:
-                                lesson?.teacherUserId ??
-                                session?.userId ??
-                                '',
-                            studentId: selectedStudentId,
-                            subject: subjectController.text.trim(),
-                            lessonFormat: selectedFormat,
-                            startAtUtc: start.toUtc(),
-                            endAtUtc: end.toUtc(),
-                            timeZone: 'Europe/Istanbul',
-                            status: lesson?.status ?? 'Planned',
-                            reminderOffsetMinutes: 60,
-                            locationLabel: locationController.text.trim(),
-                            notes: notesController.text.trim(),
-                          );
-
-                          setState(() => _visibleDate = selectedDate);
-                          Navigator.of(sheetContext).pop();
-                          if (!edited) {
-                            _schedulingCubit.createLesson(newLesson);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Ders güncellendi.')),
-                            );
-                          }
-                        },
-                      ),
-                      if (edited) ...<Widget>[
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _red,
-                              side: const BorderSide(color: _red),
-                              minimumSize: const Size.fromHeight(50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: () {
-                              Navigator.of(sheetContext).pop();
-                              _schedulingCubit.cancelLesson(lesson: lesson);
-                            },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            label: const Text('Dersi Sil'),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
+        return BlocProvider<SchedulingCubit>.value(
+          value: _schedulingCubit,
+          child: LessonFormSheet(
+            teacherUserId: teacherUserId,
+            students: _studentsCubit.state.students,
+            existingLessons: _schedulingCubit.state.lessons,
+            initialDate: _visibleDate,
+          ),
         );
       },
     );
+    if (mounted) {
+      setState(() {});
+    }
   }
-
-  bool _hasConflict({
-    required DateTime start,
-    required DateTime end,
-    String? ignoredLessonId,
-  }) {
-    return _schedulingCubit.state.lessons.any((lesson) {
-      if (lesson.id == ignoredLessonId || lesson.status == 'Cancelled') {
-        return false;
-      }
-      final lessonStart = lesson.startAtUtc.toLocal();
-      final lessonEnd = lesson.endAtUtc.toLocal();
-      return start.isBefore(lessonEnd) && end.isAfter(lessonStart);
-    });
-  }
-
 
   String _studentNameFor(String id) {
     final found = _studentsCubit.state.students
@@ -576,134 +249,6 @@ class _SchedulingPageState extends State<SchedulingPage> {
   static DateTime _startOfWeek(DateTime date) {
     final day = DateTime(date.year, date.month, date.day);
     return day.subtract(Duration(days: day.weekday - 1));
-  }
-
-  String? _required(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Bu alan zorunlu.';
-    }
-    return null;
-  }
-
-  String? _durationValidator(String? value) {
-    final required = _required(value);
-    if (required != null) {
-      return required;
-    }
-    final duration = int.tryParse(value!.trim());
-    if (duration == null) {
-      return 'Dakika gir.';
-    }
-    if (duration < 30 || duration > 240) {
-      return '30-240 dakika olmali.';
-    }
-    return null;
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.teacherName});
-
-  final String teacherName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                teacherName,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: _SchedulingPageState._text,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Takvim',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: _SchedulingPageState._slate,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        _HeaderIconButton(
-          icon: Icons.notifications_none_rounded,
-          badgeText: '2',
-          onTap: () {},
-        ),
-      ],
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton({
-    required this.icon,
-    required this.onTap,
-    this.badgeText,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? badgeText;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: SizedBox(
-        width: 46,
-        height: 46,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _SchedulingPageState._border),
-                ),
-                child: Icon(icon, color: _SchedulingPageState._text),
-              ),
-            ),
-            if (badgeText != null)
-              Positioned(
-                right: -2,
-                top: -2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _SchedulingPageState._red,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: Text(
-                    badgeText!,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -731,11 +276,7 @@ class _SoftActionMenu extends StatelessWidget {
           value: 'edit',
           child: Row(
             children: const <Widget>[
-              Icon(
-                Icons.edit_rounded,
-                size: 18,
-                color: _SchedulingPageState._navy,
-              ),
+              Icon(Icons.edit_rounded, size: 18, color: AppColors.primary),
               SizedBox(width: 10),
               Text('Duzenle'),
             ],
@@ -748,7 +289,7 @@ class _SoftActionMenu extends StatelessWidget {
               Icon(
                 Icons.delete_outline_rounded,
                 size: 18,
-                color: _SchedulingPageState._red,
+                color: AppColors.accentRed,
               ),
               SizedBox(width: 10),
               Text('Sil'),
@@ -760,12 +301,12 @@ class _SoftActionMenu extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F8FC),
+          color: AppColors.background,
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(
           Icons.more_horiz_rounded,
-          color: _SchedulingPageState._slate,
+          color: AppColors.textSecondary,
           size: 20,
         ),
       ),
@@ -786,7 +327,7 @@ class _ViewSwitcher extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _SchedulingPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children:
@@ -810,9 +351,7 @@ class _ViewSwitcher extends StatelessWidget {
                     height: 42,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: selected
-                          ? _SchedulingPageState._navy
-                          : Colors.white,
+                      color: selected ? AppColors.primary : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -820,7 +359,7 @@ class _ViewSwitcher extends StatelessWidget {
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: selected
                             ? Colors.white
-                            : _SchedulingPageState._slate,
+                            : AppColors.textSecondary,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -859,7 +398,7 @@ class _DateNavigator extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _SchedulingPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -869,7 +408,7 @@ class _DateNavigator extends StatelessWidget {
           onPressed: onToday,
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(70, 42),
-            side: const BorderSide(color: _SchedulingPageState._border),
+            side: const BorderSide(color: AppColors.border),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -910,14 +449,8 @@ class _SyncfusionCalendarSurface extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _SchedulingPageState._border),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x10082B4F),
-                blurRadius: 24,
-                offset: Offset(0, 10),
-              ),
-            ],
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.soft,
           ),
           clipBehavior: Clip.antiAlias,
           child: SfCalendar(
@@ -926,15 +459,15 @@ class _SyncfusionCalendarSurface extends StatelessWidget {
             dataSource: _LessonCalendarDataSource(events),
             initialDisplayDate: visibleDate,
             initialSelectedDate: visibleDate,
-            todayHighlightColor: _SchedulingPageState._navy,
+            todayHighlightColor: AppColors.primary,
             selectionDecoration: BoxDecoration(
               color: Colors.transparent,
-              border: Border.all(color: _SchedulingPageState._navy, width: 1.5),
+              border: Border.all(color: AppColors.primary, width: 1.5),
               borderRadius: BorderRadius.circular(10),
             ),
             headerHeight: 0,
             backgroundColor: Colors.white,
-            cellBorderColor: _SchedulingPageState._border,
+            cellBorderColor: AppColors.border,
             firstDayOfWeek: 1,
             showCurrentTimeIndicator: true,
             monthViewSettings: const MonthViewSettings(
@@ -1067,7 +600,7 @@ class _SelectedDayEventsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _SchedulingPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1075,7 +608,7 @@ class _SelectedDayEventsPanel extends StatelessWidget {
           Text(
             _selectedDateLabel(date),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _SchedulingPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1084,7 +617,7 @@ class _SelectedDayEventsPanel extends StatelessWidget {
             Text(
               'Bu güne ait etkinlik yok.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: _SchedulingPageState._slate,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             )
@@ -1153,7 +686,7 @@ class _SelectedDayEventTile extends StatelessWidget {
                   Text(
                     timeLabel,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _SchedulingPageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1165,7 +698,7 @@ class _SelectedDayEventTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _SchedulingPageState._text,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1176,7 +709,7 @@ class _SelectedDayEventTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _SchedulingPageState._slate,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -1253,7 +786,7 @@ class _HourRow extends StatelessWidget {
               child: Text(
                 '${hour.toString().padLeft(2, '0')}:00',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: _SchedulingPageState._slate,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
@@ -1263,9 +796,7 @@ class _HourRow extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 74),
               margin: const EdgeInsets.only(bottom: 10),
               decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: _SchedulingPageState._border),
-                ),
+                border: Border(top: BorderSide(color: AppColors.border)),
               ),
               child: lessons.isEmpty
                   ? InkWell(
@@ -1278,14 +809,12 @@ class _HourRow extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.62),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: _SchedulingPageState._border,
-                          ),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Text(
                           'Bos saat',
                           style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: _SchedulingPageState._slate),
+                              ?.copyWith(color: AppColors.textSecondary),
                         ),
                       ),
                     )
@@ -1399,9 +928,7 @@ class _WeekDayColumn extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected
-                ? _SchedulingPageState._navy
-                : _SchedulingPageState._border,
+            color: selected ? AppColors.primary : AppColors.border,
           ),
         ),
         child: Column(
@@ -1410,7 +937,7 @@ class _WeekDayColumn extends StatelessWidget {
             Text(
               DateFormat('EEE').format(date),
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: _SchedulingPageState._slate,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1418,7 +945,7 @@ class _WeekDayColumn extends StatelessWidget {
             Text(
               DateFormat('dd').format(date),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _SchedulingPageState._text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -1431,12 +958,12 @@ class _WeekDayColumn extends StatelessWidget {
                   child: Container(
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: _SchedulingPageState._navySoft,
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.add_rounded,
-                      color: _SchedulingPageState._navy,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -1506,7 +1033,7 @@ class _MonthCalendarView extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _SchedulingPageState._border),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             children: <Widget>[
@@ -1557,7 +1084,7 @@ class _MonthCalendarView extends StatelessWidget {
               child: Text(
                 _longDateLabel(selectedDate),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: _SchedulingPageState._text,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1597,7 +1124,7 @@ class _WeekName extends StatelessWidget {
         label,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: _SchedulingPageState._slate,
+          color: AppColors.textSecondary,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -1635,9 +1162,7 @@ class _MonthDayCell extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected
-                ? _SchedulingPageState._navy
-                : _SchedulingPageState._border,
+            color: selected ? AppColors.primary : AppColors.border,
           ),
         ),
         child: Column(
@@ -1655,7 +1180,7 @@ class _MonthDayCell extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: selected
-                            ? _SchedulingPageState._navy
+                            ? AppColors.primary
                             : Colors.transparent,
                         shape: BoxShape.circle,
                       ),
@@ -1666,8 +1191,8 @@ class _MonthDayCell extends StatelessWidget {
                               color: selected
                                   ? Colors.white
                                   : inMonth
-                                  ? _SchedulingPageState._text
-                                  : _SchedulingPageState._slate.withValues(
+                                  ? AppColors.textPrimary
+                                  : AppColors.textSecondary.withValues(
                                       alpha: 0.5,
                                     ),
                               fontWeight: FontWeight.w900,
@@ -1697,7 +1222,7 @@ class _MonthDayCell extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: _SchedulingPageState._slate,
+                  color: AppColors.textSecondary,
                   fontSize: 8,
                   fontWeight: FontWeight.w800,
                   height: 1,
@@ -1785,14 +1310,8 @@ class _EventDetailCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: _SchedulingPageState._border),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.045),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadows.soft,
         ),
         child: Row(
           children: <Widget>[
@@ -1813,7 +1332,7 @@ class _EventDetailCard extends StatelessWidget {
                   Text(
                     timeLabel,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _SchedulingPageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1825,7 +1344,7 @@ class _EventDetailCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: _SchedulingPageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -1843,13 +1362,13 @@ class _EventDetailCard extends StatelessWidget {
                           label: event.format == 'Online'
                               ? 'Online'
                               : 'Yuz Yuze',
-                          color: _SchedulingPageState._navy,
+                          color: AppColors.primary,
                         ),
                       _TimePill(
                         label: event.status,
                         color: event.status == 'Tamamlandi'
-                            ? _SchedulingPageState._emerald
-                            : _SchedulingPageState._slate,
+                            ? AppColors.accentGreen
+                            : AppColors.textSecondary,
                       ),
                     ],
                   ),
@@ -1859,149 +1378,12 @@ class _EventDetailCard extends StatelessWidget {
             IconButton(
               onPressed: onTap,
               icon: const Icon(Icons.edit_rounded),
-              color: _SchedulingPageState._slate,
+              color: AppColors.textSecondary,
             ),
             _SoftActionMenu(onEdit: onTap),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ProgramPreview extends StatelessWidget {
-  const _ProgramPreview({
-    required this.weekStart,
-    required this.events,
-    required this.previewEvent,
-    required this.editingId,
-    required this.studentNameFor,
-  });
-
-  final DateTime weekStart;
-  final List<_CalendarEvent> events;
-  final _CalendarEvent previewEvent;
-  final String? editingId;
-  final String Function(String id) studentNameFor;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewEvents = <_CalendarEvent>[
-      ...events.where((event) => event.id != editingId),
-      previewEvent,
-    ]..sort((a, b) => a.start.compareTo(b.start));
-    final hasConflict = previewEvents.any((event) {
-      if (event.id == previewEvent.id ||
-          event.type != _CalendarEventType.lesson) {
-        return false;
-      }
-      return _sameDay(event.start, previewEvent.start) &&
-          previewEvent.start.isBefore(event.end) &&
-          previewEvent.end.isAfter(event.start);
-    });
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _showWeeklyProgramModal(
-        context,
-        weekStart: weekStart,
-        events: previewEvents,
-        previewId: previewEvent.id,
-        studentNameFor: studentNameFor,
-        hasConflict: hasConflict,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7FAFD),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: hasConflict
-                ? _SchedulingPageState._red.withValues(alpha: 0.45)
-                : _SchedulingPageState._border,
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: _SchedulingPageState._navySoft,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.calendar_view_week_rounded,
-                color: _SchedulingPageState._navy,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Haftalık programını göster',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: _SchedulingPageState._text,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Seçilen dersi haftalık takvimde kontrol et.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _SchedulingPageState._slate,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            _TimePill(
-              label: hasConflict ? 'Çakışma var' : 'Uygun',
-              color: hasConflict
-                  ? _SchedulingPageState._red
-                  : _SchedulingPageState._emerald,
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: _SchedulingPageState._slate,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showWeeklyProgramModal(
-    BuildContext context, {
-    required DateTime weekStart,
-    required List<_CalendarEvent> events,
-    required String previewId,
-    required String Function(String id) studentNameFor,
-    required bool hasConflict,
-  }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetContext) {
-        return FractionallySizedBox(
-          heightFactor: 0.86,
-          child: _WeeklyProgramModal(
-            weekStart: weekStart,
-            events: events,
-            previewId: previewId,
-            studentNameFor: studentNameFor,
-            hasConflict: hasConflict,
-          ),
-        );
-      },
     );
   }
 }
@@ -2052,7 +1434,7 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
               width: 46,
               height: 5,
               decoration: BoxDecoration(
-                color: _SchedulingPageState._border,
+                color: AppColors.border,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -2066,7 +1448,7 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
                       Text(
                         'Haftalık Program',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: _SchedulingPageState._text,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -2074,7 +1456,7 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
                       Text(
                         '${_shortDateLabel(widget.weekStart)} - ${_shortDateLabel(widget.weekStart.add(const Duration(days: 6)), includeYear: true)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: _SchedulingPageState._slate,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -2084,13 +1466,13 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
                 _TimePill(
                   label: widget.hasConflict ? 'Çakışma var' : 'Uygun',
                   color: widget.hasConflict
-                      ? _SchedulingPageState._red
-                      : _SchedulingPageState._emerald,
+                      ? AppColors.accentRed
+                      : AppColors.accentGreen,
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
-                  color: _SchedulingPageState._slate,
+                  color: AppColors.textSecondary,
                 ),
               ],
             ),
@@ -2142,7 +1524,7 @@ class _ScrollableWeekSchedule extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _SchedulingPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -2154,7 +1536,7 @@ class _ScrollableWeekSchedule extends StatelessWidget {
             child: Text(
               'Günleri görmek için sağa sola kaydır',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: _SchedulingPageState._slate,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2217,7 +1599,7 @@ class _WeekDayScheduleColumn extends StatelessWidget {
     return Container(
       width: _ScrollableWeekSchedule._dayWidth,
       decoration: const BoxDecoration(
-        border: Border(right: BorderSide(color: _SchedulingPageState._border)),
+        border: Border(right: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         children: <Widget>[
@@ -2226,9 +1608,7 @@ class _WeekDayScheduleColumn extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: const BoxDecoration(
               color: Color(0xFFF7FAFD),
-              border: Border(
-                bottom: BorderSide(color: _SchedulingPageState._border),
-              ),
+              border: Border(bottom: BorderSide(color: AppColors.border)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2238,7 +1618,7 @@ class _WeekDayScheduleColumn extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _SchedulingPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -2246,7 +1626,7 @@ class _WeekDayScheduleColumn extends StatelessWidget {
                 Text(
                   _shortDateLabel(date, includeYear: false),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: _SchedulingPageState._slate,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -2296,7 +1676,7 @@ class _WeekHourCell extends StatelessWidget {
       height: _ScrollableWeekSchedule._hourHeight,
       padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _SchedulingPageState._border)),
+        border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2306,7 +1686,7 @@ class _WeekHourCell extends StatelessWidget {
             child: Text(
               '${hour.toString().padLeft(2, '0')}:00',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: _SchedulingPageState._slate,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2351,9 +1731,7 @@ class _WeeklyAppointment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isPreview
-        ? _SchedulingPageState._navy
-        : _eventColor(event.type);
+    final color = isPreview ? AppColors.primary : _eventColor(event.type);
     return Container(
       width: double.infinity,
       height: double.infinity,
@@ -2422,10 +1800,10 @@ class _LessonTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cancelled = lesson.status == 'Cancelled';
     final accent = cancelled
-        ? _SchedulingPageState._red
+        ? AppColors.accentRed
         : lesson.lessonFormat == 'Online'
-        ? _SchedulingPageState._blue
-        : _SchedulingPageState._emerald;
+        ? AppColors.accentBlue
+        : AppColors.accentGreen;
     final start = lesson.startAtUtc.toLocal();
     final end = lesson.endAtUtc.toLocal();
 
@@ -2435,9 +1813,9 @@ class _LessonTile extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(compact ? 10 : 14),
         decoration: BoxDecoration(
-          color: cancelled ? const Color(0xFFFFF2F2) : Colors.white,
+          color: cancelled ? AppColors.errorSurface : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _SchedulingPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2460,7 +1838,7 @@ class _LessonTile extends StatelessWidget {
                     maxLines: compact ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: _SchedulingPageState._text,
+                      color: AppColors.textPrimary,
                       fontSize: compact ? 13 : null,
                       fontWeight: FontWeight.w800,
                     ),
@@ -2473,7 +1851,7 @@ class _LessonTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _SchedulingPageState._slate,
+                      color: AppColors.textSecondary,
                       fontSize: compact ? 11 : null,
                     ),
                   ),
@@ -2492,12 +1870,12 @@ class _LessonTile extends StatelessWidget {
                           label: lesson.lessonFormat == 'Online'
                               ? 'Online'
                               : 'Yuz yuze',
-                          color: _SchedulingPageState._navy,
+                          color: AppColors.primary,
                         ),
                       if (cancelled)
                         const _TimePill(
                           label: 'Iptal',
-                          color: _SchedulingPageState._red,
+                          color: AppColors.accentRed,
                         ),
                     ],
                   ),
@@ -2507,7 +1885,7 @@ class _LessonTile extends StatelessWidget {
             if (!compact)
               const Icon(
                 Icons.edit_calendar_rounded,
-                color: _SchedulingPageState._slate,
+                color: AppColors.textSecondary,
                 size: 20,
               ),
           ],
@@ -2554,7 +1932,7 @@ class _EmptyDayPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _SchedulingPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: <Widget>[
@@ -2562,19 +1940,19 @@ class _EmptyDayPanel extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: _SchedulingPageState._navySoft,
+              color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.event_available_rounded,
-              color: _SchedulingPageState._navy,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 10),
           Text(
             'Bu gune ait etkinlik yok',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _SchedulingPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -2601,9 +1979,9 @@ class _IconSurface extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _SchedulingPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
-        child: Icon(icon, color: _SchedulingPageState._text),
+        child: Icon(icon, color: AppColors.textPrimary),
       ),
     );
   }
@@ -2643,7 +2021,7 @@ class _SchedulingBottomNav extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: _SchedulingPageState._border)),
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       padding: EdgeInsets.fromLTRB(
         10,
@@ -2665,8 +2043,8 @@ class _SchedulingBottomNav extends StatelessWidget {
                     Icon(
                       item.icon,
                       color: item.selected
-                          ? _SchedulingPageState._navy
-                          : _SchedulingPageState._slate,
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
                     ),
                     const SizedBox(height: 4),
                     FittedBox(
@@ -2677,8 +2055,8 @@ class _SchedulingBottomNav extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: item.selected
-                                  ? _SchedulingPageState._navy
-                                  : _SchedulingPageState._slate,
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
                               fontWeight: item.selected
                                   ? FontWeight.w800
                                   : FontWeight.w600,
@@ -2705,7 +2083,6 @@ class _BottomNavItem {
   final bool selected;
   final VoidCallback? onTap;
 }
-
 
 class _CalendarEvent {
   const _CalendarEvent({
@@ -2780,7 +2157,6 @@ List<_CalendarEvent> _seedEvents(DateTime today) {
   ];
 }
 
-
 bool _sameDay(DateTime first, DateTime second) {
   return first.year == second.year &&
       first.month == second.month &&
@@ -2789,10 +2165,10 @@ bool _sameDay(DateTime first, DateTime second) {
 
 Color _eventColor(_CalendarEventType type) {
   return switch (type) {
-    _CalendarEventType.lesson => _SchedulingPageState._blue,
-    _CalendarEventType.unavailable => _SchedulingPageState._red,
-    _CalendarEventType.assignment => _SchedulingPageState._emerald,
-    _CalendarEventType.payment => const Color(0xFFFFB84D),
+    _CalendarEventType.lesson => AppColors.accentBlue,
+    _CalendarEventType.unavailable => AppColors.accentRed,
+    _CalendarEventType.assignment => AppColors.accentGreen,
+    _CalendarEventType.payment => AppColors.amber,
   };
 }
 

@@ -1,7 +1,10 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_state.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
@@ -18,16 +21,6 @@ class StudentsPage extends StatefulWidget {
 }
 
 class _StudentsPageState extends State<StudentsPage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _skyBorder = Color(0xFFD7E7F8);
-  static const _emerald = Color(0xFF20B486);
-  static const _amber = Color(0xFFFFB84D);
-  static const _slate = Color(0xFF6B7A90);
-  static const _text = Color(0xFF10233D);
-  static const _background = Color(0xFFF4F8FC);
-  static const _divider = Color(0xFFE5EEF7);
-  static const _red = Color(0xFFFF5A5F);
-
   final TextEditingController _searchController = TextEditingController();
   late final StudentsCubit _cubit;
   String _query = '';
@@ -42,7 +35,9 @@ class _StudentsPageState extends State<StudentsPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final userId = context.read<AuthCubit>().state.session?.userId;
-    if (userId != null && _cubit.state.students.isEmpty && !_cubit.state.isLoading) {
+    if (userId != null &&
+        _cubit.state.students.isEmpty &&
+        !_cubit.state.isLoading) {
       _cubit.load(userId);
     }
   }
@@ -69,7 +64,7 @@ class _StudentsPageState extends State<StudentsPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.successMessage!),
-                backgroundColor: _emerald,
+                backgroundColor: AppColors.accentGreen,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -78,7 +73,7 @@ class _StudentsPageState extends State<StudentsPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.errorMessage!),
-                backgroundColor: _red,
+                backgroundColor: AppColors.accentRed,
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -93,19 +88,23 @@ class _StudentsPageState extends State<StudentsPage> {
           }).toList();
 
           return Scaffold(
-            backgroundColor: _background,
+            backgroundColor: AppColors.background,
             body: SafeArea(
               child: RefreshIndicator(
-                color: _navy,
+                color: AppColors.primary,
                 onRefresh: () {
-                  final userId = context.read<AuthCubit>().state.session?.userId;
+                  final userId = context
+                      .read<AuthCubit>()
+                      .state
+                      .session
+                      ?.userId;
                   if (userId != null) return _cubit.load(userId);
                   return Future<void>.value();
                 },
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 116),
                   children: <Widget>[
-                    _PageHeader(teacherName: teacherName),
+                    AppPageHeader(title: teacherName),
                     const SizedBox(height: 20),
                     _SearchField(
                       controller: _searchController,
@@ -116,10 +115,11 @@ class _StudentsPageState extends State<StudentsPage> {
                       children: <Widget>[
                         Text(
                           'Öğrenciler',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: _text,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
                         const Spacer(),
                         if (!state.isLoading)
@@ -131,15 +131,13 @@ class _StudentsPageState extends State<StudentsPage> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: _skyBorder),
+                              border: Border.all(color: AppColors.skyBorder),
                             ),
                             child: Text(
                               '${filtered.length} kayıt',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
+                              style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(
-                                    color: _navy,
+                                    color: AppColors.primary,
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
@@ -149,12 +147,16 @@ class _StudentsPageState extends State<StudentsPage> {
                     const SizedBox(height: 14),
                     if (state.isLoading)
                       _ShimmerList()
-                    else if (state.errorMessage != null && state.students.isEmpty)
+                    else if (state.errorMessage != null &&
+                        state.students.isEmpty)
                       _ErrorCard(
                         message: state.errorMessage!,
                         onRetry: () {
-                          final userId =
-                              context.read<AuthCubit>().state.session?.userId;
+                          final userId = context
+                              .read<AuthCubit>()
+                              .state
+                              .session
+                              ?.userId;
                           if (userId != null) _cubit.load(userId);
                         },
                       )
@@ -180,7 +182,8 @@ class _StudentsPageState extends State<StudentsPage> {
                           child: _StudentCard(
                             student: student,
                             accent: _accentForIndex(index),
-                            onTap: () => context.push('/students/${student.id}'),
+                            onTap: () =>
+                                context.push('/students/${student.id}'),
                           ),
                         );
                       }),
@@ -196,7 +199,7 @@ class _StudentsPageState extends State<StudentsPage> {
               onFinanceTap: () => context.go('/payments'),
             ),
             floatingActionButton: FloatingActionButton.extended(
-              backgroundColor: _navy,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               onPressed: () => _showAddStudentSheet(
                 context,
@@ -213,10 +216,10 @@ class _StudentsPageState extends State<StudentsPage> {
 
   Color _accentForIndex(int index) {
     const colors = <Color>[
-      _emerald,
-      Color(0xFF3D8BFF),
-      _amber,
-      Color(0xFF20A4A9),
+      AppColors.accentGreen,
+      AppColors.accentBlue,
+      AppColors.amber,
+      AppColors.accentTeal,
     ];
     return colors[index % colors.length];
   }
@@ -328,20 +331,20 @@ class _ErrorCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _StudentsPageState._skyBorder),
+        border: Border.all(color: AppColors.skyBorder),
       ),
       child: Column(
         children: <Widget>[
           Icon(
             Icons.error_outline_rounded,
             size: 36,
-            color: _StudentsPageState._red,
+            color: AppColors.accentRed,
           ),
           const SizedBox(height: 10),
           Text(
             'Öğrenciler yüklenemedi',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _StudentsPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -349,9 +352,9 @@ class _ErrorCard extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: _StudentsPageState._slate,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
           TextButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
@@ -426,7 +429,7 @@ class _AddStudentSheetState extends State<_AddStudentSheet> {
                       width: 48,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: _StudentsPageState._divider,
+                        color: AppColors.divider,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
@@ -546,7 +549,7 @@ class _SheetHeader extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: _StudentsPageState._navy,
+            color: AppColors.primary,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Icon(
@@ -562,7 +565,7 @@ class _SheetHeader extends StatelessWidget {
               Text(
                 isInvite ? 'Davet gönder' : 'Yeni öğrenci ekle',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: _StudentsPageState._text,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -571,9 +574,9 @@ class _SheetHeader extends StatelessWidget {
                 isInvite
                     ? 'Öğrenci veya veliyi uygulamaya davet et.'
                     : 'Öğrencinin temel bilgilerini hemen kaydet.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: _StudentsPageState._slate,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -596,7 +599,7 @@ class _StudentAddTabs extends StatelessWidget {
       height: 42,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F5F8),
+        color: AppColors.tabBackground,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -611,16 +614,14 @@ class _StudentAddTabs extends StatelessWidget {
                 curve: Curves.easeOut,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: selected ? _StudentsPageState._navy : Colors.transparent,
+                  color: selected ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
                   labels[index],
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color:
-                        selected ? Colors.white : _StudentsPageState._slate,
-                    fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w600,
+                    color: selected ? Colors.white : AppColors.textSecondary,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
               ),
@@ -768,8 +769,14 @@ class _InviteStudentForm extends StatelessWidget {
             initialValue: role,
             decoration: appInputDecoration('Davet tipi seç'),
             items: const <DropdownMenuItem<String>>[
-              DropdownMenuItem<String>(value: 'Öğrenci', child: Text('Öğrenci daveti')),
-              DropdownMenuItem<String>(value: 'Veli', child: Text('Veli daveti')),
+              DropdownMenuItem<String>(
+                value: 'Öğrenci',
+                child: Text('Öğrenci daveti'),
+              ),
+              DropdownMenuItem<String>(
+                value: 'Veli',
+                child: Text('Veli daveti'),
+              ),
             ],
             onChanged: onRoleChanged,
           ),
@@ -799,58 +806,6 @@ class _InviteStudentForm extends StatelessWidget {
 
 // ── Sayfa bileşenleri ────────────────────────────────────────────────────────
 
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.teacherName});
-
-  final String teacherName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            teacherName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: _StudentsPageState._text,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const _HeaderIconButton(),
-      ],
-    );
-  }
-}
-
-class _HeaderIconButton extends StatelessWidget {
-  const _HeaderIconButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _StudentsPageState._skyBorder),
-          ),
-          child: const Icon(
-            Icons.notifications_none_rounded,
-            color: _StudentsPageState._text,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.controller, required this.onChanged});
 
@@ -873,15 +828,15 @@ class _SearchField extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _StudentsPageState._skyBorder),
+          borderSide: const BorderSide(color: AppColors.skyBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _StudentsPageState._skyBorder),
+          borderSide: const BorderSide(color: AppColors.skyBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: _StudentsPageState._navy),
+          borderSide: const BorderSide(color: AppColors.primary),
         ),
       ),
     );
@@ -889,11 +844,7 @@ class _SearchField extends StatelessWidget {
 }
 
 class _StudentCard extends StatelessWidget {
-  const _StudentCard({
-    required this.student,
-    required this.accent,
-    this.onTap,
-  });
+  const _StudentCard({required this.student, required this.accent, this.onTap});
 
   final StudentProfile student;
   final Color accent;
@@ -911,14 +862,8 @@ class _StudentCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: _StudentsPageState._skyBorder),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x12082B4F),
-              blurRadius: 24,
-              offset: Offset(0, 10),
-            ),
-          ],
+          border: Border.all(color: AppColors.skyBorder),
+          boxShadow: AppShadows.soft,
         ),
         child: Row(
           children: <Widget>[
@@ -933,7 +878,7 @@ class _StudentCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: _StudentsPageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -941,7 +886,7 @@ class _StudentCard extends StatelessWidget {
                   Text(
                     student.gradeLevel,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _StudentsPageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -958,18 +903,19 @@ class _StudentCard extends StatelessWidget {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: (isActive
-                            ? _StudentsPageState._emerald
-                            : _StudentsPageState._slate)
-                        .withValues(alpha: 0.12),
+                    color:
+                        (isActive
+                                ? AppColors.accentGreen
+                                : AppColors.textSecondary)
+                            .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     isActive ? 'Aktif' : 'Pasif',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: isActive
-                          ? _StudentsPageState._emerald
-                          : _StudentsPageState._slate,
+                          ? AppColors.accentGreen
+                          : AppColors.textSecondary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -979,7 +925,7 @@ class _StudentCard extends StatelessWidget {
             const SizedBox(width: 8),
             Icon(
               Icons.chevron_right_rounded,
-              color: _StudentsPageState._slate.withValues(alpha: 0.88),
+              color: AppColors.textSecondary.withValues(alpha: 0.88),
             ),
           ],
         ),
@@ -1053,15 +999,25 @@ class _StudentsBottomNav extends StatelessWidget {
       _BottomNavItem(Icons.home_rounded, 'Ana sayfa', false, onHomeTap),
       _BottomNavItem(Icons.menu_book_rounded, 'Dersler', false, onLessonsTap),
       const _BottomNavItem(Icons.groups_rounded, 'Öğrenciler', true),
-      _BottomNavItem(Icons.calendar_month_rounded, 'Takvim', false, onCalendarTap),
-      _BottomNavItem(Icons.account_balance_wallet_rounded, 'Finans', false, onFinanceTap),
+      _BottomNavItem(
+        Icons.calendar_month_rounded,
+        'Takvim',
+        false,
+        onCalendarTap,
+      ),
+      _BottomNavItem(
+        Icons.account_balance_wallet_rounded,
+        'Finans',
+        false,
+        onFinanceTap,
+      ),
       _BottomNavItem(Icons.widgets_rounded, 'Diğer', false, onMoreTap),
     ];
 
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: _StudentsPageState._divider)),
+        border: Border(top: BorderSide(color: AppColors.divider)),
       ),
       padding: EdgeInsets.fromLTRB(
         10,
@@ -1084,8 +1040,8 @@ class _StudentsBottomNav extends StatelessWidget {
                         Icon(
                           item.icon,
                           color: item.selected
-                              ? _StudentsPageState._navy
-                              : _StudentsPageState._slate,
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
                         ),
                         const SizedBox(height: 4),
                         FittedBox(
@@ -1096,8 +1052,8 @@ class _StudentsBottomNav extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(
                                   color: item.selected
-                                      ? _StudentsPageState._navy
-                                      : _StudentsPageState._slate,
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                                   fontWeight: item.selected
                                       ? FontWeight.w800
                                       : FontWeight.w600,

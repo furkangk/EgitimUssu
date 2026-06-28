@@ -19,8 +19,24 @@ public sealed class CreateLessonScheduleCommandValidator : ICommandValidator<Cre
     }
 }
 
+public sealed class UpdateLessonScheduleCommandValidator : ICommandValidator<UpdateLessonScheduleCommand>
+{
+    private static readonly Error InvalidRequest = new("scheduling.invalid_request", "Ders planı bilgileri eksik veya hatalı.");
+
+    public Task<Result> Validate(UpdateLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var isValid = command.LessonId != Guid.Empty
+            && !string.IsNullOrWhiteSpace(command.Subject)
+            && !string.IsNullOrWhiteSpace(command.TimeZone)
+            && command.ReminderOffsetMinutes >= 0;
+
+        return Task.FromResult(isValid ? Result.Success() : Result.Failure(InvalidRequest));
+    }
+}
+
 public sealed class LessonScheduleCommandAuthorizer :
     ICommandAuthorizer<CreateLessonScheduleCommand>,
+    ICommandAuthorizer<UpdateLessonScheduleCommand>,
     ICommandAuthorizer<CancelLessonScheduleCommand>,
     ICommandAuthorizer<CompleteLessonScheduleCommand>,
     IQueryAuthorizer<GetLessonScheduleByIdQuery>,
@@ -40,6 +56,14 @@ public sealed class LessonScheduleCommandAuthorizer :
     public Task<Result> Authorize(CreateLessonScheduleCommand command, CancellationToken cancellationToken)
     {
         return Task.FromResult(CanManageTeacher(command.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    public async Task<Result> Authorize(UpdateLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        return lesson is null
+            ? Result.Failure(NotFound)
+            : (CanManageTeacher(lesson.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
     }
 
     public async Task<Result> Authorize(CancelLessonScheduleCommand command, CancellationToken cancellationToken)

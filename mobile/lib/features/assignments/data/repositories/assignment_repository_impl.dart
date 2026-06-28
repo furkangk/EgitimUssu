@@ -64,7 +64,10 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
         '/api/assignments',
         queryParameters: <String, dynamic>{'teacherUserId': teacherUserId},
       );
-      return response.whereType<Map<String, dynamic>>().map(AssignmentItemModel.fromJson).toList();
+      return response
+          .whereType<Map<String, dynamic>>()
+          .map(AssignmentItemModel.fromJson)
+          .toList();
     } on ApiException {
       rethrow;
     }

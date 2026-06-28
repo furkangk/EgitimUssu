@@ -46,10 +46,12 @@ class StudentDetailState extends Equatable {
       student: student ?? this.student,
       lessons: lessons ?? this.lessons,
       payments: payments ?? this.payments,
-      errorMessage:
-          clearError || clearMessages ? null : errorMessage ?? this.errorMessage,
-      successMessage:
-          clearMessages ? successMessage : successMessage ?? this.successMessage,
+      errorMessage: clearError || clearMessages
+          ? null
+          : errorMessage ?? this.errorMessage,
+      successMessage: clearMessages
+          ? successMessage
+          : successMessage ?? this.successMessage,
     );
   }
 

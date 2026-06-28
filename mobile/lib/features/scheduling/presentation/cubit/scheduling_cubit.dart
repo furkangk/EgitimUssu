@@ -55,6 +55,34 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     }
   }
 
+  Future<void> updateLesson(LessonSchedule lesson) async {
+    if (isClosed) return;
+    emit(state.copyWith(isSaving: true, clearMessages: true));
+    try {
+      final updated = await _repository.updateLesson(lesson);
+      if (isClosed) return;
+      final exists = state.lessons.any((l) => l.id == updated.id);
+      final merged = exists
+          ? state.lessons.map((l) => l.id == updated.id ? updated : l).toList()
+          : <LessonSchedule>[...state.lessons, updated];
+      final next = merged..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          lessons: next,
+          successMessage: 'Ders plani guncellendi.',
+          clearMessages: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      final message = error.isConflict
+          ? 'Bu saat araliginda zaten planli bir ders var. Haftalik gorunumden bos bir aralik sec.'
+          : error.message;
+      if (isClosed) return;
+      emit(state.copyWith(isSaving: false, errorMessage: message));
+    }
+  }
+
   Future<void> selectWeek({
     required String teacherUserId,
     required DateTime weekStartAtUtc,
@@ -110,11 +138,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       );
       if (isClosed) return;
       emit(
-        state.copyWith(
-          isLoading: false,
-          lessons: lessons,
-          clearMessages: true,
-        ),
+        state.copyWith(isLoading: false, lessons: lessons, clearMessages: true),
       );
     } on ApiException catch (error) {
       if (isClosed) return;

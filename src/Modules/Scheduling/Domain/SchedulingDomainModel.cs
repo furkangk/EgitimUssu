@@ -71,6 +71,40 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
     public DateTime UpdatedOnUtc { get; private set; }
 
+    /// <summary>
+    /// Yalnizca taslak/planli dersler duzenlenebilir; tamamlanmis veya iptal edilmis ders degistirilemez.
+    /// </summary>
+    public bool IsEditable => Status is LessonScheduleStatus.Planned or LessonScheduleStatus.Draft;
+
+    /// <summary>
+    /// Planli dersin bilgilerini gunceller ve hatirlatmanin yeniden planlanmasi icin olay yayar.
+    /// </summary>
+    public void UpdateDetails(
+        string subject,
+        ScheduledLessonFormat lessonFormat,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        string timeZone,
+        string? recurrenceRule,
+        int reminderOffsetMinutes,
+        string? locationLabel,
+        string? notes,
+        DateTime updatedOnUtc)
+    {
+        Subject = subject;
+        LessonFormat = lessonFormat;
+        StartAtUtc = startAtUtc;
+        EndAtUtc = endAtUtc;
+        TimeZone = timeZone;
+        RecurrenceRule = recurrenceRule;
+        ReminderOffsetMinutes = reminderOffsetMinutes;
+        LocationLabel = locationLabel;
+        Notes = notes;
+        UpdatedOnUtc = updatedOnUtc;
+
+        Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
+    }
+
     public void Cancel(string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;
@@ -117,6 +151,14 @@ public sealed record LessonScheduledDomainEvent(
     DateTime StartAtUtc,
     DateTime EndAtUtc,
     DateTime CreatedOnUtc) : DomainEvent;
+
+public sealed record LessonScheduleRescheduledDomainEvent(
+    Guid LessonScheduleId,
+    Guid TeacherUserId,
+    Guid StudentId,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    DateTime UpdatedOnUtc) : DomainEvent;
 
 public sealed record LessonScheduleCancelledDomainEvent(
     Guid LessonScheduleId,

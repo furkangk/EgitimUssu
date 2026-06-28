@@ -23,7 +23,9 @@ class LessonReminderModel extends LessonReminder {
       studentId: json['studentId'] as String,
       title: json['title'] as String,
       message: json['message'] as String,
-      scheduledLessonStartAtUtc: DateTime.parse(json['scheduledLessonStartAtUtc'] as String),
+      scheduledLessonStartAtUtc: DateTime.parse(
+        json['scheduledLessonStartAtUtc'] as String,
+      ),
       remindAtUtc: DateTime.parse(json['remindAtUtc'] as String),
       channel: json['channel'] as String,
       status: json['status'] as String,

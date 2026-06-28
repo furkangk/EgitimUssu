@@ -1,9 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-
-const Color _appFieldText = Color(0xFF10233D);
-const Color _appFieldBorder = Color(0xFFE5EAF0);
-const Color _appFieldFocus = Color(0xFF062B52);
-const Color _appFieldError = Color(0xFFBA1A1A);
 
 InputDecoration appInputDecoration(String hintText, {Widget? suffixIcon}) {
   return InputDecoration(
@@ -14,23 +10,23 @@ InputDecoration appInputDecoration(String hintText, {Widget? suffixIcon}) {
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: _appFieldBorder),
+      borderSide: const BorderSide(color: AppColors.border),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: _appFieldFocus),
+      borderSide: const BorderSide(color: AppColors.primary),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: _appFieldError),
+      borderSide: const BorderSide(color: AppColors.accentRed),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: _appFieldError),
+      borderSide: const BorderSide(color: AppColors.accentRed),
     ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: _appFieldBorder),
+      borderSide: const BorderSide(color: AppColors.border),
     ),
   );
 }
@@ -45,7 +41,7 @@ class AppFieldLabel extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-        color: _appFieldText,
+        color: AppColors.textPrimary,
         fontWeight: FontWeight.w700,
       ),
     );

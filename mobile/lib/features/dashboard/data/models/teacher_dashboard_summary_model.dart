@@ -17,14 +17,18 @@ class TeacherDashboardSummaryModel extends TeacherDashboardSummary {
           .whereType<Map<String, dynamic>>()
           .map(DashboardTodayLessonModel.fromJson)
           .toList(),
-      pendingAssignmentsCount: (json['pendingAssignmentsCount'] as num?)?.toInt() ?? 0,
+      pendingAssignmentsCount:
+          (json['pendingAssignmentsCount'] as num?)?.toInt() ?? 0,
       pendingAssignments: (json['pendingAssignments'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(DashboardPendingAssignmentModel.fromJson)
           .toList(),
-      overduePaymentsCount: (json['overduePaymentsCount'] as num?)?.toInt() ?? 0,
-      overduePaymentsCurrency: json['overduePaymentsCurrency'] as String? ?? 'TRY',
-      overduePaymentsTotal: (json['overduePaymentsTotal'] as num?)?.toDouble() ?? 0.0,
+      overduePaymentsCount:
+          (json['overduePaymentsCount'] as num?)?.toInt() ?? 0,
+      overduePaymentsCurrency:
+          json['overduePaymentsCurrency'] as String? ?? 'TRY',
+      overduePaymentsTotal:
+          (json['overduePaymentsTotal'] as num?)?.toDouble() ?? 0.0,
       overduePayments: (json['overduePayments'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(DashboardOverduePaymentModel.fromJson)
@@ -42,6 +46,7 @@ class DashboardTodayLessonModel extends DashboardTodayLesson {
     required super.startAtUtc,
     required super.endAtUtc,
     super.locationLabel,
+    super.meetingUrl,
   });
 
   factory DashboardTodayLessonModel.fromJson(Map<String, dynamic> json) {
@@ -53,6 +58,7 @@ class DashboardTodayLessonModel extends DashboardTodayLesson {
       startAtUtc: DateTime.parse(json['startAtUtc'] as String),
       endAtUtc: DateTime.parse(json['endAtUtc'] as String),
       locationLabel: json['locationLabel'] as String?,
+      meetingUrl: json['meetingUrl'] as String?,
     );
   }
 }

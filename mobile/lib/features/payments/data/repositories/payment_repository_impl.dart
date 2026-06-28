@@ -52,7 +52,9 @@ class PaymentRepositoryImpl implements PaymentRepository {
     }
     final cacheKey = 'payments.summary.$teacherUserId';
     try {
-      final response = await _apiClient.get('/api/payments/teachers/$teacherUserId/summary');
+      final response = await _apiClient.get(
+        '/api/payments/teachers/$teacherUserId/summary',
+      );
       await _localCache.writeString(cacheKey, jsonEncode(response));
       return PaymentSummaryModel.fromJson(response);
     } on ApiException {
@@ -74,7 +76,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
         queryParameters: <String, dynamic>{'outstandingOnly': false},
       );
       await _localCache.writeString(cacheKey, jsonEncode(response));
-      return response.whereType<Map<String, dynamic>>().map(PaymentRecordModel.fromJson).toList();
+      return response
+          .whereType<Map<String, dynamic>>()
+          .map(PaymentRecordModel.fromJson)
+          .toList();
     } on ApiException {
       final cached = await _readCachedRecords(cacheKey);
       if (cached.isNotEmpty) return cached;
@@ -85,11 +90,51 @@ class PaymentRepositoryImpl implements PaymentRepository {
   List<PaymentRecord> _mockRecords(String teacherUserId) {
     final now = DateTime.now().toUtc();
     return [
-      PaymentRecordModel.demo(id: 'payment-1', teacherUserId: teacherUserId, studentId: 'student-1', description: 'Haziran — Matematik (4 ders)', expectedAmount: 1200, collectedAmount: 1200, dueDateUtc: now.subtract(const Duration(days: 3))),
-      PaymentRecordModel.demo(id: 'payment-2', teacherUserId: teacherUserId, studentId: 'student-2', description: 'Haziran — Fizik (3 ders)', expectedAmount: 900, collectedAmount: 0, dueDateUtc: now.subtract(const Duration(days: 5))),
-      PaymentRecordModel.demo(id: 'payment-3', teacherUserId: teacherUserId, studentId: 'student-3', description: 'Mayıs + Haziran — Biyoloji', expectedAmount: 700, collectedAmount: 0, dueDateUtc: now.subtract(const Duration(days: 12))),
-      PaymentRecordModel.demo(id: 'payment-4', teacherUserId: teacherUserId, studentId: 'student-4', description: 'Temmuz — Matematik (4 ders)', expectedAmount: 800, collectedAmount: 0, dueDateUtc: now.add(const Duration(days: 5))),
-      PaymentRecordModel.demo(id: 'payment-5', teacherUserId: teacherUserId, studentId: 'student-5', description: 'Temmuz — TYT Paketi', expectedAmount: 1500, collectedAmount: 750, dueDateUtc: now.add(const Duration(days: 10))),
+      PaymentRecordModel.demo(
+        id: 'payment-1',
+        teacherUserId: teacherUserId,
+        studentId: 'student-1',
+        description: 'Haziran — Matematik (4 ders)',
+        expectedAmount: 1200,
+        collectedAmount: 1200,
+        dueDateUtc: now.subtract(const Duration(days: 3)),
+      ),
+      PaymentRecordModel.demo(
+        id: 'payment-2',
+        teacherUserId: teacherUserId,
+        studentId: 'student-2',
+        description: 'Haziran — Fizik (3 ders)',
+        expectedAmount: 900,
+        collectedAmount: 0,
+        dueDateUtc: now.subtract(const Duration(days: 5)),
+      ),
+      PaymentRecordModel.demo(
+        id: 'payment-3',
+        teacherUserId: teacherUserId,
+        studentId: 'student-3',
+        description: 'Mayıs + Haziran — Biyoloji',
+        expectedAmount: 700,
+        collectedAmount: 0,
+        dueDateUtc: now.subtract(const Duration(days: 12)),
+      ),
+      PaymentRecordModel.demo(
+        id: 'payment-4',
+        teacherUserId: teacherUserId,
+        studentId: 'student-4',
+        description: 'Temmuz — Matematik (4 ders)',
+        expectedAmount: 800,
+        collectedAmount: 0,
+        dueDateUtc: now.add(const Duration(days: 5)),
+      ),
+      PaymentRecordModel.demo(
+        id: 'payment-5',
+        teacherUserId: teacherUserId,
+        studentId: 'student-5',
+        description: 'Temmuz — TYT Paketi',
+        expectedAmount: 1500,
+        collectedAmount: 750,
+        dueDateUtc: now.add(const Duration(days: 10)),
+      ),
     ];
   }
 

@@ -32,6 +32,9 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapPost("/lessons", CreateLessonScheduleAsync)
         .WithSummary("Ders planı oluşturur");
 
+        group.MapPut("/lessons/{lessonId:guid}", UpdateLessonScheduleAsync)
+        .WithSummary("Ders planını günceller");
+
         group.MapPost("/lessons/{lessonId:guid}/cancel", CancelLessonScheduleAsync)
         .WithSummary("Ders planını iptal eder");
 
@@ -55,6 +58,20 @@ public sealed class SchedulingModule : ModuleDefinition
         CancellationToken cancellationToken)
     {
         var result = await dispatcher.Dispatch(request.ToCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Planlı dersin konu, zaman, format, tekrar, hatırlatma ve konum bilgilerini günceller.
+    /// </summary>
+    private static async Task<IResult> UpdateLessonScheduleAsync(
+        HttpContext context,
+        Guid lessonId,
+        UpdateLessonScheduleRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(lessonId), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -128,6 +145,7 @@ public sealed class SchedulingModule : ModuleDefinition
             "scheduling.teacher_conflict" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "scheduling.not_editable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -155,6 +173,36 @@ public sealed record CreateLessonScheduleRequest(
         return new CreateLessonScheduleCommand(
             TeacherUserId,
             StudentId,
+            Subject,
+            LessonFormat,
+            StartAtUtc,
+            EndAtUtc,
+            TimeZone,
+            RecurrenceRule,
+            ReminderOffsetMinutes,
+            LocationLabel,
+            Notes);
+    }
+}
+
+/// <summary>
+/// Planlı dersi güncellemek için yeni konu, zaman, format, tekrar, hatırlatma ve konum verilerini taşır.
+/// </summary>
+public sealed record UpdateLessonScheduleRequest(
+    string Subject,
+    ScheduledLessonFormat LessonFormat,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string TimeZone,
+    string? RecurrenceRule,
+    int ReminderOffsetMinutes,
+    string? LocationLabel,
+    string? Notes)
+{
+    public UpdateLessonScheduleCommand ToCommand(Guid lessonId)
+    {
+        return new UpdateLessonScheduleCommand(
+            lessonId,
             Subject,
             LessonFormat,
             StartAtUtc,

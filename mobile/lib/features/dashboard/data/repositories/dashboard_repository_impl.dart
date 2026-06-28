@@ -8,8 +8,8 @@ class DashboardRepositoryImpl implements DashboardRepository {
   DashboardRepositoryImpl({
     required ApiClient apiClient,
     required AppConfig config,
-  })  : _apiClient = apiClient,
-        _config = config;
+  }) : _apiClient = apiClient,
+       _config = config;
 
   final ApiClient _apiClient;
   final AppConfig _config;
@@ -61,12 +61,37 @@ class DashboardRepositoryImpl implements DashboardRepository {
         ),
       ],
       pendingAssignmentsCount: 5,
-      pendingAssignments: const [
-        DashboardPendingAssignment(id: 'asgn-1', studentId: 'student-1', title: 'Problem föyü — Denklemler'),
-        DashboardPendingAssignment(id: 'asgn-2', studentId: 'student-2', title: 'Fizik deney raporu'),
-        DashboardPendingAssignment(id: 'asgn-3', studentId: 'student-3', title: 'Hücre bölünmesi özeti'),
-        DashboardPendingAssignment(id: 'asgn-4', studentId: 'student-4', title: 'Paragraf soruları (10 adet)'),
-        DashboardPendingAssignment(id: 'asgn-5', studentId: 'student-5', title: 'TYT deneme analizi'),
+      pendingAssignments: [
+        DashboardPendingAssignment(
+          id: 'asgn-1',
+          studentId: 'student-1',
+          title: 'Problem föyü — Denklemler',
+          dueDateUtc: today.subtract(const Duration(days: 1)),
+        ),
+        DashboardPendingAssignment(
+          id: 'asgn-2',
+          studentId: 'student-2',
+          title: 'Fizik deney raporu',
+          dueDateUtc: today.add(const Duration(days: 1)),
+        ),
+        DashboardPendingAssignment(
+          id: 'asgn-3',
+          studentId: 'student-3',
+          title: 'Hücre bölünmesi özeti',
+          dueDateUtc: today.add(const Duration(days: 3)),
+        ),
+        DashboardPendingAssignment(
+          id: 'asgn-4',
+          studentId: 'student-4',
+          title: 'Paragraf soruları (10 adet)',
+          dueDateUtc: today.add(const Duration(days: 5)),
+        ),
+        DashboardPendingAssignment(
+          id: 'asgn-5',
+          studentId: 'student-5',
+          title: 'TYT deneme analizi',
+          dueDateUtc: today.add(const Duration(days: 12)),
+        ),
       ],
       overduePaymentsCount: 2,
       overduePaymentsCurrency: 'TRY',

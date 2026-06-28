@@ -14,6 +14,7 @@ class LessonScheduleModel extends LessonSchedule {
     super.recurrenceRule,
     super.reminderOffsetMinutes,
     super.locationLabel,
+    super.meetingUrl,
     super.notes,
   });
 
@@ -31,6 +32,7 @@ class LessonScheduleModel extends LessonSchedule {
       recurrenceRule: json['recurrenceRule']?.toString(),
       reminderOffsetMinutes: json['reminderOffsetMinutes'] as int?,
       locationLabel: json['locationLabel']?.toString(),
+      meetingUrl: json['meetingUrl']?.toString(),
       notes: json['notes']?.toString(),
     );
   }
@@ -42,6 +44,7 @@ class LessonScheduleModel extends LessonSchedule {
     required String subject,
     required DateTime startAtUtc,
     required DateTime endAtUtc,
+    String? meetingUrl,
   }) {
     return LessonScheduleModel(
       id: id,
@@ -55,6 +58,7 @@ class LessonScheduleModel extends LessonSchedule {
       status: 'Planned',
       reminderOffsetMinutes: 60,
       locationLabel: 'Zoom',
+      meetingUrl: meetingUrl ?? 'https://zoom.us/j/$id',
       notes: 'Demo ders',
     );
   }
@@ -71,11 +75,38 @@ class LessonScheduleModel extends LessonSchedule {
       'recurrenceRule': recurrenceRule,
       'reminderOffsetMinutes': reminderOffsetMinutes ?? 60,
       'locationLabel': locationLabel,
+      'meetingUrl': meetingUrl,
+      'notes': notes,
+    };
+  }
+
+  Map<String, dynamic> toUpdatePayload() {
+    return <String, dynamic>{
+      'subject': subject,
+      'lessonFormat': _formatToInt(lessonFormat),
+      'startAtUtc': startAtUtc.toIso8601String(),
+      'endAtUtc': endAtUtc.toIso8601String(),
+      'timeZone': timeZone,
+      'recurrenceRule': recurrenceRule,
+      'reminderOffsetMinutes': reminderOffsetMinutes ?? 60,
+      'locationLabel': locationLabel,
       'notes': notes,
     };
   }
 
   Map<String, dynamic> toCancelPayload(String? cancellationNote) {
     return <String, dynamic>{'cancellationNote': cancellationNote};
+  }
+
+  static int _formatToInt(String format) {
+    switch (format) {
+      case 'InPerson':
+        return 1;
+      case 'Hybrid':
+      case 'OnlineAndInPerson':
+        return 3;
+      default:
+        return 2; // Online
+    }
   }
 }

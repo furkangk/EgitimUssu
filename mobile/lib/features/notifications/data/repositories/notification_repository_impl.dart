@@ -8,8 +8,8 @@ class NotificationRepositoryImpl implements NotificationRepository {
   NotificationRepositoryImpl({
     required ApiClient apiClient,
     required AppConfig config,
-  })  : _apiClient = apiClient,
-        _config = config;
+  }) : _apiClient = apiClient,
+       _config = config;
 
   final ApiClient _apiClient;
   final AppConfig _config;
@@ -45,7 +45,8 @@ class NotificationRepositoryImpl implements NotificationRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-1',
         title: 'Ders Hatırlatması',
-        message: 'Mehmet Demir ile Matematik dersiniz 30 dakika sonra başlıyor.',
+        message:
+            'Mehmet Demir ile Matematik dersiniz 30 dakika sonra başlıyor.',
         scheduledLessonStartAtUtc: now.add(const Duration(minutes: 30)),
         remindAtUtc: now.subtract(const Duration(minutes: 1)),
         channel: 'InApp',
@@ -84,8 +85,11 @@ class NotificationRepositoryImpl implements NotificationRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-1',
         title: 'Ders Tamamlandı',
-        message: 'Mehmet Demir ile Geometri dersi tamamlandı. Ders notunu eklemeyi unutmayın.',
-        scheduledLessonStartAtUtc: now.subtract(const Duration(days: 1, hours: 2)),
+        message:
+            'Mehmet Demir ile Geometri dersi tamamlandı. Ders notunu eklemeyi unutmayın.',
+        scheduledLessonStartAtUtc: now.subtract(
+          const Duration(days: 1, hours: 2),
+        ),
         remindAtUtc: now.subtract(const Duration(days: 1, hours: 1)),
         channel: 'InApp',
         status: 'Sent',
@@ -98,7 +102,9 @@ class NotificationRepositoryImpl implements NotificationRepository {
         studentId: 'student-2',
         title: 'Ders Tamamlandı',
         message: 'Ece Ak ile Kimya dersi tamamlandı.',
-        scheduledLessonStartAtUtc: now.subtract(const Duration(days: 2, hours: 3)),
+        scheduledLessonStartAtUtc: now.subtract(
+          const Duration(days: 2, hours: 3),
+        ),
         remindAtUtc: now.subtract(const Duration(days: 2, hours: 2)),
         channel: 'InApp',
         status: 'Sent',

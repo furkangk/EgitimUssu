@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
@@ -10,16 +12,6 @@ import 'package:intl/intl.dart';
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
 
-  static const _primary = Color(0xFF082B4F);
-  static const _background = Color(0xFFF7F9FC);
-  static const _surface = Color(0xFFFFFFFF);
-  static const _textPrimary = Color(0xFF111827);
-  static const _textSecondary = Color(0xFF6B7280);
-  static const _border = Color(0xFFE5E7EB);
-  static const _accentGreen = Color(0xFF20B486);
-  static const _accentOrange = Color(0xFFFFA726);
-  static const _primaryLight = Color(0xFFEAF2FB);
-
   @override
   Widget build(BuildContext context) {
     final teacherUserId = context.select(
@@ -29,7 +21,7 @@ class NotificationsPage extends StatelessWidget {
     return BlocProvider(
       create: (_) => NotificationsCubit.create()..load(teacherUserId),
       child: Scaffold(
-        backgroundColor: _background,
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -43,9 +35,9 @@ class NotificationsPage extends StatelessWidget {
                     if (state.errorMessage != null) {
                       return ErrorStateView(
                         message: state.errorMessage!,
-                        onRetry: () => context
-                            .read<NotificationsCubit>()
-                            .load(teacherUserId),
+                        onRetry: () => context.read<NotificationsCubit>().load(
+                          teacherUserId,
+                        ),
                       );
                     }
                     if (state.reminders.isEmpty) {
@@ -55,7 +47,7 @@ class NotificationsPage extends StatelessWidget {
                       );
                     }
                     return RefreshIndicator(
-                      color: _primary,
+                      color: AppColors.primary,
                       onRefresh: () => context
                           .read<NotificationsCubit>()
                           .refresh(teacherUserId),
@@ -65,14 +57,12 @@ class NotificationsPage extends StatelessWidget {
                           if (state.pending.isNotEmpty) ...[
                             _SectionLabel(
                               label: 'Yaklaşan (${state.pending.length})',
-                              color: _accentOrange,
+                              color: AppColors.accentOrange,
                             ),
                             const SizedBox(height: 8),
                             ...state.pending.map(
-                              (r) => _ReminderCard(
-                                reminder: r,
-                                isPending: true,
-                              ),
+                              (r) =>
+                                  _ReminderCard(reminder: r, isPending: true),
                             ),
                           ],
                           if (state.past.isNotEmpty) ...[
@@ -80,14 +70,12 @@ class NotificationsPage extends StatelessWidget {
                               const SizedBox(height: 20),
                             _SectionLabel(
                               label: 'Geçmiş',
-                              color: _textSecondary,
+                              color: AppColors.textSecondary,
                             ),
                             const SizedBox(height: 8),
                             ...state.past.map(
-                              (r) => _ReminderCard(
-                                reminder: r,
-                                isPending: false,
-                              ),
+                              (r) =>
+                                  _ReminderCard(reminder: r, isPending: false),
                             ),
                           ],
                         ],
@@ -110,10 +98,8 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(
-        color: NotificationsPage._surface,
-        border: Border(
-          bottom: BorderSide(color: NotificationsPage._border),
-        ),
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
       child: Row(
         children: [
@@ -124,13 +110,13 @@ class _Header extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: NotificationsPage._background,
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: NotificationsPage._border),
+                border: Border.all(color: AppColors.border),
               ),
               child: const Icon(
                 Icons.arrow_back_rounded,
-                color: NotificationsPage._primary,
+                color: AppColors.primary,
                 size: 20,
               ),
             ),
@@ -143,7 +129,7 @@ class _Header extends StatelessWidget {
                 Text(
                   'Bildirimler',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: NotificationsPage._textPrimary,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -153,7 +139,7 @@ class _Header extends StatelessWidget {
                     return Text(
                       '${state.unreadCount} bekleyen',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: NotificationsPage._textSecondary,
+                        color: AppColors.textSecondary,
                       ),
                     );
                   },
@@ -163,7 +149,7 @@ class _Header extends StatelessWidget {
           ),
           const Icon(
             Icons.notifications_rounded,
-            color: NotificationsPage._primary,
+            color: AppColors.primary,
             size: 24,
           ),
         ],
@@ -194,7 +180,7 @@ class _SectionLabel extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: NotificationsPage._textSecondary,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
           ),
@@ -212,11 +198,9 @@ class _ReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = isPending
-        ? const Color(0xFF082B4F)
-        : const Color(0xFF20B486);
+    final accentColor = isPending ? AppColors.primary : AppColors.accentGreen;
     final bgColor = isPending
-        ? const Color(0xFFEAF2FB)
+        ? AppColors.primaryLight
         : const Color(0xFFEAF7F2);
     final iconData = isPending
         ? Icons.notifications_active_rounded
@@ -225,16 +209,10 @@ class _ReminderCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: NotificationsPage._surface,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: NotificationsPage._border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -263,7 +241,7 @@ class _ReminderCard extends StatelessWidget {
                           reminder.title,
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
-                                color: NotificationsPage._textPrimary,
+                                color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -272,7 +250,7 @@ class _ReminderCard extends StatelessWidget {
                       Text(
                         _formatTime(reminder.remindAtUtc),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: NotificationsPage._textSecondary,
+                          color: AppColors.textSecondary,
                           fontSize: 11,
                         ),
                       ),
@@ -282,7 +260,7 @@ class _ReminderCard extends StatelessWidget {
                   Text(
                     reminder.message,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: NotificationsPage._textSecondary,
+                      color: AppColors.textSecondary,
                       height: 1.45,
                     ),
                   ),
@@ -292,13 +270,13 @@ class _ReminderCard extends StatelessWidget {
                       Icon(
                         Icons.calendar_today_rounded,
                         size: 12,
-                        color: NotificationsPage._textSecondary,
+                        color: AppColors.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Ders: ${_formatLesson(reminder.scheduledLessonStartAtUtc)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: NotificationsPage._textSecondary,
+                          color: AppColors.textSecondary,
                           fontSize: 11,
                         ),
                       ),

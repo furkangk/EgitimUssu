@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
@@ -73,13 +74,16 @@ class DashboardState extends Equatable {
       overdueAmount: 850,
       overdueCount: 1,
       outstandingCurrency: 'TRY',
-      upcomingLessons: const <DashboardUpcomingLesson>[
+      upcomingLessons: <DashboardUpcomingLesson>[
         DashboardUpcomingLesson(
           title: 'Matematik - 9. Sinif',
           studentName: 'Zeynep Demir',
           timeRange: '15:30 - 16:30',
           modeLabel: 'Online',
           isOnline: true,
+          startAtUtc: today.add(
+            const Duration(days: 1, hours: 15, minutes: 30),
+          ),
         ),
         DashboardUpcomingLesson(
           title: 'Fizik - 11. Sinif',
@@ -87,6 +91,7 @@ class DashboardState extends Equatable {
           timeRange: '17:00 - 18:30',
           modeLabel: 'Yuz yuze',
           isOnline: false,
+          startAtUtc: today.add(const Duration(days: 2, hours: 17)),
         ),
       ],
       recentActivities: const <DashboardActivity>[
@@ -94,19 +99,19 @@ class DashboardState extends Equatable {
           studentName: 'Ali Yilmaz',
           description: 'Odev teslim edildi',
           timeLabel: 'Bugun 10:30',
-          accent: Color(0xFF20B486),
+          accent: AppColors.accentGreen,
         ),
         DashboardActivity(
           studentName: 'Zeynep Demir',
           description: 'Odeme eklendi',
           timeLabel: 'Bugun 09:10',
-          accent: Color(0xFFFFB84D),
+          accent: AppColors.amber,
         ),
         DashboardActivity(
           studentName: 'Mehmet Kaya',
           description: 'Yeni ders planlandi',
           timeLabel: 'Dun 18:40',
-          accent: Color(0xFF3D8BFF),
+          accent: AppColors.accentBlue,
         ),
       ],
       todayLessons: <DashboardTodayLesson>[
@@ -229,6 +234,8 @@ class DashboardUpcomingLesson extends Equatable {
     required this.timeRange,
     required this.modeLabel,
     required this.isOnline,
+    required this.startAtUtc,
+    this.meetingUrl,
   });
 
   final String title;
@@ -236,6 +243,8 @@ class DashboardUpcomingLesson extends Equatable {
   final String timeRange;
   final String modeLabel;
   final bool isOnline;
+  final DateTime startAtUtc;
+  final String? meetingUrl;
 
   @override
   List<Object?> get props => <Object?>[
@@ -244,6 +253,8 @@ class DashboardUpcomingLesson extends Equatable {
     timeRange,
     modeLabel,
     isOnline,
+    startAtUtc,
+    meetingUrl,
   ];
 }
 

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
@@ -18,14 +20,6 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  static const _primary = Color(0xFF082B4F);
-  static const _primaryDark = Color(0xFF061F3A);
-  static const _background = Color(0xFFF7F9FC);
-  static const _surface = Color(0xFFFFFFFF);
-  static const _textPrimary = Color(0xFF111827);
-  static const _textSecondary = Color(0xFF6B7280);
-  static const _border = Color(0xFFE5E7EB);
-
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController(text: 'teacher1@example.com');
   final _passwordController = TextEditingController(text: 'Teacher123!');
@@ -66,7 +60,7 @@ class _LoginPageState extends State<LoginPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -91,16 +85,10 @@ class _LoginPageState extends State<LoginPage> {
                       Container(
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: _surface,
+                          color: AppColors.surface,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: _border),
-                          boxShadow: const <BoxShadow>[
-                            BoxShadow(
-                              color: Color(0x12082B4F),
-                              blurRadius: 24,
-                              offset: Offset(0, 12),
-                            ),
-                          ],
+                          border: Border.all(color: AppColors.border),
+                          boxShadow: AppShadows.soft,
                         ),
                         child: Form(
                           key: _formKey,
@@ -115,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
                               Text(
                                 'E-posta',
                                 style: theme.textTheme.labelMedium?.copyWith(
-                                  color: _textSecondary,
+                                  color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -136,16 +124,20 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(color: _border),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(color: _border),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
                                     borderSide: const BorderSide(
-                                      color: _primary,
+                                      color: AppColors.primary,
                                       width: 1.4,
                                     ),
                                   ),
@@ -161,7 +153,7 @@ class _LoginPageState extends State<LoginPage> {
                               Text(
                                 'Sifre',
                                 style: theme.textTheme.labelMedium?.copyWith(
-                                  color: _textSecondary,
+                                  color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -171,7 +163,9 @@ class _LoginPageState extends State<LoginPage> {
                                 obscureText: _obscurePassword,
                                 decoration: InputDecoration(
                                   hintText: '••••••••',
-                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outline_rounded,
+                                  ),
                                   filled: true,
                                   fillColor: const Color(0xFFF9FBFD),
                                   contentPadding: const EdgeInsets.symmetric(
@@ -192,16 +186,20 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(color: _border),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(color: _border),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
                                     borderSide: const BorderSide(
-                                      color: _primary,
+                                      color: AppColors.primary,
                                       width: 1.4,
                                     ),
                                   ),
@@ -239,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
                                                   _rememberMe = value ?? false;
                                                 });
                                               },
-                                              activeColor: _primary,
+                                              activeColor: AppColors.primary,
                                               visualDensity:
                                                   VisualDensity.compact,
                                             ),
@@ -249,7 +247,8 @@ class _LoginPageState extends State<LoginPage> {
                                             'Beni hatirla',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                                  color: _textSecondary,
+                                                  color:
+                                                      AppColors.textSecondary,
                                                 ),
                                           ),
                                         ],
@@ -259,7 +258,9 @@ class _LoginPageState extends State<LoginPage> {
                                   const Spacer(),
                                   TextButton(
                                     onPressed: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                             'Sifre sifirlama akisi henuz eklenmedi.',
@@ -268,7 +269,7 @@ class _LoginPageState extends State<LoginPage> {
                                       );
                                     },
                                     style: TextButton.styleFrom(
-                                      foregroundColor: _primary,
+                                      foregroundColor: AppColors.primary,
                                       padding: EdgeInsets.zero,
                                       minimumSize: Size.zero,
                                       tapTargetSize:
@@ -289,7 +290,7 @@ class _LoginPageState extends State<LoginPage> {
                                           _startLogin();
                                         },
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: _primary,
+                                    backgroundColor: AppColors.primary,
                                     foregroundColor: Colors.white,
                                     minimumSize: const Size.fromHeight(54),
                                     shape: RoundedRectangleBorder(
@@ -325,14 +326,15 @@ class _LoginPageState extends State<LoginPage> {
                                     const Icon(
                                       Icons.cloud_outlined,
                                       size: 14,
-                                      color: _textSecondary,
+                                      color: AppColors.textSecondary,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Sunucu uyandırılıyor, lütfen bekleyin...',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: _textSecondary,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: AppColors.textSecondary,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -353,9 +355,11 @@ class _LoginPageState extends State<LoginPage> {
                                     );
                                   },
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: _textPrimary,
+                                    foregroundColor: AppColors.textPrimary,
                                     minimumSize: const Size.fromHeight(54),
-                                    side: const BorderSide(color: _border),
+                                    side: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
@@ -380,10 +384,11 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   label: Text(
                                     'Google',
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      color: _textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                          color: AppColors.textPrimary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                   ),
                                 ),
                               ),
@@ -396,7 +401,7 @@ class _LoginPageState extends State<LoginPage> {
                         child: RichText(
                           text: TextSpan(
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: _textSecondary,
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w400,
                             ),
                             children: <InlineSpan>[
@@ -408,7 +413,7 @@ class _LoginPageState extends State<LoginPage> {
                                   child: Text(
                                     'Kayit Ol',
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: _primary,
+                                      color: AppColors.primary,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -468,28 +473,23 @@ class _LogoHeader extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: <Color>[
-                _LoginPageState._primary,
-                _LoginPageState._primaryDark,
-              ],
+              colors: <Color>[AppColors.primary, AppColors.primaryDark],
             ),
             borderRadius: BorderRadius.circular(24),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x19082B4F),
-                blurRadius: 22,
-                offset: Offset(0, 12),
-              ),
-            ],
+            boxShadow: AppShadows.soft,
           ),
-          child: const Icon(Icons.school_rounded, color: Colors.white, size: 32),
+          child: const Icon(
+            Icons.school_rounded,
+            color: Colors.white,
+            size: 32,
+          ),
         ),
         const SizedBox(height: 16),
         Text(
           'Giris Yapin',
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
-            color: _LoginPageState._textPrimary,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -498,7 +498,7 @@ class _LogoHeader extends StatelessWidget {
           '${role.label} hesabinizla devam edin.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: _LoginPageState._textSecondary,
+            color: AppColors.textSecondary,
             height: 1.5,
           ),
         ),
@@ -513,29 +513,21 @@ class _AuthDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: _LoginPageState._textSecondary,
+      color: AppColors.textSecondary,
       fontWeight: FontWeight.w500,
     );
 
     return Row(
       children: <Widget>[
         const Expanded(
-          child: Divider(
-            color: _LoginPageState._border,
-            thickness: 1,
-            height: 1,
-          ),
+          child: Divider(color: AppColors.border, thickness: 1, height: 1),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text('veya sununla devam et', style: textStyle),
         ),
         const Expanded(
-          child: Divider(
-            color: _LoginPageState._border,
-            thickness: 1,
-            height: 1,
-          ),
+          child: Divider(color: AppColors.border, thickness: 1, height: 1),
         ),
       ],
     );
@@ -559,9 +551,9 @@ class _IconPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _LoginPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
-        child: Icon(icon, color: _LoginPageState._primary),
+        child: Icon(icon, color: AppColors.primary),
       ),
     );
   }

@@ -110,7 +110,7 @@ public sealed record CreateLessonSessionFollowUpAssignmentRequest(
     string? AttachmentUrl);
 
 /// <summary>
-/// Ders sonrası özet, işlenen konular, öneriler ve isteğe bağlı ödev listesini taşır.
+/// Ders sonrası özet, işlenen konular, öneriler ve isteğe bağlı ödev listesini taşır.  
 /// </summary>
 public sealed record CreateLessonSessionFollowUpRequest(
     string Summary,

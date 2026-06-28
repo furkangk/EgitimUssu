@@ -1,15 +1,10 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class RoleSelectionPage extends StatelessWidget {
   const RoleSelectionPage({super.key});
-
-  static const _primary = Color(0xFF082B4F);
-  static const _background = Color(0xFFF7F9FC);
-  static const _surface = Color(0xFFFFFFFF);
-  static const _textPrimary = Color(0xFF111827);
-  static const _textSecondary = Color(0xFF6B7280);
-  static const _border = Color(0xFFE5E7EB);
 
   @override
   Widget build(BuildContext context) {
@@ -20,27 +15,27 @@ class RoleSelectionPage extends StatelessWidget {
         title: 'Ogretmen',
         description: 'Derslerinizi yonetin, ogrencilerinizi takip edin.',
         icon: Icons.history_edu_rounded,
-        accent: Color(0xFF20B486),
+        accent: AppColors.accentGreen,
         keyName: 'ogretmen',
       ),
       _RoleCardData(
         title: 'Ogrenci',
         description: 'Calisma surecinizi planlayin, gelisiminizi izleyin.',
         icon: Icons.auto_stories_rounded,
-        accent: Color(0xFF3D8BFF),
+        accent: AppColors.accentBlue,
         keyName: 'ogrenci',
       ),
       _RoleCardData(
         title: 'Veli',
         description: 'Cocugunuzun ilerlemesini sade ozetlerle takip edin.',
         icon: Icons.family_restroom_rounded,
-        accent: Color(0xFFFFA726),
+        accent: AppColors.accentOrange,
         keyName: 'veli',
       ),
     ];
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -55,7 +50,7 @@ class RoleSelectionPage extends StatelessWidget {
                     'Hesap turunu secin',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
-                      color: _textPrimary,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -64,7 +59,7 @@ class RoleSelectionPage extends StatelessWidget {
                     'Size en uygun deneyimi yasatalim.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: _textSecondary,
+                      color: AppColors.textSecondary,
                       height: 1.5,
                     ),
                   ),
@@ -94,7 +89,7 @@ class RoleSelectionPage extends StatelessWidget {
                     child: RichText(
                       text: TextSpan(
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _textSecondary,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w400,
                         ),
                         children: <InlineSpan>[
@@ -102,7 +97,7 @@ class RoleSelectionPage extends StatelessWidget {
                           TextSpan(
                             text: 'Giris Yap',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: _primary,
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -139,16 +134,10 @@ class _RoleCard extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           decoration: BoxDecoration(
-            color: RoleSelectionPage._surface,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: RoleSelectionPage._border),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x0D082B4F),
-                blurRadius: 18,
-                offset: Offset(0, 10),
-              ),
-            ],
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.soft,
           ),
           child: Row(
             children: <Widget>[
@@ -169,7 +158,7 @@ class _RoleCard extends StatelessWidget {
                     Text(
                       data.title,
                       style: theme.textTheme.titleLarge?.copyWith(
-                        color: RoleSelectionPage._textPrimary,
+                        color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -177,7 +166,7 @@ class _RoleCard extends StatelessWidget {
                     Text(
                       data.description,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: RoleSelectionPage._textSecondary,
+                        color: AppColors.textSecondary,
                         height: 1.5,
                       ),
                     ),
@@ -188,7 +177,7 @@ class _RoleCard extends StatelessWidget {
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 18,
-                color: RoleSelectionPage._textSecondary,
+                color: AppColors.textSecondary,
               ),
             ],
           ),

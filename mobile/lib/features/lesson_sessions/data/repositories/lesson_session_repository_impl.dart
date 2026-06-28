@@ -52,7 +52,9 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
       );
     }
     try {
-      final response = await _apiClient.get('/api/lesson-sessions/$lessonSessionId');
+      final response = await _apiClient.get(
+        '/api/lesson-sessions/$lessonSessionId',
+      );
       return LessonSessionModel.fromJson(response);
     } on ApiException {
       rethrow;

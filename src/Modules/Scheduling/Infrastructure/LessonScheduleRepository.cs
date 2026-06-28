@@ -18,11 +18,12 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         return _dbContext.LessonSchedules.FirstOrDefaultAsync(lesson => lesson.Id == lessonId, cancellationToken);
     }
 
-    public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
+    public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken)
     {
         return _dbContext.LessonSchedules.AnyAsync(
             lesson => lesson.TeacherUserId == teacherUserId
                 && lesson.Status != LessonScheduleStatus.Cancelled
+                && (excludeLessonId == null || lesson.Id != excludeLessonId)
                 && lesson.StartAtUtc < endAtUtc
                 && lesson.EndAtUtc > startAtUtc,
             cancellationToken);

@@ -7,7 +7,7 @@
 > **Platform uygulamaları:** Flutter → [`mobile_flutter.md`](mobile_flutter.md) §11-12 (Dart `app_colors.dart` vb.) ·
 > Angular → [`web_angular.md`](web_angular.md) (Tailwind `theme.extend`). Çelişki halinde **bu dosya esastır.**
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-06-28
 
 ---
 
@@ -53,6 +53,33 @@ Faz 0.6 hedefi olan "UI tasarım sistemi ve bileşen kütüphanesi" doğrultusun
 | `border` | `#E5E7EB` | `0xFFE5E7EB` | Kart/input kenarlığı |
 | `divider` | `#F0F2F5` | `0xFFF0F2F5` | Ayraç |
 
+**Ek aksanlar (kod kaynaklı):** Yukarıdaki kanonik palette tam karşılığı olmayan ama ekranlarda yaygın kullanılan,
+`AppColors`'a eklenen renkler. İdeali: zamanla kanonik token'lara indirgemek.
+
+| Token | HEX | Flutter | Kullanım |
+|-------|-----|---------|----------|
+| `amber` | `#FFB84D` | `0xFFFFB84D` | Streak, ödeme/uyarı vurgusu (accentOrange'ın daha açık tonu) |
+| `skyBorder` | `#D7E7F8` | `0xFFD7E7F8` | Mavi tonlu yumuşak kart/chip kenarlığı |
+| `tabBackground` | `#F3F5F8` | `0xFFF3F5F8` | Segment/tab track zemini |
+| `purple` | `#8B5CF6` | `0xFF8B5CF6` | Ödevlerde mor aksan |
+
+**Semantik durum renkleri (hata/aciliyet):** Aciliyet-kademeli kartlar (geciken ödev/ödeme) ve uyarı alanları için.
+Her durumun rolleri: `accent` (metin/ikon/chip) · `surface` (en açık kart zemini) · `surfaceStrong` (avatar/chip zemini) · `border`.
+Aciliyet kademesi: **error > warning > info > success** (geciken → yaklaşan → ileride).
+
+| Token | HEX | Rol |
+|-------|-----|-----|
+| `error` | `#D32F2F` | Hata/geciken — accent |
+| `errorSurface` | `#FFF5F5` | Hata — açık zemin |
+| `errorSurfaceStrong` | `#FFEBEE` | Hata — avatar/chip zemini |
+| `errorBorder` | `#FFCDD2` | Hata — kenarlık |
+| `warning` | `#E65100` | Aciliyet/uyarı — accent |
+| `warningSurface` | `#FFF9F0` | Uyarı — açık zemin |
+| `warningSurfaceStrong` | `#FFF3E0` | Uyarı — avatar/chip zemini |
+| `warningBorder` | `#FFE0B2` | Uyarı — kenarlık |
+| `infoSurface` | `#E8F1FF` | "Yaklaşan" kademe zemini (accent: `accentBlue`) |
+| `successSurface` | `#E8F8F4` | "İleride" kademe zemini (accent: `accentGreen`) |
+
 **Durum renk kuralı (skor/oran):** ≥85 → yeşil · 70-84 → turuncu · ≤69 → kırmızı.
 
 ## 4. Tipografi
@@ -94,7 +121,9 @@ bottom nav üst boşluğu 8.
 | `xl` | 20 | büyük kart |
 | `pill` | 999 | chip/pill, avatar (dairesel) |
 
-Bottom sheet üst köşeler: 24. **Gölge:** yumuşak — `black @ %4 opacity, blur 14, offset (0,6)`. Keskin kontrasttan kaçınılır.
+Bottom sheet üst köşeler: 24. **Gölge:** tek, yumuşak token. Flutter karşılığı `AppShadows.soft`
+(`core/theme/app_shadows.dart`): `BoxShadow(color: 0x12082B4F /* primary @ ~%7 */, blurRadius: 24, offset: (0, 12))`.
+Tüm kart/sheet/panel **bu tek token'ı** kullanır; ekran başına ayrı `BoxShadow` yazılmaz. Keskin kontrasttan kaçınılır.
 
 ## 7. Platform Bağlama (Binding)
 
@@ -104,11 +133,27 @@ Bottom sheet üst köşeler: 24. **Gölge:** yumuşak — `black @ %4 opacity, b
 | Tipografi | `core/theme/app_text_styles.dart` | Tailwind `fontSize` + global CSS |
 | Spacing | `core/theme/app_spacing.dart` | Tailwind `spacing` (4px tabanlı zaten uyumlu) |
 | Radius | `core/theme/app_radius.dart` | Tailwind `borderRadius` |
+| Gölge | `core/theme/app_shadows.dart` (`AppShadows.soft`) ✅ | Tailwind `boxShadow` |
 | Karanlık mod | (planlanan) | Tailwind native dark mode (öğrenci çalışma seansları için) |
 
 > **Kural:** Değerler doğrudan kodda yazılmaz; her platform yukarıdaki token sınıfları/konfigürasyonu üzerinden çağırır.
 > Tab/segment widget'ına özgü ek token'lar → [`../tab_widget.md`](../tab_widget.md).
 
+> **Durum (Flutter):** `core/theme/app_colors.dart` (`AppColors`) §3 paletiyle oluşturuldu ve **tüm ekran sayfaları**
+> (auth, dashboard, students, payments, scheduling, lesson_sessions, assignments, more, teacher_profile, notifications)
+> sayfa-içi `static const` renk sabitlerinden `AppColors` token'larına taşındı; sayfalarda artık yerel renk sabiti **yok**.
+> Öğretmen-paneli varyant değerleri kanonik token'lara yakınsatıldı (ör. `#10233D→textPrimary`, `#6B7A90→textSecondary`,
+> `#E5EEF7→border`, `#F4F8FC→background`). Token karşılığı olmayan birkaç renk `AppColors`'a ek token olarak eklendi:
+> `amber #FFB84D`, `skyBorder #D7E7F8`, `tabBackground #F3F5F8`, `purple #8B5CF6`. Inline `Color(0x…)` literallerinden
+> token'a **birebir eşleşenler** de taşındı (`form_fields.dart` dâhil). Geriye yalnızca (a) `const BoxShadow` içindeki
+> alpha'lı gölge tonları (`withValues` const'ı bozar) ve (b) kanonik karşılığı olmayan semantik tint'ler
+> kaldı (near-white yüzeyler, gradient durakları, Google mavisi gibi). **Hata/aciliyet** tint'leri için semantik token'lar
+> eklendi (`error*`/`warning*`/`infoSurface`/`successSurface`) ve aciliyet kartları bunları kullanıyor. **Gölgeler** tek
+> `AppShadows.soft` token'ına indirgendi — tüm ekranlardaki elle yazılmış `BoxShadow`'lar kaldırıldı (kartların
+> seçili/normal iki-durumlu gölgesi dâhil tek desende birleşti). `app_theme.dart` (Material ThemeData bootstrap'ı) kendi
+> ayrı seed paletini koruyor. Tipografi/spacing/radius token sınıfları (`app_text_styles`/`app_spacing`/`app_radius`)
+> henüz yok (planlanan).
+
 ---
 
-*Tasarım Sistemi | Güncelleme: 2026-06-24*
+*Tasarım Sistemi | Güncelleme: 2026-06-28*

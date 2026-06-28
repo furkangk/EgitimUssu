@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
@@ -13,14 +15,6 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  static const _primary = Color(0xFF082B4F);
-  static const _primaryDark = Color(0xFF061F3A);
-  static const _background = Color(0xFFF7F9FC);
-  static const _surface = Color(0xFFFFFFFF);
-  static const _textPrimary = Color(0xFF111827);
-  static const _textSecondary = Color(0xFF6B7280);
-  static const _border = Color(0xFFE5E7EB);
-
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController(text: 'Ayse');
   final _lastNameController = TextEditingController(text: 'Yilmaz');
@@ -44,7 +38,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -67,16 +61,10 @@ class _RegisterPageState extends State<RegisterPage> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: _surface,
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: _border),
-                            boxShadow: const <BoxShadow>[
-                              BoxShadow(
-                                color: Color(0x12082B4F),
-                                blurRadius: 24,
-                                offset: Offset(0, 12),
-                              ),
-                            ],
+                            border: Border.all(color: AppColors.border),
+                            boxShadow: AppShadows.soft,
                           ),
                           child: Form(
                             key: _formKey,
@@ -190,32 +178,36 @@ class _RegisterPageState extends State<RegisterPage> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton(
-                                    onPressed: state.status == AuthStatus.loading
+                                    onPressed:
+                                        state.status == AuthStatus.loading
                                         ? null
                                         : () {
                                             if (_formKey.currentState
                                                     ?.validate() ??
                                                 false) {
-                                              context.read<AuthCubit>().register(
-                                                email: _emailController.text
-                                                    .trim(),
-                                                password: _passwordController
-                                                    .text
-                                                    .trim(),
-                                                firstName:
-                                                    _firstNameController.text
+                                              context
+                                                  .read<AuthCubit>()
+                                                  .register(
+                                                    email: _emailController.text
                                                         .trim(),
-                                                lastName:
-                                                    _lastNameController.text
-                                                        .trim(),
-                                                phoneNumber: _phoneController
-                                                    .text
-                                                    .trim(),
-                                              );
+                                                    password:
+                                                        _passwordController.text
+                                                            .trim(),
+                                                    firstName:
+                                                        _firstNameController
+                                                            .text
+                                                            .trim(),
+                                                    lastName:
+                                                        _lastNameController.text
+                                                            .trim(),
+                                                    phoneNumber:
+                                                        _phoneController.text
+                                                            .trim(),
+                                                  );
                                             }
                                           },
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: _primary,
+                                      backgroundColor: AppColors.primary,
                                       foregroundColor: Colors.white,
                                       minimumSize: const Size.fromHeight(50),
                                       shape: RoundedRectangleBorder(
@@ -252,7 +244,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         child: RichText(
                           text: TextSpan(
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: _textSecondary,
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w400,
                             ),
                             children: <InlineSpan>[
@@ -265,7 +257,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                   child: Text(
                                     'Giris Yap',
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: _primary,
+                                      color: AppColors.primary,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -300,15 +292,15 @@ class _RegisterPageState extends State<RegisterPage> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _border),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _border),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _primary, width: 1.4),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
       ),
     );
   }
@@ -337,28 +329,23 @@ class _LogoHeader extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: <Color>[
-                _RegisterPageState._primary,
-                _RegisterPageState._primaryDark,
-              ],
+              colors: <Color>[AppColors.primary, AppColors.primaryDark],
             ),
             borderRadius: BorderRadius.circular(24),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x19082B4F),
-                blurRadius: 22,
-                offset: Offset(0, 12),
-              ),
-            ],
+            boxShadow: AppShadows.soft,
           ),
-          child: const Icon(Icons.school_rounded, color: Colors.white, size: 32),
+          child: const Icon(
+            Icons.school_rounded,
+            color: Colors.white,
+            size: 32,
+          ),
         ),
         const SizedBox(height: 10),
         Text(
           'Kayit Ol',
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
-            color: _RegisterPageState._textPrimary,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -367,7 +354,7 @@ class _LogoHeader extends StatelessWidget {
           'Ogretmen hesabinizi olusturarak ders yonetimine baslayin.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: _RegisterPageState._textSecondary,
+            color: AppColors.textSecondary,
             height: 1.45,
           ),
         ),
@@ -389,9 +376,9 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF2FB),
+          color: AppColors.primaryLight,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _RegisterPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: <Widget>[
@@ -404,7 +391,7 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.people_alt_outlined,
-                color: _RegisterPageState._primary,
+                color: AppColors.primary,
                 size: 18,
               ),
             ),
@@ -416,7 +403,7 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
                   Text(
                     'Hesap turunu degistir',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _RegisterPageState._textPrimary,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -424,7 +411,7 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
                   Text(
                     'Rol secim ekranina geri don',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _RegisterPageState._textSecondary,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -433,7 +420,7 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
             const Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,
-              color: _RegisterPageState._textSecondary,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -456,7 +443,7 @@ class _LabeledField extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: _RegisterPageState._textSecondary,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w700,
           ),
         ),

@@ -1,27 +1,17 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
 
-  static const _primary = Color(0xFF082B4F);
-  static const _primaryDark = Color(0xFF061F3A);
-  static const _primaryLight = Color(0xFFEAF2FB);
-  static const _background = Color(0xFFF7F9FC);
-  static const _surface = Color(0xFFFFFFFF);
-  static const _textPrimary = Color(0xFF111827);
-  static const _textSecondary = Color(0xFF6B7280);
-  static const _border = Color(0xFFE5E7EB);
-  static const _accentOrange = Color(0xFFFFA726);
-  static const _accentGreen = Color(0xFF20B486);
-  static const _accentBlue = Color(0xFF3D8BFF);
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -38,7 +28,7 @@ class WelcomePage extends StatelessWidget {
                   FilledButton(
                     onPressed: () => context.go('/login?role=ogretmen'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: _primary,
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(56),
                       shape: RoundedRectangleBorder(
@@ -58,9 +48,12 @@ class WelcomePage extends StatelessWidget {
                   OutlinedButton(
                     onPressed: () => context.go('/role-selection'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: _primary,
+                      foregroundColor: AppColors.primary,
                       minimumSize: const Size.fromHeight(56),
-                      side: const BorderSide(color: _primary, width: 1.4),
+                      side: const BorderSide(
+                        color: AppColors.primary,
+                        width: 1.4,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -68,7 +61,7 @@ class WelcomePage extends StatelessWidget {
                     child: Text(
                       'Kayit Ol',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: _primary,
+                        color: AppColors.primary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -99,16 +92,10 @@ class _BrandBlock extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: <Color>[WelcomePage._primary, WelcomePage._primaryDark],
+              colors: <Color>[AppColors.primary, AppColors.primaryDark],
             ),
             borderRadius: BorderRadius.circular(24),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x1A082B4F),
-                blurRadius: 22,
-                offset: Offset(0, 12),
-              ),
-            ],
+            boxShadow: AppShadows.soft,
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -120,7 +107,7 @@ class _BrandBlock extends StatelessWidget {
                   width: 14,
                   height: 14,
                   decoration: const BoxDecoration(
-                    color: WelcomePage._accentOrange,
+                    color: AppColors.accentOrange,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -132,7 +119,7 @@ class _BrandBlock extends StatelessWidget {
                   width: 12,
                   height: 12,
                   decoration: const BoxDecoration(
-                    color: WelcomePage._accentGreen,
+                    color: AppColors.accentGreen,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -146,7 +133,7 @@ class _BrandBlock extends StatelessWidget {
           'EgitimUssu',
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
-            color: WelcomePage._textPrimary,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -155,7 +142,7 @@ class _BrandBlock extends StatelessWidget {
           'Ozel ders sureclerinizi tek bir yerde yonetin.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: WelcomePage._textSecondary,
+            color: AppColors.textSecondary,
             height: 1.5,
           ),
         ),
@@ -174,16 +161,10 @@ class _WelcomePhoto extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: WelcomePage._surface,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: WelcomePage._border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x10082B4F),
-            blurRadius: 28,
-            offset: Offset(0, 16),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -228,13 +209,7 @@ class _WelcomePhoto extends StatelessWidget {
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.18),
                   ),
-                  boxShadow: const <BoxShadow>[
-                    BoxShadow(
-                      color: Color(0x15000000),
-                      blurRadius: 18,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
+                  boxShadow: AppShadows.soft,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +261,7 @@ class _PhotoBadge extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: const BoxDecoration(
-              color: WelcomePage._accentGreen,
+              color: AppColors.accentGreen,
               shape: BoxShape.circle,
             ),
           ),
@@ -294,7 +269,7 @@ class _PhotoBadge extends StatelessWidget {
           Text(
             'Canli takip',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: WelcomePage._primary,
+              color: AppColors.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -315,7 +290,7 @@ class _PhotoFallback extends StatelessWidget {
       builder: (context, constraints) {
         final visualSize = constraints.maxHeight < 260 ? 112.0 : 168.0;
         final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: WelcomePage._primary,
+          color: AppColors.primary,
           fontWeight: FontWeight.w700,
         );
 
@@ -325,7 +300,7 @@ class _PhotoFallback extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: <Color>[
-                WelcomePage._primaryLight,
+                AppColors.primaryLight,
                 Color(0xFFDCEBFF),
                 Color(0xFFF1F5FF),
               ],
@@ -341,7 +316,7 @@ class _PhotoFallback extends StatelessWidget {
                   width: 124,
                   height: 124,
                   decoration: BoxDecoration(
-                    color: WelcomePage._accentBlue.withValues(alpha: 0.14),
+                    color: AppColors.accentBlue.withValues(alpha: 0.14),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -353,7 +328,7 @@ class _PhotoFallback extends StatelessWidget {
                   width: 116,
                   height: 116,
                   decoration: BoxDecoration(
-                    color: WelcomePage._accentOrange.withValues(alpha: 0.12),
+                    color: AppColors.accentOrange.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -384,8 +359,9 @@ class _PhotoFallback extends StatelessWidget {
                                   child: Container(
                                     height: 14,
                                     decoration: BoxDecoration(
-                                      color: WelcomePage._primaryDark
-                                          .withValues(alpha: 0.08),
+                                      color: AppColors.primaryDark.withValues(
+                                        alpha: 0.08,
+                                      ),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                   ),
@@ -394,7 +370,7 @@ class _PhotoFallback extends StatelessWidget {
                                   child: Icon(
                                     Icons.auto_stories_rounded,
                                     size: 56,
-                                    color: WelcomePage._primary,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ],

@@ -17,6 +17,18 @@ public sealed record CreateLessonScheduleCommand(
     string? LocationLabel,
     string? Notes) : ICommand<Result<LessonScheduleResponse>>;
 
+public sealed record UpdateLessonScheduleCommand(
+    Guid LessonId,
+    string Subject,
+    ScheduledLessonFormat LessonFormat,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string TimeZone,
+    string? RecurrenceRule,
+    int ReminderOffsetMinutes,
+    string? LocationLabel,
+    string? Notes) : ICommand<Result<LessonScheduleResponse>>;
+
 public sealed record CancelLessonScheduleCommand(
     Guid LessonId,
     string? CancellationNote) : ICommand<Result<LessonScheduleResponse>>;
@@ -51,7 +63,7 @@ public interface ILessonScheduleRepository
 {
     Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken);
 
-    Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
+    Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
 
@@ -99,6 +111,7 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
             command.TeacherUserId,
             command.StartAtUtc,
             command.EndAtUtc,
+            null,
             cancellationToken);
 
         if (hasConflict)
@@ -123,6 +136,75 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
             _clock.UtcNow);
 
         await _repository.AddAsync(lesson, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+        await _notificationService.ScheduleReminderAsync(lesson, cancellationToken);
+
+        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+    }
+}
+
+public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateLessonScheduleCommand, Result<LessonScheduleResponse>>
+{
+    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
+    private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
+    private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders duzenlenebilir.");
+    private readonly ILessonScheduleRepository _repository;
+    private readonly ILessonScheduleNotificationService _notificationService;
+    private readonly IClock _clock;
+
+    public UpdateLessonScheduleCommandHandler(
+        ILessonScheduleRepository repository,
+        ILessonScheduleNotificationService notificationService,
+        IClock clock)
+    {
+        _repository = repository;
+        _notificationService = notificationService;
+        _clock = clock;
+    }
+
+    public async Task<Result<LessonScheduleResponse>> Handle(UpdateLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        if (command.EndAtUtc <= command.StartAtUtc)
+        {
+            return Result<LessonScheduleResponse>.Failure(InvalidRange);
+        }
+
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        if (lesson is null)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotFound);
+        }
+
+        if (!lesson.IsEditable)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotEditable);
+        }
+
+        var hasConflict = await _repository.HasTeacherConflictAsync(
+            lesson.TeacherUserId,
+            command.StartAtUtc,
+            command.EndAtUtc,
+            lesson.Id,
+            cancellationToken);
+
+        if (hasConflict)
+        {
+            return Result<LessonScheduleResponse>.Failure(Conflict);
+        }
+
+        lesson.UpdateDetails(
+            command.Subject.Trim(),
+            command.LessonFormat,
+            command.StartAtUtc,
+            command.EndAtUtc,
+            command.TimeZone.Trim(),
+            command.RecurrenceRule?.Trim(),
+            command.ReminderOffsetMinutes,
+            command.LocationLabel?.Trim(),
+            command.Notes?.Trim(),
+            _clock.UtcNow);
+
         await _repository.SaveChangesAsync(cancellationToken);
         await _notificationService.ScheduleReminderAsync(lesson, cancellationToken);
 

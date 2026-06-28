@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,16 +13,6 @@ class AccountInfoPage extends StatefulWidget {
 }
 
 class _AccountInfoPageState extends State<AccountInfoPage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _red = Color(0xFFFF5A5F);
-  static const _slate = Color(0xFF6B7A90);
-  static const _text = Color(0xFF10233D);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EEF7);
-  static const _surfaceLow = Color(0xFFEAF3FF);
-
   late _AccountData _account;
 
   @override
@@ -42,7 +34,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
     _account = _account.copyWith(fullName: fullName, role: role);
 
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
@@ -85,7 +77,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                   icon: Icons.enhanced_encryption_outlined,
                   title: 'İki aşamalı doğrulama',
                   subtitle: 'Kapalı',
-                  color: _blue,
+                  color: AppColors.accentBlue,
                   onTap: () => _showSavedMessage('Doğrulama ayarı hazır.'),
                 ),
                 const _DividerLine(),
@@ -93,7 +85,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                   icon: Icons.devices_rounded,
                   title: 'Aktif oturum',
                   subtitle: 'Bu cihaz, bugün 14:20',
-                  color: _emerald,
+                  color: AppColors.accentGreen,
                   onTap: () => _showSavedMessage('Oturum detayları açılacak.'),
                 ),
               ],
@@ -129,9 +121,9 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
               const SizedBox(height: 10),
               Text(
                 'Bu prototipte işlem yapılmaz; gerçek akışta hesap ve bağlı veriler için onay süreci başlatılır.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: _slate),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 18),
               Row(
@@ -145,7 +137,9 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: _red),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accentRed,
+                      ),
                       onPressed: () {
                         Navigator.of(context).pop();
                         _showSavedMessage('Hesap kapatma talebi taslakta.');
@@ -184,7 +178,7 @@ class _TopBar extends StatelessWidget {
           child: Text(
             'Hesap Bilgileri',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: _AccountInfoPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -207,14 +201,8 @@ class _AccountHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _AccountInfoPageState._border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x0F082B4F),
-            blurRadius: 28,
-            offset: Offset(0, 12),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadows.soft,
       ),
       child: Row(
         children: <Widget>[
@@ -229,7 +217,7 @@ class _AccountHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: _AccountInfoPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -238,10 +226,7 @@ class _AccountHeader extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: <Widget>[
-                    _Pill(
-                      label: account.role,
-                      color: _AccountInfoPageState._emerald,
-                    ),
+                    _Pill(label: account.role, color: AppColors.accentGreen),
                   ],
                 ),
               ],
@@ -265,7 +250,7 @@ class _AccountAvatar extends StatelessWidget {
       height: 76,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: _AccountInfoPageState._navy,
+        color: AppColors.primary,
       ),
       child: Center(
         child: Text(
@@ -316,7 +301,7 @@ class _SettingsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _AccountInfoPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(children: children),
     );
@@ -344,7 +329,7 @@ class _SettingTile extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
         child: Row(
           children: <Widget>[
-            _TintedIcon(icon: icon, color: _AccountInfoPageState._blue),
+            _TintedIcon(icon: icon, color: AppColors.accentBlue),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -353,7 +338,7 @@ class _SettingTile extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _AccountInfoPageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -363,7 +348,7 @@ class _SettingTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: _AccountInfoPageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -372,7 +357,7 @@ class _SettingTile extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: _AccountInfoPageState._slate,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -398,7 +383,7 @@ class _StaticTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       child: Row(
         children: <Widget>[
-          _TintedIcon(icon: icon, color: _AccountInfoPageState._blue),
+          _TintedIcon(icon: icon, color: AppColors.accentBlue),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -407,7 +392,7 @@ class _StaticTile extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _AccountInfoPageState._slate,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -415,7 +400,7 @@ class _StaticTile extends StatelessWidget {
                 Text(
                   value,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _AccountInfoPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -460,7 +445,7 @@ class _StatusTile extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: _AccountInfoPageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -468,7 +453,7 @@ class _StatusTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _AccountInfoPageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -477,7 +462,7 @@ class _StatusTile extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: _AccountInfoPageState._slate,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -492,23 +477,23 @@ class _SecurityNote extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _AccountInfoPageState._surfaceLow,
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _AccountInfoPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const _TintedIcon(
             icon: Icons.verified_user_outlined,
-            color: _AccountInfoPageState._emerald,
+            color: AppColors.accentGreen,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Hesap bilgileri bu prototipte statik tutulur. API bağlanınca aynı alanlar oturum verisiyle beslenecek.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: _AccountInfoPageState._slate,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w700,
                 height: 1.45,
               ),
@@ -536,7 +521,7 @@ class _DangerPanel extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: _AccountInfoPageState._red.withValues(alpha: 0.24),
+            color: AppColors.accentRed.withValues(alpha: 0.24),
           ),
         ),
         child: Row(
@@ -544,7 +529,7 @@ class _DangerPanel extends StatelessWidget {
           children: <Widget>[
             const _TintedIcon(
               icon: Icons.delete_outline_rounded,
-              color: _AccountInfoPageState._red,
+              color: AppColors.accentRed,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -554,7 +539,7 @@ class _DangerPanel extends StatelessWidget {
                   Text(
                     'Hesabı kapat',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: _AccountInfoPageState._red,
+                      color: AppColors.accentRed,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -562,7 +547,7 @@ class _DangerPanel extends StatelessWidget {
                   Text(
                     'Hesabınız ve bağlı veriler için kalıcı işlem başlatılır.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _AccountInfoPageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
                       height: 1.45,
                     ),
@@ -570,10 +555,7 @@ class _DangerPanel extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: _AccountInfoPageState._red,
-            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.accentRed),
           ],
         ),
       ),
@@ -591,7 +573,7 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: _AccountInfoPageState._text,
+        color: AppColors.textPrimary,
         fontWeight: FontWeight.w900,
       ),
     );
@@ -635,9 +617,9 @@ class _IconButtonBox extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _AccountInfoPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
-        child: Icon(icon, color: _AccountInfoPageState._text),
+        child: Icon(icon, color: AppColors.textPrimary),
       ),
     );
   }
@@ -648,11 +630,7 @@ class _DividerLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
-      height: 1,
-      indent: 68,
-      color: _AccountInfoPageState._border,
-    );
+    return const Divider(height: 1, indent: 68, color: AppColors.border);
   }
 }
 
@@ -668,7 +646,7 @@ class _SheetTitle extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: _AccountInfoPageState._text,
+          color: AppColors.textPrimary,
           fontWeight: FontWeight.w900,
         ),
       ),

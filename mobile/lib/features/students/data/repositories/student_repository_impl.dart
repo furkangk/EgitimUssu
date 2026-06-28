@@ -96,7 +96,9 @@ class StudentRepositoryImpl implements StudentRepository {
       );
     }
     try {
-      final response = await _apiClient.get('/api/students/profiles/$studentId');
+      final response = await _apiClient.get(
+        '/api/students/profiles/$studentId',
+      );
       return StudentProfileModel.fromJson(response);
     } on ApiException {
       rethrow;
@@ -126,11 +128,36 @@ class StudentRepositoryImpl implements StudentRepository {
   }
 
   List<StudentProfile> _mockStudents(String teacherUserId) => [
-    StudentProfileModel.demo(teacherUserId: teacherUserId, id: 'student-1', fullName: 'Mehmet Demir', gradeLevel: '8. Sınıf'),
-    StudentProfileModel.demo(teacherUserId: teacherUserId, id: 'student-2', fullName: 'Ece Ak', gradeLevel: '11. Sınıf'),
-    StudentProfileModel.demo(teacherUserId: teacherUserId, id: 'student-3', fullName: 'Ali Kaya', gradeLevel: '10. Sınıf'),
-    StudentProfileModel.demo(teacherUserId: teacherUserId, id: 'student-4', fullName: 'Zeynep Yılmaz', gradeLevel: '9. Sınıf'),
-    StudentProfileModel.demo(teacherUserId: teacherUserId, id: 'student-5', fullName: 'Berk Çelik', gradeLevel: '12. Sınıf'),
+    StudentProfileModel.demo(
+      teacherUserId: teacherUserId,
+      id: 'student-1',
+      fullName: 'Mehmet Demir',
+      gradeLevel: '8. Sınıf',
+    ),
+    StudentProfileModel.demo(
+      teacherUserId: teacherUserId,
+      id: 'student-2',
+      fullName: 'Ece Ak',
+      gradeLevel: '11. Sınıf',
+    ),
+    StudentProfileModel.demo(
+      teacherUserId: teacherUserId,
+      id: 'student-3',
+      fullName: 'Ali Kaya',
+      gradeLevel: '10. Sınıf',
+    ),
+    StudentProfileModel.demo(
+      teacherUserId: teacherUserId,
+      id: 'student-4',
+      fullName: 'Zeynep Yılmaz',
+      gradeLevel: '9. Sınıf',
+    ),
+    StudentProfileModel.demo(
+      teacherUserId: teacherUserId,
+      id: 'student-5',
+      fullName: 'Berk Çelik',
+      gradeLevel: '12. Sınıf',
+    ),
   ];
 
   Future<List<StudentProfile>> _readCachedStudents(String cacheKey) async {

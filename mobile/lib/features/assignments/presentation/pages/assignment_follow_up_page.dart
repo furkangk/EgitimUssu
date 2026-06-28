@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignment_follow_up_cubit.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignment_follow_up_state.dart';
@@ -54,16 +55,6 @@ class _AssignmentEntry {
 }
 
 class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
-  static const _text = Color(0xFF10233D);
-  static const _slate = Color(0xFF6B7A90);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFD7E7F8);
-  static const _divider = Color(0xFFE5EEF7);
-  static const _navy = Color(0xFF082B4F);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _red = Color(0xFFFF5A5F);
-
   final _formKey = GlobalKey<FormState>();
   final List<_AssignmentEntry> _assignments = [];
 
@@ -86,7 +77,7 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
     return BlocProvider<AssignmentFollowUpCubit>(
       create: (_) => AssignmentFollowUpCubit.create(),
       child: Scaffold(
-        backgroundColor: _background,
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: BlocConsumer<AssignmentFollowUpCubit, AssignmentFollowUpState>(
             listener: (context, state) {
@@ -94,7 +85,7 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text('Ders takibi kaydedildi.'),
-                    backgroundColor: _emerald,
+                    backgroundColor: AppColors.accentGreen,
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -104,7 +95,7 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(state.errorMessage!),
-                    backgroundColor: _red,
+                    backgroundColor: AppColors.accentRed,
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -136,11 +127,9 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                             title: 'Ödevler',
                             trailing: Text(
                               '${_assignments.length} ödev',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
+                              style: Theme.of(context).textTheme.labelMedium
                                   ?.copyWith(
-                                    color: _slate,
+                                    color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
@@ -156,8 +145,9 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                                 onRemove: () => _removeAssignment(i),
                                 onPickDate: () => _pickDueDate(i),
                                 onPickFile: () => _pickFile(i),
-                                onClearFile: () =>
-                                    setState(() => _assignments[i].selectedFile = null),
+                                onClearFile: () => setState(
+                                  () => _assignments[i].selectedFile = null,
+                                ),
                               ),
                             );
                           }),
@@ -177,7 +167,7 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
                 return Container(
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    border: Border(top: BorderSide(color: _divider)),
+                    border: Border(top: BorderSide(color: AppColors.divider)),
                   ),
                   padding: EdgeInsets.fromLTRB(
                     16,
@@ -244,7 +234,7 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('En az bir ödev başlığı giriniz.'),
-          backgroundColor: _red,
+          backgroundColor: AppColors.accentRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -276,8 +266,18 @@ class _AssignmentFollowUpPageState extends State<AssignmentFollowUpPage> {
 
   String _formatDate(DateTime date) {
     const months = <String>[
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -297,13 +297,13 @@ class _TopBar extends StatelessWidget {
           IconButton(
             onPressed: onBack,
             icon: const Icon(Icons.arrow_back_rounded),
-            color: _AssignmentFollowUpPageState._text,
+            color: AppColors.textPrimary,
           ),
           Expanded(
             child: Text(
               'Ödev Ver',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _AssignmentFollowUpPageState._text,
+                color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -324,11 +324,9 @@ class _ContextCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _AssignmentFollowUpPageState._navy.withValues(alpha: 0.06),
+        color: AppColors.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _AssignmentFollowUpPageState._border,
-        ),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: <Widget>[
@@ -336,13 +334,10 @@ class _ContextCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: _AssignmentFollowUpPageState._navy.withValues(alpha: 0.1),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: _AssignmentFollowUpPageState._navy,
-            ),
+            child: const Icon(Icons.person_rounded, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -354,7 +349,7 @@ class _ContextCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: _AssignmentFollowUpPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -364,7 +359,7 @@ class _ContextCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _AssignmentFollowUpPageState._slate,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -392,13 +387,13 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        Icon(icon, size: 20, color: _AssignmentFollowUpPageState._navy),
+        Icon(icon, size: 20, color: AppColors.primary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: _AssignmentFollowUpPageState._text,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -436,7 +431,7 @@ class _AssignmentEntryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _AssignmentFollowUpPageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,15 +442,14 @@ class _AssignmentEntryCard extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: _AssignmentFollowUpPageState._blue
-                      .withValues(alpha: 0.12),
+                  color: AppColors.accentBlue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '${index + 1}',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: _AssignmentFollowUpPageState._blue,
+                    color: AppColors.accentBlue,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -465,7 +459,7 @@ class _AssignmentEntryCard extends StatelessWidget {
                 child: Text(
                   'Ödev ${index + 1}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _AssignmentFollowUpPageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -474,10 +468,13 @@ class _AssignmentEntryCard extends StatelessWidget {
                 IconButton(
                   onPressed: onRemove,
                   icon: const Icon(Icons.delete_outline_rounded),
-                  color: _AssignmentFollowUpPageState._red,
+                  color: AppColors.accentRed,
                   iconSize: 20,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
             ],
           ),
@@ -489,8 +486,8 @@ class _AssignmentEntryCard extends StatelessWidget {
             textCapitalization: TextCapitalization.sentences,
             validator: index == 0
                 ? (v) => (v == null || v.trim().isEmpty)
-                    ? 'İlk ödev başlığı zorunlu.'
-                    : null
+                      ? 'İlk ödev başlığı zorunlu.'
+                      : null
                 : null,
           ),
           const SizedBox(height: 12),
@@ -512,11 +509,7 @@ class _AssignmentEntryCard extends StatelessWidget {
             suffixIcon: const Icon(Icons.event_rounded),
           ),
           const SizedBox(height: 12),
-          _FilePicker(
-            file: file,
-            onPick: onPickFile,
-            onClear: onClearFile,
-          ),
+          _FilePicker(file: file, onPick: onPickFile, onClear: onClearFile),
         ],
       ),
     );
@@ -542,9 +535,9 @@ class _FilePicker extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: _AssignmentFollowUpPageState._background,
+          color: AppColors.background,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _AssignmentFollowUpPageState._border),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: <Widget>[
@@ -552,20 +545,19 @@ class _FilePicker extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: (file == null
-                        ? _AssignmentFollowUpPageState._blue
-                        : _AssignmentFollowUpPageState._emerald)
-                    .withValues(alpha: 0.12),
+                color:
+                    (file == null
+                            ? AppColors.accentBlue
+                            : AppColors.accentGreen)
+                        .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                file == null
-                    ? Icons.attach_file_rounded
-                    : Icons.check_rounded,
+                file == null ? Icons.attach_file_rounded : Icons.check_rounded,
                 size: 20,
                 color: file == null
-                    ? _AssignmentFollowUpPageState._blue
-                    : _AssignmentFollowUpPageState._emerald,
+                    ? AppColors.accentBlue
+                    : AppColors.accentGreen,
               ),
             ),
             const SizedBox(width: 10),
@@ -578,7 +570,7 @@ class _FilePicker extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: _AssignmentFollowUpPageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -586,14 +578,14 @@ class _FilePicker extends StatelessWidget {
                     Text(
                       'PDF, Word veya görsel',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _AssignmentFollowUpPageState._slate,
+                        color: AppColors.textSecondary,
                       ),
                     )
                   else
                     Text(
                       '${(file!.size / 1024).ceil()} KB',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _AssignmentFollowUpPageState._slate,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                 ],
@@ -603,7 +595,7 @@ class _FilePicker extends StatelessWidget {
               IconButton(
                 onPressed: onClear,
                 icon: const Icon(Icons.close_rounded, size: 18),
-                color: _AssignmentFollowUpPageState._slate,
+                color: AppColors.textSecondary,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -631,23 +623,19 @@ class _AddAssignmentButton extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: _AssignmentFollowUpPageState._blue.withValues(alpha: 0.4),
+            color: AppColors.accentBlue.withValues(alpha: 0.4),
             width: 1.5,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Icon(
-              Icons.add_rounded,
-              color: _AssignmentFollowUpPageState._blue,
-              size: 20,
-            ),
+            Icon(Icons.add_rounded, color: AppColors.accentBlue, size: 20),
             const SizedBox(width: 8),
             Text(
               'Ödev Ekle',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: _AssignmentFollowUpPageState._blue,
+                color: AppColors.accentBlue,
                 fontWeight: FontWeight.w800,
               ),
             ),

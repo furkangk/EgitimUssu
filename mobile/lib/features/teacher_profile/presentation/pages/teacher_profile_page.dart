@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
@@ -15,17 +17,6 @@ class TeacherProfilePage extends StatefulWidget {
 }
 
 class _TeacherProfilePageState extends State<TeacherProfilePage> {
-  static const _navy = Color(0xFF082B4F);
-  static const _blue = Color(0xFF3D8BFF);
-  static const _emerald = Color(0xFF20B486);
-  static const _amber = Color(0xFFFFB84D);
-  static const _red = Color(0xFFFF5A5F);
-  static const _slate = Color(0xFF6B7A90);
-  static const _text = Color(0xFF10233D);
-  static const _background = Color(0xFFF4F8FC);
-  static const _border = Color(0xFFE5EEF7);
-  static const _surfaceLow = Color(0xFFEAF3FF);
-
   late final TeacherProfileCubit _cubit;
   bool _profilePopulated = false;
   bool _loaded = false;
@@ -82,17 +73,19 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           if (!_profilePopulated && state.profile != null && !state.isLoading) {
             _profilePopulated = true;
             final session = context.read<AuthCubit>().state.session;
-            setState(() => _populateFromProfile(state.profile!, session?.email));
+            setState(
+              () => _populateFromProfile(state.profile!, session?.email),
+            );
           }
           if (state.successMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.successMessage!)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
           }
           if (state.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                backgroundColor: _red,
+                backgroundColor: AppColors.accentRed,
                 content: Text(state.errorMessage!),
               ),
             );
@@ -101,285 +94,297 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         builder: (context, state) {
           if (state.isLoading && !_profilePopulated) {
             return const Scaffold(
-              backgroundColor: _background,
+              backgroundColor: AppColors.background,
               body: SafeArea(child: _ShimmerProfile()),
             );
           }
           return Scaffold(
-            backgroundColor: _background,
+            backgroundColor: AppColors.background,
             body: SafeArea(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
                 children: <Widget>[
-            _TopBar(onBack: () => context.pop()),
-            const SizedBox(height: 22),
-            _PhotoHeader(profile: _profile, onChangePhoto: _showPhotoOptions),
-            const SizedBox(height: 18),
-            Row(
-              children: const <Widget>[
-                Expanded(
-                  child: _MetricTile(
-                    icon: Icons.star_rounded,
-                    label: 'Puan',
-                    value: '4.8',
-                    helper: '126 yorum',
-                    color: _amber,
+                  _TopBar(onBack: () => context.pop()),
+                  const SizedBox(height: 22),
+                  _PhotoHeader(
+                    profile: _profile,
+                    onChangePhoto: _showPhotoOptions,
                   ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _MetricTile(
-                    icon: Icons.groups_rounded,
-                    label: 'Aktif öğrenci',
-                    value: '18',
-                    helper: 'Bu ay',
-                    color: _emerald,
+                  const SizedBox(height: 18),
+                  Row(
+                    children: const <Widget>[
+                      Expanded(
+                        child: _MetricTile(
+                          icon: Icons.star_rounded,
+                          label: 'Puan',
+                          value: '4.8',
+                          helper: '126 yorum',
+                          color: AppColors.amber,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _MetricTile(
+                          icon: Icons.groups_rounded,
+                          label: 'Aktif öğrenci',
+                          value: '18',
+                          helper: 'Bu ay',
+                          color: AppColors.accentGreen,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            _VisibilityPanel(
-              value: _profileVisible,
-              onChanged: (value) => setState(() => _profileVisible = value),
-            ),
-            const SizedBox(height: 22),
-            const _SectionTitle(title: 'Kişisel bilgiler'),
-            const SizedBox(height: 10),
-            _SettingsPanel(
-              children: <Widget>[
-                _SettingTile(
-                  icon: Icons.badge_outlined,
-                  label: 'Ad Soyad',
-                  value: _profile.fullName,
-                  onTap: () => _editText(
-                    title: 'Ad Soyad',
-                    initialValue: _profile.fullName,
-                    icon: Icons.badge_outlined,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(fullName: value),
-                      );
+                  const SizedBox(height: 22),
+                  _VisibilityPanel(
+                    value: _profileVisible,
+                    onChanged: (value) =>
+                        setState(() => _profileVisible = value),
+                  ),
+                  const SizedBox(height: 22),
+                  const _SectionTitle(title: 'Kişisel bilgiler'),
+                  const SizedBox(height: 10),
+                  _SettingsPanel(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.badge_outlined,
+                        label: 'Ad Soyad',
+                        value: _profile.fullName,
+                        onTap: () => _editText(
+                          title: 'Ad Soyad',
+                          initialValue: _profile.fullName,
+                          icon: Icons.badge_outlined,
+                          onSaved: (value) {
+                            setState(
+                              () =>
+                                  _profile = _profile.copyWith(fullName: value),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.mail_outline_rounded,
+                        label: 'E-posta',
+                        value: _profile.email,
+                        onTap: () => _editText(
+                          title: 'E-posta',
+                          initialValue: _profile.email,
+                          icon: Icons.mail_outline_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                          onSaved: (value) {
+                            setState(
+                              () => _profile = _profile.copyWith(email: value),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.phone_outlined,
+                        label: 'Telefon',
+                        value: _profile.phone,
+                        onTap: () => _editText(
+                          title: 'Telefon',
+                          initialValue: _profile.phone,
+                          icon: Icons.phone_outlined,
+                          keyboardType: TextInputType.phone,
+                          onSaved: (value) {
+                            setState(
+                              () => _profile = _profile.copyWith(phone: value),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.location_on_outlined,
+                        label: 'Konum',
+                        value: '${_profile.city}, ${_profile.district}',
+                        onTap: _editLocation,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  const _SectionTitle(title: 'Öğretmen bilgileri'),
+                  const SizedBox(height: 10),
+                  _SettingsPanel(
+                    children: <Widget>[
+                      _SettingTile(
+                        icon: Icons.workspace_premium_outlined,
+                        label: 'Başlık',
+                        value: _profile.title,
+                        onTap: () => _editText(
+                          title: 'Başlık',
+                          initialValue: _profile.title,
+                          icon: Icons.workspace_premium_outlined,
+                          onSaved: (value) {
+                            setState(
+                              () => _profile = _profile.copyWith(title: value),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.school_outlined,
+                        label: 'Branş',
+                        value: _profile.subject,
+                        onTap: () => _editText(
+                          title: 'Branş',
+                          initialValue: _profile.subject,
+                          icon: Icons.school_outlined,
+                          onSaved: (value) {
+                            setState(
+                              () =>
+                                  _profile = _profile.copyWith(subject: value),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.menu_book_outlined,
+                        label: 'Eğitim',
+                        value: _profile.education,
+                        onTap: () => _editText(
+                          title: 'Eğitim',
+                          initialValue: _profile.education,
+                          icon: Icons.menu_book_outlined,
+                          onSaved: (value) {
+                            setState(
+                              () => _profile = _profile.copyWith(
+                                education: value,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.timeline_rounded,
+                        label: 'Deneyim',
+                        value: _profile.experience,
+                        onTap: () => _editText(
+                          title: 'Deneyim',
+                          initialValue: _profile.experience,
+                          icon: Icons.timeline_rounded,
+                          onSaved: (value) {
+                            setState(
+                              () => _profile = _profile.copyWith(
+                                experience: value,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.payments_outlined,
+                        label: 'Saatlik ücret',
+                        value: _profile.hourlyRate,
+                        onTap: () => _editText(
+                          title: 'Saatlik ücret',
+                          initialValue: _profile.hourlyRate,
+                          icon: Icons.payments_outlined,
+                          keyboardType: TextInputType.number,
+                          onSaved: (value) {
+                            setState(
+                              () => _profile = _profile.copyWith(
+                                hourlyRate: value,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const _DividerLine(),
+                      _SettingTile(
+                        icon: Icons.sync_alt_rounded,
+                        label: 'Ders formatı',
+                        value: _profile.lessonFormat,
+                        onTap: _editLessonFormat,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _LongTextTile(
+                    icon: Icons.auto_stories_outlined,
+                    title: 'Hakkında',
+                    body: _profile.biography,
+                    color: AppColors.accentBlue,
+                    onTap: () => _editText(
+                      title: 'Hakkında',
+                      initialValue: _profile.biography,
+                      icon: Icons.auto_stories_outlined,
+                      minLines: 5,
+                      maxLines: 7,
+                      onSaved: (value) {
+                        setState(
+                          () => _profile = _profile.copyWith(biography: value),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _LongTextTile(
+                    icon: Icons.family_restroom_rounded,
+                    title: 'Veliye not',
+                    body: _profile.parentNote,
+                    color: AppColors.accentGreen,
+                    onTap: () => _editText(
+                      title: 'Veliye not',
+                      initialValue: _profile.parentNote,
+                      icon: Icons.family_restroom_rounded,
+                      minLines: 4,
+                      maxLines: 6,
+                      onSaved: (value) {
+                        setState(
+                          () => _profile = _profile.copyWith(parentNote: value),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionHeader(
+                    title: 'Uzmanlık alanları',
+                    actionLabel: 'Düzenle',
+                    onAction: _editExpertise,
+                  ),
+                  const SizedBox(height: 10),
+                  _ChipPanel(items: _expertise),
+                  const SizedBox(height: 22),
+                  const _SectionTitle(title: 'Ders tercihleri'),
+                  const SizedBox(height: 10),
+                  _PreferencePanel(
+                    onlineAvailable: _onlineAvailable,
+                    inPersonAvailable: _inPersonAvailable,
+                    onOnlineChanged: (value) =>
+                        setState(() => _onlineAvailable = value),
+                    onInPersonChanged: (value) =>
+                        setState(() => _inPersonAvailable = value),
+                  ),
+                  const SizedBox(height: 22),
+                  _SectionHeader(
+                    title: 'Müsaitlik durumu',
+                    actionLabel: 'Ekle',
+                    onAction: _editAvailability,
+                  ),
+                  const SizedBox(height: 10),
+                  _AvailabilityPanel(
+                    items: _availability,
+                    onEdit: (slot) => _editAvailability(slot: slot),
+                    onDelete: (slot) {
+                      setState(() => _availability.remove(slot));
                     },
                   ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.mail_outline_rounded,
-                  label: 'E-posta',
-                  value: _profile.email,
-                  onTap: () => _editText(
-                    title: 'E-posta',
-                    initialValue: _profile.email,
-                    icon: Icons.mail_outline_rounded,
-                    keyboardType: TextInputType.emailAddress,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(email: value),
-                      );
-                    },
+                  const SizedBox(height: 22),
+                  _SaveButton(
+                    isSaving: state.isSaving,
+                    onPressed: () => _saveToCubit(context),
                   ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.phone_outlined,
-                  label: 'Telefon',
-                  value: _profile.phone,
-                  onTap: () => _editText(
-                    title: 'Telefon',
-                    initialValue: _profile.phone,
-                    icon: Icons.phone_outlined,
-                    keyboardType: TextInputType.phone,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(phone: value),
-                      );
-                    },
-                  ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.location_on_outlined,
-                  label: 'Konum',
-                  value: '${_profile.city}, ${_profile.district}',
-                  onTap: _editLocation,
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            const _SectionTitle(title: 'Öğretmen bilgileri'),
-            const SizedBox(height: 10),
-            _SettingsPanel(
-              children: <Widget>[
-                _SettingTile(
-                  icon: Icons.workspace_premium_outlined,
-                  label: 'Başlık',
-                  value: _profile.title,
-                  onTap: () => _editText(
-                    title: 'Başlık',
-                    initialValue: _profile.title,
-                    icon: Icons.workspace_premium_outlined,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(title: value),
-                      );
-                    },
-                  ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.school_outlined,
-                  label: 'Branş',
-                  value: _profile.subject,
-                  onTap: () => _editText(
-                    title: 'Branş',
-                    initialValue: _profile.subject,
-                    icon: Icons.school_outlined,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(subject: value),
-                      );
-                    },
-                  ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.menu_book_outlined,
-                  label: 'Eğitim',
-                  value: _profile.education,
-                  onTap: () => _editText(
-                    title: 'Eğitim',
-                    initialValue: _profile.education,
-                    icon: Icons.menu_book_outlined,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(education: value),
-                      );
-                    },
-                  ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.timeline_rounded,
-                  label: 'Deneyim',
-                  value: _profile.experience,
-                  onTap: () => _editText(
-                    title: 'Deneyim',
-                    initialValue: _profile.experience,
-                    icon: Icons.timeline_rounded,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(experience: value),
-                      );
-                    },
-                  ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.payments_outlined,
-                  label: 'Saatlik ücret',
-                  value: _profile.hourlyRate,
-                  onTap: () => _editText(
-                    title: 'Saatlik ücret',
-                    initialValue: _profile.hourlyRate,
-                    icon: Icons.payments_outlined,
-                    keyboardType: TextInputType.number,
-                    onSaved: (value) {
-                      setState(
-                        () => _profile = _profile.copyWith(hourlyRate: value),
-                      );
-                    },
-                  ),
-                ),
-                const _DividerLine(),
-                _SettingTile(
-                  icon: Icons.sync_alt_rounded,
-                  label: 'Ders formatı',
-                  value: _profile.lessonFormat,
-                  onTap: _editLessonFormat,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _LongTextTile(
-              icon: Icons.auto_stories_outlined,
-              title: 'Hakkında',
-              body: _profile.biography,
-              color: _blue,
-              onTap: () => _editText(
-                title: 'Hakkında',
-                initialValue: _profile.biography,
-                icon: Icons.auto_stories_outlined,
-                minLines: 5,
-                maxLines: 7,
-                onSaved: (value) {
-                  setState(
-                    () => _profile = _profile.copyWith(biography: value),
-                  );
-                },
+                ],
               ),
             ),
-            const SizedBox(height: 14),
-            _LongTextTile(
-              icon: Icons.family_restroom_rounded,
-              title: 'Veliye not',
-              body: _profile.parentNote,
-              color: _emerald,
-              onTap: () => _editText(
-                title: 'Veliye not',
-                initialValue: _profile.parentNote,
-                icon: Icons.family_restroom_rounded,
-                minLines: 4,
-                maxLines: 6,
-                onSaved: (value) {
-                  setState(
-                    () => _profile = _profile.copyWith(parentNote: value),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 22),
-            _SectionHeader(
-              title: 'Uzmanlık alanları',
-              actionLabel: 'Düzenle',
-              onAction: _editExpertise,
-            ),
-            const SizedBox(height: 10),
-            _ChipPanel(items: _expertise),
-            const SizedBox(height: 22),
-            const _SectionTitle(title: 'Ders tercihleri'),
-            const SizedBox(height: 10),
-            _PreferencePanel(
-              onlineAvailable: _onlineAvailable,
-              inPersonAvailable: _inPersonAvailable,
-              onOnlineChanged: (value) =>
-                  setState(() => _onlineAvailable = value),
-              onInPersonChanged: (value) =>
-                  setState(() => _inPersonAvailable = value),
-            ),
-            const SizedBox(height: 22),
-            _SectionHeader(
-              title: 'Müsaitlik durumu',
-              actionLabel: 'Ekle',
-              onAction: _editAvailability,
-            ),
-            const SizedBox(height: 10),
-            _AvailabilityPanel(
-              items: _availability,
-              onEdit: (slot) => _editAvailability(slot: slot),
-              onDelete: (slot) {
-                setState(() => _availability.remove(slot));
-              },
-            ),
-            const SizedBox(height: 22),
-            _SaveButton(
-              isSaving: state.isSaving,
-              onPressed: () => _saveToCubit(context),
-            ),
-          ],
-        ),
-      ),
-    );
+          );
         },
       ),
     );
@@ -408,9 +413,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       biography: profile.biography ?? '',
       parentNote: '',
     );
-    _onlineAvailable = profile.lessonFormat == 'Online' ||
+    _onlineAvailable =
+        profile.lessonFormat == 'Online' ||
         profile.lessonFormat == 'OnlineAndInPerson';
-    _inPersonAvailable = profile.lessonFormat == 'InPerson' ||
+    _inPersonAvailable =
+        profile.lessonFormat == 'InPerson' ||
         profile.lessonFormat == 'OnlineAndInPerson';
     _availability = profile.availabilitySlots
         .map(
@@ -916,7 +923,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(value),
                   trailing: selected == value
-                      ? const Icon(Icons.check_rounded, color: _navy)
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: AppColors.primary,
+                        )
                       : null,
                   onTap: () {
                     onSelected(value);
@@ -944,28 +954,29 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: _blue),
+      prefixIcon: Icon(icon, color: AppColors.accentBlue),
       filled: true,
-      fillColor: _background,
+      fillColor: AppColors.background,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _border),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _border),
+        borderSide: const BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: _navy),
+        borderSide: const BorderSide(color: AppColors.primary),
       ),
     );
   }
 
   TextStyle? _sheetLabelStyle(BuildContext context) {
-    return Theme.of(
-      context,
-    ).textTheme.labelLarge?.copyWith(color: _text, fontWeight: FontWeight.w800);
+    return Theme.of(context).textTheme.labelLarge?.copyWith(
+      color: AppColors.textPrimary,
+      fontWeight: FontWeight.w800,
+    );
   }
 
   void _showSavedMessage(String message) {
@@ -993,7 +1004,7 @@ class _TopBar extends StatelessWidget {
               Text(
                 'Profil Bilgileri',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: _TeacherProfilePageState._text,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1001,7 +1012,7 @@ class _TopBar extends StatelessWidget {
               Text(
                 'Alanlara dokunarak düzenle',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: _TeacherProfilePageState._slate,
+                  color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1031,15 +1042,9 @@ class _PhotoHeader extends StatelessWidget {
               height: 126,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _TeacherProfilePageState._navy,
+                color: AppColors.primary,
                 border: Border.all(color: Colors.white, width: 5),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x1F082B4F),
-                    blurRadius: 28,
-                    offset: Offset(0, 12),
-                  ),
-                ],
+                boxShadow: AppShadows.soft,
               ),
               clipBehavior: Clip.antiAlias,
               child: Image.network(
@@ -1066,7 +1071,7 @@ class _PhotoHeader extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _TeacherProfilePageState._navy,
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 3),
                   ),
@@ -1085,7 +1090,7 @@ class _PhotoHeader extends StatelessWidget {
           profile.fullName,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: _TeacherProfilePageState._text,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -1094,7 +1099,7 @@ class _PhotoHeader extends StatelessWidget {
           profile.title,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: _TeacherProfilePageState._slate,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1126,7 +1131,7 @@ class _MetricTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _TeacherProfilePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1136,7 +1141,7 @@ class _MetricTile extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: _TeacherProfilePageState._slate,
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1146,7 +1151,7 @@ class _MetricTile extends StatelessWidget {
               Text(
                 value,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: _TeacherProfilePageState._text,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1183,13 +1188,13 @@ class _VisibilityPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _TeacherProfilePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: <Widget>[
           const _TintedIcon(
             icon: Icons.visibility_outlined,
-            color: _TeacherProfilePageState._emerald,
+            color: AppColors.accentGreen,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1199,7 +1204,7 @@ class _VisibilityPanel extends StatelessWidget {
                 Text(
                   'Profil görünürlüğü',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _TeacherProfilePageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1207,7 +1212,7 @@ class _VisibilityPanel extends StatelessWidget {
                 Text(
                   'Öğrenci ve veli aramalarında görünür.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _TeacherProfilePageState._slate,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1216,7 +1221,7 @@ class _VisibilityPanel extends StatelessWidget {
           ),
           Switch.adaptive(
             value: value,
-            activeThumbColor: _TeacherProfilePageState._navy,
+            activeThumbColor: AppColors.primary,
             onChanged: onChanged,
           ),
         ],
@@ -1236,7 +1241,7 @@ class _SettingsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _TeacherProfilePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(children: children),
     );
@@ -1264,7 +1269,7 @@ class _SettingTile extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
         child: Row(
           children: <Widget>[
-            _TintedIcon(icon: icon, color: _TeacherProfilePageState._blue),
+            _TintedIcon(icon: icon, color: AppColors.accentBlue),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1273,7 +1278,7 @@ class _SettingTile extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: _TeacherProfilePageState._slate,
+                      color: AppColors.textSecondary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1283,7 +1288,7 @@ class _SettingTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: _TeacherProfilePageState._text,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1292,7 +1297,7 @@ class _SettingTile extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right_rounded,
-              color: _TeacherProfilePageState._slate,
+              color: AppColors.textSecondary,
             ),
           ],
         ),
@@ -1326,7 +1331,7 @@ class _LongTextTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: _TeacherProfilePageState._border),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1344,14 +1349,14 @@ class _LongTextTile extends StatelessWidget {
                           title,
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
-                                color: _TeacherProfilePageState._text,
+                                color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w900,
                               ),
                         ),
                       ),
                       const Icon(
                         Icons.chevron_right_rounded,
-                        color: _TeacherProfilePageState._slate,
+                        color: AppColors.textSecondary,
                       ),
                     ],
                   ),
@@ -1359,7 +1364,7 @@ class _LongTextTile extends StatelessWidget {
                   Text(
                     body,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _TeacherProfilePageState._slate,
+                      color: AppColors.textSecondary,
                       height: 1.45,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1384,7 +1389,7 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: _TeacherProfilePageState._text,
+        color: AppColors.textPrimary,
         fontWeight: FontWeight.w900,
       ),
     );
@@ -1426,7 +1431,7 @@ class _ChipPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _TeacherProfilePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Wrap(
         spacing: 8,
@@ -1439,13 +1444,13 @@ class _ChipPanel extends StatelessWidget {
                   vertical: 9,
                 ),
                 decoration: BoxDecoration(
-                  color: _TeacherProfilePageState._surfaceLow,
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   item,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _TeacherProfilePageState._navy,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1515,7 +1520,7 @@ class _SwitchRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       child: Row(
         children: <Widget>[
-          _TintedIcon(icon: icon, color: _TeacherProfilePageState._emerald),
+          _TintedIcon(icon: icon, color: AppColors.accentGreen),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1524,7 +1529,7 @@ class _SwitchRow extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: _TeacherProfilePageState._text,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1532,7 +1537,7 @@ class _SwitchRow extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _TeacherProfilePageState._slate,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1541,7 +1546,7 @@ class _SwitchRow extends StatelessWidget {
           ),
           Switch.adaptive(
             value: value,
-            activeThumbColor: _TeacherProfilePageState._navy,
+            activeThumbColor: AppColors.primary,
             onChanged: onChanged,
           ),
         ],
@@ -1568,7 +1573,7 @@ class _AvailabilityPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _TeacherProfilePageState._border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: items.isEmpty
@@ -1585,7 +1590,7 @@ class _AvailabilityPanel extends StatelessWidget {
                             width: 10,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: _TeacherProfilePageState._blue,
+                              color: AppColors.accentBlue,
                               borderRadius: BorderRadius.circular(999),
                             ),
                           ),
@@ -1598,7 +1603,7 @@ class _AvailabilityPanel extends StatelessWidget {
                                   item.day,
                                   style: Theme.of(context).textTheme.titleSmall
                                       ?.copyWith(
-                                        color: _TeacherProfilePageState._text,
+                                        color: AppColors.textPrimary,
                                         fontWeight: FontWeight.w900,
                                       ),
                                 ),
@@ -1607,7 +1612,7 @@ class _AvailabilityPanel extends StatelessWidget {
                                   '${item.start} - ${item.end}',
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
-                                        color: _TeacherProfilePageState._slate,
+                                        color: AppColors.textSecondary,
                                         fontWeight: FontWeight.w700,
                                       ),
                                 ),
@@ -1621,7 +1626,7 @@ class _AvailabilityPanel extends StatelessWidget {
                           IconButton(
                             onPressed: () => onDelete(item),
                             icon: const Icon(Icons.delete_outline_rounded),
-                            color: _TeacherProfilePageState._red,
+                            color: AppColors.accentRed,
                           ),
                         ],
                       ),
@@ -1643,7 +1648,7 @@ class _EmptyAvailability extends StatelessWidget {
       child: Text(
         'Henüz müsaitlik eklenmedi.',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: _TeacherProfilePageState._slate,
+          color: AppColors.textSecondary,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -1677,7 +1682,7 @@ class _TimeDropdown extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: _TeacherProfilePageState._background,
+        fillColor: AppColors.background,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
@@ -1726,7 +1731,7 @@ class _ActionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: _TintedIcon(icon: icon, color: _TeacherProfilePageState._blue),
+      leading: _TintedIcon(icon: icon, color: AppColors.accentBlue),
       title: Text(title),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
@@ -1747,7 +1752,7 @@ class _SheetTitle extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: _TeacherProfilePageState._text,
+          color: AppColors.textPrimary,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -1793,9 +1798,9 @@ class _IconButtonBox extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _TeacherProfilePageState._border),
+          border: Border.all(color: AppColors.border),
         ),
-        child: Icon(icon, color: _TeacherProfilePageState._text),
+        child: Icon(icon, color: AppColors.textPrimary),
       ),
     );
   }
@@ -1806,11 +1811,7 @@ class _DividerLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Divider(
-      height: 1,
-      indent: 68,
-      color: _TeacherProfilePageState._border,
-    );
+    return const Divider(height: 1, indent: 68, color: AppColors.border);
   }
 }
 
@@ -1820,7 +1821,7 @@ class _ShimmerProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE5EEF7),
+      baseColor: AppColors.border,
       highlightColor: Colors.white,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
@@ -1856,7 +1857,7 @@ class _SaveButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isSaving ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: _TeacherProfilePageState._navy,
+          backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

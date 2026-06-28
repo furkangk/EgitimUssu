@@ -7,7 +7,7 @@
 > **Otorite:** Bir widget kodda varsa **kod doğruluk kaynağıdır** (sınıf adı, parametreler buradan alınır). Token
 > değerleri → [`design_system.md`](design_system.md). Karmaşık widget'ın derin tasarımı kendi dosyasındadır (ör. tab → [`../tab_widget.md`](../tab_widget.md)).
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-06-28
 
 ---
 
@@ -35,7 +35,7 @@
 | AppDateTimeField | `AppDateTimeField` @ `form_fields.dart` | `controller, labelText, validator, hintText?` | `AppTextField` + takvim ikonu | 🟢 |
 | AppFieldLabel | `AppFieldLabel` @ `form_fields.dart` | `text` | Form alanı etiketi (w700) | 🟢 |
 | AppCard | _(yok)_ | `child, padding?` | Beyaz zemin + `border` + `softShadow`, radius 16, padding 14-16 | 🔴 |
-| AppHeader | _(yok)_ | `title, leading?, actions?` | Varyant: geri / bildirim / menü / sadece-başlık | 🔴 |
+| AppHeader | `AppPageHeader` @ `app_page_header.dart` | `title, subtitle?, trailing?` | Tüm ana ekranların ortak başlığı: sol başlık (+alt başlık), sağda bildirim zili. Zil her zaman `/notifications`'a gider; rozet global `NotificationsCubit.state.unreadCount`'tan gelir (`context.select`). Renkler `AppColors` token'larından (sabit kodlu **değil**). Tek tanım → tüm sayfalara yansır. Geri/menü varyantı henüz yok | 🟡 |
 | AppBottomNav | _(yok)_ | `items, currentIndex, onTap` | **Rol bazlı** item seti (bkz. [`mobile_flutter.md`](mobile_flutter.md) §9); aktif primary, pasif gri | 🔴 |
 | AppAvatar | _(yok)_ | `imageUrl?, size, initials?` | Dairesel; görsel yoksa baş harf | 🔴 |
 | AppBadge | _(yok)_ | `text/count, color` | Durum/sayaç rozeti (10-12px) | 🔴 |
@@ -70,10 +70,12 @@ ProfileMenuTile → SectionHeader**. `AppButton`'ı tam varyant setine (outline/
 
 ## 5. Bilinen Tutarlılık Notları
 
-- **`form_fields.dart` token'a bağlı değil:** Renkleri sabit kodlu (`_appFieldBorder=0xFFE5EAF0`, `_appFieldFocus=0xFF062B52`).
-  Bunlar [`design_system.md`](design_system.md) token'larından (`border=#E5E7EB` vb.) küçük farkla ayrışıyor → ileride
-  `AppColors`/tema üzerinden alınmalı.
+- **`form_fields.dart` artık `AppColors`'a bağlı:** Eski sabit-kodlu renkler (`_appFieldBorder`, `_appFieldFocus`, `_appFieldText`, `_appFieldError`) kaldırıldı; `AppColors.border/primary/textPrimary/accentRed` kullanılıyor.
 - **`AppPrimaryButton`** yalnızca primary varyantı sağlıyor; tasarımdaki `AppButton` varyantları (outline/danger/icon/small) eksik (🟡).
+- **`AppPageHeader` öncesi** her ana ekran (dashboard, payments, assignments, scheduling, students, lesson_sessions) kendi başlık + bildirim butonunu ayrı tanımlıyordu; bildirim yalnızca dashboard'da çalışıyordu, rozetler sabit "2" idi. Artık tek widget'ta toplandı, buton her yerde `/notifications`'a gidiyor, rozet gerçek okunmamış sayısını gösteriyor ve renkleri `AppColors` token'larından çağırıyor.
+- **Renk migrasyonu:** Tüm sayfa/widget'lardaki yerel renk sabitleri **ve** token'a birebir eşleşen inline `Color(0x…)` literalleri `AppColors`'a taşındı.
+- **Gölge migrasyonu:** Tüm ekranlardaki elle yazılmış `BoxShadow`'lar tek `AppShadows.soft` (`core/theme/app_shadows.dart`) token'ına indirgendi; ekran başına ayrı gölge yok.
+- **Semantik durum token'ları:** Hata/aciliyet tint'leri `AppColors`'a semantik token oldu (`error`/`errorSurface`/`errorSurfaceStrong`/`errorBorder`, `warning*`, `infoSurface`, `successSurface`); aciliyet-kademeli kartlar (geciken ödev/ödeme) bunları kullanıyor. Geriye yalnızca near-white yüzeyler ve gradient durakları gibi tekil/özel literaller kaldı.
 - Yeni widget eklerken renk/spacing **doğrudan değer yazma**, [`design_system.md`](design_system.md) token'larından çağır.
 
 > **Bakım (KALICI KURAL):** `shared/widgets/` altında bir widget eklen/değiştirilince bu katalogdaki **satırı ve durumu**
@@ -84,4 +86,4 @@ ProfileMenuTile → SectionHeader**. `AppButton`'ı tam varyant setine (outline/
 > İlgili: token'lar → [`design_system.md`](design_system.md) · mobil mimari/ekranlar → [`mobile_flutter.md`](mobile_flutter.md) ·
 > tab detay → [`../tab_widget.md`](../tab_widget.md) · sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md)
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-06-24*
+*Ortak Widget Kataloğu | Güncelleme: 2026-06-28*
