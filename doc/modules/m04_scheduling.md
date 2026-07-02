@@ -23,7 +23,7 @@
 | API endpoint'leri | ✅ Mevcut (6 endpoint: planla/güncelle/iptal/tamamla/getir/takvim) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
 | Infrastructure (DbContext + repo + migration) | ✅ Mevcut | `src/Modules/Scheduling/Infrastructure/*` |
 | Çakışma kontrolü (aynı öğretmen) | ✅ **Mevcut** | `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) |
-| Hatırlatma planlama | ✅ Mevcut | `ILessonScheduleNotificationService.ScheduleReminderAsync` |
+| Hatırlatma planlama | ✅ Mevcut | **Olay tabanlı (2026-07-01, Y1):** `LessonScheduledDomainEvent` → outbox → Notifications handler. Senkron `ILessonScheduleNotificationService` **kaldırıldı**; Scheduling artık Notifications'a doğrudan yazmaz |
 | Mobil takvim ekranı | ✅ Mevcut | `mobile/lib/features/scheduling` (`syncfusion_flutter_calendar`) |
 | Online ders linki (`MeetingUrl`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
 | Tatil / blackout (`ScheduleException`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
@@ -75,7 +75,7 @@ LessonScheduleStatus  : Draft = 1, Planned = 2, Cancelled = 3, Completed = 4
 **Domain Event'ler (koddan birebir):**
 | Event | Alanlar |
 |-------|---------|
-| `LessonScheduledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, CreatedOnUtc` |
+| `LessonScheduledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, ReminderOffsetMinutes, CreatedOnUtc` (2026-07-01: `ReminderOffsetMinutes` eklendi — Notifications handler'ı offset'i buradan alır, Y1) |
 | `LessonScheduleCancelledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CancelledOnUtc` |
 | `LessonSessionCompletedDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CompletedOnUtc` |
 
@@ -174,8 +174,8 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 
 ```
 POST /lessons (Planned)
-   → LessonScheduledDomainEvent
-       → m11 Notifications: ReminderOffsetMinutes ile hatırlatma planlanır (ILessonScheduleNotificationService)
+   → LessonScheduledDomainEvent (ReminderOffsetMinutes taşır)
+       → outbox → m11 Notifications handler: ReminderOffsetMinutes ile hatırlatma planlanır (senkron servis kaldırıldı, Y1)
        → (öneri) m08 Study: öğrencinin birleşik takvimine "özel ders" olarak yansıtılır
        → (öneri) m09 Parents: veliye "yeni ders planlandı" bildirimi
 
@@ -254,4 +254,4 @@ POST /lessons/{id}/cancel
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-06-28*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-01*

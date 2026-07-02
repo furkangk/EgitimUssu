@@ -13,6 +13,7 @@ public sealed record ResetPasswordCommand(string Email, string Token, string New
 public sealed record RequestEmailVerificationCommand(string Email) : ICommand<Result>, IAllowAnonymous;
 public sealed record ConfirmEmailVerificationCommand(string Email, string Token) : ICommand<Result>, IAllowAnonymous;
 public sealed record GetUserByIdQuery(Guid UserId) : IQuery<Result<UserAccountResponse>>;
+public sealed record AssignRolesCommand(Guid UserId, IReadOnlyCollection<UserRole> Roles) : ICommand<Result<UserAccountResponse>>;
 
 public sealed record AuthResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, string AccessToken, DateTime ExpiresAtUtc, string RefreshToken);
 public sealed record UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName, string? PhoneNumber, string Status, bool IsEmailConfirmed, bool IsProfileVerified, IReadOnlyCollection<string> Roles, DateTime CreatedOnUtc, DateTime UpdatedOnUtc);
@@ -27,6 +28,13 @@ public interface IUserAccountRepository
 }
 
 public interface IPasswordHasher { string Hash(string password); bool Verify(string hashedPassword, string providedPassword); }
+// Y4: Ardışık başarısız giriş denemelerine karşı hesap-bazlı kilit (brute-force koruması). Redis destekli, fail-open.
+public interface ILoginAttemptThrottle
+{
+    Task<bool> IsLockedAsync(string normalizedEmail, CancellationToken cancellationToken);
+    Task RecordFailureAsync(string normalizedEmail, CancellationToken cancellationToken);
+    Task ResetAsync(string normalizedEmail, CancellationToken cancellationToken);
+}
 public interface ITokenIssuer { (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount); }
 public interface ITokenProtector { string Hash(string token); string GenerateToken(); }
 public interface IIdentityNotificationService
@@ -40,12 +48,19 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
     private static readonly Error DuplicateEmail = new("identity.duplicate_email", "Bu e-posta ile kayitli bir kullanici zaten var.");
     private static readonly Error InvalidPassword = new("identity.invalid_password", "Sifre en az 8 karakter olmalidir.");
     private static readonly Error MissingRole = new("identity.missing_role", "En az bir kullanici rolu secilmelidir.");
+    private static readonly Error RoleNotSelfAssignable = new("identity.role_not_self_assignable", "Bu rol kayit sirasinda secilemez.");
+
+    // K1: Self-register'da yalnizca bu roller istemciden secilebilir. Admin gibi yukseltilmis roller
+    // yalnizca yetkili bir yoneticinin cagirdigi AssignRolesCommand ile atanir (varsayilan-deny).
+    private static readonly IReadOnlySet<UserRole> SelfAssignableRoles =
+        new HashSet<UserRole> { UserRole.Teacher, UserRole.Student, UserRole.Parent };
     private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly IIdentityNotificationService _notificationService; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
     public RegisterUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, IIdentityNotificationService notificationService, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _notificationService = notificationService; _idGenerator = idGenerator; _clock = clock; }
     public async Task<Result<AuthResponse>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(command.Password) || command.Password.Length < 8) return Result<AuthResponse>.Failure(InvalidPassword);
         if (command.Roles.Count == 0) return Result<AuthResponse>.Failure(MissingRole);
+        if (command.Roles.Any(role => !SelfAssignableRoles.Contains(role))) return Result<AuthResponse>.Failure(RoleNotSelfAssignable);
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
         if (await _repository.GetByEmailAsync(normalizedEmail, cancellationToken) is not null) return Result<AuthResponse>.Failure(DuplicateEmail);
         var now = _clock.UtcNow;
@@ -67,13 +82,22 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
 {
     private static readonly Error InvalidCredentials = new("identity.invalid_credentials", "E-posta veya sifre hatali.");
     private static readonly Error UserInactive = new("identity.user_inactive", "Kullanici hesabi aktif degil.");
-    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
-    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _idGenerator = idGenerator; _clock = clock; }
+    private static readonly Error TooManyAttempts = new("identity.too_many_attempts", "Cok fazla basarisiz giris denemesi. Lutfen bir sure sonra tekrar deneyin.");
+    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
+    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _idGenerator = idGenerator; _clock = clock; }
     public async Task<Result<AuthResponse>> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
-        var user = await _repository.GetByEmailAsync(command.Email.Trim().ToUpperInvariant(), cancellationToken);
-        if (user is null || !_passwordHasher.Verify(user.PasswordHash, command.Password)) return Result<AuthResponse>.Failure(InvalidCredentials);
+        var normalizedEmail = command.Email.Trim().ToUpperInvariant();
+        // Y4: Ardışık başarısızlıkta hesap geçici kilitli — kimlik doğrulamadan önce reddet (brute-force koruması).
+        if (await _throttle.IsLockedAsync(normalizedEmail, cancellationToken)) return Result<AuthResponse>.Failure(TooManyAttempts);
+        var user = await _repository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        if (user is null || !_passwordHasher.Verify(user.PasswordHash, command.Password))
+        {
+            await _throttle.RecordFailureAsync(normalizedEmail, cancellationToken);
+            return Result<AuthResponse>.Failure(InvalidCredentials);
+        }
         if (user.Status is not UserAccountStatus.Active and not UserAccountStatus.PendingActivation) return Result<AuthResponse>.Failure(UserInactive);
+        await _throttle.ResetAsync(normalizedEmail, cancellationToken);
         var now = _clock.UtcNow;
         var refreshToken = _tokenProtector.GenerateToken();
         user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), command.DeviceName, now, now.AddDays(30)));
@@ -204,6 +228,28 @@ public sealed class GetUserByIdQueryHandler : IQueryHandler<GetUserByIdQuery, Re
     {
         var user = await _repository.GetByIdAsync(query.UserId, cancellationToken);
         if (user is null) return Result<UserAccountResponse>.Failure(NotFound);
+        return Result<UserAccountResponse>.Success(new UserAccountResponse(user.Id, user.Email, user.FirstName, user.LastName, user.PhoneNumber, user.Status.ToString(), user.IsEmailConfirmed, user.IsProfileVerified, user.RoleMemberships.Select(role => role.Role.ToString()).ToArray(), user.CreatedOnUtc, user.UpdatedOnUtc));
+    }
+}
+
+public sealed class AssignRolesCommandHandler : ICommandHandler<AssignRolesCommand, Result<UserAccountResponse>>
+{
+    private static readonly Error NotFound = new("identity.user_not_found", "Kullanici bulunamadi.");
+    private static readonly Error MissingRole = new("identity.missing_role", "En az bir kullanici rolu secilmelidir.");
+    private readonly IUserAccountRepository _repository; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
+    public AssignRolesCommandHandler(IUserAccountRepository repository, IIdGenerator idGenerator, IClock clock) { _repository = repository; _idGenerator = idGenerator; _clock = clock; }
+    public async Task<Result<UserAccountResponse>> Handle(AssignRolesCommand command, CancellationToken cancellationToken)
+    {
+        if (command.Roles.Count == 0) return Result<UserAccountResponse>.Failure(MissingRole);
+        var user = await _repository.GetByIdAsync(command.UserId, cancellationToken);
+        if (user is null) return Result<UserAccountResponse>.Failure(NotFound);
+        var now = _clock.UtcNow;
+        var existing = user.RoleMemberships.Select(membership => membership.Role).ToHashSet();
+        foreach (var role in command.Roles.Distinct().Where(role => !existing.Contains(role)))
+        {
+            user.RoleMemberships.Add(new UserRoleMembership(_idGenerator.New(), user.Id, role, now));
+        }
+        await _repository.SaveChangesAsync(cancellationToken);
         return Result<UserAccountResponse>.Success(new UserAccountResponse(user.Id, user.Email, user.FirstName, user.LastName, user.PhoneNumber, user.Status.ToString(), user.IsEmailConfirmed, user.IsProfileVerified, user.RoleMemberships.Select(role => role.Role.ToString()).ToArray(), user.CreatedOnUtc, user.UpdatedOnUtc));
     }
 }

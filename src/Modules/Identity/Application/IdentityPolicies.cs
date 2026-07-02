@@ -78,6 +78,34 @@ public sealed class ConfirmEmailVerificationCommandValidator : ICommandValidator
     }
 }
 
+public sealed class AssignRolesCommandValidator : ICommandValidator<AssignRolesCommand>
+{
+    private static readonly Error InvalidRequest = new("identity.invalid_request", "Rol atama bilgileri eksik veya hatalı.");
+    public Task<Result> Validate(AssignRolesCommand command, CancellationToken cancellationToken)
+    {
+        var ok = command.UserId != Guid.Empty && command.Roles is { Count: > 0 } && command.Roles.All(Enum.IsDefined);
+        return Task.FromResult(ok ? Result.Success() : Result.Failure(InvalidRequest));
+    }
+}
+
+// K1: Yükseltilmiş rol ataması yalnızca Admin'e açıktır (varsayılan-deny).
+public sealed class AssignRolesCommandAuthorizer : ICommandAuthorizer<AssignRolesCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+
+    public AssignRolesCommandAuthorizer(ICurrentUser currentUser)
+    {
+        _currentUser = currentUser;
+    }
+
+    public Task<Result> Authorize(AssignRolesCommand command, CancellationToken cancellationToken)
+    {
+        var isAdmin = _currentUser.IsAuthenticated && _currentUser.Roles.Contains(UserRole.Admin.ToString());
+        return Task.FromResult(isAdmin ? Result.Success() : Result.Failure(Forbidden));
+    }
+}
+
 public sealed class GetUserByIdQueryAuthorizer : IQueryAuthorizer<GetUserByIdQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");

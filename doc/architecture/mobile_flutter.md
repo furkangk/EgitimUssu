@@ -8,7 +8,7 @@
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > Mevcut app **öğretmen odaklıdır**; öğrenci/veli ekranları planlanandır.
 >
-> **Güncelleme:** 2026-06-28
+> **Güncelleme:** 2026-07-02
 
 ---
 
@@ -166,7 +166,9 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 `isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır; geliştirmede backend hazır olmayan feature'lar mock veri döndürür.
 
-**Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
+**Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
+
+> **Güvenlik (Y7, 2026-07-02):** Oturum önbelleği (`user_session` → `LocalCache`/SharedPreferences) **token içermez** — yalnız gizli-olmayan profil (userId/email/fullName/roles/expiry). Access/refresh token'lar **yalnız** secure storage'da tutulur; `restoreSession` token'ı oradan okuyup profille birleştirir. `AndroidManifest`'te `allowBackup="false"`. Önceden `toCache()` token'ları düz-metin yazıyordu (denetim Y7).
 
 ## 8. Feature ↔ Backend Modül Eşlemesi
 
@@ -449,4 +451,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-06-28*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-07-02*

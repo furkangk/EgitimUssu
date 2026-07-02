@@ -127,7 +127,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 |---------|----------------|---------------|--------|
 | Ders sonrası takip oluştur | `POST /api/assignments/lesson-sessions/{lessonSessionId}/follow-up` | `CreateLessonSessionFollowUpRequest` → `LessonSessionFollowUpResponse` | Oturum **tamamlanmış** olmalı |
 | Takip getir | `GET /api/assignments/lesson-sessions/{lessonSessionId}/follow-up` | → `LessonSessionFollowUpResponse` | Not yoksa otomatik **özet** üretir (aşağıda) |
-| Ödev listele | `GET /api/assignments?teacherUserId=&studentId=&lessonSessionId=` | → `AssignmentResponse[]` | Tüm parametreler opsiyonel |
+| Ödev listele | `GET /api/assignments?teacherUserId=&studentId=&lessonSessionId=` | → `AssignmentResponse[]` | **K2 (2026-07-01):** Admin dışı çağıranlar için sahiplik filtresi **server tarafında zorlanır**; istemci filtresine güvenilmez (IDOR kapandı). |
 
 **`CreateLessonSessionFollowUpRequest` (koddan):**
 `Summary, CoveredTopics?, Recommendations?, Assignments?` — burada `Assignments` öğesi:
@@ -273,4 +273,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-06-24 (mobil: AssignmentsPage + AssignmentFollowUpPage revamp + AssignmentsListCubit + LessonNote domain sınıfı)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-01*

@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, AspNetPasswordHasher>();
         services.AddScoped<ITokenIssuer, JwtTokenIssuer>();
         services.AddScoped<ITokenProtector, Sha256TokenProtector>();
+        services.AddScoped<ILoginAttemptThrottle, RedisLoginAttemptThrottle>();
         services.AddScoped<IIdentityNotificationService, NullIdentityNotificationService>();
         services.AddScoped<ICommandHandler<RegisterUserCommand, Result<AuthResponse>>, RegisterUserCommandHandler>();
         services.AddScoped<ICommandHandler<LoginUserCommand, Result<AuthResponse>>, LoginUserCommandHandler>();
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<RequestEmailVerificationCommand, Result>, RequestEmailVerificationCommandHandler>();
         services.AddScoped<ICommandHandler<ConfirmEmailVerificationCommand, Result>, ConfirmEmailVerificationCommandHandler>();
         services.AddScoped<IQueryHandler<GetUserByIdQuery, Result<UserAccountResponse>>, GetUserByIdQueryHandler>();
+        services.AddScoped<ICommandHandler<AssignRolesCommand, Result<UserAccountResponse>>, AssignRolesCommandHandler>();
         services.AddScoped<ICommandValidator<RegisterUserCommand>, RegisterUserCommandValidator>();
         services.AddScoped<ICommandValidator<LoginUserCommand>, LoginUserCommandValidator>();
         services.AddScoped<ICommandValidator<RefreshTokenCommand>, RefreshTokenCommandValidator>();
@@ -35,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandValidator<RequestEmailVerificationCommand>, RequestEmailVerificationCommandValidator>();
         services.AddScoped<ICommandValidator<ConfirmEmailVerificationCommand>, ConfirmEmailVerificationCommandValidator>();
         services.AddScoped<IQueryAuthorizer<GetUserByIdQuery>, GetUserByIdQueryAuthorizer>();
+        services.AddScoped<ICommandValidator<AssignRolesCommand>, AssignRolesCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<AssignRolesCommand>, AssignRolesCommandAuthorizer>();
         return services;
     }
 }

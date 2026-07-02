@@ -104,7 +104,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 | Oturum oluştur | `POST /api/lesson-sessions` | `CreateLessonSessionRequest` → `LessonSessionResponse` | `Status=Planned`, `AttendanceStatus=Unknown` |
 | Oturumu tamamla | `POST /api/lesson-sessions/{lessonSessionId}/complete` | `CompleteLessonSessionRequest` → `LessonSessionResponse` | Süre otomatik; `Completed` event yayılır |
 | Oturum getir | `GET /api/lesson-sessions/{lessonSessionId}` | → `LessonSessionResponse` | Yoksa `404 lesson_sessions.not_found` |
-| Oturum listele | `GET /api/lesson-sessions?teacherUserId=&studentId=&dateFromUtc=&dateToUtc=` | → `LessonSessionResponse[]` | Tüm parametreler opsiyonel |
+| Oturum listele | `GET /api/lesson-sessions?teacherUserId=&studentId=&dateFromUtc=&dateToUtc=` | → `LessonSessionResponse[]` | **K2 (2026-07-01):** Admin dışı çağıranlar için sahiplik filtresi **server tarafında zorlanır** (öğretmen→kendi dersleri, diğer→kendi kaydı); istemci filtresine güvenilmez. Filtresiz istek artık tüm tabloyu döndürmez (IDOR kapandı). |
 
 **`CreateLessonSessionRequest` (koddan):** `LessonScheduleId?, TeacherUserId, StudentId, Subject, PlannedStartAtUtc, TopicTitle`
 
@@ -231,4 +231,4 @@ POST /lesson-sessions/{id}/complete (Completed)
 
 ---
 
-*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-07-01*

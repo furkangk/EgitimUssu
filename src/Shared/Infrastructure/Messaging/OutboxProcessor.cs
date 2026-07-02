@@ -1,32 +1,24 @@
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
-using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Persistence;
-using Microsoft.Extensions.Options;
 
 namespace EgitimUssu.Shared.Infrastructure.Messaging;
 
 public sealed class OutboxProcessor(
     IOutboxStore outboxStore,
-    IEventBus eventBus,
-    IOptions<OutboxOptions> options) : IOutboxProcessor
+    IEventBus eventBus) : IOutboxProcessor
 {
-    public async Task<int> DispatchPendingAsync(CancellationToken cancellationToken = default)
+    public Task<int> DispatchPendingAsync(CancellationToken cancellationToken = default)
+        => outboxStore.ProcessPendingAsync(PublishAsync, cancellationToken);
+
+    private async Task PublishAsync(OutboxBatchItem item, CancellationToken cancellationToken)
     {
-        var batch = await outboxStore.FetchPendingAsync(options.Value.BatchSize, cancellationToken);
+        // K5: Deserialize başarısızlığı artık sessizce düşürülmez; hata olarak fırlatılır ki
+        // mesaj retry/dead-letter akışına girsin (eski davranış mesajı "processed" işaretleyip kaybediyordu).
+        var integrationEvent = JsonSerializer.Deserialize<IntegrationEvent>(item.Payload, IntegrationEventSerialization.Options)
+            ?? throw new InvalidOperationException(
+                $"Outbox mesajı {item.MessageId} ({item.Type}) deserialize edilemedi (payload boş/geçersiz).");
 
-        foreach (var item in batch)
-        {
-            var integrationEvent = JsonSerializer.Deserialize<IntegrationEvent>(item.Payload);
-            if (integrationEvent is null)
-            {
-                continue;
-            }
-
-            await eventBus.PublishAsync(integrationEvent, cancellationToken);
-        }
-
-        await outboxStore.MarkProcessedAsync(batch, cancellationToken);
-        return batch.Count;
+        await eventBus.PublishAsync(integrationEvent, cancellationToken);
     }
 }

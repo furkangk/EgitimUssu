@@ -45,4 +45,57 @@ void main() {
       expect(await localCache.readString('user_session'), isNull);
     },
   );
+
+  test('toCache does not persist access or refresh tokens (Y7)', () {
+    final cache = UserSessionModel(
+      userId: 'teacher-1',
+      email: 'teacher@example.com',
+      fullName: 'Demo Ogretmen',
+      roles: const <String>['Teacher'],
+      accessToken: 'secret-access-token',
+      refreshToken: 'secret-refresh-token',
+      expiresAtUtc: DateTime.now().toUtc().add(const Duration(days: 1)),
+    ).toCache();
+
+    expect(cache.contains('secret-access-token'), isFalse);
+    expect(cache.contains('secret-refresh-token'), isFalse);
+    expect(cache.contains('accessToken'), isFalse);
+    expect(cache.contains('refreshToken'), isFalse);
+  });
+
+  test('restoreSession rebuilds valid session using tokens from secure storage (Y7)', () async {
+    final tokenStorage = InMemoryTokenStorage();
+    final localCache = InMemoryLocalCache();
+    final repository = AuthRepositoryImpl(
+      apiClient: ApiClient(dio: Dio(), tokenStorage: tokenStorage),
+      tokenStorage: tokenStorage,
+      localCache: localCache,
+      config: const AppConfig(
+        apiBaseUrl: 'http://localhost',
+        appEnvironment: 'development',
+        useMockFallback: false,
+        mockFallbackFeatures: <String>{},
+      ),
+      refreshDio: Dio(BaseOptions(baseUrl: 'http://localhost')),
+    );
+    await localCache.writeString(
+      'user_session',
+      UserSessionModel(
+        userId: 'teacher-1',
+        email: 'teacher@example.com',
+        fullName: 'Demo Ogretmen',
+        roles: const <String>['Teacher'],
+        accessToken: 'ignored-in-cache',
+        expiresAtUtc: DateTime.now().toUtc().add(const Duration(days: 1)),
+      ).toCache(),
+    );
+    await tokenStorage.writeAccessToken('secure-access-token');
+    await tokenStorage.writeRefreshToken('secure-refresh-token');
+
+    final session = await repository.restoreSession();
+
+    expect(session, isNotNull);
+    expect(session!.accessToken, 'secure-access-token');
+    expect(session.refreshToken, 'secure-refresh-token');
+  });
 }

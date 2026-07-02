@@ -54,16 +54,41 @@ public interface ILessonSessionRepository
 
 public sealed class ListLessonSessionsQueryHandler : IQueryHandler<ListLessonSessionsQuery, Result<IReadOnlyCollection<LessonSessionResponse>>>
 {
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
     private readonly ILessonSessionRepository _repository;
+    private readonly ICurrentUser _currentUser;
 
-    public ListLessonSessionsQueryHandler(ILessonSessionRepository repository)
+    public ListLessonSessionsQueryHandler(ILessonSessionRepository repository, ICurrentUser currentUser)
     {
         _repository = repository;
+        _currentUser = currentUser;
     }
 
     public async Task<Result<IReadOnlyCollection<LessonSessionResponse>>> Handle(ListLessonSessionsQuery query, CancellationToken cancellationToken)
     {
-        var sessions = await _repository.ListAsync(query.TeacherUserId, query.StudentId, query.DateFromUtc, query.DateToUtc, cancellationToken);
+        // K2: Sahiplik filtresi server tarafında zorlanır; istemci filtresine güvenilmez (varsayılan-deny).
+        // Admin tüm kayıtları görebilir; diğer herkes yalnızca kendi kimliğine kapsanır.
+        var teacherFilter = query.TeacherUserId;
+        var studentFilter = query.StudentId;
+
+        if (!_currentUser.Roles.Contains("Admin"))
+        {
+            if (!_currentUser.IsAuthenticated || !Guid.TryParse(_currentUser.UserId, out var currentUserId))
+            {
+                return Result<IReadOnlyCollection<LessonSessionResponse>>.Failure(Forbidden);
+            }
+
+            if (_currentUser.Roles.Contains("Teacher"))
+            {
+                teacherFilter = currentUserId;
+            }
+            else
+            {
+                studentFilter = currentUserId;
+            }
+        }
+
+        var sessions = await _repository.ListAsync(teacherFilter, studentFilter, query.DateFromUtc, query.DateToUtc, cancellationToken);
         return Result<IReadOnlyCollection<LessonSessionResponse>>.Success(sessions.Select(x => x.ToResponse()).ToArray());
     }
 }

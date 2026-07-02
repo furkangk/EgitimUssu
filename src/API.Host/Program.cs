@@ -1,8 +1,9 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
-using System.Threading.RateLimiting;
 using System.Text;
 using EgitimUssu.API.Host;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Extensions;
 using EgitimUssu.Shared.Infrastructure.Health;
@@ -11,7 +12,6 @@ using EgitimUssu.Shared.Infrastructure.Middleware;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +31,8 @@ builder.Services
     .AddCheck<DatabaseConnectionHealthCheck>("database", tags: ["ready"]);
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
+// Y3: Zayıf/eksik/yer-tutucu imzalama anahtarını startup'ta reddet (fail-fast).
+JwtSigningKeyGuard.EnsureValid(jwtOptions.SigningKey);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
@@ -51,6 +53,19 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
+            // Y4: Token blacklist — iptal edilmiş (logout'lanmış) erişim token'ı reddedilir (anlık iptal).
+            OnTokenValidated = async context =>
+            {
+                var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                if (!string.IsNullOrEmpty(jti))
+                {
+                    var blacklist = context.HttpContext.RequestServices.GetRequiredService<ITokenBlacklist>();
+                    if (await blacklist.IsBlacklistedAsync(jti, context.HttpContext.RequestAborted))
+                    {
+                        context.Fail("Token has been revoked.");
+                    }
+                }
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -79,44 +94,17 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AuthenticatedUser", policy => policy.RequireAuthenticatedUser());
 });
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("auth", limiter =>
-    {
-        limiter.PermitLimit = 10;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-        limiter.AutoReplenishment = true;
-    });
-    options.AddFixedWindowLimiter("default", limiter =>
-    {
-        limiter.PermitLimit = 120;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueLimit = 0;
-        limiter.AutoReplenishment = true;
-    });
-    options.OnRejected = async (context, token) =>
-    {
-        if (!context.HttpContext.Response.HasStarted)
-        {
-            var result = ApiErrorHttpResults.FromError(
-                context.HttpContext,
-                StatusCodes.Status429TooManyRequests,
-                new EgitimUssu.Shared.Kernel.Error("shared.rate_limited", "Too many requests. Please try again later."));
-            await result.ExecuteAsync(context.HttpContext);
-        }
-        await Task.CompletedTask;
-    };
-});
 
 var app = builder.Build();
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
 app.UseMiddleware<RequestContextLoggingMiddleware>();
-app.UseRateLimiter();
+// Y4: Redis destekli dağıtık, partition'lı rate limiting (fail-open). Yol tabanlı politika.
+app.UseMiddleware<DistributedRateLimitMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
+// Y4: Idempotency-Key ile mutasyon uçlarında tekrarlı istek koruması (auth sonrası — kullanıcıya göre kapsam).
+app.UseMiddleware<IdempotencyMiddleware>();
 app.MapOpenApi();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

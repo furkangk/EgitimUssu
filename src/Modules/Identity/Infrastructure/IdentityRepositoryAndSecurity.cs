@@ -89,6 +89,8 @@ internal sealed class JwtTokenIssuer : ITokenIssuer
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiryMinutes);
         var claims = new List<Claim>
         {
+            // Y4: jti — token blacklist (anlık iptal) için benzersiz token kimliği.
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(JwtRegisteredClaimNames.Sub, userAccount.Id.ToString()),
             new(ClaimTypes.NameIdentifier, userAccount.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, userAccount.Email),

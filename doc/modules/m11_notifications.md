@@ -19,6 +19,7 @@
 |---------|-------|----------|
 | Domain aggregate | `src/Modules/Notifications/Domain/NotificationsDomainModel.cs` | `LessonReminder : AggregateRoot<Guid>` |
 | DbContext | `src/Modules/Notifications/Infrastructure/NotificationsDbContext.cs` | `DbSet<LessonReminder>`, şema `notifications`, tablo `lesson_reminders` |
+| Migration | `src/Modules/Notifications/Infrastructure/Migrations/*_InitialCreate.cs` + `NotificationsDesignTimeDbContextFactory` | **K4 (2026-07-01) eklendi.** Önceden migration yoktu → prod'da ilk sorguda `relation "notifications.lesson_reminders" does not exist` ile çöküyordu. Şimdi `lesson_reminders` + `module_states` + `outbox_messages` tablolarını üretir. |
 | Repository | `src/Modules/Notifications/Infrastructure/LessonReminderRepository.cs` (arayüz: `Application/NotificationFeatures.cs`) | `ILessonReminderRepository` |
 | Query (CQRS) | `src/Modules/Notifications/Application/NotificationFeatures.cs` | `ListTeacherLessonRemindersQuery` + handler + `LessonReminderResponse` |
 | Validator | `src/Modules/Notifications/Application/NotificationPolicies.cs` | `ListTeacherLessonRemindersQueryValidator` (`TeacherUserId != Guid.Empty`) |
@@ -30,7 +31,7 @@
 **Çalışma şekli (doğrulanmış):**
 - API grubu `RequireAuthorization("AuthenticatedUser")` ile korunur. Tek endpoint öğretmen hatırlatma listesini döner; `activeOnly=true` ise yalnızca `Pending` durumdakiler filtrelenir, `RemindAtUtc` artan + `CreatedOnUtc` sırasıyla döner.
 - `LessonScheduleNotificationIntegrationEventHandler.CanHandle` yalnızca `SourceModule == "Scheduling"` ve `Name ∈ {LessonScheduledDomainEvent, LessonScheduleCancelledDomainEvent}` olduğunda çalışır.
-  - **LessonScheduled** → ilgili `LessonScheduleId` için kayıt **yoksa** yeni `LessonReminder` oluşturur. Başlık `"Yaklasan ders hatirlatmasi"`, mesaj `"Ders {StartAtUtc:O} tarihinde baslayacak."`, `Channel = InApp`, `Status = Pending`, `RemindAtUtc = StartAtUtc.AddMinutes(-60)` (**sabit 60 dk**). Var olan kayıt kontrolü ile **idempotent**.
+  - **LessonScheduled** → ilgili `LessonScheduleId` için kayıt **yoksa** yeni `LessonReminder` oluşturur. Başlık `"Yaklasan ders hatirlatmasi"`, mesaj `"Ders {StartAtUtc:O} tarihinde baslayacak."`, `Channel = InApp`, `Status = Pending`, `RemindAtUtc = StartAtUtc.AddMinutes(-max(ReminderOffsetMinutes, 0))` — offset **event payload'ından** gelir (2026-07-01, Y1; önceden sabit 60 dk idi). Var olan kayıt kontrolü ile **idempotent**.
   - **LessonScheduleCancelled** → `LessonScheduleId` ile bulunan kayıtta `Cancel()` çağrılır.
 - `NotificationDispatcher` her 30 sn'de bir kendi scope'unu açar, `ListDuePendingAsync(utcNow)` (yani `RemindAtUtc <= now && Status == Pending`) sonuçlarının her biri için `reminder.MarkSent(utcNow)` çağırır ve değişiklikleri kaydeder.
 
@@ -39,7 +40,7 @@
 - **Gerçek push teslimatı YOK** (bkz. [`mimari_inceleme.md`](mimari_inceleme.md) **Y5**). `DispatchDueRemindersAsync` yalnızca `reminder.MarkSent(...)` yapar; **FCM/APNs'e hiçbir şey gönderilmez**. Bildirim "gönderildi" olarak işaretlenir ama kullanıcıya hiçbir şey ulaşmaz.
 - **Cihaz token kaydı yok** — mobil FCM/APNs token'larını alıp saklayan bir aggregate/endpoint bulunmuyor.
 - `NotificationChannel.Push` enum değeri tanımlı ama tüm hatırlatmalar `InApp` olarak üretiliyor.
-- **`LessonSchedule.ReminderOffsetMinutes` kullanılmıyor** — hatırlatma dersten sabit 60 dk önce kuruluyor; kişiselleştirme yok ([`m04_scheduling.md`](m04_scheduling.md)).
+- ✅ **`ReminderOffsetMinutes` artık kullanılıyor** (2026-07-01, Y1) — offset `LessonScheduledDomainEvent` payload'ında taşınıp handler'da uygulanıyor; hatırlatma ders bazında erken/geç kurulabiliyor ([`m04_scheduling.md`](m04_scheduling.md)).
 - **Ders dışı bildirim türleri yok:** ödev son teslim yaklaşıyor/kaçırıldı, ödeme gecikmesi, yeni mesaj, günlük çalışma, haftalık özet (PRD M11 tablosu).
 - **Öğrenci/veli için in-app bildirim listesi endpoint'i yok** — yalnızca öğretmen-merkezli ders hatırlatması listelenebiliyor. Okundu/okunmamış kavramı domain'de yok.
 - **Settings (M15) tercihleri kontrol edilmiyor** — `UserSetting`'teki `PushNotificationsEnabled`, `HomeworkReminderEnabled` vb. bayraklara saygı gösterilmiyor ([`m15_settings.md`](m15_settings.md)).
@@ -155,7 +156,7 @@ PUT  /api/notifications/users/{userId}/read-all          → tümünü okundu i�
 1. **Tek hatırlatma / ders:** `LessonScheduleId` UNIQUE; handler önce mevcut kaydı kontrol eder → tekrarlı event'te ikinci kayıt oluşmaz (idempotent).
 2. **Durum geçişleri:** `MarkSent` yalnızca `Pending → Sent`; `Cancel` `* → Cancelled` (Cancelled hariç). Sent/Cancelled kayıt tekrar tetiklenmez.
 3. **Zamanlama:** `RemindAtUtc <= UtcNow && Status == Pending` olan kayıtlar 30 sn'lik döngüde işlenir. Sunucu kapalıyken biriken kayıtlar açılınca toplu işlenir (geçmiş hatırlatma "geç teslim" sayılır).
-4. **Offset (önerilen):** sabit 60 dk yerine `LessonSchedule.ReminderOffsetMinutes` kullanılmalı; kullanıcı ders bazında erken/geç hatırlatma seçebilmeli.
+4. ✅ **Offset (yapıldı 2026-07-01):** `ReminderOffsetMinutes` event payload'ında taşınıp handler'da `RemindAtUtc = StartAtUtc − offset` olarak uygulanıyor; kullanıcı ders bazında erken/geç hatırlatma seçebiliyor.
 5. **Settings tercihleri (önerilen, M15):** bir bildirim **oluşturulmadan/gönderilmeden** önce alıcının `UserSetting` bayrakları kontrol edilmeli:
    - `PushNotificationsEnabled == false` → push gönderilmez (in-app yine yazılabilir).
    - Tür bazlı: `UpcomingLessonReminderEnabled`, `HomeworkReminderEnabled`, `PaymentReminderEnabled`, `WeeklySummaryEnabled`.
@@ -172,10 +173,10 @@ PUT  /api/notifications/users/{userId}/read-all          → tümünü okundu i�
 ### Mevcut (ders hatırlatması)
 
 ```
-Scheduling: LessonScheduledDomainEvent  ──(Outbox/IntegrationEvent)──▶
+Scheduling: LessonScheduledDomainEvent (ReminderOffsetMinutes taşır)  ──(Outbox/IntegrationEvent)──▶
   LessonScheduleNotificationIntegrationEventHandler.HandleScheduledAsync
     → mevcut kayıt yoksa LessonReminder(Channel=InApp, Status=Pending,
-                                         RemindAtUtc = StartAtUtc − 60dk)
+                                         RemindAtUtc = StartAtUtc − ReminderOffsetMinutes)
 
 Scheduling: LessonScheduleCancelledDomainEvent  ──▶
   HandleCancelledAsync → LessonScheduleId ile bul → reminder.Cancel()
@@ -216,7 +217,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 - [ ] Öğrenci ve veli in-app bildirim listesini görebiliyor; okundu/okunmamış ve rozet sayısı doğru.
 - [ ] Ödev son teslim yaklaşıyor/kaçırıldı bildirimi hem öğrenciye hem veliye gidiyor.
 - [ ] Kullanıcı `UserSetting`'te bir türü kapattığında o bildirim **gönderilmiyor** (M15 entegrasyonu).
-- [ ] `ReminderOffsetMinutes` ayarı hatırlatma zamanını etkiliyor.
+- [x] `ReminderOffsetMinutes` ayarı hatırlatma zamanını etkiliyor (2026-07-01, Y1).
 - [ ] Sahiplik authorizer'ı, başka kullanıcının bildirimlerine erişimi reddediyor (K3).
 
 ---
@@ -225,7 +226,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 1. **Outbox'ı aç (K1)** — yoksa hiçbir hatırlatma/bildirim oluşmaz. Startup uyarısı ekle.
 2. **Gerçek push entegrasyonu (Y5)** — FCM/APNs gönderimi + `DeviceToken` aggregate + `POST/DELETE /devices`.
-3. **`ReminderOffsetMinutes` kullanımı** — sabit 60 dk yerine ders bazlı offset ([`m04_scheduling.md`](m04_scheduling.md)).
+3. ✅ **`ReminderOffsetMinutes` kullanımı** — ders bazlı offset event payload'ıyla uygulandı (2026-07-01, Y1).
 4. **Yeni bildirim türleri** — ödev son teslim yaklaşıyor/kaçırıldı (öğrenci + veli), ödeme gecikmesi, yeni mesaj; ileride günlük çalışma/haftalık özet.
 5. **Öğrenci/veli in-app bildirim listesi + okundu** endpoint'leri.
 6. **Settings (M15) entegrasyonu** — tercih bayraklarına göre filtreleme/kanal seçimi.
@@ -251,4 +252,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-07-01*

@@ -28,9 +28,10 @@ public sealed class ConfigurationHealthCheck(
             issues.Add("Redis:Configuration missing.");
         }
 
-        if (string.IsNullOrWhiteSpace(jwtOptions.Value.SigningKey) || jwtOptions.Value.SigningKey.Length < 16)
+        var jwtKeyIssue = JwtSigningKeyGuard.Validate(jwtOptions.Value.SigningKey);
+        if (jwtKeyIssue is not null)
         {
-            issues.Add("Jwt:SigningKey must be at least 16 characters.");
+            issues.Add(jwtKeyIssue);
         }
 
         if (modules.Count == 0)

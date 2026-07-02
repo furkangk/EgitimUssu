@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,6 @@ namespace EgitimUssu.Shared.Infrastructure.Persistence;
 
 public abstract class ModuleDbContext : DbContext
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IDomainEventMapper _domainEventMapper;
 
     protected ModuleDbContext(DbContextOptions options, IDomainEventMapper domainEventMapper)
@@ -80,7 +80,7 @@ public abstract class ModuleDbContext : DbContext
                         Id = integrationEvent.EventId,
                         Module = integrationEvent.SourceModule,
                         Type = integrationEvent.Name,
-                        Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), JsonOptions),
+                        Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), IntegrationEventSerialization.Options),
                         OccurredOnUtc = integrationEvent.OccurredOnUtc
                     });
                 }

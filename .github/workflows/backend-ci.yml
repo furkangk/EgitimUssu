@@ -1,0 +1,57 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: .NET kurulumu
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Araçları geri yükle (dotnet-ef)
+        run: dotnet tool restore
+
+      - name: Bağımlılıkları geri yükle
+        run: dotnet restore EgitimUssu.slnx
+
+      - name: Derleme (uyarılar hata sayılır)
+        run: dotnet build EgitimUssu.slnx --configuration Release --no-restore -warnaserror
+
+      - name: Testler
+        run: dotnet test EgitimUssu.slnx --configuration Release --no-build --verbosity normal
+
+      - name: Zafiyetli paket taraması
+        run: |
+          # --format json locale'den bağımsızdır; zafiyet varsa çıktıda "advisoryurl" bulunur.
+          dotnet list EgitimUssu.slnx package --vulnerable --include-transitive --format json 2>&1 | tee vulnerable.json
+          if grep -qi "advisoryurl" vulnerable.json; then
+            echo "::error::Zafiyetli NuGet paketi bulundu."
+            exit 1
+          fi
+          echo "Zafiyetli paket bulunamadı."
+
+      - name: Migration drift kontrolü
+        run: |
+          set -e
+          projects=$(grep -rl "DesignTimeDbContextFactoryBase" src --include="*.cs" \
+            | grep -v "Shared/Infrastructure/Design" \
+            | xargs -n1 dirname | sort -u)
+          for dir in $projects; do
+            proj=$(ls "$dir"/*.csproj)
+            echo "::group::Migration drift: $proj"
+            dotnet ef migrations has-pending-model-changes \
+              --project "$proj" \
+              --startup-project src/API.Host/EgitimUssu.API.Host.csproj
+            echo "::endgroup::"
+          done

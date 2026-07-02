@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
+        services.Configure<RateLimitOptions>(configuration.GetSection(RateLimitOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
@@ -36,6 +37,12 @@ public static class ServiceCollectionExtensions
         var redisConfiguration = configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>()?.Configuration
             ?? "localhost:6379";
         services.AddSingleton<IRedisConnectionFactory>(_ => new LazyRedisConnectionFactory(redisConfiguration));
+
+        // Y4: Redis destekli dağıtık rate limiting + token blacklist (fail-open) + dayanıklı Redis erişimi.
+        services.AddSingleton<ResilientRedisExecutor>();
+        services.AddSingleton<IRateLimiter, RedisRateLimiter>();
+        services.AddSingleton<ITokenBlacklist, RedisTokenBlacklist>();
+        services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
 
         return services;
     }

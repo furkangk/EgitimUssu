@@ -6,8 +6,6 @@ namespace EgitimUssu.Shared.Infrastructure.Messaging;
 
 public sealed class JsonDomainEventMapper : IDomainEventMapper
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     public IReadOnlyCollection<IIntegrationEvent> Map(string sourceModule, DomainEvent domainEvent)
     {
         return
@@ -17,7 +15,7 @@ public sealed class JsonDomainEventMapper : IDomainEventMapper
                 domainEvent.OccurredOnUtc,
                 domainEvent.GetType().Name,
                 sourceModule,
-                JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), JsonOptions))
+                JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), IntegrationEventSerialization.Options))
         ];
     }
 }

@@ -21,13 +21,14 @@
 | E-posta + şifre ile giriş | ✅ var | `LoginUserCommandHandler` |
 | JWT erişim token'ı üretimi (HMAC-SHA256) | ✅ var | `ITokenIssuer.Issue` |
 | Refresh token (rotation + hash'li saklama) | ✅ var | `RefreshTokenCommandHandler`, `RefreshTokenSession` |
-| Oturum kapatma (refresh iptal) | ✅ var | `LogoutCommandHandler` |
+| Oturum kapatma (refresh iptal + token blacklist) | ✅ var | `LogoutCommandHandler` (refresh iptal) + **2026-07-01 (Y4):** logout, mevcut erişim token'ını `jti` ile `RedisTokenBlacklist`'e ekler → JWT `OnTokenValidated`'da reddedilir (**anlık iptal**, erken erişim token'ı iptali) |
 | Şifre sıfırlama isteği + onayı | ✅ var | `RequestPasswordResetCommandHandler`, `ResetPasswordCommandHandler` |
 | E-posta doğrulama isteği + onayı | ✅ var | `RequestEmailVerificationCommandHandler`, `ConfirmEmailVerificationCommandHandler` |
 | Kullanıcı detayını getirme (self/admin) | ✅ var | `GetUserByIdQueryHandler` + `GetUserByIdQueryAuthorizer` |
 | PBKDF2 parola hash'leme | ✅ var | `IPasswordHasher` (Infrastructure) |
 | Rol üyelikleri (UserRoleMembership) | ✅ var | `UserAccount.RoleMemberships` |
-| Rate limiting ("auth" politikası) | ✅ var | `IdentityModule.MapEndpoints` → `RequireRateLimiting("auth")` |
+| Rate limiting ("auth" politikası) | ✅ var | **Yol tabanlı, dağıtık (2026-07-01, Y4):** `DistributedRateLimitMiddleware` — `/api/identity/*` → `auth` (10/dk, IP-partition, Redis, fail-open). Eski `RequireRateLimiting` kaldırıldı |
+| Kaba kuvvet (brute-force) hesap kilidi | ✅ var | **2026-07-01 (Y4):** `RedisLoginAttemptThrottle` — 5 başarısız girişte 15 dk hesap kilidi; `identity.too_many_attempts` → **429**. Redis yoksa fail-open |
 | Outbox üzerinden domain event yayını | ✅ var | `UserRegisteredDomainEvent` + `ModuleDbContext` |
 | **Mobil refresh token akışı (otomatik yenileme)** | 🔴 eksik | mimari_inceleme **Y3** — mobil `dio` istemcisinde 401 → `/refresh` interceptor'ı yok |
 | **JWT imza anahtarının güvenli yönetimi** | 🔴 risk | mimari_inceleme **Y2** — imza anahtarı repoda/`appsettings`'te düz metin |
@@ -125,14 +126,14 @@ UserRegisteredDomainEvent(Guid UserId, string Email, DateTime RegisteredOnUtc)
 |-------|---------|
 | `UserStatusChangedDomainEvent` | Admin askıya alma/kapatma akışında diğer modüllere (örn. Scheduling iptal) sinyal vermek için |
 | `LastLoginOnUtc` alanı (UserAccount) | Güvenlik/aktivite izleme |
-| `FailedLoginCount` + kilitlenme | Brute-force koruması (rate limiting'i tamamlar) |
+| ~~`FailedLoginCount` + kilitlenme~~ | ✅ **Yapıldı (2026-07-01, Y4):** Redis tabanlı `RedisLoginAttemptThrottle` (hesap-bazlı, DB alanı gerektirmez). Rate limiting'i tamamlar |
 | `PhoneNumberConfirmed` + `SecurityTokenPurpose.PhoneVerification` | SMS/OTP doğrulama için |
 
 ---
 
 ## 3. API Sözleşmesi
 
-Tüm uçlar `RoutePrefix = /api/identity` altında ve modül grubu **`RequireRateLimiting("auth")`** ile sınırlandırılmıştır.
+Tüm uçlar `RoutePrefix = /api/identity` altında ve `DistributedRateLimitMiddleware` tarafından **yol tabanlı `auth` politikasıyla** (IP-partition, Redis, fail-open) sınırlandırılmıştır (2026-07-01, Y4).
 Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToHttpResult` ile eşlenir.
 
 ### 3.1 Mevcut Endpoint'ler ✅
@@ -148,6 +149,9 @@ Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToH
 | E-posta doğrulama onayı | `POST /email-verification/confirm` | herkese açık | `EmailVerificationConfirmRequest` | `200 OK` |
 | Oturum kapat | `POST /logout` | **AuthenticatedUser** | `LogoutRequest` | `200 OK` |
 | Kullanıcı getir | `GET /users/{userId:guid}` | **AuthenticatedUser** | — | `UserAccountResponse` |
+| Rol ata (yalnız Admin) | `POST /users/{userId:guid}/roles` | **AuthenticatedUser** + `AssignRolesCommandAuthorizer` (Admin) | `AssignRolesRequest` | `UserAccountResponse` |
+
+> **K1 (2026-07-01):** `POST /register` yalnızca **self-servis roller** (`Teacher`, `Student`, `Parent`) kabul eder; istemci `Admin` gönderirse `identity.role_not_self_assignable` (400) döner. Yükseltilmiş rol ataması yalnızca yukarıdaki Admin-korumalı `POST /users/{id}/roles` ucuyla yapılır (varsayılan-deny). Bu, "anonim kayıtla anında Admin" açığını (denetim K1) kapatır.
 
 **İstek/yanıt sözleşmeleri (koddan):**
 
@@ -192,7 +196,7 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 - [ ] `POST /refresh` için mobilde **otomatik yenileme** (dio interceptor) — sunucu ucu var, istemci akışı yok (**Y3**).
 - [ ] `GET /me` — token'daki `sub`'a göre o anki kullanıcı (her seferinde `userId` taşımadan).
 - [ ] `PUT /users/{userId}/status` (admin) — `Active`/`Suspended`/`Closed` geçişi.
-- [ ] `POST /users/{userId}/roles` & `DELETE /users/{userId}/roles/{role}` (admin) — rol yönetimi.
+- [x] `POST /users/{userId}/roles` (admin) — rol atama **eklendi (2026-07-01)**. `DELETE /users/{userId}/roles/{role}` (rol kaldırma) hâlâ önerilen.
 - [ ] `POST /sessions/revoke-all` — kullanıcının tüm cihaz oturumlarını kapatma.
 - [ ] `GET /sessions` — aktif cihaz oturumlarını listeleme (DeviceName ile).
 - [ ] Telefon doğrulama uçları (SMS/OTP).
@@ -214,7 +218,8 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 11. **E-posta doğrulama gizliliği:** `email-verification/request`, kullanıcı yoksa veya zaten doğrulanmışsa sessizce `200 OK` döner; aksi halde **24 saatlik** yeni token üretir.
 12. **Token tek kullanımlık:** `UserSecurityToken` `MarkUsed` ile bir kez tüketilir; tekrar kullanım `IsUsable` kontrolünde başarısız olur.
 13. **GetUserById yetkisi:** Yalnızca **admin** veya **kendi kaydı** (`isSelf`) erişebilir (`GetUserByIdQueryAuthorizer`); aksi halde `shared.forbidden` (403).
-14. **Rate limiting:** Tüm identity uçları `"auth"` politikasıyla sınırlandırılır (kaba kuvvet/abuse azaltma).
+14. **Rate limiting + kilit (2026-07-01, Y4):** Tüm identity uçları yol tabanlı `"auth"` politikasıyla (IP başına 10/dk, Redis-dağıtık, fail-open) sınırlandırılır. Ek olarak `LoginUserCommandHandler` hesap-bazlı kilit uygular: 5 ardışık başarısız girişte hesap 15 dk kilitlenir → `identity.too_many_attempts` (**429**); başarılı girişte sayaç sıfırlanır.
+15. **Token blacklist / anlık iptal (2026-07-01, Y4):** Erişim token'ları artık benzersiz `jti` claim'i taşır. Logout, `jti`'yi kalan ömrü boyunca `RedisTokenBlacklist`'e ekler; JWT `OnTokenValidated` her istekte blacklist'i kontrol eder ve iptal edilmiş token'ı `401` ile reddeder. Redis erişilemezse fail-open (token geçerli sayılır).
 
 ### 🔐 Güvenlik Notları (iyi yönler / riskler)
 
@@ -271,9 +276,11 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 - [x] Şifre sıfırlama uçtan uca çalışır ve tüm oturumları iptal eder; e-posta enumeration sızdırılmaz.
 - [x] E-posta doğrulama token'ı tek kullanımlık ve 24 saat geçerlidir.
 - [x] `GET /users/{id}` yalnızca admin veya kendi kaydı için erişilebilir.
+- [x] **Self-register yalnız `Teacher`/`Student`/`Parent` kabul eder; `Admin` reddedilir** (denetim K1 kapandı).
+- [x] **Rol ataması yalnızca Admin'e açık `POST /users/{id}/roles` ucundadır** (varsayılan-deny).
 - [ ] **Mobilde sessiz token yenileme uçtan uca** çalışır (Y3 kapanır).
 - [ ] **JWT imza anahtarı gizli yönetimine taşınır** (Y2 kapanır).
-- [ ] Admin, kullanıcıyı `Suspended`/`Closed` durumuna geçirebilir ve rol atayabilir.
+- [ ] Admin, kullanıcıyı `Suspended`/`Closed` durumuna geçirebilir.
 
 ---
 
@@ -285,7 +292,7 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 4. **Admin kullanıcı yönetimi** — durum geçişi (`PUT /users/{id}/status`) + `UserStatusChangedDomainEvent`.
 5. **Rol yönetimi uçları** — kayıt sonrası rol ekle/çıkar (örn. öğretmen aynı zamanda veli olduğunda).
 6. **Oturum yönetimi** — `GET /sessions`, `POST /sessions/revoke-all`.
-7. **Kaba kuvvet sertleştirme** — `FailedLoginCount` + geçici kilitleme; rate limiting'i tamamlar.
+7. ✅ **Kaba kuvvet sertleştirme (2026-07-01, Y4)** — Redis tabanlı hesap kilidi (`RedisLoginAttemptThrottle`) + dağıtık rate limiting; DB alanı gerektirmedi.
 8. **Telefon (SMS/OTP) doğrulama** — `PhoneNumberConfirmed` + yeni `SecurityTokenPurpose`.
 
 ---
@@ -303,4 +310,4 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-07-01*

@@ -1,6 +1,6 @@
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
 
-> **İlk inceleme:** 2026-06-21 · **Güncelleme:** 2026-06-24 · **Kapsam:** Backend (.NET 9 modüler monolit) + Flutter mobil
+> **İlk inceleme:** 2026-06-21 · **Güncelleme:** 2026-07-01 · **Kapsam:** Backend (.NET 9 modüler monolit) + Flutter mobil
 > **Yöntem:** Çekirdek altyapı (CQRS, Outbox, DI, Auth) + tüm modüllerin domain/feature/API katmanları + mobil çekirdek incelendi.
 
 > **Genel değerlendirme:** Mimari **sağlam temellere** oturuyor (temiz katman ayrımı, modül başına DbContext,
@@ -8,6 +8,33 @@
 > açığı** var; bunların bir kısmı sistemi "sessizce" çalışmaz/güvensiz hale getiriyor.
 
 **Önem skalası:** 🔴 Kritik · 🟠 Yüksek · 🟡 Orta · ⚪ Düşük/Hijyen
+
+> **Not:** Bu belge 2026-06-21 iç incelemesinin kendi numaralandırmasını kullanır. Ayrı ve daha kapsamlı
+> **2026-06-30 denetimi** ([`../denetim/2026-06-30_kapsamli_kod_denetimi.md`](../denetim/2026-06-30_kapsamli_kod_denetimi.md))
+> farklı kodlar (K1–K5, Y1–Y8, M/D) kullanır; ikisi karıştırılmamalıdır.
+
+> ### ✅ 2026-06-30 denetimi — Aşama 0 (prod blocker'ları) uygulandı — 2026-07-01
+> O denetimin kritik bulguları kapatıldı (kodlar o rapora aittir):
+> - **K1** — Anonim register'da Admin yükseltmesi: self-register allow-list (`Teacher/Student/Parent`) + yalnız Admin'e açık `POST /api/identity/users/{id}/roles`. Bkz. [`m01_identity.md`](m01_identity.md).
+> - **K2** — Liste IDOR'u: LessonSessions & Assignments liste handler'larında **server-enjekte sahiplik filtresi** (varsayılan-deny). Bkz. [`m05_lesson_sessions.md`](m05_lesson_sessions.md), [`m06_assignments.md`](m06_assignments.md).
+> - **K3** — Outbox okuma serileştirmesi: yazım/okuma tek `IntegrationEventSerialization.Options` (Web) kaynağına bağlandı + round-trip birim testi.
+> - **K4** — Migration drift'i: Notifications migration'ı üretildi; entity'siz 6 iskelet modülün `AddModuleDbContext` kaydı kaldırıldı; `EfOutboxStore.FetchPendingAsync`'e context-başına hata izolasyonu (+log) eklendi.
+> - **Y8** — Backend CI: `.github/workflows/backend-ci.yml` (build `-warnaserror` + test + zafiyet taraması + migration drift).
+>
+> **Aşama 1 ilerleme (2026-07-01):**
+> - **Y1** (comp. denetim) — Scheduling'in Notifications'a **senkron yazımı kaldırıldı**: `LessonScheduleNotificationService` + interface + DI + Scheduling→Notifications proje referansları silindi. Hatırlatma artık yalnız `LessonScheduledDomainEvent`/`LessonScheduleCancelledDomainEvent` → outbox → Notifications handler yoluyla; `ReminderOffsetMinutes` event payload'ında taşınıyor. Bkz. [`m04_scheduling.md`](m04_scheduling.md), [`m11_notifications.md`](m11_notifications.md).
+> - **Y3** (comp. denetim, JWT) — aşağıdaki Y2 maddesine bkz: imzalama anahtarı repodan çıkarıldı + startup fail-fast (`JwtSigningKeyGuard`, min 32 bayt).
+> - **K5** (comp. denetim) — outbox mesaj-başına retry/backoff/dead-letter + Npgsql `FOR UPDATE SKIP LOCKED` (lease) eklendi; aşağıdaki K2 maddesine bkz. 9 modül context'inde `AddOutboxRetryFields` migration'ı üretildi.
+>
+> - **Y4** (comp. denetim) — **TAMAMLANDI.** Redis fiilen kullanılıyor (ADR-0004 Seçenek B), tümü fail-open:
+>   - **Dağıtık rate limiting:** `DistributedRateLimitMiddleware` (Redis, IP-partition, yol tabanlı). Yerleşik `AddRateLimiter` kaldırıldı. (O1 kapandı.)
+>   - **Login brute-force kilidi:** `RedisLoginAttemptThrottle` (5 başarısızlıkta 15 dk hesap kilidi, `identity.too_many_attempts` → 429).
+>   - **Token blacklist:** `RedisTokenBlacklist` (logout'ta erişim token'ı `jti` ile kalan ömrü boyunca kara liste; JWT `OnTokenValidated`'da kontrol → anlık iptal).
+>   - **Idempotency:** `IdempotencyMiddleware` (`Idempotency-Key` header'lı mutasyon uçları; tamamlanmış yanıtı tekrar oynatır, işlenen istekte 409). Ortak dayanıklı altyapı: `ResilientRedisExecutor`.
+>
+> - **Y7** (comp. denetim, mobil) — **TAMAMLANDI.** Token'lar artık düz-metin `SharedPreferences`'a yazılmıyor: `UserSessionModel.toCache()` yalnız gizli-olmayan profil taşır, `restoreSession` access/refresh token'ı **secure storage**'dan okur; Android'de `EncryptedSharedPreferences` (aOptions) + `allowBackup="false"`. Mobil test: `toCache` token içermez + `restoreSession` secure storage'dan yeniden kurar (21/21 flutter testi yeşil).
+>
+> **✅ Aşama 1 TAMAMLANDI (2026-07-02):** K5, Y1, Y3, Y4 (rate limit + login kilidi + token blacklist + idempotency), Y7. Sıradaki: Aşama 2 (Y8 zaten var, Y2 mimari testler, M14 Testcontainers). ADR'lerde planlıdır: [`../adr/`](../adr/).
 
 ---
 
@@ -29,10 +56,13 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 
 ---
 
-### K2 — Outbox: mesaj başına hata izolasyonu / retry / dead-letter yok
+### ✅ K2 — Outbox: mesaj başına hata izolasyonu / retry / dead-letter yok — **Düzeltildi 2026-07-01 (comp. denetim K5)**
 `OutboxProcessor.DispatchPendingAsync`: bir handler **exception fırlatırsa**, `MarkProcessedAsync` hiç çalışmaz → **tüm batch** (zaten başarıyla yayınlanmış mesajlar dahil) yeniden işlenir → **çift teslimat**. Tek bir "zehirli mesaj" tüm kuyruğu bloklar. `OutboxMessage.Error` kolonu tanımlı ama doldurulmuyor; retry/max-deneme/dead-letter yok.
 
 **Öneri:** Mesaj başına try/catch; başarılıyı işaretle, başarısıza `Error` + `RetryCount` yaz; eşik aşılınca dead-letter. Handler'ları **idempotent** yap (bkz. Y4).
+
+✅ _Çözüm (2026-07-01):_ `IOutboxStore` tek `ProcessPendingAsync(publish)` sözleşmesine indirildi; `EfOutboxStore` artık **mesaj-başına** işliyor: başarı → `ProcessedOnUtc`; başarısızlık → `RetryCount++` + `Error` + üstel `NextAttemptUtc` backoff; `RetryCount >= MaxRetryCount` → `DeadLetteredOnUtc` (kuyruktan çıkar). Zehirli mesaj artık sıradaki sağlıklı mesajı bloklamıyor (tüm sonuçlar tek `SaveChanges`). Deserialize başarısızlığı da sessizce düşürülmüyor, hata olarak işleniyor. Çoklu-instance: Npgsql'de `FOR UPDATE SKIP LOCKED` + lease (`NextAttemptUtc`) ile satır sahiplenme; InMemory'de sıralı seçim. Yeni alanlar için 9 context'te migration. Testler: `tests/Unit/OutboxRetryAndDeadLetterTests.cs`. (K4 context-başına izolasyon korunuyor.)
+⚠️ _Kalan:_ SKIP LOCKED raw SQL yalnız derlemede doğrulandı — gerçek Postgres'e karşı test (Testcontainers, Aşama 2/M14) önerilir. Tüketici inbox/dedup idempotency'si hâlâ açık (Y4).
 
 ---
 
@@ -49,10 +79,13 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 `IsVerified`, `UpsertTeacherProfileRequest`, `UpdateTeacherProfileCommand` ve `TeacherProfile.Update()` metodundan kaldırıldı. Client `toUpdatePayload()` artık `isVerified` göndermez; regresyon testi eklendi.
 > **Kalan:** Admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent` henüz eklenmedi.
 
-### Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar
+### 🟡 Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar — **JWT kısmı düzeltildi 2026-07-01**
 `appsettings.json`: `Jwt:SigningKey = "change-this-development-signing-key"`, Postgres `Password=postgres`; kod-içi varsayılan `"replace-with-a-long-development-key"`. Prod'da override edilmezse token **taklit edilebilir**.
 
 **Öneri:** Sırları environment/secret manager'dan al; varsayılanı boş bırak + **prod'da yoksa fail-fast**.
+
+✅ _JWT düzeltmesi (comp. denetim Y3, 2026-07-01):_ Gömülü anahtar `appsettings.json`'dan çıkarıldı (`SigningKey: ""`), `JwtOptions` varsayılanı da boş. Yeni `JwtSigningKeyGuard` startup'ta fail-fast doğrular: boş/yer-tutucu/`< 32 bayt` anahtar reddedilir (`Program.cs` + `ConfigurationHealthCheck` aynı guard'ı kullanır). Dev anahtarı yalnız `appsettings.Development.json`'da (prod'da yüklenmez). Birim testi: `tests/Unit/JwtSigningKeyGuardTests.cs`.
+⚠️ _Kalan:_ Postgres `Password=postgres` hâlâ `appsettings.json`'da (sır yönetimi ayrı bir iş).
 
 ### ✅ Y3 — Mobil: token yenileme (refresh) akışı yok → kullanıcı 60 dk'da bir atılıyor — **Düzeltildi 2026-06-25**
 `TokenStorage`'a `readRefreshToken`/`writeRefreshToken` eklendi. `TokenRefreshInterceptor` (`QueuedInterceptorsWrapper`) 401'de `POST /api/identity/refresh` ile sessiz yenileme yapar; yenileme de başarısız olursa `_onUnauthorized` callback'i tetikler. `ApiClient` lazy closure ile `AuthRepository.refreshSession()`'ı çağırır (döngüsel bağımlılık önlendi).
@@ -71,14 +104,18 @@ Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegration
 
 ## 🟡 ORTA
 
-### O1 — Rate limiting yalnızca Identity'de uygulanıyor
+### ✅ O1 — Rate limiting yalnızca Identity'de uygulanıyor — **Düzeltildi 2026-07-01 (comp. denetim Y4)**
 `"auth"` ve `"default"` limiter tanımlı ama yalnızca Identity `.RequireRateLimiting("auth")` kullanıyor; `"default"` (120/dk) hiçbir endpoint'e bağlı değil. **Öneri:** `CreateModuleGroup`'ta varsayılan limiter veya global limiter.
+
+✅ _Çözüm (2026-07-01):_ Yerleşik `AddRateLimiter` yerine `DistributedRateLimitMiddleware` — Redis destekli, IP-partition'lı, **yol tabanlı** politika: `/api/identity/*` → `auth` (10/dk), diğer `/api/*` → `default` (120/dk), gerisi limitsiz. Böylece **tüm iş uçları** otomatik `default` limitine tabi. Redis erişilemezse **fail-open** (ADR-0004 kararı). Ayarlar `appsettings.json:RateLimiting`. Test: `tests/Unit/DistributedRateLimitMiddlewareTests.cs`. ⚠️ Redis fixed-window yalnız derlemede doğrulandı; gerçek Redis testi önerilir.
 
 ### O2 — Sorgu authorizer'ları varlığı iki kez yüklüyor (çift DB sorgusu)
 Örn. `GetStudentProfileByIdQuery`: authorizer profili yükler, handler **aynı** profili tekrar yükler. **Öneri:** request-context cache veya erişim kontrolünü handler'a entegre et.
 
-### O3 — `MarkProcessedAsync` `DateTime.UtcNow` kullanıyor (IClock değil)
+### ✅ O3 — `MarkProcessedAsync` `DateTime.UtcNow` kullanıyor (IClock değil) — **Düzeltildi 2026-07-01**
 Kod tabanı test edilebilirlik için `IClock` kullanırken `EfOutboxStore` doğrudan `DateTime.UtcNow` çağırıyor — tutarsız.
+
+✅ K5 refactor'ünde `MarkProcessedAsync` kaldırıldı; `EfOutboxStore` artık `IClock` enjekte ediyor (`clock.UtcNow`), böylece işleme zaman damgaları test edilebilir (`FixedClock` ile).
 
 ### O4 — `CommandDispatcher`/`QueryDispatcher` ağır `dynamic` + reflection
 Her dispatch'te `MakeGenericType` + `dynamic` + `GetMethod(...).Invoke`. Cache/pipeline yok. **Öneri:** tip başına derlenmiş delegate cache veya MediatR benzeri pipeline.
@@ -140,4 +177,4 @@ Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-06-26 — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-07-01 — Düzeltmeler yapıldıkça güncellenmeli.*

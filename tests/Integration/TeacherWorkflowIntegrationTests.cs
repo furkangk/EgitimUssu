@@ -141,7 +141,7 @@ public sealed class TeacherWorkflowIntegrationTests
         var reminderResponse = await client.GetAsync($"/api/notifications/teachers/{teacherUserId}/lesson-reminders?activeOnly=false");
         reminderResponse.EnsureSuccessStatusCode();
         var reminderPayload = await ReadJsonAsync(reminderResponse);
-        Assert.True(reminderPayload.EnumerateArray().Any(item => item.GetProperty("lessonScheduleId").GetGuid() == lessonId));
+        Assert.Contains(reminderPayload.EnumerateArray(), item => item.GetProperty("lessonScheduleId").GetGuid() == lessonId);
 
         var teacherLessonsResponse = await client.GetAsync($"/api/scheduling/teachers/{teacherUserId}/lessons?startAtUtc={Uri.EscapeDataString(startAtUtc.AddDays(-1).ToString("O"))}&endAtUtc={Uri.EscapeDataString(endAtUtc.AddDays(7).ToString("O"))}");
         teacherLessonsResponse.EnsureSuccessStatusCode();
@@ -272,7 +272,7 @@ public sealed class TeacherWorkflowIntegrationTests
             currency = "TRY",
             expectedAmount = 1250,
             collectedAmount = 500,
-            dueDateUtc = endAtUtc.AddDays(1),
+            dueDateUtc = DateTime.UtcNow.AddDays(3),
             collectedOnUtc = endAtUtc,
             status = 2,
             billingPeriodStartUtc = startAtUtc.Date,
@@ -296,7 +296,7 @@ public sealed class TeacherWorkflowIntegrationTests
             currency = "TRY",
             expectedAmount = 1250,
             collectedAmount = 1250,
-            dueDateUtc = endAtUtc.AddDays(1),
+            dueDateUtc = DateTime.UtcNow.AddDays(3),
             collectedOnUtc = endAtUtc.AddDays(1),
             status = 3,
             billingPeriodStartUtc = startAtUtc.Date,

@@ -72,7 +72,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : IInteg
             "Yaklasan ders hatirlatmasi",
             $"Ders {payload.StartAtUtc:O} tarihinde baslayacak.",
             payload.StartAtUtc,
-            payload.StartAtUtc.AddMinutes(-60),
+            payload.StartAtUtc.AddMinutes(-Math.Max(payload.ReminderOffsetMinutes, 0)),
             NotificationChannel.InApp,
             ReminderStatus.Pending,
             _clock.UtcNow);
@@ -105,6 +105,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : IInteg
         Guid StudentId,
         DateTime StartAtUtc,
         DateTime EndAtUtc,
+        int ReminderOffsetMinutes,
         DateTime CreatedOnUtc);
 
     private sealed record LessonScheduleCancelledEventPayload(

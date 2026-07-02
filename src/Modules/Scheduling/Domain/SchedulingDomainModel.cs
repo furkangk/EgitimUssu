@@ -40,7 +40,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
 
-        Raise(new LessonScheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, createdOnUtc));
+        Raise(new LessonScheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, ReminderOffsetMinutes, createdOnUtc));
     }
 
     public Guid TeacherUserId { get; private set; }
@@ -150,6 +150,7 @@ public sealed record LessonScheduledDomainEvent(
     Guid StudentId,
     DateTime StartAtUtc,
     DateTime EndAtUtc,
+    int ReminderOffsetMinutes,
     DateTime CreatedOnUtc) : DomainEvent;
 
 public sealed record LessonScheduleRescheduledDomainEvent(

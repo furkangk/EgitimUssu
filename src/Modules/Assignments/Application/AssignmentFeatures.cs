@@ -65,16 +65,40 @@ public interface IAssignmentRepository
 
 public sealed class ListAssignmentsQueryHandler : IQueryHandler<ListAssignmentsQuery, Result<IReadOnlyCollection<AssignmentResponse>>>
 {
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
     private readonly IAssignmentRepository _repository;
+    private readonly ICurrentUser _currentUser;
 
-    public ListAssignmentsQueryHandler(IAssignmentRepository repository)
+    public ListAssignmentsQueryHandler(IAssignmentRepository repository, ICurrentUser currentUser)
     {
         _repository = repository;
+        _currentUser = currentUser;
     }
 
     public async Task<Result<IReadOnlyCollection<AssignmentResponse>>> Handle(ListAssignmentsQuery query, CancellationToken cancellationToken)
     {
-        var assignments = await _repository.ListAsync(query.TeacherUserId, query.StudentId, query.LessonSessionId, cancellationToken);
+        // K2: Sahiplik filtresi server tarafında zorlanır; istemci filtresine güvenilmez (varsayılan-deny).
+        var teacherFilter = query.TeacherUserId;
+        var studentFilter = query.StudentId;
+
+        if (!_currentUser.Roles.Contains("Admin"))
+        {
+            if (!_currentUser.IsAuthenticated || !Guid.TryParse(_currentUser.UserId, out var currentUserId))
+            {
+                return Result<IReadOnlyCollection<AssignmentResponse>>.Failure(Forbidden);
+            }
+
+            if (_currentUser.Roles.Contains("Teacher"))
+            {
+                teacherFilter = currentUserId;
+            }
+            else
+            {
+                studentFilter = currentUserId;
+            }
+        }
+
+        var assignments = await _repository.ListAsync(teacherFilter, studentFilter, query.LessonSessionId, cancellationToken);
         return Result<IReadOnlyCollection<AssignmentResponse>>.Success(assignments.Select(x => x.ToResponse()).ToArray());
     }
 }

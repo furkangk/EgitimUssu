@@ -13,7 +13,6 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<SchedulingDbContext>(configuration, "Scheduling", SchedulingDbContext.SchemaName);
         services.AddScoped<ILessonScheduleRepository, LessonScheduleRepository>();
-        services.AddScoped<ILessonScheduleNotificationService, LessonScheduleNotificationService>();
         services.AddScoped<ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>, CreateLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateLessonScheduleCommand, Result<LessonScheduleResponse>>, UpdateLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<CancelLessonScheduleCommand, Result<LessonScheduleResponse>>, CancelLessonScheduleCommandHandler>();

@@ -9,7 +9,11 @@ abstract interface class TokenStorage {
 }
 
 class SecureTokenStorage implements TokenStorage {
-  SecureTokenStorage() : _storage = const FlutterSecureStorage();
+  // Y7: Android'de EncryptedSharedPreferences kullan (düz-metin yerine şifreli depolama).
+  SecureTokenStorage()
+    : _storage = const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      );
 
   final FlutterSecureStorage _storage;
   static const _accessKey = 'access_token';

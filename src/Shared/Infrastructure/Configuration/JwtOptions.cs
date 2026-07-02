@@ -8,7 +8,9 @@ public sealed class JwtOptions
 
     public string Audience { get; set; } = "EgitimUssu.Clients";
 
-    public string SigningKey { get; set; } = "replace-with-a-long-development-key";
+    // Y3: Repoda gömülü varsayılan anahtar yok. Değer environment/secret'tan gelmeli;
+    // eksik/zayıf anahtar startup'ta JwtSigningKeyGuard tarafından fail-fast reddedilir.
+    public string SigningKey { get; set; } = string.Empty;
 
     public int ExpiryMinutes { get; set; } = 60;
 }

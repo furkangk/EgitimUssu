@@ -19,7 +19,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Shared\Kernel\EgitimUssu.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Contracts\EgitimUssu.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Infrastructure\EgitimUssu.Shared.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

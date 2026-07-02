@@ -72,30 +72,20 @@ public interface ILessonScheduleRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
-public interface ILessonScheduleNotificationService
-{
-    Task ScheduleReminderAsync(LessonSchedule lesson, CancellationToken cancellationToken);
-
-    Task CancelReminderAsync(LessonSchedule lesson, CancellationToken cancellationToken);
-}
-
 public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>
 {
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
     private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
     private readonly ILessonScheduleRepository _repository;
-    private readonly ILessonScheduleNotificationService _notificationService;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
-        ILessonScheduleNotificationService notificationService,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
-        _notificationService = notificationService;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -137,7 +127,8 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
 
         await _repository.AddAsync(lesson, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
-        await _notificationService.ScheduleReminderAsync(lesson, cancellationToken);
+        // Y1: Hatirlatma, LessonScheduledDomainEvent -> outbox -> Notifications handler yoluyla olusturulur;
+        // Scheduling artik Notifications'a senkron/dogrudan yazmaz (modul izolasyonu + atomiklik).
 
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
     }
@@ -150,16 +141,13 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
     private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
     private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders duzenlenebilir.");
     private readonly ILessonScheduleRepository _repository;
-    private readonly ILessonScheduleNotificationService _notificationService;
     private readonly IClock _clock;
 
     public UpdateLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
-        ILessonScheduleNotificationService notificationService,
         IClock clock)
     {
         _repository = repository;
-        _notificationService = notificationService;
         _clock = clock;
     }
 
@@ -206,7 +194,6 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
             _clock.UtcNow);
 
         await _repository.SaveChangesAsync(cancellationToken);
-        await _notificationService.ScheduleReminderAsync(lesson, cancellationToken);
 
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
     }
@@ -216,16 +203,13 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
 {
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
     private readonly ILessonScheduleRepository _repository;
-    private readonly ILessonScheduleNotificationService _notificationService;
     private readonly IClock _clock;
 
     public CancelLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
-        ILessonScheduleNotificationService notificationService,
         IClock clock)
     {
         _repository = repository;
-        _notificationService = notificationService;
         _clock = clock;
     }
 
@@ -239,7 +223,7 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
 
         lesson.Cancel(command.CancellationNote?.Trim(), _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
-        await _notificationService.CancelReminderAsync(lesson, cancellationToken);
+        // Y1: Hatirlatma iptali LessonScheduleCancelledDomainEvent -> outbox -> Notifications handler yoluyla yapilir.
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
     }
 }

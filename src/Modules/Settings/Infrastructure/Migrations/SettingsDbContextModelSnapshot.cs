@@ -18,7 +18,7 @@ namespace EgitimUssu.Modules.Settings.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("settings")
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "9.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -97,6 +97,9 @@ namespace EgitimUssu.Modules.Settings.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("DeadLetteredOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Error")
                         .HasColumnType("text");
 
@@ -104,6 +107,9 @@ namespace EgitimUssu.Modules.Settings.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("NextAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("OccurredOnUtc")
                         .HasColumnType("timestamp with time zone");
@@ -114,6 +120,9 @@ namespace EgitimUssu.Modules.Settings.Infrastructure.Migrations
 
                     b.Property<DateTime?>("ProcessedOnUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Type")
                         .IsRequired()

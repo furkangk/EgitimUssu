@@ -11,7 +11,7 @@
 > - [`../architecture/00_genel_bakis.md`](../architecture/00_genel_bakis.md) — Mimari (backend/mobil/web + genel bakış)
 > - [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md)
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-07-01
 
 ---
 
@@ -40,7 +40,7 @@
 
 **Çapraz-kesit dokümanlar:** [`mimari_inceleme.md`](mimari_inceleme.md) (hata/güvenlik/öncelik) · [`veri_modeli.md`](veri_modeli.md) (ER şeması).
 
-**Durum açıklaması:** 🟢 Domain + Application (CQRS) + API + migration (+ mobil) mevcut · 🟡 kısmen · 🔴 iskelet (DbContext + `/status`) veya henüz hiç yok (yeni modüller).
+**Durum açıklaması:** 🟢 Domain + Application (CQRS) + API + migration (+ mobil) mevcut · 🟡 kısmen · 🔴 iskelet (yalnız `/status`; **K4/2026-07-01'den beri entity'siz iskelet modüller DbContext kaydetmez** — boş DbContext outbox taramasını çökertiyordu).
 
 ---
 
@@ -102,7 +102,9 @@ POST /register   POST /login   POST /refresh
 POST /password-reset/request   POST /password-reset/confirm
 POST /email-verification/request   POST /email-verification/confirm
 POST /logout (auth)   GET /users/{userId} (auth)
+POST /users/{userId}/roles (auth, yalnız Admin — rol atama)
 ```
+> Not (K1): `POST /register` yalnız `Teacher/Student/Parent` kabul eder; `Admin` reddedilir. Yükseltilmiş rol yalnız `POST /users/{id}/roles` ile atanır.
 ### Teachers — `/api/teachers`
 ```
 POST /profiles   PUT /profiles/{userId}   GET /profiles/{userId}
@@ -158,4 +160,4 @@ GET /api/study/status   /api/parents/status   /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-06-24 (BFF dashboard endpoint + mobil dashboard feature eklendi)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-01 (Aşama 0: K1 rol atama ucu, K2 IDOR, K4 iskelet DbContext kaldırma + Notifications migration)*

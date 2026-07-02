@@ -1,14 +1,15 @@
+using System.IdentityModel.Tokens.Jwt;
 using EgitimUssu.Modules.Identity.Application;
 using EgitimUssu.Modules.Identity.Domain;
 using EgitimUssu.Modules.Identity.Infrastructure;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,7 +28,8 @@ public sealed class IdentityModule : ModuleDefinition
 
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        var group = CreateModuleGroup(endpoints).RequireRateLimiting("auth");
+        // Y4: Rate limiting artık yol tabanlı (DistributedRateLimitMiddleware); /api/identity/* otomatik "auth" politikasına tabi.
+        var group = CreateModuleGroup(endpoints);
         var authorizedGroup = group.MapGroup(string.Empty).RequireAuthorization("AuthenticatedUser");
 
         group.MapPost("/register", RegisterAsync)
@@ -56,6 +58,9 @@ public sealed class IdentityModule : ModuleDefinition
 
         authorizedGroup.MapGet("/users/{userId:guid}", GetUserByIdAsync)
         .WithSummary("Kullanıcı bilgilerini getirir");
+
+        authorizedGroup.MapPost("/users/{userId:guid}/roles", AssignRolesAsync)
+        .WithSummary("Kullanıcıya rol atar (yalnızca yönetici)");
     }
 
     /// <summary>
@@ -168,10 +173,42 @@ public sealed class IdentityModule : ModuleDefinition
         HttpContext context,
         LogoutRequest request,
         ICommandDispatcher dispatcher,
+        ITokenBlacklist tokenBlacklist,
         CancellationToken cancellationToken)
     {
         var result = await dispatcher.Dispatch(new LogoutCommand(request.RefreshToken), cancellationToken);
+        if (result.IsSuccess)
+        {
+            // Y4: Refresh iptaline ek olarak, mevcut erişim token'ını kalan ömrü boyunca kara listeye al (anlık iptal).
+            await BlacklistCurrentAccessTokenAsync(context, tokenBlacklist, cancellationToken);
+        }
+
         return ToHttpResult(context, result);
+    }
+
+    private static async Task BlacklistCurrentAccessTokenAsync(
+        HttpContext context,
+        ITokenBlacklist tokenBlacklist,
+        CancellationToken cancellationToken)
+    {
+        var jti = context.User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+        if (string.IsNullOrEmpty(jti))
+        {
+            return;
+        }
+
+        // Kalan ömrü exp claim'inden hesapla; yoksa kısa güvenli bir üst sınır kullan.
+        var timeToLive = TimeSpan.FromHours(1);
+        if (long.TryParse(context.User.FindFirst(JwtRegisteredClaimNames.Exp)?.Value, out var expUnixSeconds))
+        {
+            var remaining = DateTimeOffset.FromUnixTimeSeconds(expUnixSeconds) - DateTimeOffset.UtcNow;
+            if (remaining > TimeSpan.Zero)
+            {
+                timeToLive = remaining;
+            }
+        }
+
+        await tokenBlacklist.BlacklistAsync(jti, timeToLive, cancellationToken);
     }
 
     /// <summary>
@@ -187,6 +224,20 @@ public sealed class IdentityModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// Kullanıcıya rol atar. Yükseltilmiş rollerin (ör. Admin) atanabildiği tek yol; yalnızca yönetici çağırabilir.
+    /// </summary>
+    private static async Task<IResult> AssignRolesAsync(
+        HttpContext context,
+        Guid userId,
+        AssignRolesRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new AssignRolesCommand(userId, request.Roles), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -199,6 +250,7 @@ public sealed class IdentityModule : ModuleDefinition
             "identity.duplicate_email" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "identity.user_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "identity.invalid_refresh_token" => ApiErrorHttpResults.FromError(context, StatusCodes.Status401Unauthorized, result.Error),
+            "identity.too_many_attempts" => ApiErrorHttpResults.FromError(context, StatusCodes.Status429TooManyRequests, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -230,6 +282,11 @@ public sealed record RegisterUserRequest(
     string LastName,
     string? PhoneNumber,
     IReadOnlyCollection<UserRole> Roles);
+
+/// <summary>
+/// Bir kullanıcıya atanacak rolleri taşır (yönetici işlemi).
+/// </summary>
+public sealed record AssignRolesRequest(IReadOnlyCollection<UserRole> Roles);
 
 /// <summary>
 /// Kullanıcı girişi için e-posta, parola ve isteğe bağlı cihaz adını taşır.

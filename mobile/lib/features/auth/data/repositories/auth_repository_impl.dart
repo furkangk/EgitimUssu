@@ -98,7 +98,19 @@ class AuthRepositoryImpl implements AuthRepository {
     final cached = await _localCache.readString(_sessionKey);
     if (cached == null) return null;
 
-    final session = UserSessionModel.fromCache(cached);
+    // Y7: Token'lar yalnız secure storage'da; önbellek token içermez.
+    final accessToken = await _tokenStorage.readAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      await logout();
+      return null;
+    }
+    final refreshToken = await _tokenStorage.readRefreshToken();
+
+    final session = UserSessionModel.fromCache(
+      cached,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
     if (session.isExpiringSoon) {
       // Refresh token varsa sessizce yenile; yoksa oturumu kapat
       if (session.refreshToken != null) {
@@ -113,7 +125,6 @@ class AuthRepositoryImpl implements AuthRepository {
       return null;
     }
 
-    await _tokenStorage.writeAccessToken(session.accessToken);
     return session;
   }
 

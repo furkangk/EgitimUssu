@@ -27,21 +27,34 @@ class UserSessionModel extends UserSession {
     );
   }
 
-  factory UserSessionModel.fromCache(String source) {
-    return UserSessionModel.fromJson(
-      jsonDecode(source) as Map<String, dynamic>,
+  /// Y7: Önbellek yalnız gizli-olmayan profil bilgisini taşır; token'lar secure storage'dan gelir.
+  factory UserSessionModel.fromCache(
+    String source, {
+    required String accessToken,
+    String? refreshToken,
+  }) {
+    final json = jsonDecode(source) as Map<String, dynamic>;
+    return UserSessionModel(
+      userId: json['userId'].toString(),
+      email: json['email'].toString(),
+      fullName: json['fullName'].toString(),
+      roles: ((json['roles'] as List<dynamic>? ?? <dynamic>[]))
+          .map((dynamic item) => item.toString())
+          .toList(),
+      accessToken: accessToken,
+      expiresAtUtc: DateTime.parse(json['expiresAtUtc'].toString()).toUtc(),
+      refreshToken: refreshToken,
     );
   }
 
+  /// Y7: access/refresh token'lar burada **saklanmaz** (düz-metin SharedPreferences); yalnız secure storage'da tutulur.
   String toCache() {
     return jsonEncode(<String, dynamic>{
       'userId': userId,
       'email': email,
       'fullName': fullName,
       'roles': roles,
-      'accessToken': accessToken,
       'expiresAtUtc': expiresAtUtc.toIso8601String(),
-      'refreshToken': refreshToken,
     });
   }
 }
