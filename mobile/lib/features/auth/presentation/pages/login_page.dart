@@ -28,11 +28,23 @@ class _LoginPageState extends State<LoginPage> {
   bool _showWakeUpHint = false;
   Timer? _wakeUpTimer;
 
+  int get _roleId {
+    switch (widget.selectedRole) {
+      case 'veli':
+        return 4;
+      case 'ogrenci':
+        return 3;
+      default:
+        return 2;
+    }
+  }
+
   void _startLogin() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     context.read<AuthCubit>().login(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
+      roleId: _roleId,
     );
     final isProduction = AppConfig.fromEnvironment().isProductionLike;
     if (isProduction) {

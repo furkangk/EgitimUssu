@@ -41,4 +41,14 @@ abstract interface class StudentRepository {
   Future<StudentProfile> updateStudent(StudentProfile studentProfile);
   Future<StudentProfile> getStudent(String studentId);
   Future<List<StudentProfile>> listByTeacher(String teacherUserId);
+
+  /// Oturum açan kullanıcıya bağlı öğrenci profilini getirir; yoksa `null`.
+  Future<StudentProfile?> getByUser(String userId);
+
+  /// Öğrencinin kendi kaydı (SelfRegistered) — profili yoksa oluşturur.
+  Future<StudentProfile> createSelfProfile({
+    required String userId,
+    required String fullName,
+    required String gradeLevel,
+  });
 }

@@ -88,6 +88,15 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         IsActive = isActive;
         UpdatedOnUtc = updatedOnUtc;
     }
+
+    /// <summary>
+    /// Onaylı veli–çocuk bağı sonucunda birincil veliyi ilişkilendirir (M09 ParentChildLinkApproved akışı).
+    /// </summary>
+    public void LinkParent(Guid parentUserId, DateTime updatedOnUtc)
+    {
+        ParentUserId = parentUserId;
+        UpdatedOnUtc = updatedOnUtc;
+    }
 }
 
 public sealed class StudentSubject : Entity<Guid>

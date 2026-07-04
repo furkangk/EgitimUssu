@@ -7,6 +7,8 @@ import 'package:egitim_ussu_mobile/features/assignments/data/repositories/assign
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
+import 'package:egitim_ussu_mobile/features/parent/data/repositories/parent_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/data/repositories/dashboard_repository_impl.dart';
@@ -19,6 +21,8 @@ import 'package:egitim_ussu_mobile/features/scheduling/data/repositories/schedul
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/data/repositories/student_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
+import 'package:egitim_ussu_mobile/features/study/data/repositories/study_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/data/repositories/teacher_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:get_it/get_it.dart';
@@ -103,6 +107,9 @@ Future<void> configureDependencies() async {
         localCache: injector<LocalCache>(),
       ),
     )
+    ..registerLazySingleton<StudyRepository>(
+      () => StudyRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
     ..registerLazySingleton<SchedulingRepository>(
       () => SchedulingRepositoryImpl(
         apiClient: injector<ApiClient>(),
@@ -137,6 +144,12 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<NotificationRepository>(
       () => NotificationRepositoryImpl(
+        apiClient: injector<ApiClient>(),
+        config: injector<AppConfig>(),
+      ),
+    )
+    ..registerLazySingleton<ParentRepository>(
+      () => ParentRepositoryImpl(
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
       ),

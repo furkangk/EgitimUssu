@@ -1,6 +1,6 @@
 # 🎓 Öğrenci Rolü — Detaylı Tasarım Dokümanı
 
-> **Öncelik: 2️⃣** · **Faz 2 — Öğrenci Bireysel Çalışma** · **Durum: 🟡 Kısmen (profil var; bireysel çalışma 🔴 iskelet)**
+> **Öncelik: 2️⃣** · **Faz 2 — Öğrenci Bireysel Çalışma** · **Durum: 🟢 Bireysel çalışma uçtan uca (M08: kronometre/test/hedef/streak/rozet + mobil `study` feature + self-register)**
 >
 > **Amaç:** Öğrenci, **öğretmene ihtiyaç duymadan** kendi ders programını, çalışmasını, hedeflerini ve gelişimini
 > takip edebilsin; öğretmenle eşleşirse ders/ödev akışı da buraya bağlansın.
@@ -33,10 +33,10 @@ Manuel öğrenci sonradan gerçek hesabına bağlanabilir (davet/eşleşme — �
 | Kayıt/giriş (Student) | [`m01_identity`](../modules/m01_identity.md) | M01 | 🟢 |
 | Öğrenci profili | [`m03_students`](../modules/m03_students.md) | M03 | 🟢/🟡 |
 | **Kendi ders programı** (+ özel ders otomatik eklenir) | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 (öğrenci görünümü ⚠️) |
-| **Çalışma kronometresi** (odak süresi) | [`m08_study`](../modules/m08_study.md) | M08 | 🔴 |
-| **Deneme/test** (D-Y-boş, net, artış/azalış analizi) | [`m08_study`](../modules/m08_study.md) | M08 | 🔴 |
-| **Hedefler** (deneme net hedefi, günlük hedef) | [`m08_study`](../modules/m08_study.md) | M08 | 🔴 |
-| **Seri (streak) + başarımlar** | [`m08_study`](../modules/m08_study.md) | M08 | 🔴 |
+| **Çalışma kronometresi** (odak süresi) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
+| **Deneme/test** (D-Y-boş, net, artış/azalış analizi) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
+| **Hedefler** (deneme net hedefi, günlük hedef) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
+| **Seri (streak) + başarımlar** | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Konu eksikleri + konu gelişimi + konu hedefleri** | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) | M10 | 🔴 |
 | Ödev **yükleme** + takip (öğretmene bağlıysa) | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟢 (öğrenci yükleme ⚠️) |
 | Ders notu + **kaynak** görüntüleme | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟢 (öğrenci görünümü ⚠️) |
@@ -73,12 +73,11 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 
 ## 6. Mobil Ekranlar
 
-**Mevcut ✅:** Öğrenci için adanmış akış **henüz yok**; mevcut app öğretmen odaklı. Auth ekranları ortak.
+**Mevcut ✅** (`mobile/lib/features/study/`): `student-home` (çalışma panosu: bugünkü hedef ilerlemesi + streak + haftalık süre + hızlı işlemler + son çalışma/deneme), `study/timer` (kronometre: başlat/mola/devam/bitir/iptal + canlı sayaç), `study/test` (deneme girişi + otomatik net önizleme), `study/goals` (günlük/haftalık/net hedef + veli/öğretmen paylaşım anahtarları), `study/history` (seans/deneme/haftalık grafik + manuel seans), `study/achievements` (rozetler + ilerleme). Auth ekranları ortak.
 
-**Planlanan ⚠️** (UI tasarımında öngörülmüş — bkz. [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)):
-`student-onboarding`, `student-dashboard`, `study-room` (kronometre), `study-history`, `test-entry`/`test-performance`, `goals-streak`, `progress` (gelişim analizi), `my-lessons` (ders geçmişi + ödevler), mesajlaşma.
+> **Rol bazlı navigasyon ✅:** `app_router.dart` redirect'i öğrenciyi (`Student`, öğretmen değil) `/student-home`'a yönlendirir; öğretmene özel ekranlara düşerse geri alır. Profili olmayan öğrenci ilk girişte `SelfRegistered` olarak otomatik oluşturulur.
 
-> Rol bazlı navigasyon: `app_router.dart` redirect mantığı role (`Teacher`/`Student`) göre farklı dashboard'a yönlendirecek şekilde genişletilmeli.
+**Planlanan ⚠️:** `progress` (M10 gelişim analizi), `my-lessons` (eşleşmiş ders geçmişi + ödev yükleme), öğretmenle mesajlaşma (M16).
 
 ---
 
@@ -90,13 +89,13 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık analiz, hedef belirleme, seri/motivasyon, öğretmenle detaylı veri paylaşımı. Free: temel kronometre/test + reklam + limit (PRD §9.2, [`../modules/m17_membership.md`](../modules/m17_membership.md)).
 
 ## 9. Kabul Kriterleri (Faz 2)
-- [ ] Öğretmensiz kayıt (`SelfRegistered`).
-- [ ] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
-- [ ] Test girişi + net + konu bazlı takip.
-- [ ] Hedef + seri + başarım sistemi.
-- [ ] Konu eksik/gelişim/hedef (M10).
-- [ ] Öğretmene bağlıysa ödev yükleme + ders notu/kaynak görüntüleme.
-- [ ] Özel ders çakışmasında öncelik + uyarı.
+- [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
+- [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
+- [x] Test girişi + net + konu bazlı takip (net-trend).
+- [x] Hedef + seri + başarım sistemi.
+- [ ] Konu eksik/gelişim/hedef (M10 — iskelet).
+- [ ] Öğretmene bağlıysa ödev yükleme + ders notu/kaynak görüntüleme (M06 öğrenci görünümü ⚠️).
+- [ ] Özel ders çakışmasında öncelik + uyarı (M04 entegrasyonu ⚠️).
 
 ## 10. İlişkili Dokümanlar
 - Öğretmen tarafı → [`ogretmen.md`](ogretmen.md) · Veli (öğrenci verisini tüketir) → [`veli.md`](veli.md)
@@ -104,4 +103,4 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 
 ---
 
-*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-04 (M08 bireysel çalışma 🟢: backend + mobil `study` feature + self-register + rol navigasyonu)*

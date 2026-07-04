@@ -3,7 +3,7 @@
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-06-23
+> **Son güncelleme:** 2026-07-04
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -26,6 +26,16 @@
 |-------|-------|-----|------|
 | Öğrenci listesi | `/students` | [students_list](students_list.md) | 🔴 |
 | Öğrenci detayı | `/students/:studentId` | [students_detail](students_detail.md) | 🔴 |
+
+## Study (Öğrenci — Bireysel Çalışma, M08)
+| Ekran | Route | md | Veri |
+|-------|-------|-----|------|
+| Öğrenci çalışma panosu | `/student-home` | [study_student](study_student.md) | 🟢 |
+| Kronometre | `/study/timer` | [study_student](study_student.md) | 🟢 |
+| Deneme gir | `/study/test` | [study_student](study_student.md) | 🟢 |
+| Hedefler & paylaşım | `/study/goals` | [study_student](study_student.md) | 🟢 |
+| Çalışma geçmişi | `/study/history` | [study_student](study_student.md) | 🟢 |
+| Rozetler | `/study/achievements` | [study_student](study_student.md) | 🟢 |
 
 ## Lesson Sessions
 | Ekran | Route | md | Veri |
@@ -62,9 +72,20 @@
 | Diğer/Ayarlar | `/more` | [more](more.md) | 🟡 |
 | Hesap bilgileri | `/account-info` | [account_info](account_info.md) | 🔴 |
 
+## Parent (Veli)
+> `mobile/lib/features/parent/` · `ParentCubit` · `ParentRepository` (mock fallback) · `ParentBottomNav` · rol bazlı `/parent` yönlendirme (`app_router.dart`).
+
+| Ekran | Route | md | Veri |
+|-------|-------|-----|------|
+| Veli ana sayfa (çocuk seçici + haftalık KPI + çubuk grafik + ödeme özeti) | `/parent` | — | 🟡 |
+| Bağlı çocuklar (durum rozetleri + "çocuk bağla" bottom-sheet) | `/parent/children` | — | 🟡 |
+| Çocuk detayı (çalışma/ders/ödev/ödeme) | `/parent/child-detail` | — | 🟡 |
+| Bildirim tercihleri (switch + kanal) | `/parent/notifications` | — | 🟡 |
+| Veli profili (+ çıkış) | `/parent/profile` | — | 🟡 |
+
 ---
 
-> **Not:** Bu indeks yalnızca **kodda var olan** ekranları belgeler (hepsi öğretmen tarafı). **Planlanan** öğrenci/veli
+> **Not:** Bu indeks yalnızca **kodda var olan** ekranları belgeler (öğretmen + **veli** tarafı). **Planlanan** öğrenci
 > ekranları ve yeni özellik ekranları (mesajlaşma, ilan/keşif, üyelik/paywall) için rol ve modül dokümanlarına bakın →
 > [`../roles/ogrenci.md`](../roles/ogrenci.md), [`../roles/veli.md`](../roles/veli.md), [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md).
 > Yeni ekran kodda eklendikçe buraya bir satır + ekranın md'si eklenir (bkz. kökteki `CLAUDE.md`).

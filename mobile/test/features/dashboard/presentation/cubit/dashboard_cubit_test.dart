@@ -46,6 +46,18 @@ class _FakeStudentRepository implements StudentRepository {
   }
 
   @override
+  Future<StudentProfile?> getByUser(String userId) async => null;
+
+  @override
+  Future<StudentProfile> createSelfProfile({
+    required String userId,
+    required String fullName,
+    required String gradeLevel,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<List<StudentProfile>> listByTeacher(String teacherUserId) async {
     return const <StudentProfile>[
       StudentProfile(

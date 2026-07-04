@@ -2,7 +2,7 @@
 
 > **Kod Modülü:** `src/Modules/Study` · **Route Prefix:** `/api/study` · **Şema:** `study`
 > **PRD Modülü:** M08 Bireysel Çalışma · **Faz:** 2 (Öğrenci Bireysel Çalışma)
-> **Durum:** 🔴 **İskelet** (yalnızca `StudyDbContext` + DI + `GET /api/study/status`)
+> **Durum:** 🟢 **Uçtan uca çalışır** (Domain + Application/CQRS + Infrastructure + migration + API + mobil `study` feature)
 > **Platform:** EğitimÜssü (EgitimUssu) — .NET 9 modüler monolit · PostgreSQL · Redis · Flutter
 >
 > **Amaç:** Öğrencinin **öğretmensiz, tam işlevsel** bireysel çalışmasını takip etmek: kronometreyle
@@ -10,37 +10,29 @@
 > başarım rozetleri ve konu bazlı çalışma kaydı. Bu modül platformun **büyüme motorudur** — öğretmen
 > gerektirmeden değer üretir ve eşleştirmeye (M12) hazır bir öğrenci havuzu besler.
 
-> ⚠️ **Önemli:** Bu dokümandaki Domain, API, İş Kuralları ve Olay Akışı bölümleri **henüz kodda yoktur**;
-> PRD §M08 ve mevcut modül desenlerine (`AggregateRoot + Entity + Enum + DomainEvent`) göre
-> **önerilen tasarımdır**. Bölüm 1 (Mevcut Durum) koddan doğrulanmıştır.
-
 ---
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-### ✅ Var olan (iskelet)
-- `StudyModule : ModuleDefinition` — `Name = "Study"`, `RoutePrefix = "/api/study"`, tek endpoint:
-  `GET /api/study/status` → `{ module, route, state = "placeholder" }`
-  (`src/Modules/Study/API/StudyModule.cs`).
-- `StudyDbContext : ModuleDbContext` — `SchemaName = "study"`, `ModuleName = "Study"`; henüz **hiç `DbSet` yok**
-  (`src/Modules/Study/Infrastructure/StudyDbContext.cs`).
-- `AddStudyModule(...)` DI kaydı (`src/Modules/Study/Infrastructure/DependencyInjection.cs`).
-- Boş `AssemblyReference.cs` dosyaları (Domain, Application).
+### ✅ Var olan (uçtan uca — 2026-07-04'te inşa edildi)
+- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
+- **Application (CQRS)** (`StudyContracts/SessionFeatures/TestFeatures/ProgressFeatures/Policies`): Start/Pause/Resume/Complete/Discard/Manual seans komutları; RecordTest; UpdateGoals; UpdateSharing. Sorgular: session, list-sessions, weekly-summary, test, list-tests, net-trend, goals, streak, achievements, sharing, dashboard. `StudyCompletionService` (konu rollup + streak + başarım değerlendirme), `AchievementEvaluator`, `StudyOwnershipGuard`/`StudyLinkResolver`.
+- **Infrastructure**: `StudyDbContext` 8 `DbSet` + EF config'ler (snake_case, enum→string), `StudyRepository` (tek unit-of-work), `AddStudyModule` DI, `StudyDesignTimeDbContextFactory`, **`InitialStudy` migration** (`study` şeması + achievement katalog seed'i 10 rozet).
+- **API** (`API/StudyModule.cs`): §3'teki tüm uçlar, `AuthenticatedUser` politikası, sahiplik yetkilendirmesi, hata→HTTP eşlemesi.
+- **Mobil** (`mobile/lib/features/study/`): `student-home` (dashboard), `study/timer`, `study/test`, `study/goals` (+paylaşım), `study/history` (seans/deneme/haftalık + manuel), `study/achievements`. Rol bazlı `redirect` (öğrenci → `/student-home`). Self-register: profil yoksa `SelfRegistered` olarak otomatik oluşturulur.
 
-### 🔴 Eksik olan (Faz 2'nin çekirdeği)
-- **Domain modeli yok** — `StudySession`, `TestResult`, `StudyGoal`, `StudyStreak`, `Achievement`, `StudyTopic`
-  aggregate/entity'leri tanımlı değil.
-- **Application (CQRS) katmanı yok** — komut/sorgu, handler, repository arayüzü, policy yok.
-- **API endpoint yok** (sadece `/status`).
-- **EF migration yok** — `study` şemasında tablo yok.
-- **Mobil `study` feature yok** — sayaç/test/hedef ekranları mevcut değil.
-- **Gizlilik bayrakları yok** — veli/öğretmenle paylaşım kontrolü (M15 ile) tanımlı değil.
+### ✅ Doğrulama (2026-07-04, InMemory + gerçek uçlar)
+Öğrenci kaydı → self profil → start/pause/resume/complete (mola muhasebesi), tek-aktif-seans **409**, manuel giriş, **test net=28** (30−8/4), günlük/haftalık özet, streak=1, dashboard, paylaşım güncelleme ve **sahiplik izolasyonu (başka öğrenci 403)** uçtan uca doğrulandı. Not: başarım kazanımı katalog seed'i migration ile geldiği için Postgres'te devrededir (InMemory'de seed uygulanmaz).
 
-> Özet: M08, `00_genel_bakis.md` durum tablosunda **🔴 İskelet** olarak işaretlidir. Sıfırdan inşa gerekir.
+### ⚠️ Sınır / Gelecek işler
+- **Sahiplik modeli:** Study, kendi sınırı içinde `StudyStudent` bağını **ilk yazımda oturum kullanıcısına** bağlar. Manuel öğrenci hijack'ini tümüyle kapatmak için M03 `StudentProfileCreated` integration event tüketimi eklenmeli.
+- **Yerel gün (streak):** M15 zaman dilimi tercihi gelene kadar Türkiye saati (UTC+3) varsayılır (`StudyLocalTime`).
+- **Konu sözlüğü:** `Subject/Topic` serbest metin; M15 müfredat sözlüğüne bağlanmalı.
+- **Veli/öğretmen okuma yolu:** Paylaşım bayrakları (`IsSharedWith*`) kayıtlarda tutulur; M09/öğretmen görünümünün bunları okuması bağ + integration event ile tamamlanacak.
 
 ---
 
-## 2. Domain Modeli (⚠️ Önerilen)
+## 2. Domain Modeli (✅ Kodda — `Domain/StudyDomainModel.cs`)
 
 > Tüm aggregate'ler `EgitimUssu.Shared.Kernel` içindeki `AggregateRoot<Guid>` / `Entity<Guid>` desenini izler:
 > private parametresiz ctor (EF için), `private set` property'ler, enum değerleri `1`'den başlar,
@@ -221,7 +213,9 @@ hem M10 `TopicMastery` ile hizalamada kullanılır.
 
 ---
 
-## 3. API Sözleşmesi (⚠️ Önerilen) — `/api/study`
+## 3. API Sözleşmesi (✅ Kodda) — `/api/study`
+
+> Not (koddan): manuel seans `POST /sessions/manual`; seans iptali `POST /sessions/{id}/discard`; paylaşım `GET`/`PUT /students/{studentId}/sharing`. `by-user` yerine öğrenci StudentId'si M03 `GET /api/students/profiles/by-user/{userId}` ile çözülür (mobil self-register).
 
 > Tümü auth gerektirir; öğrenci yalnızca **kendi** `StudentId`'sine ait verilere erişir (sahiplik politikası).
 > Veli/öğretmen erişimi gizlilik bayraklarına ve onaylı bağa tabidir (bkz. İş Kuralları 4.5).
@@ -366,17 +360,17 @@ RegisterStudyDay → seri devam/kırılma → StreakMilestoneReached / StreakBro
 
 PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
-- [ ] Öğrenci konu seçip kronometre **başlatabilir / mola verebilir / devam edebilir / bitirebilir**.
-- [ ] Mola süresi net süreye **eklenmez**; seans özeti net süre + mola süresini ayrı gösterir.
-- [ ] Manuel (kronometresiz) seans girişi yapılabilir.
-- [ ] Seans geçmişi + **haftalık çalışma özeti** (toplam süre, ders dağılımı, gün dağılımı) görüntülenir.
-- [ ] Test girişi: `doğru+yanlış+boş = toplam` doğrulaması; **net otomatik** hesaplanır (katsayı M15'ten).
-- [ ] Konu/ders bazlı **net trend** (zaman serisi) gösterilir.
-- [ ] Günlük/haftalık **hedef** belirlenebilir; bugünkü ilerleme görünür.
-- [ ] **Streak** (mevcut + rekor) hesaplanır ve gösterilir; seri kırılınca bildirim tetiklenir.
-- [ ] En az bir **başarım rozeti** seti tanımlı ve kazanım bildirimi çalışır.
-- [ ] Öğrenci, çalışma/test verisinin veli ve öğretmenle **paylaşımını ayrı ayrı** açıp kapatabilir.
-- [ ] Bireysel plan ile özel ders çakışmasında **özel ders öncelikli** ve öğrenciye uyarı gösterilir.
+- [x] Öğrenci konu seçip kronometre **başlatabilir / mola verebilir / devam edebilir / bitirebilir**.
+- [x] Mola süresi net süreye **eklenmez**; seans özeti net süre + mola süresini ayrı gösterir.
+- [x] Manuel (kronometresiz) seans girişi yapılabilir.
+- [x] Seans geçmişi + **haftalık çalışma özeti** (toplam süre, ders dağılımı, gün dağılımı) görüntülenir.
+- [x] Test girişi: `doğru+yanlış+boş = toplam` doğrulaması; **net otomatik** hesaplanır (varsayılan katsayı 4; M15'ten konfigüre edilecek).
+- [x] Konu/ders bazlı **net trend** (zaman serisi) gösterilir (`GET .../net-trend`).
+- [x] Günlük/haftalık **hedef** belirlenebilir; bugünkü ilerleme görünür.
+- [x] **Streak** (mevcut + rekor) hesaplanır ve gösterilir; seri kırılınca `StreakBrokenDomainEvent` (Outbox) tetiklenir.
+- [x] **Başarım rozeti** seti (10 rozet) tanımlı; kazanımda `AchievementEarnedDomainEvent` yükseltilir. (M11 kutlama bildirimi ⚠️ bekliyor.)
+- [x] Öğrenci, çalışma/test verisinin veli ve öğretmenle **paylaşımını ayrı ayrı** açıp kapatabilir (`sharing`).
+- [ ] Bireysel plan ile özel ders çakışmasında **özel ders öncelikli** ve öğrenciye uyarı gösterilir (M04 entegrasyonu ⚠️ bekliyor).
 
 ---
 
@@ -417,4 +411,4 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🔴 İskelet | Güncelleme: 2026-06-24*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-04*

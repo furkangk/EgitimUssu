@@ -68,8 +68,9 @@ class RoleSelectionPage extends StatelessWidget {
                     _RoleCard(
                       data: role,
                       onTap: () {
-                        if (role.keyName == 'ogretmen') {
-                          context.go('/register');
+                        if (role.keyName == 'ogretmen' ||
+                            role.keyName == 'veli') {
+                          context.go('/register?role=${role.keyName}');
                           return;
                         }
                         ScaffoldMessenger.of(context).showSnackBar(

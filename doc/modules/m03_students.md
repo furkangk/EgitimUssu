@@ -33,7 +33,7 @@
 | **Öğrenci güncelleme / pasifleştirme** | ✅ var | `UpdateStudentProfileCommand`, `PUT /profiles/{studentId}`, sahiplik yetkisi |
 | **Manuel öğrenciyi gerçek hesaba bağlama (davet/eşleşme)** | 🔴 eksik | Manuel profil sonradan `UserId` ile ilişkilendirilemiyor |
 | ContactEmail benzersizlik kontrolü | 🟡 kısmi | `ExistsByContactEmailAsync` repo'da var ama create handler'da kullanılmıyor |
-| Self-register mobil akışı | 🔴 eksik | Öğrenci `students` feature'ı öğretmen odaklı; öğrenci kendi profil ekranı yok |
+| Self-register mobil akışı | 🟢 var | `by-user` çözümü + yoksa `SelfRegistered` otomatik oluşturma (`StudentRepository.getByUser`/`createSelfProfile`), öğrenci `study` feature ilk girişinde tetiklenir |
 
 > **Özet:** Öğretmen tarafı (manuel ekle/**güncelle**/listele/getir) **çalışır durumdadır**. Self-register backend'de hazırdır ama
 > **mobil akış ve manuel→gerçek bağlama** tamamlanmamıştır.
@@ -231,7 +231,7 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 - [x] **Öğrenci güncellenebilir / pasifleştirilebilir** — `PUT /profiles/{studentId}`, `IsActive`, branş yeniden yazımı, sahiplik yetki testi.
 - [x] **Başka öğretmen başkasının öğrencisini güncelleyemez** (403) — entegrasyon testinde doğrulandı.
 - [ ] **Manuel öğrenci, gerçek öğrenci hesabına bağlanabilir** (davet/eşleşme akışı).
-- [ ] **Self-register mobil akışı** uçtan uca çalışır.
+- [x] **Self-register mobil akışı** uçtan uca çalışır — öğrenci ilk `study` girişinde profili yoksa `SelfRegistered` olarak oluşturulur (`getByUser` → yoksa `createSelfProfile`).
 
 ---
 
@@ -261,4 +261,4 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-04 (self-register mobil akışı 🟢: `getByUser`/`createSelfProfile`, M08 `study` feature ile bağ)*

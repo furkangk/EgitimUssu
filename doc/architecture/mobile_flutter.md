@@ -183,17 +183,18 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 | `payments` | Payments (M07) | ödeme liste/form |
 | `more` | Settings (M15) | ayarlar/hesap |
 | `dashboard` | (çapraz) | öğretmen ana ekranı |
-| _(planlanan)_ | Study/Parents/ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | öğrenci/veli/yeni özellik ekranları |
+| `study` | Study (M08) | öğrenci bireysel çalışma: `student-home`, `study/timer`, `study/test`, `study/goals`, `study/history`, `study/achievements` |
+| _(planlanan)_ | ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | yeni özellik ekranları |
 
-## 9. Rol Bazlı Navigasyon (Planlanan)
+## 9. Rol Bazlı Navigasyon
 
-Mevcut app öğretmen odaklı. `app_router.dart` redirect'i ileride role göre farklı kabuğa yönlendirecek:
+`app_router.dart` redirect'i artık **role göre farklı kabuğa yönlendirir** (öğretmen + veli + öğrenci uygulandı):
 
 - **Öğretmen:** Ana Sayfa · Dersler · Öğrenciler · Takvim · Finans · Diğer — kodda **uygulandı**: ortak `AppBottomNav` widget'ı (`AppNavTab` sekmeleri, `shared/widgets/app_bottom_nav.dart`).
-- **Öğrenci:** Ana Sayfa · Çalışma (kronometre) · Dersler · Gelişim · Profil
-- **Veli:** Ana Sayfa · Raporlar · Bildirimler · Profil
+- **Veli:** Ana Sayfa · Çocuklar · Bildirim · Profil — kodda **uygulandı**: `ParentBottomNav` + `/parent` rota grubu (`parent_home`/`children`/`child_detail`/`notifications`/`profile`). Redirect: `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir; veli öğretmen ekranlarına ya da öğretmen veli ekranlarına düşerse geri alınır. `role_selection_page` 'Veli' kartı `/register?role=veli`'ye gider.
+- **Öğrenci:** kodda **uygulandı** — `study` feature (`/student-home` + `study/*`). Redirect: `session.roles` içinde `'Student'` (ve `'Teacher'` yok) ise `/student-home`'a yönlendirir; öğrenci öğretmene özel ekranlara (`/dashboard`, `/students`, `/scheduling`, `/lesson-sessions`, `/assignments`, `/payments`, `/teacher-profile`) düşerse geri alınır. Öğrenci StudentId'si M03 `by-user` ile çözülür; profil yoksa `SelfRegistered` olarak otomatik oluşturulur. (Adanmış alt menü ⚠️ ileride; şu an hızlı-işlem ızgarası ile gezinilir.)
 
-Yeni feature klasörleri (planlanan): `study` (M08), `progress` (M10), `parent` (M09), `messaging` (M16),
+Feature klasörü **uygulandı:** `parent` (M09). Planlanan: `study` (M08), `progress` (M10), `messaging` (M16),
 `listings` (M12), `reviews` (M13), `membership` (M17 — paywall + reklam yerleşimi), `feedback` (M18).
 Detay: [`../roles/`](../roles/00_roller_genel_bakis.md).
 

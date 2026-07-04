@@ -10,6 +10,11 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/pages/role_selecti
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
+import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_child_detail_page.dart';
+import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_children_page.dart';
+import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_home_page.dart';
+import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_notifications_page.dart';
+import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_profile_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
@@ -21,6 +26,12 @@ import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payments
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/student_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/students_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/achievements_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_home_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_goals_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_history_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_timer_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/test_entry_page.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/pages/teacher_profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -57,14 +68,85 @@ class AppRouter {
           return onAuthScreen ? null : '/';
         }
 
+        // Rol bazlı yönlendirme: veli kendi paneline, öğrenci çalışma paneline,
+        // diğerleri (öğretmen/admin) öğretmen paneline.
+        final roles = authCubit.state.session?.roles ?? const <String>[];
+        final isParent = roles.contains('Parent');
+        final isStudent =
+            !isParent && roles.contains('Student') && !roles.contains('Teacher');
+        final home = isParent
+            ? '/parent'
+            : isStudent
+            ? '/student-home'
+            : '/dashboard';
+
         if (onAuthScreen || state.matchedLocation == '/') {
+          return home;
+        }
+
+        // Veli, öğretmen-özel ekranlara düşerse kendi paneline geri al (ve tersi).
+        final onParentArea = state.matchedLocation.startsWith('/parent');
+        if (isParent && !onParentArea) {
+          return '/parent';
+        }
+        if (!isParent && onParentArea) {
           return '/dashboard';
+        }
+
+        // Öğrenci, öğretmene özel ekranlara düşerse kendi paneline geri al.
+        const teacherOnly = <String>[
+          '/dashboard',
+          '/students',
+          '/scheduling',
+          '/lesson-sessions',
+          '/lesson-notes',
+          '/assignments',
+          '/payments',
+          '/teacher-profile',
+        ];
+        if (isStudent &&
+            teacherOnly.any((path) => state.matchedLocation.startsWith(path))) {
+          return '/student-home';
         }
 
         return null;
       },
       routes: <RouteBase>[
         GoRoute(path: '/', builder: (context, state) => const WelcomePage()),
+        GoRoute(
+          path: '/student-home',
+          builder: (context, state) => const StudentHomePage(),
+        ),
+        GoRoute(
+          path: '/study/timer',
+          builder: (context, state) => StudyTimerPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/study/test',
+          builder: (context, state) => TestEntryPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/study/goals',
+          builder: (context, state) => StudyGoalsPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/study/history',
+          builder: (context, state) => StudyHistoryPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/study/achievements',
+          builder: (context, state) => AchievementsPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
         GoRoute(
           path: '/role-selection',
           builder: (context, state) => const RoleSelectionPage(),
@@ -77,7 +159,9 @@ class AppRouter {
         ),
         GoRoute(
           path: '/register',
-          builder: (context, state) => const RegisterPage(),
+          builder: (context, state) => RegisterPage(
+            role: state.uri.queryParameters['role'] ?? 'ogretmen',
+          ),
         ),
         GoRoute(
           path: '/dashboard',
@@ -173,6 +257,29 @@ class AppRouter {
         GoRoute(
           path: '/notifications',
           builder: (context, state) => const NotificationsPage(),
+        ),
+        // Veli (Parent) paneli
+        GoRoute(
+          path: '/parent',
+          builder: (context, state) => const ParentHomePage(),
+        ),
+        GoRoute(
+          path: '/parent/children',
+          builder: (context, state) => const ParentChildrenPage(),
+        ),
+        GoRoute(
+          path: '/parent/notifications',
+          builder: (context, state) => const ParentNotificationsPage(),
+        ),
+        GoRoute(
+          path: '/parent/profile',
+          builder: (context, state) => const ParentProfilePage(),
+        ),
+        GoRoute(
+          path: '/parent/child-detail',
+          builder: (context, state) => ParentChildDetailPage(
+            studentId: state.extra is String ? state.extra as String : '',
+          ),
         ),
       ],
     );

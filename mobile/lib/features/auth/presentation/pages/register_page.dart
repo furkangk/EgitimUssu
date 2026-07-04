@@ -8,7 +8,32 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  const RegisterPage({super.key, this.role = 'ogretmen'});
+
+  /// Rol anahtarı: 'ogretmen' | 'veli' | 'ogrenci'.
+  final String role;
+
+  int get roleId {
+    switch (role) {
+      case 'veli':
+        return 4;
+      case 'ogrenci':
+        return 3;
+      default:
+        return 2;
+    }
+  }
+
+  String get roleTitle {
+    switch (role) {
+      case 'veli':
+        return 'Veli';
+      case 'ogrenci':
+        return 'Öğrenci';
+      default:
+        return 'Öğretmen';
+    }
+  }
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -57,7 +82,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          const _LogoHeader(),
+                          _LogoHeader(roleTitle: widget.roleTitle),
                           const SizedBox(height: 8),
                           _RoleSelectionReturnBanner(
                             onTap: () => context.go('/role-selection'),
@@ -214,6 +239,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                                       phoneNumber:
                                                           _phoneController.text
                                                               .trim(),
+                                                      roleId: widget.roleId,
                                                     );
                                               }
                                             },
@@ -331,7 +357,9 @@ class _RegisterPageState extends State<RegisterPage> {
 }
 
 class _LogoHeader extends StatelessWidget {
-  const _LogoHeader();
+  const _LogoHeader({required this.roleTitle});
+
+  final String roleTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +396,7 @@ class _LogoHeader extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Ogretmen hesabinizi olusturarak ders yonetimine baslayin.',
+          '$roleTitle hesabinizi olusturarak baslayin.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: AppColors.textSecondary,

@@ -2,47 +2,54 @@
 
 > **Kod Modülü:** `src/Modules/Parents` · **Route Prefix:** `/api/parents` · **Şema:** `parents`
 > **PRD Modülü:** M09 Veli Paneli · **Faz:** 2-3 (Faz 2: bireysel çalışma görünümü; Faz 3: öğretmen verisi)
-> **Durum:** 🔴 **İskelet** (yalnızca `ParentsDbContext` + DI + `GET /api/parents/status`)
+> **Durum:** 🟢 **Uygulandı** (domain + application/CQRS + API + migration + read-model + mobil feature + rol navigasyonu — hepsi kodda, uçtan uca çalışır)
 > **Platform:** EğitimÜssü (EgitimUssu) — .NET 9 modüler monolit · PostgreSQL · Redis · Flutter
 >
 > **Amaç:** Veli, çocuğunun gelişimini **şeffaf** şekilde izlesin. Veli paneli **iki kaynaktan** beslenir:
 > (1) çocuğun **bireysel çalışması** (öğretmen gerekmez — M08), (2) öğretmen bağlıysa **ders/ödev/ödeme**
 > verisi (M05/M06/M07). Bu modül büyük ölçüde bir **read-model** modülüdür: kendi domain verisi azdır;
-> diğer modüllerin verisini veli perspektifinden **okur/birleştirir**.
+> diğer modüllerin verisini veli perspektifinden **okur/birleştirir** (integration event ile beslenen `parents` şeması read-model tabloları).
 
-> ⚠️ Bu dokümandaki Domain/API/İş Kuralları/Olay Akışı bölümleri **henüz kodda yoktur**; PRD §M09 ve
-> mevcut modül desenlerine göre **önerilen tasarımdır**. Bölüm 1 koddan doğrulanmıştır.
+> ℹ️ **Not:** Aşağıdaki Domain/API/İş Kuralları/Olay Akışı bölümleri artık **kodda uygulanmıştır** ve
+> gerçek alan/uç adlarıyla hizalıdır. (Haftalık çalışma dk + streak read-model kolonları hazırdır; **M08 Study → Parents**
+> integration event beslemesi henüz bağlanmadığı için bu iki alan şimdilik boş kalır.)
 
 ---
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-### ✅ Var olan (iskelet)
-- `ParentsModule : ModuleDefinition` — `Name = "Parents"`, `RoutePrefix = "/api/parents"`, tek endpoint:
-  `GET /api/parents/status` → `placeholder` (`src/Modules/Parents/API/ParentsModule.cs`).
-- `ParentsDbContext : ModuleDbContext` — `SchemaName = "parents"`; henüz **hiç `DbSet` yok**
-  (`src/Modules/Parents/Infrastructure/ParentsDbContext.cs`).
-- `AddParentsModule(...)` DI kaydı (`src/Modules/Parents/Infrastructure/DependencyInjection.cs`).
+### ✅ Uygulandı (domain + application + API + infra + read-model)
+- **Domain:** `ParentProfile` (AggregateRoot — düz bildirim tercihi alanları + `NotificationChannel`) ve
+  `ParentChildLink` (AggregateRoot — onaya dayalı bağ, `ParentChildLinkStatus`) tanımlı; davranışlar + domain olayları mevcut.
+- **Application (CQRS):** profil oluştur/oku, bildirim tercihleri güncelle, bağ talep/onay/ret/iptal, bağlı çocuk listesi
+  ve birleşik çocuk paneli sorguları — komut/sorgu + handler'lar kodda.
+- **API:** `/api/parents` altında profil, bildirim tercihi, bağ akışı ve dashboard uçları (bkz. Bölüm 3) — tümü auth (`AuthenticatedUser`).
+- **Infrastructure:** `ParentsDbContext` `DbSet`'leri, **`parents` şemasında `InitialCreate` migration'ı**,
+  integration event handler'ları (LessonSessions/Assignments/Payments/Students tüketimi) ve `AddParentsModule(...)` DI kaydı tamam.
+- **Read-model tabloları** (`parents` şeması, integration event ile beslenir): `ChildProgressSnapshot` (öğrenci başına
+  tamamlanan/planlanan ders + son ders tarihi, toplam/açık/tamamlanan ödev, beklenen/tahsil/kalan ödeme + para birimi,
+  haftalık çalışma dk + streak [M08 gelince]), `KnownStudent` (StudentId→UserId eşlemesi, bağ onay yetkisi için),
+  `ProcessedIntegrationEvent` (idempotency / çift-sayım koruması).
+- **Mobil veli feature** (`mobile/lib/features/parent/`) ve `Parent` rolü için **rol bazlı navigasyon** kodda (bkz. Bölüm 6).
 
-### 🟢 Hazır bağ noktaları (başka modüllerde)
-- `Identity` rolü: `UserRole.Parent = 4` (veli, **gerçek kayıtlı kullanıcı** olmalı — bkz. İş Kuralları 4.1).
-- M03 Students: `StudentProfile.ParentUserId` (`Guid?`) alanı mevcut — tekil/basit veli bağı için hazır
-  (`src/Modules/Students/Domain/StudentsDomainModel.cs`).
+### 🟢 Bağ noktaları (başka modüllerde)
+- `Identity` rolü: `UserRole.Parent = 4` (veli, **gerçek kayıtlı kullanıcı** olmalı — bkz. İş Kuralları 4.1). Register/Login `roleId 4` taşır.
+- M03 Students: `StudentProfile.ParentUserId` (`Guid?`) alanı mevcut. **Students modülü artık `ParentChildLinkApprovedDomainEvent`'i
+  tüketip** (yeni handler + `StudentProfile.LinkParent` metodu) onaylı bağda `ParentUserId`'yi set eder.
 
-### 🔴 Eksik olan
-- **Domain yok** — `ParentProfile`, `ParentChildLink` tanımlı değil.
-- **Application (CQRS) yok**, **API yok** (sadece `/status`), **migration yok** (`parents` şemasında tablo yok).
-- **Birleşik veli dashboard read-model'i yok** — diğer modüllerden veri toplayan sorgular yok.
-- **Mobil veli feature yok** ve `Parent` rolü için navigasyon yok.
+### ⏳ M08 Study beslemesine bağlı
+- Haftalık çalışma dk + streak kolonları read-model'de (`ChildProgressSnapshot`) hazır; **M08 Study → Parents** integration event beslemesi henüz bağlanmadı.
 
 ---
 
-## 2. Domain Modeli (⚠️ Önerilen)
+## 2. Domain Modeli (✅ Uygulandı)
 
 > `AggregateRoot<Guid>` / `Entity<Guid>` desenini izler (private ctor, `private set`, enum `1`'den, `Raise(...)`).
 > Veli modülünün **kendi ürettiği veri azdır**; çoğu veri diğer modüllerden okunur (read-model). Tablolar `parents` şemasında.
 
 ### 2.1 `ParentProfile` (AggregateRoot)
+
+> Bildirim tercihleri **ayrı VO değil**, aggregate üzerinde **düz alanlar** olarak tutulur.
 
 | Alan | Tip | Zorunlu | Açıklama |
 |------|-----|:------:|----------|
@@ -51,110 +58,108 @@
 | `FullName` | `string` | ✓ | Veli adı |
 | `ContactPhone` | `string?` | — | |
 | `ContactEmail` | `string?` | — | |
-| `NotificationPreferences` | `NotificationPreferences` (VO) | ✓ | Bildirim tercihleri (ödev kaçırma, haftalık özet, ders hatırlatma vb.) |
+| `NotifyMissedAssignment` | `bool` | ✓ | Ödev kaçırma bildirimi (M11) |
+| `NotifyWeeklyProgressSummary` | `bool` | ✓ | Haftalık gelişim özeti |
+| `NotifyLessonReminders` | `bool` | ✓ | Yaklaşan ders hatırlatması (öğretmen bağlıysa) |
+| `NotifyTestResults` | `bool` | ✓ | Yeni deneme sonucu bildirimi |
+| `NotifyPayments` | `bool` | ✓ | Ödeme hatırlatması (öğretmen bağlıysa) |
+| `NotificationChannel` | `NotificationChannel` (enum) | ✓ | `Push=1` / `Email=2` / `Both=3` |
 | `IsActive` | `bool` | ✓ | |
 | `CreatedOnUtc` | `DateTime` | ✓ | |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
 
-`NotificationPreferences` (value object — öneri):
+```csharp
+public enum NotificationChannel { Push = 1, Email = 2, Both = 3 }
+```
 
-| Alan | Tip | Açıklama |
-|------|-----|----------|
-| `MissedAssignmentAlerts` | `bool` | Ödev kaçırma bildirimi (M11) |
-| `WeeklyProgressSummary` | `bool` | Haftalık gelişim özeti |
-| `LessonReminders` | `bool` | Yaklaşan ders hatırlatması (öğretmen bağlıysa) |
-| `TestResultAlerts` | `bool` | Yeni deneme sonucu bildirimi |
-| `PaymentReminders` | `bool` | Ödeme hatırlatması (öğretmen bağlıysa) |
-| `Channel` | `enum` | `Push`/`Email`/`Both` |
-
-**Davranış:** `UpdateNotificationPreferences(...)`, `UpdateContact(...)`. Olay: `ParentProfileCreatedDomainEvent`.
+**Davranışlar:** `UpdateContact(...)`, `UpdateNotificationPreferences(...)`. Olay: `ParentProfileCreatedDomainEvent`.
 
 ### 2.2 `ParentChildLink` (AggregateRoot) — Veli–öğrenci bağı (onaylı, çoklu)
 
-`StudentProfile.ParentUserId` tekil/basit senaryoyu karşılar; **çoklu çocuk + onaylı bağ** için ayrı aggregate önerilir.
+`StudentProfile.ParentUserId` tekil/basit senaryoyu karşılar; **çoklu çocuk + onaylı bağ** ayrı aggregate ile yönetilir.
 
 | Alan | Tip | Zorunlu | Açıklama |
 |------|-----|:------:|----------|
 | `Id` | `Guid` | ✓ | |
 | `ParentUserId` | `Guid` | ✓ | Veli Identity kullanıcısı |
 | `StudentId` | `Guid` | ✓ | M03 `StudentProfile.Id` (mantıksal referans) |
-| `Status` | `ParentChildLinkStatus` | ✓ | `Pending`/`Approved`/`Rejected`/`Revoked` |
+| `ChildDisplayName` | `string?` | — | Panelde gösterilecek çocuk adı |
 | `Relationship` | `string?` | — | Yakınlık (anne/baba/vasi) |
-| `RequestedOnUtc` | `DateTime` | ✓ | Talep anı |
-| `LinkedOnUtc` | `DateTime?` | — | Onay anı |
-| `ApprovedByUserId` | `Guid?` | — | Onaylayan (öğrenci veya öğretmen) |
 | `InviteCode` | `string?` | — | Davet/eşleşme kodu (varsa) |
 | `IsPrimaryContact` | `bool` | ✓ | Birincil veli mi |
+| `Status` | `ParentChildLinkStatus` | ✓ | `Pending`/`Approved`/`Rejected`/`Revoked` |
+| `RequestedOnUtc` | `DateTime` | ✓ | Talep anı |
+| `LinkedOnUtc` | `DateTime?` | — | Onay anı |
+| `ApprovedByUserId` | `Guid?` | — | Onaylayan (öğrenci/öğretmen/Admin) |
+| `UpdatedOnUtc` | `DateTime` | ✓ | |
 
 ```csharp
 public enum ParentChildLinkStatus { Pending = 1, Approved = 2, Rejected = 3, Revoked = 4 }
 ```
 
-**Davranışlar:** `RequestLink(...)` → `Pending`; `Approve(byUserId, nowUtc)` → `Approved` + `LinkedOnUtc`;
+**Davranışlar:** ctor `Pending` doğurur; `Approve(byUserId, nowUtc)` → `Approved` + `LinkedOnUtc`;
 `Reject(...)`; `Revoke(...)`. Olaylar: `ParentChildLinkRequestedDomainEvent`, `ParentChildLinkApprovedDomainEvent`,
-`ParentChildLinkRevokedDomainEvent`. Bir veli **birden çok** çocuğa bağlanabilir (çoklu link).
+`ParentChildLinkRejectedDomainEvent`, `ParentChildLinkRevokedDomainEvent`. Bir veli **birden çok** çocuğa bağlanabilir (çoklu link).
 
-### 2.3 Read-model projeksiyonları (kendi tablosu yok / opsiyonel cache)
+### 2.3 Read-model tabloları (`parents` şeması — integration event ile beslenir)
 
-Veli paneli aşağıdaki **özet** verileri diğer modüllerden okur. İsteğe bağlı olarak performans için
-`parents` şemasında **denormalize read-model** (örn. `ParentDashboardSnapshot`) tutulabilir; ancak kaynak
-modüller her zaman gerçek sahiptir (modül sınırı kuralı — **doğrudan cross-module DB erişimi yok**, integration event / application service ile beslenir).
+Veli paneli, kaynak modüllerin verisini **doğrudan cross-module DB erişimiyle değil**, integration event ile beslenen
+`parents` şeması read-model tablolarından okur (modül sınırı kuralı).
 
-| Read-model | Kaynak Modül | İçerik |
-|------------|--------------|--------|
-| Bireysel çalışma özeti | M08 Study | Haftalık süre, ders dağılımı, test performansı, streak (paylaşıma açıksa) |
-| Son ders özeti | M05 LessonSessions | Son işlenen ders, konu, öğretmen notu (`IsSharedWithParent`) |
-| Ödev durumu | M06 Assignments | Verilen/teslim/kaçırılan ödevler (`IsSharedWithParent`) |
-| Ödeme özeti | M07 Payments | Ödenen/bekleyen tutar, son ödeme (öğretmen bağlıysa) |
-| Gelişim grafikleri | M10 / M14 | Konu bazlı gelişim, hedef ilerleme, raporlar |
+| Tablo | İçerik |
+|-------|--------|
+| `ChildProgressSnapshot` | Öğrenci başına: tamamlanan/planlanan ders sayısı + son ders tarihi; toplam/açık/tamamlanan ödev; beklenen/tahsil/kalan ödeme + para birimi; haftalık çalışma dk + streak (**M08 gelince**) |
+| `KnownStudent` | `StudentId → UserId` eşlemesi (Students `StudentProfileCreated` ile beslenir); bağ onay yetkisi kontrolü için |
+| `ProcessedIntegrationEvent` | İşlenmiş event kimlikleri — idempotency / çift-sayım koruması |
+
+**Integration event handler'ları (Parents tüketir):** LessonSessions (`LessonSessionCreated`/`Completed`),
+Assignments (`AssignmentCreated`/`Completed`), Payments (`PaymentRecordCreated`/`Updated`), Students (`StudentProfileCreated`).
 
 ### 2.4 Domain Olayları (özet)
 
 | Olay | Tetikleyen | Tüketen |
 |------|-----------|---------|
 | `ParentProfileCreatedDomainEvent` | `ParentProfile` ctor | — |
-| `ParentChildLinkRequestedDomainEvent` | `RequestLink` | M11 (öğrenci/öğretmene onay bildirimi) |
-| `ParentChildLinkApprovedDomainEvent` | `Approve` | M03 (StudentProfile.ParentUserId set), M11 |
+| `ParentChildLinkRequestedDomainEvent` | bağ talebi | M11 (öğrenci/öğretmene onay bildirimi) |
+| `ParentChildLinkApprovedDomainEvent` | `Approve` | **M03 Students** (`StudentProfile.LinkParent` → `ParentUserId` set), M11 |
+| `ParentChildLinkRejectedDomainEvent` | `Reject` | M11 |
 | `ParentChildLinkRevokedDomainEvent` | `Revoke` | M03, M11 |
 
 ---
 
-## 3. API Sözleşmesi (⚠️ Önerilen) — `/api/parents`
+## 3. API Sözleşmesi (✅ Uygulandı) — `/api/parents`
 
-> Tümü auth (`Parent` rolü) gerektirir. Veli **yalnızca onaylı bağlı (`Approved`)** çocuklarının verisini görür ve
+> Tümü auth (`AuthenticatedUser`) gerektirir. Veli **yalnızca onaylı bağlı (`Approved`)** çocuklarının verisini görür ve
 > yalnızca **görüntüleme** yetkisine sahiptir (salt-okunur — İş Kuralları 4.4).
 
 ### 3.1 Profil & bağlama
 ```
 POST /api/parents/profiles
-     body: { userId, fullName, contactPhone?, contactEmail? }     → 201 (userId gerçek Parent kullanıcısı olmalı)
+     body: { userId, fullName, contactPhone?, contactEmail? }     → profil (idempotent; userId gerçek Parent kullanıcısı)
 GET  /api/parents/profiles/{userId}                                → 200 profil + tercihler
 PUT  /api/parents/{parentUserId}/notification-preferences
-     body: NotificationPreferences                                 → 200
+     body: { missedAssignment, weeklyProgressSummary, lessonReminders,
+             testResults, payments, channel }                      → 200 profil
 
 POST /api/parents/children/link
-     body: { parentUserId, studentId | inviteCode, relationship? } → 201 { linkId, status: Pending }
-POST /api/parents/children/{linkId}/approve                        → 200 (öğrenci/öğretmen onayı)
+     body: { parentUserId, studentId, relationship?, childDisplayName?,
+             inviteCode?, isPrimaryContact }                       → link (Pending)
+POST /api/parents/children/{linkId}/approve                        → 200 (öğrenci/öğretmen/Admin; veli kendi bağını onaylayamaz)
 POST /api/parents/children/{linkId}/reject                         → 200
 POST /api/parents/children/{linkId}/revoke                         → 200
-GET  /api/parents/{parentUserId}/children                          → 200 bağlı çocuk listesi (+ link durumu)
+GET  /api/parents/{parentUserId}/children                          → 200 bağlı çocuklar (durum + onaylıysa gelişim özeti)
 ```
 
 ### 3.2 Birleşik veli paneli (read-model — çocuk başına)
 ```
-GET /api/parents/children/{studentId}/dashboard
-    → 200 { study: haftalık özet+streak, lastLesson?, assignments: {open,missed},
-            payment?: özet, progress: özet }                       (paylaşım + bağ durumuna göre filtreli)
-GET /api/parents/children/{studentId}/study?from=&to=              → 200 bireysel çalışma (M08'den)
-GET /api/parents/children/{studentId}/tests?subject=               → 200 deneme performansı (M08'den)
-GET /api/parents/children/{studentId}/lessons                      → 200 ders özeti (M05'ten, öğretmen bağlıysa)
-GET /api/parents/children/{studentId}/assignments                  → 200 ödevler (M06'dan)
-GET /api/parents/children/{studentId}/payments                     → 200 ödeme özeti (M07'den, öğretmen bağlıysa)
-GET /api/parents/children/{studentId}/progress                     → 200 gelişim grafikleri (M10/M14'ten)
+GET /api/parents/{parentUserId}/children/{studentId}/dashboard
+    → 200 birleşik panel { study, lessons, assignments, payments }
+      yalnız Approved bağda; değilse 403.
 ```
 
-> Bu endpoint'ler kaynak modüllerden veriyi **doğrudan DB ile değil**, application service / integration event ile toplar
-> (bkz. `00_genel_bakis.md` modül sınırı kuralı). Yanıtlar, çocuğun gizlilik bayraklarına (`IsSharedWithParent`) tabidir.
+> Yanıt read-model tablolarından (`ChildProgressSnapshot`) toplanır; kaynak modüllerden veri **doğrudan DB ile değil**,
+> integration event ile beslenir (bkz. `00_genel_bakis.md` modül sınırı kuralı). Dashboard **yalnız `Approved` bağda** döner;
+> aksi halde `403`.
 
 ---
 
@@ -165,7 +170,7 @@ GET /api/parents/children/{studentId}/progress                     → 200 geli�
 - Dolayısıyla `ParentProfile.UserId` zorunludur (null olamaz) ve veli–çocuk bağı her zaman gerçek bir veli hesabıyla kurulur.
 
 ### 4.2 Bağ kurma & onay (KVKK / gizlilik)
-- Veli–çocuk bağı **onaya** dayanır: bağ `Pending` doğar, **öğrenci ya da öğrencinin öğretmeni** onaylar (`Approved`).
+- Veli–çocuk bağı **onaya** dayanır: bağ `Pending` doğar, **öğrenci / öğretmen / Admin** onaylar (`Approved`); **veli kendi bağını onaylayamaz**.
 - **Reşit olmayan öğrenci:** velinin erişimi velayet gereği varsayılan kabul edilir; yine de bağ kaydı (`Approved`) oluşturulur.
 - **Reşit öğrenci:** bağ ve veri paylaşımı **öğrenci onayı** gerektirir; öğrenci dilediğinde bağı reddedebilir/iptal ettirebilir.
 - Onaylanan bağ M03'te `StudentProfile.ParentUserId`'yi (birincil veli için) güncelleyebilir.
@@ -196,7 +201,7 @@ GET /api/parents/children/{studentId}/progress                     → 200 geli�
 [Çocuğa bağlanma] → POST /parents/children/link (studentId | inviteCode)
      → ParentChildLink(Pending) + ParentChildLinkRequestedDomainEvent → M11 (öğrenci/öğretmene onay isteği)
 [Onay] → /approve → ParentChildLink(Approved) + ParentChildLinkApprovedDomainEvent
-     → M03 StudentProfile.ParentUserId güncelle (birincil veli) → M11 (veliye "bağ onaylandı")
+     → M03 Students handler: StudentProfile.LinkParent → ParentUserId güncelle → M11 (veliye "bağ onaylandı")
 ```
 
 ### 5.2 Veli paneli beslenmesi (read-model)
@@ -215,31 +220,31 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-## 6. Mobil Ekranlar (Planlanan — Flutter `parents` feature)
+## 6. Mobil Ekranlar (✅ Uygulandı — Flutter `parent` feature)
 
-> Birincil renk `0xFF082B4F`. `Parent` rolü için ayrı navigasyon (rol bazlı `redirect`, bkz. `../roles/veli.md`).
-> Feature klasörü: `mobile/lib/features/parents/`.
+> Birincil renk `0xFF082B4F`. `Parent` rolü için **ayrı navigasyon uygulandı**: `app_router.dart` redirect'i
+> `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir (veli öğretmen ekranlarına, öğretmen veli ekranlarına düşerse geri alınır).
+> Feature klasörü: `mobile/lib/features/parent/`. Cubit: `ParentCubit`. Repository: `ParentRepository` (get_it'e kayıtlı, mock fallback destekli).
+> Alt menü: **`ParentBottomNav`** (Ana Sayfa / Çocuklar / Bildirim / Profil).
 
-- `parent_onboarding` — veli kaydı + çocuk bağlama (davet kodu / öğrenci e-postası).
-- `parent_dashboard` — **çocuk seçici** + haftalık özet kartları:
-  - Bu hafta kaç saat çalıştı (M08)
-  - Hangi derslere ne kadar zaman ayırdı / test performansı (M08)
-  - (Öğretmen bağlıysa) son ders özeti, yaklaşan dersler, ödev durumu (M05/M06)
-  - (Öğretmen bağlıysa) ödeme özeti (M07)
-- `parent_child_detail` — seçili çocuğun detaylı gelişimi (M10/M14 grafikleri).
-- `parent_progress` — konu bazlı gelişim ve hedef ilerleme (M10).
-- `parent_notifications` — bildirim tercihleri (`NotificationPreferences`).
-- `parent_children` — bağlı çocuklar + bağ durumu + yeni bağ talebi.
+- `parent_home_page` — **çocuk seçici** + haftalık KPI kartları + haftalık çalışma çubuk grafiği + ödeme özeti.
+- `parent_children_page` — bağlı çocuklar + durum rozetleri + "çocuk bağla" bottom-sheet formu.
+- `parent_child_detail_page` — seçili çocuğun detaylı gelişimi (çalışma / ders / ödev / ödeme).
+- `parent_notifications_page` — bildirim tercihleri switch'leri + kanal seçimi.
+- `parent_profile_page` — profil + çıkış.
+
+> `role_selection_page` 'Veli' kartı artık `/register?role=veli`'ye gider (eski "yakında" snackbar kaldırıldı).
+> M08 Study → Parents beslemesi bağlanınca haftalık çalışma dk + streak alanları gerçek veriyle dolacak.
 
 ---
 
 ## 7. Kabul Kriterleri
 
 ### Faz 2 (öğretmensiz)
-- [ ] Veli **gerçek kullanıcı** olarak kaydolup çocuğuna **onaylı** bağlanabilir.
-- [ ] Veli, çocuğunun **bireysel çalışma** verilerini (süre, ders dağılımı, test, streak) — paylaşıma açıksa — görebilir.
-- [ ] Çoklu çocuk desteği: bir veli birden çok çocuğu yönetebilir (çocuk seçici).
-- [ ] Bildirim tercihleri ayarlanabilir; **gizlilik filtreleme** uygulanır (salt-okunur).
+- [x] Veli **gerçek kullanıcı** olarak kaydolup çocuğuna **onaylı** bağlanabilir.
+- [~] Veli, çocuğunun **bireysel çalışma** verilerini (süre, ders dağılımı, test, streak) görebilir — read-model + panel hazır; **M08 verisi beklen(iy)or**.
+- [x] Çoklu çocuk desteği: bir veli birden çok çocuğu yönetebilir (çocuk seçici).
+- [x] Bildirim tercihleri ayarlanabilir; **salt-okunur** panel + yalnız `Approved` bağ görünürlüğü uygulanır.
 
 ### Faz 3 (öğretmen verisi entegre)
 - [ ] Öğretmen bağlıysa veli; **son ders özeti, ödevler, öğretmen notları, ödeme özeti** görebilir.
@@ -250,19 +255,18 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ## 8. Eksikler ve Yapılacaklar (Öncelik Sırasıyla)
 
-> ⚠️ **Önkoşul:** Veli panelinin Faz 2'de değerli olması için **M08 (Study) önce inşa edilmeli**
-> (bkz. [`m08_study.md`](m08_study.md)); aksi halde gösterilecek bireysel veri olmaz.
-> Faz 3 için M05/M06/M07'nin **`IsSharedWithParent`** bayrakları ve veli-okuma sorguları gerekir.
+> ⚠️ **Kalan önkoşul:** Veli panelinde bireysel çalışma verisi görünmesi için **M08 (Study) tamamlanmalı**
+> (bkz. [`m08_study.md`](m08_study.md)); read-model kolonları hazır ama besleyici event henüz yok.
 
-1. **M08'i tamamla** (Faz 2 önkoşulu).
-2. **Parents domain'i** — `ParentProfile`, `ParentChildLink` + enum + olaylar.
-3. **Application (CQRS)** — profil/link komutları, onay akışı, dashboard sorguları; **read-model** servis arayüzleri.
-4. **Infrastructure** — `ParentsDbContext` `DbSet`'leri, **`parents` şeması migration'ı**, integration event handler'ları.
-5. **Veli–çocuk bağlama + onay** akışı (davet kodu / öğretmen onayı / öğrenci onayı; KVKK).
-6. **Birleşik dashboard read-model'i** — M08/M05/M06/M07/M10 verisini event/service ile toplama (doğrudan DB yok).
-7. **Gizlilik filtreleme** — `IsSharedWithParent` bayraklarına göre veri kısıtlama (M15 ile).
-8. **M11 entegrasyonu** — ödev kaçırma, haftalık özet, ders hatırlatma bildirimleri.
-9. **Mobil `parents` feature** + `Parent` rolü navigasyonu.
+1. ⏳ **M08 Study → Parents beslemesi** — bireysel çalışma dk + streak read-model kolonlarını integration event ile doldur (henüz bağlı değil).
+2. ✅ **Parents domain'i** — `ParentProfile`, `ParentChildLink` + enum + olaylar.
+3. ✅ **Application (CQRS)** — profil/link komutları, onay akışı, dashboard sorguları; read-model.
+4. ✅ **Infrastructure** — `ParentsDbContext` `DbSet`'leri, **`parents` şeması `InitialCreate` migration'ı**, integration event handler'ları.
+5. ✅ **Veli–çocuk bağlama + onay** akışı (öğrenci/öğretmen/Admin onayı; veli kendi bağını onaylayamaz; KVKK).
+6. ✅ **Birleşik dashboard read-model'i** — LessonSessions/Assignments/Payments verisini event ile toplama (doğrudan DB yok); M08 bekliyor.
+7. ⏳ **Gizlilik filtreleme** — `IsSharedWithParent` bayraklarına göre veri kısıtlama (M15 ile) — kaynak modül bayrakları geldikçe.
+8. ⏳ **M11 entegrasyonu** — ödev kaçırma, haftalık özet, ders hatırlatma bildirimleri (tercih alanları hazır).
+9. ✅ **Mobil `parent` feature** + `Parent` rolü navigasyonu (`/parent`, `ParentBottomNav`, redirect).
 
 ---
 
@@ -287,4 +291,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🔴 İskelet | Güncelleme: 2026-06-24*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-04*

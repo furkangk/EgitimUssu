@@ -35,10 +35,11 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<UserSession> login({
     required String email,
     required String password,
+    int roleId = 2,
   }) async {
     // Mock önce kontrol edilir — API timeout beklenmez
     if (_config.isMockFallbackEnabled('auth')) {
-      final session = _buildMockSession(email: email);
+      final session = _buildMockSession(email: email, roleId: roleId);
       await _persistSession(session);
       return session;
     }
@@ -68,11 +69,13 @@ class AuthRepositoryImpl implements AuthRepository {
     required String firstName,
     required String lastName,
     String? phoneNumber,
+    int roleId = 2,
   }) async {
     if (_config.isMockFallbackEnabled('auth')) {
       final session = _buildMockSession(
         email: email,
         fullName: '$firstName $lastName',
+        roleId: roleId,
       );
       await _persistSession(session);
       return session;
@@ -85,7 +88,7 @@ class AuthRepositoryImpl implements AuthRepository {
         'firstName': firstName,
         'lastName': lastName,
         'phoneNumber': phoneNumber,
-        'roles': <int>[2],
+        'roles': <int>[roleId],
       },
     );
     final session = UserSessionModel.fromJson(response);
@@ -156,15 +159,29 @@ class AuthRepositoryImpl implements AuthRepository {
   UserSessionModel _buildMockSession({
     required String email,
     String? fullName,
+    int roleId = 2,
   }) {
+    final roleName = _roleName(roleId);
+    final isParent = roleId == 4;
     return UserSessionModel(
-      userId: 'mock-teacher-user',
+      userId: isParent ? 'mock-parent-user' : 'mock-teacher-user',
       email: email,
-      fullName: fullName ?? 'Demo Öğretmen',
-      roles: const <String>['Teacher'],
+      fullName: fullName ?? (isParent ? 'Demo Veli' : 'Demo Öğretmen'),
+      roles: <String>[roleName],
       accessToken: 'mock-access-token',
       expiresAtUtc: DateTime.now().toUtc().add(const Duration(days: 7)),
     );
+  }
+
+  static String _roleName(int roleId) {
+    switch (roleId) {
+      case 3:
+        return 'Student';
+      case 4:
+        return 'Parent';
+      default:
+        return 'Teacher';
+    }
   }
 
   Future<void> _persistSession(UserSessionModel session) async {

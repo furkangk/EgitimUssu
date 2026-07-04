@@ -5,7 +5,7 @@
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-06-24
+> **Son güncelleme:** 2026-07-04
 
 ---
 
@@ -48,6 +48,18 @@
 | [`architecture/design_system.md`](architecture/design_system.md) | Platformlar-arası ortak görsel token (renk/tipografi/spacing) + Atomic/CBD — **token tek doğruluk kaynağı** |
 | [`architecture/widgets.md`](architecture/widgets.md) | Ortak widget kataloğu: paylaşılan bileşenlerin API + kural + durumu (🟢/🟡/🔴) |
 
+## 1.2 Mimari Karar Kayıtları (`doc/adr/`) — ADR
+
+> Önemli mimari kararların *neden* alındığını ve hangi alternatiflerin elendiğini belgeleyen değişmez kayıtlar. İndeks + kural: [`adr/README.md`](adr/README.md).
+
+| ADR | Başlık | Durum |
+|-----|--------|-------|
+| [0001](adr/0001-asenkron-mesajlasma-ve-outbox.md) | Asenkron mesajlaşma & transactional outbox stratejisi | Önerildi |
+| [0002](adr/0002-kaynak-tabanli-yetkilendirme.md) | Kaynak-tabanlı yetkilendirme & izin modeli | Önerildi |
+| [0003](adr/0003-api-versiyonlama-ve-contract-first.md) | API versiyonlama & contract-first istemci üretimi | Önerildi |
+| [0004](adr/0004-redis-kullanim-stratejisi.md) | Redis kullanım stratejisi (dağıtık cache & rate limiting) | Önerildi |
+| [0005](adr/0005-kvkk-pii-koruma-ve-audit.md) | KVKK/PII koruma & denetim (audit) stratejisi | Önerildi |
+
 ## 2. Roller (`doc/roles/`) — Rol Perspektifi
 
 > Her rolün yetenekleri, kullanıcı yolculuğu, ekranları ve rol-özel kuralları. **Teknik detay modüllerdedir.**
@@ -57,7 +69,7 @@
 | [`roles/00_roller_genel_bakis.md`](roles/00_roller_genel_bakis.md) | Rol×yetenek matrisi + roller-arası kurallar (mesajlaşma çiftleri, üyelik, veli=gerçek kişi, bireysel-önce strateji) |
 | [`roles/ogretmen.md`](roles/ogretmen.md) | 👨‍🏫 Öğretmen — takvim-merkezli yönetim (Faz 1, 🟢) |
 | [`roles/ogrenci.md`](roles/ogrenci.md) | 🎓 Öğrenci — bireysel çalışma + gelişim (Faz 2, 🟡) |
-| [`roles/veli.md`](roles/veli.md) | 👪 Veli — gelişim/ödeme takibi (Faz 2-3, 🔴) |
+| [`roles/veli.md`](roles/veli.md) | 👪 Veli — gelişim/ödeme takibi (Faz 2-3, 🟡 Faz 2 uygulandı) |
 | [`roles/admin.md`](roles/admin.md) | 🛡️ Admin — doğrulama, moderasyon, destek |
 
 ## 3. Modüller (`doc/modules/`) — Saf Teknik (Koddan Doğrulanmış)
@@ -73,8 +85,8 @@
 | M05 | [`m05_lesson_sessions`](modules/m05_lesson_sessions.md) | 🟢 | M14 | [`m14_reporting`](modules/m14_reporting.md) | 🔴 |
 | M06 | [`m06_assignments`](modules/m06_assignments.md) | 🟢 | M15 | [`m15_settings`](modules/m15_settings.md) | 🟡 |
 | M07 | [`m07_payments`](modules/m07_payments.md) | 🟢 | M16 | [`m16_messaging`](modules/m16_messaging.md) | 🔴 yeni |
-| M08 | [`m08_study`](modules/m08_study.md) | 🔴 | M17 | [`m17_membership`](modules/m17_membership.md) | 🔴 yeni |
-| M09 | [`m09_parents`](modules/m09_parents.md) | 🔴 | M18 | [`m18_feedback`](modules/m18_feedback.md) | 🔴 yeni |
+| M08 | [`m08_study`](modules/m08_study.md) | 🟢 | M17 | [`m17_membership`](modules/m17_membership.md) | 🔴 yeni |
+| M09 | [`m09_parents`](modules/m09_parents.md) | 🟢 | M18 | [`m18_feedback`](modules/m18_feedback.md) | 🔴 yeni |
 
 **Çapraz-kesit:** [`modules/00_genel_bakis.md`](modules/00_genel_bakis.md) (indeks + tech stack + endpoint envanteri) · [`modules/mimari_inceleme.md`](modules/mimari_inceleme.md) (hata/güvenlik/öncelik) · [`modules/veri_modeli.md`](modules/veri_modeli.md) (ER şeması).
 
@@ -96,6 +108,7 @@
 | Dosya | Ne işe yarar |
 |-------|--------------|
 | [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) | Jira backlog (Epic/Story/Task). Her görevde `faz-N` etiketi → [`yol_haritasi.md`](yol_haritasi.md) ile hizalı. Modül docs değişince güncellenmeli |
+| [`denetim/2026-06-30_kapsamli_kod_denetimi.md`](denetim/2026-06-30_kapsamli_kod_denetimi.md) | **Kapsamlı kod denetimi (2026-06-30)**: mimari/güvenlik/DDD/persistence/mobil/operasyon bulguları, skor tablosu, önceliklendirilmiş yol haritası. Anlık denetim artefaktı |
 
 ---
 

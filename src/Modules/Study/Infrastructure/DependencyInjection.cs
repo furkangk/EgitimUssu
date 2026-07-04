@@ -1,4 +1,7 @@
+using EgitimUssu.Modules.Study.Application;
+using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,8 +11,82 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddStudyModule(this IServiceCollection services, IConfiguration configuration)
     {
-        // K4: Domain modeli/entity yok — boş DbContext kaydı outbox taramasını çökertir. Modül
-        // gerçek bir modele kavuştuğunda AddModuleDbContext + migration yeniden eklenmelidir.
+        services.AddModuleDbContext<StudyDbContext>(configuration, "Study", StudyDbContext.SchemaName);
+        services.AddScoped<IStudyRepository, StudyRepository>();
+
+        // Uygulama servisleri
+        services.AddScoped<StudyOwnershipGuard>();
+        services.AddScoped<StudyLinkResolver>();
+        services.AddScoped<AchievementEvaluator>();
+        services.AddScoped<StudyCompletionService>();
+
+        // Öğrenci-kapsamlı istekleri koruyan kapalı-generik sahiplik yetkilendiricileri
+        // (AuthorizationCoverageValidator kapalı servis tipi bekler).
+        AddStudentScopedCommandAuthorizer<StartStudySessionCommand>(services);
+        AddStudentScopedCommandAuthorizer<CreateManualStudySessionCommand>(services);
+        AddStudentScopedCommandAuthorizer<RecordTestResultCommand>(services);
+        AddStudentScopedCommandAuthorizer<UpdateStudyGoalsCommand>(services);
+        AddStudentScopedCommandAuthorizer<UpdateStudySharingCommand>(services);
+
+        AddStudentScopedQueryAuthorizer<ListStudySessionsQuery>(services);
+        AddStudentScopedQueryAuthorizer<WeeklySummaryQuery>(services);
+        AddStudentScopedQueryAuthorizer<ListTestResultsQuery>(services);
+        AddStudentScopedQueryAuthorizer<NetTrendQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetStudyGoalsQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetStreakQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetAchievementsQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetStudySharingQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetStudyDashboardQuery>(services);
+
+        // Kimliği sessionId/testResultId olan istekler için özel sahiplik yetkilendiricileri
+        services.AddScoped<ICommandAuthorizer<PauseStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<ResumeStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<CompleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DiscardStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetStudySessionQuery>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetTestResultQuery>, StudyTestOwnershipAuthorizer>();
+
+        // Validator'lar
+        services.AddScoped<ICommandValidator<StartStudySessionCommand>, StartStudySessionCommandValidator>();
+        services.AddScoped<ICommandValidator<CreateManualStudySessionCommand>, CreateManualStudySessionCommandValidator>();
+        services.AddScoped<ICommandValidator<RecordTestResultCommand>, RecordTestResultCommandValidator>();
+
+        // Seans komutları
+        services.AddScoped<ICommandHandler<StartStudySessionCommand, Result<StudySessionResponse>>, StartStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<CreateManualStudySessionCommand, Result<StudySessionResponse>>, CreateManualStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<PauseStudySessionCommand, Result<StudySessionResponse>>, PauseStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<ResumeStudySessionCommand, Result<StudySessionResponse>>, ResumeStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<CompleteStudySessionCommand, Result<StudySessionResponse>>, CompleteStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<DiscardStudySessionCommand, Result<StudySessionResponse>>, DiscardStudySessionCommandHandler>();
+
+        // Seans sorguları
+        services.AddScoped<IQueryHandler<GetStudySessionQuery, Result<StudySessionResponse>>, GetStudySessionQueryHandler>();
+        services.AddScoped<IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>, ListStudySessionsQueryHandler>();
+        services.AddScoped<IQueryHandler<WeeklySummaryQuery, Result<WeeklySummaryResponse>>, WeeklySummaryQueryHandler>();
+
+        // Test komut/sorguları
+        services.AddScoped<ICommandHandler<RecordTestResultCommand, Result<TestResultResponse>>, RecordTestResultCommandHandler>();
+        services.AddScoped<IQueryHandler<GetTestResultQuery, Result<TestResultResponse>>, GetTestResultQueryHandler>();
+        services.AddScoped<IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>, ListTestResultsQueryHandler>();
+        services.AddScoped<IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>, NetTrendQueryHandler>();
+
+        // Hedef / streak / başarım / paylaşım / dashboard
+        services.AddScoped<IQueryHandler<GetStudyGoalsQuery, Result<StudyGoalResponse?>>, GetStudyGoalsQueryHandler>();
+        services.AddScoped<ICommandHandler<UpdateStudyGoalsCommand, Result<StudyGoalResponse>>, UpdateStudyGoalsCommandHandler>();
+        services.AddScoped<IQueryHandler<GetStreakQuery, Result<StreakResponse>>, GetStreakQueryHandler>();
+        services.AddScoped<IQueryHandler<GetAchievementsQuery, Result<IReadOnlyCollection<AchievementResponse>>>, GetAchievementsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetStudySharingQuery, Result<StudySharingResponse>>, GetStudySharingQueryHandler>();
+        services.AddScoped<ICommandHandler<UpdateStudySharingCommand, Result<StudySharingResponse>>, UpdateStudySharingCommandHandler>();
+        services.AddScoped<IQueryHandler<GetStudyDashboardQuery, Result<StudyDashboardResponse>>, GetStudyDashboardQueryHandler>();
+
         return services;
     }
+
+    private static void AddStudentScopedCommandAuthorizer<TCommand>(IServiceCollection services)
+        where TCommand : IStudentScopedRequest =>
+        services.AddScoped<ICommandAuthorizer<TCommand>, StudyOwnershipCommandAuthorizer<TCommand>>();
+
+    private static void AddStudentScopedQueryAuthorizer<TQuery>(IServiceCollection services)
+        where TQuery : IStudentScopedRequest =>
+        services.AddScoped<IQueryAuthorizer<TQuery>, StudyOwnershipQueryAuthorizer<TQuery>>();
 }

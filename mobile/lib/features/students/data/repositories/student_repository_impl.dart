@@ -106,6 +106,46 @@ class StudentRepositoryImpl implements StudentRepository {
   }
 
   @override
+  Future<StudentProfile?> getByUser(String userId) async {
+    try {
+      final response = await _apiClient.get(
+        '/api/students/profiles/by-user/$userId',
+      );
+      return StudentProfileModel.fromJson(response);
+    } on ApiException catch (error) {
+      if (error.statusCode == 404) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<StudentProfile> createSelfProfile({
+    required String userId,
+    required String fullName,
+    required String gradeLevel,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/students/profiles',
+      data: <String, dynamic>{
+        'userId': userId,
+        'createdByTeacherUserId': null,
+        'parentUserId': null,
+        'fullName': fullName,
+        'gradeLevel': gradeLevel,
+        'contactEmail': null,
+        'contactPhone': null,
+        'goalSummary': null,
+        'levelNotes': null,
+        'origin': 2, // SelfRegistered
+        'subjects': <dynamic>[],
+      },
+    );
+    return StudentProfileModel.fromJson(response);
+  }
+
+  @override
   Future<List<StudentProfile>> listByTeacher(String teacherUserId) async {
     if (_config.isMockFallbackEnabled('students')) {
       return _mockStudents(teacherUserId);

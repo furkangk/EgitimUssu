@@ -11,7 +11,7 @@
 > - [`../architecture/00_genel_bakis.md`](../architecture/00_genel_bakis.md) — Mimari (backend/mobil/web + genel bakış)
 > - [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md)
 >
-> **Güncelleme:** 2026-07-01
+> **Güncelleme:** 2026-07-04
 
 ---
 
@@ -26,8 +26,8 @@
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
 | M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (kaynak/yükleme ⚠️) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
-| M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🔴 İskelet |
-| M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🔴 İskelet |
+| M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
+| M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
 | M10 | Gelişim Takibi | [`m10_progress_tracking.md`](m10_progress_tracking.md) | `ProgressTracking` | `/api/progress-tracking` | 🔴 İskelet |
 | M11 | Bildirim | [`m11_notifications.md`](m11_notifications.md) | `Notifications` | `/api/notifications` | 🟡 (gerçek push yok) |
 | M12 | Eşleştirme & İlan | [`m12_matching.md`](m12_matching.md) | `Matching` | `/api/matching` | 🔴 İskelet |
@@ -90,7 +90,9 @@ mobile/lib/features/<ozellik>/
 | Payments | `payments` | ödeme liste/form |
 | Settings | `more` | ayarlar/hesap |
 | API.Host (BFF) | `dashboard` | öğretmen pano özeti (bugünkü ders + bekleyen ödev + geciken ödeme) |
-| Study/Parents/ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | _(yok)_ | planlanan (öğrenci/veli/yeni özellik ekranları) |
+| Parents | `parent` | veli paneli (home/children/child_detail/notifications/profile) + `ParentBottomNav` + `/parent` rol navigasyonu |
+| Study | `study` | öğrenci paneli: `student-home` (dashboard) + `study/timer`, `study/test`, `study/goals`, `study/history`, `study/achievements` + `/student-home` rol navigasyonu + self-register |
+| ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | _(yok)_ | planlanan (yeni özellik ekranları) |
 
 ---
 
@@ -144,9 +146,28 @@ GET /teachers/{teacherUserId}/records   /summary   /records/filter
 ```
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
 ```
+### Parents — `/api/parents`  (tümü auth "AuthenticatedUser")
+```
+POST /profiles   GET /profiles/{userId}   PUT /{parentUserId}/notification-preferences
+POST /children/link   POST /children/{linkId}/approve   /reject   /revoke   (onay: öğrenci/öğretmen/Admin)
+GET  /{parentUserId}/children
+GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403)
+```
+### Study — `/api/study`  (tümü auth "AuthenticatedUser"; öğrenci kendi StudentId'sine erişir)
+```
+POST /sessions/start   /sessions/manual
+POST /sessions/{id}/pause   /resume   /complete   /discard
+GET  /sessions/{id}
+GET  /students/{studentId}/sessions?from=&to=&subject=   /weekly-summary?weekStart=
+POST /test-results   GET /test-results/{id}
+GET  /students/{studentId}/test-results?subject=&topic=&from=&to=   /net-trend?subject=&topic=
+GET  /students/{studentId}/goals   PUT /students/{studentId}/goals
+GET  /students/{studentId}/streak   /achievements   /dashboard
+GET  /students/{studentId}/sharing   PUT /students/{studentId}/sharing
+```
 ### İskelet modüller (sadece durum endpoint'i)
 ```
-GET /api/study/status   /api/parents/status   /api/matching/status
+GET /api/matching/status
 /api/reviews/status   /api/reporting/status   /api/progress-tracking/status   /api/settings/status
 ```
 
@@ -160,4 +181,4 @@ GET /api/study/status   /api/parents/status   /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-01 (Aşama 0: K1 rol atama ucu, K2 IDOR, K4 iskelet DbContext kaldırma + Notifications migration)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-04 (M09 Parents 🟢 + M08 Study 🟢 uygulandı: domain + API + migration + mobil `study` feature + `/student-home` rol navigasyonu + self-register)*

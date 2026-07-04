@@ -3,7 +3,7 @@
 > **Kapsam:** Tüm `src/Modules/` domain aggregate root'larının kimlik (Guid) ve modüller arası referans alanları.
 > **Yöntem:** Mevcut varlıklar koddan doğrulanmıştır (`<Module>/Domain/<Module>DomainModel.cs`); promp.txt vizyonuyla gelen
 > yeni varlıklar **⚠️ Önerilen (henüz kodda yok)** olarak işaretlidir.
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-07-04
 >
 > İlgili: [`00_genel_bakis.md`](00_genel_bakis.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`../INDEX.md`](../INDEX.md)
 
@@ -41,13 +41,16 @@ erDiagram
     UserAccount ||--o{ StudentProfile : "CreatedByTeacherUserId"
     UserAccount ||--o{ StudentProfile : "ParentUserId"
     UserAccount ||--o| UserSetting : "UserId"
-    UserAccount ||--o| ParentProfile : "UserId (önerilen)"
+    UserAccount ||--o| ParentProfile : "UserId"
+    UserAccount ||--o{ ParentChildLink : "ParentUserId"
     UserAccount ||--o| UserSubscription : "UserId (önerilen)"
 
     TeacherProfile ||--o{ TeacherAvailabilitySlot : has
     StudentProfile ||--o{ StudentSubject : has
-    ParentProfile ||--o{ ParentChildLink : "onaylı bağ (önerilen)"
-    StudentProfile ||--o{ ParentChildLink : "StudentId (önerilen)"
+    ParentProfile ||--o{ ParentChildLink : "onaylı bağ"
+    StudentProfile ||--o{ ParentChildLink : "StudentId"
+    StudentProfile ||--o| ChildProgressSnapshot : "StudentId (read-model)"
+    StudentProfile ||--o| KnownStudent : "StudentId→UserId (read-model)"
 
     StudentProfile ||--o{ LessonSchedule : "StudentId"
     StudentProfile ||--o{ LessonSession : "StudentId"
@@ -93,22 +96,33 @@ erDiagram
 | Payments (`payments`) | `PaymentRecord` | `Id` | `TeacherUserId` · `StudentId` · `RelatedLessonSessionId?` | [m07](m07_payments.md) |
 | Notifications (`notifications`) | `LessonReminder` | `Id` | `LessonScheduleId` (UNIQUE) · `TeacherUserId` · `StudentId` | [m11](m11_notifications.md) |
 | Settings (`settings`) | `UserSetting` | `Id` | `UserId` → UserAccount (UNIQUE) | [m15](m15_settings.md) |
+| Study (`study`) | `StudySession` | `Id` | `StudentId` → StudentProfile | [m08](m08_study.md) |
+| | `TestResult` | `Id` | `StudentId` → StudentProfile | |
+| | `StudyGoal` | `Id` | `StudentId` (aktif hedef) | |
+| | `StudyStreak` | `Id` | `StudentId` (UNIQUE) | |
+| | `Achievement` (katalog) | `Id` | `Code` (UNIQUE) — 10 rozet seed | |
+| | `StudentAchievement` | `Id` | `StudentId` + `AchievementCode` (UNIQUE) | |
+| | `StudyTopic` (rollup) | `Id` | `StudentId`+`Subject`+`Topic` (UNIQUE) | |
+| | `StudyStudent` (bağ + paylaşım) | `Id`=StudentId | `UserId` → UserAccount | |
+| Parents (`parents`) | `ParentProfile` | `Id` | `UserId` → UserAccount (gerçek Parent) | [m09](m09_parents.md) |
+| | `ParentChildLink` | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile · `ApprovedByUserId?` | |
+| | `ChildProgressSnapshot` (read-model) | `Id` | `StudentId` → StudentProfile (event ile beslenir) | |
+| | `KnownStudent` (read-model) | `Id` | `StudentId` → StudentProfile · `UserId` → UserAccount | |
+| | `ProcessedIntegrationEvent` (idempotency) | `Id` | işlenmiş event kimliği | |
 
-**Enum'lar (koddan):** `UserRole`(Admin1,Teacher2,Student3,Parent4) · `UserAccountStatus`(PendingActivation1,Active2,Suspended3,Closed4) · `TeacherLessonFormat`/`ScheduledLessonFormat`(InPerson1,Online2,Hybrid3) · `StudentOrigin`(TeacherManaged1,SelfRegistered2) · `LessonScheduleStatus`(Draft1,Planned2,Cancelled3,Completed4) · `LessonSessionStatus`(Planned1,InProgress2,Completed3,Cancelled4) · `StudentAttendanceStatus`(Unknown1,Attended2,Late3,Absent4) · `AssignmentStatus`(Pending1,InProgress2,Completed3,Cancelled4) · `BillingItemType`(LessonFee1,MonthlyPackage2,ManualAdjustment3) · `PaymentStatus`(Pending1,PartiallyPaid2,Paid3,Overdue4,Cancelled5) · `NotificationChannel`(InApp1,Push2) · `ReminderStatus`(Pending1,Sent2,Cancelled3) · `PrivacyLevel`(Standard1,Limited2,Hidden3) · `SessionTerminationPolicy`(KeepLatest1,TerminateOtherSessions2).
+**Enum'lar (koddan):** `UserRole`(Admin1,Teacher2,Student3,Parent4) · `UserAccountStatus`(PendingActivation1,Active2,Suspended3,Closed4) · `TeacherLessonFormat`/`ScheduledLessonFormat`(InPerson1,Online2,Hybrid3) · `StudentOrigin`(TeacherManaged1,SelfRegistered2) · `LessonScheduleStatus`(Draft1,Planned2,Cancelled3,Completed4) · `LessonSessionStatus`(Planned1,InProgress2,Completed3,Cancelled4) · `StudentAttendanceStatus`(Unknown1,Attended2,Late3,Absent4) · `AssignmentStatus`(Pending1,InProgress2,Completed3,Cancelled4) · `BillingItemType`(LessonFee1,MonthlyPackage2,ManualAdjustment3) · `PaymentStatus`(Pending1,PartiallyPaid2,Paid3,Overdue4,Cancelled5) · `NotificationChannel`(InApp1,Push2) · `ReminderStatus`(Pending1,Sent2,Cancelled3) · `PrivacyLevel`(Standard1,Limited2,Hidden3) · `SessionTerminationPolicy`(KeepLatest1,TerminateOtherSessions2) · `ParentChildLinkStatus`(Pending1,Approved2,Rejected3,Revoked4) · **Parents** `NotificationChannel`(Push1,Email2,Both3) — Notifications modülünün aynı adlı enum'undan (InApp1,Push2) **ayrıdır** · **Study** `StudySessionStatus`(Running1,Paused2,Completed3,Discarded4) · `StudySessionSource`(Stopwatch1,Manual2) · `TestType`(Branch1,General2,Subject3,Topic4) · `AchievementCategory`(Streak1,StudyTime2,TestPerformance3,Goal4,Consistency5).
 
 ---
 
 ## 5. Aggregate Root'lar — ⚠️ Önerilen (henüz kodda yok)
 
-> Detaylar ilgili modül doc'unda. İskelet modüller (Study, Parents, ProgressTracking, Matching, Reviews, Reporting) + yeni modüller (Messaging, Membership, Feedback).
+> Detaylar ilgili modül doc'unda. İskelet modüller (ProgressTracking, Matching, Reviews, Reporting) + yeni modüller (Messaging, Membership, Feedback). (M08 Study ve M09 Parents artık 🟢 uygulandı — bkz. Bölüm 4.)
 
 | Modül | Önerilen varlık(lar) | Anahtar alanlar / referanslar | Doc |
 |-------|----------------------|-------------------------------|-----|
 | M04 Scheduling | `LessonSchedule`+**`MeetingUrl`**; **`ScheduleException`/`Holiday`** | online link; tatil/blackout (`TeacherUserId`) | [m04](m04_scheduling.md) |
 | M06 Assignments | **`AssignmentSubmission`**, **`LessonResource`** | `AssignmentId`→Assignment, öğrenci yükleme; kaynak (`TeacherUserId`,`LessonSessionId?`) | [m06](m06_assignments.md) |
 | M07 Payments | `PaymentRecord`+**`IsSharedWithParent`** | veli görünürlüğü | [m07](m07_payments.md) |
-| M08 Study | **`StudySession`**, **`TestResult`**, **`StudyGoal`**, **`StudyStreak`**, **`Achievement`**/`StudentAchievement`, **`StudyTopic`** | hepsi `StudentId`→StudentProfile | [m08](m08_study.md) |
-| M09 Parents | **`ParentProfile`**(`UserId`→UserAccount), **`ParentChildLink`**(`ParentUserId`,`StudentId`, Status) | onaylı bağ, çoklu çocuk | [m09](m09_parents.md) |
 | M10 ProgressTracking | **`TopicMastery`**, **`TopicGoal`**, **`ProgressSnapshot`** | `StudentId`→StudentProfile, zaman serisi | [m10](m10_progress_tracking.md) |
 | M12 Matching | **`TeacherListing`**, **`StudentRequestListing`**, **`MatchRequest`**, `TeacherSearchProjection` | `TeacherUserId`/`StudentUserId`; konum+yıldız+premium sıralama | [m12](m12_matching.md) |
 | M13 Reviews | **`TeacherReview`**, **`ReviewResponse`**, **`ReviewFlag`** | `TeacherUserId`,`StudentId`; doğrulanmış öğrenci | [m13](m13_reviews.md) |
@@ -121,9 +135,9 @@ erDiagram
 
 ## 6. Tam Referans Özeti (FK Haritası — 🟢 mevcut)
 
-**`Identity.UserAccount.Id`'ye:** TeacherProfile.UserId · StudentProfile.{UserId, CreatedByTeacherUserId, ParentUserId} · LessonSchedule.TeacherUserId · LessonSession.TeacherUserId · Assignment.TeacherUserId · LessonNote.TeacherUserId · PaymentRecord.TeacherUserId · LessonReminder.TeacherUserId · UserSetting.UserId
+**`Identity.UserAccount.Id`'ye:** TeacherProfile.UserId · StudentProfile.{UserId, CreatedByTeacherUserId, ParentUserId} · LessonSchedule.TeacherUserId · LessonSession.TeacherUserId · Assignment.TeacherUserId · LessonNote.TeacherUserId · PaymentRecord.TeacherUserId · LessonReminder.TeacherUserId · UserSetting.UserId · ParentProfile.UserId · ParentChildLink.ParentUserId · KnownStudent.UserId
 
-**`Students.StudentProfile.Id`'ye:** LessonSchedule · LessonSession · Assignment · LessonNote · PaymentRecord · LessonReminder (hepsi `.StudentId`)
+**`Students.StudentProfile.Id`'ye:** LessonSchedule · LessonSession · Assignment · LessonNote · PaymentRecord · LessonReminder (hepsi `.StudentId`) · ParentChildLink.StudentId · ChildProgressSnapshot.StudentId · KnownStudent.StudentId
 
 **`Scheduling.LessonSchedule.Id`'ye:** LessonSession.LessonScheduleId? · LessonReminder.LessonScheduleId (UNIQUE)
 
@@ -131,4 +145,4 @@ erDiagram
 
 ---
 
-*Veri Modeli & ER Şeması | Güncelleme: 2026-06-24*
+*Veri Modeli & ER Şeması | Güncelleme: 2026-07-04*

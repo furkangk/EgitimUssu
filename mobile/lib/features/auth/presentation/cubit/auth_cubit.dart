@@ -23,10 +23,18 @@ class AuthCubit extends Cubit<AuthState> {
     unauthorizedEvents: injector<ApiClient>().unauthorizedEvents,
   );
 
-  Future<void> login({required String email, required String password}) async {
+  Future<void> login({
+    required String email,
+    required String password,
+    int roleId = 2,
+  }) async {
     emit(state.copyWith(status: AuthStatus.loading, clearError: true));
     try {
-      final session = await _repository.login(email: email, password: password);
+      final session = await _repository.login(
+        email: email,
+        password: password,
+        roleId: roleId,
+      );
       emit(
         state.copyWith(
           status: AuthStatus.authenticated,
@@ -67,6 +75,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String firstName,
     required String lastName,
     String? phoneNumber,
+    int roleId = 2,
   }) async {
     emit(state.copyWith(status: AuthStatus.loading, clearError: true));
     try {
@@ -76,6 +85,7 @@ class AuthCubit extends Cubit<AuthState> {
         firstName: firstName,
         lastName: lastName,
         phoneNumber: phoneNumber,
+        roleId: roleId,
       );
       emit(
         state.copyWith(
