@@ -6,9 +6,9 @@
 >
 > **Otorite:** Görsel token'lar → [`design_system.md`](design_system.md) (çelişkide o esas). Gerçek domain/endpoint →
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
-> Mevcut app **öğretmen odaklıdır**; öğrenci/veli ekranları planlanandır.
+> App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-07-02
+> **Güncelleme:** 2026-07-06
 
 ---
 
@@ -137,7 +137,7 @@ Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/
 `/lesson-sessions` (+`/detail`, `/detail/note`), `/lesson-notes/new`, `/assignments/:lessonSessionId`,
 `/assignments/new`, `/payments`, `/payments/new`. Önizleme: `/teacher-panel-preview`, `/account-info-preview`.
 
-> Not: Mevcut rotalar **öğretmen akışıdır**. Öğrenci/veli rota grupları planlanandır (§9).
+> Not: Yukarıdakiler **öğretmen** rotalarıdır. **Öğrenci** rotaları da mevcut: `/student-home`, `/study/timer`, `/study/test`, `/study/goals`, `/study/history`, `/study/achievements`; **veli** için `/parent` alanı. Redirect, oturumdaki role göre öğrenciyi/veliyi kendi paneline yönlendirir ve öğretmene özel ekranlardan geri alır (§9).
 
 ## 7. Ağ Katmanı, Config & Depolama
 
@@ -452,4 +452,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-07-02*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-07-06*
