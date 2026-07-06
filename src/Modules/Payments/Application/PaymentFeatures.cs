@@ -48,6 +48,20 @@ public sealed record ListFilteredPaymentRecordsForTeacherQuery(
 
 public sealed record GetTeacherPaymentSummaryQuery(Guid TeacherUserId) : IQuery<Result<TeacherPaymentSummaryResponse>>;
 
+/// <summary>
+/// Öğretmenin ödemelerinde sunucu tarafı arama + filtre + sayfalama.
+/// <paramref name="Status"/>: Paid/Pending/PartiallyPaid/Overdue/Cancelled (görüntüleme statüsü; Overdue hesaplanır).
+/// </summary>
+public sealed record SearchPaymentRecordsForTeacherQuery(
+    Guid TeacherUserId,
+    string? Query,
+    string? Status,
+    Guid? StudentId,
+    DateTime? DateFromUtc,
+    DateTime? DateToUtc,
+    int Skip,
+    int Take) : IQuery<Result<PagedPaymentRecordsResponse>>;
+
 public sealed record PaymentRecordResponse(
     Guid Id,
     Guid TeacherUserId,
@@ -82,7 +96,20 @@ public sealed record PaymentCurrencySummaryResponse(
 public sealed record TeacherPaymentSummaryResponse(
     Guid TeacherUserId,
     int TotalRecords,
-    IReadOnlyCollection<PaymentCurrencySummaryResponse> CurrencySummaries);
+    IReadOnlyCollection<PaymentCurrencySummaryResponse> CurrencySummaries,
+    IReadOnlyCollection<PaymentMonthlyPointResponse> MonthlyBreakdown);
+
+/// <summary>Son aylara ait beklenen/tahsil edilen toplamı (grafikler için; iptaller hariç).</summary>
+public sealed record PaymentMonthlyPointResponse(
+    int Year,
+    int Month,
+    decimal ExpectedAmount,
+    decimal CollectedAmount);
+
+/// <summary>Sayfalı ödeme listesi + toplam eşleşen kayıt sayısı.</summary>
+public sealed record PagedPaymentRecordsResponse(
+    IReadOnlyCollection<PaymentRecordResponse> Items,
+    int TotalCount);
 
 public interface IPaymentRecordRepository
 {
@@ -257,11 +284,112 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
             })
             .ToArray();
 
+        var monthlyBreakdown = BuildMonthlyBreakdown(paymentRecords, now);
+
         return Result<TeacherPaymentSummaryResponse>.Success(new TeacherPaymentSummaryResponse(
             query.TeacherUserId,
             paymentRecords.Count,
-            currencySummaries));
+            currencySummaries,
+            monthlyBreakdown));
     }
+
+    // Son 6 ayın (eskiden yeniye) beklenen/tahsil toplamı — vade ayına göre; iptaller hariç.
+    private static IReadOnlyCollection<PaymentMonthlyPointResponse> BuildMonthlyBreakdown(
+        IReadOnlyCollection<PaymentRecord> records,
+        DateTime now)
+    {
+        var active = records.Where(record => record.Status != PaymentStatus.Cancelled).ToArray();
+        var firstMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var points = new List<PaymentMonthlyPointResponse>(6);
+        for (var offset = 5; offset >= 0; offset--)
+        {
+            var month = firstMonth.AddMonths(-offset);
+            var inMonth = active
+                .Where(record => record.DueDateUtc.Year == month.Year && record.DueDateUtc.Month == month.Month)
+                .ToArray();
+            points.Add(new PaymentMonthlyPointResponse(
+                month.Year,
+                month.Month,
+                inMonth.Sum(record => record.ExpectedAmount),
+                inMonth.Sum(record => record.CollectedAmount)));
+        }
+
+        return points;
+    }
+}
+
+public sealed class SearchPaymentRecordsForTeacherQueryHandler : IQueryHandler<SearchPaymentRecordsForTeacherQuery, Result<PagedPaymentRecordsResponse>>
+{
+    private const int DefaultTake = 20;
+    private const int MaxTake = 100;
+    private readonly IPaymentRecordRepository _repository;
+    private readonly IClock _clock;
+
+    public SearchPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<PagedPaymentRecordsResponse>> Handle(SearchPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
+    {
+        var now = _clock.UtcNow;
+        var records = await _repository.ListByTeacherUserIdAsync(query.TeacherUserId, cancellationToken);
+        var text = query.Query?.Trim();
+
+        var filtered = records
+            .Where(record =>
+            {
+                if (!string.IsNullOrEmpty(text)
+                    && !record.Description.Contains(text, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (query.StudentId.HasValue && record.StudentId != query.StudentId.Value)
+                {
+                    return false;
+                }
+
+                if (query.DateFromUtc.HasValue && record.DueDateUtc < query.DateFromUtc.Value)
+                {
+                    return false;
+                }
+
+                if (query.DateToUtc.HasValue && record.DueDateUtc > query.DateToUtc.Value)
+                {
+                    return false;
+                }
+
+                return string.IsNullOrEmpty(query.Status) || MatchesStatus(record, query.Status, now);
+            })
+            .OrderBy(record => record.DueDateUtc)
+            .ThenBy(record => record.Description)
+            .ToArray();
+
+        var take = query.Take <= 0 ? DefaultTake : Math.Min(query.Take, MaxTake);
+        var skip = Math.Max(query.Skip, 0);
+        var items = filtered
+            .Skip(skip)
+            .Take(take)
+            .Select(record => record.ToResponse(now))
+            .ToArray();
+
+        return Result<PagedPaymentRecordsResponse>.Success(
+            new PagedPaymentRecordsResponse(items, filtered.Length));
+    }
+
+    private static bool MatchesStatus(PaymentRecord record, string status, DateTime now) => status switch
+    {
+        // Açık (gecikmemiş bakiyeli): Pending + PartiallyPaid — "Bekleyen" sekmesi.
+        "Open" => record.IsOutstanding(now) && !record.IsOverdue(now),
+        "Overdue" => record.IsOverdue(now),
+        "Pending" => record.Status == PaymentStatus.Pending && !record.IsOverdue(now),
+        "PartiallyPaid" => record.Status == PaymentStatus.PartiallyPaid && !record.IsOverdue(now),
+        "Paid" => record.Status == PaymentStatus.Paid,
+        "Cancelled" => record.Status == PaymentStatus.Cancelled,
+        _ => true,
+    };
 }
 
 public sealed class ListFilteredPaymentRecordsForTeacherQueryHandler : IQueryHandler<ListFilteredPaymentRecordsForTeacherQuery, Result<IReadOnlyCollection<PaymentRecordResponse>>>

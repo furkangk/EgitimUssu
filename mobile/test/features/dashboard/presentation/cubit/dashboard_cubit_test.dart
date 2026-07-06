@@ -195,4 +195,14 @@ class _FakePaymentRepository implements PaymentRepository {
   Future<PaymentRecord> updateRecord(PaymentRecord paymentRecord) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<PaymentPage> searchRecords(
+    String teacherUserId, {
+    required PaymentFilters filters,
+    required int skip,
+    required int take,
+  }) {
+    throw UnimplementedError();
+  }
 }

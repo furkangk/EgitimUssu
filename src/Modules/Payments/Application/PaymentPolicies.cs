@@ -49,6 +49,7 @@ public sealed class PaymentQueryValidator :
     IQueryValidator<GetPaymentRecordByIdQuery>,
     IQueryValidator<ListPaymentRecordsForTeacherQuery>,
     IQueryValidator<ListFilteredPaymentRecordsForTeacherQuery>,
+    IQueryValidator<SearchPaymentRecordsForTeacherQuery>,
     IQueryValidator<GetTeacherPaymentSummaryQuery>
 {
     private static readonly Error InvalidRequest = new("payments.invalid_request", "Odeme sorgu bilgileri eksik veya hatali.");
@@ -70,6 +71,13 @@ public sealed class PaymentQueryValidator :
         return Task.FromResult(ok ? Result.Success() : Result.Failure(InvalidRequest));
     }
 
+    public Task<Result> Validate(SearchPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
+    {
+        var dateRangeValid = !query.DateFromUtc.HasValue || !query.DateToUtc.HasValue || query.DateFromUtc <= query.DateToUtc;
+        var ok = query.TeacherUserId != Guid.Empty && query.Take >= 0 && query.Skip >= 0 && dateRangeValid;
+        return Task.FromResult(ok ? Result.Success() : Result.Failure(InvalidRequest));
+    }
+
     public Task<Result> Validate(GetTeacherPaymentSummaryQuery query, CancellationToken cancellationToken)
     {
         return Task.FromResult(query.TeacherUserId != Guid.Empty ? Result.Success() : Result.Failure(InvalidRequest));
@@ -82,6 +90,7 @@ public sealed class PaymentRecordAuthorizer :
     IQueryAuthorizer<GetPaymentRecordByIdQuery>,
     IQueryAuthorizer<ListPaymentRecordsForTeacherQuery>,
     IQueryAuthorizer<ListFilteredPaymentRecordsForTeacherQuery>,
+    IQueryAuthorizer<SearchPaymentRecordsForTeacherQuery>,
     IQueryAuthorizer<GetTeacherPaymentSummaryQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu islemi yapma yetkiniz yok.");
@@ -127,6 +136,11 @@ public sealed class PaymentRecordAuthorizer :
     }
 
     public Task<Result> Authorize(ListFilteredPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(CanManageTeacher(query.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    public Task<Result> Authorize(SearchPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
     {
         return Task.FromResult(CanManageTeacher(query.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
     }

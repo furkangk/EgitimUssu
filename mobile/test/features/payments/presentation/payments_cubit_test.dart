@@ -206,6 +206,14 @@ class _BackendMimicRepository implements PaymentRepository {
       <PaymentRecord>[_current];
 
   @override
+  Future<PaymentPage> searchRecords(
+    String teacherUserId, {
+    required PaymentFilters filters,
+    required int skip,
+    required int take,
+  }) async => PaymentPage(items: <PaymentRecord>[_current], totalCount: 1);
+
+  @override
   Future<PaymentSummary> getSummary(String teacherUserId) async =>
       const PaymentSummary(totalRecords: 1, currencySummaries: []);
 }
@@ -222,6 +230,14 @@ class _ThrowingRepository implements PaymentRepository {
   @override
   Future<List<PaymentRecord>> listTeacherRecords(String teacherUserId) async =>
       <PaymentRecord>[];
+
+  @override
+  Future<PaymentPage> searchRecords(
+    String teacherUserId, {
+    required PaymentFilters filters,
+    required int skip,
+    required int take,
+  }) async => const PaymentPage(items: <PaymentRecord>[], totalCount: 0);
 
   @override
   Future<PaymentSummary> getSummary(String teacherUserId) async =>

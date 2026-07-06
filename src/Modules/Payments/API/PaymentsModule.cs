@@ -46,6 +46,9 @@ public sealed class PaymentsModule : ModuleDefinition
 
         group.MapGet("/teachers/{teacherUserId:guid}/records/filter", ListFilteredPaymentRecordsForTeacherAsync)
         .WithSummary("Öğretmenin ödeme kayıtlarını filtreler");
+
+        group.MapGet("/teachers/{teacherUserId:guid}/records/search", SearchPaymentRecordsForTeacherAsync)
+        .WithSummary("Öğretmenin ödemelerinde arama + filtre + sayfalama");
     }
 
     /// <summary>
@@ -137,6 +140,36 @@ public sealed class PaymentsModule : ModuleDefinition
                 paid,
                 dateFromUtc,
                 dateToUtc),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin ödemelerinde metin araması, durum/öğrenci/tarih filtresi ve sayfalama (skip/take) uygular.
+    /// </summary>
+    private static async Task<IResult> SearchPaymentRecordsForTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        string? q,
+        string? status,
+        Guid? studentId,
+        DateTime? dateFromUtc,
+        DateTime? dateToUtc,
+        int? skip,
+        int? take,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new SearchPaymentRecordsForTeacherQuery(
+                teacherUserId,
+                q,
+                status,
+                studentId,
+                dateFromUtc,
+                dateToUtc,
+                skip ?? 0,
+                take ?? 20),
             cancellationToken);
         return ToHttpResult(context, result);
     }

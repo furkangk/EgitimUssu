@@ -19,17 +19,20 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListPaymentRecordsForTeacherQuery, Result<IReadOnlyCollection<PaymentRecordResponse>>>, ListPaymentRecordsForTeacherQueryHandler>();
         services.AddScoped<IQueryHandler<ListFilteredPaymentRecordsForTeacherQuery, Result<IReadOnlyCollection<PaymentRecordResponse>>>, ListFilteredPaymentRecordsForTeacherQueryHandler>();
         services.AddScoped<IQueryHandler<GetTeacherPaymentSummaryQuery, Result<TeacherPaymentSummaryResponse>>, GetTeacherPaymentSummaryQueryHandler>();
+        services.AddScoped<IQueryHandler<SearchPaymentRecordsForTeacherQuery, Result<PagedPaymentRecordsResponse>>, SearchPaymentRecordsForTeacherQueryHandler>();
         services.AddScoped<ICommandValidator<CreatePaymentRecordCommand>, CreatePaymentRecordCommandValidator>();
         services.AddScoped<ICommandValidator<UpdatePaymentRecordCommand>, UpdatePaymentRecordCommandValidator>();
         services.AddScoped<IQueryValidator<GetPaymentRecordByIdQuery>, PaymentQueryValidator>();
         services.AddScoped<IQueryValidator<ListPaymentRecordsForTeacherQuery>, PaymentQueryValidator>();
         services.AddScoped<IQueryValidator<ListFilteredPaymentRecordsForTeacherQuery>, PaymentQueryValidator>();
+        services.AddScoped<IQueryValidator<SearchPaymentRecordsForTeacherQuery>, PaymentQueryValidator>();
         services.AddScoped<IQueryValidator<GetTeacherPaymentSummaryQuery>, PaymentQueryValidator>();
         services.AddScoped<ICommandAuthorizer<CreatePaymentRecordCommand>, PaymentRecordAuthorizer>();
         services.AddScoped<ICommandAuthorizer<UpdatePaymentRecordCommand>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetPaymentRecordByIdQuery>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListPaymentRecordsForTeacherQuery>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListFilteredPaymentRecordsForTeacherQuery>, PaymentRecordAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<SearchPaymentRecordsForTeacherQuery>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherPaymentSummaryQuery>, PaymentRecordAuthorizer>();
         return services;
     }

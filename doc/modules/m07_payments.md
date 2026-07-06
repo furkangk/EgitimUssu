@@ -19,7 +19,7 @@
 |--------|-------|-------|
 | Domain (`PaymentRecord`) | ✅ Mevcut | `src/Modules/Payments/Domain/PaymentsDomainModel.cs` |
 | Application (CQRS + handler) | ✅ Mevcut | `src/Modules/Payments/Application/PaymentFeatures.cs` |
-| API (oluştur/güncelle/getir/listele/özet/filtre) | ✅ Mevcut (6 endpoint) | `src/Modules/Payments/API/PaymentsModule.cs` |
+| API (oluştur/güncelle/getir/listele/özet/filtre/**arama+sayfalama**) | ✅ Mevcut (7 endpoint) | `src/Modules/Payments/API/PaymentsModule.cs` |
 | Hesaplanan alanlar (kalan/gecikme/gösterim durumu) | ✅ Mevcut | `PaymentRecordMappings` (`GetOutstandingAmount`, `IsOverdue`, `GetDisplayStatus`) |
 | Para birimi bazında özet | ✅ Mevcut | `GetTeacherPaymentSummaryQuery` |
 | Veli ile paylaşım (`IsSharedWithParent`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
@@ -115,6 +115,7 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 | Öğretmen ödemeleri | `GET /api/payments/teachers/{teacherUserId}/records?outstandingOnly=` | → `PaymentRecordResponse[]` | `outstandingOnly=true` → yalnızca kalanı olanlar; vade artan sıralı |
 | Gelir özeti | `GET /api/payments/teachers/{teacherUserId}/summary` | → `TeacherPaymentSummaryResponse` | **Para birimi bazında** gruplu özet |
 | Filtreli liste | `GET /api/payments/teachers/{teacherUserId}/records/filter?outstanding=&overdue=&paid=&dateFromUtc=&dateToUtc=` | → `PaymentRecordResponse[]` | Bayraklar VEYA mantığıyla; hiçbiri seçili değilse tümü |
+| **Arama + sayfalama** | `GET /api/payments/teachers/{teacherUserId}/records/search?q=&status=&studentId=&dateFromUtc=&dateToUtc=&skip=&take=` | → `PagedPaymentRecordsResponse` `{ Items[], TotalCount }` | Metin (açıklama), durum (`Open`/`Paid`/`Pending`/`PartiallyPaid`/`Overdue`/`Cancelled`), öğrenci, tarih; `take` ≤ 100; vade artan sıralı |
 
 **`UpsertPaymentRecordRequest` (koddan):**
 `TeacherUserId, StudentId, RelatedLessonSessionId?, ItemType, Description, Currency, ExpectedAmount, CollectedAmount, DueDateUtc, CollectedOnUtc?, Status, BillingPeriodStartUtc?, BillingPeriodEndUtc?, Notes?`
@@ -123,7 +124,9 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 `Id, TeacherUserId, StudentId, RelatedLessonSessionId?, ItemType (string), Description, Currency, ExpectedAmount, CollectedAmount, OutstandingAmount, DueDateUtc, CollectedOnUtc?, Status (string), IsOverdue, BillingPeriodStartUtc?, BillingPeriodEndUtc?, Notes?`
 > `OutstandingAmount`, `IsOverdue` ve `Status` (görüntüleme statüsü) **hesaplanmış** alanlardır; `Status` yanıtta `GetDisplayStatus(now)` sonucudur (gecikmişse `Overdue`).
 
-**`TeacherPaymentSummaryResponse` (koddan):** `TeacherUserId, TotalRecords, CurrencySummaries[]`
+**`TeacherPaymentSummaryResponse` (koddan):** `TeacherUserId, TotalRecords, CurrencySummaries[], MonthlyBreakdown[]`
+> `MonthlyBreakdown[]` = son 6 ayın `{ Year, Month, ExpectedAmount, CollectedAmount }` kırılımı (vade ayına göre, iptaller hariç) — mobil grafikleri besler.
+**`PagedPaymentRecordsResponse` (koddan):** `Items[] (PaymentRecordResponse), TotalCount`
 **`PaymentCurrencySummaryResponse` (koddan):** `Currency, PendingCount, PartialCount, PaidCount, OverdueCount, CancelledCount, ExpectedAmountTotal, CollectedAmountTotal, OutstandingAmountTotal, OverdueAmountTotal`
 > `PendingCount`/`PartialCount`, **gecikmemiş** kayıtları sayar; gecikmiş olanlar `OverdueCount`'a düşer.
 
@@ -201,12 +204,14 @@ PUT /records/{id}
 - **Tahsilat formu** (`CollectPaymentSheet`): "Tahsil Et" tek tıkla tamamı yerine tutar girişli form açar; **tam veya kısmi** tahsilat (`newCollected = min(collected + girilen, expected)` → `Paid`/`PartiallyPaid`). Kalandan fazlaya izin vermez.
 - **Kart → düzenleme**: Ödeme kartına dokununca (kartta sağda `chevron` ok) `PaymentFormPage` düzenleme modunda açılır (`PUT`). Düzenlemede **öğrenci ve ders salt-okunur** (kilitli); tutar/vade/açıklama/not değişebilir.
 - **İptal (onaylı)**: Düzenleme formunda iptal ikonu → onay dialogu → ödeme **silinmez**, `Status=Cancelled` olarak işaretlenir (`PaymentsCubit.cancel` → `PUT /records/{id}`). İptal edilen kayıt listede "İptal" görünür, açık bakiye/gecikme doğurmaz (`OutstandingAmount=0`). Kalıcı silme (hard delete) **bilinçli olarak yok**.
+- **Sunucu tarafı sayfalama + filtre**: Ödemeler sayfası artık listeyi `records/search` ile **sayfa sayfa** çeker (sonsuz kaydırma, `take=20`) + metin arama, durum sekmesi, öğrenci ve tarih-aralığı filtresi. Aggregate'ler (özet paneli + grafikler) `getSummary`'den gelir (sayfalıyken tüm kayıtlar client'ta olmaz).
+- **Finans grafikleri**: **katlanabilir "İstatistikler"** bölümünde (varsayılan kapalı) `MonthlyCollectionCard` (özetteki `MonthlyBreakdown`'dan) + `PaymentDistributionCard` (özet toplamlarından donut + tahsilat oranı %). Not: m14 dönemsel rapor hâlâ ayrı bir gelişim.
 
 ### ⚠️ Planlanan
 - **Gelir özeti kartı** (para birimi bazında beklenen/tahsil/kalan/geciken) — dashboard'da (`getSummary` mevcut).
 - **Veli ile paylaş** anahtarı (`IsSharedWithParent`) + veli ödeme görünümü.
 - **Geciken ödeme uyarı rozeti** (takvim + dashboard).
-- **Aylık gelir grafiği** (m14 ile).
+- ~~**Aylık gelir grafiği**~~ ✅ İstemci tarafı yapıldı (`MonthlyCollectionCard` + `PaymentDistributionCard`); m14 ile **sunucu tabanlı dönemsel** rapor/grafik hâlâ öneri.
 
 ---
 

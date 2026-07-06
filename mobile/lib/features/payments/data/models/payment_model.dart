@@ -153,10 +153,29 @@ class PaymentCurrencySummaryModel extends PaymentCurrencySummary {
   }
 }
 
+class PaymentMonthlyPointModel extends PaymentMonthlyPoint {
+  const PaymentMonthlyPointModel({
+    required super.year,
+    required super.month,
+    required super.expectedAmount,
+    required super.collectedAmount,
+  });
+
+  factory PaymentMonthlyPointModel.fromJson(Map<String, dynamic> json) {
+    return PaymentMonthlyPointModel(
+      year: json['year'] as int? ?? 0,
+      month: json['month'] as int? ?? 0,
+      expectedAmount: (json['expectedAmount'] as num?)?.toDouble() ?? 0,
+      collectedAmount: (json['collectedAmount'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
 class PaymentSummaryModel extends PaymentSummary {
   const PaymentSummaryModel({
     required super.totalRecords,
     required super.currencySummaries,
+    super.monthlyBreakdown,
   });
 
   factory PaymentSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -166,6 +185,11 @@ class PaymentSummaryModel extends PaymentSummary {
           ((json['currencySummaries'] as List<dynamic>? ?? <dynamic>[]))
               .whereType<Map<String, dynamic>>()
               .map(PaymentCurrencySummaryModel.fromJson)
+              .toList(),
+      monthlyBreakdown:
+          ((json['monthlyBreakdown'] as List<dynamic>? ?? <dynamic>[]))
+              .whereType<Map<String, dynamic>>()
+              .map(PaymentMonthlyPointModel.fromJson)
               .toList(),
     );
   }

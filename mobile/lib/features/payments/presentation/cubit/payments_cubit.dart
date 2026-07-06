@@ -8,20 +8,34 @@ class PaymentsCubit extends Cubit<PaymentsState> {
   PaymentsCubit(this._repository) : super(const PaymentsState());
 
   final PaymentRepository _repository;
+  static const int _pageSize = 20;
+  String? _teacherUserId;
 
   factory PaymentsCubit.create() =>
       PaymentsCubit(injector<PaymentRepository>());
 
+  /// İlk yükleme: özet (panel + grafikler) + filtreli ilk sayfa (paralel).
   Future<void> load(String teacherUserId) async {
+    _teacherUserId = teacherUserId;
     if (isClosed) return;
     emit(state.copyWith(isLoading: true, clearMessages: true));
     try {
-      final records = await _repository.listTeacherRecords(teacherUserId);
+      final summaryFuture = _repository.getSummary(teacherUserId);
+      final pageFuture = _repository.searchRecords(
+        teacherUserId,
+        filters: state.filters,
+        skip: 0,
+        take: _pageSize,
+      );
+      final summary = await summaryFuture;
+      final page = await pageFuture;
       if (isClosed) return;
       emit(
         state.copyWith(
           isLoading: false,
-          records: records,
+          summary: summary,
+          records: page.items,
+          totalCount: page.totalCount,
           clearMessages: true,
         ),
       );
@@ -29,13 +43,87 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       if (isClosed) return;
       emit(state.copyWith(isLoading: false, errorMessage: error.message));
     } catch (_) {
-      // Beklenmeyen hatada isLoading'i sıfırla; aksi halde ekran kalıcı olarak
-      // shimmer'da (yükleniyor) asılı kalır.
       if (isClosed) return;
       emit(
         state.copyWith(
           isLoading: false,
           errorMessage: 'Ödemeler yüklenemedi. Lütfen tekrar deneyin.',
+        ),
+      );
+    }
+  }
+
+  /// Filtre değişince ilk sayfayı yeniden çeker (özet değişmez — filtresizdir).
+  Future<void> applyFilters(PaymentFilters filters) async {
+    if (isClosed) return;
+    emit(state.copyWith(filters: filters));
+    await _reloadFirstPage();
+  }
+
+  Future<void> _reloadFirstPage() async {
+    final teacherUserId = _teacherUserId;
+    if (teacherUserId == null || isClosed) return;
+    emit(state.copyWith(isLoading: true, clearMessages: true));
+    try {
+      final page = await _repository.searchRecords(
+        teacherUserId,
+        filters: state.filters,
+        skip: 0,
+        take: _pageSize,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          records: page.items,
+          totalCount: page.totalCount,
+          clearMessages: true,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isLoading: false, errorMessage: error.message));
+    } catch (_) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: 'Ödemeler yüklenemedi. Lütfen tekrar deneyin.',
+        ),
+      );
+    }
+  }
+
+  /// Sonraki sayfayı (sonsuz kaydırma) yükler ve listeye ekler.
+  Future<void> loadMore() async {
+    final teacherUserId = _teacherUserId;
+    if (teacherUserId == null || isClosed) return;
+    if (state.isLoadingMore || state.isLoading || !state.hasMore) return;
+    emit(state.copyWith(isLoadingMore: true));
+    try {
+      final page = await _repository.searchRecords(
+        teacherUserId,
+        filters: state.filters,
+        skip: state.records.length,
+        take: _pageSize,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          records: <PaymentRecord>[...state.records, ...page.items],
+          totalCount: page.totalCount,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isLoadingMore: false, errorMessage: error.message));
+    } catch (_) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: 'Daha fazla kayıt yüklenemedi.',
         ),
       );
     }
@@ -69,7 +157,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     }
   }
 
-  /// Var olan bir ödeme kaydını (tutar, açıklama, vade, not vb.) günceller.
+  /// Var olan bir ödeme kaydını günceller.
   Future<void> update(PaymentRecord record) async {
     if (isClosed) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
@@ -100,31 +188,13 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     }
   }
 
-  /// Bir ödeme kaydını **iptal** eder (kalıcı silme değil): `Status=Cancelled`.
-  /// Kayıt listede kalır ("İptal" olarak görünür); iptal edilen borç doğurmaz
-  /// (backend `OutstandingAmount` = 0). Tahsil edilen tutar korunur.
+  /// Bir ödeme kaydını **iptal** eder (silmez): `Status=Cancelled`.
   Future<void> cancel(PaymentRecord record) async {
     if (isClosed) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
       final updated = await _repository.updateRecord(
-        PaymentRecord(
-          id: record.id,
-          teacherUserId: record.teacherUserId,
-          studentId: record.studentId,
-          description: record.description,
-          currency: record.currency,
-          expectedAmount: record.expectedAmount,
-          collectedAmount: record.collectedAmount,
-          outstandingAmount: 0,
-          status: 'Cancelled',
-          relatedLessonSessionId: record.relatedLessonSessionId,
-          dueDateUtc: record.dueDateUtc,
-          collectedOnUtc: record.collectedOnUtc,
-          notes: record.notes,
-          isOverdue: false,
-          itemType: record.itemType,
-        ),
+        _copyWith(record, status: 'Cancelled', collected: record.collectedAmount, outstanding: 0),
       );
       if (isClosed) return;
       emit(
@@ -137,6 +207,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
           clearMessages: true,
         ),
       );
+      await _refreshSummary();
     } on ApiException catch (error) {
       if (isClosed) return;
       emit(state.copyWith(isSaving: false, errorMessage: error.message));
@@ -151,9 +222,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     }
   }
 
-  /// Bir kayda [amountNow] kadar tahsilat işler. Yeni tahsil edilen tutar
-  /// (mevcut + [amountNow]) beklenen tutarı aşamaz; duruma göre `Paid` / `PartiallyPaid`
-  /// olarak işaretlenir. `amountNow == kalan` verilirse ödemenin tamamı alınmış olur.
+  /// Bir kayda [amountNow] kadar tahsilat işler (tam/kısmi).
   Future<void> collect(PaymentRecord record, double amountNow) async {
     if (isClosed) return;
     final expected = record.expectedAmount;
@@ -170,29 +239,21 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         ? 'PartiallyPaid'
         : 'Pending';
 
-    emit(state.copyWith(
-      isSaving: true,
-      savingRecordId: record.id,
-      clearMessages: true,
-    ));
+    emit(
+      state.copyWith(
+        isSaving: true,
+        savingRecordId: record.id,
+        clearMessages: true,
+      ),
+    );
     try {
       final updated = await _repository.updateRecord(
-        PaymentRecord(
-          id: record.id,
-          teacherUserId: record.teacherUserId,
-          studentId: record.studentId,
-          description: record.description,
-          currency: record.currency,
-          expectedAmount: expected,
-          collectedAmount: newCollected,
-          outstandingAmount: outstanding,
+        _copyWith(
+          record,
           status: status,
-          relatedLessonSessionId: record.relatedLessonSessionId,
-          dueDateUtc: record.dueDateUtc,
+          collected: newCollected,
+          outstanding: outstanding,
           collectedOnUtc: DateTime.now().toUtc(),
-          notes: record.notes,
-          isOverdue: false,
-          itemType: record.itemType,
         ),
       );
       if (isClosed) return;
@@ -210,16 +271,17 @@ class PaymentsCubit extends Cubit<PaymentsState> {
           clearMessages: true,
         ),
       );
+      await _refreshSummary();
     } on ApiException catch (error) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isSaving: false,
-        clearSavingRecordId: true,
-        errorMessage: error.message,
-      ));
+      emit(
+        state.copyWith(
+          isSaving: false,
+          clearSavingRecordId: true,
+          errorMessage: error.message,
+        ),
+      );
     } catch (_) {
-      // Beklenmeyen hatada da isSaving'i sıfırla; aksi halde "Tahsil Et" butonu
-      // kalıcı olarak devre dışı kalır (kullanıcıya "hiçbir şey olmuyor" gibi görünür).
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -231,8 +293,46 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     }
   }
 
+  /// Aggregate'leri (özet paneli + grafikler) yeniden çeker; hata yut.
+  Future<void> _refreshSummary() async {
+    final teacherUserId = _teacherUserId;
+    if (teacherUserId == null || isClosed) return;
+    try {
+      final summary = await _repository.getSummary(teacherUserId);
+      if (isClosed) return;
+      emit(state.copyWith(summary: summary));
+    } catch (_) {
+      // Özet güncellenemezse sessizce geç (liste ana içerik).
+    }
+  }
+
+  static PaymentRecord _copyWith(
+    PaymentRecord record, {
+    required String status,
+    required double collected,
+    required double outstanding,
+    DateTime? collectedOnUtc,
+  }) {
+    return PaymentRecord(
+      id: record.id,
+      teacherUserId: record.teacherUserId,
+      studentId: record.studentId,
+      description: record.description,
+      currency: record.currency,
+      expectedAmount: record.expectedAmount,
+      collectedAmount: collected,
+      outstandingAmount: outstanding,
+      status: status,
+      relatedLessonSessionId: record.relatedLessonSessionId,
+      dueDateUtc: record.dueDateUtc,
+      collectedOnUtc: collectedOnUtc ?? record.collectedOnUtc,
+      notes: record.notes,
+      isOverdue: false,
+      itemType: record.itemType,
+    );
+  }
+
   static String _formatMoney(double amount) {
-    // Küçük yardımcı: tam sayıysa ondalık gösterme.
     return amount == amount.roundToDouble()
         ? amount.toStringAsFixed(0)
         : amount.toStringAsFixed(2);

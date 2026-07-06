@@ -87,6 +87,97 @@ class PaymentRepositoryImpl implements PaymentRepository {
     }
   }
 
+  @override
+  Future<PaymentPage> searchRecords(
+    String teacherUserId, {
+    required PaymentFilters filters,
+    required int skip,
+    required int take,
+  }) async {
+    if (_config.isMockFallbackEnabled('payments')) {
+      return _mockPage(teacherUserId, filters, skip, take);
+    }
+    final params = <String, dynamic>{'skip': skip, 'take': take};
+    final query = filters.query.trim();
+    if (query.isNotEmpty) params['q'] = query;
+    if (filters.status != null) params['status'] = filters.status;
+    if (filters.studentId != null) params['studentId'] = filters.studentId;
+    if (filters.dateFromUtc != null) {
+      params['dateFromUtc'] = filters.dateFromUtc!.toIso8601String();
+    }
+    if (filters.dateToUtc != null) {
+      params['dateToUtc'] = filters.dateToUtc!.toIso8601String();
+    }
+    try {
+      final response = await _apiClient.get(
+        '/api/payments/teachers/$teacherUserId/records/search',
+        queryParameters: params,
+      );
+      final items = (response['items'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(PaymentRecordModel.fromJson)
+          .toList();
+      final total = response['totalCount'] as int? ?? items.length;
+      return PaymentPage(items: items, totalCount: total);
+    } on ApiException {
+      if (_config.isMockFallbackEnabled('payments')) {
+        return _mockPage(teacherUserId, filters, skip, take);
+      }
+      rethrow;
+    }
+  }
+
+  PaymentPage _mockPage(
+    String teacherUserId,
+    PaymentFilters filters,
+    int skip,
+    int take,
+  ) {
+    final all = _filterMock(_mockRecords(teacherUserId), filters);
+    return PaymentPage(
+      items: all.skip(skip).take(take).toList(),
+      totalCount: all.length,
+    );
+  }
+
+  List<PaymentRecord> _filterMock(List<PaymentRecord> all, PaymentFilters f) {
+    final query = f.query.trim().toLowerCase();
+    return all.where((r) {
+      if (query.isNotEmpty && !r.description.toLowerCase().contains(query)) {
+        return false;
+      }
+      if (f.studentId != null && r.studentId != f.studentId) return false;
+      final due = r.dueDateUtc;
+      if (f.dateFromUtc != null && due != null && due.isBefore(f.dateFromUtc!)) {
+        return false;
+      }
+      if (f.dateToUtc != null && due != null && due.isAfter(f.dateToUtc!)) {
+        return false;
+      }
+      if (f.status != null && !_matchesStatus(r, f.status!)) return false;
+      return true;
+    }).toList();
+  }
+
+  bool _matchesStatus(PaymentRecord r, String status) {
+    switch (status) {
+      case 'Open':
+        return r.outstandingAmount > 0 && !r.isOverdue;
+      case 'Overdue':
+        return r.isOverdue;
+      case 'Pending':
+        return r.status == 'Pending' && !r.isOverdue;
+      case 'PartiallyPaid':
+        return r.status == 'PartiallyPaid' && !r.isOverdue;
+      case 'Paid':
+        return r.status == 'Paid';
+      case 'Cancelled':
+        return r.status == 'Cancelled';
+      default:
+        return true;
+    }
+  }
+
   List<PaymentRecord> _mockRecords(String teacherUserId) {
     final now = DateTime.now().toUtc();
     return [
