@@ -36,10 +36,10 @@
 >
 > **✅ Aşama 1 TAMAMLANDI (2026-07-02):** K5, Y1, Y3, Y4 (rate limit + login kilidi + token blacklist + idempotency), Y7.
 >
-> **🟡 Aşama 2 — DEVAM (2026-07-06):**
+> **✅ Aşama 2 TAMAMLANDI (2026-07-06):**
 > - **Y2** (comp. denetim, mimari testler) — **YAPILDI.** (1) **Cross-module referans yasağı** mimari testi eklendi (`Modules_Should_Not_Reference_Other_Modules`); tetikleyici olarak son kalan ihlal (`Assignments.Application → LessonSessions.Application`) giderildi: `ILessonSessionAccessService`+`LessonSessionDetails` **`Shared/Contracts`**'a taşındı (paylaşılan read kontratı), Assignments artık LessonSessions'a referans vermiyor. (2) **Liste IDOR/varsayılan-deny** davranışsal koruması: `LessonSessionListAuthorizationTests` (server sahiplik filtresini zorlar; başka öğretmenin id'si yok sayılır; unauth reddedilir).
 > - **`AuthorizationCoverageTests` blind-spot düzeltmesi (2026-07-06):** Test, **Study**'nin 14 command/query'sini "authorizer'sız" sanıyordu. Aslında Study **korumalı** — açık-generik `StudyOwnershipCommandAuthorizer<T>`/`StudyOwnershipQueryAuthorizer<T>` (`T : IStudentScopedRequest`, `StudyOwnershipGuard` ile) DI'da her somut tip için kapalı olarak kayıtlı; startup validator geçiyor, app başlıyor. Reflection-tabanlı test yalnız **kapalı** authorizer'ları görüyordu. Test, açık-generik authorizer'ları kısıt (constraint) arayüzü üzerinden tanıyacak şekilde genişletildi (gerçek bir güvenlik açığı yoktu; redundant authorizer eklenmedi).
-> - **M14** (Testcontainers gerçek-DB testleri) — **BEKLİYOR:** bu ortamda Docker yok, doğrulanamaz. Redis/`SKIP LOCKED` path'lerini de bu doğrulayacak.
+> - **M14** (Testcontainers gerçek-DB testleri) — **YAPILDI.** `tests/Integration/` altında gerçek Postgres + Redis container'larıyla 3 test: (1) migration'lar gerçek Postgres'e uygulanıyor + unique constraint zorlanıyor, (2) **K5** outbox `FOR UPDATE SKIP LOCKED` + retry/dead-letter gerçek Postgres'te (Aşama 1'de yalnız derlemede doğrulanmıştı), (3) **Y4** dağıtık rate limiter gerçek Redis'e karşı 429 (fail-open değil). Docker yoksa `Skip.IfNot` ile zarifçe atlanır. Paket: 45 test (Docker'lı) / 42 + 3 skip (Docker'sız). CI'da (GitHub runner) Docker mevcut → koşar.
 >
 > ADR'lerde planlıdır: [`../adr/`](../adr/).
 
@@ -69,7 +69,7 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 **Öneri:** Mesaj başına try/catch; başarılıyı işaretle, başarısıza `Error` + `RetryCount` yaz; eşik aşılınca dead-letter. Handler'ları **idempotent** yap (bkz. Y4).
 
 ✅ _Çözüm (2026-07-01):_ `IOutboxStore` tek `ProcessPendingAsync(publish)` sözleşmesine indirildi; `EfOutboxStore` artık **mesaj-başına** işliyor: başarı → `ProcessedOnUtc`; başarısızlık → `RetryCount++` + `Error` + üstel `NextAttemptUtc` backoff; `RetryCount >= MaxRetryCount` → `DeadLetteredOnUtc` (kuyruktan çıkar). Zehirli mesaj artık sıradaki sağlıklı mesajı bloklamıyor (tüm sonuçlar tek `SaveChanges`). Deserialize başarısızlığı da sessizce düşürülmüyor, hata olarak işleniyor. Çoklu-instance: Npgsql'de `FOR UPDATE SKIP LOCKED` + lease (`NextAttemptUtc`) ile satır sahiplenme; InMemory'de sıralı seçim. Yeni alanlar için 9 context'te migration. Testler: `tests/Unit/OutboxRetryAndDeadLetterTests.cs`. (K4 context-başına izolasyon korunuyor.)
-⚠️ _Kalan:_ SKIP LOCKED raw SQL yalnız derlemede doğrulandı — gerçek Postgres'e karşı test (Testcontainers, Aşama 2/M14) önerilir. Tüketici inbox/dedup idempotency'si hâlâ açık (Y4).
+✅ _Doğrulama (2026-07-06, M14):_ SKIP LOCKED + retry/dead-letter artık gerçek Postgres'e karşı test ediliyor (`tests/Integration/RealOutboxIntegrationTests.cs`, Testcontainers). ⚠️ Tüketici inbox/dedup idempotency'si (mesaj-id) hâlâ açık — HTTP idempotency (Y4) eklendi ama outbox tüketici tarafı dedup ayrı.
 
 ---
 
@@ -114,7 +114,7 @@ Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegration
 ### ✅ O1 — Rate limiting yalnızca Identity'de uygulanıyor — **Düzeltildi 2026-07-01 (comp. denetim Y4)**
 `"auth"` ve `"default"` limiter tanımlı ama yalnızca Identity `.RequireRateLimiting("auth")` kullanıyor; `"default"` (120/dk) hiçbir endpoint'e bağlı değil. **Öneri:** `CreateModuleGroup`'ta varsayılan limiter veya global limiter.
 
-✅ _Çözüm (2026-07-01):_ Yerleşik `AddRateLimiter` yerine `DistributedRateLimitMiddleware` — Redis destekli, IP-partition'lı, **yol tabanlı** politika: `/api/identity/*` → `auth` (10/dk), diğer `/api/*` → `default` (120/dk), gerisi limitsiz. Böylece **tüm iş uçları** otomatik `default` limitine tabi. Redis erişilemezse **fail-open** (ADR-0004 kararı). Ayarlar `appsettings.json:RateLimiting`. Test: `tests/Unit/DistributedRateLimitMiddlewareTests.cs`. ⚠️ Redis fixed-window yalnız derlemede doğrulandı; gerçek Redis testi önerilir.
+✅ _Çözüm (2026-07-01):_ Yerleşik `AddRateLimiter` yerine `DistributedRateLimitMiddleware` — Redis destekli, IP-partition'lı, **yol tabanlı** politika: `/api/identity/*` → `auth` (10/dk), diğer `/api/*` → `default` (120/dk), gerisi limitsiz. Böylece **tüm iş uçları** otomatik `default` limitine tabi. Redis erişilemezse **fail-open** (ADR-0004 kararı). Ayarlar `appsettings.json:RateLimiting`. Testler: `tests/Unit/DistributedRateLimitMiddlewareTests.cs` + ✅ gerçek Redis'e karşı `tests/Integration/RealRedisIntegrationTests.cs` (M14, 2026-07-06 — limit aşımında 429, fail-open değil).
 
 ### O2 — Sorgu authorizer'ları varlığı iki kez yüklüyor (çift DB sorgusu)
 Örn. `GetStudentProfileByIdQuery`: authorizer profili yükler, handler **aynı** profili tekrar yükler. **Öneri:** request-context cache veya erişim kontrolünü handler'a entegre et.
