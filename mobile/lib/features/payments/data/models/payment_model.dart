@@ -35,7 +35,7 @@ class PaymentRecordModel extends PaymentRecord {
       collectedOnUtc: _parseDate(json['collectedOnUtc']),
       notes: json['notes']?.toString(),
       isOverdue: json['isOverdue'] as bool? ?? false,
-      itemType: json['itemType']?.toString() ?? 'SingleLesson',
+      itemType: json['itemType']?.toString() ?? 'LessonFee',
     );
   }
 
@@ -61,7 +61,7 @@ class PaymentRecordModel extends PaymentRecord {
       dueDateUtc:
           dueDateUtc ?? DateTime.now().toUtc().add(const Duration(days: 3)),
       isOverdue: false,
-      itemType: 'SingleLesson',
+      itemType: 'LessonFee',
     );
   }
 
@@ -98,20 +98,24 @@ class PaymentRecordModel extends PaymentRecord {
     return value;
   }
 
+  // Backend enum: BillingItemType { LessonFee=1, MonthlyPackage=2, ManualAdjustment=3 }.
+  // API yanıtı enum ADINI string döndürür (`ItemType.ToString()`), bu yüzden aynı adları eşleriz.
   static int _itemTypeToApi(String? value) {
     return switch (value) {
-      'Package' => 2,
-      'Adjustment' => 3,
-      _ => 1,
+      'MonthlyPackage' => 2,
+      'ManualAdjustment' => 3,
+      _ => 1, // LessonFee (varsayılan)
     };
   }
 
+  // Backend enum: PaymentStatus { Pending=1, PartiallyPaid=2, Paid=3, Overdue=4, Cancelled=5 }.
   static int _statusToApi(String value) {
     return switch (value) {
-      'Paid' => 2,
-      'PartiallyPaid' => 3,
-      'Cancelled' => 4,
-      _ => 1,
+      'PartiallyPaid' => 2,
+      'Paid' => 3,
+      'Overdue' => 4,
+      'Cancelled' => 5,
+      _ => 1, // Pending
     };
   }
 }
@@ -123,6 +127,9 @@ class PaymentCurrencySummaryModel extends PaymentCurrencySummary {
     required super.partialCount,
     required super.paidCount,
     required super.overdueCount,
+    required super.cancelledCount,
+    required super.expectedAmountTotal,
+    required super.collectedAmountTotal,
     required super.outstandingAmountTotal,
     required super.overdueAmountTotal,
   });
@@ -134,6 +141,11 @@ class PaymentCurrencySummaryModel extends PaymentCurrencySummary {
       partialCount: json['partialCount'] as int? ?? 0,
       paidCount: json['paidCount'] as int? ?? 0,
       overdueCount: json['overdueCount'] as int? ?? 0,
+      cancelledCount: json['cancelledCount'] as int? ?? 0,
+      expectedAmountTotal:
+          (json['expectedAmountTotal'] as num?)?.toDouble() ?? 0,
+      collectedAmountTotal:
+          (json['collectedAmountTotal'] as num?)?.toDouble() ?? 0,
       outstandingAmountTotal:
           (json['outstandingAmountTotal'] as num?)?.toDouble() ?? 0,
       overdueAmountTotal: (json['overdueAmountTotal'] as num?)?.toDouble() ?? 0,
@@ -168,6 +180,9 @@ class PaymentSummaryModel extends PaymentSummary {
           partialCount: 0,
           paidCount: 1,
           overdueCount: 1,
+          cancelledCount: 0,
+          expectedAmountTotal: 1500,
+          collectedAmountTotal: 750,
           outstandingAmountTotal: 750,
           overdueAmountTotal: 250,
         ),

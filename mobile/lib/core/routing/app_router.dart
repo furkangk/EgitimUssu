@@ -21,6 +21,7 @@ import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/l
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_sessions_page.dart';
 import 'package:egitim_ussu_mobile/features/more/presentation/pages/account_info_page.dart';
 import 'package:egitim_ussu_mobile/features/more/presentation/pages/more_page.dart';
+import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payment_form_page.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payments_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
@@ -249,6 +250,14 @@ class AppRouter {
         GoRoute(
           path: '/payments/new',
           builder: (context, state) => const PaymentFormPage(),
+        ),
+        GoRoute(
+          path: '/payments/edit',
+          builder: (context, state) => PaymentFormPage(
+            record: state.extra is PaymentRecord
+                ? state.extra as PaymentRecord
+                : null,
+          ),
         ),
         GoRoute(
           path: '/payments',

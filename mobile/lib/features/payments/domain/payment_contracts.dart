@@ -14,7 +14,7 @@ class PaymentRecord {
     this.collectedOnUtc,
     this.notes,
     this.isOverdue = false,
-    this.itemType = 'SingleLesson',
+    this.itemType = 'LessonFee',
   });
 
   final String id;
@@ -41,6 +41,9 @@ class PaymentCurrencySummary {
     required this.partialCount,
     required this.paidCount,
     required this.overdueCount,
+    required this.cancelledCount,
+    required this.expectedAmountTotal,
+    required this.collectedAmountTotal,
     required this.outstandingAmountTotal,
     required this.overdueAmountTotal,
   });
@@ -50,6 +53,9 @@ class PaymentCurrencySummary {
   final int partialCount;
   final int paidCount;
   final int overdueCount;
+  final int cancelledCount;
+  final double expectedAmountTotal;
+  final double collectedAmountTotal;
   final double outstandingAmountTotal;
   final double overdueAmountTotal;
 }

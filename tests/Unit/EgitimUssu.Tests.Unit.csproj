@@ -26,6 +26,8 @@
     <ProjectReference Include="..\..\src\Shared\Kernel\EgitimUssu.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\src\Shared\Contracts\EgitimUssu.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Shared\Infrastructure\EgitimUssu.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Payments\Domain\EgitimUssu.Modules.Payments.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Payments\Application\EgitimUssu.Modules.Payments.Application.csproj" />
   </ItemGroup>
 
 </Project>

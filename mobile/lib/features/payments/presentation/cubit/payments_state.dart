@@ -5,24 +5,28 @@ class PaymentsState extends Equatable {
   const PaymentsState({
     this.isLoading = false,
     this.isSaving = false,
+    this.savingRecordId,
     this.records = const <PaymentRecord>[],
-    this.summary,
     this.errorMessage,
     this.successMessage,
   });
 
   final bool isLoading;
   final bool isSaving;
+
+  /// Şu an güncellenmekte olan kaydın kimliği (tıklanan "Tahsil Et" butonunda
+  /// yükleniyor göstergesi için). İşlem bitince null'a döner.
+  final String? savingRecordId;
   final List<PaymentRecord> records;
-  final PaymentSummary? summary;
   final String? errorMessage;
   final String? successMessage;
 
   PaymentsState copyWith({
     bool? isLoading,
     bool? isSaving,
+    String? savingRecordId,
+    bool clearSavingRecordId = false,
     List<PaymentRecord>? records,
-    PaymentSummary? summary,
     String? errorMessage,
     String? successMessage,
     bool clearMessages = false,
@@ -30,8 +34,10 @@ class PaymentsState extends Equatable {
     return PaymentsState(
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
+      savingRecordId: clearSavingRecordId
+          ? null
+          : savingRecordId ?? this.savingRecordId,
       records: records ?? this.records,
-      summary: summary ?? this.summary,
       errorMessage: clearMessages
           ? errorMessage
           : errorMessage ?? this.errorMessage,
@@ -45,8 +51,8 @@ class PaymentsState extends Equatable {
   List<Object?> get props => <Object?>[
     isLoading,
     isSaving,
+    savingRecordId,
     records,
-    summary,
     errorMessage,
     successMessage,
   ];

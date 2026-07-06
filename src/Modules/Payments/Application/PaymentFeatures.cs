@@ -342,18 +342,23 @@ internal static class PaymentRecordMappings
 
     public static decimal GetOutstandingAmount(this PaymentRecord paymentRecord)
     {
+        // İptal edilmiş ödeme borç doğurmaz; tahsil edilmemiş tutarı bakiyeye katma.
+        if (paymentRecord.Status == PaymentStatus.Cancelled)
+        {
+            return 0;
+        }
+
         return Math.Max(paymentRecord.ExpectedAmount - paymentRecord.CollectedAmount, 0);
     }
 
     public static bool IsOutstanding(this PaymentRecord paymentRecord, DateTime now)
     {
-        return paymentRecord.GetOutstandingAmount() > 0 && paymentRecord.Status != PaymentStatus.Cancelled;
+        return paymentRecord.GetOutstandingAmount() > 0;
     }
 
     public static bool IsOverdue(this PaymentRecord paymentRecord, DateTime now)
     {
         return paymentRecord.GetOutstandingAmount() > 0
-            && paymentRecord.Status != PaymentStatus.Cancelled
             && paymentRecord.DueDateUtc < now;
     }
 

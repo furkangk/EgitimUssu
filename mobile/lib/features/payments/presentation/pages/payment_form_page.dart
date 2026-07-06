@@ -14,7 +14,11 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
 class PaymentFormPage extends StatefulWidget {
-  const PaymentFormPage({super.key});
+  const PaymentFormPage({super.key, this.record});
+
+  /// Doluysa **düzenleme** modu: form bu kaydın alanlarıyla açılır ve kaydet
+  /// `PUT`'a gider. Boşsa yeni kayıt (create) modu.
+  final PaymentRecord? record;
 
   @override
   State<PaymentFormPage> createState() => _PaymentFormPageState();
@@ -37,11 +41,26 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
   String _currency = 'TRY';
   String _paymentMethod = 'Nakit';
 
+  bool get _isEdit => widget.record != null;
+
   @override
   void initState() {
     super.initState();
     _paymentsCubit = PaymentsCubit.create();
     _studentsCubit = StudentsCubit.create();
+
+    final record = widget.record;
+    if (record != null) {
+      // Düzenleme: alanları mevcut kayıttan doldur.
+      _descriptionController.text = record.description;
+      _amountController.text = _asAmount(record.expectedAmount);
+      _collectedController.text = _asAmount(record.collectedAmount);
+      _selectedDueDate =
+          record.dueDateUtc?.toLocal() ??
+          DateTime.now().add(const Duration(days: 7));
+      _currency = record.currency;
+      _notesController.text = record.notes ?? '';
+    }
     _dueDateController.text = _formatDate(_selectedDueDate);
   }
 
@@ -79,10 +98,20 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
         listener: (context, state) {
           if (_selectedProfile == null && state.students.isNotEmpty) {
             setState(() {
-              _selectedProfile = state.students.first;
-              _selectedSubject =
-                  _selectedProfile!.subjects.firstOrNull?.subject;
-              _syncDescription();
+              if (_isEdit) {
+                // Düzenleme: kaydın öğrencisini seç; açıklamayı EZME (manuel
+                // öğrenci değişince `_onStudentChanged` senkronlar).
+                _selectedProfile = state.students
+                    .where((s) => s.id == widget.record!.studentId)
+                    .firstOrNull;
+                _selectedSubject =
+                    _selectedProfile?.subjects.firstOrNull?.subject;
+              } else {
+                _selectedProfile = state.students.first;
+                _selectedSubject =
+                    _selectedProfile!.subjects.firstOrNull?.subject;
+                _syncDescription();
+              }
             });
           }
         },
@@ -115,9 +144,16 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                 return Column(
                   children: <Widget>[
                     _TopBar(
+                      title: _isEdit ? 'Ödemeyi Düzenle' : 'Ödeme Ekle',
                       onBack: () => context.canPop()
                           ? context.pop()
                           : context.go('/payments'),
+                      // İptal aksiyonu yalnız düzenlemede ve kayıt zaten iptal
+                      // değilse gösterilir.
+                      onCancelPayment:
+                          _isEdit && widget.record!.status != 'Cancelled'
+                          ? _confirmCancel
+                          : null,
                     ),
                     Expanded(
                       child: BlocBuilder<StudentsCubit, StudentsState>(
@@ -129,14 +165,20 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                 key: _formKey,
                                 child: Column(
                                   children: <Widget>[
-                                    _StudentSection(
-                                      isLoading: studState.isLoading,
-                                      students: studState.students,
-                                      selectedProfile: _selectedProfile,
-                                      selectedSubject: _selectedSubject,
-                                      onStudentChanged: _onStudentChanged,
-                                      onSubjectChanged: _onSubjectChanged,
-                                    ),
+                                    if (_isEdit)
+                                      _StudentReadonly(
+                                        name: _selectedProfile?.fullName,
+                                        subject: _selectedSubject,
+                                      )
+                                    else
+                                      _StudentSection(
+                                        isLoading: studState.isLoading,
+                                        students: studState.students,
+                                        selectedProfile: _selectedProfile,
+                                        selectedSubject: _selectedSubject,
+                                        onStudentChanged: _onStudentChanged,
+                                        onSubjectChanged: _onSubjectChanged,
+                                      ),
                                     const SizedBox(height: 14),
                                     AppTextField(
                                       controller: _descriptionController,
@@ -199,15 +241,19 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 14),
-                                    _PaymentMethodField(
-                                      value: _paymentMethod,
-                                      onChanged: (v) {
-                                        if (v != null) {
-                                          setState(() => _paymentMethod = v);
-                                        }
-                                      },
-                                    ),
+                                    // Ödeme yöntemi yalnız yeni kayıtta nota
+                                    // eklenir; düzenlemede not doğrudan düzenlenir.
+                                    if (!_isEdit) ...<Widget>[
+                                      const SizedBox(height: 14),
+                                      _PaymentMethodField(
+                                        value: _paymentMethod,
+                                        onChanged: (v) {
+                                          if (v != null) {
+                                            setState(() => _paymentMethod = v);
+                                          }
+                                        },
+                                      ),
+                                    ],
                                     const SizedBox(height: 14),
                                     AppTextField(
                                       controller: _notesController,
@@ -244,7 +290,9 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                   MediaQuery.of(context).padding.bottom + 12,
                 ),
                 child: AppPrimaryButton(
-                  label: 'Ödemeyi Kaydet',
+                  label: _isEdit
+                      ? 'Değişiklikleri Kaydet'
+                      : 'Ödemeyi Kaydet',
                   isLoading: state.isSaving,
                   onPressed: _save,
                 ),
@@ -299,7 +347,8 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
   void _save() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_selectedProfile == null) {
+    // Öğrenci yalnız yeni kayıtta seçilir; düzenlemede kaydın öğrencisi korunur.
+    if (!_isEdit && _selectedProfile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lütfen bir öğrenci seçin.'),
@@ -311,9 +360,49 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
     final teacherUserId = context.read<AuthCubit>().state.session?.userId ?? '';
     final expected = double.parse(_amountController.text.trim());
     final collected = double.parse(_collectedController.text.trim());
+    if (collected > expected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tahsil edilen tutar beklenen tutardan fazla olamaz.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     final outstanding = (expected - collected)
         .clamp(0, double.infinity)
         .toDouble();
+    final status = collected >= expected
+        ? 'Paid'
+        : collected > 0
+        ? 'PartiallyPaid'
+        : 'Pending';
+
+    if (_isEdit) {
+      final existing = widget.record!;
+      final notes = _notesController.text.trim();
+      _paymentsCubit.update(
+        PaymentRecord(
+          id: existing.id,
+          teacherUserId: existing.teacherUserId,
+          studentId: existing.studentId,
+          description: _descriptionController.text.trim(),
+          currency: _currency,
+          expectedAmount: expected,
+          collectedAmount: collected,
+          outstandingAmount: outstanding,
+          status: status,
+          relatedLessonSessionId: existing.relatedLessonSessionId,
+          dueDateUtc: _selectedDueDate.toUtc(),
+          collectedOnUtc: collected > 0
+              ? (existing.collectedOnUtc ?? DateTime.now().toUtc())
+              : null,
+          notes: notes.isEmpty ? null : notes,
+          itemType: existing.itemType,
+        ),
+      );
+      return;
+    }
 
     _paymentsCubit.create(
       PaymentRecord(
@@ -325,16 +414,47 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
         expectedAmount: expected,
         collectedAmount: collected,
         outstandingAmount: outstanding,
-        status: collected >= expected
-            ? 'Paid'
-            : collected > 0
-            ? 'PartiallyPaid'
-            : 'Pending',
+        status: status,
         dueDateUtc: _selectedDueDate.toUtc(),
         collectedOnUtc: collected > 0 ? DateTime.now().toUtc() : null,
         notes: _buildNotes(),
       ),
     );
+  }
+
+  static String _asAmount(double amount) {
+    return amount == amount.roundToDouble()
+        ? amount.toStringAsFixed(0)
+        : amount.toStringAsFixed(2);
+  }
+
+  Future<void> _confirmCancel() async {
+    final record = widget.record;
+    if (record == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Ödemeyi iptal et'),
+        content: Text(
+          '"${record.description}" ödemesi iptal edilecek ("İptal" olarak '
+          'işaretlenir; kayıt silinmez, açık bakiye doğurmaz). Emin misiniz?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
+            child: const Text('Evet, iptal et'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      _paymentsCubit.cancel(record);
+    }
   }
 
   String _buildNotes() {
@@ -445,6 +565,70 @@ class _StudentSection extends StatelessWidget {
   }
 }
 
+/// Düzenleme modunda öğrenci/ders salt-okunur gösterimi (kilitli).
+class _StudentReadonly extends StatelessWidget {
+  const _StudentReadonly({required this.name, this.subject});
+
+  final String? name;
+  final String? subject;
+
+  @override
+  Widget build(BuildContext context) {
+    final display = (name == null || name!.trim().isEmpty) ? 'Öğrenci' : name!;
+    final text = (subject != null && subject!.isNotEmpty)
+        ? '$display · $subject'
+        : display;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const AppFieldLabel(text: 'Öğrenci / Ders'),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: <Widget>[
+              const Icon(
+                Icons.person_rounded,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.lock_outline_rounded,
+                size: 16,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Öğrenci ve ders düzenlenemez.',
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
+    );
+  }
+}
+
 class _StudentShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -497,14 +681,20 @@ class _NoStudentsHint extends StatelessWidget {
 // ── Diğer bileşenler ─────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onBack});
+  const _TopBar({
+    required this.title,
+    required this.onBack,
+    this.onCancelPayment,
+  });
 
+  final String title;
   final VoidCallback onBack;
+  final VoidCallback? onCancelPayment;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 16, 4),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
       child: Row(
         children: <Widget>[
           IconButton(
@@ -514,13 +704,20 @@ class _TopBar extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Ödeme Ekle',
+              title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
+          if (onCancelPayment != null)
+            IconButton(
+              onPressed: onCancelPayment,
+              icon: const Icon(Icons.cancel_outlined),
+              color: AppColors.accentRed,
+              tooltip: 'Ödemeyi iptal et',
+            ),
         ],
       ),
     );

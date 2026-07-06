@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_state.dart';
+import 'package:egitim_ussu_mobile/features/payments/presentation/widgets/collect_payment_sheet.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
@@ -44,6 +45,19 @@ class _PaymentsPageState extends State<PaymentsPage> {
   void dispose() {
     _cubit.close();
     super.dispose();
+  }
+
+  Future<void> _onCollect(BuildContext context, PaymentRecord record) async {
+    final amount = await CollectPaymentSheet.show(context, record);
+    if (amount == null) return;
+    await _cubit.collect(record, amount);
+  }
+
+  Future<void> _onEdit(BuildContext context, PaymentRecord record) async {
+    await context.push('/payments/edit', extra: record);
+    if (!context.mounted) return;
+    final userId = context.read<AuthCubit>().state.session?.userId;
+    if (userId != null) _cubit.load(userId);
   }
 
   @override
@@ -154,8 +168,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     else
                       _PaymentList(
                         records: filtered,
-                        isSaving: state.isSaving,
-                        onMarkPaid: (record) => _cubit.markPaid(record),
+                        savingRecordId: state.savingRecordId,
+                        onCollect: (record) => _onCollect(context, record),
+                        onEdit: (record) => _onEdit(context, record),
                       ),
                   ],
                 ),
@@ -274,11 +289,11 @@ class _FinanceSummaryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final collected = records
-        .where((r) => r.status == 'Paid')
-        .fold<double>(0, (t, r) => t + r.collectedAmount);
+    // Tahsil edilen: tüm kayıtların tahsil edilen tutarı — kısmi tahsilatlar dahil
+    // (yalnız 'Paid' değil). Backend'in CollectedAmountTotal semantiğiyle örtüşür.
+    final collected = records.fold<double>(0, (t, r) => t + r.collectedAmount);
     final outstanding = records
-        .where((r) => !r.isOverdue && r.status != 'Paid')
+        .where((r) => !r.isOverdue)
         .fold<double>(0, (t, r) => t + r.outstandingAmount);
     final overdue = records
         .where((r) => r.isOverdue)
@@ -453,27 +468,31 @@ class _PaymentTabs extends StatelessWidget {
 class _PaymentList extends StatelessWidget {
   const _PaymentList({
     required this.records,
-    required this.isSaving,
-    required this.onMarkPaid,
+    required this.savingRecordId,
+    required this.onCollect,
+    required this.onEdit,
   });
 
   final List<PaymentRecord> records;
-  final bool isSaving;
-  final ValueChanged<PaymentRecord> onMarkPaid;
+  final String? savingRecordId;
+  final ValueChanged<PaymentRecord> onCollect;
+  final ValueChanged<PaymentRecord> onEdit;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: List<Widget>.generate(records.length, (index) {
+        final record = records[index];
         return Padding(
           padding: EdgeInsets.only(
             bottom: index == records.length - 1 ? 0 : 12,
           ),
           child: _PaymentTile(
-            record: records[index],
+            record: record,
             accentColor: _accentForIndex(index),
-            isSaving: isSaving,
-            onMarkPaid: () => onMarkPaid(records[index]),
+            isSaving: savingRecordId == record.id,
+            onCollect: () => onCollect(record),
+            onEdit: () => onEdit(record),
           ),
         );
       }),
@@ -496,20 +515,25 @@ class _PaymentTile extends StatelessWidget {
     required this.record,
     required this.accentColor,
     required this.isSaving,
-    required this.onMarkPaid,
+    required this.onCollect,
+    required this.onEdit,
   });
 
   final PaymentRecord record;
   final Color accentColor;
   final bool isSaving;
-  final VoidCallback onMarkPaid;
+  final VoidCallback onCollect;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     final isPaid = record.status == 'Paid';
+    final isCancelled = record.status == 'Cancelled';
     final isOverdue = record.isOverdue;
     final statusColor = isPaid
         ? AppColors.accentGreen
+        : isCancelled
+        ? AppColors.textMuted
         : isOverdue
         ? AppColors.accentRed
         : record.status == 'PartiallyPaid'
@@ -517,6 +541,8 @@ class _PaymentTile extends StatelessWidget {
         : AppColors.amber;
     final statusLabel = isPaid
         ? 'Ödendi'
+        : isCancelled
+        ? 'İptal'
         : isOverdue
         ? 'Geciken'
         : record.status == 'PartiallyPaid'
@@ -530,17 +556,24 @@ class _PaymentTile extends StatelessWidget {
         : '';
 
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
         boxShadow: AppShadows.soft,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _InitialsAvatar(name: record.description, accent: accentColor),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _InitialsAvatar(name: record.description, accent: accentColor),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -576,17 +609,26 @@ class _PaymentTile extends StatelessWidget {
                     ],
                   ),
                 ],
-                if (!isPaid) ...<Widget>[
+                if (!isPaid && !isCancelled) ...<Widget>[
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 34,
                     child: OutlinedButton.icon(
-                      onPressed: isSaving ? null : onMarkPaid,
-                      icon: const Icon(
-                        Icons.check_circle_outline_rounded,
-                        size: 16,
-                      ),
-                      label: const Text('Tahsil Et'),
+                      onPressed: isSaving ? null : onCollect,
+                      icon: isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 16,
+                            ),
+                      label: Text(isSaving ? 'İşleniyor…' : 'Tahsil Et'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -623,7 +665,18 @@ class _PaymentTile extends StatelessWidget {
               _StatusPill(label: statusLabel, color: statusColor),
             ],
           ),
-        ],
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textSecondary.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -745,7 +798,10 @@ enum _PaymentFilter {
     return switch (this) {
       _PaymentFilter.all => true,
       _PaymentFilter.paid => record.status == 'Paid',
-      _PaymentFilter.pending => record.status != 'Paid' && !record.isOverdue,
+      _PaymentFilter.pending =>
+        record.status != 'Paid' &&
+            record.status != 'Cancelled' &&
+            !record.isOverdue,
       _PaymentFilter.overdue => record.isOverdue,
     };
   }

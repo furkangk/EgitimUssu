@@ -65,10 +65,17 @@
 **Hesaplanan değerler (Application katmanı — `PaymentRecordMappings`):**
 | Yöntem | Mantık |
 |--------|--------|
-| `GetOutstandingAmount()` | `max(ExpectedAmount - CollectedAmount, 0)` — kalan tutar |
-| `IsOutstanding(now)` | kalan > 0 **ve** `Status != Cancelled` |
-| `IsOverdue(now)` | kalan > 0 **ve** `Status != Cancelled` **ve** `DueDateUtc < now` |
+| `GetOutstandingAmount()` | `Cancelled` ise **0**; değilse `max(ExpectedAmount - CollectedAmount, 0)` — kalan tutar |
+| `IsOutstanding(now)` | kalan > 0 (iptal edilen kayıt zaten 0 kalan döner) |
+| `IsOverdue(now)` | kalan > 0 **ve** `DueDateUtc < now` |
 | `GetDisplayStatus(now)` | gecikmişse `Overdue`, değilse mevcut `Status` (**görüntüleme** statüsü) |
+
+> **Bug düzeltmesi (2026-07-06):** `GetOutstandingAmount()` önce statüye bakmadan `Expected − Collected`
+> döndürüyordu; bu yüzden **iptal edilmiş** ödemelerin tahsil edilmemiş tutarı öğretmen ödeme özetindeki
+> `OutstandingAmountTotal`/`ExpectedAmountTotal` yolunda "ödenmemiş bakiye"ye sızıyordu (`IsOutstanding`
+> `Status != Cancelled` derken tutarsızdı). Artık iptal edilen kayıt **0 kalan** döner; `IsOutstanding`/`IsOverdue`
+> içindeki gereksiz `Status != Cancelled` şartı kaldırıldı. Regresyon testi:
+> `tests/Unit/PaymentSummaryOutstandingTests.cs`.
 
 **Enum'lar (koddan birebir):**
 ```
@@ -190,9 +197,13 @@ PUT /records/{id}
 
 > `mobile/lib/features/payments`, `flutter_bloc` (Cubit).
 
+### ✅ Yeni Eklenen (2026-07-06)
+- **Tahsilat formu** (`CollectPaymentSheet`): "Tahsil Et" tek tıkla tamamı yerine tutar girişli form açar; **tam veya kısmi** tahsilat (`newCollected = min(collected + girilen, expected)` → `Paid`/`PartiallyPaid`). Kalandan fazlaya izin vermez.
+- **Kart → düzenleme**: Ödeme kartına dokununca (kartta sağda `chevron` ok) `PaymentFormPage` düzenleme modunda açılır (`PUT`). Düzenlemede **öğrenci ve ders salt-okunur** (kilitli); tutar/vade/açıklama/not değişebilir.
+- **İptal (onaylı)**: Düzenleme formunda iptal ikonu → onay dialogu → ödeme **silinmez**, `Status=Cancelled` olarak işaretlenir (`PaymentsCubit.cancel` → `PUT /records/{id}`). İptal edilen kayıt listede "İptal" görünür, açık bakiye/gecikme doğurmaz (`OutstandingAmount=0`). Kalıcı silme (hard delete) **bilinçli olarak yok**.
+
 ### ⚠️ Planlanan
-- **Gelir özeti kartı** (para birimi bazında beklenen/tahsil/kalan/geciken) — dashboard'da.
-- **"Tahsil edildi" hızlı işaretleme** + kısmi tahsilat girişi.
+- **Gelir özeti kartı** (para birimi bazında beklenen/tahsil/kalan/geciken) — dashboard'da (`getSummary` mevcut).
 - **Veli ile paylaş** anahtarı (`IsSharedWithParent`) + veli ödeme görünümü.
 - **Geciken ödeme uyarı rozeti** (takvim + dashboard).
 - **Aylık gelir grafiği** (m14 ile).
@@ -208,7 +219,7 @@ PUT /records/{id}
 - [x] Kalan / geciken / ödenen filtreleri + tarih aralığı.
 - [ ] ⚠️ Veli ile paylaşım (`IsSharedWithParent`) + veli görünümü.
 - [ ] ⚠️ Kalıcı `Overdue` otomasyonu (zamanlanmış iş) + vade bildirimi.
-- [ ] ⚠️ "Tahsil edildi" hızlı işaretleme.
+- [x] "Tahsil edildi" işaretleme + **kısmi tahsilat** (mobil `CollectPaymentSheet` → `PUT /records/{id}`).
 - [ ] ⚠️ M14 ile dönemsel gelir raporu/grafik.
 - [ ] ⚠️ M05 tamamlama → otomatik `LessonFee` kaydı.
 
@@ -220,7 +231,7 @@ PUT /records/{id}
 
 1. **Veli ile paylaşım (`IsSharedWithParent`)** — alan + paylaş endpoint'i + veli görünümü (m09).
 2. **Kalıcı `Overdue` otomasyonu** — zamanlanmış iş + öğretmen/veli bildirimi (m11).
-3. **"Tahsil edildi" hızlı işaretleme** + kısmi tahsilat akışı (mobil + endpoint).
+3. ~~**"Tahsil edildi" hızlı işaretleme** + kısmi tahsilat akışı~~ ✅ Yapıldı (2026-07-06, `CollectPaymentSheet`; ayrı `PaymentInstallment` dökümü hâlâ öneri — bkz. §2.2).
 4. **M14 gelir raporu** — dönemsel özet + aylık trend grafiği.
 5. **M05 köprüsü** — ders tamamlanınca otomatik `LessonFee` ödeme kaydı.
 6. **(Öneri) Tahsilat dökümü (`PaymentInstallment`)** — kısmi ödemelerin tarihçesi.
@@ -239,4 +250,4 @@ PUT /records/{id}
 
 ---
 
-*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-07-06*
