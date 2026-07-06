@@ -22,8 +22,8 @@ public sealed class AuthorizationCoverageTests
         var assemblies = LoadModuleAssemblies();
         var allTypes = assemblies.SelectMany(SafeGetTypes).ToArray();
 
-        var coveredOperands = BuildCoveredOperandSet(allTypes);
-        var unprotected = FindUnprotectedOperands(allTypes, coveredOperands);
+        var coverage = BuildCoverage(allTypes);
+        var unprotected = FindUnprotectedOperands(allTypes, coverage);
 
         Assert.True(
             unprotected.Count == 0,
@@ -31,26 +31,49 @@ public sealed class AuthorizationCoverageTests
             string.Join("\n", unprotected.Order().Select(n => $"  - {n}")));
     }
 
-    private static HashSet<Type> BuildCoveredOperandSet(Type[] allTypes)
+    /// <summary>
+    /// Authorizer kapsamını toplar. İki biçimi de tanır:
+    /// (1) Kapalı authorizer (ör. <c>IQueryAuthorizer&lt;GetXQuery&gt;</c>) → o operand kapsanır.
+    /// (2) Açık-generik authorizer (ör. <c>StudyOwnershipQueryAuthorizer&lt;T&gt; where T : IStudentScopedRequest</c>)
+    ///     → jenerik parametrenin kısıt (constraint) arayüzünü uygulayan tüm operand'lar kapsanır.
+    ///     Bu desen DI'da her somut tip için kapalı olarak kaydedilir; startup validator ayrıca doğrular.
+    /// </summary>
+    private static (HashSet<Type> ClosedOperands, HashSet<Type> MarkerInterfaces) BuildCoverage(Type[] allTypes)
     {
-        var covered = new HashSet<Type>();
+        var closedOperands = new HashSet<Type>();
+        var markerInterfaces = new HashSet<Type>();
 
-        foreach (var type in allTypes.Where(t => !t.IsAbstract && !t.IsInterface))
+        foreach (var type in allTypes.Where(t => !t.IsInterface))
         {
             foreach (var iface in type.GetInterfaces().Where(i => i.IsGenericType))
             {
                 var def = iface.GetGenericTypeDefinition();
-                if (def == CommandAuthorizerDef || def == QueryAuthorizerDef)
+                if (def != CommandAuthorizerDef && def != QueryAuthorizerDef)
                 {
-                    covered.Add(iface.GetGenericArguments()[0]);
+                    continue;
+                }
+
+                var operand = iface.GetGenericArguments()[0];
+                if (operand.IsGenericParameter)
+                {
+                    foreach (var constraint in operand.GetGenericParameterConstraints().Where(c => c.IsInterface))
+                    {
+                        markerInterfaces.Add(constraint);
+                    }
+                }
+                else
+                {
+                    closedOperands.Add(operand);
                 }
             }
         }
 
-        return covered;
+        return (closedOperands, markerInterfaces);
     }
 
-    private static List<string> FindUnprotectedOperands(Type[] allTypes, HashSet<Type> coveredOperands)
+    private static List<string> FindUnprotectedOperands(
+        Type[] allTypes,
+        (HashSet<Type> ClosedOperands, HashSet<Type> MarkerInterfaces) coverage)
     {
         var seen = new HashSet<Type>();
         var unprotected = new List<string>();
@@ -65,7 +88,11 @@ public sealed class AuthorizationCoverageTests
                 var operandType = iface.GetGenericArguments()[0];
                 if (!seen.Add(operandType)) continue;
 
-                if (!coveredOperands.Contains(operandType) && !AllowAnonymousType.IsAssignableFrom(operandType))
+                var isCovered = coverage.ClosedOperands.Contains(operandType)
+                    || coverage.MarkerInterfaces.Any(marker => marker.IsAssignableFrom(operandType))
+                    || AllowAnonymousType.IsAssignableFrom(operandType);
+
+                if (!isCovered)
                 {
                     unprotected.Add(operandType.FullName ?? operandType.Name);
                 }

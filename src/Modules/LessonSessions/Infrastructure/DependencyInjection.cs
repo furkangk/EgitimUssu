@@ -1,6 +1,7 @@
 using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
