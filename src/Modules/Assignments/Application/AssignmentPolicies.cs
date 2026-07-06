@@ -1,5 +1,5 @@
-using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Assignments.Application;

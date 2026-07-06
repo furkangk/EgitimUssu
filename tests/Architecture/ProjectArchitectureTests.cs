@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace EgitimUssu.Tests.Architecture;
@@ -22,6 +23,41 @@ public sealed class ProjectArchitectureTests
         "Reporting",
         "Settings"
     ];
+
+    /// <summary>
+    /// Y2: Modül izolasyonu — hiçbir modül projesi (herhangi bir katman) başka bir modülün projesine
+    /// referans veremez. Modüller-arası iletişim yalnız Shared (Contracts/Application/Kernel/Infrastructure)
+    /// üzerinden olur (integration event veya paylaşılan read kontratı). Y1'deki gerçek ihlaller bu kuralla yakalanır.
+    /// </summary>
+    [Fact]
+    public void Modules_Should_Not_Reference_Other_Modules()
+    {
+        var moduleReferencePattern = new Regex(@"EgitimUssu\.Modules\.([A-Za-z]+)\.", RegexOptions.Compiled);
+        var violations = new List<string>();
+
+        foreach (var module in Modules)
+        {
+            var moduleDirectory = Path.Combine(GetRoot(), "src", "Modules", module);
+            var projectFiles = Directory.GetFiles(moduleDirectory, "*.csproj", SearchOption.AllDirectories);
+
+            foreach (var projectFile in projectFiles)
+            {
+                foreach (var reference in GetProjectReferences(XDocument.Load(projectFile)))
+                {
+                    var match = moduleReferencePattern.Match(reference.Replace("\\", "/"));
+                    if (match.Success && match.Groups[1].Value != module)
+                    {
+                        violations.Add($"{Path.GetFileName(projectFile)} -> {reference}");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            violations.Count == 0,
+            "Modüller-arası doğrudan proje referansı yasaktır (Shared üzerinden gidin):" +
+            Environment.NewLine + string.Join(Environment.NewLine, violations));
+    }
 
     [Fact]
     public void Application_Projects_Should_Not_Reference_Infrastructure()

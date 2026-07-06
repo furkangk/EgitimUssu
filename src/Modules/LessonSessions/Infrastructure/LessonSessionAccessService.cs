@@ -1,5 +1,5 @@
-using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Modules.LessonSessions.Domain;
+using EgitimUssu.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.LessonSessions.Infrastructure;

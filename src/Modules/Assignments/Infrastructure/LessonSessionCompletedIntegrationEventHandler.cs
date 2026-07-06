@@ -1,7 +1,6 @@
 using System.Text.Json;
 using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Modules.Assignments.Domain;
-using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;

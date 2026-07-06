@@ -34,7 +34,14 @@
 >
 > - **Y7** (comp. denetim, mobil) — **TAMAMLANDI.** Token'lar artık düz-metin `SharedPreferences`'a yazılmıyor: `UserSessionModel.toCache()` yalnız gizli-olmayan profil taşır, `restoreSession` access/refresh token'ı **secure storage**'dan okur; Android'de `EncryptedSharedPreferences` (aOptions) + `allowBackup="false"`. Mobil test: `toCache` token içermez + `restoreSession` secure storage'dan yeniden kurar (21/21 flutter testi yeşil).
 >
-> **✅ Aşama 1 TAMAMLANDI (2026-07-02):** K5, Y1, Y3, Y4 (rate limit + login kilidi + token blacklist + idempotency), Y7. Sıradaki: Aşama 2 (Y8 zaten var, Y2 mimari testler, M14 Testcontainers). ADR'lerde planlıdır: [`../adr/`](../adr/).
+> **✅ Aşama 1 TAMAMLANDI (2026-07-02):** K5, Y1, Y3, Y4 (rate limit + login kilidi + token blacklist + idempotency), Y7.
+>
+> **🟡 Aşama 2 — DEVAM (2026-07-06):**
+> - **Y2** (comp. denetim, mimari testler) — **YAPILDI.** (1) **Cross-module referans yasağı** mimari testi eklendi (`Modules_Should_Not_Reference_Other_Modules`); tetikleyici olarak son kalan ihlal (`Assignments.Application → LessonSessions.Application`) giderildi: `ILessonSessionAccessService`+`LessonSessionDetails` **`Shared/Contracts`**'a taşındı (paylaşılan read kontratı), Assignments artık LessonSessions'a referans vermiyor. (2) **Liste IDOR/varsayılan-deny** davranışsal koruması: `LessonSessionListAuthorizationTests` (server sahiplik filtresini zorlar; başka öğretmenin id'si yok sayılır; unauth reddedilir).
+> - **`AuthorizationCoverageTests` blind-spot düzeltmesi (2026-07-06):** Test, **Study**'nin 14 command/query'sini "authorizer'sız" sanıyordu. Aslında Study **korumalı** — açık-generik `StudyOwnershipCommandAuthorizer<T>`/`StudyOwnershipQueryAuthorizer<T>` (`T : IStudentScopedRequest`, `StudyOwnershipGuard` ile) DI'da her somut tip için kapalı olarak kayıtlı; startup validator geçiyor, app başlıyor. Reflection-tabanlı test yalnız **kapalı** authorizer'ları görüyordu. Test, açık-generik authorizer'ları kısıt (constraint) arayüzü üzerinden tanıyacak şekilde genişletildi (gerçek bir güvenlik açığı yoktu; redundant authorizer eklenmedi).
+> - **M14** (Testcontainers gerçek-DB testleri) — **BEKLİYOR:** bu ortamda Docker yok, doğrulanamaz. Redis/`SKIP LOCKED` path'lerini de bu doğrulayacak.
+>
+> ADR'lerde planlıdır: [`../adr/`](../adr/).
 
 ---
 
