@@ -15,7 +15,7 @@
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### ✅ Var olan (uçtan uca — 2026-07-04'te inşa edildi)
-- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
+- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudentSubjectCatalog` + `StudentTopicCatalog` (öğrencinin tanımladığı ders/konu kataloğu), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
 - **Application (CQRS)** (`StudyContracts/SessionFeatures/TestFeatures/ProgressFeatures/Policies`): Start/Pause/Resume/Complete/Discard/Manual seans komutları; RecordTest; UpdateGoals; UpdateSharing. Sorgular: session, list-sessions, weekly-summary, test, list-tests, net-trend, goals, streak, achievements, sharing, dashboard. `StudyCompletionService` (konu rollup + streak + başarım değerlendirme), `AchievementEvaluator`, `StudyOwnershipGuard`/`StudyLinkResolver`.
 - **Infrastructure**: `StudyDbContext` 8 `DbSet` + EF config'ler (snake_case, enum→string), `StudyRepository` (tek unit-of-work), `AddStudyModule` DI, `StudyDesignTimeDbContextFactory`, **`InitialStudy` migration** (`study` şeması + achievement katalog seed'i 10 rozet).
 - **API** (`API/StudyModule.cs`): §3'teki tüm uçlar, `AuthenticatedUser` politikası, sahiplik yetkilendirmesi, hata→HTTP eşlemesi.
@@ -271,6 +271,36 @@ PUT    /api/study/students/{studentId}/sharing
 ```
 > Bu tercihler M15 (Settings) bayraklarıyla senkron tutulur; M09 (Parents) ve öğretmen görünümü bunları okur.
 
+### 3.5 Ders/konu kataloğu (✅ Kodda)
+Öğrencinin tanımladığı ders (`StudentSubjectCatalog`) ve konu (`StudentTopicCatalog`) kataloğu. Kronometre,
+deneme girişi ve takvim formu tutarlı ders/konu adlarını bu katalogdan alır (M10 gelişim takibinin de konu temeli).
+```
+GET    /api/study/students/{studentId}/subjects            → 200 dersler + konuları
+POST   /api/study/students/{studentId}/subjects
+       body: { name, colorHex? }                           → 200 ders
+PUT    /api/study/subjects/{subjectId}
+       body: { name, colorHex?, isActive }                 → 200 ders (+konular)
+DELETE /api/study/subjects/{subjectId}                     → 200 (ders + konuları silinir)
+POST   /api/study/subjects/{subjectId}/topics  body: { name }             → 200 konu
+PUT    /api/study/topics/{topicId}  body: { name, orderIndex, isActive }  → 200 konu
+DELETE /api/study/topics/{topicId}                         → 200
+```
+> Sahiplik: `students/{studentId}/subjects` öğrenci-scoped; `subjects/{id}` ve `topics/{id}` işlemleri
+> ders/konu üzerinden çözülen sahiplik yetkilendiricileriyle korunur. Ders/konu silmek geçmiş seans/test
+> kayıtlarını etkilemez (bu kayıtlar ders/konu adını metin olarak kopyalar).
+
+### 3.6 Öğrenci ders notları (✅ Kodda)
+Öğrencinin kendi tuttuğu not (`StudyNote`). Öğretmenin ders oturumuna bağlı `LessonNote`'undan (M06) **ayrıdır**;
+öğrencinin kendi çalışma dünyasına aittir, opsiyonel ders/konu ile ilişkilendirilir.
+```
+GET    /api/study/students/{studentId}/notes                          → 200 notlar (güncelleme sırasına göre)
+POST   /api/study/students/{studentId}/notes
+       body: { title, body, subject?, topic?, attachmentUrl? }        → 200 not
+PUT    /api/study/notes/{noteId}   body: { title, body, subject?, topic?, attachmentUrl? }  → 200
+DELETE /api/study/notes/{noteId}                                       → 200
+```
+> Sahiplik: liste/oluşturma öğrenci-scoped; güncelleme/silme not üzerinden çözülen yetkilendiriciyle korunur.
+
 ---
 
 ## 4. İş Kuralları
@@ -411,4 +441,4 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-04*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-09*

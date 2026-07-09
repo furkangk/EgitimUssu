@@ -26,7 +26,7 @@ Platform iki parçalı bir değer sunar ve **kasıtlı bir sırayla** büyür (P
 | Rol | Kimdir | Bireysel kullanım | Eşleşmiş kullanım |
 |-----|--------|-------------------|-------------------|
 | 👨‍🏫 [Öğretmen](ogretmen.md) | Özel ders veren | Kendi öğrenci/ders/ödeme yönetimi | İlan + eşleşen öğrencilere ders |
-| 🎓 [Öğrenci](ogrenci.md) | Ders alan / çalışan | Kendi program + çalışma + gelişim takibi | Öğretmenle ders + ödev |
+| 🎓 [Öğrenci](ogrenci.md) ([UX](ogrenci_ux.md)) | Ders alan / çalışan | Kendi program + çalışma + gelişim takibi | Öğretmenle ders + ödev |
 | 👪 [Veli](veli.md) | Öğrenci yakını | — (tek başına anlamsız) | Çocuğunun gelişim/ders/ödeme takibi |
 | 🛡️ [Admin](admin.md) | Platform yöneticisi | Doğrulama, moderasyon, destek | — |
 

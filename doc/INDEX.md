@@ -69,6 +69,7 @@
 | [`roles/00_roller_genel_bakis.md`](roles/00_roller_genel_bakis.md) | Rol×yetenek matrisi + roller-arası kurallar (mesajlaşma çiftleri, üyelik, veli=gerçek kişi, bireysel-önce strateji) |
 | [`roles/ogretmen.md`](roles/ogretmen.md) | 👨‍🏫 Öğretmen — takvim-merkezli yönetim (Faz 1, 🟢) |
 | [`roles/ogrenci.md`](roles/ogrenci.md) | 🎓 Öğrenci — bireysel çalışma + gelişim (Faz 2, 🟡) |
+| [`roles/ogrenci_ux.md`](roles/ogrenci_ux.md) | 🎓 Öğrenci Deneyimi (Student UX) — günlük kullanım/motivasyon odaklı UX vizyonu + ekran hedefleri (🟡 vizyon) |
 | [`roles/veli.md`](roles/veli.md) | 👪 Veli — gelişim/ödeme takibi (Faz 2-3, 🟡 Faz 2 uygulandı) |
 | [`roles/admin.md`](roles/admin.md) | 🛡️ Admin — doğrulama, moderasyon, destek |
 
@@ -78,7 +79,7 @@
 
 | M | Dosya | Durum | M | Dosya | Durum |
 |---|-------|-------|---|-------|-------|
-| M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🔴 |
+| M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🟡 |
 | M02 | [`m02_teachers`](modules/m02_teachers.md) | 🟢 | M11 | [`m11_notifications`](modules/m11_notifications.md) | 🟡 |
 | M03 | [`m03_students`](modules/m03_students.md) | 🟢/🟡 | M12 | [`m12_matching`](modules/m12_matching.md) | 🔴 |
 | M04 | [`m04_scheduling`](modules/m04_scheduling.md) | 🟢 | M13 | [`m13_reviews`](modules/m13_reviews.md) | 🔴 |

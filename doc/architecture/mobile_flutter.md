@@ -149,6 +149,8 @@ Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/
    - Refresh **başarısızsa:** `unauthorizedEvents` stream'ine event basar → `AuthCubit.expireSession()` → oturumu kapat.
    - Eş zamanlı birden fazla 401 geldiğinde **tek bir refresh isteği** gönderilir; diğerleri kuyrukta bekler.
 
+> Metotlar: `get`/`getList`/`post`/`put`/`delete` (2026-07-08: `delete` eklendi — öğrenci kişisel program girdisi silme için, `DELETE /api/scheduling/study-entries/{id}`).
+
 ```
 TokenStorage: access_token + refresh_token → flutter_secure_storage
 ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refreshDio──> POST /api/identity/refresh
@@ -159,12 +161,12 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 | Değişken | Varsayılan | Açıklama |
 |----------|------------|----------|
-| `API_BASE_URL` | `http://10.0.2.2:8080` | Backend taban URL (Android emülatör localhost) |
+| `API_BASE_URL` | platforma göre: Android `http://10.0.2.2:5296`, iOS/masaüstü `http://localhost:5296` | Backend taban URL (`API.Host` varsayılan portu 5296; verilirse override eder) |
 | `APP_ENV` | `development` | `development` / `beta` / `production` |
 | `USE_MOCK_FALLBACK` | `true` | Geliştirmede mock'a düşme |
 | `MOCK_FALLBACK_FEATURES` | `*` | Hangi feature'lar mock'a düşer |
 
-`isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır; geliştirmede backend hazır olmayan feature'lar mock veri döndürür.
+`isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır; geliştirmede backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
 
 **Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
 
@@ -452,4 +454,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-07-06*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-07-08*

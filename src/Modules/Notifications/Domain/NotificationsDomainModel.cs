@@ -72,6 +72,18 @@ public sealed class LessonReminder : AggregateRoot<Guid>
         Raise(new LessonReminderCancelledDomainEvent(Id, LessonScheduleId, TeacherUserId, StudentId, updatedOnUtc));
     }
 
+    /// <summary>
+    /// Hatırlatmayı yeni ders zamanına taşır ve tekrar bekleyen (Pending) duruma alır. Kaynak ders/girdi
+    /// güncellendiğinde (reschedule) kullanılır; aynı satır korunur (tek satır kısıtı bozulmaz).
+    /// </summary>
+    public void Reschedule(DateTime scheduledLessonStartAtUtc, DateTime remindAtUtc, DateTime updatedOnUtc)
+    {
+        ScheduledLessonStartAtUtc = scheduledLessonStartAtUtc;
+        RemindAtUtc = remindAtUtc;
+        Status = ReminderStatus.Pending;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
     public void MarkSent(DateTime updatedOnUtc)
     {
         if (Status != ReminderStatus.Pending)

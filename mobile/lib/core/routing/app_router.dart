@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignments_page.dart';
+import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/student_assignments_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/login_page.dart';
@@ -15,6 +16,7 @@ import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_chi
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_home_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_profile_page.dart';
+import 'package:egitim_ussu_mobile/features/progress/presentation/pages/progress_overview_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
@@ -28,10 +30,19 @@ import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/schedu
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/student_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/students_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/achievements_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_calendar_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_goals_overview_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_home_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_more_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_profile_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_studies_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_teacher_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_tests_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_goals_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_history_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_notes_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_timer_page.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/pages/subject_catalog_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/test_entry_page.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/pages/teacher_profile_page.dart';
 import 'package:flutter/material.dart';
@@ -118,15 +129,58 @@ class AppRouter {
           path: '/student-home',
           builder: (context, state) => const StudentHomePage(),
         ),
+        // Öğrenci alt navigasyon sekmeleri (ogrenci_ux §4).
+        GoRoute(
+          path: '/student/studies',
+          builder: (context, state) => const StudentStudiesPage(),
+        ),
+        GoRoute(
+          path: '/student/tests',
+          builder: (context, state) => const StudentTestsPage(),
+        ),
+        GoRoute(
+          path: '/student/calendar',
+          builder: (context, state) => const StudentCalendarPage(),
+        ),
+        GoRoute(
+          path: '/student/goals-overview',
+          builder: (context, state) => const StudentGoalsOverviewPage(),
+        ),
+        GoRoute(
+          path: '/student/more',
+          builder: (context, state) => const StudentMorePage(),
+        ),
+        GoRoute(
+          path: '/student/profile',
+          builder: (context, state) => const StudentProfilePage(),
+        ),
+        GoRoute(
+          path: '/student/teacher',
+          builder: (context, state) => const StudentTeacherPage(),
+        ),
         GoRoute(
           path: '/study/timer',
           builder: (context, state) => StudyTimerPage(
             studentId: state.uri.queryParameters['studentId'] ?? '',
+            initialSubject: state.uri.queryParameters['subject'],
+            initialTopic: state.uri.queryParameters['topic'],
           ),
         ),
         GoRoute(
           path: '/study/test',
           builder: (context, state) => TestEntryPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/study/catalog',
+          builder: (context, state) => SubjectCatalogPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/study/notes',
+          builder: (context, state) => StudyNotesPage(
             studentId: state.uri.queryParameters['studentId'] ?? '',
           ),
         ),
@@ -232,6 +286,16 @@ class AppRouter {
         GoRoute(
           path: '/assignments',
           builder: (context, state) => const AssignmentsPage(),
+        ),
+        GoRoute(
+          path: '/student/assignments',
+          builder: (context, state) => const StudentAssignmentsPage(),
+        ),
+        GoRoute(
+          path: '/student/progress',
+          builder: (context, state) => ProgressOverviewPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
         ),
         GoRoute(
           path: '/assignments/new',

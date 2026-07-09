@@ -5,13 +5,24 @@ class StudyTimerState extends Equatable {
   const StudyTimerState({
     this.session,
     this.elapsedSeconds = 0,
+    this.breakSeconds = 0,
+    this.breakCount = 0,
     this.isBusy = false,
     this.completedSummary,
     this.errorMessage,
   });
 
   final StudySession? session;
+
+  /// Net çalışma süresi (yalnızca "Çalışıyor" durumunda artar).
   final int elapsedSeconds;
+
+  /// Bu seansta toplam mola süresi (yalnızca "Molada" durumunda artar).
+  final int breakSeconds;
+
+  /// Bu seansta verilen mola sayısı (her "Mola Ver" ile +1).
+  final int breakCount;
+
   final bool isBusy;
 
   /// Seans tamamlandığında dolan özet; UI bunu gösterip temizler.
@@ -25,6 +36,8 @@ class StudyTimerState extends Equatable {
     StudySession? session,
     bool clearSession = false,
     int? elapsedSeconds,
+    int? breakSeconds,
+    int? breakCount,
     bool? isBusy,
     StudySession? completedSummary,
     bool clearSummary = false,
@@ -34,6 +47,8 @@ class StudyTimerState extends Equatable {
     return StudyTimerState(
       session: clearSession ? null : session ?? this.session,
       elapsedSeconds: elapsedSeconds ?? this.elapsedSeconds,
+      breakSeconds: breakSeconds ?? this.breakSeconds,
+      breakCount: breakCount ?? this.breakCount,
       isBusy: isBusy ?? this.isBusy,
       completedSummary:
           clearSummary ? null : completedSummary ?? this.completedSummary,
@@ -42,6 +57,13 @@ class StudyTimerState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[session, elapsedSeconds, isBusy, completedSummary, errorMessage];
+  List<Object?> get props => <Object?>[
+        session,
+        elapsedSeconds,
+        breakSeconds,
+        breakCount,
+        isBusy,
+        completedSummary,
+        errorMessage,
+      ];
 }

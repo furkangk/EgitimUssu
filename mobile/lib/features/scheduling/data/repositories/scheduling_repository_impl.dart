@@ -5,6 +5,7 @@ import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/models/lesson_schedule_model.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/data/models/study_schedule_models.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 
 class SchedulingRepositoryImpl implements SchedulingRepository {
@@ -220,6 +221,121 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     }
   }
 
+  @override
+  Future<List<LessonSchedule>> listStudentLessons({
+    required String studentId,
+    DateTime? startAtUtc,
+    DateTime? endAtUtc,
+  }) async {
+    if (_config.isMockFallbackEnabled('scheduling')) {
+      return _mockStudentLessons(DateTime.now().toUtc());
+    }
+    final start =
+        (startAtUtc ?? DateTime.now().toUtc().subtract(const Duration(days: 30)))
+            .toIso8601String();
+    final end =
+        (endAtUtc ?? DateTime.now().toUtc().add(const Duration(days: 30)))
+            .toIso8601String();
+    final cacheKey = 'scheduling.studentLessons.$studentId.$start.$end';
+    try {
+      final response = await _apiClient.getList(
+        '/api/scheduling/students/$studentId/lessons',
+        queryParameters: <String, dynamic>{
+          'startAtUtc': start,
+          'endAtUtc': end,
+        },
+      );
+      await _localCache.writeString(cacheKey, jsonEncode(response));
+      return response
+          .whereType<Map<String, dynamic>>()
+          .map(LessonScheduleModel.fromJson)
+          .toList();
+    } on ApiException {
+      final cached = await _readCachedLessons(cacheKey);
+      if (cached.isNotEmpty) return cached;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<CalendarOccurrence>> getStudentCalendar({
+    required String studentId,
+    required DateTime startAtUtc,
+    required DateTime endAtUtc,
+  }) async {
+    if (_config.isMockFallbackEnabled('scheduling')) {
+      return _mockCalendar(DateTime.now().toUtc());
+    }
+    try {
+      final response = await _apiClient.getList(
+        '/api/scheduling/students/$studentId/calendar',
+        queryParameters: <String, dynamic>{
+          'startAtUtc': startAtUtc.toIso8601String(),
+          'endAtUtc': endAtUtc.toIso8601String(),
+        },
+      );
+      return response
+          .whereType<Map<String, dynamic>>()
+          .map(CalendarOccurrenceModel.fromJson)
+          .toList();
+    } on ApiException {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<StudyScheduleEntry> createStudyEntry({
+    required String studentId,
+    required StudyScheduleEntry entry,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/scheduling/students/$studentId/study-entries',
+      data: StudyScheduleEntryModel.toPayload(entry),
+    );
+    return StudyScheduleEntryModel.fromJson(response);
+  }
+
+  @override
+  Future<StudyScheduleEntry> updateStudyEntry(StudyScheduleEntry entry) async {
+    final response = await _apiClient.put(
+      '/api/scheduling/study-entries/${entry.id}',
+      data: StudyScheduleEntryModel.toPayload(entry),
+    );
+    return StudyScheduleEntryModel.fromJson(response);
+  }
+
+  @override
+  Future<void> deleteStudyEntry(String entryId) async {
+    await _apiClient.delete('/api/scheduling/study-entries/$entryId');
+  }
+
+  List<CalendarOccurrence> _mockCalendar(DateTime now) {
+    final today = DateTime.utc(now.year, now.month, now.day);
+    return <CalendarOccurrence>[
+      CalendarOccurrenceModel(
+        entryId: 'mock-lesson-1',
+        source: 'Teacher',
+        subject: 'Fizik',
+        startAtUtc: today.add(const Duration(days: 1, hours: 20)),
+        endAtUtc: today.add(const Duration(days: 1, hours: 21, minutes: 30)),
+        lessonFormat: 'Online',
+        locationLabel: 'Zoom',
+        isEditable: false,
+      ),
+      CalendarOccurrenceModel(
+        entryId: 'mock-self-1',
+        source: 'Self',
+        subject: 'Matematik',
+        topic: 'Türev',
+        startAtUtc: today.add(const Duration(hours: 15)),
+        endAtUtc: today.add(const Duration(hours: 16)),
+        colorHex: '#20A4A9',
+        recurrenceRule: 'FREQ=WEEKLY;BYDAY=MO',
+        isEditable: true,
+      ),
+    ];
+  }
+
   List<LessonSchedule> _mockLessons(String teacherUserId, DateTime now) {
     final today = DateTime.utc(now.year, now.month, now.day);
     return [
@@ -306,6 +422,40 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
         status: 'Completed',
       ),
     ];
+  }
+
+  /// Öğrenci görünümü için mock dersler — **iki** öğretmene dağıtılmış
+  /// (`mock-teacher-1`: sayısal, `mock-teacher-2`: fen) ki "Öğretmenlerim" ekranında
+  /// iki farklı öğretmen görünsün. `teacher_profile` mock fallback'ı bu id'leri farklı
+  /// demo öğretmenlere eşler (`TeacherProfileModel.demo`).
+  List<LessonSchedule> _mockStudentLessons(DateTime now) {
+    const Map<String, String> teacherBySubject = <String, String>{
+      'Matematik': 'mock-teacher-1',
+      'Geometri': 'mock-teacher-1',
+      'TYT Sayısal': 'mock-teacher-1',
+      'Türkçe': 'mock-teacher-1',
+      'Fizik': 'mock-teacher-2',
+      'Kimya': 'mock-teacher-2',
+      'Biyoloji': 'mock-teacher-2',
+    };
+    return _mockLessons('mock-teacher-1', now).map((LessonSchedule l) {
+      return LessonScheduleModel(
+        id: l.id,
+        teacherUserId: teacherBySubject[l.subject] ?? 'mock-teacher-1',
+        studentId: l.studentId,
+        subject: l.subject,
+        lessonFormat: l.lessonFormat,
+        startAtUtc: l.startAtUtc,
+        endAtUtc: l.endAtUtc,
+        timeZone: l.timeZone,
+        status: l.status,
+        recurrenceRule: l.recurrenceRule,
+        reminderOffsetMinutes: l.reminderOffsetMinutes,
+        locationLabel: l.locationLabel,
+        meetingUrl: l.meetingUrl,
+        notes: l.notes,
+      );
+    }).toList();
   }
 
   Future<List<LessonSchedule>> _readCachedLessons(String cacheKey) async {

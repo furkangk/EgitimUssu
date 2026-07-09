@@ -53,6 +53,21 @@ public sealed class StudyModule : ModuleDefinition
         group.MapGet("/students/{studentId:guid}/dashboard", GetDashboardAsync).WithSummary("Öğrenci çalışma panosu özetini getirir");
         group.MapGet("/students/{studentId:guid}/sharing", GetSharingAsync).WithSummary("Paylaşım tercihlerini getirir");
         group.MapPut("/students/{studentId:guid}/sharing", UpdateSharingAsync).WithSummary("Veli/öğretmenle paylaşım tercihlerini günceller");
+
+        // Ders/konu kataloğu
+        group.MapGet("/students/{studentId:guid}/subjects", ListSubjectsAsync).WithSummary("Öğrencinin ders/konu kataloğunu listeler");
+        group.MapPost("/students/{studentId:guid}/subjects", CreateSubjectAsync).WithSummary("Katalog dersi ekler");
+        group.MapPut("/subjects/{subjectId:guid}", UpdateSubjectAsync).WithSummary("Katalog dersini günceller");
+        group.MapDelete("/subjects/{subjectId:guid}", DeleteSubjectAsync).WithSummary("Katalog dersini siler");
+        group.MapPost("/subjects/{subjectId:guid}/topics", AddTopicAsync).WithSummary("Katalog dersine konu ekler");
+        group.MapPut("/topics/{topicId:guid}", UpdateTopicAsync).WithSummary("Katalog konusunu günceller");
+        group.MapDelete("/topics/{topicId:guid}", DeleteTopicAsync).WithSummary("Katalog konusunu siler");
+
+        // Öğrenci ders notları
+        group.MapGet("/students/{studentId:guid}/notes", ListNotesAsync).WithSummary("Öğrencinin kendi ders notlarını listeler");
+        group.MapPost("/students/{studentId:guid}/notes", CreateNoteAsync).WithSummary("Öğrenci ders notu ekler");
+        group.MapPut("/notes/{noteId:guid}", UpdateNoteAsync).WithSummary("Öğrenci ders notunu günceller");
+        group.MapDelete("/notes/{noteId:guid}", DeleteNoteAsync).WithSummary("Öğrenci ders notunu siler");
     }
 
     private static async Task<IResult> StartSessionAsync(HttpContext ctx, StartStudySessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
@@ -120,6 +135,41 @@ public sealed class StudyModule : ModuleDefinition
         => ToHttpResult(ctx, await dispatcher.Dispatch(new UpdateStudySharingCommand(
             studentId, req.ShareStudyWithParent, req.ShareTestsWithParent, req.ShareStudyWithTeacher, req.ShareTestsWithTeacher), ct));
 
+    private static async Task<IResult> ListSubjectsAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new ListSubjectCatalogQuery(studentId), ct));
+
+    private static async Task<IResult> CreateSubjectAsync(HttpContext ctx, Guid studentId, CreateSubjectRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new CreateSubjectCatalogCommand(studentId, req.Name, req.ColorHex), ct));
+
+    private static async Task<IResult> UpdateSubjectAsync(HttpContext ctx, Guid subjectId, UpdateSubjectRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new UpdateSubjectCatalogCommand(subjectId, req.Name, req.ColorHex, req.IsActive), ct));
+
+    private static async Task<IResult> DeleteSubjectAsync(HttpContext ctx, Guid subjectId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteSubjectCatalogCommand(subjectId), ct));
+
+    private static async Task<IResult> AddTopicAsync(HttpContext ctx, Guid subjectId, AddTopicRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new AddTopicCatalogCommand(subjectId, req.Name), ct));
+
+    private static async Task<IResult> UpdateTopicAsync(HttpContext ctx, Guid topicId, UpdateTopicRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new UpdateTopicCatalogCommand(topicId, req.Name, req.OrderIndex, req.IsActive), ct));
+
+    private static async Task<IResult> DeleteTopicAsync(HttpContext ctx, Guid topicId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteTopicCatalogCommand(topicId), ct));
+
+    private static async Task<IResult> ListNotesAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new ListStudyNotesQuery(studentId), ct));
+
+    private static async Task<IResult> CreateNoteAsync(HttpContext ctx, Guid studentId, StudyNoteRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(
+            new CreateStudyNoteCommand(studentId, req.Title, req.Body, req.Subject, req.Topic, req.AttachmentUrl), ct));
+
+    private static async Task<IResult> UpdateNoteAsync(HttpContext ctx, Guid noteId, StudyNoteRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(
+            new UpdateStudyNoteCommand(noteId, req.Title, req.Body, req.Subject, req.Topic, req.AttachmentUrl), ct));
+
+    private static async Task<IResult> DeleteNoteAsync(HttpContext ctx, Guid noteId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteStudyNoteCommand(noteId), ct));
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -132,6 +182,9 @@ public sealed class StudyModule : ModuleDefinition
             "study.session_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.test_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.goal_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "study.subject_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "study.topic_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "study.note_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.session_active" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
@@ -165,3 +218,14 @@ public sealed record UpdateGoalsRequest(
 
 public sealed record UpdateSharingRequest(
     bool ShareStudyWithParent, bool ShareTestsWithParent, bool ShareStudyWithTeacher, bool ShareTestsWithTeacher);
+
+public sealed record CreateSubjectRequest(string Name, string? ColorHex);
+
+public sealed record UpdateSubjectRequest(string Name, string? ColorHex, bool IsActive);
+
+public sealed record AddTopicRequest(string Name);
+
+public sealed record UpdateTopicRequest(string Name, int OrderIndex, bool IsActive);
+
+public sealed record StudyNoteRequest(
+    string Title, string Body, string? Subject, string? Topic, string? AttachmentUrl);

@@ -17,6 +17,8 @@ import 'package:egitim_ussu_mobile/features/lesson_sessions/data/repositories/le
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/data/repositories/payment_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
+import 'package:egitim_ussu_mobile/features/progress/data/repositories/progress_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/progress/domain/progress_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/repositories/scheduling_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/data/repositories/student_repository_impl.dart';
@@ -108,7 +110,13 @@ Future<void> configureDependencies() async {
       ),
     )
     ..registerLazySingleton<StudyRepository>(
-      () => StudyRepositoryImpl(apiClient: injector<ApiClient>()),
+      () => StudyRepositoryImpl(
+        apiClient: injector<ApiClient>(),
+        config: injector<AppConfig>(),
+      ),
+    )
+    ..registerLazySingleton<ProgressRepository>(
+      () => ProgressRepositoryImpl(apiClient: injector<ApiClient>()),
     )
     ..registerLazySingleton<SchedulingRepository>(
       () => SchedulingRepositoryImpl(

@@ -138,9 +138,12 @@ Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) bi
 ### O7 — Test kapsamı çok düşük
 Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test edilmiyor; Y1, K3 bir test olsa yakalanırdı.
 
-### O8 — Dosya yükleme/depolama servisi yok (YENİ — yükseltilebilir 🟠)
-`Shared/`'da **`IFileStorage`/blob soyutlaması yok**; dosya URL'leri (`Assignment.AttachmentUrl`, `TeacherProfile.ProfilePhotoUrl`) düz string olarak kabul ediliyor, gerçek yükleme/saklama katmanı yok. Bu, promp.txt'teki şu özellikleri **bloklar**: öğrenci **ödev yükleme** (`AssignmentSubmission`), ders **kaynağı (kaynak)** paylaşımı (`LessonResource`), profil fotoğrafı.
-**Öneri:** `Shared/Infrastructure`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob) + yükleme endpoint deseni (bkz. [`m06_assignments.md`](m06_assignments.md)).
+### O8 — Dosya yükleme/depolama servisi (kısmen çözüldü 🟡 — 2026-07-09)
+**Öğrenci ödev yükleme çözüldü:** M06'da `IAssignmentFileStorage`/`LocalAssignmentFileStorage` (yerel disk) +
+`POST /api/assignments/{id}/submission` (multipart) + modül-içi yetkili indirme eklendi. **Kalan:** `Shared/`'da
+ortak `IFileStorage`/blob soyutlaması hâlâ yok; `TeacherProfile.ProfilePhotoUrl`, ders **kaynağı (LessonResource)**
+düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya (S3/Blob) taşınmalı.
+**Öneri:** `Shared/Infrastructure`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob).
 
 ---
 
@@ -150,7 +153,7 @@ Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test 
 - **D3** — Placeholder dosyalar: `Shared/*/Class1.cs` ve boş `AssemblyReference.cs` kaldırılmalı.
 - **D4** — ✅ _Düzeltildi._ Doküman tutarsızlığı (.NET 8/10) gerçek hedef **.NET 9** ile hizalandı.
 - **D5** — `StudentProfileQueryAuthorizer` 3 arayüzle 3 kez `AddScoped` → 3 instance (gereksiz).
-- **D6** — İskelet modüller (`Study`, `Parents`, `Matching`, `Reviews`, `ProgressTracking`, `Reporting`) yalnız `/status` döndürüyor — beklenen (yol haritası), tasarımları [`m08`](m08_study.md)/[`m09`](m09_parents.md)/[`m10`](m10_progress_tracking.md)/[`m12`](m12_matching.md)/[`m13`](m13_reviews.md)/[`m14`](m14_reporting.md)'te.
+- **D6** — İskelet modüller (`Matching`, `Reviews`, `Reporting`) yalnız `/status` döndürüyor — beklenen (yol haritası), tasarımları [`m12`](m12_matching.md)/[`m13`](m13_reviews.md)/[`m14`](m14_reporting.md)'te. (`Study` 🟢, `Parents` 🟢, `ProgressTracking` 🟡 artık gerçek endpoint'ler.)
 
 ---
 

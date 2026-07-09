@@ -63,6 +63,18 @@ public sealed class Assignment : AggregateRoot<Guid>
 
         Raise(new AssignmentCompletedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, completedOnUtc));
     }
+
+    /// <summary>Öğrenci ödev çözümünü (dosya/bağlantı) yükler. Bekleyen ödev "devam ediyor"a geçer.</summary>
+    public void SubmitWork(string attachmentUrl, DateTime nowUtc)
+    {
+        AttachmentUrl = attachmentUrl;
+        if (Status == AssignmentStatus.Pending)
+        {
+            Status = AssignmentStatus.InProgress;
+        }
+
+        Raise(new AssignmentSubmittedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, nowUtc));
+    }
 }
 
 public sealed class LessonNote : AggregateRoot<Guid>
@@ -139,6 +151,13 @@ public sealed record AssignmentCompletedDomainEvent(
     Guid TeacherUserId,
     Guid? LessonSessionId,
     DateTime CompletedOnUtc) : DomainEvent;
+
+public sealed record AssignmentSubmittedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    Guid? LessonSessionId,
+    DateTime SubmittedOnUtc) : DomainEvent;
 
 public sealed record LessonNoteCreatedDomainEvent(
     Guid LessonNoteId,

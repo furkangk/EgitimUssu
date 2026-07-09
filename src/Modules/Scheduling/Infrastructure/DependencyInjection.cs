@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CompleteLessonScheduleCommand, Result<LessonScheduleResponse>>, CompleteLessonScheduleCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonScheduleByIdQuery, Result<LessonScheduleResponse>>, GetLessonScheduleByIdQueryHandler>();
         services.AddScoped<IQueryHandler<ListLessonSchedulesForTeacherQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>, ListLessonSchedulesForTeacherQueryHandler>();
+        services.AddScoped<IQueryHandler<ListLessonSchedulesForStudentQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>, ListLessonSchedulesForStudentQueryHandler>();
         services.AddScoped<ICommandValidator<CreateLessonScheduleCommand>, CreateLessonScheduleCommandValidator>();
         services.AddScoped<ICommandValidator<UpdateLessonScheduleCommand>, UpdateLessonScheduleCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
@@ -27,6 +28,20 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<CompleteLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetLessonScheduleByIdQuery>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSchedulesForTeacherQuery>, LessonScheduleCommandAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<ListLessonSchedulesForStudentQuery>, StudentLessonQueryAuthorizer>();
+
+        // Öğrenci-sahipli kişisel program (StudyScheduleEntry) + birleşik takvim.
+        services.AddScoped<IStudyScheduleEntryRepository, StudyScheduleEntryRepository>();
+        services.AddScoped<ICommandHandler<CreateStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, CreateStudyScheduleEntryCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, UpdateStudyScheduleEntryCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, DeleteStudyScheduleEntryCommandHandler>();
+        services.AddScoped<IQueryHandler<GetStudentCalendarQuery, Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>>, GetStudentCalendarQueryHandler>();
+        services.AddScoped<ICommandValidator<CreateStudyScheduleEntryCommand>, CreateStudyScheduleEntryCommandValidator>();
+        services.AddScoped<ICommandValidator<UpdateStudyScheduleEntryCommand>, UpdateStudyScheduleEntryCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<CreateStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<UpdateStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetStudentCalendarQuery>, StudyScheduleEntryAuthorizer>();
         return services;
     }
 }

@@ -107,6 +107,11 @@ class StudentRepositoryImpl implements StudentRepository {
 
   @override
   Future<StudentProfile?> getByUser(String userId) async {
+    // Mock modda henüz profil yokmuş gibi davran → çağıran taraf
+    // createSelfProfile ile taze bir mock profil oluşturur.
+    if (_config.isMockFallbackEnabled('students')) {
+      return null;
+    }
     try {
       final response = await _apiClient.get(
         '/api/students/profiles/by-user/$userId',
@@ -126,6 +131,14 @@ class StudentRepositoryImpl implements StudentRepository {
     required String fullName,
     required String gradeLevel,
   }) async {
+    if (_config.isMockFallbackEnabled('students')) {
+      return StudentProfileModel.demo(
+        teacherUserId: 'mock-teacher-user',
+        id: 'mock-student',
+        fullName: fullName,
+        gradeLevel: gradeLevel,
+      );
+    }
     final response = await _apiClient.post(
       '/api/students/profiles',
       data: <String, dynamic>{

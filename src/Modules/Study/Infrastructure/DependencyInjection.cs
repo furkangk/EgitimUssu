@@ -27,7 +27,11 @@ public static class DependencyInjection
         AddStudentScopedCommandAuthorizer<RecordTestResultCommand>(services);
         AddStudentScopedCommandAuthorizer<UpdateStudyGoalsCommand>(services);
         AddStudentScopedCommandAuthorizer<UpdateStudySharingCommand>(services);
+        AddStudentScopedCommandAuthorizer<CreateSubjectCatalogCommand>(services);
+        AddStudentScopedCommandAuthorizer<CreateStudyNoteCommand>(services);
 
+        AddStudentScopedQueryAuthorizer<ListSubjectCatalogQuery>(services);
+        AddStudentScopedQueryAuthorizer<ListStudyNotesQuery>(services);
         AddStudentScopedQueryAuthorizer<ListStudySessionsQuery>(services);
         AddStudentScopedQueryAuthorizer<WeeklySummaryQuery>(services);
         AddStudentScopedQueryAuthorizer<ListTestResultsQuery>(services);
@@ -45,6 +49,17 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<DiscardStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudySessionQuery>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTestResultQuery>, StudyTestOwnershipAuthorizer>();
+
+        // Katalog: kimliği subjectId/topicId olan istekler için sahiplik yetkilendiricileri
+        services.AddScoped<ICommandAuthorizer<UpdateSubjectCatalogCommand>, StudyCatalogSubjectOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteSubjectCatalogCommand>, StudyCatalogSubjectOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<AddTopicCatalogCommand>, StudyCatalogSubjectOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<UpdateTopicCatalogCommand>, StudyCatalogTopicOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteTopicCatalogCommand>, StudyCatalogTopicOwnershipAuthorizer>();
+
+        // Not: güncelleme/silme noteId üzerinden sahiplik
+        services.AddScoped<ICommandAuthorizer<UpdateStudyNoteCommand>, StudyNoteOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteStudyNoteCommand>, StudyNoteOwnershipAuthorizer>();
 
         // Validator'lar
         services.AddScoped<ICommandValidator<StartStudySessionCommand>, StartStudySessionCommandValidator>();
@@ -78,6 +93,21 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetStudySharingQuery, Result<StudySharingResponse>>, GetStudySharingQueryHandler>();
         services.AddScoped<ICommandHandler<UpdateStudySharingCommand, Result<StudySharingResponse>>, UpdateStudySharingCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudyDashboardQuery, Result<StudyDashboardResponse>>, GetStudyDashboardQueryHandler>();
+
+        // Ders/konu kataloğu
+        services.AddScoped<IQueryHandler<ListSubjectCatalogQuery, Result<IReadOnlyCollection<SubjectCatalogResponse>>>, ListSubjectCatalogQueryHandler>();
+        services.AddScoped<ICommandHandler<CreateSubjectCatalogCommand, Result<SubjectCatalogResponse>>, CreateSubjectCatalogCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateSubjectCatalogCommand, Result<SubjectCatalogResponse>>, UpdateSubjectCatalogCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteSubjectCatalogCommand, Result<bool>>, DeleteSubjectCatalogCommandHandler>();
+        services.AddScoped<ICommandHandler<AddTopicCatalogCommand, Result<TopicCatalogResponse>>, AddTopicCatalogCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateTopicCatalogCommand, Result<TopicCatalogResponse>>, UpdateTopicCatalogCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteTopicCatalogCommand, Result<bool>>, DeleteTopicCatalogCommandHandler>();
+
+        // Öğrenci ders notları
+        services.AddScoped<IQueryHandler<ListStudyNotesQuery, Result<IReadOnlyCollection<StudyNoteResponse>>>, ListStudyNotesQueryHandler>();
+        services.AddScoped<ICommandHandler<CreateStudyNoteCommand, Result<StudyNoteResponse>>, CreateStudyNoteCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateStudyNoteCommand, Result<StudyNoteResponse>>, UpdateStudyNoteCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteStudyNoteCommand, Result<bool>>, DeleteStudyNoteCommandHandler>();
 
         return services;
     }

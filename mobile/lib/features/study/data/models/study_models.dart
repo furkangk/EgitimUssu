@@ -13,6 +13,36 @@ class StudyMappers {
   static DateTime? _dateOrNull(dynamic v) =>
       v == null ? null : DateTime.tryParse('$v')?.toUtc();
 
+  static StudyNote note(Map<String, dynamic> j) => StudyNote(
+        id: '${j['id']}',
+        title: '${j['title']}',
+        body: '${j['body']}',
+        subject: j['subject'] as String?,
+        topic: j['topic'] as String?,
+        attachmentUrl: j['attachmentUrl'] as String?,
+        updatedOnUtc: _date(j['updatedOnUtc']),
+      );
+
+  static TopicCatalog topicCatalog(Map<String, dynamic> j) => TopicCatalog(
+        id: '${j['id']}',
+        subjectId: '${j['subjectId']}',
+        name: '${j['name']}',
+        orderIndex: _int(j['orderIndex']),
+        isActive: j['isActive'] as bool? ?? true,
+      );
+
+  static SubjectCatalog subjectCatalog(Map<String, dynamic> j) => SubjectCatalog(
+        id: '${j['id']}',
+        studentId: '${j['studentId']}',
+        name: '${j['name']}',
+        colorHex: j['colorHex'] as String?,
+        isActive: j['isActive'] as bool? ?? true,
+        topics: (j['topics'] as List<dynamic>? ?? <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(topicCatalog)
+            .toList(),
+      );
+
   static StudySession session(Map<String, dynamic> j) => StudySession(
         id: '${j['id']}',
         studentId: '${j['studentId']}',

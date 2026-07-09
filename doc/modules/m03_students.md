@@ -112,6 +112,12 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 | Öğrenci getir (userId) | `GET /profiles/by-user/{userId:guid}` | `StudentProfileQueryAuthorizer` | — | `StudentProfileResponse` |
 | Öğretmenin öğrencileri | `GET /profiles/by-teacher/{teacherUserId:guid}` | `StudentProfileQueryAuthorizer` | — | `IReadOnlyCollection<StudentProfileSummaryResponse>` |
 
+**Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
+`IStudentDirectory` (`GetOwnerUserIdAsync(studentId) → Guid?`) sözleşmesini `StudentDirectory` ile uygular
+(2026-07-07). Diğer modüller (ör. M04 Scheduling, öğrenci-kapsamlı ders listesi yetkilendirmesi) bu sözleşmeyi
+tüketerek sahiplik doğrular — M03'ün `DbContext`'ine doğrudan erişmeden, proje referansı olmadan (anti-corruption).
+Aynı desenin M05'teki karşılığı `ILessonSessionAccessService`.
+
 **İstek/yanıt sözleşmeleri (koddan):**
 
 ```
@@ -261,4 +267,4 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-04 (self-register mobil akışı 🟢: `getByUser`/`createSelfProfile`, M08 `study` feature ile bağ)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-07 (M03 `IStudentDirectory` sözleşmesini yayınlıyor — modüller-arası öğrenci sahiplik doğrulaması; self-register mobil akışı 🟢)*

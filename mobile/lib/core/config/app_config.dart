@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   const AppConfig({
     required this.apiBaseUrl,
@@ -24,10 +26,9 @@ class AppConfig {
   }
 
   factory AppConfig.fromEnvironment() {
-    const baseUrl = String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:8080',
-    );
+    const baseUrlOverride = String.fromEnvironment('API_BASE_URL');
+    final baseUrl =
+        baseUrlOverride.isEmpty ? _defaultBaseUrl() : baseUrlOverride;
     const appEnvironment = String.fromEnvironment(
       'APP_ENV',
       defaultValue: 'development',
@@ -51,5 +52,16 @@ class AppConfig {
           .where((feature) => feature.isNotEmpty)
           .toSet(),
     );
+  }
+
+  /// `API_BASE_URL` verilmediğinde platforma göre varsayılan backend adresi.
+  /// Backend varsayılan portu 5296'dır (`src/API.Host` launchSettings).
+  /// Android emülatörü host makineye `10.0.2.2` ile ulaşır; iOS simülatörü ve
+  /// masaüstü `localhost` kullanır.
+  static String _defaultBaseUrl() {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5296';
+    }
+    return 'http://localhost:5296';
   }
 }

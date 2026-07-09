@@ -20,14 +20,16 @@
 |--------|-------|-------|
 | Domain (`LessonSchedule`) | ✅ Mevcut | `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` |
 | Application (CQRS + handler) | ✅ Mevcut | `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` |
-| API endpoint'leri | ✅ Mevcut (6 endpoint: planla/güncelle/iptal/tamamla/getir/takvim) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
+| API endpoint'leri | ✅ Mevcut (11 endpoint: planla/güncelle/iptal/tamamla/getir/öğretmen-takvimi/öğrenci-dersleri + öğrenci **birleşik takvim** + kişisel ders **ekle/güncelle/sil**) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
 | Infrastructure (DbContext + repo + migration) | ✅ Mevcut | `src/Modules/Scheduling/Infrastructure/*` |
 | Çakışma kontrolü (aynı öğretmen) | ✅ **Mevcut** | `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) |
 | Hatırlatma planlama | ✅ Mevcut | **Olay tabanlı (2026-07-01, Y1):** `LessonScheduledDomainEvent` → outbox → Notifications handler. Senkron `ILessonScheduleNotificationService` **kaldırıldı**; Scheduling artık Notifications'a doğrudan yazmaz |
 | Mobil takvim ekranı | ✅ Mevcut | `mobile/lib/features/scheduling` (`syncfusion_flutter_calendar`) |
 | Online ders linki (`MeetingUrl`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
 | Tatil / blackout (`ScheduleException`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
-| Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🔴 **Alan var, mantık yok** | Alan saklanıyor ama somut tekrar üretimi yok |
+| Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🟢 **Mevcut (öğrenci takviminde)** | `RecurrenceExpander` (DAILY/WEEKLY+BYDAY/MONTHLY + UNTIL) → `GET /students/{id}/calendar` somut oluşumları üretir. Öğretmen `LessonSchedule` listesi hâlâ açılımsız (tek örnek) |
+| Öğrenci kişisel programı (`StudyScheduleEntry`) | 🟢 **Mevcut (2026-07-08)** | Öğrenci-sahipli aggregate + CRUD + birleşik takvim; öğretmen dersiyle saat çakışması reddedilir. Bkz. §2.3 |
+| Öğrenci programı **hatırlatması** | 🟢 **Mevcut (2026-07-08)** | Oluştur/güncelle/sil → outbox → Notifications `StudyScheduleReminderIntegrationEventHandler` → `LessonReminder` (ilk oluşuma göre; `0 dk` = kapalı). Bkz. §5 |
 | Ders güncelleme (`PUT /lessons/{id}`) | ✅ **Mevcut** | `UpdateDetails()` domain metodu + `PUT /lessons/{id}` + `UpdateLessonScheduleCommand`; kendini hariç tutan çakışma kontrolü + hatırlatma yeniden planlanır; yalnızca Planli/Taslak düzenlenebilir (2026-06-28) |
 | `Planned → Completed` geçişi | ✅ **Mevcut** | `Complete()` domain metodu + `POST /lessons/{id}/complete` + `CompleteLessonScheduleCommand` (2026-06-26) |
 
@@ -110,6 +112,38 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 > **Tasarım kararı:** Materyalize yaklaşım (örnekleri önceden üret) çakışma kontrolü, hatırlatma ve takvim
 > sorgularını basitleştirir. Alternatif (uçuş anında genişletme) daha az satır ama daha karmaşık sorgu demektir.
 
+### 2.3 🟢 Mevcut (koddan) — `StudyScheduleEntry` (AggregateRoot<Guid>) — 2026-07-08
+
+`src/Modules/Scheduling/Domain/StudyScheduleModel.cs`
+
+Öğrencinin **kendi oluşturduğu** kişisel ders/çalışma programı girdisi. `LessonSchedule`'dan **bağımsızdır**:
+öğrenci bir öğretmeni olmadan da kendi haftalık programını kurabilir (ör. her Pazartesi 15:00–16:00 Matematik).
+Sahiplik `StudentId` üzerindendir; yalnızca sahibi öğrenci (veya admin) yönetir.
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `Id` | `Guid` | |
+| `StudentId` | `Guid` | Sahibi (öğrenci profil kimliği) |
+| `Subject` | `string` | Ders adı |
+| `Topic` | `string?` | Konu (opsiyonel; backend'de mevcut ama mobil formda artık toplanmıyor — rezerve) |
+| `StartAtUtc`, `EndAtUtc` | `DateTime` | İlk oluşum (UTC) |
+| `TimeZone` | `string` | IANA zaman dilimi |
+| `RecurrenceRule` | `string?` | iCal benzeri kural (`FREQ=DAILY/WEEKLY;BYDAY=…;UNTIL=…`). Boşsa tek seferlik. **Açılım yapılır** (bkz. `RecurrenceExpander`) |
+| `ReminderOffsetMinutes` | `int` | Hatırlatmanın dersten kaç dk önce planlanacağı; `0` = kapalı. **Bağlı** → outbox → m11 Notifications (bkz. §5) |
+| `ColorHex` | `string?` | Takvim renk kodu (ör. `#20A4A9`); backend'de mevcut ama mobil formda artık toplanmıyor — kendi dersleri sabit renkle (teal) gösterilir |
+| `Notes` | `string?` | Serbest not |
+| `Status` | enum `StudyScheduleEntryStatus` | `Active=1`, `Cancelled=2` (silme = soft-cancel) |
+| `CreatedOnUtc`, `UpdatedOnUtc` | `DateTime` | |
+
+**Davranışlar:** `UpdateDetails(...)`, `Cancel(updatedOnUtc)`. **Domain event'ler (2026-07-08):**
+`StudyScheduleEntryScheduledDomainEvent` (oluşturmada), `StudyScheduleEntryRescheduledDomainEvent` (güncellemede),
+`StudyScheduleEntryCancelledDomainEvent` (silmede/soft-cancel) — hepsi outbox ile m11 Notifications'a taşınır (hatırlatma, §5).
+
+**Tekrar açılımı — `RecurrenceExpander`** (`src/Modules/Scheduling/Application/RecurrenceExpander.cs`): kural + ilk
+oluşumu alıp `[rangeStart, rangeEnd]` penceresine düşen somut oluşumları üretir (`FREQ=DAILY/WEEKLY/MONTHLY`,
+`BYDAY`, `UNTIL`). Aritmetik UTC instant üzerinden yapılır (Türkiye DST uygulamadığı için yerel duvar-saati korunur).
+Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda bu genişleticiyle işlenir.
+
 ---
 
 ## 3. API Sözleşmesi
@@ -127,6 +161,11 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 | Ders tamamla | `POST /api/scheduling/lessons/{lessonId}/complete` | (gövde yok) → `LessonScheduleResponse` | `Complete()` → `LessonSessionCompletedDomainEvent`; zaten tamamsa `409 scheduling.already_completed` |
 | Ders getir | `GET /api/scheduling/lessons/{lessonId}` | → `LessonScheduleResponse` | Yoksa `404 scheduling.lesson_not_found` |
 | Takvim (aralık) | `GET /api/scheduling/teachers/{teacherUserId}/lessons?startAtUtc=&endAtUtc=` | → `LessonScheduleResponse[]` | **Tarih aralığı filtresi MEVCUT**; sonuç `StartAtUtc` artan sıralı |
+| Öğrenci takvimi | `GET /api/scheduling/students/{studentId}/lessons?startAtUtc=&endAtUtc=` | → `LessonScheduleResponse[]` | **Öğrenci kendi dersleri** (2026-07-07). Sahiplik `IStudentDirectory` (Students'ın yayınladığı Shared.Contracts sözleşmesi) ile doğrulanır: admin her zaman, aksi halde `Student.UserId == currentUser`; başkasının `studentId`'si `403 shared.forbidden` (IDOR koruması). Scheduling, Students'a proje referansı vermez |
+| **Birleşik takvim** | `GET /api/scheduling/students/{studentId}/calendar?startAtUtc=&endAtUtc=` | → `StudentCalendarOccurrenceResponse[]` | **2026-07-08.** Öğretmen dersleri + öğrencinin kendi programı, tekrarlar `RecurrenceExpander` ile aralığa **genişletilmiş** olarak birlikte döner. Her occurrence `Source` (`Teacher`/`Self`) + `IsEditable` taşır. Sahiplik `IStudentDirectory` ile (aynı IDOR koruması) |
+| **Kişisel ders ekle** | `POST /api/scheduling/students/{studentId}/study-entries` | `CreateStudyScheduleEntryRequest` → `StudyScheduleEntryResponse` | **2026-07-08.** Öğrenci kendi programına ders ekler. Öğretmen dersiyle **saat çakışması** `409 scheduling.teacher_conflict`; aralık `400 invalid_range`. Sahip-yetki (owner-only) |
+| **Kişisel ders güncelle** | `PUT /api/scheduling/study-entries/{entryId}` | `UpdateStudyScheduleEntryRequest` → `StudyScheduleEntryResponse` | **2026-07-08.** Yoksa `404 scheduling.entry_not_found`; çakışma yeniden kontrol edilir |
+| **Kişisel ders sil** | `DELETE /api/scheduling/study-entries/{entryId}` | → `StudyScheduleEntryResponse` | **2026-07-08.** Soft-cancel (`Status=Cancelled`). Yoksa `404 scheduling.entry_not_found` |
 
 **`CreateLessonScheduleRequest` (koddan):** `TeacherUserId, StudentId, Subject, LessonFormat, StartAtUtc, EndAtUtc, TimeZone, RecurrenceRule?, ReminderOffsetMinutes, LocationLabel?, Notes?`
 
@@ -139,6 +178,7 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 | `scheduling.teacher_conflict` | `409` | Öğretmenin bu aralıkta başka dersi var |
 | `scheduling.invalid_range` | `400` | `EndAtUtc <= StartAtUtc` |
 | `scheduling.lesson_not_found` | `404` | Ders planı yok |
+| `scheduling.entry_not_found` | `404` | Öğrenci program girdisi yok (2026-07-08) |
 | `scheduling.already_completed` | `409` | Ders zaten tamamlanmış |
 | `shared.forbidden` | `403` | Yetki yok |
 | (varsayılan) | `400` | Diğer doğrulama hataları |
@@ -151,7 +191,6 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 | Tatil ekle/listele | `POST /api/scheduling/holidays`, `GET /api/scheduling/teachers/{id}/holidays` | `ScheduleException` için |
 | Seri oluştur | `POST /api/scheduling/lessons/series` | `RecurrenceRule` açılımı + `SeriesId` üretimi |
 | Seri iptal | `POST /api/scheduling/lessons/series/{seriesId}/cancel?scope=instance|all` | Tek örnek / tüm seri |
-| Öğrenci takvimi | `GET /api/scheduling/students/{studentId}/lessons?from=&to=` | Öğrenci kendi özel ders takvimini görsün (m08 birleşik takvim için) |
 
 ---
 
@@ -162,7 +201,7 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 3. **Oluşturmada durum (🟢 kodda):** Yeni ders her zaman `Planned` ile başlar (handler `Draft` kabul etmez; `Draft` ileride taslak akışı için ayrılmıştır).
 4. **İptal davranışı (🟢 kodda):** `Cancel()` durumu `Cancelled` yapar, iptal notunu mevcut nota satır olarak ekler, event yayar, hatırlatmayı iptal eder.
 5. **Hatırlatma (🟢 kodda):** Oluşturmada `ReminderOffsetMinutes` ile hatırlatma planlanır (m11); iptalde geri alınır.
-6. **⚠️ Öğrenci tarafı öncelik kuralı:** Öğrencinin **kendi bireysel planı** (m08 Study) ile öğretmenle yapılan **özel ders** çakışırsa **özel ders önceliklidir**; öğrenci uyarılır (`promp.txt`: "öncelik özel dersindir öğrenciyi çakışma olduğunda uyarır"). Bu kural m08'de uygulanmalı; Scheduling yetkili kaynaktır.
+6. **Öğrenci tarafı öncelik kuralı (🟢 kodda, 2026-07-08):** Öğrencinin **kendi program girdisi** (`StudyScheduleEntry`), öğretmenle yapılan **özel ders** (`LessonSchedule`) ile saat çakışırsa **oluşturma/güncelleme reddedilir** → `scheduling.teacher_conflict` (409). Yani özel ders önceliklidir; öğrenci o slota kendi dersini tanımlayamaz. Çakışma, her iki tarafın tekrarları `RecurrenceExpander` ile genişletilerek `StudyScheduleConflict.OverlapsTeacherLesson` içinde hesaplanır (180 günlük ufuk). Mobilde takvim öğretmen derslerini salt-okunur + rozetli gösterir.
 7. **⚠️ Online ders linki:** `LessonFormat = Online/Hybrid` ise `MeetingUrl` istenmeli; öğrenci linkle katılır.
 8. **⚠️ Tatil çakışması:** Bir `ScheduleException` aralığına ders planlanırken uyarı verilmeli (sert engel değil, esnek uyarı önerilir).
 9. **⚠️ Güncellemede yeniden kontrol:** `PUT` ile saat değişirse çakışma yeniden değerlendirilmeli ve hatırlatma yeniden planlanmalı.
@@ -187,7 +226,21 @@ POST /lessons/{id}/cancel
 (öneri) Planlı ders → ders günü
    → M05 LessonSession türetilir (LessonScheduleId ile bağ) — bkz. m05_lesson_sessions.md §5
    → Oturum tamamlanınca (öneri) LessonSchedule.Status = Completed güncellenir
+
+POST /students/{id}/study-entries  (öğrenci kendi dersi)
+   → StudyScheduleEntryScheduledDomainEvent (Subject + StartAtUtc + ReminderOffsetMinutes taşır)
+       → outbox → m11 Notifications StudyScheduleReminderIntegrationEventHandler:
+           ReminderOffsetMinutes > 0 ise ilk oluşuma göre LessonReminder (StudentId'ye, TeacherUserId boş) planlar
+PUT /study-entries/{id}
+   → StudyScheduleEntryRescheduledDomainEvent → mevcut hatırlatma yeni saate taşınır (offset 0 ise iptal)
+DELETE /study-entries/{id}
+   → StudyScheduleEntryCancelledDomainEvent → hatırlatma iptal edilir
 ```
+
+> **Not:** Öğrenci kişisel programı hatırlatması, öğretmen dersleriyle **aynı** `LessonReminder` aggregate'ında
+> tutulur (girdinin kimliği `LessonScheduleId` alanına yazılır, tekildir). Tekrarlı girdilerde hatırlatma **ilk
+> oluşuma** göre planlanır — öğretmen dersleriyle aynı MVP davranışı. Notifications, Scheduling'e referans vermez;
+> handler olay adı + JSON payload üzerinden çalışır.
 
 > Olaylar **Outbox** ile güvenilir yayılır (`Shared/Infrastructure/Messaging`).
 
@@ -198,9 +251,11 @@ POST /lessons/{id}/cancel
 ### ✅ Mevcut
 | Route | Sayfa | Açıklama |
 |-------|-------|----------|
-| `/scheduling` | `SchedulingPage` | `syncfusion_flutter_calendar` ile gün/hafta/ay görünümü; ders ekle/iptal |
+| `/scheduling` | `SchedulingPage` | **Öğretmen** — `syncfusion_flutter_calendar` ile gün/hafta/ay görünümü; ders ekle/iptal. **Hatırlatma süresi artık formda seçilir** (`LessonFormSheet`: Kapalı/15/30dk/1sa/1gün — önceden sabit 60 dk idi), 2026-07-08. |
+| `/student/calendar` | `StudentCalendarPage` | **Öğrenci** (2026-07-08) — alt menü "Takvim" sekmesi. **Öğretmen takvim ekranıyla birebir aynı takvim:** `SfCalendar` Aylık/Haftalık/Günlük geçişi + `‹ tarih Bugün ›` gezinme çubuğu → altında **öğretmen paneli stili** seçili gün listesi (renk çubuğu + "Öğretmen/Kendi" pill + saat + tekrar/konum). Öğretmen dersleri salt-okunur/öncelikli (kilit); kendi dersleri düzenle/sil. "Ders ekle" FAB → `StudyEntryFormSheet` (**tam ekran**, öğretmen `LessonFormSheet` düzeniyle uyumlu: tek/tekrarlı günlük-haftalık-aylık, ders adı, saat, **hatırlatma**, not). Kaynak: `GET /students/{id}/calendar` |
 
-> Durum yönetimi `flutter_bloc` (Cubit). `mobile/lib/features/scheduling`.
+> Durum yönetimi `flutter_bloc` (Cubit) / `StatefulWidget`. `mobile/lib/features/scheduling`.
+> Kronometre (`/study/timer`) ders seçicisi de birleşik takvimden beslenir; ders seçilmeden başlatılırsa "Serbest çalışma" kaydedilir.
 
 ### ⚠️ Planlanan
 - **Birleşik takvim katmanları:** dersler + ödevler (m06 son teslim) + tatiller (`ScheduleException`) + ödeme vadeleri (m07) aynı takvimde renk kodlu.
@@ -221,9 +276,12 @@ POST /lessons/{id}/cancel
 - [x] Tarih aralığıyla takvim listesi alınabilir.
 - [x] Ders güncelleme (`PUT /lessons/{id}`) + güncellemede kendini hariç tutan çakışma + hatırlatma yeniden planlama (2026-06-28).
 - [ ] ⚠️ Online ders linki (`MeetingUrl`) **domain alanı** uçtan uca (şu an mobilde var, backend'de `LocationLabel`'a sığdırılıyor).
-- [ ] ⚠️ Tekrarlı ders **açılımı** (seri materyalizasyonu + tekil/tüm seri iptali).
+- [x] **Öğrenci kişisel programı** (`StudyScheduleEntry`) CRUD + tekrar (günlük/haftalık/aylık) + birleşik takvim (2026-07-08).
+- [x] **Tekrar açılımı** öğrenci takviminde (`RecurrenceExpander`) — DAILY/WEEKLY+BYDAY/MONTHLY + UNTIL (2026-07-08).
+- [x] **Öğrenci tarafı öncelik kuralı** — kendi girdisi öğretmen dersiyle çakışamaz (`scheduling.teacher_conflict`), 2026-07-08.
+- [ ] ⚠️ Öğretmen `LessonSchedule` listesinde tekrar açılımı (şu an tek örnek; öğrenci birleşik takviminde açılıyor).
 - [ ] ⚠️ Tatil / blackout (`ScheduleException`) ve planlamada uyarı.
-- [ ] ⚠️ Öğrenci tarafı öncelik kuralı (özel ders > bireysel plan, m08).
+- [x] **Öğrenci kişisel programına hatırlatma** — oluştur/güncelle/sil → outbox → Notifications; `0 dk` kapalı, tekrarlıda ilk oluşum (2026-07-08).
 - [ ] ⚠️ `Planned → Completed` geçişi (M05 ile köprü).
 
 ---
@@ -254,4 +312,4 @@ POST /lessons/{id}/cancel
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-01*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-08*
