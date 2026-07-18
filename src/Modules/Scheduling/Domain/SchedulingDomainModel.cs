@@ -138,6 +138,21 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
     public bool CanBeDeletedAt(DateTime nowUtc)
         => nowUtc <= CreatedOnUtc.AddHours(24) && StartAtUtc > nowUtc;
 
+    /// <summary>Tekrar serisini verilen tarihten önce sonlandırır (RecurrenceRule'a UNTIL ekler). "Bu ve sonrakiler" iptali için.</summary>
+    public void EndSeriesBefore(DateTime cutoffUtc, DateTime updatedOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(RecurrenceRule))
+        {
+            return;
+        }
+
+        var until = cutoffUtc.AddDays(-1).ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        RecurrenceRule = RecurrenceRule.Contains("UNTIL=", StringComparison.OrdinalIgnoreCase)
+            ? System.Text.RegularExpressions.Regex.Replace(RecurrenceRule, "UNTIL=[^;]*", $"UNTIL={until}")
+            : $"{RecurrenceRule};UNTIL={until}";
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
     public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;

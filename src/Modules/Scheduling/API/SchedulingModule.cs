@@ -117,7 +117,7 @@ public sealed class SchedulingModule : ModuleDefinition
         CancellationToken cancellationToken)
     {
         var result = await dispatcher.Dispatch(
-            new CancelLessonScheduleCommand(lessonId, request.Reason, request.IsChargeable, request.CancellationNote),
+            new CancelLessonScheduleCommand(lessonId, request.Reason, request.IsChargeable, request.CancellationNote, request.Scope, request.OccurrenceStartAtUtc),
             cancellationToken);
         return ToHttpResult(context, result);
     }
@@ -133,7 +133,7 @@ public sealed class SchedulingModule : ModuleDefinition
         CancellationToken cancellationToken)
     {
         var result = await dispatcher.Dispatch(
-            new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note),
+            new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note, request.Scope, request.OccurrenceStartAtUtc),
             cancellationToken);
         return ToHttpResult(context, result);
     }
@@ -416,12 +416,22 @@ public sealed record UpdateLessonScheduleRequest(
 /// <summary>
 /// Planlı ders iptal edilirken tutulacak isteğe bağlı açıklamayı taşır.
 /// </summary>
-public sealed record CancelLessonScheduleRequest(CancellationReason Reason, bool IsChargeable, string? CancellationNote);
+public sealed record CancelLessonScheduleRequest(
+    CancellationReason Reason,
+    bool IsChargeable,
+    string? CancellationNote,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null);
 
 /// <summary>
 /// Dersi ertelemek için yeni başlangıç/bitiş ve isteğe bağlı erteleme notunu taşır.
 /// </summary>
-public sealed record RescheduleLessonScheduleRequest(DateTime NewStartAtUtc, DateTime NewEndAtUtc, string? Note);
+public sealed record RescheduleLessonScheduleRequest(
+    DateTime NewStartAtUtc,
+    DateTime NewEndAtUtc,
+    string? Note,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null);
 
 /// <summary>
 /// Tatil / müsait değil bloğu oluşturmak için tür, başlık, zaman aralığı ve tüm-gün bayrağını taşır.

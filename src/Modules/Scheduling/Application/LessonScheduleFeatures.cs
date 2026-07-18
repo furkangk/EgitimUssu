@@ -31,17 +31,28 @@ public sealed record UpdateLessonScheduleCommand(
     string? MeetingUrl,
     string? Notes) : ICommand<Result<LessonScheduleResponse>>;
 
+public enum OccurrenceScope
+{
+    Single = 1,
+    ThisAndFuture = 2,
+    All = 3
+}
+
 public sealed record CancelLessonScheduleCommand(
     Guid LessonId,
     CancellationReason Reason,
     bool IsChargeable,
-    string? CancellationNote) : ICommand<Result<LessonScheduleResponse>>;
+    string? CancellationNote,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record RescheduleLessonScheduleCommand(
     Guid LessonId,
     DateTime NewStartAtUtc,
     DateTime NewEndAtUtc,
-    string? Note) : ICommand<Result<LessonScheduleResponse>>;
+    string? Note,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
 
@@ -243,13 +254,16 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
 
     public CancelLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
-        IClock clock)
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _repository = repository;
         _clock = clock;
+        _idGenerator = idGenerator;
     }
 
     public async Task<Result<LessonScheduleResponse>> Handle(CancelLessonScheduleCommand command, CancellationToken cancellationToken)
@@ -258,6 +272,24 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
         if (lesson is null)
         {
             return Result<LessonScheduleResponse>.Failure(NotFound);
+        }
+
+        var isRecurring = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule);
+        if (isRecurring && command.Scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
+        {
+            var occurrenceException = new LessonOccurrenceException(
+                _idGenerator.New(), lesson.Id, occStart,
+                OccurrenceExceptionAction.Cancelled, null, null, command.CancellationNote?.Trim(), _clock.UtcNow);
+            await _repository.AddExceptionAsync(occurrenceException, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }
+
+        if (isRecurring && command.Scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
+        {
+            lesson.EndSeriesBefore(cutoff, _clock.UtcNow);
+            await _repository.SaveChangesAsync(cancellationToken);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
         }
 
         lesson.Cancel(command.Reason, command.IsChargeable, command.CancellationNote?.Trim(), _clock.UtcNow);
@@ -275,11 +307,13 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
     private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders ertelenebilir.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
 
-    public RescheduleLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock)
+    public RescheduleLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock, IIdGenerator idGenerator)
     {
         _repository = repository;
         _clock = clock;
+        _idGenerator = idGenerator;
     }
 
     public async Task<Result<LessonScheduleResponse>> Handle(RescheduleLessonScheduleCommand command, CancellationToken cancellationToken)
@@ -305,6 +339,18 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
         if (hasConflict)
         {
             return Result<LessonScheduleResponse>.Failure(Conflict);
+        }
+
+        if (!string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
+            && command.Scope == OccurrenceScope.Single
+            && command.OccurrenceStartAtUtc is { } occStart)
+        {
+            var occurrenceException = new LessonOccurrenceException(
+                _idGenerator.New(), lesson.Id, occStart,
+                OccurrenceExceptionAction.Rescheduled, command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
+            await _repository.AddExceptionAsync(occurrenceException, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
         }
 
         lesson.Reschedule(command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
