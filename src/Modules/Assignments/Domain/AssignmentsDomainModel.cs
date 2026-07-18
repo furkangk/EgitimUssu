@@ -56,6 +56,8 @@ public sealed class Assignment : AggregateRoot<Guid>
 
     public DateTime? CompletedOnUtc { get; private set; }
 
+    public string? TeacherFeedback { get; private set; }
+
     public void MarkCompleted(DateTime completedOnUtc)
     {
         Status = AssignmentStatus.Completed;
@@ -68,12 +70,28 @@ public sealed class Assignment : AggregateRoot<Guid>
     public void SubmitWork(string attachmentUrl, DateTime nowUtc)
     {
         AttachmentUrl = attachmentUrl;
-        if (Status == AssignmentStatus.Pending)
+        if (Status is AssignmentStatus.Pending or AssignmentStatus.ReturnedForRevision)
         {
             Status = AssignmentStatus.InProgress;
         }
 
         Raise(new AssignmentSubmittedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, nowUtc));
+    }
+
+    /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>
+    public void Approve(string? feedback, DateTime nowUtc)
+    {
+        Status = AssignmentStatus.Approved;
+        TeacherFeedback = feedback;
+        Raise(new AssignmentApprovedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
+    }
+
+    /// <summary>Öğretmen ödevi geri bildirimle revizyona geri gönderir.</summary>
+    public void ReturnForRevision(string feedback, DateTime nowUtc)
+    {
+        Status = AssignmentStatus.ReturnedForRevision;
+        TeacherFeedback = feedback;
+        Raise(new AssignmentReturnedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
     }
 }
 
@@ -141,7 +159,9 @@ public enum AssignmentStatus
     Pending = 1,
     InProgress = 2,
     Completed = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    Approved = 5,
+    ReturnedForRevision = 6
 }
 
 public enum LessonNoteVisibility
@@ -171,6 +191,18 @@ public sealed record AssignmentSubmittedDomainEvent(
     Guid TeacherUserId,
     Guid? LessonSessionId,
     DateTime SubmittedOnUtc) : DomainEvent;
+
+public sealed record AssignmentApprovedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    DateTime OnUtc) : DomainEvent;
+
+public sealed record AssignmentReturnedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    DateTime OnUtc) : DomainEvent;
 
 public sealed record LessonNoteCreatedDomainEvent(
     Guid LessonNoteId,
