@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<StudentsDbContext>(configuration, "Students", StudentsDbContext.SchemaName);
         services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
+        services.AddScoped<ITeacherStudentLinkRepository, TeacherStudentLinkRepository>();
         services.AddScoped<IStudentDirectory, StudentDirectory>();
         services.AddScoped<ICommandHandler<CreateStudentProfileCommand, Result<StudentProfileResponse>>, CreateStudentProfileCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByIdQueryHandler>();

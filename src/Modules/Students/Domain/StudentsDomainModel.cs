@@ -132,3 +132,102 @@ public sealed record StudentProfileCreatedDomainEvent(
     Guid? CreatedByTeacherUserId,
     StudentOrigin Origin,
     DateTime CreatedOnUtc) : DomainEvent;
+
+public sealed class TeacherStudentLink : AggregateRoot<Guid>
+{
+    private TeacherStudentLink()
+    {
+    }
+
+    public TeacherStudentLink(Guid id, Guid teacherUserId, Guid studentId, TeacherStudentLinkStatus status, DateTime createdOnUtc)
+    {
+        Id = id;
+        TeacherUserId = teacherUserId;
+        StudentId = studentId;
+        Status = status;
+        Currency = "TRY";
+        IsArchived = false;
+        CreatedOnUtc = createdOnUtc;
+        UpdatedOnUtc = createdOnUtc;
+    }
+
+    public Guid TeacherUserId { get; private set; }
+
+    public Guid StudentId { get; private set; }
+
+    public decimal? AgreedRateAmount { get; private set; }
+
+    public string Currency { get; private set; } = "TRY";
+
+    public TeacherStudentLinkStatus Status { get; private set; }
+
+    public bool IsArchived { get; private set; }
+
+    public Guid? InviteTargetUserId { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    public DateTime UpdatedOnUtc { get; private set; }
+
+    public void SetRate(decimal amount, string currency, DateTime updatedOnUtc)
+    {
+        AgreedRateAmount = amount;
+        Currency = string.IsNullOrWhiteSpace(currency) ? "TRY" : currency.Trim();
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    public void Archive(DateTime updatedOnUtc)
+    {
+        IsArchived = true;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    public void Unarchive(DateTime updatedOnUtc)
+    {
+        IsArchived = false;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    public void MarkInviteSent(Guid targetUserId, DateTime updatedOnUtc)
+    {
+        Status = TeacherStudentLinkStatus.InviteSent;
+        InviteTargetUserId = targetUserId;
+        UpdatedOnUtc = updatedOnUtc;
+        Raise(new TeacherStudentInviteSentDomainEvent(Id, TeacherUserId, StudentId, targetUserId, updatedOnUtc));
+    }
+
+    public void Accept(DateTime updatedOnUtc)
+    {
+        Status = TeacherStudentLinkStatus.Linked;
+        UpdatedOnUtc = updatedOnUtc;
+        Raise(new TeacherStudentLinkAcceptedDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
+    }
+
+    public void Reject(DateTime updatedOnUtc)
+    {
+        Status = TeacherStudentLinkStatus.Rejected;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+}
+
+public enum TeacherStudentLinkStatus
+{
+    Manual = 1,
+    InviteSent = 2,
+    Linked = 3,
+    Rejected = 4,
+    Disconnected = 5
+}
+
+public sealed record TeacherStudentInviteSentDomainEvent(
+    Guid LinkId,
+    Guid TeacherUserId,
+    Guid StudentId,
+    Guid TargetUserId,
+    DateTime OnUtc) : DomainEvent;
+
+public sealed record TeacherStudentLinkAcceptedDomainEvent(
+    Guid LinkId,
+    Guid TeacherUserId,
+    Guid StudentId,
+    DateTime OnUtc) : DomainEvent;
