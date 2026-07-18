@@ -47,6 +47,36 @@ public sealed class AssignmentsModule : ModuleDefinition
 
         group.MapGet("/{assignmentId:guid}/attachment", DownloadAttachmentAsync)
         .WithSummary("Ödev ekini (öğrenci teslimi) indirir");
+
+        group.MapPost("/{assignmentId:guid}/approve", ApproveAssignmentAsync)
+        .WithSummary("Öğretmen ödevi onaylar");
+
+        group.MapPost("/{assignmentId:guid}/return", ReturnAssignmentAsync)
+        .WithSummary("Öğretmen ödevi geri bildirimle geri gönderir");
+    }
+
+    /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>
+    private static async Task<IResult> ApproveAssignmentAsync(
+        HttpContext context,
+        Guid assignmentId,
+        ApproveAssignmentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ApproveAssignmentCommand(assignmentId, request.Feedback), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>Öğretmen ödevi geri bildirimle revizyona geri gönderir.</summary>
+    private static async Task<IResult> ReturnAssignmentAsync(
+        HttpContext context,
+        Guid assignmentId,
+        ReturnAssignmentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ReturnAssignmentCommand(assignmentId, request.Feedback), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     /// <summary>Öğrenci kendi ödevini tamamlandı olarak işaretler.</summary>
@@ -195,6 +225,12 @@ public sealed record CreateLessonSessionFollowUpAssignmentRequest(
     string? Description,
     DateTime? DueDateUtc,
     string? AttachmentUrl);
+
+/// <summary>Öğretmen ödev onayı için isteğe bağlı geri bildirim.</summary>
+public sealed record ApproveAssignmentRequest(string? Feedback);
+
+/// <summary>Öğretmen ödevi geri gönderirken zorunlu geri bildirim.</summary>
+public sealed record ReturnAssignmentRequest(string Feedback);
 
 /// <summary>
 /// Ders sonrası özet, işlenen konular, öneriler ve isteğe bağlı ödev listesini taşır.  

@@ -33,6 +33,12 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<MarkAssignmentCompletedCommand>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<ICommandAuthorizer<SubmitAssignmentWorkCommand>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetAssignmentQuery>, AssignmentStudentActionAuthorizer>();
+
+        // Öğretmen ödev aksiyonları (onay + geri gönder)
+        services.AddScoped<ICommandHandler<ApproveAssignmentCommand, Result<AssignmentResponse>>, ApproveAssignmentCommandHandler>();
+        services.AddScoped<ICommandHandler<ReturnAssignmentCommand, Result<AssignmentResponse>>, ReturnAssignmentCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<ApproveAssignmentCommand>, AssignmentTeacherAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<ReturnAssignmentCommand>, AssignmentTeacherAuthorizer>();
         return services;
     }
 }
