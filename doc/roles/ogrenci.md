@@ -100,6 +100,7 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 - [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
 - [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
 - [x] Test girişi + net + konu bazlı takip (net-trend).
+- [x] Tamamlanmış seans/test **düzenle-sil** (net + konu rollup tutarlı kalır; streak zinciri v1'de geri sarılmaz).
 - [x] Hedef + seri + başarım sistemi (seri, ayarlanabilir günlük-hedef eşiği + 04:00 gün sınırı ile — anlamlı streak).
 - [ ] Konu eksik/gelişim/hedef (M10 — iskelet).
 - [ ] Öğretmene bağlıysa ödev yükleme + ders notu/kaynak görüntüleme (M06 öğrenci görünümü ⚠️).

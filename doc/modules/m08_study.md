@@ -236,6 +236,9 @@ POST   /api/study/sessions/manual
        body: { studentId, subject, topic?, effectiveMinutes,
                studiedOnUtc, personalNote? }                    → 201 (kronometresiz manuel giriş)
 GET    /api/study/sessions/{id}                                 → 200 seans detayı
+PUT    /api/study/sessions/{id}
+       body: { subject, topic?, effectiveMinutes, personalNote? } → 200 (yalnız tamamlanmış seans; konu rollup yeniden türetilir)
+DELETE /api/study/sessions/{id}                                 → 200 (konu rollup yeniden türetilir)
 GET    /api/study/students/{studentId}/sessions?from=&to=&subject=
                                                                 → 200 seans listesi (sayfalı)
 GET    /api/study/students/{studentId}/weekly-summary?weekStart=
@@ -249,6 +252,11 @@ POST   /api/study/test-results
                totalQuestions, correct, wrong, blank,
                durationMinutes?, takenOnUtc }                   → 201 { testResultId, net }
 GET    /api/study/test-results/{id}                             → 200
+PUT    /api/study/test-results/{id}
+       body: { subject, topic?, testType, testName?, totalQuestions,
+               correct, wrong, blank, penaltyDivisor?, durationMinutes?,
+               takenOnUtc }                                      → 200 (net yeniden hesaplanır)
+DELETE /api/study/test-results/{id}                             → 200
 GET    /api/study/students/{studentId}/test-results?subject=&from=&to=
                                                                 → 200 liste
 GET    /api/study/students/{studentId}/net-trend?subject=&topic=
@@ -313,6 +321,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - Aynı anda bir öğrencinin yalnızca **bir `Running`/`Paused` seansı** olabilir (yeni başlatma öncekini engeller veya devralmayı önerir).
 - `Discarded` seanslar hiçbir istatistiğe (süre, streak, konu rollup) **dahil edilmez**.
 - Çok uzun (örn. > 8 saat) açık kalan seans için otomatik kapatma/uyarı önerilir (sayaç unutulması).
+- **Seans düzenle/sil (S-08.10):** Yalnızca **tamamlanmış** seans düzenlenir (`EditCompleted`: ders/konu/süre/not; süre > 0). Düzenleme/silme sonrası ilgili `(Subject, Topic)` **konu rollup'ı** (`StudyTopic`) o öğrencinin tamamlanmış seanslarından **yeniden türetilir** (`StudyRecompute.RebuildTopicAsync`; konu değişirse hem eski hem yeni konu için). Kalan seans yoksa rollup silinir. **Streak zinciri v1'de retroaktif geri sarılmaz** (YAGNI): o günün streak-uygunluğu bir sonraki seans kaydında yeniden değerlendirilir.
 
 ### 4.2 Manuel giriş
 - Kronometre kullanmadan geçmişe dönük seans eklenebilir (`Source = Manual`); `studiedOnUtc` bugünden ileri olamaz.
@@ -322,6 +331,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - **Net formülü:** `Net = Correct - (Wrong / PenaltyDivisor)`; varsayılan `PenaltyDivisor = 4` (4 yanlış 1 doğruyu götürür).
   Katsayı ve yuvarlama **M15 (Settings)** üzerinden konfigüre edilebilir (örn. LGS vs YKS).
 - `Net` negatif olabilir; saklanır (ham veri).
+- **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
 ### 4.4 Streak & hedef
 - Bir gün **en az 1 tamamlanmış seans** (veya günlük hedef dakikasının karşılanması — konfigüre edilebilir) o günü "çalışılmış" sayar.

@@ -171,9 +171,9 @@ GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; 
 ```
 POST /sessions/start   /sessions/manual
 POST /sessions/{id}/pause   /resume   /complete   /discard
-GET  /sessions/{id}
+GET  /sessions/{id}   PUT /sessions/{id}   DELETE /sessions/{id}
 GET  /students/{studentId}/sessions?from=&to=&subject=   /weekly-summary?weekStart=
-POST /test-results   GET /test-results/{id}
+POST /test-results   GET /test-results/{id}   PUT /test-results/{id}   DELETE /test-results/{id}
 GET  /students/{studentId}/test-results?subject=&topic=&from=&to=   /net-trend?subject=&topic=
 GET  /students/{studentId}/goals   PUT /students/{studentId}/goals
 GET  /students/{studentId}/streak   /achievements   /dashboard
@@ -207,4 +207,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-19 (Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
