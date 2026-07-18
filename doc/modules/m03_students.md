@@ -64,6 +64,7 @@ Tablolar: `student_profiles`, `student_subjects`, `teacher_student_links`.
 | `GoalSummary` | string? | Hedef özeti |
 | `LevelNotes` | string? | Seviye/başlangıç notları |
 | `Origin` | enum `StudentOrigin` | Profilin kaynağı (kim oluşturdu) |
+| `TargetExam` | enum `TargetExam` | Öğrencinin hedeflediği sınav (S-03.9); varsayılan `None`. M08 net formülü ceza bölenini bundan türetir (`SetTargetExam`) |
 | `IsActive` | bool | Aktif/pasif (create'te `true`) |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `Subjects` | List&lt;`StudentSubject`&gt; | Branş + hedef seviye |
@@ -84,6 +85,7 @@ Tablolar: `student_profiles`, `student_subjects`, `teacher_student_links`.
 | Enum | Değerler |
 |------|----------|
 | `StudentOrigin` | `TeacherManaged = 1`, `SelfRegistered = 2` |
+| `TargetExam` | `None = 0`, `LGS = 1`, `TYT = 2`, `AYT = 3`, `YDS = 4`, `School = 5`, `Other = 6` (DB'de string; varsayılan `None`). M08 net böleni: LGS→3, TYT/AYT→4, School→yanlış götürmez |
 
 ```
 StudentProfileCreatedDomainEvent(Guid StudentProfileId, Guid? UserId,
@@ -168,15 +170,18 @@ StudentSubjectItem(string Subject, string? TargetLevel)
 CreateStudentProfileRequest(Guid? UserId, Guid? CreatedByTeacherUserId, Guid? ParentUserId,
                             string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                             string? GoalSummary, string? LevelNotes, StudentOrigin Origin,
-                            IReadOnlyCollection<StudentSubjectItem> Subjects)
+                            IReadOnlyCollection<StudentSubjectItem> Subjects,
+                            TargetExam TargetExam = TargetExam.None)
 
 UpdateStudentProfileRequest(string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                             string? GoalSummary, string? LevelNotes, bool IsActive,
-                            IReadOnlyCollection<StudentSubjectItem> Subjects)  // branşlar tam yeniden yazar
+                            IReadOnlyCollection<StudentSubjectItem> Subjects,
+                            TargetExam TargetExam = TargetExam.None)  // branşlar tam yeniden yazar
 
 StudentProfileResponse(Guid Id, Guid? UserId, Guid? CreatedByTeacherUserId, Guid? ParentUserId,
                        string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                        string? GoalSummary, string? LevelNotes, string Origin, bool IsActive,
+                       string TargetExam,
                        IReadOnlyCollection<StudentSubjectResponse> Subjects, DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
 
 StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, string Origin,
@@ -328,4 +333,4 @@ Davet kabul edildi           → TeacherStudentLinkAcceptedDomainEvent (LinkId, 
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

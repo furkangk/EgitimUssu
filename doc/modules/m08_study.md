@@ -15,7 +15,7 @@
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### ✅ Var olan (uçtan uca — 2026-07-04'te inşa edildi)
-- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudentSubjectCatalog` + `StudentTopicCatalog` (öğrencinin tanımladığı ders/konu kataloğu), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
+- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı; opsiyonel `MockExamId`), `MockExam` (çok dersli deneme; net toplama), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudentSubjectCatalog` + `StudentTopicCatalog` (öğrencinin tanımladığı ders/konu kataloğu), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
 - **Application (CQRS)** (`StudyContracts/SessionFeatures/TestFeatures/ProgressFeatures/Policies`): Start/Pause/Resume/Complete/Discard/Manual seans komutları; RecordTest; UpdateGoals; UpdateSharing. Sorgular: session, list-sessions, weekly-summary, test, list-tests, net-trend, goals, streak, achievements, sharing, dashboard. `StudyCompletionService` (konu rollup + streak + başarım değerlendirme), `AchievementEvaluator`, `StudyOwnershipGuard`/`StudyLinkResolver`.
 - **Infrastructure**: `StudyDbContext` 8 `DbSet` + EF config'ler (snake_case, enum→string), `StudyRepository` (tek unit-of-work), `AddStudyModule` DI, `StudyDesignTimeDbContextFactory`, **`InitialStudy` migration** (`study` şeması + achievement katalog seed'i 10 rozet).
 - **API** (`API/StudyModule.cs`): §3'teki tüm uçlar, `AuthenticatedUser` politikası, sahiplik yetkilendirmesi, hata→HTTP eşlemesi.
@@ -84,6 +84,7 @@ public enum StudySessionSource { Stopwatch = 1, Manual = 2 }
 |------|-----|:------:|----------|
 | `Id` | `Guid` | ✓ | |
 | `StudentId` | `Guid` | ✓ | M03 `StudentProfile.Id` |
+| `MockExamId` | `Guid?` | — | Çok dersli denemenin (`MockExam`) parçasıysa o denemenin kimliği; tekil test ise null (`AttachToMockExam`) |
 | `Subject` | `string` | ✓ | Ders |
 | `Topic` | `string?` | — | Konu (branş denemesi ise null olabilir) |
 | `TestName` | `string?` | — | Deneme adı (örn. "3D Yayınları TYT-5") |
@@ -106,6 +107,22 @@ public enum StudySessionSource { Stopwatch = 1, Manual = 2 }
 ```csharp
 public enum TestType { Branch = 1, General = 2, Subject = 3, Topic = 4 }
 ```
+
+### 2.2b `MockExam` (AggregateRoot) — Çok dersli deneme sınavı
+
+Tam bir deneme oturumu (ör. tüm TYT/AYT/LGS). Her ders bir `TestResult` olarak eklenir; toplam net derslerin netlerinin toplamıdır. Öğrencinin **hedef sınavı** (M03 `StudentProfile.TargetExam`, S-03.9) net ceza bölenini belirler; Study modülü Students'a referans vermez, hedef sınav istemci tarafından **string** olarak geçer.
+
+| Alan | Tip | Zorunlu | Açıklama |
+|------|-----|:------:|----------|
+| `Id` | `Guid` | ✓ | |
+| `StudentId` | `Guid` | ✓ | M03 `StudentProfile.Id` |
+| `ExamType` | `string` | ✓ | Deneme türü (örn. "TYT", "AYT", "LGS") — ders bazlı böleni de sürükler |
+| `TakenOnUtc` | `DateTime` | ✓ | Denemenin çözüldüğü tarih |
+| `TotalNet` | `decimal` | ✓ | Derslerin net toplamı (`AddSubject` ile birikir) |
+| `EstimatedRank` | `int?` | — | Tahmini sıralama (dış hesap/istemci girdisi; `SetEstimatedRank`) |
+| `CreatedOnUtc` | `DateTime` | ✓ | |
+
+**Davranış:** `AddSubject(TestResult)` → ders sonucunu denemeye bağlar (`TestResult.AttachToMockExam`) ve `TotalNet += result.Net`. Deneme, her dersin `TestResult`'ıyla birlikte **tek `SaveChanges`** içinde yazılır (Task/B6).
 
 ### 2.3 `StudyGoal` (AggregateRoot) — Çalışma hedefleri
 
@@ -261,7 +278,14 @@ GET    /api/study/students/{studentId}/test-results?subject=&from=&to=
                                                                 → 200 liste
 GET    /api/study/students/{studentId}/net-trend?subject=&topic=
                                                                 → 200 zaman serisi (net artış/azalış)
+POST   /api/study/students/{studentId}/mock-exams
+       body: { examType, takenOnUtc,
+               subjects: [ { subject, topic?, testName?, totalQuestions,
+                             correct, wrong, blank, penaltyDivisor?, targetExam? } ] }
+                                                                → 200 { id, examType, totalNet, subjects[] } (çok dersli deneme)
 ```
+> `test-results` (tekil) ve `mock-exams` (çok dersli) net'i aynı `ExamPenalty` böleniyle hesaplar (bkz. 4.3).
+> `mock-exams`'te her ders satırının böleni: açık `penaltyDivisor` > yoksa satırın `targetExam`'ı > yoksa denemenin `examType`'ından türetilir.
 
 ### 3.3 Hedef, streak, başarım
 ```
@@ -329,7 +353,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 ### 4.3 Test/net hesabı
 - **Doğrulama:** `Correct + Wrong + Blank == TotalQuestions` (ihlalde komut reddedilir).
 - **Net formülü:** `Net = Correct - (Wrong / PenaltyDivisor)`; varsayılan `PenaltyDivisor = 4` (4 yanlış 1 doğruyu götürür).
-  Katsayı ve yuvarlama **M15 (Settings)** üzerinden konfigüre edilebilir (örn. LGS vs YKS).
+- **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/YDS/diğer → 4**, **School → null** (okul denemesi **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
 - `Net` negatif olabilir; saklanır (ham veri).
 - **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
@@ -455,3 +479,6 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 ---
 
 *M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19*
+
+<!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
+

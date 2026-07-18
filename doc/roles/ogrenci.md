@@ -36,6 +36,8 @@ Manuel öğrenci sonradan gerçek hesabına bağlanabilir (davet/eşleşme — �
 | **Ders/konu kataloğu** (ders + tekrar kullanılabilir konu listesi; kronometre/deneme/takvim/gelişim temeli) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 (2026-07-09 — `StudentSubjectCatalog`/`StudentTopicCatalog` + `SubjectCatalogPage`) |
 | **Çalışma kronometresi** (odak süresi) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Deneme/test** (D-Y-boş, net, artış/azalış analizi) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
+| **Çok dersli deneme** (tam deneme oturumu; dersler toplanıp toplam net) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 (2026-07-19 — `MockExam`, `POST /students/{id}/mock-exams`) |
+| **Hedef sınav** (LGS/TYT/AYT/…; net ceza bölenini belirler) | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 (2026-07-19 — `StudentProfile.TargetExam`, S-03.9) |
 | **Hedefler** (deneme net hedefi, günlük hedef) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Seri (streak) + başarımlar** | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Konu eksikleri + konu gelişimi + konu hedefleri** | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) | M10 | 🟡 (2026-07-09 — konu hâkimiyeti/eksik-güçlü + hedef + `ProgressOverviewPage`; zaman serisi grafiği ⚠️) |
@@ -66,7 +68,7 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 1. **Öğretmensiz tam işlevsellik:** Bireysel çalışma (kronometre, test, hedef, seri, konu gelişimi) öğretmen gerektirmez.
 2. **Özel ders otomatik program + çakışma önceliği** (promp): Öğretmenle eşleşilen ders **otomatik** öğrencinin programına eklenir. Öğrencinin kendi planı ile özel ders **çakışırsa öncelik özel derstedir** ve öğrenci **uyarılır** (M04/M08).
 3. **Mola net süreye eklenmez:** Kronometrede mola süresi toplam **net** çalışma süresine dahil edilmez (M08).
-4. **Net hesabı:** Test girişinde `Doğru + Yanlış + Boş = Toplam`; net formülü (örn. `Doğru − Yanlış/4`) konfigüre edilebilir (M08).
+4. **Net hesabı:** Test girişinde `Doğru + Yanlış + Boş = Toplam`; net = `Doğru − Yanlış/ceza`. Ceza böleni hedef sınava göre türetilir (`ExamPenalty`): **LGS → 3**, **TYT/AYT → 4**, **okul denemesi → yanlış götürmez** (M08/M03 `TargetExam`).
 5. **Ödev yükleme + son tarih:** Öğretmene bağlıysa öğrenci ödevini **yükler**; son teslim tarihinden önce yüklemezse **veliye bildirim** gidebilir (M06 + M11 + M09).
 6. **Gizlilik:** Öğrenci bireysel çalışma verisini veli/öğretmenle paylaşıp paylaşmayacağını seçer (M15 `ShareStudyDataWith*`).
 7. **Gamification amacı:** Seri ve başarımlar, öğrenciyi çalışmaya teşvik ve sistemde tutma içindir.
@@ -100,6 +102,8 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 - [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
 - [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
 - [x] Test girişi + net + konu bazlı takip (net-trend).
+- [x] **Çok dersli deneme** (`MockExam`): dersler tek oturumda girilir, toplam net türetilir.
+- [x] **Hedef sınav** (`TargetExam`) net ceza bölenini belirler (LGS/3, TYT-AYT/4, okul yanlış götürmez).
 - [x] Tamamlanmış seans/test **düzenle-sil** (net + konu rollup tutarlı kalır; streak zinciri v1'de geri sarılmaz).
 - [x] Hedef + seri + başarım sistemi (seri, ayarlanabilir günlük-hedef eşiği + 04:00 gün sınırı ile — anlamlı streak).
 - [ ] Konu eksik/gelişim/hedef (M10 — iskelet).
@@ -112,4 +116,4 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 
 ---
 
-*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-A streak eşiği: `StreakThresholdPercent` + 04:00 gün sınırı — anlamlı seri) · 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
+*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-B: çok dersli deneme `MockExam` + hedef sınav `TargetExam` → sınav tipine göre net böleni `ExamPenalty` · Ö-A streak eşiği: `StreakThresholdPercent` + 04:00 gün sınırı — anlamlı seri) · 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
