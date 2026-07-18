@@ -56,6 +56,18 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<UpdateStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DeleteStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudentCalendarQuery>, StudyScheduleEntryAuthorizer>();
+
+        // Ö-F: Öğrenci ders erteleme talebi (öğrenci talep eder, öğretmen kabul/red eder).
+        services.AddScoped<ILessonChangeRequestRepository, LessonChangeRequestRepository>();
+        services.AddScoped<ICommandHandler<CreateLessonChangeRequestCommand, Result<LessonChangeRequestResponse>>, CreateLessonChangeRequestCommandHandler>();
+        services.AddScoped<ICommandHandler<AcceptLessonChangeRequestCommand, Result<LessonChangeRequestResponse>>, AcceptLessonChangeRequestCommandHandler>();
+        services.AddScoped<ICommandHandler<RejectLessonChangeRequestCommand, Result<LessonChangeRequestResponse>>, RejectLessonChangeRequestCommandHandler>();
+        services.AddScoped<IQueryHandler<ListLessonChangeRequestsForTeacherQuery, Result<IReadOnlyCollection<LessonChangeRequestResponse>>>, ListLessonChangeRequestsForTeacherQueryHandler>();
+        services.AddScoped<ICommandValidator<CreateLessonChangeRequestCommand>, CreateLessonChangeRequestCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<CreateLessonChangeRequestCommand>, LessonChangeRequestStudentAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<AcceptLessonChangeRequestCommand>, LessonChangeRequestTeacherAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RejectLessonChangeRequestCommand>, LessonChangeRequestTeacherAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<ListLessonChangeRequestsForTeacherQuery>, LessonChangeRequestTeacherAuthorizer>();
         return services;
     }
 }
