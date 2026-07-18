@@ -16,7 +16,8 @@ public sealed record RecordTestResultCommand(
     int Blank,
     int? PenaltyDivisor,
     int? DurationMinutes,
-    DateTime TakenOnUtc) : ICommand<Result<TestResultResponse>>, IStudentScopedRequest;
+    DateTime TakenOnUtc,
+    string? TargetExam = null) : ICommand<Result<TestResultResponse>>, IStudentScopedRequest;
 
 public sealed record EditTestResultCommand(
     Guid TestResultId,
@@ -80,7 +81,9 @@ public sealed class RecordTestResultCommandHandler
         }
 
         var link = await _linkResolver.EnsureAsync(command.StudentId, cancellationToken);
-        var penaltyDivisor = command.PenaltyDivisor is > 0 ? command.PenaltyDivisor.Value : 4;
+        var penaltyDivisor = command.PenaltyDivisor is > 0
+            ? command.PenaltyDivisor.Value
+            : ExamPenalty.DivisorFor(command.TargetExam) ?? int.MaxValue; // School → int.MaxValue: yanlış götürmez (Net ≈ Correct)
 
         var testResult = new TestResult(
             _idGenerator.New(),

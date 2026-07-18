@@ -112,7 +112,7 @@ public sealed class StudyModule : ModuleDefinition
     private static async Task<IResult> RecordTestAsync(HttpContext ctx, RecordTestResultRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new RecordTestResultCommand(
             req.StudentId, req.Subject, req.Topic, req.TestType, req.TestName, req.TotalQuestions,
-            req.Correct, req.Wrong, req.Blank, req.PenaltyDivisor, req.DurationMinutes, req.TakenOnUtc), ct));
+            req.Correct, req.Wrong, req.Blank, req.PenaltyDivisor, req.DurationMinutes, req.TakenOnUtc, req.TargetExam), ct));
 
     private static async Task<IResult> GetTestAsync(HttpContext ctx, Guid testResultId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetTestResultQuery(testResultId), ct));
@@ -232,7 +232,8 @@ public sealed record RecordTestResultRequest(
     int Blank,
     int? PenaltyDivisor,
     int? DurationMinutes,
-    DateTime TakenOnUtc);
+    DateTime TakenOnUtc,
+    string? TargetExam = null);
 
 public sealed record UpdateGoalsRequest(
     int DailyGoalMinutes, int? WeeklyGoalMinutes, decimal? TargetNet, decimal? TargetScore, string? Subject, int StreakThresholdPercent = 60);
