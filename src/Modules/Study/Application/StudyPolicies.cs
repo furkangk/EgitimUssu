@@ -242,5 +242,5 @@ internal static class StudyMappings
 
     public static StudyGoalResponse ToResponse(this StudyGoal g) => new(
         g.Id, g.StudentId, g.DailyGoalMinutes, g.WeeklyGoalMinutes, g.TargetNet, g.TargetScore,
-        g.Subject, g.IsActive, g.UpdatedOnUtc);
+        g.Subject, g.StreakThresholdPercent, g.IsActive, g.UpdatedOnUtc);
 }

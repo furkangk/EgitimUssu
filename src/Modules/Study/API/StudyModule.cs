@@ -117,7 +117,7 @@ public sealed class StudyModule : ModuleDefinition
 
     private static async Task<IResult> UpdateGoalsAsync(HttpContext ctx, Guid studentId, UpdateGoalsRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new UpdateStudyGoalsCommand(
-            studentId, req.DailyGoalMinutes, req.WeeklyGoalMinutes, req.TargetNet, req.TargetScore, req.Subject), ct));
+            studentId, req.DailyGoalMinutes, req.WeeklyGoalMinutes, req.TargetNet, req.TargetScore, req.Subject, req.StreakThresholdPercent), ct));
 
     private static async Task<IResult> GetStreakAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetStreakQuery(studentId), ct));
@@ -214,7 +214,7 @@ public sealed record RecordTestResultRequest(
     DateTime TakenOnUtc);
 
 public sealed record UpdateGoalsRequest(
-    int DailyGoalMinutes, int? WeeklyGoalMinutes, decimal? TargetNet, decimal? TargetScore, string? Subject);
+    int DailyGoalMinutes, int? WeeklyGoalMinutes, decimal? TargetNet, decimal? TargetScore, string? Subject, int StreakThresholdPercent = 60);
 
 public sealed record UpdateSharingRequest(
     bool ShareStudyWithParent, bool ShareTestsWithParent, bool ShareStudyWithTeacher, bool ShareTestsWithTeacher);

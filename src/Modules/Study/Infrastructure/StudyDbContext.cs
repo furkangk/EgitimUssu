@@ -89,6 +89,7 @@ internal sealed class StudyGoalConfiguration : IEntityTypeConfiguration<StudyGoa
         builder.ToTable("study_goals");
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Subject).HasMaxLength(120);
+        builder.Property(e => e.StreakThresholdPercent).HasDefaultValue(60);
         builder.Property(e => e.TargetNet).HasPrecision(7, 2);
         builder.Property(e => e.TargetScore).HasPrecision(9, 2);
         builder.HasIndex(e => new { e.StudentId, e.IsActive });

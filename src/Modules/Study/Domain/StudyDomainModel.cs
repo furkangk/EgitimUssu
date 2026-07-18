@@ -337,6 +337,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         decimal? targetNet,
         decimal? targetScore,
         string? subject,
+        int streakThresholdPercent,
         DateTime effectiveFromUtc)
     {
         Id = id;
@@ -346,6 +347,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         TargetNet = targetNet;
         TargetScore = targetScore;
         Subject = subject;
+        StreakThresholdPercent = Math.Clamp(streakThresholdPercent <= 0 ? 60 : streakThresholdPercent, 1, 100);
         EffectiveFromUtc = effectiveFromUtc;
         IsActive = true;
         CreatedOnUtc = effectiveFromUtc;
@@ -364,6 +366,9 @@ public sealed class StudyGoal : AggregateRoot<Guid>
 
     public string? Subject { get; private set; }
 
+    /// <summary>Günün streak'e sayılması için günlük hedefin tamamlanması gereken yüzdesi (1-100, varsayılan 60).</summary>
+    public int StreakThresholdPercent { get; private set; }
+
     public DateTime EffectiveFromUtc { get; private set; }
 
     public bool IsActive { get; private set; }
@@ -378,6 +383,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         decimal? targetNet,
         decimal? targetScore,
         string? subject,
+        int streakThresholdPercent,
         DateTime nowUtc)
     {
         DailyGoalMinutes = dailyGoalMinutes;
@@ -385,6 +391,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         TargetNet = targetNet;
         TargetScore = targetScore;
         Subject = subject;
+        StreakThresholdPercent = Math.Clamp(streakThresholdPercent <= 0 ? 60 : streakThresholdPercent, 1, 100);
         IsActive = true;
         UpdatedOnUtc = nowUtc;
 

@@ -73,6 +73,7 @@ public sealed record StudyGoalResponse(
     decimal? TargetNet,
     decimal? TargetScore,
     string? Subject,
+    int StreakThresholdPercent,
     bool IsActive,
     DateTime UpdatedOnUtc);
 

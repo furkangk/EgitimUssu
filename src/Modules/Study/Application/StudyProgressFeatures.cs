@@ -14,7 +14,8 @@ public sealed record UpdateStudyGoalsCommand(
     int? WeeklyGoalMinutes,
     decimal? TargetNet,
     decimal? TargetScore,
-    string? Subject) : ICommand<Result<StudyGoalResponse>>, IStudentScopedRequest;
+    string? Subject,
+    int StreakThresholdPercent) : ICommand<Result<StudyGoalResponse>>, IStudentScopedRequest;
 
 public sealed record GetStreakQuery(Guid StudentId) : IQuery<Result<StreakResponse>>, IStudentScopedRequest;
 
@@ -102,12 +103,13 @@ public sealed class UpdateStudyGoalsCommandHandler : ICommandHandler<UpdateStudy
                 command.TargetNet,
                 command.TargetScore,
                 subject,
+                command.StreakThresholdPercent,
                 now);
             await _repository.AddGoalAsync(goal, cancellationToken);
         }
         else
         {
-            goal.UpdateGoals(command.DailyGoalMinutes, command.WeeklyGoalMinutes, command.TargetNet, command.TargetScore, subject, now);
+            goal.UpdateGoals(command.DailyGoalMinutes, command.WeeklyGoalMinutes, command.TargetNet, command.TargetScore, subject, command.StreakThresholdPercent, now);
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
