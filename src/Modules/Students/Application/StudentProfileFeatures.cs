@@ -4,6 +4,11 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
 
+internal static class StudentLimits
+{
+    public const int FreeStudentLimit = 5; // TODO(M17): premium sınırsız
+}
+
 public sealed record StudentSubjectRequest(string Subject, string? TargetLevel);
 
 public sealed record CreateStudentProfileCommand(
@@ -84,13 +89,20 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
 {
     private static readonly Error InvalidOrigin = new("students.invalid_origin", "Öğrenci profili kaynağı ile kimlik bilgileri uyumsuz.");
     private static readonly Error DuplicateUserProfile = new("students.user_profile_exists", "Bu kullanıcı için öğrenci profili zaten var.");
+    private static readonly Error FreeLimitReached = new("students.free_limit_reached", "Free planda en fazla 5 ogrenci ekleyebilirsiniz. Premium'a gecin.");
     private readonly IStudentProfileRepository _repository;
+    private readonly ITeacherStudentLinkRepository _linkRepository;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
-    public CreateStudentProfileCommandHandler(IStudentProfileRepository repository, IIdGenerator idGenerator, IClock clock)
+    public CreateStudentProfileCommandHandler(
+        IStudentProfileRepository repository,
+        ITeacherStudentLinkRepository linkRepository,
+        IIdGenerator idGenerator,
+        IClock clock)
     {
         _repository = repository;
+        _linkRepository = linkRepository;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -113,6 +125,15 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
             if (existingProfile is not null)
             {
                 return Result<StudentProfileResponse>.Failure(DuplicateUserProfile);
+            }
+        }
+
+        if (command.Origin == StudentOrigin.TeacherManaged && command.CreatedByTeacherUserId is { } teacherId)
+        {
+            var count = await _linkRepository.CountByTeacherAsync(teacherId, cancellationToken);
+            if (count >= StudentLimits.FreeStudentLimit)
+            {
+                return Result<StudentProfileResponse>.Failure(FreeLimitReached);
             }
         }
 
@@ -144,6 +165,13 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
 
         await _repository.AddAsync(profile, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        if (command.Origin == StudentOrigin.TeacherManaged && command.CreatedByTeacherUserId is { } linkTeacherId)
+        {
+            var link = new TeacherStudentLink(_idGenerator.New(), linkTeacherId, profile.Id, TeacherStudentLinkStatus.Manual, now);
+            await _linkRepository.AddAsync(link, cancellationToken);
+            await _linkRepository.SaveChangesAsync(cancellationToken);
+        }
 
         return Result<StudentProfileResponse>.Success(profile.ToResponse());
     }

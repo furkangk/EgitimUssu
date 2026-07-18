@@ -121,6 +121,7 @@ public sealed class StudentsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "students.user_profile_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "students.free_limit_reached" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "students.profile_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
