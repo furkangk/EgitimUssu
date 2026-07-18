@@ -43,6 +43,15 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapPut("/profiles/{studentId:guid}", UpdateStudentProfileAsync)
         .WithSummary("Öğrenci profilini günceller veya pasifleştirir");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/students/{studentId:guid}/archive", ArchiveStudentAsync)
+        .WithSummary("Öğretmen-öğrenci bağlantısını arşivler");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/students/{studentId:guid}/unarchive", UnarchiveStudentAsync)
+        .WithSummary("Öğretmen-öğrenci bağlantısını arşivden çıkarır");
+
+        group.MapPut("/teachers/{teacherUserId:guid}/students/{studentId:guid}/rate", SetStudentRateAsync)
+        .WithSummary("Öğrenci bazlı anlaşılan ücreti günceller");
     }
 
     /// <summary>
@@ -112,6 +121,60 @@ public sealed class StudentsModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// Öğretmen-öğrenci bağlantısını arşivler (öğrenci listeden gizlenir, limit sayımını etkilemez).
+    /// </summary>
+    private static async Task<IResult> ArchiveStudentAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ArchiveTeacherStudentLinkCommand(teacherUserId, studentId, true), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen-öğrenci bağlantısını arşivden çıkarır.
+    /// </summary>
+    private static async Task<IResult> UnarchiveStudentAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ArchiveTeacherStudentLinkCommand(teacherUserId, studentId, false), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin belirli bir öğrenci için anlaştığı ders ücretini günceller (B-07).
+    /// </summary>
+    private static async Task<IResult> SetStudentRateAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        SetStudentRateRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new SetTeacherStudentRateCommand(teacherUserId, studentId, request.AgreedRateAmount, request.Currency),
+            cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    private static IResult MapLinkError(HttpContext context, Result result)
+        => result.Error.Code switch
+        {
+            "students.link_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "students.user_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -134,6 +197,11 @@ public sealed class StudentsModule : ModuleDefinition
 /// Öğrencinin takip ettiği ders alanını ve hedef seviyesini belirtir.
 /// </summary>
 public sealed record StudentSubjectItem(string Subject, string? TargetLevel);
+
+/// <summary>
+/// Öğretmen-öğrenci bağlantısı için anlaşılan ders ücretini taşır (B-07).
+/// </summary>
+public sealed record SetStudentRateRequest(decimal AgreedRateAmount, string Currency);
 
 /// <summary>
 /// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.
