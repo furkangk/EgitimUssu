@@ -8,7 +8,7 @@ namespace EgitimUssu.Modules.Study.Application;
 /// Öğrencinin yerel takvim günü hesabı. M15 (Settings) zaman dilimi tercihi devreye girene kadar
 /// Türkiye saati (UTC+3) varsayılır.
 /// </summary>
-internal static class StudyLocalTime
+public static class StudyLocalTime
 {
     public const int OffsetHours = 3;
 
@@ -16,6 +16,23 @@ internal static class StudyLocalTime
 
     public static DateTime LocalDayStartUtc(DateOnly localDate) =>
         DateTime.SpecifyKind(localDate.ToDateTime(TimeOnly.MinValue).AddHours(-OffsetHours), DateTimeKind.Utc);
+
+    /// <summary>Streak gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).</summary>
+    public static DateOnly StreakDate(DateTime utcNow) => DateOnly.FromDateTime(utcNow.AddHours(OffsetHours).AddHours(-4));
+}
+
+/// <summary>Streak (seri) kuralları — birim testli saf mantık.</summary>
+public static class StreakRules
+{
+    public const int MinFixedThresholdMinutes = 20;
+
+    public static int EffectiveThresholdMinutes(int dailyGoalMinutes, int thresholdPercent)
+        => dailyGoalMinutes > 0
+            ? (int)Math.Ceiling(dailyGoalMinutes * (thresholdPercent / 100.0))
+            : MinFixedThresholdMinutes;
+
+    public static bool DayCounts(int dayTotalMinutes, int dailyGoalMinutes, int thresholdPercent)
+        => dayTotalMinutes >= EffectiveThresholdMinutes(dailyGoalMinutes, thresholdPercent);
 }
 
 /// <summary>
