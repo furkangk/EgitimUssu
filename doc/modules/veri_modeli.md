@@ -46,6 +46,8 @@ erDiagram
     UserAccount ||--o| UserSubscription : "UserId (önerilen)"
 
     TeacherProfile ||--o{ TeacherAvailabilitySlot : has
+    TeacherProfile ||--o{ TeacherSubject : has
+    TeacherProfile ||--o{ TeacherCertificate : has
     StudentProfile ||--o{ StudentSubject : has
     ParentProfile ||--o{ ParentChildLink : "onaylı bağ"
     StudentProfile ||--o{ ParentChildLink : "StudentId"
@@ -90,6 +92,8 @@ erDiagram
 | | `UserRoleMembership` / `RefreshTokenSession` / `UserSecurityToken` | `Id` | `UserAccountId` → UserAccount | |
 | Teachers (`teachers`) | `TeacherProfile` | `Id` | `UserId` → UserAccount | [m02](m02_teachers.md) |
 | | `TeacherAvailabilitySlot` | `Id` | `TeacherProfileId` → TeacherProfile | |
+| | `TeacherSubject` | `Id` | `TeacherProfileId` → TeacherProfile | çoklu branş (birincil `Subject` korunur) |
+| | `TeacherCertificate` | `Id` | `TeacherProfileId` → TeacherProfile | sertifika/deneyim |
 | Students (`students`) | `StudentProfile` | `Id` | `UserId?`, `CreatedByTeacherUserId?`, `ParentUserId?` → UserAccount | [m03](m03_students.md) |
 | | `StudentSubject` | `Id` | `StudentProfileId` → StudentProfile | |
 | Scheduling (`scheduling`) | `LessonSchedule` (+`MeetingUrl`, `OriginalStartAtUtc`, `RescheduleNote`, `CancellationReason`, `IsChargeable` — 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
@@ -154,4 +158,4 @@ erDiagram
 
 ---
 
-*Veri Modeli & ER Şeması | Güncelleme: 2026-07-18 (Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar)*
+*Veri Modeli & ER Şeması | Güncelleme: 2026-07-18 (Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim D: `TeacherSubject`, `TeacherCertificate`)*

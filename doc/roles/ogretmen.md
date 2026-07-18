@@ -34,7 +34,7 @@ Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, il
 | Adım | Yetenek | Modül | PRD | Durum |
 |------|---------|-------|-----|-------|
 | 0 | Giriş / kayıt / rol | [`m01_identity`](../modules/m01_identity.md) | M01 | 🟢 |
-| 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 (çoklu branş + sertifika ⚠️ — bkz. §11) |
+| 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 (çoklu branş + sertifika ✅ Dilim D) |
 | 2 | Öğrenci ekle & listele | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 (silme/arşiv/davet ⚠️ — bkz. §11) |
 | 3 | Takvimde ders planla (tek/tekrarlı, online/yüz yüze + link) | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 (Dilim A tamam: link+tatil+erteleme+iptal-nedeni/sil+occurrence-kapsamı, 2026-07-18) |
 | 4 | Dersi işle/tamamla, katılım & not | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | M05 | 🟢 (gelmedi→ücretlendirme ✅ Dilim A; not görünürlüğü ⚠️ Dilim B) |
@@ -130,7 +130,7 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 ### 10.2 Yanlış yapılandırma (sadece eksik değil — düzeltme gerekir)
 
-1. **M02 branş tekilliği:** `TeacherProfile.Subject` **tek string**; doküman "branş(**lar**)" ve Faz 4 eşleştirme filtreleri çoklu branş varsayar → `List<TeacherSubject>`'e taşınmalı. **Certificate** entity'si de yok (T-02.12). (Dilim D)
+1. ✅ **M02 branş tekilliği + sertifika (Dilim D, 2026-07-18):** `TeacherSubject` çoklu branş koleksiyonu + `TeacherCertificate` (T-02.12) eklendi; birincil `TeacherProfile.Subject` korunur (domain event + eşleştirme kırılmadı), mevcut profiller migration backfill'i ile `teacher_subjects`'e taşındı. Upsert `Subjects`/`Certificates` listeleri taşır.
 2. ✅ **Erteleme = düzenleme (Dilim A, 2026-07-18):** ayrı `Reschedule()` domain metodu + `POST /lessons/{id}/reschedule` + `OriginalStartAtUtc`/`RescheduleNote` erteleme geçmişi; statü Planned kalır (kayıtlı taşıma).
 3. ✅ **İptal veri modeli (Dilim A, 2026-07-18):** `CancellationReason` enum + `IsChargeable` eklendi.
 4. ✅ **Tekrar eden ders sanal model (Dilim A, 2026-07-18):** `LessonOccurrenceException` tablosu + `RecurrenceExpander` istisna overload'u ile B-03 çözüldü.
@@ -139,7 +139,7 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 - **Öncelik 1 (Faz 1'i kullanılabilir yapan):** ✅ B-03 (occurrence yönetimi), ✅ B-01 (tatil bloğu), ✅ B-02 (erteleme) — **Dilim A tamam**; B-05 (not görünürlüğü) → Dilim B.
 - **Öncelik 2 (yüksek etkili):** B-07 (öğrenci bazlı ücret, Dilim C), ✅ B-08 (gelmedi→ücretlendirme), ✅ B-09 (iptal nedeni/sil) — **Dilim A tamam**; B-04 (arşivleme, Dilim C).
-- **Öncelik 3 (olgunluk):** M02 çoklu branş + sertifika (Dilim D), B-06 (öğrenci davet), ✅ B-10 (online link) — **Dilim A tamam**.
+- **Öncelik 3 (olgunluk):** ✅ M02 çoklu branş + sertifika (Dilim D tamam, 2026-07-18), B-06 (öğrenci davet), ✅ B-10 (online link) — **Dilim A tamam**.
 
 ### 10.4 Karar bekleyen sorular (veri modelini etkiler)
 1. Bir öğrenci **birden fazla öğretmene** bağlanabilir mi? (→ `TeacherStudent` bağlantı tablosu gerekli mi?)
@@ -156,4 +156,4 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim D: M02 çoklu branş + sertifika)*

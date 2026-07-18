@@ -111,6 +111,7 @@ POST /users/{userId}/roles (auth, yalnız Admin — rol atama)
 ```
 POST /profiles   PUT /profiles/{userId}   GET /profiles/{userId}
 ```
+> Not (Dilim D): profil upsert artık **çoklu branş** (`Subjects`) ve **sertifika/deneyim** (`Certificates`) listelerini de taşır; birincil `Subject` korunur. Tablolar: `teacher_subjects`, `teacher_certificates`.
 ### API.Host BFF — (compose root, modül sınırları dışı)
 ```
 GET /api/teachers/profiles/{teacherUserId}/dashboard-summary  (auth)
@@ -202,4 +203,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim D: M02 çoklu branş + sertifika)*
