@@ -76,6 +76,8 @@ public sealed class LessonSession : AggregateRoot<Guid>
 
     public DateTime? CompletedOnUtc { get; private set; }
 
+    public bool IsChargeable { get; private set; }
+
     public void Complete(
         DateTime actualStartAtUtc,
         DateTime actualEndAtUtc,
@@ -83,6 +85,7 @@ public sealed class LessonSession : AggregateRoot<Guid>
         string topicTitle,
         string? coveredContent,
         string? teacherNotes,
+        bool isChargeable,
         DateTime completedOnUtc)
     {
         ActualStartAtUtc = actualStartAtUtc;
@@ -93,6 +96,7 @@ public sealed class LessonSession : AggregateRoot<Guid>
         TopicTitle = topicTitle;
         CoveredContent = coveredContent;
         TeacherNotes = teacherNotes;
+        IsChargeable = isChargeable;
         CompletedOnUtc = completedOnUtc;
 
         Raise(new LessonSessionCompletedDomainEvent(Id, LessonScheduleId, TeacherUserId, StudentId, completedOnUtc));

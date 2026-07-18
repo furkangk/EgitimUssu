@@ -29,6 +29,7 @@
     <ProjectReference Include="..\..\src\Modules\Payments\Domain\EgitimUssu.Modules.Payments.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Payments\Application\EgitimUssu.Modules.Payments.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Scheduling\Application\EgitimUssu.Modules.Scheduling.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\LessonSessions\Domain\EgitimUssu.Modules.LessonSessions.Domain.csproj" />
   </ItemGroup>
 
 </Project>

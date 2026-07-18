@@ -73,7 +73,8 @@ public sealed class LessonSessionsModule : ModuleDefinition
                 request.AttendanceStatus,
                 request.TopicTitle,
                 request.CoveredContent,
-                request.TeacherNotes),
+                request.TeacherNotes,
+                request.IsChargeable),
             cancellationToken);
 
         return ToHttpResult(context, result);
@@ -158,4 +159,5 @@ public sealed record CompleteLessonSessionRequest(
     StudentAttendanceStatus AttendanceStatus,
     string TopicTitle,
     string? CoveredContent,
-    string? TeacherNotes);
+    string? TeacherNotes,
+    bool IsChargeable);
