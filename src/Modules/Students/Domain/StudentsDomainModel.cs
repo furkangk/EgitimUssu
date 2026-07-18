@@ -65,6 +65,12 @@ public sealed class StudentProfile : AggregateRoot<Guid>
 
     public bool IsActive { get; private set; }
 
+    /// <summary>Bu profil başka bir kanonik profile birleştirildiyse true olur (Ö-C claim/merge).</summary>
+    public bool IsMerged { get; private set; }
+
+    /// <summary>Birleştirme sonrası kanonik (hedef) öğrenci profilinin kimliği; birleşmediyse null.</summary>
+    public Guid? MergedIntoStudentId { get; private set; }
+
     /// <summary>Öğrencinin hedeflediği sınav; net formülü ve deneme türetimlerinde kullanılır (S-03.9).</summary>
     public TargetExam TargetExam { get; private set; }
 
@@ -120,6 +126,20 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         UserId = userId;
         UpdatedOnUtc = updatedOnUtc;
     }
+
+    /// <summary>
+    /// Bu (manuel) profili, öğrencinin mevcut kanonik self-profil'ine birleştirir (Ö-C claim/merge).
+    /// Profil pasifleştirilir ve modüller-arası <c>StudentId</c> yeniden atamasını tetikleyecek
+    /// <see cref="StudentProfilesMergedDomainEvent"/> yayılır (Outbox → integration event).
+    /// </summary>
+    public void MarkMerged(Guid canonicalStudentId, DateTime updatedOnUtc)
+    {
+        IsMerged = true;
+        MergedIntoStudentId = canonicalStudentId;
+        IsActive = false;
+        UpdatedOnUtc = updatedOnUtc;
+        Raise(new StudentProfilesMergedDomainEvent(Id, canonicalStudentId, updatedOnUtc));
+    }
 }
 
 public sealed class StudentSubject : Entity<Guid>
@@ -167,6 +187,15 @@ public sealed record StudentProfileCreatedDomainEvent(
     Guid? CreatedByTeacherUserId,
     StudentOrigin Origin,
     DateTime CreatedOnUtc) : DomainEvent;
+
+/// <summary>
+/// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge) yayılır. Diğer modüller bu olayı
+/// tüketerek <c>FromStudentId</c>'ye ait kayıtlarını kanonik <c>ToStudentId</c>'ye yeniden atar.
+/// </summary>
+public sealed record StudentProfilesMergedDomainEvent(
+    Guid FromStudentId,
+    Guid ToStudentId,
+    DateTime OnUtc) : DomainEvent;
 
 public sealed class TeacherStudentLink : AggregateRoot<Guid>
 {

@@ -87,6 +87,39 @@ public sealed class StudentClaimTests
     }
 
     [Fact]
+    public async Task Claim_ValidCode_ExistingSelfProfile_MergesIntoCanonical()
+    {
+        var teacherId = Guid.NewGuid();
+        var manualStudentId = Guid.NewGuid();
+        var selfStudentId = Guid.NewGuid();
+        var claimingUserId = Guid.NewGuid();
+
+        var link = new TeacherStudentLink(Guid.NewGuid(), teacherId, manualStudentId, TeacherStudentLinkStatus.Manual, Now);
+        link.MarkInviteSent("123456", null, Now);
+        var manualProfile = new StudentProfile(manualStudentId, null, teacherId, null, "Ali", "9", null, null, null, null, StudentOrigin.TeacherManaged, true, Now);
+        var selfProfile = new StudentProfile(selfStudentId, claimingUserId, null, null, "Ali Veli", "9", null, null, null, null, StudentOrigin.SelfRegistered, true, Now);
+
+        var linkRepo = new ClaimLinkRepo(link);
+        var profileRepo = new ClaimProfileRepo(manualProfile, byUserId: selfProfile);
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new FakeClock());
+
+        var result = await handler.Handle(new ClaimStudentLinkCommand("123456", claimingUserId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
+        // Manuel profil kanonik self-profil'e birleştirildi.
+        Assert.True(manualProfile.IsMerged);
+        Assert.Equal(selfStudentId, manualProfile.MergedIntoStudentId);
+        // Manuel profile bağlı olmayan kullanıcı; kanonik = self-profil olduğundan manuel profile LinkUser yapılmaz.
+        Assert.Null(manualProfile.UserId);
+
+        // Merge integration event (Outbox) için domain event yayıldı: kaynak=manuel, hedef=self.
+        var mergeEvent = Assert.Single(manualProfile.DomainEvents.OfType<StudentProfilesMergedDomainEvent>());
+        Assert.Equal(manualStudentId, mergeEvent.FromStudentId);
+        Assert.Equal(selfStudentId, mergeEvent.ToStudentId);
+    }
+
+    [Fact]
     public async Task Claim_UnknownCode_ReturnsInviteNotFound()
     {
         var linkRepo = new ClaimLinkRepo(null);

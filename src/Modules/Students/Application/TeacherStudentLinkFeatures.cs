@@ -219,10 +219,19 @@ public sealed class ClaimStudentLinkCommandHandler : ICommandHandler<ClaimStuden
         link.Accept(_clock.UtcNow);
 
         var manualProfile = await _profileRepository.GetByIdAsync(link.StudentId, cancellationToken);
+        var existingProfile = await _profileRepository.GetByUserIdAsync(command.ClaimingUserId, cancellationToken);
 
-        // Mevcut self-register profil yoksa: manuel profili öğrenci kullanıcısına bağla (basit devralma).
-        // Varsa: tam profil birleştirme (merge) — Task 3.
-        manualProfile?.LinkUser(command.ClaimingUserId, _clock.UtcNow);
+        if (manualProfile is not null && existingProfile is not null && existingProfile.Id != manualProfile.Id)
+        {
+            // Öğrencinin zaten bir self-register profili var → kanonik = self-profil. Manuel profili
+            // birleştir (pasifleştir) ve modüller-arası StudentId yeniden atamasını tetikle (Outbox).
+            manualProfile.MarkMerged(existingProfile.Id, _clock.UtcNow);
+        }
+        else
+        {
+            // Mevcut self-register profil yok → manuel profili öğrenci kullanıcısına bağla (basit devralma).
+            manualProfile?.LinkUser(command.ClaimingUserId, _clock.UtcNow);
+        }
 
         await _repository.SaveChangesAsync(cancellationToken);
         return Result.Success();
