@@ -26,7 +26,7 @@
 
 ### ⚠️ Sınır / Gelecek işler
 - **Sahiplik modeli:** Study, kendi sınırı içinde `StudyStudent` bağını **ilk yazımda oturum kullanıcısına** bağlar. Manuel öğrenci hijack'ini tümüyle kapatmak için M03 `StudentProfileCreated` integration event tüketimi eklenmeli.
-- **Yerel gün (streak):** M15 zaman dilimi tercihi gelene kadar Türkiye saati (UTC+3) varsayılır (`StudyLocalTime`).
+- **Yerel gün (streak):** M15 zaman dilimi tercihi gelene kadar Türkiye saati (UTC+3) varsayılır (`StudyLocalTime`). Streak gün sınırı 04:00'tir (`StudyLocalTime.StreakDate`); istatistik/haftalık özet ise gece yarısı tabanlı `LocalDate` kullanır.
 - **Konu sözlüğü:** `Subject/Topic` serbest metin; M15 müfredat sözlüğüne bağlanmalı.
 - **Veli/öğretmen okuma yolu:** Paylaşım bayrakları (`IsSharedWith*`) kayıtlarda tutulur; M09/öğretmen görünümünün bunları okuması bağ + integration event ile tamamlanacak.
 
@@ -120,6 +120,7 @@ public enum TestType { Branch = 1, General = 2, Subject = 3, Topic = 4 }
 | `TargetNet` | `decimal?` | — | Ders/genel için hedef net |
 | `TargetScore` | `decimal?` | — | Hedef puan (örn. sıralama/puan) |
 | `Subject` | `string?` | — | Hedef belirli bir derse özelse |
+| `StreakThresholdPercent` | `int` | ✓ | Günün seriye sayılması için günlük hedefin tamamlanması gereken yüzdesi (1–100, varsayılan 60; `Math.Clamp`) |
 | `EffectiveFromUtc` | `DateTime` | ✓ | Hedefin geçerlilik başlangıcı |
 | `IsActive` | `bool` | ✓ | Aktif mi |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
@@ -145,6 +146,8 @@ Motivasyon çekirdeği: ardışık çalışılan gün sayısı ve kişisel rekor
 - dün ise `CurrentStreakDays++`,
 - arada boşluk varsa `CurrentStreakDays = 1` (seri kırıldı, `StreakBrokenDomainEvent`),
 - `LongestStreakDays` güncellenir; rekor kırılırsa `StreakMilestoneReachedDomainEvent`.
+
+**Streak eşiği (B3):** `RegisterStudyDay` artık her tamamlanan seansta çağrılmaz. `StudyCompletionService`, o günün (04:00 tabanlı `StudyLocalTime.StreakDate`) toplam efektif dakikasını hesaplar ve yalnız eşik aşılınca günü seriye işler. Eşik saf `StreakRules` sınıfındadır: günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk** (`MinFixedThresholdMinutes`). Gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).
 
 ### 2.5 `Achievement` / `StudentAchievement` — Başarım rozetleri
 
@@ -441,4 +444,4 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-09*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19*

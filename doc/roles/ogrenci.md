@@ -6,7 +6,7 @@
 > takip edebilsin; öğretmenle eşleşirse ders/ödev akışı da buraya bağlansın.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogretmen.md`](ogretmen.md) · [`veli.md`](veli.md) · [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
-> **Güncelleme:** 2026-07-07
+> **Güncelleme:** 2026-07-19
 
 ---
 
@@ -70,6 +70,7 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 5. **Ödev yükleme + son tarih:** Öğretmene bağlıysa öğrenci ödevini **yükler**; son teslim tarihinden önce yüklemezse **veliye bildirim** gidebilir (M06 + M11 + M09).
 6. **Gizlilik:** Öğrenci bireysel çalışma verisini veli/öğretmenle paylaşıp paylaşmayacağını seçer (M15 `ShareStudyDataWith*`).
 7. **Gamification amacı:** Seri ve başarımlar, öğrenciyi çalışmaya teşvik ve sistemde tutma içindir.
+8. **Streak eşiği (anlamlı seri):** Bir gün seriye ancak günlük hedefin ayarlanabilir bir yüzdesi (`StreakThresholdPercent`, varsayılan **%60**; günlük hedef yoksa sabit **20 dk**) tamamlanınca sayılır — kısa bir seans seriyi ilerletmez. Streak gün sınırı **04:00**'tir; gece geç çalışan öğrenci dünkü serisini korur (M08).
 
 ---
 
@@ -99,7 +100,7 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 - [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
 - [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
 - [x] Test girişi + net + konu bazlı takip (net-trend).
-- [x] Hedef + seri + başarım sistemi.
+- [x] Hedef + seri + başarım sistemi (seri, ayarlanabilir günlük-hedef eşiği + 04:00 gün sınırı ile — anlamlı streak).
 - [ ] Konu eksik/gelişim/hedef (M10 — iskelet).
 - [ ] Öğretmene bağlıysa ödev yükleme + ders notu/kaynak görüntüleme (M06 öğrenci görünümü ⚠️).
 - [ ] Özel ders çakışmasında öncelik + uyarı (M04 entegrasyonu ⚠️).
@@ -110,4 +111,4 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 
 ---
 
-*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
+*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-A streak eşiği: `StreakThresholdPercent` + 04:00 gün sınırı — anlamlı seri) · 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
