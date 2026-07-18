@@ -60,4 +60,13 @@ abstract interface class AssignmentRepository {
     FollowUpAssignment followUpAssignment,
   );
   Future<List<AssignmentItem>> listByTeacher(String teacherUserId);
+
+  /// Öğrencinin kendi ödevleri (kendi StudentId'sine göre; sunucu sahiplik filtresini zorlar).
+  Future<List<AssignmentItem>> listByStudent(String studentId);
+
+  /// Öğrenci ödevi tamamlandı olarak işaretler.
+  Future<AssignmentItem> completeAssignment(String assignmentId);
+
+  /// Öğrenci ödev çözümünü (dosya) yükler; teslim sonrası ödev "devam ediyor"a geçer.
+  Future<AssignmentItem> submitWork(String assignmentId, String filePath);
 }

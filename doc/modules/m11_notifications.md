@@ -26,13 +26,19 @@
 | Authorizer | `src/Modules/Notifications/Application/NotificationPolicies.cs` | `LessonReminderQueryAuthorizer` (Admin **veya** sahibi öğretmen) |
 | API endpoint | `src/Modules/Notifications/API/NotificationsModule.cs` | `GET /api/notifications/teachers/{teacherUserId}/lesson-reminders?activeOnly=` |
 | Zamanlayıcı | `src/Modules/Notifications/Infrastructure/NotificationDispatching.cs` | `NotificationDispatcher` (BackgroundService, **30 sn** poll) → `NotificationDispatchProcessor.DispatchDueRemindersAsync()` |
-| Integration handler | `src/Modules/Notifications/Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs` | Scheduling event'lerini dinler |
+| Integration handler | `src/Modules/Notifications/Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs` | Scheduling **ders** event'lerini dinler |
+| Integration handler | `src/Modules/Notifications/Infrastructure/StudyScheduleReminderIntegrationEventHandler.cs` | Scheduling **öğrenci kişisel program** event'lerini dinler (2026-07-08) |
 
 **Çalışma şekli (doğrulanmış):**
 - API grubu `RequireAuthorization("AuthenticatedUser")` ile korunur. Tek endpoint öğretmen hatırlatma listesini döner; `activeOnly=true` ise yalnızca `Pending` durumdakiler filtrelenir, `RemindAtUtc` artan + `CreatedOnUtc` sırasıyla döner.
 - `LessonScheduleNotificationIntegrationEventHandler.CanHandle` yalnızca `SourceModule == "Scheduling"` ve `Name ∈ {LessonScheduledDomainEvent, LessonScheduleCancelledDomainEvent}` olduğunda çalışır.
-  - **LessonScheduled** → ilgili `LessonScheduleId` için kayıt **yoksa** yeni `LessonReminder` oluşturur. Başlık `"Yaklasan ders hatirlatmasi"`, mesaj `"Ders {StartAtUtc:O} tarihinde baslayacak."`, `Channel = InApp`, `Status = Pending`, `RemindAtUtc = StartAtUtc.AddMinutes(-max(ReminderOffsetMinutes, 0))` — offset **event payload'ından** gelir (2026-07-01, Y1; önceden sabit 60 dk idi). Var olan kayıt kontrolü ile **idempotent**.
+  - **LessonScheduled** → ilgili `LessonScheduleId` için kayıt **yoksa** yeni `LessonReminder` oluşturur. Başlık `"Yaklasan ders hatirlatmasi"`, mesaj `"Ders {StartAtUtc:O} tarihinde baslayacak."`, `Channel = InApp`, `Status = Pending`, `RemindAtUtc = StartAtUtc.AddMinutes(-max(ReminderOffsetMinutes, 0))` — offset **event payload'ından** gelir (2026-07-01, Y1; önceden sabit 60 dk idi). Öğretmen offset'i artık mobil `LessonFormSheet` içinde seçer (Kapalı/15/30dk/1sa/1gün, 2026-07-08). Var olan kayıt kontrolü ile **idempotent**.
   - **LessonScheduleCancelled** → `LessonScheduleId` ile bulunan kayıtta `Cancel()` çağrılır.
+- `StudyScheduleReminderIntegrationEventHandler.CanHandle` (2026-07-08): `SourceModule == "Scheduling"` ve `Name ∈ {StudyScheduleEntryScheduledDomainEvent, StudyScheduleEntryRescheduledDomainEvent, StudyScheduleEntryCancelledDomainEvent}`. Öğrencinin kendi program girdisi için hatırlatma yönetir; kayıt aynı `LessonReminder` aggregate'ında tutulur — girdinin kimliği `LessonScheduleId` alanına (tekil), `StudentId` öğrenciye, `TeacherUserId = Guid.Empty` (öğretmen yok).
+  - **Scheduled** → `ReminderOffsetMinutes > 0` ise (yoksa kayıt oluşturulmaz, `0` = kapalı) idempotent `LessonReminder` (başlık `"Calisma hatirlatmasi"`, `RemindAtUtc = StartAtUtc − offset`).
+  - **Rescheduled** → mevcut kayıt yeni saate taşınır (`Reschedule`, Pending'e alınır); offset `0` olduysa iptal edilir; kayıt yoksa oluşturulur.
+  - **Cancelled** → mevcut kayıtta `Cancel()`.
+  - Tekrarlı girdide hatırlatma **ilk oluşuma** göre (öğretmen dersleriyle aynı MVP davranışı). Notifications, Scheduling'e proje referansı vermez — olay adı + JSON payload üzerinden çalışır.
 - `NotificationDispatcher` her 30 sn'de bir kendi scope'unu açar, `ListDuePendingAsync(utcNow)` (yani `RemindAtUtc <= now && Status == Pending`) sonuçlarının her biri için `reminder.MarkSent(utcNow)` çağırır ve değişiklikleri kaydeder.
 
 ### 🔴 Eksik olan
@@ -72,6 +78,7 @@ Kaynak: `src/Modules/Notifications/Domain/NotificationsDomainModel.cs`
 **Davranışlar (idempotent guard'lı):**
 - `MarkSent(utcNow)` → yalnızca `Status == Pending` ise `Sent` yapar, `LessonReminderSentDomainEvent` üretir.
 - `Cancel(utcNow)` → zaten `Cancelled` değilse `Cancelled` yapar, `LessonReminderCancelledDomainEvent` üretir.
+- `Reschedule(scheduledStartAtUtc, remindAtUtc, utcNow)` (2026-07-08) → kayıt aynı kalırken zamanı günceller ve `Pending`'e alır (kaynak ders/girdi güncellendiğinde; tek-satır kısıtı korunur). Event üretmez.
 - Constructor → `LessonReminderCreatedDomainEvent` üretir.
 
 **Domain event'leri:** `LessonReminderCreatedDomainEvent`, `LessonReminderSentDomainEvent`, `LessonReminderCancelledDomainEvent` (her biri `LessonReminderId, LessonScheduleId, TeacherUserId, StudentId` + ilgili zaman damgasını taşır).
@@ -252,4 +259,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-07-01*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*

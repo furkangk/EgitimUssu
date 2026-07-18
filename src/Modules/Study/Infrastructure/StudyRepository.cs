@@ -138,6 +138,66 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddTopicAsync(StudyTopic topic, CancellationToken cancellationToken) =>
         _dbContext.StudyTopics.AddAsync(topic, cancellationToken).AsTask();
 
+    public async Task<IReadOnlyList<StudentSubjectCatalog>> ListCatalogSubjectsAsync(Guid studentId, CancellationToken cancellationToken) =>
+        await _dbContext.StudentSubjectCatalogs
+            .Where(x => x.StudentId == studentId)
+            .ToArrayAsync(cancellationToken);
+
+    public Task<StudentSubjectCatalog?> GetCatalogSubjectAsync(Guid subjectId, CancellationToken cancellationToken) =>
+        _dbContext.StudentSubjectCatalogs.FirstOrDefaultAsync(x => x.Id == subjectId, cancellationToken);
+
+    public Task AddCatalogSubjectAsync(StudentSubjectCatalog subject, CancellationToken cancellationToken) =>
+        _dbContext.StudentSubjectCatalogs.AddAsync(subject, cancellationToken).AsTask();
+
+    public async Task RemoveCatalogSubjectAsync(StudentSubjectCatalog subject, CancellationToken cancellationToken)
+    {
+        var topics = await _dbContext.StudentTopicCatalogs
+            .Where(x => x.SubjectId == subject.Id)
+            .ToArrayAsync(cancellationToken);
+        _dbContext.StudentTopicCatalogs.RemoveRange(topics);
+        _dbContext.StudentSubjectCatalogs.Remove(subject);
+    }
+
+    public async Task<IReadOnlyList<StudentTopicCatalog>> ListCatalogTopicsAsync(Guid studentId, CancellationToken cancellationToken) =>
+        await _dbContext.StudentTopicCatalogs
+            .Where(x => x.StudentId == studentId)
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<StudentTopicCatalog>> ListCatalogTopicsBySubjectAsync(Guid subjectId, CancellationToken cancellationToken) =>
+        await _dbContext.StudentTopicCatalogs
+            .Where(x => x.SubjectId == subjectId)
+            .ToArrayAsync(cancellationToken);
+
+    public Task<StudentTopicCatalog?> GetCatalogTopicAsync(Guid topicId, CancellationToken cancellationToken) =>
+        _dbContext.StudentTopicCatalogs.FirstOrDefaultAsync(x => x.Id == topicId, cancellationToken);
+
+    public Task AddCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) =>
+        _dbContext.StudentTopicCatalogs.AddAsync(topic, cancellationToken).AsTask();
+
+    public Task RemoveCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken)
+    {
+        _dbContext.StudentTopicCatalogs.Remove(topic);
+        return Task.CompletedTask;
+    }
+
+    public async Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken) =>
+        await _dbContext.StudyNotes
+            .Where(x => x.StudentId == studentId)
+            .OrderByDescending(x => x.UpdatedOnUtc)
+            .ToArrayAsync(cancellationToken);
+
+    public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) =>
+        _dbContext.StudyNotes.FirstOrDefaultAsync(x => x.Id == noteId, cancellationToken);
+
+    public Task AddNoteAsync(StudyNote note, CancellationToken cancellationToken) =>
+        _dbContext.StudyNotes.AddAsync(note, cancellationToken).AsTask();
+
+    public Task RemoveNoteAsync(StudyNote note, CancellationToken cancellationToken)
+    {
+        _dbContext.StudyNotes.Remove(note);
+        return Task.CompletedTask;
+    }
+
     public async Task<IReadOnlyList<Achievement>> ListCatalogAsync(CancellationToken cancellationToken) =>
         await _dbContext.Achievements.AsNoTracking().ToArrayAsync(cancellationToken);
 

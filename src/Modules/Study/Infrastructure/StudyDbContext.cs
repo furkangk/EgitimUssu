@@ -33,6 +33,12 @@ public sealed class StudyDbContext : ModuleDbContext
 
     public DbSet<StudyStudent> StudyStudents => Set<StudyStudent>();
 
+    public DbSet<StudentSubjectCatalog> StudentSubjectCatalogs => Set<StudentSubjectCatalog>();
+
+    public DbSet<StudentTopicCatalog> StudentTopicCatalogs => Set<StudentTopicCatalog>();
+
+    public DbSet<StudyNote> StudyNotes => Set<StudyNote>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Study";
@@ -149,6 +155,45 @@ internal sealed class StudyTopicConfiguration : IEntityTypeConfiguration<StudyTo
         builder.Property(e => e.Subject).HasMaxLength(120).IsRequired();
         builder.Property(e => e.Topic).HasMaxLength(160).IsRequired();
         builder.HasIndex(e => new { e.StudentId, e.Subject, e.Topic }).IsUnique();
+    }
+}
+
+internal sealed class StudentSubjectCatalogConfiguration : IEntityTypeConfiguration<StudentSubjectCatalog>
+{
+    public void Configure(EntityTypeBuilder<StudentSubjectCatalog> builder)
+    {
+        builder.ToTable("student_subject_catalogs");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Name).HasMaxLength(120).IsRequired();
+        builder.Property(e => e.ColorHex).HasMaxLength(9);
+        builder.HasIndex(e => new { e.StudentId, e.Name });
+    }
+}
+
+internal sealed class StudentTopicCatalogConfiguration : IEntityTypeConfiguration<StudentTopicCatalog>
+{
+    public void Configure(EntityTypeBuilder<StudentTopicCatalog> builder)
+    {
+        builder.ToTable("student_topic_catalogs");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Name).HasMaxLength(160).IsRequired();
+        builder.HasIndex(e => new { e.SubjectId, e.OrderIndex });
+        builder.HasIndex(e => e.StudentId);
+    }
+}
+
+internal sealed class StudyNoteConfiguration : IEntityTypeConfiguration<StudyNote>
+{
+    public void Configure(EntityTypeBuilder<StudyNote> builder)
+    {
+        builder.ToTable("study_notes");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Title).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Body).HasMaxLength(8000).IsRequired();
+        builder.Property(e => e.Subject).HasMaxLength(120);
+        builder.Property(e => e.Topic).HasMaxLength(160);
+        builder.Property(e => e.AttachmentUrl).HasMaxLength(500);
+        builder.HasIndex(e => new { e.StudentId, e.UpdatedOnUtc });
     }
 }
 

@@ -69,6 +69,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
   _LessonCreateMode _mode = _LessonCreateMode.single;
   _LessonFormatOption _format = _LessonFormatOption.faceToFace;
   _RecurrenceFrequency _recurrenceFrequency = _RecurrenceFrequency.weekly;
+  int _reminderMinutes = 60;
   StudentProfile? _selectedStudent;
   String? _selectedSubject;
   DateTime? _selectedDate;
@@ -95,6 +96,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
           : _LessonFormatOption.faceToFace;
       _meetingLinkController.text = edit.meetingUrl ?? '';
       _notesController.text = edit.notes ?? '';
+      _reminderMinutes = edit.reminderOffsetMinutes ?? 60;
       return;
     }
     _selectedDate = widget.initialDate ?? DateTime.now();
@@ -466,6 +468,20 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                         ),
                       ],
                       const SizedBox(height: 16),
+                      const _SheetLabel(text: 'Hatirlatma'),
+                      const SizedBox(height: 8),
+                      _WideSegmentedControl<int>(
+                        values: _reminderOptions,
+                        selectedValue:
+                            _reminderOptions.contains(_reminderMinutes)
+                            ? _reminderMinutes
+                            : 60,
+                        labelBuilder: _reminderLabel,
+                        onChanged: (value) =>
+                            setState(() => _reminderMinutes = value),
+                        fontSize: 11,
+                      ),
+                      const SizedBox(height: 16),
                       _WeeklyPreviewCard(
                         draft: _buildDraft(),
                         existingLessons: widget.existingLessons,
@@ -691,7 +707,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
         timeZone: base.timeZone,
         status: base.status,
         recurrenceRule: base.recurrenceRule,
-        reminderOffsetMinutes: base.reminderOffsetMinutes ?? 60,
+        reminderOffsetMinutes: _reminderMinutes,
         locationLabel: isOnline ? 'Online' : 'Yuz yuze',
         meetingUrl: isOnline && meetingLink.isNotEmpty ? meetingLink : null,
         notes: _notesController.text.trim().isEmpty
@@ -712,7 +728,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
       endAtUtc: endLocal.toUtc(),
       timeZone: 'Europe/Istanbul',
       recurrenceRule: _buildRecurrenceRule(),
-      reminderOffsetMinutes: 60,
+      reminderOffsetMinutes: _reminderMinutes,
       locationLabel: isOnline ? 'Online' : 'Yuz yuze',
       meetingUrl: isOnline && meetingLink.isNotEmpty ? meetingLink : null,
       notes: _notesController.text.trim().isEmpty
@@ -826,6 +842,18 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
     final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
+}
+
+/// Hatırlatma seçenekleri (dk) — 0 = kapalı. Öğrenci program formuyla aynı küme.
+const List<int> _reminderOptions = <int>[0, 15, 30, 60, 1440];
+
+String _reminderLabel(int minutes) {
+  return switch (minutes) {
+    0 => 'Kapali',
+    60 => '1 saat',
+    1440 => '1 gun',
+    _ => '$minutes dk',
+  };
 }
 
 const List<String> _months = <String>[

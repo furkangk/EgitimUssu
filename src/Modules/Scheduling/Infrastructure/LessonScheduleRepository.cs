@@ -38,6 +38,24 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
+    {
+        return await _dbContext.LessonSchedules
+            .Where(lesson => lesson.StudentId == studentId
+                && lesson.StartAtUtc >= startAtUtc
+                && lesson.StartAtUtc <= endAtUtc)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken)
+    {
+        return await _dbContext.LessonSchedules
+            .Where(lesson => lesson.StudentId == studentId
+                && lesson.Status != LessonScheduleStatus.Cancelled
+                && lesson.StartAtUtc <= untilUtc)
+            .ToArrayAsync(cancellationToken);
+    }
+
     public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken)
     {
         return _dbContext.LessonSchedules.AddAsync(lessonSchedule, cancellationToken).AsTask();

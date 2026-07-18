@@ -24,11 +24,11 @@
 | M03 | Öğrenci Profili | [`m03_students.md`](m03_students.md) | `Students` | `/api/students` | 🟢 / 🟡 (self-register) |
 | M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link/tatil ⚠️) |
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
-| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (kaynak/yükleme ⚠️) |
+| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (öğrenci tamamlama+dosya yükleme eklendi) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
 | M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
 | M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
-| M10 | Gelişim Takibi | [`m10_progress_tracking.md`](m10_progress_tracking.md) | `ProgressTracking` | `/api/progress-tracking` | 🔴 İskelet |
+| M10 | Gelişim Takibi | [`m10_progress_tracking.md`](m10_progress_tracking.md) | `ProgressTracking` | `/api/progress-tracking` | 🟡 Çalışır çekirdek (konu hâkimiyeti + hedef + mobil) |
 | M11 | Bildirim | [`m11_notifications.md`](m11_notifications.md) | `Notifications` | `/api/notifications` | 🟡 (gerçek push yok) |
 | M12 | Eşleştirme & İlan | [`m12_matching.md`](m12_matching.md) | `Matching` | `/api/matching` | 🔴 İskelet |
 | M13 | Puanlama & Yorum | [`m13_reviews.md`](m13_reviews.md) | `Reviews` | `/api/reviews` | 🔴 İskelet |
@@ -123,8 +123,12 @@ GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}
 ```
 ### Scheduling — `/api/scheduling`
 ```
-POST /lessons   POST /lessons/{lessonId}/cancel   GET /lessons/{lessonId}
+POST /lessons   PUT /lessons/{lessonId}   POST /lessons/{lessonId}/cancel
+POST /lessons/{lessonId}/complete   GET /lessons/{lessonId}
 GET /teachers/{teacherUserId}/lessons?startAtUtc=&endAtUtc=   (tarih aralığı filtreli)
+GET /students/{studentId}/lessons?startAtUtc=&endAtUtc=       (öğrenci kendi dersleri, IDOR korumalı)
+GET /students/{studentId}/calendar?startAtUtc=&endAtUtc=      (birleşik takvim: öğretmen dersleri + kendi programı, tekrarlar genişletilmiş)
+POST /students/{studentId}/study-entries   PUT /study-entries/{entryId}   DELETE /study-entries/{entryId}   (öğrenci kişisel programı)
 ```
 ### LessonSessions — `/api/lesson-sessions`
 ```
@@ -136,6 +140,9 @@ POST /{lessonSessionId}/complete          GET /{lessonSessionId}
 GET  /            (liste)
 POST /lesson-sessions/{lessonSessionId}/follow-up
 GET  /lesson-sessions/{lessonSessionId}/follow-up
+POST /{assignmentId}/complete        (öğrenci tamamlar)
+POST /{assignmentId}/submission      (öğrenci dosya yükler — multipart)
+GET  /{assignmentId}/attachment      (teslim dosyasını indir — öğrenci/öğretmen/admin)
 ```
 ### Payments — `/api/payments`
 ```
@@ -164,11 +171,23 @@ GET  /students/{studentId}/test-results?subject=&topic=&from=&to=   /net-trend?s
 GET  /students/{studentId}/goals   PUT /students/{studentId}/goals
 GET  /students/{studentId}/streak   /achievements   /dashboard
 GET  /students/{studentId}/sharing   PUT /students/{studentId}/sharing
+GET  /students/{studentId}/subjects   POST /students/{studentId}/subjects
+PUT  /subjects/{subjectId}   DELETE /subjects/{subjectId}
+POST /subjects/{subjectId}/topics   PUT /topics/{topicId}   DELETE /topics/{topicId}
+GET  /students/{studentId}/notes   POST /students/{studentId}/notes
+PUT  /notes/{noteId}   DELETE /notes/{noteId}
+```
+### ProgressTracking — `/api/progress-tracking`  (🟡 çalışır çekirdek)
+```
+GET  /students/{studentId}/mastery?subject=   /weak-spots   /strengths   /overview
+GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topic-goals
+POST /topic-goals/{goalId}/cancel
+[consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent)
 ```
 ### İskelet modüller (sadece durum endpoint'i)
 ```
 GET /api/matching/status
-/api/reviews/status   /api/reporting/status   /api/progress-tracking/status   /api/settings/status
+/api/reviews/status   /api/reporting/status   /api/settings/status
 ```
 
 ---
@@ -181,4 +200,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-04 (M09 Parents 🟢 + M08 Study 🟢 uygulandı: domain + API + migration + mobil `study` feature + `/student-home` rol navigasyonu + self-register)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-09 (M08 Study: öğrenci ders/konu kataloğu `StudentSubjectCatalog`/`StudentTopicCatalog` + CRUD endpoint'leri + mobil katalog ekranı; takvim formuna konu alanı)*

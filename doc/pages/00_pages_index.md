@@ -30,12 +30,22 @@
 ## Study (Öğrenci — Bireysel Çalışma, M08)
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Öğrenci çalışma panosu | `/student-home` | [study_student](study_student.md) | 🟢 |
+| Ana Sayfa (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
+| Çalışmalarım (sekme) | `/student/studies` | [study_student](study_student.md) | 🟢 |
+| Testler (sekme) | `/student/tests` | [study_student](study_student.md) | 🟢 |
+| Takvim (sekme) | `/student/calendar` | [study_student](study_student.md) | 🟢 (2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
+| Diğer (sekme, hub) | `/student/more` | [study_student](study_student.md) | 🟢 |
+| Profil / İstatistik | `/student/profile` | [study_student](study_student.md) | 🟢 |
+| Hedefler (Diğer→push) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (2026-07-08: sekmeden Diğer'e taşındı) |
+| Öğretmenlerim (Diğer→push) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Takvim'de), ödev/not/mesaj yakında |
 | Kronometre | `/study/timer` | [study_student](study_student.md) | 🟢 |
 | Deneme gir | `/study/test` | [study_student](study_student.md) | 🟢 |
 | Hedefler & paylaşım | `/study/goals` | [study_student](study_student.md) | 🟢 |
 | Çalışma geçmişi | `/study/history` | [study_student](study_student.md) | 🟢 |
 | Rozetler | `/study/achievements` | [study_student](study_student.md) | 🟢 |
+| Dersler & Konular (Diğer→push) | `/study/catalog` | [study_student](study_student.md) | 🟢 (2026-07-09: ders/konu kataloğu yönetimi) |
+| Notlarım (Diğer→push) | `/study/notes` | [study_student](study_student.md) | 🟢 (2026-07-09: öğrenci kendi ders notları) |
+| Gelişimim (Diğer→push) | `/student/progress` | — | 🟡 (2026-07-09: M10 konu hâkimiyeti/eksik-güçlü) |
 
 ## Lesson Sessions
 | Ekran | Route | md | Veri |
@@ -60,6 +70,7 @@
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
 | Ödev/takip | `/assignments/new`, `/assignments/:lessonSessionId` | [assignment_follow_up](assignment_follow_up.md) | 🟢 |
+| Ödevlerim (öğrenci) | `/student/assignments` | — | 🟢 (2026-07-09: dosya yükleme + tamamlama) |
 
 ## Teacher Profile
 | Ekran | Route | md | Veri |

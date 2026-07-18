@@ -22,7 +22,8 @@
 | API (follow-up POST/GET + liste) | ✅ Mevcut (3 endpoint) | `src/Modules/Assignments/API/AssignmentsModule.cs` |
 | M05 tamamlama tüketimi | ✅ Mevcut | `Assignments/Infrastructure/LessonSessionCompletedIntegrationEventHandler.cs` |
 | Öğretmen eki (`AttachmentUrl`) | ✅ Mevcut | `Assignment.AttachmentUrl` (öğretmenin paylaştığı dosya linki) |
-| Ödev **tamamlandı** işaretleme | ✅ Domainde | `Assignment.MarkCompleted()` — **endpoint yok** |
+| Ödev **tamamlandı** işaretleme | ✅ Endpoint | `Assignment.MarkCompleted()` + `POST /{id}/complete` (öğrenci) |
+| Öğrenci **dosya yükleme** (teslim) | ✅ Endpoint | `Assignment.SubmitWork()` + `POST /{id}/submission` (multipart) + yerel depolama |
 | Ders **kaynağı** (`LessonResource`) | 🔴 **Yok** | Önerilen — not'tan ayrı materyal paylaşımı |
 | Öğrenci ödev **yükleme** (`AssignmentSubmission`) | 🔴 **Yok** | Önerilen — öğrenci dosya yükler |
 | Son teslim uyarısı (veliye bildirim) | 🔴 **Yok** | Önerilen — m11 + m09 |
@@ -146,17 +147,26 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | `assignments.lesson_session_not_completed` | `400` (varsayılan) | Oturum tamamlanmadan not/ödev oluşturulamaz |
 | `shared.forbidden` | `403` | Yetki yok |
 
-### 3.2 ⚠️ Eksik / Önerilen Endpoint'ler
+### 3.2 ✅ Öğrenci ödev aksiyonları (2026-07-09 eklendi)
+
+| Yetenek | Endpoint | Not |
+|---------|----------|-----|
+| Ödev tamamla | `POST /api/assignments/{assignmentId}/complete` | `MarkCompleted()`; yalnızca ödevin öğrencisi/admin |
+| Ödev çözümü yükle | `POST /api/assignments/{assignmentId}/submission` (multipart `file`) | `SubmitWork()` + yerel disk depolama (`IAssignmentFileStorage`/`LocalAssignmentFileStorage`); teslim ödevi `InProgress` yapar; `AttachmentUrl` = indirme endpoint'i |
+| Teslim dosyasını indir | `GET /api/assignments/{assignmentId}/attachment` | Ödevin öğrencisi/öğretmeni/admin; dosya modül-içi yetkili sunulur (statik değil) |
+
+> Sahiplik `AssignmentStudentActionAuthorizer` ile: tamamlama/teslim yalnızca öğrenci; indirme öğrenci+öğretmen.
+> Dosya önce belleğe alınır, komut/yetki başarılıysa diske yazılır (başka öğrencinin dosyasının üzerine
+> yazılması engellenir). Maks. 20 MB. **Depolama** yerel disk ile başlar; üretimde nesne depolamaya (S3/Blob) geçilebilir.
+
+### 3.3 ⚠️ Eksik / Önerilen Endpoint'ler
 
 | Yetenek | Öneri | Gerekçe |
 |---------|-------|---------|
-| Ödev tamamla | `POST /api/assignments/{assignmentId}/complete` | `MarkCompleted()` domainde var, **endpoint yok** |
 | Ödev güncelle/iptal | `PUT /api/assignments/{assignmentId}` | Başlık/açıklama/son teslim/iptal |
 | Kaynak ekle/listele | `POST /api/assignments/resources`, `GET /api/assignments/resources?studentId=&teacherUserId=` | `LessonResource` için |
-| Ödev yükle (öğrenci) | `POST /api/assignments/{assignmentId}/submissions` | `AssignmentSubmission` — öğrenci dosya yükler |
-| Yükleme listele/değerlendir | `GET /api/assignments/{assignmentId}/submissions`, `PUT .../submissions/{id}/grade` | Öğretmen değerlendirmesi |
-| Öğrenci görünümü | `GET /api/assignments/students/{studentId}/assignments`, `.../notes`, `.../resources` | Öğrenci kendi ödev/not/kaynaklarını görür |
-| Dosya yükleme altyapısı | `POST /api/files` (presigned URL / blob) | URL string yerine gerçek depolama (bkz. `mimari_inceleme.md`) |
+| Yükleme değerlendir | `PUT /api/assignments/{assignmentId}/grade` | Öğretmen değerlendirmesi/notu |
+| Öğrenci not/kaynak görünümü | `GET /api/assignments/students/{studentId}/notes`, `.../resources` | Öğrenci kendi not/kaynaklarını görür |
 
 ---
 
@@ -273,4 +283,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-01*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-09 (öğrenci ödev tamamlama + dosya yükleme/indirme endpoint'leri + yerel dosya depolama)*

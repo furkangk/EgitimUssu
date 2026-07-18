@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<AssignmentsDbContext>(configuration, "Assignments", AssignmentsDbContext.SchemaName);
         services.AddScoped<IAssignmentRepository, AssignmentRepository>();
+        services.AddSingleton<IAssignmentFileStorage, LocalAssignmentFileStorage>();
         services.AddScoped<ICommandHandler<CreateLessonSessionFollowUpCommand, Result<LessonSessionFollowUpResponse>>, CreateLessonSessionFollowUpCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionFollowUpQuery, Result<LessonSessionFollowUpResponse>>, GetLessonSessionFollowUpQueryHandler>();
         services.AddScoped<IQueryHandler<ListAssignmentsQuery, Result<IReadOnlyCollection<AssignmentResponse>>>, ListAssignmentsQueryHandler>();
@@ -24,6 +25,14 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetLessonSessionFollowUpQuery>, AssignmentFollowUpAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListAssignmentsQuery>, AssignmentFollowUpAuthorizer>();
         services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedIntegrationEventHandler>();
+
+        // Öğrenci ödev aksiyonları (tamamlama + teslim + dosya indirme)
+        services.AddScoped<IQueryHandler<GetAssignmentQuery, Result<AssignmentResponse>>, GetAssignmentQueryHandler>();
+        services.AddScoped<ICommandHandler<MarkAssignmentCompletedCommand, Result<AssignmentResponse>>, MarkAssignmentCompletedCommandHandler>();
+        services.AddScoped<ICommandHandler<SubmitAssignmentWorkCommand, Result<AssignmentResponse>>, SubmitAssignmentWorkCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<MarkAssignmentCompletedCommand>, AssignmentStudentActionAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<SubmitAssignmentWorkCommand>, AssignmentStudentActionAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetAssignmentQuery>, AssignmentStudentActionAuthorizer>();
         return services;
     }
 }

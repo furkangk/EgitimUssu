@@ -42,6 +42,11 @@ public sealed record ListLessonSchedulesForTeacherQuery(
     DateTime StartAtUtc,
     DateTime EndAtUtc) : IQuery<Result<IReadOnlyCollection<LessonScheduleResponse>>>;
 
+public sealed record ListLessonSchedulesForStudentQuery(
+    Guid StudentId,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc) : IQuery<Result<IReadOnlyCollection<LessonScheduleResponse>>>;
+
 public sealed record LessonScheduleResponse(
     Guid Id,
     Guid TeacherUserId,
@@ -66,6 +71,14 @@ public interface ILessonScheduleRepository
     Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Öğrencinin iptal edilmemiş dersleri; başlangıcı <paramref name="untilUtc"/>'ye kadar olanlar.
+    /// Tekrar kuralları uygulama katmanında genişletildiği için alt sınır uygulanmaz.
+    /// </summary>
+    Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken);
 
     Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken);
 
@@ -291,6 +304,27 @@ public sealed class ListLessonSchedulesForTeacherQueryHandler : IQueryHandler<Li
     public async Task<Result<IReadOnlyCollection<LessonScheduleResponse>>> Handle(ListLessonSchedulesForTeacherQuery query, CancellationToken cancellationToken)
     {
         var lessons = await _repository.ListForTeacherAsync(query.TeacherUserId, query.StartAtUtc, query.EndAtUtc, cancellationToken);
+        var payload = lessons
+            .OrderBy(lesson => lesson.StartAtUtc)
+            .Select(lesson => lesson.ToResponse())
+            .ToArray();
+
+        return Result<IReadOnlyCollection<LessonScheduleResponse>>.Success(payload);
+    }
+}
+
+public sealed class ListLessonSchedulesForStudentQueryHandler : IQueryHandler<ListLessonSchedulesForStudentQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>
+{
+    private readonly ILessonScheduleRepository _repository;
+
+    public ListLessonSchedulesForStudentQueryHandler(ILessonScheduleRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<IReadOnlyCollection<LessonScheduleResponse>>> Handle(ListLessonSchedulesForStudentQuery query, CancellationToken cancellationToken)
+    {
+        var lessons = await _repository.ListForStudentAsync(query.StudentId, query.StartAtUtc, query.EndAtUtc, cancellationToken);
         var payload = lessons
             .OrderBy(lesson => lesson.StartAtUtc)
             .Select(lesson => lesson.ToResponse())

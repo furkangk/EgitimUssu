@@ -51,6 +51,8 @@ public sealed record LessonSessionFollowUpResponse(
 
 public interface IAssignmentRepository
 {
+    Task<Assignment?> GetAssignmentByIdAsync(Guid assignmentId, CancellationToken cancellationToken);
+
     Task<LessonNote?> GetLessonNoteByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<Assignment>> ListByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);

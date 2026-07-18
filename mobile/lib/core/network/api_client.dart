@@ -63,12 +63,41 @@ class ApiClient {
     }
   }
 
+  /// Çok parçalı (multipart) dosya yükler. [filePath] yerel dosya yolu; alan adı [field].
+  Future<Map<String, dynamic>> postFile(
+    String path, {
+    required String filePath,
+    String field = 'file',
+  }) async {
+    try {
+      final formData = FormData.fromMap(<String, dynamic>{
+        field: await MultipartFile.fromFile(filePath),
+      });
+      final response = await _dio.post<Map<String, dynamic>>(path, data: formData);
+      return response.data ?? <String, dynamic>{};
+    } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    }
+  }
+
   Future<Map<String, dynamic>> put(
     String path, {
     Map<String, dynamic>? data,
   }) async {
     try {
       final response = await _dio.put<Map<String, dynamic>>(path, data: data);
+      return response.data ?? <String, dynamic>{};
+    } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    }
+  }
+
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final response = await _dio.delete<Map<String, dynamic>>(path, data: data);
       return response.data ?? <String, dynamic>{};
     } on DioException catch (error) {
       throw ApiException.fromDioException(error);

@@ -5,8 +5,8 @@
 > **Amaç:** Öğretmenin uygulamayı **her gün** kullandığı bir günlük operasyon aracı olmak — öğrencilerini,
 > derslerini, ödevlerini, notlarını/kaynaklarını, tatillerini ve ödemelerini **tek takvim** etrafında yönetir.
 >
-> İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`veli.md`](veli.md) · modül indeksi [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
-> **Güncelleme:** 2026-06-24
+> İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`veli.md`](veli.md) · modül indeksi [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) · fonksiyonel doküman [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyonel_dokuman_v1.md)
+> **Güncelleme:** 2026-07-18
 
 ---
 
@@ -34,12 +34,12 @@ Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, il
 | Adım | Yetenek | Modül | PRD | Durum |
 |------|---------|-------|-----|-------|
 | 0 | Giriş / kayıt / rol | [`m01_identity`](../modules/m01_identity.md) | M01 | 🟢 |
-| 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 |
-| 2 | Öğrenci ekle & listele | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 |
-| 3 | Takvimde ders planla (tek/tekrarlı, online/yüz yüze + link) | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 |
-| 4 | Dersi işle/tamamla, katılım & not | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | M05 | 🟢 |
-| 5 | Ders notu + **kaynak** + ödev ver/takip | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟢 (kaynak/öğrenci yükleme ⚠️) |
-| 6 | Ödeme/bakiye takibi (manuel) + veli paylaşımı | [`m07_payments`](../modules/m07_payments.md) | M07 | 🟢 (veli paylaşımı ⚠️) |
+| 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 (çoklu branş + sertifika ⚠️ — bkz. §11) |
+| 2 | Öğrenci ekle & listele | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 (silme/arşiv/davet ⚠️ — bkz. §11) |
+| 3 | Takvimde ders planla (tek/tekrarlı, online/yüz yüze + link) | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟡 (tatil/erteleme/tekrar-kapsamı/iptal-nedeni ⚠️ — bkz. §11) |
+| 4 | Dersi işle/tamamla, katılım & not | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | M05 | 🟢 (gelmedi→ücretlendirme + not görünürlüğü ⚠️) |
+| 5 | Ders notu + **kaynak** + ödev ver/takip | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟡 (ödev onay/geri gönder + geri bildirim + not görünürlüğü ⚠️) |
+| 6 | Ödeme/bakiye takibi (manuel) + veli paylaşımı | [`m07_payments`](../modules/m07_payments.md) | M07 | 🟢 (öğrenci bazlı ücret + veli paylaşımı ⚠️) |
 | 7 | Yaklaşan ders + ödev/ödeme hatırlatması | [`m11_notifications`](../modules/m11_notifications.md) | M11 | 🟡 |
 | 8 | Gelir istatistik & rapor | [`m14_reporting`](../modules/m14_reporting.md) | M14 | 🔴 |
 | 9 | Öğrenci gelişim takibi | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) | M10 | 🔴 |
@@ -109,11 +109,51 @@ Premium öğretmen: reklamsız, **sınırsız öğrenci**, gelir analizi, PDF ö
 - [ ] Online ders linki; kaynak paylaşımı; öğrenci ödev yükleme görünümü.
 - [ ] 5–10 gerçek öğretmenle beta test (PRD önerisi).
 
-## 10. İlişkili Dokümanlar
+## 10. Denetim — Kod Gerçeği vs. Fonksiyonel Doküman (2026-07-18)
+
+Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyonel_dokuman_v1.md) §15 boşluk listesi, gerçek koda (domain modeli + endpoint envanteri) karşı denetlendi. Faz 1 çekirdeği (M02–M07) domain+API+mobil olarak **çalışıyor**; ancak fonksiyonel dokümanın **[YENİ]** işaretli iş kurallarının çoğu koda henüz girmemiştir.
+
+### 10.1 Kritik/Yüksek boşluklar (Faz 1)
+
+| Kod | Boşluk | Kod gerçeği | Etki |
+|-----|--------|-------------|------|
+| B-01 | **Tatil / müsait değil bloğu** | `TimeOff` entity/endpoint yok | Öğretmen tatile çıkınca dersleri tek tek iptal eder |
+| B-02 | **Ders erteleme** ayrı aksiyon | `PUT` ile tarih değişir; `ERTELENDİ` statüsü + `/reschedule` endpoint yok | Erteleme "iptal+yeni" ile karışıyor; dakiklik verisi kaybı |
+| B-03 | **Tekrar eden ders occurrence yönetimi** (bu/bu+sonraki/tümü) | Seri tek `RecurrenceRule` string'i olarak **sanal** genişletiliyor; occurrence override tablosu yok | Tek dersi seriden bağımsız iptal/ertele **imkânsız** — *Kritik* |
+| B-05 | **Not görünürlüğü** (özel/öğrenci/veli) | `LessonNote.TeacherNotes` düz string; visibility yok | Öğretmen dürüst özel not tutamaz; veli paylaşımı süzülemez |
+| B-07 | **Öğrenci bazlı ücret** override | Ücret yalnız profil ya da ders bazında; öğrenciye özel alan yok | Gerçek fiyatlamayı karşılamıyor |
+| B-08 | **Gelmedi + ücretlendirme kararı** | `Absent` statüsü var ama M07'ye ücret kararı akmıyor | Devamsız ders faturalaması belirsiz |
+| B-09 | **İptal nedeni + ücretlendirme + Sil ayrımı** | `Cancel` yalnız `CancellationNote` alır; neden enum'u, chargeable, silme (24s) yok | Veri bütünlüğü + bakiye etkisi belirsiz |
+| B-04 | **Öğrenci arşivleme** | `IsActive` bayrağı var; arşiv akışı/filtresi + Free-limit bağı yok | Free limit yönetimi eksik |
+| B-06 | **Öğrenci-öğretmen davet/bağlanma** | Öğrenci için davet/onay akışı yok (yalnız veli `LinkParent` var) | İki giriş yolu birleşmiyor (Faz 2) |
+| B-10 | **Online link semantiği** | `LocationLabel` var ama ayrı `MeetingUrl` yok | Online/yüz yüze ayrımı zayıf |
+
+### 10.2 Yanlış yapılandırma (sadece eksik değil — düzeltme gerekir)
+
+1. **M02 branş tekilliği:** `TeacherProfile.Subject` **tek string**; doküman "branş(**lar**)" ve Faz 4 eşleştirme filtreleri çoklu branş varsayar → `List<TeacherSubject>`'e taşınmalı. **Certificate** entity'si de yok (T-02.12).
+2. **Erteleme = düzenleme:** `UpdateDetails` `Rescheduled` event yayar ama statü `Planned` kalır, ayrı erteleme geçmişi yok → ayrı `Reschedule()` + statü + `RescheduledFromId`.
+3. **İptal veri modeli darlığı:** neden + ücretlendirme kararı tutulmuyor → bakiyeye yansıma belirsiz.
+4. **Tekrar eden ders sanal model:** occurrence exception tablosu olmadan B-03 çözülemez.
+
+### 10.3 Önceliklendirilmiş düzeltme sırası
+
+- **Öncelik 1 (Faz 1'i kullanılabilir yapan):** B-03 (occurrence yönetimi), B-01 (tatil bloğu), B-02 (erteleme), B-05 (not görünürlüğü).
+- **Öncelik 2 (yüksek etkili):** B-07 (öğrenci bazlı ücret), B-08 (gelmedi→ücretlendirme), B-09 (iptal nedeni/sil), B-04 (arşivleme).
+- **Öncelik 3 (olgunluk):** M02 çoklu branş + sertifika, B-06 (öğrenci davet), B-10 (online link).
+
+### 10.4 Karar bekleyen sorular (veri modelini etkiler)
+1. Bir öğrenci **birden fazla öğretmene** bağlanabilir mi? (→ `TeacherStudent` bağlantı tablosu gerekli mi?)
+2. Free limit **aktif** öğrenci mi, toplam mı?
+3. Öğrenci limiti kesin sayı: **5 mi 10 mu?**
+4. Erken geri bildirim Faz 4'te herkese açılacak mı? (retroaktif yayın onayı)
+
+---
+
+## 11. İlişkili Dokümanlar
 - Öğrenci tarafı → [`ogrenci.md`](ogrenci.md) · Veli → [`veli.md`](veli.md)
 - Teknik modüller → [`../modules/m02_teachers.md`](../modules/m02_teachers.md), [`m04_scheduling`](../modules/m04_scheduling.md), [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md), [`m06_assignments`](../modules/m06_assignments.md), [`m07_payments`](../modules/m07_payments.md)
 - Mimari açıklar → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md)
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18*
