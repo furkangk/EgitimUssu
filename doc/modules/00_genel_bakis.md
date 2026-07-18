@@ -22,7 +22,7 @@
 | M01 | Kullanıcı & Rol | [`m01_identity.md`](m01_identity.md) | `Identity` | `/api/identity` | 🟢 |
 | M02 | Öğretmen Profili | [`m02_teachers.md`](m02_teachers.md) | `Teachers` | `/api/teachers` | 🟢 |
 | M03 | Öğrenci Profili | [`m03_students.md`](m03_students.md) | `Students` | `/api/students` | 🟢 / 🟡 (self-register) |
-| M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link/tatil ⚠️) |
+| M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link+tatil+erteleme+occurrence, 2026-07-18) |
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
 | M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (öğrenci tamamlama+dosya yükleme eklendi) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
@@ -124,16 +124,18 @@ GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}
 ### Scheduling — `/api/scheduling`
 ```
 POST /lessons   PUT /lessons/{lessonId}   POST /lessons/{lessonId}/cancel
+POST /lessons/{lessonId}/reschedule   DELETE /lessons/{lessonId}   (B-02/B-09, 2026-07-18)
 POST /lessons/{lessonId}/complete   GET /lessons/{lessonId}
 GET /teachers/{teacherUserId}/lessons?startAtUtc=&endAtUtc=   (tarih aralığı filtreli)
+POST /teachers/{teacherUserId}/time-off   GET /teachers/{teacherUserId}/time-off?startAtUtc=&endAtUtc=   DELETE /teachers/{teacherUserId}/time-off/{timeOffId}   (tatil bloğu, B-01 2026-07-18)
 GET /students/{studentId}/lessons?startAtUtc=&endAtUtc=       (öğrenci kendi dersleri, IDOR korumalı)
-GET /students/{studentId}/calendar?startAtUtc=&endAtUtc=      (birleşik takvim: öğretmen dersleri + kendi programı, tekrarlar genişletilmiş)
+GET /students/{studentId}/calendar?startAtUtc=&endAtUtc=      (birleşik takvim: öğretmen dersleri + kendi programı, tekrarlar + occurrence istisnaları genişletilmiş)
 POST /students/{studentId}/study-entries   PUT /study-entries/{entryId}   DELETE /study-entries/{entryId}   (öğrenci kişisel programı)
 ```
 ### LessonSessions — `/api/lesson-sessions`
 ```
 POST /            (oturum oluştur)        GET / ?filtre   (liste)
-POST /{lessonSessionId}/complete          GET /{lessonSessionId}
+POST /{lessonSessionId}/complete          GET /{lessonSessionId}   (complete: IsChargeable, B-08 2026-07-18)
 ```
 ### Assignments — `/api/assignments`
 ```
@@ -200,4 +202,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-09 (M08 Study: öğrenci ders/konu kataloğu `StudentSubjectCatalog`/`StudentTopicCatalog` + CRUD endpoint'leri + mobil katalog ekranı; takvim formuna konu alanı)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable)*

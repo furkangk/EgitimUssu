@@ -131,7 +131,8 @@ Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) bi
 ### O6 — `LessonSchedule` durum yaşam döngüsü kısmen
 ✅ _Düzeltme (2026-06-24):_ **Ders çakışması kontrolü ASLINDA mevcut** — `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) ve `scheduling.invalid_range` (400) koddan doğrulandı; teacher-lesson liste endpoint'i `startAtUtc`/`endAtUtc` tarih filtresi alıyor.
 ✅ _Düzeltme (2026-06-26):_ **`Planned → Completed` geçişi eklendi** — `Complete(updatedOnUtc)` domain metodu, `CompleteLessonScheduleCommand`/handler, `POST /lessons/{id}/complete` endpoint ve mobil `completeLesson` cubit metodu + UI butonu eklendi.
-**Hâlâ eksik:** `Reschedule` geçişi; online ders linki (`MeetingUrl`), tekrar açılımı, tatil/blackout ve **öğrenci tarafı çakışma önceliği** (bkz. [`m04_scheduling.md`](m04_scheduling.md)).
+✅ _Düzeltme (Dilim A, 2026-07-18):_ **`Reschedule` geçişi** (`Reschedule()` + `POST /lessons/{id}/reschedule`, erteleme geçmişi), **online ders linki** (`MeetingUrl` ayrı alan), **tatil/blackout** (`TimeOffBlock` + endpoint'ler), **tekrar occurrence yönetimi** (`LessonOccurrenceException` + `RecurrenceExpander` istisnaları + `Scope`), **iptal nedeni + ücretlendirme + sil** (B-08/B-09) koddan doğrulandı. **Öğrenci tarafı çakışma önceliği** zaten mevcuttu (`StudyScheduleConflict`).
+**Hâlâ eksik:** Öğretmen `LessonSchedule` listesinin kendi tarafında tekrar açılımı (öğrenci birleşik takviminde açılıyor).
 
 ### O7 — Test kapsamı çok düşük
 Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test edilmiyor; Y1, K3 bir test olsa yakalanırdı.
@@ -185,4 +186,4 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-07-01 — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

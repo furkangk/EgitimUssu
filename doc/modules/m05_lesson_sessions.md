@@ -55,14 +55,15 @@
 | `TopicTitle` | `string` | İşlenen konu başlığı |
 | `CoveredContent` | `string?` | İşlenen içerik detayı |
 | `TeacherNotes` | `string?` | Öğretmen notu |
+| `IsChargeable` | `bool` | **Ücretlendirme kararı (B-08, 2026-07-18).** Özellikle `Absent`'ta anlamlı: gelmedi→ücretlendirilecek mi. Alan audit + ileride rapor/desen içindir (bu dilimde otomatik ödeme oluşturmaz) |
 | `CreatedOnUtc` | `DateTime` | Oluşturma |
 | `CompletedOnUtc` | `DateTime?` | Tamamlanma |
 
 **Davranışlar (kodda):**
 - **Constructor** → `LessonSessionCreatedDomainEvent` yayar. `CreateLessonSessionCommandHandler` oturumu `Status = Planned`, `AttendanceStatus = Unknown`, gerçek zaman/süre `null` ile oluşturur.
-- `Complete(actualStart, actualEnd, attendanceStatus, topicTitle, coveredContent?, teacherNotes?, completedOnUtc)` →
+- `Complete(actualStart, actualEnd, attendanceStatus, topicTitle, coveredContent?, teacherNotes?, isChargeable, completedOnUtc)` (**B-08 ile `isChargeable` eklendi, 2026-07-18**) →
   - `DurationMinutes = (int)Math.Ceiling((actualEnd - actualStart).TotalMinutes)` (**manuel girilmez**),
-  - `Status = Completed`, `CompletedOnUtc` set edilir,
+  - `Status = Completed`, `IsChargeable` + `CompletedOnUtc` set edilir,
   - `LessonSessionCompletedDomainEvent` yayılır.
 
 **Enum'lar (koddan birebir):**
@@ -108,9 +109,9 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 
 **`CreateLessonSessionRequest` (koddan):** `LessonScheduleId?, TeacherUserId, StudentId, Subject, PlannedStartAtUtc, TopicTitle`
 
-**`CompleteLessonSessionRequest` (koddan):** `ActualStartAtUtc, ActualEndAtUtc, AttendanceStatus, TopicTitle, CoveredContent?, TeacherNotes?`
+**`CompleteLessonSessionRequest` (koddan):** `ActualStartAtUtc, ActualEndAtUtc, AttendanceStatus, TopicTitle, CoveredContent?, TeacherNotes?, IsChargeable` (B-08, 2026-07-18)
 
-**`LessonSessionResponse` (koddan):** `Id, LessonScheduleId?, TeacherUserId, StudentId, Subject, PlannedStartAtUtc, ActualStartAtUtc?, ActualEndAtUtc?, DurationMinutes?, AttendanceStatus (string), Status (string), TopicTitle, CoveredContent?, TeacherNotes?, CreatedOnUtc, CompletedOnUtc?`
+**`LessonSessionResponse` (koddan):** `Id, LessonScheduleId?, TeacherUserId, StudentId, Subject, PlannedStartAtUtc, ActualStartAtUtc?, ActualEndAtUtc?, DurationMinutes?, AttendanceStatus (string), Status (string), TopicTitle, CoveredContent?, TeacherNotes?, IsChargeable, CreatedOnUtc, CompletedOnUtc?`
 > Enum'lar yanıtta **string** olarak döner (`AttendanceStatus.ToString()`, `Status.ToString()`).
 
 **Hata kodu → HTTP eşlemesi (koddan):**
@@ -231,4 +232,4 @@ POST /lesson-sessions/{id}/complete (Completed)
 
 ---
 
-*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-07-01*
+*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-07-18*
