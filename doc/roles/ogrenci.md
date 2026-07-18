@@ -98,6 +98,8 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 ## 8. Üyelik Etkisi (Free/Premium)
 Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık analiz, hedef belirleme, seri/motivasyon, öğretmenle detaylı veri paylaşımı. Free: temel kronometre/test + reklam + limit (PRD §9.2, [`../modules/m17_membership.md`](../modules/m17_membership.md)).
 
+**Kodda uygulanan kapılar (Ö-D):** Üyelik seviyesi `MembershipTier` (Free/Premium) M03 profilde tutulur; Study modülü Free/Premium kapılarını `IMembershipDirectory` sözleşmesinden okur. **Karar: Free geniş** (streak tam + son 30 gün geçmiş), **Premium yalnız derinlik**. Bugün zorlanan farklar: geçmiş/net-trend Free'de **son 30 güne** kısılı (Premium sınırsız); **hedef net/puan takibi** (`TargetNet`/`TargetScore`) Premium'a özel → Free'de `study.premium_required` (HTTP 402). Aylık analiz / konu zayıflık / streak dondurma kapı mekanizması hazır, endpoint'leri gelince bağlanacak. Ayrıntı: [`../modules/m08_study.md`](../modules/m08_study.md) §4.7.
+
 ## 9. Kabul Kriterleri (Faz 2)
 - [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
 - [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.

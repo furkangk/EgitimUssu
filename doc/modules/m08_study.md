@@ -371,6 +371,29 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - Öğrencinin kendi çalışma planı ile öğretmenle yapılacak **özel ders** çakışırsa **özel ders önceliklidir**.
 - Çakışma anında öğrenciye **uyarı** gösterilir ve bireysel plan ikinci plana atılır (planlama kuralı `m04_scheduling.md`'de işlenir; M08 yalnızca uyarıyı yüzeye çıkarır).
 
+### 4.7 Free/Premium kapıları (Ö-D — PRD §14.3 uyarlaması)
+Öğrencinin üyelik seviyesi `MembershipTier` (`Free=1` / `Premium=2`) M03 `StudentProfile`'da hafifçe tutulur (M17 tam modülü gelene kadar; [`m17_membership.md`](m17_membership.md)). Study, tier'ı modüller-arası `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okur (Students'a doğrudan referans vermez). Karar: **Free geniş** (streak tam + son 30 gün) — büyüme önce; **Premium yalnız derinlik**. Kapı mantığı saf + birim testlidir (`MembershipGate`).
+
+| Yetenek | Free | Premium |
+|---------|------|---------|
+| Kronometre / manuel seans / mola | ✅ | ✅ |
+| Test/deneme girişi + net + net-trend | ✅ | ✅ |
+| Streak (seri) — tam | ✅ | ✅ |
+| Başarım rozetleri | ✅ | ✅ |
+| Haftalık özet | ✅ | ✅ |
+| **Çalışma/deneme geçmişi** | **son 30 gün** | **sınırsız** |
+| **Net-trend penceresi** | son 30 gün | sınırsız |
+| **Hedef net/puan takibi** (`TargetNet`/`TargetScore`) | ⛔ | ✅ |
+| Aylık analiz | ⛔ *(endpoint henüz yok)* | ✅ *(planlı)* |
+| Konu zayıflık analizi | ⛔ *(henüz yok)* | ✅ *(planlı)* |
+| Streak dondurma | ⛔ *(Ö-A dondurma özelliğine bağlı — no-op)* | ✅ *(planlı)* |
+
+**Uygulama:**
+- Geçmiş sorguları (`ListStudySessions`, `ListTestResults`, `NetTrend`) Free'de `fromUtc = Max(istenen, now − 30 gün)`'e kısılır (`MembershipGate.ClampFrom`); Premium sınırsız.
+- `UpdateStudyGoals`'ta `TargetNet`/`TargetScore` set edilmişse ve tier Free ise `study.premium_required` (**HTTP 402**) döner.
+- Tier çözümü (`StudyMembershipResolver`): bu uçlar sahiplik kapısıyla korunduğundan erişen = öğrencinin kendisi; oturum kullanıcısının tier'ı okunur. **Admin → Premium** (tam erişim).
+- Aylık analiz / konu zayıflık / streak dondurma için `MembershipGate.Allows(tier, PremiumFeature.…)` mekanizması hazırdır; ilgili endpoint'ler eklendiğinde bağlanır.
+
 ---
 
 ## 5. Olay Akışı
@@ -481,4 +504,5 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 *M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19*
 
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
+<!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + IMembershipDirectory + MembershipGate; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->
 
