@@ -48,18 +48,6 @@
 | [`architecture/design_system.md`](architecture/design_system.md) | Platformlar-arası ortak görsel token (renk/tipografi/spacing) + Atomic/CBD — **token tek doğruluk kaynağı** |
 | [`architecture/widgets.md`](architecture/widgets.md) | Ortak widget kataloğu: paylaşılan bileşenlerin API + kural + durumu (🟢/🟡/🔴) |
 
-## 1.2 Mimari Karar Kayıtları (`doc/adr/`) — ADR
-
-> Önemli mimari kararların *neden* alındığını ve hangi alternatiflerin elendiğini belgeleyen değişmez kayıtlar. İndeks + kural: [`adr/README.md`](adr/README.md).
-
-| ADR | Başlık | Durum |
-|-----|--------|-------|
-| [0001](adr/0001-asenkron-mesajlasma-ve-outbox.md) | Asenkron mesajlaşma & transactional outbox stratejisi | Önerildi |
-| [0002](adr/0002-kaynak-tabanli-yetkilendirme.md) | Kaynak-tabanlı yetkilendirme & izin modeli | Önerildi |
-| [0003](adr/0003-api-versiyonlama-ve-contract-first.md) | API versiyonlama & contract-first istemci üretimi | Önerildi |
-| [0004](adr/0004-redis-kullanim-stratejisi.md) | Redis kullanım stratejisi (dağıtık cache & rate limiting) | Önerildi |
-| [0005](adr/0005-kvkk-pii-koruma-ve-audit.md) | KVKK/PII koruma & denetim (audit) stratejisi | Önerildi |
-
 ## 2. Roller (`doc/roles/`) — Rol Perspektifi
 
 > Her rolün yetenekleri, kullanıcı yolculuğu, ekranları ve rol-özel kuralları. **Teknik detay modüllerdedir.**
