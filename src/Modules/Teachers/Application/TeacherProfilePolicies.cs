@@ -45,7 +45,8 @@ public sealed class UpdateTeacherProfileCommandValidator : ICommandValidator<Upd
                 command.Currency,
                 command.ProfilePhotoUrl,
                 command.AvailabilitySlots,
-                command.Subjects),
+                command.Subjects,
+                command.Certificates),
             cancellationToken);
     }
 }

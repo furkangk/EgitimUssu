@@ -27,4 +27,18 @@ public sealed class TeacherProfileTests
         Assert.Equal(2, profile.Subjects.Count);
         Assert.Contains(profile.Subjects, s => s.Subject == "Fizik");
     }
+
+    [Fact]
+    public void Update_ReplacesCertificates()
+    {
+        var profile = New();
+        var certs = new[] { new TeacherCertificate(Guid.NewGuid(), profile.Id, "ÖABT Başarı", "MEB", 2024, null) };
+
+        profile.Update("Ahmet", "Matematik", "İstanbul", "Kadıköy", null, null,
+            TeacherLessonFormat.Online, 5, "Lisans", 400m, "TRY", null,
+            Array.Empty<TeacherAvailabilitySlot>(), Array.Empty<TeacherSubject>(), certs, Now);
+
+        Assert.Single(profile.Certificates);
+        Assert.Equal("ÖABT Başarı", profile.Certificates[0].Title);
+    }
 }

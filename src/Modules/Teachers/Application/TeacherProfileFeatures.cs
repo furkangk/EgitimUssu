@@ -11,6 +11,12 @@ public sealed record TeacherAvailabilityRequest(
     bool IsOnlineAvailable,
     bool IsInPersonAvailable);
 
+public sealed record TeacherCertificateRequest(
+    string Title,
+    string? Institution,
+    int? Year,
+    string? FileUrl);
+
 public sealed record CreateTeacherProfileCommand(
     Guid UserId,
     string FullName,
@@ -26,7 +32,8 @@ public sealed record CreateTeacherProfileCommand(
     string Currency,
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots,
-    IReadOnlyCollection<string> Subjects) : ICommand<Result<TeacherProfileResponse>>;
+    IReadOnlyCollection<string> Subjects,
+    IReadOnlyCollection<TeacherCertificateRequest> Certificates) : ICommand<Result<TeacherProfileResponse>>;
 
 public sealed record UpdateTeacherProfileCommand(
     Guid UserId,
@@ -43,7 +50,8 @@ public sealed record UpdateTeacherProfileCommand(
     string Currency,
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots,
-    IReadOnlyCollection<string> Subjects) : ICommand<Result<TeacherProfileResponse>>;
+    IReadOnlyCollection<string> Subjects,
+    IReadOnlyCollection<TeacherCertificateRequest> Certificates) : ICommand<Result<TeacherProfileResponse>>;
 
 public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>;
 
@@ -53,6 +61,13 @@ public sealed record TeacherAvailabilityResponse(
     TimeOnly EndTime,
     bool IsOnlineAvailable,
     bool IsInPersonAvailable);
+
+public sealed record TeacherCertificateResponse(
+    Guid Id,
+    string Title,
+    string? Institution,
+    int? Year,
+    string? FileUrl);
 
 public sealed record TeacherProfileResponse(
     Guid Id,
@@ -72,6 +87,7 @@ public sealed record TeacherProfileResponse(
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityResponse> AvailabilitySlots,
     IReadOnlyCollection<string> Subjects,
+    IReadOnlyCollection<TeacherCertificateResponse> Certificates,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
 
@@ -151,6 +167,12 @@ public sealed class CreateTeacherProfileCommandHandler : ICommandHandler<CreateT
             .ToArray();
         profile.Subjects.AddRange(teacherSubjects);
 
+        var teacherCertificates = command.Certificates
+            .Where(c => !string.IsNullOrWhiteSpace(c.Title))
+            .Select(c => new TeacherCertificate(_idGenerator.New(), profileId, c.Title.Trim(), c.Institution?.Trim(), c.Year, c.FileUrl?.Trim()))
+            .ToArray();
+        profile.Certificates.AddRange(teacherCertificates);
+
         await _repository.AddAsync(profile, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
 
@@ -220,6 +242,11 @@ public sealed class UpdateTeacherProfileCommandHandler : ICommandHandler<UpdateT
             .Select(s => new TeacherSubject(_idGenerator.New(), profile.Id, s.Trim()))
             .ToArray();
 
+        var teacherCertificates = command.Certificates
+            .Where(c => !string.IsNullOrWhiteSpace(c.Title))
+            .Select(c => new TeacherCertificate(_idGenerator.New(), profile.Id, c.Title.Trim(), c.Institution?.Trim(), c.Year, c.FileUrl?.Trim()))
+            .ToArray();
+
         profile.Update(
             command.FullName.Trim(),
             command.Subject.Trim(),
@@ -235,7 +262,7 @@ public sealed class UpdateTeacherProfileCommandHandler : ICommandHandler<UpdateT
             command.ProfilePhotoUrl?.Trim(),
             slots,
             teacherSubjects,
-            Array.Empty<TeacherCertificate>(),
+            teacherCertificates,
             _clock.UtcNow);
 
         await _repository.SaveChangesAsync(cancellationToken);
@@ -294,6 +321,14 @@ internal static class TeacherProfileMappings
                 .ToArray(),
             profile.Subjects
                 .Select(s => s.Subject)
+                .ToArray(),
+            profile.Certificates
+                .Select(c => new TeacherCertificateResponse(
+                    c.Id,
+                    c.Title,
+                    c.Institution,
+                    c.Year,
+                    c.FileUrl))
                 .ToArray(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);

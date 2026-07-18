@@ -107,6 +107,15 @@ public sealed record TeacherAvailabilityItem(
     bool IsInPersonAvailable);
 
 /// <summary>
+/// Öğretmenin sertifika/deneyim kaydını (başlık, kurum, yıl, belge bağlantısı) taşır.
+/// </summary>
+public sealed record TeacherCertificateItem(
+    string Title,
+    string? Institution,
+    int? Year,
+    string? FileUrl);
+
+/// <summary>
 /// Öğretmen profili oluşturma ve güncelleme işlemlerinde kullanılan profil, ücret ve müsaitlik verilerini taşır.
 /// </summary>
 public sealed record UpsertTeacherProfileRequest(
@@ -124,7 +133,8 @@ public sealed record UpsertTeacherProfileRequest(
     string Currency,
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots,
-    IReadOnlyCollection<string> Subjects)
+    IReadOnlyCollection<string> Subjects,
+    IReadOnlyCollection<TeacherCertificateItem> Certificates)
 {
     public CreateTeacherProfileCommand ToCreateCommand()
     {
@@ -150,7 +160,14 @@ public sealed record UpsertTeacherProfileRequest(
                     slot.IsOnlineAvailable,
                     slot.IsInPersonAvailable))
                 .ToArray(),
-            Subjects ?? Array.Empty<string>());
+            Subjects ?? Array.Empty<string>(),
+            (Certificates ?? Array.Empty<TeacherCertificateItem>())
+                .Select(certificate => new TeacherCertificateRequest(
+                    certificate.Title,
+                    certificate.Institution,
+                    certificate.Year,
+                    certificate.FileUrl))
+                .ToArray());
     }
 
     public UpdateTeacherProfileCommand ToUpdateCommand(Guid userId)
@@ -177,6 +194,13 @@ public sealed record UpsertTeacherProfileRequest(
                     slot.IsOnlineAvailable,
                     slot.IsInPersonAvailable))
                 .ToArray(),
-            Subjects ?? Array.Empty<string>());
+            Subjects ?? Array.Empty<string>(),
+            (Certificates ?? Array.Empty<TeacherCertificateItem>())
+                .Select(certificate => new TeacherCertificateRequest(
+                    certificate.Title,
+                    certificate.Institution,
+                    certificate.Year,
+                    certificate.FileUrl))
+                .ToArray());
     }
 }
