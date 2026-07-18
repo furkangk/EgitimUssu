@@ -91,6 +91,7 @@ public sealed class LessonNote : AggregateRoot<Guid>
         string summary,
         string? coveredTopics,
         string? recommendations,
+        LessonNoteVisibility visibility,
         DateTime createdOnUtc)
     {
         Id = id;
@@ -100,6 +101,7 @@ public sealed class LessonNote : AggregateRoot<Guid>
         Summary = summary;
         CoveredTopics = coveredTopics;
         Recommendations = recommendations;
+        Visibility = visibility;
         CreatedOnUtc = createdOnUtc;
 
         Raise(new LessonNoteCreatedDomainEvent(Id, LessonSessionId, TeacherUserId, StudentId, CreatedOnUtc));
@@ -117,16 +119,20 @@ public sealed class LessonNote : AggregateRoot<Guid>
 
     public string? Recommendations { get; private set; }
 
+    public LessonNoteVisibility Visibility { get; private set; }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public void Update(
         string summary,
         string? coveredTopics,
-        string? recommendations)
+        string? recommendations,
+        LessonNoteVisibility visibility)
     {
         Summary = summary;
         CoveredTopics = coveredTopics;
         Recommendations = recommendations;
+        Visibility = visibility;
     }
 }
 
@@ -136,6 +142,13 @@ public enum AssignmentStatus
     InProgress = 2,
     Completed = 3,
     Cancelled = 4
+}
+
+public enum LessonNoteVisibility
+{
+    Private = 1,
+    Student = 2,
+    StudentAndParent = 3
 }
 
 public sealed record AssignmentCreatedDomainEvent(

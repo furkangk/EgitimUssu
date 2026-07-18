@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Assignments.Application;
+using EgitimUssu.Modules.Assignments.Domain;
 using EgitimUssu.Modules.Assignments.Infrastructure;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure.Http;
@@ -202,7 +203,8 @@ public sealed record CreateLessonSessionFollowUpRequest(
     string Summary,
     string? CoveredTopics,
     string? Recommendations,
-    IReadOnlyCollection<CreateLessonSessionFollowUpAssignmentRequest>? Assignments)
+    IReadOnlyCollection<CreateLessonSessionFollowUpAssignmentRequest>? Assignments,
+    LessonNoteVisibility Visibility = LessonNoteVisibility.Private)
 {
     public CreateLessonSessionFollowUpCommand ToCommand(Guid lessonSessionId)
     {
@@ -217,6 +219,7 @@ public sealed record CreateLessonSessionFollowUpRequest(
                     assignment.Description,
                     assignment.DueDateUtc,
                     assignment.AttachmentUrl))
-                .ToArray());
+                .ToArray(),
+            Visibility);
     }
 }

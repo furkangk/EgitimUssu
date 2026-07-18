@@ -57,6 +57,7 @@ internal sealed class LessonNoteConfiguration : IEntityTypeConfiguration<LessonN
         builder.Property(entity => entity.Summary).HasMaxLength(1000).IsRequired();
         builder.Property(entity => entity.CoveredTopics).HasMaxLength(2000);
         builder.Property(entity => entity.Recommendations).HasMaxLength(2000);
+        builder.Property(entity => entity.Visibility).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.LessonSessionId).IsUnique();
     }
