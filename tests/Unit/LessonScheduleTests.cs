@@ -60,4 +60,19 @@ public sealed class LessonScheduleTests
         Assert.True(lesson.IsChargeable);
         Assert.Contains(lesson.DomainEvents, e => e is LessonScheduleCancelledDomainEvent);
     }
+
+    [Fact]
+    public void CanBeDeletedAt_Rules()
+    {
+        var created = new DateTime(2026, 7, 20, 10, 0, 0, DateTimeKind.Utc);
+        var lessonStart = new DateTime(2026, 7, 25, 10, 0, 0, DateTimeKind.Utc); // gelecekte
+        var lesson = new LessonSchedule(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Matematik",
+            ScheduledLessonFormat.Online, lessonStart, lessonStart.AddHours(1), "Europe/Istanbul",
+            null, LessonScheduleStatus.Planned, 60, null, null, null, created);
+
+        Assert.True(lesson.CanBeDeletedAt(created.AddHours(1)));    // <24s, ders gelecekte
+        Assert.False(lesson.CanBeDeletedAt(created.AddHours(25)));  // 24s aşıldı
+        Assert.False(lesson.CanBeDeletedAt(lessonStart.AddMinutes(1))); // ders geçmişte
+    }
 }

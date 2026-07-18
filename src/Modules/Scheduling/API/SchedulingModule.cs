@@ -44,6 +44,9 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapPost("/lessons/{lessonId:guid}/complete", CompleteLessonScheduleAsync)
         .WithSummary("Ders planını tamamlandı olarak işaretler");
 
+        group.MapDelete("/lessons/{lessonId:guid}", DeleteLessonScheduleAsync)
+        .WithSummary("Yanlış eklenen dersi siler (24s + gelecek kuralı)");
+
         group.MapGet("/lessons/{lessonId:guid}", GetLessonScheduleByIdAsync)
         .WithSummary("Ders planı detayını getirir");
 
@@ -137,6 +140,27 @@ public sealed class SchedulingModule : ModuleDefinition
     {
         var result = await dispatcher.Dispatch(new CompleteLessonScheduleCommand(lessonId), cancellationToken);
         return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Yanlış eklenen dersi siler; yalnızca oluşturmadan sonra ≤24 saat ve ders gelecekteyse izinlidir.
+    /// </summary>
+    private static async Task<IResult> DeleteLessonScheduleAsync(
+        HttpContext context,
+        Guid lessonId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new DeleteLessonScheduleCommand(lessonId), cancellationToken);
+        return result.IsSuccess
+            ? Results.NoContent()
+            : result.Error.Code switch
+            {
+                "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                "scheduling.delete_not_allowed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
     }
 
     /// <summary>

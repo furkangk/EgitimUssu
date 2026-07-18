@@ -134,6 +134,10 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
     }
 
+    /// <summary>Silme yalnızca oluşturmadan sonraki 24 saat içinde ve ders gelecekteyse mümkündür; aksi halde iptal kullanılır.</summary>
+    public bool CanBeDeletedAt(DateTime nowUtc)
+        => nowUtc <= CreatedOnUtc.AddHours(24) && StartAtUtc > nowUtc;
+
     public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;

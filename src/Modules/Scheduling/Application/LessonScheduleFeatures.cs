@@ -45,6 +45,8 @@ public sealed record RescheduleLessonScheduleCommand(
 
 public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
 
+public sealed record DeleteLessonScheduleCommand(Guid LessonId) : ICommand<Result>;
+
 public sealed record GetLessonScheduleByIdQuery(Guid LessonId) : IQuery<Result<LessonScheduleResponse>>;
 
 public sealed record ListLessonSchedulesForTeacherQuery(
@@ -95,6 +97,8 @@ public interface ILessonScheduleRepository
     Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken);
 
     Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken);
+
+    void Remove(LessonSchedule lessonSchedule);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
@@ -332,6 +336,38 @@ public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<Compl
         lesson.Complete(_clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+    }
+}
+
+public sealed class DeleteLessonScheduleCommandHandler : ICommandHandler<DeleteLessonScheduleCommand, Result>
+{
+    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error NotAllowed = new("scheduling.delete_not_allowed", "Ders silinemez; iptal edin. Silme yalnizca olusturmadan sonraki 24 saat icinde ve ders gelecekteyse mumkundur.");
+    private readonly ILessonScheduleRepository _repository;
+    private readonly IClock _clock;
+
+    public DeleteLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result> Handle(DeleteLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        if (lesson is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        if (!lesson.CanBeDeletedAt(_clock.UtcNow))
+        {
+            return Result.Failure(NotAllowed);
+        }
+
+        _repository.Remove(lesson);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result.Success();
     }
 }
 

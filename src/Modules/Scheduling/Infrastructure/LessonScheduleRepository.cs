@@ -61,6 +61,11 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         return _dbContext.LessonSchedules.AddAsync(lessonSchedule, cancellationToken).AsTask();
     }
 
+    public void Remove(LessonSchedule lessonSchedule)
+    {
+        _dbContext.LessonSchedules.Remove(lessonSchedule);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
