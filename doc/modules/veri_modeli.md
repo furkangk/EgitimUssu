@@ -3,7 +3,7 @@
 > **Kapsam:** Tüm `src/Modules/` domain aggregate root'larının kimlik (Guid) ve modüller arası referans alanları.
 > **Yöntem:** Mevcut varlıklar koddan doğrulanmıştır (`<Module>/Domain/<Module>DomainModel.cs`); promp.txt vizyonuyla gelen
 > yeni varlıklar **⚠️ Önerilen (henüz kodda yok)** olarak işaretlidir.
-> **Güncelleme:** 2026-07-04
+> **Güncelleme:** 2026-07-19
 >
 > İlgili: [`00_genel_bakis.md`](00_genel_bakis.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`../INDEX.md`](../INDEX.md)
 
@@ -25,6 +25,13 @@
 
 > ⚠️ **Asimetri:** Öğretmen tarafı `TeacherUserId` (Identity `UserAccount.Id`) ile; öğrenci tarafı `StudentId`
 > (`StudentProfile.Id`, Identity değil) ile referanslanır. Yeni modül yazarken dikkat.
+>
+> 🔀 **Profil birleştirme (Ö-C/B5):** İki `StudentProfile` birleştiğinde (öğrenci davet kodunu girip claim yapar ve zaten
+> bir self-profil'i varsa), kanonik = self-profil olur; manuel profil `IsMerged=true` + `MergedIntoStudentId` ile pasifleşir.
+> `Students`, `StudentProfilesMergedDomainEvent(FromStudentId, ToStudentId)`'ı Outbox ile yayar; **`StudentId` hub'ına bağlı
+> tüm modüller** (Scheduling, Assignments, Payments, LessonSessions, Study) kendi kayıtlarındaki `StudentId=FromStudentId`
+> satırlarını kanonik `ToStudentId`'ye yeniden atar (`ExecuteUpdateAsync`; `Study.StudyStudent` PK=StudentId olduğundan kaynak
+> satır silinir). Böylece veli paneli tek kanonik `StudentId`'den beslenir. Sözleşme: `Shared.Contracts.StudentProfilesMergedIntegrationEvent`.
 
 ---
 
@@ -50,6 +57,7 @@ erDiagram
     TeacherProfile ||--o{ TeacherSubject : has
     TeacherProfile ||--o{ TeacherCertificate : has
     StudentProfile ||--o{ StudentSubject : has
+    StudentProfile ||--o| StudentProfile : "MergedIntoStudentId (Ö-C merge → kanonik)"
     StudentProfile ||--o{ TeacherStudentLink : "StudentId (çoklu öğretmen)"
     ParentProfile ||--o{ ParentChildLink : "onaylı bağ"
     StudentProfile ||--o{ ParentChildLink : "StudentId"
@@ -98,9 +106,9 @@ erDiagram
 | | `TeacherAvailabilitySlot` | `Id` | `TeacherProfileId` → TeacherProfile | |
 | | `TeacherSubject` | `Id` | `TeacherProfileId` → TeacherProfile | çoklu branş (birincil `Subject` korunur) |
 | | `TeacherCertificate` | `Id` | `TeacherProfileId` → TeacherProfile | sertifika/deneyim |
-| Students (`students`) | `StudentProfile` (+`TargetExam` hedef sınav S-03.9 — Ö-B 2026-07-19; `LinkUser` davranışı — B-06 2026-07-18) | `Id` | `UserId?`, `CreatedByTeacherUserId?`, `ParentUserId?` → UserAccount | [m03](m03_students.md) |
+| Students (`students`) | `StudentProfile` (+`IsMerged`/`MergedIntoStudentId` profil birleştirme — Ö-C 2026-07-19; `TargetExam` hedef sınav S-03.9 — Ö-B 2026-07-19; `LinkUser` davranışı — B-06 2026-07-18) | `Id` | `UserId?`, `CreatedByTeacherUserId?`, `ParentUserId?` → UserAccount · `MergedIntoStudentId?` → StudentProfile (kanonik) | [m03](m03_students.md) |
 | | `StudentSubject` | `Id` | `StudentProfileId` → StudentProfile | |
-| | `TeacherStudentLink` (çoklu öğretmen bağı, free limit=5, arşiv, öğrenci bazlı ücret — Dilim C 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile · `InviteTargetUserId?` · UNIQUE `(TeacherUserId,StudentId)` | [m03](m03_students.md) |
+| | `TeacherStudentLink` (+`InviteCode` davet kodu/claim — Ö-C 2026-07-19; çoklu öğretmen bağı, free limit=5, arşiv, öğrenci bazlı ücret — Dilim C 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile · `InviteTargetUserId?` · `InviteCode?` (indexli) · UNIQUE `(TeacherUserId,StudentId)` | [m03](m03_students.md) |
 | Scheduling (`scheduling`) | `LessonSchedule` (+`MeetingUrl`, `OriginalStartAtUtc`, `RescheduleNote`, `CancellationReason`, `IsChargeable` — 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
 | | `StudyScheduleEntry` (öğrenci kişisel programı, 2026-07-08) | `Id` | `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
 | | `TimeOffBlock` (tatil/müsait değil bloğu, B-01 2026-07-18) | `Id` | `TeacherUserId` → UserAccount | [m04](m04_scheduling.md) |

@@ -36,6 +36,8 @@
 | **Öğrenci arşivleme / arşivden çıkarma** | ✅ var (Dilim C) | `Archive/Unarchive`; arşivli öğrenci varsayılan listede gizli, limit sayımına dahil |
 | **Öğrenci bazlı ücret** (B-07) | ✅ var (Dilim C) | `AgreedRateAmount` + `Currency` link üzerinde |
 | **Manuel öğrenciyi gerçek hesaba bağlama (davet/kabul)** | ✅ var (Dilim C) | `Invite` → `Accept`; kabul eden `currentUser` profile bağlanır (`LinkUser`) |
+| **Davet kodu ile claim (Ö-C)** | ✅ var (Ö-C) | `InviteStudent` 6 haneli `InviteCode` üretir; öğrenci `ClaimStudentLinkCommand` ile kodu girip profili devralır (`POST /links/claim`) |
+| **Tam profil birleştirme (merge, Ö-C/B5)** | ✅ var (Ö-C) | Öğrencinin mevcut self-profil'i varsa claim'de kanonik=self, manuel profil `MarkMerged`; `StudentProfilesMergedDomainEvent` → Outbox → modüller-arası `StudentId` yeniden atama |
 | ContactEmail benzersizlik kontrolü | 🟡 kısmi | `ExistsByContactEmailAsync` repo'da var ama create handler'da kullanılmıyor |
 | Self-register mobil akışı | 🟢 var | `by-user` çözümü + yoksa `SelfRegistered` otomatik oluşturma (`StudentRepository.getByUser`/`createSelfProfile`), öğrenci `study` feature ilk girişinde tetiklenir |
 
@@ -66,10 +68,12 @@ Tablolar: `student_profiles`, `student_subjects`, `teacher_student_links`.
 | `Origin` | enum `StudentOrigin` | Profilin kaynağı (kim oluşturdu) |
 | `TargetExam` | enum `TargetExam` | Öğrencinin hedeflediği sınav (S-03.9); varsayılan `None`. M08 net formülü ceza bölenini bundan türetir (`SetTargetExam`) |
 | `IsActive` | bool | Aktif/pasif (create'te `true`) |
+| `IsMerged` | bool | Profil başka bir kanonik profile birleştirildiyse `true` (Ö-C claim/merge); birleşince `IsActive=false` |
+| `MergedIntoStudentId` | Guid? | Birleştirme sonrası kanonik (hedef) `StudentProfile.Id`; birleşmediyse null |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `Subjects` | List&lt;`StudentSubject`&gt; | Branş + hedef seviye |
 
-**Davranış:** Yapıcı `StudentProfileCreatedDomainEvent` yayar. `Update(...)` metodu tüm scalar alanları (ad, sınıf, iletişim, hedef, `IsActive`) günceller; `Subjects` yeniden yazımı `ReplaceSubjectsAsync` (repository) ile yapılır. `LinkParent(parentUserId, ...)` onaylı veli bağını kurar; **`LinkUser(userId, ...)`** (Dilim C) manuel öğrenciyi davet kabulünde gerçek öğrenci kullanıcısına bağlar (`UserId` set eder).
+**Davranış:** Yapıcı `StudentProfileCreatedDomainEvent` yayar. `Update(...)` metodu tüm scalar alanları (ad, sınıf, iletişim, hedef, `IsActive`) günceller; `Subjects` yeniden yazımı `ReplaceSubjectsAsync` (repository) ile yapılır. `LinkParent(parentUserId, ...)` onaylı veli bağını kurar; **`LinkUser(userId, ...)`** (Dilim C) manuel öğrenciyi davet kabulünde gerçek öğrenci kullanıcısına bağlar (`UserId` set eder). **`MarkMerged(canonicalStudentId, ...)`** (Ö-C) bu manuel profili kanonik self-profil'e birleştirir: `IsMerged=true`, `MergedIntoStudentId` set, `IsActive=false` ve `StudentProfilesMergedDomainEvent` yayar (Outbox → modüller-arası `StudentId` yeniden atama).
 
 ### 2.2 🟢 Mevcut (koddan) — `StudentSubject` (Entity&lt;Guid&gt;)
 
@@ -90,7 +94,13 @@ Tablolar: `student_profiles`, `student_subjects`, `teacher_student_links`.
 ```
 StudentProfileCreatedDomainEvent(Guid StudentProfileId, Guid? UserId,
                                  Guid? CreatedByTeacherUserId, StudentOrigin Origin, DateTime CreatedOnUtc)
+StudentProfilesMergedDomainEvent(Guid FromStudentId, Guid ToStudentId, DateTime OnUtc)   // Ö-C claim/merge
 ```
+
+> **Merge event (Ö-C):** `StudentProfilesMergedDomainEvent`, iki öğrenci profili birleştirildiğinde yayılır.
+> `Shared/Contracts`'taki `StudentProfilesMergedIntegrationEvent(FromStudentId, ToStudentId)` payload'ı ile eşleşir;
+> tüketen modüller (Scheduling, Assignments, Payments, LessonSessions, Study) kendi `StudentId=FromStudentId` kayıtlarını
+> kanonik `ToStudentId`'ye yeniden atar (bkz. §5).
 
 ### 2.4 🟢 Mevcut (koddan) — `TeacherStudentLink` (AggregateRoot&lt;Guid&gt;, Dilim C)
 
@@ -107,9 +117,10 @@ StudentProfileCreatedDomainEvent(Guid StudentProfileId, Guid? UserId,
 | `Status` | enum `TeacherStudentLinkStatus` | Bağlantı durumu (string olarak saklanır) |
 | `IsArchived` | bool | Arşiv bayrağı (listede gizle; limit sayımını etkilemez) |
 | `InviteTargetUserId` | Guid? | Davet belirli bir kullanıcıya yöneldiyse hedef |
+| `InviteCode` | string? | Öğrencinin claim için gireceği 6 haneli davet kodu (Ö-C); `students` şemasında indeksli, `varchar(8)` |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 
-**Davranış:** `SetRate(amount, currency, ...)`, `Archive(...)` / `Unarchive(...)`, `MarkInviteSent(targetUserId?, ...)` (→ `TeacherStudentInviteSentDomainEvent`), `Accept(...)` (→ `TeacherStudentLinkAcceptedDomainEvent`), `Reject(...)`.
+**Davranış:** `SetRate(amount, currency, ...)`, `Archive(...)` / `Unarchive(...)`, `MarkInviteSent(inviteCode, targetUserId?, ...)` (→ `TeacherStudentInviteSentDomainEvent`; kod handler'da `GenerateInviteCode()` ile üretilir — 6 haneli rakam), `Accept(...)` (→ `TeacherStudentLinkAcceptedDomainEvent`), `Reject(...)`.
 
 | Enum | Değerler |
 |------|----------|
@@ -155,6 +166,7 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 | Öğrenci davet et (B-06) | `POST /teachers/{teacherUserId:guid}/students/{studentId:guid}/invite` | `TeacherStudentLinkAuthorizer` | `InviteStudentRequest` | `204` |
 | Daveti kabul et | `POST /links/{linkId:guid}/accept` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
 | Daveti reddet | `POST /links/{linkId:guid}/reject` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
+| **Davet kodu ile profili devral (Ö-C)** | `POST /links/claim` | `TeacherStudentLinkResponseAuthorizer` (açık claim: kimliği doğrulanmış herhangi bir öğrenci; kod bilgisi sahiplik yerine geçer) | `ClaimLinkRequest` (`currentUser` = devralan) | `204` |
 
 **Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
 `IStudentDirectory` (`GetOwnerUserIdAsync(studentId) → Guid?`) sözleşmesini `StudentDirectory` ile uygular
@@ -190,6 +202,7 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 SetStudentRateRequest(decimal AgreedRateAmount, string Currency)   // B-07
 InviteStudentRequest(Guid? TargetUserId)                            // B-06; hedef opsiyonel (açık davet)
+ClaimLinkRequest(string InviteCode)                                 // Ö-C; öğretmenin verdiği 6 haneli kod
 ```
 
 ### 3.2 Hata Kodları → HTTP Eşleme (koddan)
@@ -200,6 +213,8 @@ InviteStudentRequest(Guid? TargetUserId)                            // B-06; hed
 | `students.free_limit_reached` | **409** | Free planda en fazla 5 ogrenci ekleyebilirsiniz. Premium'a gecin. |
 | `students.profile_not_found` | **404** | Öğrenci profili bulunamadı. |
 | `students.link_not_found` | **404** | Ogrenci baglantisi bulunamadi. (arşiv/ücret/davet uçları) |
+| `students.invite_not_found` | **404** | Davet kodu bulunamadi. (claim ucu) |
+| `students.invite_invalid` | **400** | Davet kodu artik gecerli degil. (claim ucu; link `InviteSent` değil) |
 | `shared.forbidden` | **403** | Bu işlemi yapma / bu kaynağa erişim yetkiniz yok. |
 | `students.invalid_origin` | 400 | Öğrenci profili kaynağı ile kimlik bilgileri uyumsuz. |
 | `students.invalid_request` | 400 | (Validator) Ad soyad ve sınıf seviyesi zorunlu. |
@@ -213,6 +228,7 @@ InviteStudentRequest(Guid? TargetUserId)                            // B-06; hed
 
 - [ ] **`PATCH /profiles/{studentId}/status`** — ayrı pasifleştirme ucu (şimdilik PUT ile `isActive: false` göndererek yapılıyor).
 - [x] **Manuel öğrenciyi gerçek hesaba bağlama** — `.../invite` + `/links/{linkId}/accept` ile karşılandı (Dilim C).
+- [x] **Davet kodu ile devralma + profil birleştirme** — `.../invite` 6 haneli kod üretir; `POST /links/claim` ile öğrenci devralır, mevcut self-profil varsa merge (Ö-C).
 - [ ] **`POST /profiles/{studentId}/link-parent`** — gerçek veli kullanıcısı bağlama (kural: veli daima kayıtlı kullanıcı).
 - [ ] **`POST` / `DELETE /profiles/{studentId}/subjects`** — branş ekleme/çıkarma (şu an yalnız create'te).
 - [ ] **`GET /profiles/by-parent/{parentUserId}`** — velinin çocuklarını listeleme (M09 ile).
@@ -249,6 +265,8 @@ InviteStudentRequest(Guid? TargetUserId)                            // B-06; hed
 15. **Arşivleme (B-04):** `Archive`/`Unarchive` link'in `IsArchived` bayrağını değiştirir. Arşivli öğrenci varsayılan listede gizlenir; `?includeArchived=true` ile görünür. Reddedilmiş (`Rejected`) linkler listede ve limitte sayılmaz.
 16. **Öğrenci bazlı ücret (B-07):** `SetRate(amount, currency)` link üzerinde anlaşılan ders ücretini tutar; ücret öğrenci-öğretmen ikilisine özeldir (öğretmen bazlı sabit ücrete bağlı değil).
 17. **Davet/kabul (B-06):** Öğretmen mevcut link'i `Invite` ile `InviteSent` yapar (hedef kullanıcı opsiyonel). Kabulde (`Accept`) link `Linked` olur ve **kabul eden `currentUser`** öğrenci profiline `LinkUser` ile bağlanır. Belirli hedef varsa yalnız o kullanıcı yanıtlayabilir; admin serbest. Identity'de e-posta/telefonla kullanıcı araması **yapılmaz** (kararı: 2026-07-18).
+18. **🔑 Davet kodu ile claim (Ö-C):** `Invite`, link'e 6 haneli rakamsal `InviteCode` yazar. Öğrenci `POST /links/claim` ile kodu girer (`ClaimStudentLinkCommand`, `ClaimingUserId = currentUser`). Handler: kod yoksa `students.invite_not_found` (404); link `InviteSent` değilse `students.invite_invalid` (400); aksi halde `link.Accept()`. Kod bilgisi sahiplik kanıtı yerine geçer (açık claim); yalnızca kimlik doğrulaması gerekir.
+19. **🔑 Tam profil birleştirme (merge, Ö-C/B5):** Claim anında öğrencinin **mevcut bir self-profil'i** (`GetByUserIdAsync(ClaimingUserId)`) varsa **kanonik = self-profil**; manuel profil `MarkMerged(self.Id)` ile pasifleşir ve `StudentProfilesMergedDomainEvent(FromStudentId=manuel, ToStudentId=self)` yayılır (Outbox). Self-profil **yoksa** manuel profil doğrudan devralınır (`LinkUser`). Merge **her zaman öğrenci onayıyla** (kod girişi); kişisel not/paylaşım kanonik profile taşınır. Modüller-arası `StudentId` yeniden atama §5'te.
 
 ---
 
@@ -264,10 +282,18 @@ InviteStudentRequest(Guid? TargetUserId)                            // B-06; hed
                               → Outbox → (gelecek) Notifications (M11): öğrenciye/veliye davet bildirimi
 Davet kabul edildi           → TeacherStudentLinkAcceptedDomainEvent (LinkId, TeacherUserId, StudentId, OnUtc)
                               → kabul eden currentUser profile LinkUser ile bağlanır
+Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentId=manuel, ToStudentId=self, OnUtc)
+                              → Outbox → StudentProfilesMergedIntegrationEvent (Shared.Contracts)
+                              → Scheduling / Assignments / Payments / LessonSessions / Study handler'ları:
+                                UPDATE ... SET StudentId=ToStudentId WHERE StudentId=FromStudentId
+                                (Study.StudyStudent PK=StudentId olduğundan kaynak satır silinir; kanonik korunur)
+                              → veli paneli tek kanonik StudentId'den beslenir (veri bölünmesi biter — B-01/AKIŞ 3)
 ```
 
-> Olaylar **Outbox pattern** ile yayılır (`Shared/Infrastructure/Messaging`). Şu an aktif tüketici yok;
-> bildirim (M11), eşleştirme (M12) ve veli paneli (M09) için doğal entegrasyon noktasıdır.
+> Olaylar **Outbox pattern** ile yayılır (`Shared/Infrastructure/Messaging`). Merge event'i **aktif olarak tüketilir**:
+> her modül `IIntegrationEventHandler` uygular (`<Module>StudentMergedHandler`), `SourceModule=="Students" && Name=="StudentProfilesMergedDomainEvent"`
+> eşleşmesinde `ExecuteUpdateAsync`/`ExecuteDeleteAsync` ile toplu yeniden atama yapar. Davet bildirimleri (M11) ve
+> eşleştirme (M12) için diğer olaylar hâlâ doğal entegrasyon noktasıdır.
 
 ---
 
@@ -302,6 +328,8 @@ Davet kabul edildi           → TeacherStudentLinkAcceptedDomainEvent (LinkId, 
 - [x] **Öğrenci arşivlenip arşivden çıkarılabilir**; arşivli varsayılan listede gizli, `includeArchived=true` ile görünür — birim testinde doğrulandı.
 - [x] **Öğretmen öğrenci bazlı ücret belirleyebilir** (B-07) — link üzerinde `AgreedRateAmount`/`Currency`.
 - [x] **Manuel öğrenci, davet/kabul ile gerçek öğrenci hesabına bağlanabilir** (B-06) — kabul eden `currentUser` profile bağlanır; birim testinde doğrulandı.
+- [x] **Öğrenci 6 haneli davet koduyla profili devralır** (Ö-C) — `POST /links/claim`; geçersiz/eksik kod `invite_not_found`/`invite_invalid`; birim testinde doğrulandı.
+- [x] **Mevcut self-profil varsa claim'de profiller birleşir** (Ö-C/B5) — manuel profil `IsMerged`, `StudentProfilesMergedDomainEvent` yayılır; birim testinde doğrulandı. Modüller-arası `StudentId` yeniden atama Testcontainers entegrasyon testinde doğrulanır (gerçek Postgres gerekli).
 - [x] **Self-register mobil akışı** uçtan uca çalışır — öğrenci ilk `study` girişinde profili yoksa `SelfRegistered` olarak oluşturulur (`getByUser` → yoksa `createSelfProfile`).
 
 ---
@@ -333,4 +361,4 @@ Davet kabul edildi           → TeacherStudentLinkAcceptedDomainEvent (LinkId, 
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

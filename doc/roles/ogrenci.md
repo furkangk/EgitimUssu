@@ -22,7 +22,7 @@
 | Öğrenci kendi kaydoldu | `SelfRegistered` | set | null |
 | Öğretmen ekledi (manuel) | `TeacherManaged` | null (başta) | set |
 
-Manuel öğrenci sonradan gerçek hesabına bağlanabilir (davet/eşleşme — ⚠️ planlanan). Detay: [`../modules/m03_students.md`](../modules/m03_students.md).
+**S-01.2 Davet kodu ile devralma (claim) + profil birleştirme (Ö-C):** Öğretmen bir manuel öğrenciyi davet ettiğinde sistem 6 haneli bir **davet kodu** üretir. Öğrenci hesabıyla giriş yapıp bu kodu girer (`POST /api/students/links/claim`), böylece öğretmenin oluşturduğu profili **kendi hesabına devralır**. Öğrencinin zaten kendi kaydettiği bir profili (`SelfRegistered`) varsa iki profil **birleşir**: kanonik profil öğrencinin self-profil'i olur; manuel profile bağlı tüm veriler (ders programı, ödev, ders notu, ödeme, ders seansı, çalışma kayıtları) kanonik profile taşınır — böylece **veri bölünmesi biter** (B-01/AKIŞ 3) ve veli paneli tek bir öğrenciden beslenir. Birleştirme **her zaman öğrencinin onayıyla** (kod girişi) gerçekleşir. Detay: [`../modules/m03_students.md`](../modules/m03_students.md) §4 (kural 18–19), §5.
 
 ---
 
@@ -116,4 +116,4 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 
 ---
 
-*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-B: çok dersli deneme `MockExam` + hedef sınav `TargetExam` → sınav tipine göre net böleni `ExamPenalty` · Ö-A streak eşiği: `StreakThresholdPercent` + 04:00 gün sınırı — anlamlı seri) · 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
+*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-C: S-01.2 davet kodu ile profili devralma (claim) + tam profil birleştirme (merge) → modüller-arası veri taşıma · Ö-B: çok dersli deneme `MockExam` + hedef sınav `TargetExam` → sınav tipine göre net böleni `ExamPenalty` · Ö-A streak eşiği: `StreakThresholdPercent` + 04:00 gün sınırı — anlamlı seri) · 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
