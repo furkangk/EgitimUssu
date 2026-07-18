@@ -21,6 +21,8 @@ public sealed class StudyDbContext : ModuleDbContext
 
     public DbSet<TestResult> TestResults => Set<TestResult>();
 
+    public DbSet<MockExam> MockExams => Set<MockExam>();
+
     public DbSet<StudyGoal> StudyGoals => Set<StudyGoal>();
 
     public DbSet<StudyStreak> StudyStreaks => Set<StudyStreak>();
@@ -79,6 +81,20 @@ internal sealed class TestResultConfiguration : IEntityTypeConfiguration<TestRes
         builder.Property(e => e.TestType).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(e => e.Net).HasPrecision(7, 2);
         builder.HasIndex(e => new { e.StudentId, e.Subject, e.TakenOnUtc });
+        builder.HasIndex(e => e.MockExamId);
+    }
+}
+
+internal sealed class MockExamConfiguration : IEntityTypeConfiguration<MockExam>
+{
+    public void Configure(EntityTypeBuilder<MockExam> builder)
+    {
+        builder.ToTable("mock_exams");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.ExamType).HasMaxLength(32).IsRequired();
+        builder.Property(e => e.TotalNet).HasPrecision(7, 2);
+        builder.Property(e => e.TakenOnUtc).IsRequired();
+        builder.HasIndex(e => new { e.StudentId, e.TakenOnUtc });
     }
 }
 

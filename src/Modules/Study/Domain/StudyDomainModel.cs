@@ -351,7 +351,12 @@ public sealed class TestResult : AggregateRoot<Guid>
         TakenOnUtc = takenOnUtc;
     }
 
+    /// <summary>Bu sonuç bir çok dersli denemenin (MockExam) parçasıysa o denemenin kimliği; tekil test ise null.</summary>
+    public void AttachToMockExam(Guid mockExamId) => MockExamId = mockExamId;
+
     public Guid StudentId { get; private set; }
+
+    public Guid? MockExamId { get; private set; }
 
     public string Subject { get; private set; } = string.Empty;
 
@@ -382,6 +387,54 @@ public sealed class TestResult : AggregateRoot<Guid>
     public bool IsSharedWithTeacher { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
+}
+
+/// <summary>
+/// Çok dersli deneme sınavı (ör. tam TYT/AYT/LGS oturumu). Her ders bir <see cref="TestResult"/> olarak eklenir,
+/// toplam net derslerin netlerinin toplamıdır.
+/// </summary>
+public sealed class MockExam : AggregateRoot<Guid>
+{
+    private MockExam()
+    {
+    }
+
+    public MockExam(
+        Guid id,
+        Guid studentId,
+        string examType,
+        DateTime takenOnUtc,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        StudentId = studentId;
+        ExamType = examType;
+        TakenOnUtc = takenOnUtc;
+        TotalNet = 0m;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid StudentId { get; private set; }
+
+    public string ExamType { get; private set; } = string.Empty;
+
+    public DateTime TakenOnUtc { get; private set; }
+
+    public decimal TotalNet { get; private set; }
+
+    public int? EstimatedRank { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    /// <summary>Bir dersin sonucunu denemeye ekler: net toplama eklenir ve sonuç bu denemeye bağlanır.</summary>
+    public void AddSubject(TestResult subjectResult)
+    {
+        subjectResult.AttachToMockExam(Id);
+        TotalNet += subjectResult.Net;
+    }
+
+    /// <summary>Deneme için tahmini sıralamayı ayarlar (dış hesaplama/istemci girdisi).</summary>
+    public void SetEstimatedRank(int? estimatedRank) => EstimatedRank = estimatedRank;
 }
 
 /// <summary>

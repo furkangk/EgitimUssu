@@ -129,6 +129,9 @@ internal sealed class StudyRepository : IStudyRepository
 
     public void RemoveTest(TestResult testResult) => _dbContext.TestResults.Remove(testResult);
 
+    public Task AddMockExamAsync(MockExam mockExam, CancellationToken cancellationToken) =>
+        _dbContext.MockExams.AddAsync(mockExam, cancellationToken).AsTask();
+
     public Task<StudyGoal?> GetActiveGoalAsync(Guid studentId, CancellationToken cancellationToken) =>
         _dbContext.StudyGoals
             .Where(x => x.StudentId == studentId && x.IsActive)

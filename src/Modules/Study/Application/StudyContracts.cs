@@ -161,6 +161,9 @@ public interface IStudyRepository
 
     void RemoveTest(TestResult testResult);
 
+    // Çok dersli deneme
+    Task AddMockExamAsync(MockExam mockExam, CancellationToken cancellationToken);
+
     // Hedefler
     Task<StudyGoal?> GetActiveGoalAsync(Guid studentId, CancellationToken cancellationToken);
 

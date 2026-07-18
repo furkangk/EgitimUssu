@@ -48,6 +48,7 @@ public sealed class StudyModule : ModuleDefinition
         group.MapDelete("/test-results/{testResultId:guid}", DeleteTestAsync).WithSummary("Deneme sonucunu siler");
         group.MapGet("/students/{studentId:guid}/test-results", ListTestsAsync).WithSummary("Öğrencinin deneme sonuçlarını listeler");
         group.MapGet("/students/{studentId:guid}/net-trend", NetTrendAsync).WithSummary("Ders/konu bazlı net trendini getirir");
+        group.MapPost("/students/{studentId:guid}/mock-exams", CreateMockExamAsync).WithSummary("Çok dersli deneme sınavı kaydeder (net dersler üzerinden toplanır)");
 
         // Hedef / streak / başarım / paylaşım / dashboard
         group.MapGet("/students/{studentId:guid}/goals", GetGoalsAsync).WithSummary("Aktif çalışma hedeflerini getirir");
@@ -130,6 +131,14 @@ public sealed class StudyModule : ModuleDefinition
 
     private static async Task<IResult> NetTrendAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new NetTrendQuery(studentId, subject, topic), ct));
+
+    private static async Task<IResult> CreateMockExamAsync(HttpContext ctx, Guid studentId, CreateMockExamRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new CreateMockExamCommand(
+            studentId,
+            req.ExamType,
+            req.TakenOnUtc,
+            req.Subjects.Select(s => new MockExamSubjectInput(
+                s.Subject, s.Topic, s.TestName, s.TotalQuestions, s.Correct, s.Wrong, s.Blank, s.PenaltyDivisor, s.TargetExam)).ToArray()), ct));
 
     private static async Task<IResult> GetGoalsAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetStudyGoalsQuery(studentId), ct));
@@ -234,6 +243,22 @@ public sealed record RecordTestResultRequest(
     int? DurationMinutes,
     DateTime TakenOnUtc,
     string? TargetExam = null);
+
+public sealed record CreateMockExamRequest(
+    string ExamType,
+    DateTime TakenOnUtc,
+    IReadOnlyCollection<MockExamSubjectItem> Subjects);
+
+public sealed record MockExamSubjectItem(
+    string Subject,
+    string? Topic,
+    string? TestName,
+    int TotalQuestions,
+    int Correct,
+    int Wrong,
+    int Blank,
+    int? PenaltyDivisor,
+    string? TargetExam);
 
 public sealed record UpdateGoalsRequest(
     int DailyGoalMinutes, int? WeeklyGoalMinutes, decimal? TargetNet, decimal? TargetScore, string? Subject, int StreakThresholdPercent = 60);

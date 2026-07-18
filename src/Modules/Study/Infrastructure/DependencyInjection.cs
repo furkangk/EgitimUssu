@@ -25,6 +25,7 @@ public static class DependencyInjection
         AddStudentScopedCommandAuthorizer<StartStudySessionCommand>(services);
         AddStudentScopedCommandAuthorizer<CreateManualStudySessionCommand>(services);
         AddStudentScopedCommandAuthorizer<RecordTestResultCommand>(services);
+        AddStudentScopedCommandAuthorizer<CreateMockExamCommand>(services);
         AddStudentScopedCommandAuthorizer<UpdateStudyGoalsCommand>(services);
         AddStudentScopedCommandAuthorizer<UpdateStudySharingCommand>(services);
         AddStudentScopedCommandAuthorizer<CreateSubjectCatalogCommand>(services);
@@ -89,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<RecordTestResultCommand, Result<TestResultResponse>>, RecordTestResultCommandHandler>();
         services.AddScoped<ICommandHandler<EditTestResultCommand, Result<TestResultResponse>>, EditTestResultCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteTestResultCommand, Result<bool>>, DeleteTestResultCommandHandler>();
+        services.AddScoped<ICommandHandler<CreateMockExamCommand, Result<MockExamResponse>>, CreateMockExamCommandHandler>();
         services.AddScoped<IQueryHandler<GetTestResultQuery, Result<TestResultResponse>>, GetTestResultQueryHandler>();
         services.AddScoped<IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>, ListTestResultsQueryHandler>();
         services.AddScoped<IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>, NetTrendQueryHandler>();
