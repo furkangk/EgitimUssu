@@ -311,3 +311,87 @@ public enum OccurrenceExceptionAction
     Cancelled = 2,
     Rescheduled = 3
 }
+
+/// <summary>
+/// Öğrencinin bir dersin ertelenmesi için açtığı hafif talep (Ö-F). Öğrenci dersi kendisi değiştirmez;
+/// yalnızca neden + alternatif tarih önerir. Öğretmen kabul ederse mevcut Reschedule akışı çalışır, redde talep kapanır.
+/// Durum makinesi: Pending → (Accepted | Rejected); yalnızca Pending'den geçiş yapılır.
+/// </summary>
+public sealed class LessonChangeRequest : AggregateRoot<Guid>
+{
+    private LessonChangeRequest() { }
+
+    public LessonChangeRequest(
+        Guid id,
+        Guid lessonScheduleId,
+        Guid studentId,
+        Guid teacherUserId,
+        string reason,
+        DateTime? proposedStartAtUtc,
+        DateTime? proposedEndAtUtc,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        LessonScheduleId = lessonScheduleId;
+        StudentId = studentId;
+        TeacherUserId = teacherUserId;
+        Reason = reason;
+        ProposedStartAtUtc = proposedStartAtUtc;
+        ProposedEndAtUtc = proposedEndAtUtc;
+        Status = LessonChangeRequestStatus.Pending;
+        CreatedOnUtc = createdOnUtc;
+
+        Raise(new LessonChangeRequestedDomainEvent(Id, LessonScheduleId, StudentId, TeacherUserId, createdOnUtc));
+    }
+
+    public Guid LessonScheduleId { get; private set; }
+    public Guid StudentId { get; private set; }
+    public Guid TeacherUserId { get; private set; }
+    public string Reason { get; private set; } = string.Empty;
+    public DateTime? ProposedStartAtUtc { get; private set; }
+    public DateTime? ProposedEndAtUtc { get; private set; }
+    public LessonChangeRequestStatus Status { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+    public DateTime? ResolvedOnUtc { get; private set; }
+
+    /// <summary>Öğretmen talebi kabul eder. Yalnızca bekleyen talepte; aksi halde geçersiz işlem.</summary>
+    public void Accept(DateTime nowUtc) => Resolve(LessonChangeRequestStatus.Accepted, nowUtc);
+
+    /// <summary>Öğretmen talebi reddeder. Yalnızca bekleyen talepte; aksi halde geçersiz işlem.</summary>
+    public void Reject(DateTime nowUtc) => Resolve(LessonChangeRequestStatus.Rejected, nowUtc);
+
+    private void Resolve(LessonChangeRequestStatus status, DateTime nowUtc)
+    {
+        if (Status != LessonChangeRequestStatus.Pending)
+        {
+            throw new InvalidOperationException("Yalnızca bekleyen (Pending) erteleme talebi sonuçlandırılabilir.");
+        }
+
+        Status = status;
+        ResolvedOnUtc = nowUtc;
+
+        Raise(new LessonChangeRequestResolvedDomainEvent(Id, LessonScheduleId, StudentId, TeacherUserId, status, nowUtc));
+    }
+}
+
+public enum LessonChangeRequestStatus
+{
+    Pending = 1,
+    Accepted = 2,
+    Rejected = 3
+}
+
+public sealed record LessonChangeRequestedDomainEvent(
+    Guid RequestId,
+    Guid LessonScheduleId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    DateTime CreatedOnUtc) : DomainEvent;
+
+public sealed record LessonChangeRequestResolvedDomainEvent(
+    Guid RequestId,
+    Guid LessonScheduleId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    LessonChangeRequestStatus Status,
+    DateTime ResolvedOnUtc) : DomainEvent;
