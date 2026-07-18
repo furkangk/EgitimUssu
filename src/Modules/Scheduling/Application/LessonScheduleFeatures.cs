@@ -100,6 +100,12 @@ public interface ILessonScheduleRepository
 
     void Remove(LessonSchedule lessonSchedule);
 
+    Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 

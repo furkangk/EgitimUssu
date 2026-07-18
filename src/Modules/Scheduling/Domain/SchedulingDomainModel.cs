@@ -256,3 +256,43 @@ public enum TimeOffType
     Official = 3,
     Other = 4
 }
+
+public sealed class LessonOccurrenceException : Entity<Guid>
+{
+    private LessonOccurrenceException() { }
+
+    public LessonOccurrenceException(
+        Guid id,
+        Guid seriesLessonScheduleId,
+        DateTime originalStartAtUtc,
+        OccurrenceExceptionAction action,
+        DateTime? overrideStartAtUtc,
+        DateTime? overrideEndAtUtc,
+        string? note,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        SeriesLessonScheduleId = seriesLessonScheduleId;
+        OriginalStartAtUtc = originalStartAtUtc;
+        Action = action;
+        OverrideStartAtUtc = overrideStartAtUtc;
+        OverrideEndAtUtc = overrideEndAtUtc;
+        Note = note;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid SeriesLessonScheduleId { get; private set; }
+    public DateTime OriginalStartAtUtc { get; private set; }
+    public OccurrenceExceptionAction Action { get; private set; }
+    public DateTime? OverrideStartAtUtc { get; private set; }
+    public DateTime? OverrideEndAtUtc { get; private set; }
+    public string? Note { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+}
+
+public enum OccurrenceExceptionAction
+{
+    Skipped = 1,
+    Cancelled = 2,
+    Rescheduled = 3
+}

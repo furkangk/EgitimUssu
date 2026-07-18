@@ -66,6 +66,20 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         _dbContext.LessonSchedules.Remove(lessonSchedule);
     }
 
+    public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+        => _dbContext.LessonOccurrenceExceptions.AddAsync(occurrenceException, cancellationToken).AsTask();
+
+    public async Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken)
+        => await _dbContext.LessonOccurrenceExceptions
+            .Where(x => x.SeriesLessonScheduleId == seriesLessonScheduleId)
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken)
+        => await (from x in _dbContext.LessonOccurrenceExceptions
+                  join l in _dbContext.LessonSchedules on x.SeriesLessonScheduleId equals l.Id
+                  where l.TeacherUserId == teacherUserId
+                  select x).ToArrayAsync(cancellationToken);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _dbContext.SaveChangesAsync(cancellationToken);

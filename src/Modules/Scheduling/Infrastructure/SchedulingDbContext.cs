@@ -23,6 +23,8 @@ public sealed class SchedulingDbContext : ModuleDbContext
 
     public DbSet<TimeOffBlock> TimeOffBlocks => Set<TimeOffBlock>();
 
+    public DbSet<LessonOccurrenceException> LessonOccurrenceExceptions => Set<LessonOccurrenceException>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Scheduling";
@@ -54,6 +56,19 @@ internal sealed class LessonScheduleConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StartAtUtc });
         builder.HasIndex(entity => new { entity.StudentId, entity.StartAtUtc });
+    }
+}
+
+internal sealed class LessonOccurrenceExceptionConfiguration : IEntityTypeConfiguration<LessonOccurrenceException>
+{
+    public void Configure(EntityTypeBuilder<LessonOccurrenceException> builder)
+    {
+        builder.ToTable("lesson_occurrence_exceptions");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Action).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.Note).HasMaxLength(500);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.SeriesLessonScheduleId, entity.OriginalStartAtUtc });
     }
 }
 

@@ -75,4 +75,18 @@ public sealed class LessonScheduleTests
         Assert.False(lesson.CanBeDeletedAt(created.AddHours(25)));  // 24s aşıldı
         Assert.False(lesson.CanBeDeletedAt(lessonStart.AddMinutes(1))); // ders geçmişte
     }
+
+    [Fact]
+    public void OccurrenceException_Ctor_StoresFields()
+    {
+        var seriesId = Guid.NewGuid();
+        var original = new DateTime(2026, 7, 27, 13, 0, 0, DateTimeKind.Utc);
+        var ex = new LessonOccurrenceException(
+            Guid.NewGuid(), seriesId, original, OccurrenceExceptionAction.Rescheduled,
+            original.AddDays(1), original.AddDays(1).AddHours(1), "bir hafta ertelendi", original);
+
+        Assert.Equal(seriesId, ex.SeriesLessonScheduleId);
+        Assert.Equal(OccurrenceExceptionAction.Rescheduled, ex.Action);
+        Assert.Equal(original.AddDays(1), ex.OverrideStartAtUtc);
+    }
 }
