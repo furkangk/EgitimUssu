@@ -38,10 +38,47 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
+    {
+        return await _dbContext.LessonSchedules
+            .Where(lesson => lesson.StudentId == studentId
+                && lesson.StartAtUtc >= startAtUtc
+                && lesson.StartAtUtc <= endAtUtc)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken)
+    {
+        return await _dbContext.LessonSchedules
+            .Where(lesson => lesson.StudentId == studentId
+                && lesson.Status != LessonScheduleStatus.Cancelled
+                && lesson.StartAtUtc <= untilUtc)
+            .ToArrayAsync(cancellationToken);
+    }
+
     public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken)
     {
         return _dbContext.LessonSchedules.AddAsync(lessonSchedule, cancellationToken).AsTask();
     }
+
+    public void Remove(LessonSchedule lessonSchedule)
+    {
+        _dbContext.LessonSchedules.Remove(lessonSchedule);
+    }
+
+    public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+        => _dbContext.LessonOccurrenceExceptions.AddAsync(occurrenceException, cancellationToken).AsTask();
+
+    public async Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken)
+        => await _dbContext.LessonOccurrenceExceptions
+            .Where(x => x.SeriesLessonScheduleId == seriesLessonScheduleId)
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken)
+        => await (from x in _dbContext.LessonOccurrenceExceptions
+                  join l in _dbContext.LessonSchedules on x.SeriesLessonScheduleId equals l.Id
+                  where l.TeacherUserId == teacherUserId
+                  select x).ToArrayAsync(cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {

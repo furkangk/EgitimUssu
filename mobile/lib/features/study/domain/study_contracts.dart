@@ -213,8 +213,108 @@ class StudyDashboard {
   final List<StudyAchievement> recentAchievements;
 }
 
+/// Katalog konusu (örn. Matematik → Türev). [subjectId] bağlı olduğu dersi işaret eder.
+class TopicCatalog {
+  const TopicCatalog({
+    required this.id,
+    required this.subjectId,
+    required this.name,
+    required this.orderIndex,
+    this.isActive = true,
+  });
+
+  final String id;
+  final String subjectId;
+  final String name;
+  final int orderIndex;
+  final bool isActive;
+}
+
+/// Öğrencinin tanımladığı katalog dersi ve konuları. Kronometre, deneme ve takvim
+/// bu katalogdan tutarlı ders/konu adları alır.
+class SubjectCatalog {
+  const SubjectCatalog({
+    required this.id,
+    required this.studentId,
+    required this.name,
+    required this.topics,
+    this.colorHex,
+    this.isActive = true,
+  });
+
+  final String id;
+  final String studentId;
+  final String name;
+  final String? colorHex;
+  final bool isActive;
+  final List<TopicCatalog> topics;
+}
+
+/// Öğrencinin kendi ders notu (öğretmen `LessonNote`'undan ayrı).
+class StudyNote {
+  const StudyNote({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.updatedOnUtc,
+    this.subject,
+    this.topic,
+    this.attachmentUrl,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final String? subject;
+  final String? topic;
+  final String? attachmentUrl;
+  final DateTime updatedOnUtc;
+}
+
 abstract interface class StudyRepository {
   Future<StudyDashboard> getDashboard(String studentId);
+
+  // Öğrenci ders notları
+  Future<List<StudyNote>> listNotes(String studentId);
+  Future<StudyNote> createNote(
+    String studentId, {
+    required String title,
+    required String body,
+    String? subject,
+    String? topic,
+  });
+  Future<StudyNote> updateNote(
+    String noteId, {
+    required String title,
+    required String body,
+    String? subject,
+    String? topic,
+  });
+  Future<void> deleteNote(String noteId);
+
+  // Ders/konu kataloğu
+  Future<List<SubjectCatalog>> listSubjects(String studentId);
+  Future<SubjectCatalog> createSubject(
+    String studentId, {
+    required String name,
+    String? colorHex,
+  });
+  Future<SubjectCatalog> updateSubject(
+    String subjectId, {
+    required String name,
+    String? colorHex,
+    required bool isActive,
+  });
+  Future<void> deleteSubject(String subjectId);
+  Future<TopicCatalog> addTopic(String subjectId, {required String name});
+  Future<TopicCatalog> updateTopic(
+    String topicId, {
+    required String name,
+    required int orderIndex,
+    required bool isActive,
+  });
+  Future<void> deleteTopic(String topicId);
+
   Future<StudyStreak> getStreak(String studentId);
   Future<StudyGoal?> getGoals(String studentId);
   Future<StudyGoal> updateGoals(

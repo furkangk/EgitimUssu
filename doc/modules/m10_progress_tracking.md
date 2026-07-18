@@ -2,7 +2,9 @@
 
 > **Kod Modülü:** `src/Modules/ProgressTracking` · **Route Prefix:** `/api/progress-tracking` · **Şema:** `progress_tracking`
 > **PRD Modülü:** M10 Gelişim Takibi · **Faz:** 3
-> **Durum:** 🔴 **İskelet** (yalnızca `ProgressTrackingDbContext` + DI + `GET /api/progress-tracking/status`)
+> **Durum:** 🟡 **Çalışır çekirdek** (TopicMastery + TopicGoal domain, M08 çalışma/test olay tüketicileri,
+> hâkimiyet skoru motoru, mastery/weak-spots/strengths/overview + konu hedefi API'leri, mobil "Gelişimim" ekranı).
+> ProgressSnapshot (zaman serisi) + öğretmen/veli görünümü + M14/M09 entegrasyonu henüz yok.
 > **Platform:** EğitimÜssü (EgitimUssu) — .NET 9 modüler monolit · PostgreSQL · Redis · Flutter
 >
 > **Amaç:** Öğrencinin **konu bazlı gelişimini** ölçmek: hangi konularda eksik/güçlü, konu hedeflerine
@@ -10,30 +12,35 @@
 > M08 (bireysel çalışma + test) ve M05 (ders oturumu) verilerinden **beslenen** bir analiz/zaman-serisi
 > modülüdür. Çıktısı hem **öğretmenin** hem **velinin** gelişim takibini ve M14 raporlarını besler.
 
-> ⚠️ Bu dokümandaki Domain/API/İş Kuralları/Olay Akışı bölümleri **henüz kodda yoktur**; PRD §M10 ve
-> mevcut modül desenlerine göre **önerilen tasarımdır**. Bölüm 1 koddan doğrulanmıştır.
+> ⚠️ Bu dokümandaki **ProgressSnapshot**, öğretmen/veli görünümü ve M14/M09 entegrasyonu bölümleri henüz **önerilen tasarımdır**.
+> TopicMastery + TopicGoal + besleme + API + mobil ekran **kodda mevcuttur** (2026-07-09). Bölüm 1 koddan doğrulanmıştır.
 
 ---
 
-## 1. Mevcut Durum (Koddan Doğrulanmış)
+## 1. Mevcut Durum (Koddan Doğrulanmış — 2026-07-09)
 
-### ✅ Var olan (iskelet)
-- `ProgressTrackingModule : ModuleDefinition` — `Name = "ProgressTracking"`, `RoutePrefix = "/api/progress-tracking"`,
-  tek endpoint: `GET /api/progress-tracking/status` → `placeholder` (`src/Modules/ProgressTracking/API/ProgressTrackingModule.cs`).
-- `ProgressTrackingDbContext : ModuleDbContext` — henüz **hiç `DbSet` yok**
-  (`src/Modules/ProgressTracking/Infrastructure/ProgressTrackingDbContext.cs`).
-- `AddProgressTrackingModule(...)` DI kaydı (`src/Modules/ProgressTracking/Infrastructure/DependencyInjection.cs`).
+### ✅ Uygulanan (çalışır çekirdek)
+- **Domain** (`src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs`): `TopicMastery`
+  (`RegisterStudy`/`RegisterTest` → skor/seviye/trend/eksik-güçlü yeniden hesaplama), `TopicGoal`
+  (`MarkAchieved`/`Cancel`), `ProcessedEvent` (idempotency). Enum'lar: `MasteryLevel`, `ProgressTrend`,
+  `MasterySource`, `TopicGoalStatus`, `TopicGoalSetterRole`. Olaylar: `TopicMasteryChanged`, `TopicGoalAchieved`.
+- **Besleme (idempotent consumer'lar)** (`Infrastructure/StudyProgressIntegrationEventHandlers.cs`):
+  M08 `StudySessionCompletedDomainEvent` → süre; `TestResultRecordedDomainEvent` → net oranı. `ProcessedEvent` ile tekrar-koruma.
+  (M08 `TestResultRecordedDomainEvent` bu iş kapsamında `Topic`/`TotalQuestions`/D-Y-B alanlarıyla zenginleştirildi.)
+- **Skor motoru** (`TopicMastery.Recalculate`): çalışma bileşeni (maks 30, 3 saatte doyar) + test net oranı (maks 70);
+  seviye bantları 0–20 Weak / 20–45 Developing / 45–75 Proficient / 75–100 Mastered; veri yoksa NotStarted.
+  Trend son iki net oranından; `IsWeakSpot`/`IsStrength` §4.2'ye göre.
+- **API** (`API/ProgressTrackingModule.cs`): mastery / weak-spots / strengths / overview + topic-goals (liste/oluştur/iptal). Sahiplik `IStudentDirectory` ile.
+- **Persistence**: `ProgressTrackingDbContext` (TopicMastery/TopicGoal/ProcessedEvent) + `progress_tracking` şeması migration'ı.
+- **Mobil**: `mobile/lib/features/progress/` — "Gelişimim" ekranı (dağılım + eksik/güçlü + tüm konular).
 
-### 🟢 Hazır besleme kaynakları (başka modüllerde)
-- M05 LessonSessions: **`LessonSessionCompletedDomainEvent`** mevcut (`LessonSessionId`, `TeacherUserId`, `StudentId`, `CompletedOnUtc`)
-  (`src/Modules/LessonSessions/Domain/LessonSessionsDomainModel.cs`) — tamamlanan dersten gelişim beslenebilir.
+### 🟢 Hazır besleme kaynakları (henüz tüketilmeyen)
+- M05 LessonSessions: **`LessonSessionCompletedDomainEvent`** mevcut — ders tamamlanmasından besleme **ileride** eklenebilir (şu an yalnızca M08 tüketiliyor).
 
-### 🔴 Eksik olan
-- **Domain yok** — `TopicMastery`, `TopicGoal`, `ProgressSnapshot` tanımlı değil.
-- **M08 (Study) henüz iskelet** — gelişimi besleyecek `StudySessionCompleted`/`TestResultRecorded` olayları yok (önkoşul).
-- **Application/API/migration yok** (sadece `/status`); `progress_tracking` şemasında tablo yok.
-- **Besleme (consumer) yok** — `LessonSessionCompleted` ve Study olaylarını tüketen handler yok.
-- **Mobil gelişim ekranı yok**.
+### 🔴 Kalan (önerilen)
+- **ProgressSnapshot** (haftalık/aylık zaman serisi + zamanlayıcı) — gelişim grafiği için.
+- **Öğretmen/veli görünümü** (bağlı öğrenci / paylaşıma açık çocuk) ve **M14/M09 entegrasyonu**.
+- **M05 ders tamamlanması** beslemesi.
 
 ---
 
@@ -301,4 +308,4 @@ M08 TestResultRecordedDomainEvent     ──┘
 
 ---
 
-*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🔴 İskelet | Güncelleme: 2026-06-24*
+*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+besleme+API+mobil) | Güncelleme: 2026-07-09*

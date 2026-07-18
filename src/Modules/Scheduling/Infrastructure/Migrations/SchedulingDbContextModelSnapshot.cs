@@ -23,17 +23,61 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.Scheduling.Domain.LessonOccurrenceException", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("OriginalStartAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("OverrideEndAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("OverrideStartAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SeriesLessonScheduleId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeriesLessonScheduleId", "OriginalStartAtUtc");
+
+                    b.ToTable("lesson_occurrence_exceptions", "scheduling");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Scheduling.Domain.LessonSchedule", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("EndAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsChargeable")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("LessonFormat")
                         .IsRequired()
@@ -44,9 +88,16 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("MeetingUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("OriginalStartAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RecurrenceRule")
                         .HasMaxLength(256)
@@ -54,6 +105,10 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
 
                     b.Property<int>("ReminderOffsetMinutes")
                         .HasColumnType("integer");
+
+                    b.Property<string>("RescheduleNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("StartAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -89,6 +144,106 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
                     b.HasIndex("TeacherUserId", "StartAtUtc");
 
                     b.ToTable("lesson_schedules", "scheduling");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Scheduling.Domain.StudyScheduleEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ColorHex")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("RecurrenceRule")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("ReminderOffsetMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "Status");
+
+                    b.ToTable("study_schedule_entries", "scheduling");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Scheduling.Domain.TimeOffBlock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAllDay")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("StartAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherUserId", "StartAtUtc");
+
+                    b.ToTable("time_off_blocks", "scheduling");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>

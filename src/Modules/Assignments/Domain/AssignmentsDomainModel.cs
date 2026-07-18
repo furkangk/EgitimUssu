@@ -56,12 +56,42 @@ public sealed class Assignment : AggregateRoot<Guid>
 
     public DateTime? CompletedOnUtc { get; private set; }
 
+    public string? TeacherFeedback { get; private set; }
+
     public void MarkCompleted(DateTime completedOnUtc)
     {
         Status = AssignmentStatus.Completed;
         CompletedOnUtc = completedOnUtc;
 
         Raise(new AssignmentCompletedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, completedOnUtc));
+    }
+
+    /// <summary>Öğrenci ödev çözümünü (dosya/bağlantı) yükler. Bekleyen ödev "devam ediyor"a geçer.</summary>
+    public void SubmitWork(string attachmentUrl, DateTime nowUtc)
+    {
+        AttachmentUrl = attachmentUrl;
+        if (Status is AssignmentStatus.Pending or AssignmentStatus.ReturnedForRevision)
+        {
+            Status = AssignmentStatus.InProgress;
+        }
+
+        Raise(new AssignmentSubmittedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, nowUtc));
+    }
+
+    /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>
+    public void Approve(string? feedback, DateTime nowUtc)
+    {
+        Status = AssignmentStatus.Approved;
+        TeacherFeedback = feedback;
+        Raise(new AssignmentApprovedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
+    }
+
+    /// <summary>Öğretmen ödevi geri bildirimle revizyona geri gönderir.</summary>
+    public void ReturnForRevision(string feedback, DateTime nowUtc)
+    {
+        Status = AssignmentStatus.ReturnedForRevision;
+        TeacherFeedback = feedback;
+        Raise(new AssignmentReturnedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
     }
 }
 
@@ -79,6 +109,7 @@ public sealed class LessonNote : AggregateRoot<Guid>
         string summary,
         string? coveredTopics,
         string? recommendations,
+        LessonNoteVisibility visibility,
         DateTime createdOnUtc)
     {
         Id = id;
@@ -88,6 +119,7 @@ public sealed class LessonNote : AggregateRoot<Guid>
         Summary = summary;
         CoveredTopics = coveredTopics;
         Recommendations = recommendations;
+        Visibility = visibility;
         CreatedOnUtc = createdOnUtc;
 
         Raise(new LessonNoteCreatedDomainEvent(Id, LessonSessionId, TeacherUserId, StudentId, CreatedOnUtc));
@@ -105,16 +137,20 @@ public sealed class LessonNote : AggregateRoot<Guid>
 
     public string? Recommendations { get; private set; }
 
+    public LessonNoteVisibility Visibility { get; private set; }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public void Update(
         string summary,
         string? coveredTopics,
-        string? recommendations)
+        string? recommendations,
+        LessonNoteVisibility visibility)
     {
         Summary = summary;
         CoveredTopics = coveredTopics;
         Recommendations = recommendations;
+        Visibility = visibility;
     }
 }
 
@@ -123,7 +159,16 @@ public enum AssignmentStatus
     Pending = 1,
     InProgress = 2,
     Completed = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    Approved = 5,
+    ReturnedForRevision = 6
+}
+
+public enum LessonNoteVisibility
+{
+    Private = 1,
+    Student = 2,
+    StudentAndParent = 3
 }
 
 public sealed record AssignmentCreatedDomainEvent(
@@ -139,6 +184,25 @@ public sealed record AssignmentCompletedDomainEvent(
     Guid TeacherUserId,
     Guid? LessonSessionId,
     DateTime CompletedOnUtc) : DomainEvent;
+
+public sealed record AssignmentSubmittedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    Guid? LessonSessionId,
+    DateTime SubmittedOnUtc) : DomainEvent;
+
+public sealed record AssignmentApprovedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    DateTime OnUtc) : DomainEvent;
+
+public sealed record AssignmentReturnedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    DateTime OnUtc) : DomainEvent;
 
 public sealed record LessonNoteCreatedDomainEvent(
     Guid LessonNoteId,

@@ -1,4 +1,5 @@
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Scheduling.Application;
@@ -38,6 +39,8 @@ public sealed class LessonScheduleCommandAuthorizer :
     ICommandAuthorizer<CreateLessonScheduleCommand>,
     ICommandAuthorizer<UpdateLessonScheduleCommand>,
     ICommandAuthorizer<CancelLessonScheduleCommand>,
+    ICommandAuthorizer<RescheduleLessonScheduleCommand>,
+    ICommandAuthorizer<DeleteLessonScheduleCommand>,
     ICommandAuthorizer<CompleteLessonScheduleCommand>,
     IQueryAuthorizer<GetLessonScheduleByIdQuery>,
     IQueryAuthorizer<ListLessonSchedulesForTeacherQuery>
@@ -67,6 +70,22 @@ public sealed class LessonScheduleCommandAuthorizer :
     }
 
     public async Task<Result> Authorize(CancelLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        return lesson is null
+            ? Result.Failure(NotFound)
+            : (CanManageTeacher(lesson.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    public async Task<Result> Authorize(RescheduleLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        return lesson is null
+            ? Result.Failure(NotFound)
+            : (CanManageTeacher(lesson.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    public async Task<Result> Authorize(DeleteLessonScheduleCommand command, CancellationToken cancellationToken)
     {
         var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
         return lesson is null
@@ -105,5 +124,45 @@ public sealed class LessonScheduleCommandAuthorizer :
         var isAdmin = _currentUser.Roles.Contains("Admin");
         var isTeacher = _currentUser.Roles.Contains("Teacher");
         return isAdmin || (isTeacher && Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == teacherUserId);
+    }
+}
+
+/// <summary>
+/// Öğrenci-kapsamlı ders listesini koruyan yetkilendirici. Admin her zaman;
+/// aksi halde StudentId oturum açan kullanıcıya ait olmalı. Sahiplik, Students'ın
+/// yayınladığı <see cref="IStudentDirectory"/> sözleşmesinden okunur (modül izolasyonu,
+/// IDOR koruması) — Scheduling, Students'a doğrudan referans vermez.
+/// </summary>
+public sealed class StudentLessonQueryAuthorizer : IQueryAuthorizer<ListLessonSchedulesForStudentQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu derslere erişim yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+    private readonly IStudentDirectory _studentDirectory;
+
+    public StudentLessonQueryAuthorizer(ICurrentUser currentUser, IStudentDirectory studentDirectory)
+    {
+        _currentUser = currentUser;
+        _studentDirectory = studentDirectory;
+    }
+
+    public async Task<Result> Authorize(ListLessonSchedulesForStudentQuery query, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        if (!Guid.TryParse(_currentUser.UserId, out var userId))
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        var ownerUserId = await _studentDirectory.GetOwnerUserIdAsync(query.StudentId, cancellationToken);
+        return ownerUserId == userId ? Result.Success() : Result.Failure(Forbidden);
     }
 }

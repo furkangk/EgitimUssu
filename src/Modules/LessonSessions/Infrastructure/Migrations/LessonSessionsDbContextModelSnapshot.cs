@@ -53,6 +53,9 @@ namespace EgitimUssu.Modules.LessonSessions.Infrastructure.Migrations
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsChargeable")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("LessonScheduleId")
                         .HasColumnType("uuid");
 

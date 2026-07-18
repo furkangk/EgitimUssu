@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryValidator<ListTeacherLessonRemindersQuery>, ListTeacherLessonRemindersQueryValidator>();
         services.AddScoped<IQueryAuthorizer<ListTeacherLessonRemindersQuery>, LessonReminderQueryAuthorizer>();
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudyScheduleReminderIntegrationEventHandler>();
         services.AddHostedService<NotificationDispatcher>();
         return services;
     }

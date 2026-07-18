@@ -19,7 +19,8 @@ public sealed record CompleteLessonSessionCommand(
     StudentAttendanceStatus AttendanceStatus,
     string TopicTitle,
     string? CoveredContent,
-    string? TeacherNotes) : ICommand<Result<LessonSessionResponse>>;
+    string? TeacherNotes,
+    bool IsChargeable) : ICommand<Result<LessonSessionResponse>>;
 
 public sealed record GetLessonSessionByIdQuery(Guid LessonSessionId) : IQuery<Result<LessonSessionResponse>>;
 public sealed record ListLessonSessionsQuery(Guid? TeacherUserId, Guid? StudentId, DateTime? DateFromUtc, DateTime? DateToUtc) : IQuery<Result<IReadOnlyCollection<LessonSessionResponse>>>;
@@ -39,6 +40,7 @@ public sealed record LessonSessionResponse(
     string TopicTitle,
     string? CoveredContent,
     string? TeacherNotes,
+    bool IsChargeable,
     DateTime CreatedOnUtc,
     DateTime? CompletedOnUtc);
 
@@ -160,6 +162,7 @@ public sealed class CompleteLessonSessionCommandHandler : ICommandHandler<Comple
             command.TopicTitle.Trim(),
             command.CoveredContent?.Trim(),
             command.TeacherNotes?.Trim(),
+            command.IsChargeable,
             _clock.UtcNow);
 
         await _repository.SaveChangesAsync(cancellationToken);
@@ -205,6 +208,7 @@ internal static class LessonSessionMappings
             session.TopicTitle,
             session.CoveredContent,
             session.TeacherNotes,
+            session.IsChargeable,
             session.CreatedOnUtc,
             session.CompletedOnUtc);
     }

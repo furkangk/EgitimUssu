@@ -1,6 +1,6 @@
 # 🎓 Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım Dokümanı
 
-> **PRD: M03 Öğrenci Profili** · **Faz: 1 (öğretmen tarafı 🟢) / öğrenci self-register 🟡** · **Durum: Öğretmenin manuel öğrenci eklemesi uçtan uca çalışır; öğrencinin kendi kaydı domain'de var, akışı tamamlanmadı**
+> **PRD: M03 Öğrenci Profili** · **Faz: 1 (öğretmen tarafı 🟢) / öğrenci self-register 🟡** · **Durum: Öğretmenin manuel öğrenci eklemesi uçtan uca çalışır; çoklu öğretmen bağlantısı (`TeacherStudentLink`), free limit=5, arşivleme, öğrenci bazlı ücret ve davet/kabul akışı eklendi (Dilim C, 2026-07-18); öğrencinin kendi kaydı domain'de var, mobil akışı tamamlanmadı**
 >
 > **Amaç:** Bir öğrencinin platformdaki kimlik kartını (ad, sınıf, hedef, branşlar) **iki farklı yoldan** oluşturup yönetmek:
 > (1) **öğretmen manuel ekler** (`TeacherManaged`), (2) **öğrenci kendi kaydolur** (`SelfRegistered`).
@@ -31,7 +31,11 @@
 | Veli referansı (gerçek kullanıcı) | ✅ var | `ParentUserId` (Guid?) |
 | Komut + sorgu yetkilendirmesi | ✅ var | `CreateStudentProfileCommandAuthorizer`, `StudentProfileQueryAuthorizer` |
 | **Öğrenci güncelleme / pasifleştirme** | ✅ var | `UpdateStudentProfileCommand`, `PUT /profiles/{studentId}`, sahiplik yetkisi |
-| **Manuel öğrenciyi gerçek hesaba bağlama (davet/eşleşme)** | 🔴 eksik | Manuel profil sonradan `UserId` ile ilişkilendirilemiyor |
+| **Çoklu öğretmen bağlantısı** (`TeacherStudentLink`) | ✅ var (Dilim C) | Bir öğrenci birden fazla öğretmene bağlanabilir; listeleme link üzerinden |
+| **Free plan limiti (5 öğrenci)** | ✅ var (Dilim C) | `students.free_limit_reached` (409); premium bypass yok — `// TODO(M17)` |
+| **Öğrenci arşivleme / arşivden çıkarma** | ✅ var (Dilim C) | `Archive/Unarchive`; arşivli öğrenci varsayılan listede gizli, limit sayımına dahil |
+| **Öğrenci bazlı ücret** (B-07) | ✅ var (Dilim C) | `AgreedRateAmount` + `Currency` link üzerinde |
+| **Manuel öğrenciyi gerçek hesaba bağlama (davet/kabul)** | ✅ var (Dilim C) | `Invite` → `Accept`; kabul eden `currentUser` profile bağlanır (`LinkUser`) |
 | ContactEmail benzersizlik kontrolü | 🟡 kısmi | `ExistsByContactEmailAsync` repo'da var ama create handler'da kullanılmıyor |
 | Self-register mobil akışı | 🟢 var | `by-user` çözümü + yoksa `SelfRegistered` otomatik oluşturma (`StudentRepository.getByUser`/`createSelfProfile`), öğrenci `study` feature ilk girişinde tetiklenir |
 
@@ -43,7 +47,7 @@
 ## 2. Domain Modeli
 
 Kaynak: `src/Modules/Students/Domain/StudentsDomainModel.cs`. Şema: **`students`**.
-Tablolar: `student_profiles`, `student_subjects`.
+Tablolar: `student_profiles`, `student_subjects`, `teacher_student_links`.
 
 ### 2.1 🟢 Mevcut (koddan) — `StudentProfile` (AggregateRoot&lt;Guid&gt;)
 
@@ -64,7 +68,7 @@ Tablolar: `student_profiles`, `student_subjects`.
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `Subjects` | List&lt;`StudentSubject`&gt; | Branş + hedef seviye |
 
-**Davranış:** Yapıcı `StudentProfileCreatedDomainEvent` yayar. `Update(...)` metodu tüm scalar alanları (ad, sınıf, iletişim, hedef, `IsActive`) günceller; `Subjects` yeniden yazımı `ReplaceSubjectsAsync` (repository) ile yapılır.
+**Davranış:** Yapıcı `StudentProfileCreatedDomainEvent` yayar. `Update(...)` metodu tüm scalar alanları (ad, sınıf, iletişim, hedef, `IsActive`) günceller; `Subjects` yeniden yazımı `ReplaceSubjectsAsync` (repository) ile yapılır. `LinkParent(parentUserId, ...)` onaylı veli bağını kurar; **`LinkUser(userId, ...)`** (Dilim C) manuel öğrenciyi davet kabulünde gerçek öğrenci kullanıcısına bağlar (`UserId` set eder).
 
 ### 2.2 🟢 Mevcut (koddan) — `StudentSubject` (Entity&lt;Guid&gt;)
 
@@ -86,14 +90,46 @@ StudentProfileCreatedDomainEvent(Guid StudentProfileId, Guid? UserId,
                                  Guid? CreatedByTeacherUserId, StudentOrigin Origin, DateTime CreatedOnUtc)
 ```
 
-### 2.4 ⚠️ Önerilen (henüz kodda yok)
+### 2.4 🟢 Mevcut (koddan) — `TeacherStudentLink` (AggregateRoot&lt;Guid&gt;, Dilim C)
+
+Öğretmen ile öğrenci arasındaki **çok-öğretmenli** ilişkiyi taşır. Bir öğrenci birden fazla öğretmene bağlanabilir;
+öğretmenin öğrenci listesi bu tablo üzerinden yürür. Tablo: `teacher_student_links`. Benzersiz index: `(TeacherUserId, StudentId)`.
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `Id` | Guid | Bağlantı kimliği |
+| `TeacherUserId` | Guid | Öğretmenin `UserId`'si |
+| `StudentId` | Guid | Bağlı `StudentProfile.Id` |
+| `AgreedRateAmount` | decimal? | Öğrenci bazlı anlaşılan ders ücreti (B-07), `numeric(12,2)` |
+| `Currency` | string | Para birimi (varsayılan `"TRY"`) |
+| `Status` | enum `TeacherStudentLinkStatus` | Bağlantı durumu (string olarak saklanır) |
+| `IsArchived` | bool | Arşiv bayrağı (listede gizle; limit sayımını etkilemez) |
+| `InviteTargetUserId` | Guid? | Davet belirli bir kullanıcıya yöneldiyse hedef |
+| `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
+
+**Davranış:** `SetRate(amount, currency, ...)`, `Archive(...)` / `Unarchive(...)`, `MarkInviteSent(targetUserId?, ...)` (→ `TeacherStudentInviteSentDomainEvent`), `Accept(...)` (→ `TeacherStudentLinkAcceptedDomainEvent`), `Reject(...)`.
+
+| Enum | Değerler |
+|------|----------|
+| `TeacherStudentLinkStatus` | `Manual = 1`, `InviteSent = 2`, `Linked = 3`, `Rejected = 4`, `Disconnected = 5` |
+
+```
+TeacherStudentInviteSentDomainEvent(Guid LinkId, Guid TeacherUserId, Guid StudentId, Guid? TargetUserId, DateTime OnUtc)
+TeacherStudentLinkAcceptedDomainEvent(Guid LinkId, Guid TeacherUserId, Guid StudentId, DateTime OnUtc)
+```
+
+> **Geriye-uyum:** `AddTeacherStudentLinks` migration'ı, `CreatedByTeacherUserId` dolu mevcut manuel öğrenciler için
+> `Manual` durumunda link üretir (backfill SQL, `gen_random_uuid()`). `CreatedByTeacherUserId` alanı korunur.
+> `Disconnected` durumu tanımlıdır ancak bu dilimde bağlantı-kesme endpoint'i yoktur (ileride).
+
+### 2.5 ⚠️ Önerilen (henüz kodda yok)
 
 | Öneri | Gerekçe |
 |-------|---------|
-| `LinkToUserAccount(userId)` davranışı + `StudentLinkedToUserDomainEvent` | Manuel (`TeacherManaged`) öğrenciyi sonradan **gerçek** öğrenci hesabına bağlama (davet/eşleşme akışı) |
-| `LinkParent(parentUserId)` / `UnlinkParent()` | Veli bağlama/çözme; veli daima gerçek kullanıcı (kuralı domain'de garanti eder) |
+| `UnlinkParent()` | Veli bağını çözme |
 | `StudentProfileUpdatedDomainEvent` | Diğer modüllerin (M04/M06/M09) değişimi yakalaması için |
-| `StudentInvitation` (davet token'ı) | Manuel öğrenciye e-posta/SMS daveti gönderip kendi hesabına bağlanmasını sağlamak |
+| Bağlantı-kesme ucu (`Disconnected`) | Öğretmen-öğrenci bağını sonlandırma (durum tanımlı, endpoint yok) |
+| Premium limit bypass (M17) | Free limit=5 herkese uygulanır; premium gelince sınır kalkacak (`// TODO(M17)`) |
 
 ---
 
@@ -110,7 +146,19 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 | Öğrenci güncelle / pasifleştir | `PUT /profiles/{studentId:guid}` | `UpdateStudentProfileCommandAuthorizer` | `UpdateStudentProfileRequest` | `StudentProfileResponse` |
 | Öğrenci getir (id) | `GET /profiles/{studentId:guid}` | `StudentProfileQueryAuthorizer` | — | `StudentProfileResponse` |
 | Öğrenci getir (userId) | `GET /profiles/by-user/{userId:guid}` | `StudentProfileQueryAuthorizer` | — | `StudentProfileResponse` |
-| Öğretmenin öğrencileri | `GET /profiles/by-teacher/{teacherUserId:guid}` | `StudentProfileQueryAuthorizer` | — | `IReadOnlyCollection<StudentProfileSummaryResponse>` |
+| Öğretmenin öğrencileri | `GET /profiles/by-teacher/{teacherUserId:guid}?includeArchived=false` | `StudentProfileQueryAuthorizer` | — | `IReadOnlyCollection<StudentProfileSummaryResponse>` (link üzerinden) |
+| Öğrenciyi arşivle | `POST /teachers/{teacherUserId:guid}/students/{studentId:guid}/archive` | `TeacherStudentLinkAuthorizer` | — | `204` |
+| Arşivden çıkar | `POST /teachers/{teacherUserId:guid}/students/{studentId:guid}/unarchive` | `TeacherStudentLinkAuthorizer` | — | `204` |
+| Öğrenci ücreti belirle (B-07) | `PUT /teachers/{teacherUserId:guid}/students/{studentId:guid}/rate` | `TeacherStudentLinkAuthorizer` | `SetStudentRateRequest` | `204` |
+| Öğrenci davet et (B-06) | `POST /teachers/{teacherUserId:guid}/students/{studentId:guid}/invite` | `TeacherStudentLinkAuthorizer` | `InviteStudentRequest` | `204` |
+| Daveti kabul et | `POST /links/{linkId:guid}/accept` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
+| Daveti reddet | `POST /links/{linkId:guid}/reject` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
+
+**Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
+`IStudentDirectory` (`GetOwnerUserIdAsync(studentId) → Guid?`) sözleşmesini `StudentDirectory` ile uygular
+(2026-07-07). Diğer modüller (ör. M04 Scheduling, öğrenci-kapsamlı ders listesi yetkilendirmesi) bu sözleşmeyi
+tüketerek sahiplik doğrular — M03'ün `DbContext`'ine doğrudan erişmeden, proje referansı olmadan (anti-corruption).
+Aynı desenin M05'teki karşılığı `ILessonSessionAccessService`.
 
 **İstek/yanıt sözleşmeleri (koddan):**
 
@@ -132,7 +180,11 @@ StudentProfileResponse(Guid Id, Guid? UserId, Guid? CreatedByTeacherUserId, Guid
                        IReadOnlyCollection<StudentSubjectResponse> Subjects, DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
 
 StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, string Origin,
-                              bool IsActive, DateTime CreatedOnUtc)  // FullName'e göre sıralı
+                              bool IsActive, DateTime CreatedOnUtc,
+                              bool IsArchived, decimal? AgreedRateAmount, string LinkStatus)  // FullName'e göre sıralı
+
+SetStudentRateRequest(decimal AgreedRateAmount, string Currency)   // B-07
+InviteStudentRequest(Guid? TargetUserId)                            // B-06; hedef opsiyonel (açık davet)
 ```
 
 ### 3.2 Hata Kodları → HTTP Eşleme (koddan)
@@ -140,7 +192,9 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 | Hata kodu | HTTP | Mesaj |
 |-----------|------|-------|
 | `students.user_profile_exists` | **409** | Bu kullanıcı için öğrenci profili zaten var. |
+| `students.free_limit_reached` | **409** | Free planda en fazla 5 ogrenci ekleyebilirsiniz. Premium'a gecin. |
 | `students.profile_not_found` | **404** | Öğrenci profili bulunamadı. |
+| `students.link_not_found` | **404** | Ogrenci baglantisi bulunamadi. (arşiv/ücret/davet uçları) |
 | `shared.forbidden` | **403** | Bu işlemi yapma / bu kaynağa erişim yetkiniz yok. |
 | `students.invalid_origin` | 400 | Öğrenci profili kaynağı ile kimlik bilgileri uyumsuz. |
 | `students.invalid_request` | 400 | (Validator) Ad soyad ve sınıf seviyesi zorunlu. |
@@ -153,7 +207,7 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 ### 3.3 Eksik / Önerilen Endpoint'ler ⚠️
 
 - [ ] **`PATCH /profiles/{studentId}/status`** — ayrı pasifleştirme ucu (şimdilik PUT ile `isActive: false` göndererek yapılıyor).
-- [ ] **`POST /profiles/{studentId}/link-user`** — manuel öğrenciyi gerçek öğrenci hesabına bağlama (davet/eşleşme).
+- [x] **Manuel öğrenciyi gerçek hesaba bağlama** — `.../invite` + `/links/{linkId}/accept` ile karşılandı (Dilim C).
 - [ ] **`POST /profiles/{studentId}/link-parent`** — gerçek veli kullanıcısı bağlama (kural: veli daima kayıtlı kullanıcı).
 - [ ] **`POST` / `DELETE /profiles/{studentId}/subjects`** — branş ekleme/çıkarma (şu an yalnız create'te).
 - [ ] **`GET /profiles/by-parent/{parentUserId}`** — velinin çocuklarını listeleme (M09 ile).
@@ -185,6 +239,11 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
     - `Teacher` rolü + `CreatedByTeacherUserId == currentUserId` → yalnız kendi eklediği öğrenci.
     - Aksi halde `shared.forbidden` (403). Diğer öğretmen 403 alır (sahiplik testi entegrasyon testinde doğrulanmıştır).
 12. **Sahiplik üçlüsü:** Bir profile erişebilen taraflar = bağlı öğrenci (UserId) + ekleyen öğretmen (CreatedByTeacherUserId) + bağlı veli (ParentUserId). Bu, öğretmen-öğrenci-veli ilişkisinin yetki temelidir.
+13. **🔑 Çoklu öğretmen (Dilim C):** Bir öğrenci **birden fazla öğretmene** bağlanabilir; her bağ ayrı bir `TeacherStudentLink`'tir. Öğretmenin öğrenci listesi `CreatedByTeacherUserId` yerine link tablosu üzerinden yürür. `(TeacherUserId, StudentId)` benzersizdir (aynı öğretmen-öğrenci ikilisi tek link).
+14. **Free limit=5 (`students.free_limit_reached`):** Bir öğretmen `TeacherManaged` öğrenci eklerken aktif (reddedilmemiş) link sayısı 5'e ulaştıysa yeni ekleme 409 ile reddedilir. **Arşivli linkler limite dâhildir** (arşiv, kotayı boşaltmaz). Premium bypass yoktur (`// TODO(M17)`).
+15. **Arşivleme (B-04):** `Archive`/`Unarchive` link'in `IsArchived` bayrağını değiştirir. Arşivli öğrenci varsayılan listede gizlenir; `?includeArchived=true` ile görünür. Reddedilmiş (`Rejected`) linkler listede ve limitte sayılmaz.
+16. **Öğrenci bazlı ücret (B-07):** `SetRate(amount, currency)` link üzerinde anlaşılan ders ücretini tutar; ücret öğrenci-öğretmen ikilisine özeldir (öğretmen bazlı sabit ücrete bağlı değil).
+17. **Davet/kabul (B-06):** Öğretmen mevcut link'i `Invite` ile `InviteSent` yapar (hedef kullanıcı opsiyonel). Kabulde (`Accept`) link `Linked` olur ve **kabul eden `currentUser`** öğrenci profiline `LinkUser` ile bağlanır. Belirli hedef varsa yalnız o kullanıcı yanıtlayabilir; admin serbest. Identity'de e-posta/telefonla kullanıcı araması **yapılmaz** (kararı: 2026-07-18).
 
 ---
 
@@ -196,7 +255,10 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
                               → Outbox → (gelecek) Notifications (M11): öğretmene/veliye bilgilendirme
                               → (gelecek) Matching (M12): SelfRegistered öğrenci için öğretmen önerisi
                               → (öneri) Parents (M09): veli bağlandığında çocuk gelişim akışını başlatma
-(öneri) Manuel→gerçek bağlama → StudentLinkedToUserDomainEvent → ders/ödev/ödeme geçmişini hesaba taşıma
+Öğretmen daveti gönderdi     → TeacherStudentInviteSentDomainEvent (LinkId, TeacherUserId, StudentId, TargetUserId?, OnUtc)
+                              → Outbox → (gelecek) Notifications (M11): öğrenciye/veliye davet bildirimi
+Davet kabul edildi           → TeacherStudentLinkAcceptedDomainEvent (LinkId, TeacherUserId, StudentId, OnUtc)
+                              → kabul eden currentUser profile LinkUser ile bağlanır
 ```
 
 > Olaylar **Outbox pattern** ile yayılır (`Shared/Infrastructure/Messaging`). Şu an aktif tüketici yok;
@@ -230,14 +292,19 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 - [x] Veli alanı yalnızca gerçek kullanıcı kimliği (`ParentUserId`) ile doldurulur.
 - [x] **Öğrenci güncellenebilir / pasifleştirilebilir** — `PUT /profiles/{studentId}`, `IsActive`, branş yeniden yazımı, sahiplik yetki testi.
 - [x] **Başka öğretmen başkasının öğrencisini güncelleyemez** (403) — entegrasyon testinde doğrulandı.
-- [ ] **Manuel öğrenci, gerçek öğrenci hesabına bağlanabilir** (davet/eşleşme akışı).
+- [x] **Bir öğrenci birden fazla öğretmene bağlanabilir** — `TeacherStudentLink` (Dilim C).
+- [x] **Free planda öğretmen en fazla 5 öğrenci ekleyebilir** — `students.free_limit_reached` (409), birim testinde doğrulandı.
+- [x] **Öğrenci arşivlenip arşivden çıkarılabilir**; arşivli varsayılan listede gizli, `includeArchived=true` ile görünür — birim testinde doğrulandı.
+- [x] **Öğretmen öğrenci bazlı ücret belirleyebilir** (B-07) — link üzerinde `AgreedRateAmount`/`Currency`.
+- [x] **Manuel öğrenci, davet/kabul ile gerçek öğrenci hesabına bağlanabilir** (B-06) — kabul eden `currentUser` profile bağlanır; birim testinde doğrulandı.
 - [x] **Self-register mobil akışı** uçtan uca çalışır — öğrenci ilk `study` girişinde profili yoksa `SelfRegistered` olarak oluşturulur (`getByUser` → yoksa `createSelfProfile`).
 
 ---
 
 ## 8. Eksikler ve Yapılacaklar (öncelik sırasıyla)
 
-1. **Manuel→gerçek bağlama akışı** — `LinkToUserAccount` + davet (`StudentInvitation`) + `StudentLinkedToUserDomainEvent`; ders/ödev/ödeme geçmişinin korunması.
+1. **Davet bildirimleri (M11)** — `TeacherStudentInviteSentDomainEvent`/`...AcceptedDomainEvent` için Outbox tüketicisi; öğrenciye/veliye davet bildirimi. Manuel→gerçek bağlama akışı (Dilim C) domain'de tamam, bildirim tarafı eksik.
+2. **Bağlantı-kesme ucu** — `Disconnected` durumu için endpoint (öğretmen-öğrenci bağını sonlandırma).
 3. **Veli bağlama ucu** — `link-parent` + gerçek kullanıcı doğrulaması (M01 ile); kuralı domain'de zorla.
 4. **`StudentSubject` yönetimi** — branş ekle/sil uçları (create dışında).
 5. **Self-register mobil akışı** — öğrenci kendi profil ekranı; öğrenci paneli ([`../roles/ogrenci.md`](../roles/ogrenci.md)) ve bireysel çalışma (M08) ile bağ.
@@ -261,4 +328,4 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-04 (self-register mobil akışı 🟢: `getByUser`/`createSelfProfile`, M08 `study` feature ile bağ)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

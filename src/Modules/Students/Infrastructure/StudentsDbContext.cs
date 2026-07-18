@@ -21,6 +21,8 @@ public sealed class StudentsDbContext : ModuleDbContext
 
     public DbSet<StudentSubject> StudentSubjects => Set<StudentSubject>();
 
+    public DbSet<TeacherStudentLink> TeacherStudentLinks => Set<TeacherStudentLink>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Students";
@@ -50,6 +52,21 @@ internal sealed class StudentProfileConfiguration : IEntityTypeConfiguration<Stu
         builder.HasIndex(entity => entity.UserId).IsUnique();
         builder.HasIndex(entity => entity.CreatedByTeacherUserId);
         builder.HasMany(entity => entity.Subjects).WithOne().HasForeignKey(entity => entity.StudentProfileId);
+    }
+}
+
+internal sealed class TeacherStudentLinkConfiguration : IEntityTypeConfiguration<TeacherStudentLink>
+{
+    public void Configure(EntityTypeBuilder<TeacherStudentLink> builder)
+    {
+        builder.ToTable("teacher_student_links");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.Currency).HasMaxLength(8).IsRequired();
+        builder.Property(entity => entity.AgreedRateAmount).HasPrecision(12, 2);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.StudentId }).IsUnique();
     }
 }
 

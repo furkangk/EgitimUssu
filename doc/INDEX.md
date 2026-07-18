@@ -48,18 +48,6 @@
 | [`architecture/design_system.md`](architecture/design_system.md) | Platformlar-arası ortak görsel token (renk/tipografi/spacing) + Atomic/CBD — **token tek doğruluk kaynağı** |
 | [`architecture/widgets.md`](architecture/widgets.md) | Ortak widget kataloğu: paylaşılan bileşenlerin API + kural + durumu (🟢/🟡/🔴) |
 
-## 1.2 Mimari Karar Kayıtları (`doc/adr/`) — ADR
-
-> Önemli mimari kararların *neden* alındığını ve hangi alternatiflerin elendiğini belgeleyen değişmez kayıtlar. İndeks + kural: [`adr/README.md`](adr/README.md).
-
-| ADR | Başlık | Durum |
-|-----|--------|-------|
-| [0001](adr/0001-asenkron-mesajlasma-ve-outbox.md) | Asenkron mesajlaşma & transactional outbox stratejisi | Önerildi |
-| [0002](adr/0002-kaynak-tabanli-yetkilendirme.md) | Kaynak-tabanlı yetkilendirme & izin modeli | Önerildi |
-| [0003](adr/0003-api-versiyonlama-ve-contract-first.md) | API versiyonlama & contract-first istemci üretimi | Önerildi |
-| [0004](adr/0004-redis-kullanim-stratejisi.md) | Redis kullanım stratejisi (dağıtık cache & rate limiting) | Önerildi |
-| [0005](adr/0005-kvkk-pii-koruma-ve-audit.md) | KVKK/PII koruma & denetim (audit) stratejisi | Önerildi |
-
 ## 2. Roller (`doc/roles/`) — Rol Perspektifi
 
 > Her rolün yetenekleri, kullanıcı yolculuğu, ekranları ve rol-özel kuralları. **Teknik detay modüllerdedir.**
@@ -69,6 +57,7 @@
 | [`roles/00_roller_genel_bakis.md`](roles/00_roller_genel_bakis.md) | Rol×yetenek matrisi + roller-arası kurallar (mesajlaşma çiftleri, üyelik, veli=gerçek kişi, bireysel-önce strateji) |
 | [`roles/ogretmen.md`](roles/ogretmen.md) | 👨‍🏫 Öğretmen — takvim-merkezli yönetim (Faz 1, 🟢) |
 | [`roles/ogrenci.md`](roles/ogrenci.md) | 🎓 Öğrenci — bireysel çalışma + gelişim (Faz 2, 🟡) |
+| [`roles/ogrenci_ux.md`](roles/ogrenci_ux.md) | 🎓 Öğrenci Deneyimi (Student UX) — günlük kullanım/motivasyon odaklı UX vizyonu + ekran hedefleri (🟡 vizyon) |
 | [`roles/veli.md`](roles/veli.md) | 👪 Veli — gelişim/ödeme takibi (Faz 2-3, 🟡 Faz 2 uygulandı) |
 | [`roles/admin.md`](roles/admin.md) | 🛡️ Admin — doğrulama, moderasyon, destek |
 
@@ -78,7 +67,7 @@
 
 | M | Dosya | Durum | M | Dosya | Durum |
 |---|-------|-------|---|-------|-------|
-| M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🔴 |
+| M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🟡 |
 | M02 | [`m02_teachers`](modules/m02_teachers.md) | 🟢 | M11 | [`m11_notifications`](modules/m11_notifications.md) | 🟡 |
 | M03 | [`m03_students`](modules/m03_students.md) | 🟢/🟡 | M12 | [`m12_matching`](modules/m12_matching.md) | 🔴 |
 | M04 | [`m04_scheduling`](modules/m04_scheduling.md) | 🟢 | M13 | [`m13_reviews`](modules/m13_reviews.md) | 🔴 |

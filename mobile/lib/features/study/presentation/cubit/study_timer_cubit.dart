@@ -28,8 +28,12 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
           (session.isRunning
               ? DateTime.now().toUtc().difference(session.startedAtUtc).inSeconds
               : 0);
-      emit(state.copyWith(session: session, elapsedSeconds: elapsed.clamp(0, 1 << 30)));
-      if (session.isRunning) _startTicker();
+      emit(state.copyWith(
+        session: session,
+        elapsedSeconds: elapsed.clamp(0, 1 << 30),
+        breakSeconds: session.breakMinutes * 60,
+      ));
+      if (session.isActive) _startTicker();
     } on ApiException {
       // sessizce geç — kullanıcı yeni seans başlatabilir
     }
@@ -41,7 +45,13 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
     try {
       final session =
           await _studyRepository.startSession(studentId, subject: subject, topic: topic);
-      emit(state.copyWith(session: session, isBusy: false, elapsedSeconds: 0));
+      emit(state.copyWith(
+        session: session,
+        isBusy: false,
+        elapsedSeconds: 0,
+        breakSeconds: 0,
+        breakCount: 0,
+      ));
       _startTicker();
     } on ApiException catch (e) {
       emit(state.copyWith(isBusy: false, errorMessage: e.message));
@@ -51,13 +61,22 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
   Future<void> pause() async {
     final id = state.session?.id;
     if (id == null || state.isBusy) return;
-    emit(state.copyWith(isBusy: true, clearError: true));
+    // Molayı hemen say — ticker durum değişince mola süresini işlemeye başlar.
+    emit(state.copyWith(
+      isBusy: true,
+      clearError: true,
+      breakCount: state.breakCount + 1,
+    ));
     try {
-      _stopTicker();
       final session = await _studyRepository.pauseSession(id);
       emit(state.copyWith(session: session, isBusy: false));
     } on ApiException catch (e) {
-      emit(state.copyWith(isBusy: false, errorMessage: e.message));
+      // Başarısızsa mola sayısını geri al.
+      emit(state.copyWith(
+        isBusy: false,
+        errorMessage: e.message,
+        breakCount: state.breakCount - 1,
+      ));
     }
   }
 
@@ -81,10 +100,12 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
     try {
       _stopTicker();
       final summary = await _studyRepository.completeSession(id, personalNote: note);
+      // Özet, kullanıcının kronometrede gördüğü canlı (saniye hassas) net/mola
+      // sürelerini gösterir; elapsedSeconds/breakSeconds bilerek sıfırlanmaz,
+      // "Kapat" (acknowledgeSummary) ile temizlenir.
       emit(state.copyWith(
         isBusy: false,
         clearSession: true,
-        elapsedSeconds: 0,
         completedSummary: summary,
       ));
     } on ApiException catch (e) {
@@ -99,19 +120,35 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
     try {
       _stopTicker();
       await _studyRepository.discardSession(id);
-      emit(state.copyWith(isBusy: false, clearSession: true, elapsedSeconds: 0));
+      emit(state.copyWith(
+        isBusy: false,
+        clearSession: true,
+        elapsedSeconds: 0,
+        breakSeconds: 0,
+        breakCount: 0,
+      ));
     } on ApiException catch (e) {
       emit(state.copyWith(isBusy: false, errorMessage: e.message));
     }
   }
 
-  void acknowledgeSummary() => emit(state.copyWith(clearSummary: true));
+  void acknowledgeSummary() => emit(state.copyWith(
+        clearSummary: true,
+        elapsedSeconds: 0,
+        breakSeconds: 0,
+        breakCount: 0,
+      ));
 
   void _startTicker() {
     _stopTicker();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (isClosed) return;
-      emit(state.copyWith(elapsedSeconds: state.elapsedSeconds + 1));
+      // Çalışırken net süre, molada mola süresi artar; ikisi ayrı izlenir.
+      if (state.isRunning) {
+        emit(state.copyWith(elapsedSeconds: state.elapsedSeconds + 1));
+      } else if (state.session?.isPaused ?? false) {
+        emit(state.copyWith(breakSeconds: state.breakSeconds + 1));
+      }
     });
   }
 

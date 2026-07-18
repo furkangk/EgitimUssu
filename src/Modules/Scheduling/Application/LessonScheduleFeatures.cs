@@ -15,6 +15,7 @@ public sealed record CreateLessonScheduleCommand(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record UpdateLessonScheduleCommand(
@@ -27,18 +28,45 @@ public sealed record UpdateLessonScheduleCommand(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes) : ICommand<Result<LessonScheduleResponse>>;
+
+public enum OccurrenceScope
+{
+    Single = 1,
+    ThisAndFuture = 2,
+    All = 3
+}
 
 public sealed record CancelLessonScheduleCommand(
     Guid LessonId,
-    string? CancellationNote) : ICommand<Result<LessonScheduleResponse>>;
+    CancellationReason Reason,
+    bool IsChargeable,
+    string? CancellationNote,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonScheduleResponse>>;
+
+public sealed record RescheduleLessonScheduleCommand(
+    Guid LessonId,
+    DateTime NewStartAtUtc,
+    DateTime NewEndAtUtc,
+    string? Note,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
+
+public sealed record DeleteLessonScheduleCommand(Guid LessonId) : ICommand<Result>;
 
 public sealed record GetLessonScheduleByIdQuery(Guid LessonId) : IQuery<Result<LessonScheduleResponse>>;
 
 public sealed record ListLessonSchedulesForTeacherQuery(
     Guid TeacherUserId,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc) : IQuery<Result<IReadOnlyCollection<LessonScheduleResponse>>>;
+
+public sealed record ListLessonSchedulesForStudentQuery(
+    Guid StudentId,
     DateTime StartAtUtc,
     DateTime EndAtUtc) : IQuery<Result<IReadOnlyCollection<LessonScheduleResponse>>>;
 
@@ -55,9 +83,13 @@ public sealed record LessonScheduleResponse(
     string Status,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes,
     DateTime CreatedOnUtc,
-    DateTime UpdatedOnUtc);
+    DateTime UpdatedOnUtc,
+    DateTime? OriginalStartAtUtc,
+    string? CancellationReason,
+    bool IsChargeable);
 
 public interface ILessonScheduleRepository
 {
@@ -67,7 +99,23 @@ public interface ILessonScheduleRepository
 
     Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Öğrencinin iptal edilmemiş dersleri; başlangıcı <paramref name="untilUtc"/>'ye kadar olanlar.
+    /// Tekrar kuralları uygulama katmanında genişletildiği için alt sınır uygulanmaz.
+    /// </summary>
+    Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken);
+
     Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken);
+
+    void Remove(LessonSchedule lessonSchedule);
+
+    Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
@@ -122,6 +170,7 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
             LessonScheduleStatus.Planned,
             command.ReminderOffsetMinutes,
             command.LocationLabel?.Trim(),
+            command.MeetingUrl?.Trim(),
             command.Notes?.Trim(),
             _clock.UtcNow);
 
@@ -190,6 +239,7 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
             command.RecurrenceRule?.Trim(),
             command.ReminderOffsetMinutes,
             command.LocationLabel?.Trim(),
+            command.MeetingUrl?.Trim(),
             command.Notes?.Trim(),
             _clock.UtcNow);
 
@@ -204,13 +254,16 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
 
     public CancelLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
-        IClock clock)
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _repository = repository;
         _clock = clock;
+        _idGenerator = idGenerator;
     }
 
     public async Task<Result<LessonScheduleResponse>> Handle(CancelLessonScheduleCommand command, CancellationToken cancellationToken)
@@ -221,9 +274,87 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             return Result<LessonScheduleResponse>.Failure(NotFound);
         }
 
-        lesson.Cancel(command.CancellationNote?.Trim(), _clock.UtcNow);
+        var isRecurring = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule);
+        if (isRecurring && command.Scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
+        {
+            var occurrenceException = new LessonOccurrenceException(
+                _idGenerator.New(), lesson.Id, occStart,
+                OccurrenceExceptionAction.Cancelled, null, null, command.CancellationNote?.Trim(), _clock.UtcNow);
+            await _repository.AddExceptionAsync(occurrenceException, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }
+
+        if (isRecurring && command.Scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
+        {
+            lesson.EndSeriesBefore(cutoff, _clock.UtcNow);
+            await _repository.SaveChangesAsync(cancellationToken);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }
+
+        lesson.Cancel(command.Reason, command.IsChargeable, command.CancellationNote?.Trim(), _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         // Y1: Hatirlatma iptali LessonScheduleCancelledDomainEvent -> outbox -> Notifications handler yoluyla yapilir.
+        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+    }
+}
+
+public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<RescheduleLessonScheduleCommand, Result<LessonScheduleResponse>>
+{
+    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
+    private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
+    private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders ertelenebilir.");
+    private readonly ILessonScheduleRepository _repository;
+    private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
+
+    public RescheduleLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock, IIdGenerator idGenerator)
+    {
+        _repository = repository;
+        _clock = clock;
+        _idGenerator = idGenerator;
+    }
+
+    public async Task<Result<LessonScheduleResponse>> Handle(RescheduleLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        if (command.NewEndAtUtc <= command.NewStartAtUtc)
+        {
+            return Result<LessonScheduleResponse>.Failure(InvalidRange);
+        }
+
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        if (lesson is null)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotFound);
+        }
+
+        if (!lesson.IsEditable)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotEditable);
+        }
+
+        var hasConflict = await _repository.HasTeacherConflictAsync(
+            lesson.TeacherUserId, command.NewStartAtUtc, command.NewEndAtUtc, lesson.Id, cancellationToken);
+        if (hasConflict)
+        {
+            return Result<LessonScheduleResponse>.Failure(Conflict);
+        }
+
+        if (!string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
+            && command.Scope == OccurrenceScope.Single
+            && command.OccurrenceStartAtUtc is { } occStart)
+        {
+            var occurrenceException = new LessonOccurrenceException(
+                _idGenerator.New(), lesson.Id, occStart,
+                OccurrenceExceptionAction.Rescheduled, command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
+            await _repository.AddExceptionAsync(occurrenceException, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }
+
+        lesson.Reschedule(command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
     }
 }
@@ -257,6 +388,38 @@ public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<Compl
         lesson.Complete(_clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+    }
+}
+
+public sealed class DeleteLessonScheduleCommandHandler : ICommandHandler<DeleteLessonScheduleCommand, Result>
+{
+    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error NotAllowed = new("scheduling.delete_not_allowed", "Ders silinemez; iptal edin. Silme yalnizca olusturmadan sonraki 24 saat icinde ve ders gelecekteyse mumkundur.");
+    private readonly ILessonScheduleRepository _repository;
+    private readonly IClock _clock;
+
+    public DeleteLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result> Handle(DeleteLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        if (lesson is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        if (!lesson.CanBeDeletedAt(_clock.UtcNow))
+        {
+            return Result.Failure(NotAllowed);
+        }
+
+        _repository.Remove(lesson);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result.Success();
     }
 }
 
@@ -300,6 +463,27 @@ public sealed class ListLessonSchedulesForTeacherQueryHandler : IQueryHandler<Li
     }
 }
 
+public sealed class ListLessonSchedulesForStudentQueryHandler : IQueryHandler<ListLessonSchedulesForStudentQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>
+{
+    private readonly ILessonScheduleRepository _repository;
+
+    public ListLessonSchedulesForStudentQueryHandler(ILessonScheduleRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<IReadOnlyCollection<LessonScheduleResponse>>> Handle(ListLessonSchedulesForStudentQuery query, CancellationToken cancellationToken)
+    {
+        var lessons = await _repository.ListForStudentAsync(query.StudentId, query.StartAtUtc, query.EndAtUtc, cancellationToken);
+        var payload = lessons
+            .OrderBy(lesson => lesson.StartAtUtc)
+            .Select(lesson => lesson.ToResponse())
+            .ToArray();
+
+        return Result<IReadOnlyCollection<LessonScheduleResponse>>.Success(payload);
+    }
+}
+
 internal static class LessonScheduleMappings
 {
     public static LessonScheduleResponse ToResponse(this LessonSchedule lesson)
@@ -317,8 +501,12 @@ internal static class LessonScheduleMappings
             lesson.Status.ToString(),
             lesson.ReminderOffsetMinutes,
             lesson.LocationLabel,
+            lesson.MeetingUrl,
             lesson.Notes,
             lesson.CreatedOnUtc,
-            lesson.UpdatedOnUtc);
+            lesson.UpdatedOnUtc,
+            lesson.OriginalStartAtUtc,
+            lesson.CancellationReason?.ToString(),
+            lesson.IsChargeable);
     }
 }

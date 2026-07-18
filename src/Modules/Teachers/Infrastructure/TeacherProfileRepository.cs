@@ -17,6 +17,8 @@ internal sealed class TeacherProfileRepository : ITeacherProfileRepository
     {
         return _dbContext.TeacherProfiles
             .Include(profile => profile.AvailabilitySlots)
+            .Include(profile => profile.Subjects)
+            .Include(profile => profile.Certificates)
             .FirstOrDefaultAsync(profile => profile.UserId == userId, cancellationToken);
     }
 

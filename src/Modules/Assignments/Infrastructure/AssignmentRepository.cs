@@ -13,6 +13,11 @@ internal sealed class AssignmentRepository : IAssignmentRepository
         _dbContext = dbContext;
     }
 
+    public Task<Assignment?> GetAssignmentByIdAsync(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        return _dbContext.Assignments.FirstOrDefaultAsync(assignment => assignment.Id == assignmentId, cancellationToken);
+    }
+
     public Task<LessonNote?> GetLessonNoteByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
     {
         return _dbContext.LessonNotes.FirstOrDefaultAsync(note => note.LessonSessionId == lessonSessionId, cancellationToken);

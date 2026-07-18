@@ -20,6 +20,13 @@ class StudyFormat {
     return h > 0 ? '${two(h)}:${two(m)}:${two(sec)}' : '${two(m)}:${two(sec)}';
   }
 
+  /// UTC tarihi yerel "gg.aa.yyyy ss:dd" biçiminde gösterir.
+  static String date(DateTime utc) {
+    final DateTime d = utc.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(d.day)}.${two(d.month)}.${d.year} ${two(d.hour)}:${two(d.minute)}';
+  }
+
   /// Net değerini gereksiz ondalıkları atarak gösterir (28, 28.5, 28.25).
   static String net(double value) {
     if (value == value.roundToDouble()) return value.toStringAsFixed(0);

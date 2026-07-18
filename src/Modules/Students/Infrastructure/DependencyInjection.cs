@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EgitimUssu.Modules.Students.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Infrastructure;
@@ -13,6 +14,8 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<StudentsDbContext>(configuration, "Students", StudentsDbContext.SchemaName);
         services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
+        services.AddScoped<ITeacherStudentLinkRepository, TeacherStudentLinkRepository>();
+        services.AddScoped<IStudentDirectory, StudentDirectory>();
         services.AddScoped<ICommandHandler<CreateStudentProfileCommand, Result<StudentProfileResponse>>, CreateStudentProfileCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByIdQueryHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByUserIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByUserIdQueryHandler>();
@@ -25,6 +28,16 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetStudentProfileByIdQuery>, StudentProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudentProfileByUserIdQuery>, StudentProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListStudentsByTeacherQuery>, StudentProfileQueryAuthorizer>();
+        services.AddScoped<ICommandHandler<ArchiveTeacherStudentLinkCommand, Result>, ArchiveTeacherStudentLinkCommandHandler>();
+        services.AddScoped<ICommandHandler<SetTeacherStudentRateCommand, Result>, SetTeacherStudentRateCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<ArchiveTeacherStudentLinkCommand>, TeacherStudentLinkAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<SetTeacherStudentRateCommand>, TeacherStudentLinkAuthorizer>();
+        services.AddScoped<ICommandHandler<InviteStudentCommand, Result>, InviteStudentCommandHandler>();
+        services.AddScoped<ICommandHandler<AcceptTeacherStudentLinkCommand, Result>, AcceptTeacherStudentLinkCommandHandler>();
+        services.AddScoped<ICommandHandler<RejectTeacherStudentLinkCommand, Result>, RejectTeacherStudentLinkCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<InviteStudentCommand>, TeacherStudentLinkAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<AcceptTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RejectTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
         return services;
     }

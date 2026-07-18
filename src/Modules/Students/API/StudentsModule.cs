@@ -43,6 +43,24 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapPut("/profiles/{studentId:guid}", UpdateStudentProfileAsync)
         .WithSummary("Öğrenci profilini günceller veya pasifleştirir");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/students/{studentId:guid}/archive", ArchiveStudentAsync)
+        .WithSummary("Öğretmen-öğrenci bağlantısını arşivler");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/students/{studentId:guid}/unarchive", UnarchiveStudentAsync)
+        .WithSummary("Öğretmen-öğrenci bağlantısını arşivden çıkarır");
+
+        group.MapPut("/teachers/{teacherUserId:guid}/students/{studentId:guid}/rate", SetStudentRateAsync)
+        .WithSummary("Öğrenci bazlı anlaşılan ücreti günceller");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/students/{studentId:guid}/invite", InviteStudentAsync)
+        .WithSummary("Öğrenciyi gerçek kullanıcı hesabına bağlanmaya davet eder");
+
+        group.MapPost("/links/{linkId:guid}/accept", AcceptLinkAsync)
+        .WithSummary("Öğretmen davetini kabul eder (öğrenci)");
+
+        group.MapPost("/links/{linkId:guid}/reject", RejectLinkAsync)
+        .WithSummary("Öğretmen davetini reddeder (öğrenci)");
     }
 
     /// <summary>
@@ -91,9 +109,10 @@ public sealed class StudentsModule : ModuleDefinition
         HttpContext context,
         Guid teacherUserId,
         IQueryDispatcher dispatcher,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeArchived = false)
     {
-        var result = await dispatcher.Dispatch(new ListStudentsByTeacherQuery(teacherUserId), cancellationToken);
+        var result = await dispatcher.Dispatch(new ListStudentsByTeacherQuery(teacherUserId, includeArchived), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -111,6 +130,114 @@ public sealed class StudentsModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// Öğretmen-öğrenci bağlantısını arşivler (öğrenci listeden gizlenir, limit sayımını etkilemez).
+    /// </summary>
+    private static async Task<IResult> ArchiveStudentAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ArchiveTeacherStudentLinkCommand(teacherUserId, studentId, true), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen-öğrenci bağlantısını arşivden çıkarır.
+    /// </summary>
+    private static async Task<IResult> UnarchiveStudentAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ArchiveTeacherStudentLinkCommand(teacherUserId, studentId, false), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin belirli bir öğrenci için anlaştığı ders ücretini günceller (B-07).
+    /// </summary>
+    private static async Task<IResult> SetStudentRateAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        SetStudentRateRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new SetTeacherStudentRateCommand(teacherUserId, studentId, request.AgreedRateAmount, request.Currency),
+            cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Öğrenciyi gerçek kullanıcı hesabına bağlanmaya davet eder (B-06). İsteğe bağlı hedef kullanıcı belirtilir.
+    /// </summary>
+    private static async Task<IResult> InviteStudentAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        InviteStudentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new InviteStudentCommand(teacherUserId, studentId, request.TargetUserId),
+            cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini kabul eder ve profiline bağlanır.
+    /// </summary>
+    private static async Task<IResult> AcceptLinkAsync(
+        HttpContext context,
+        Guid linkId,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var acceptingUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Daveti yanıtlayan kullanıcı belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(new AcceptTeacherStudentLinkCommand(linkId, acceptingUserId), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini reddeder.
+    /// </summary>
+    private static async Task<IResult> RejectLinkAsync(
+        HttpContext context,
+        Guid linkId,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var rejectingUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Daveti yanıtlayan kullanıcı belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(new RejectTeacherStudentLinkCommand(linkId, rejectingUserId), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    private static IResult MapLinkError(HttpContext context, Result result)
+        => result.Error.Code switch
+        {
+            "students.link_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -121,6 +248,7 @@ public sealed class StudentsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "students.user_profile_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "students.free_limit_reached" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "students.profile_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
@@ -132,6 +260,16 @@ public sealed class StudentsModule : ModuleDefinition
 /// Öğrencinin takip ettiği ders alanını ve hedef seviyesini belirtir.
 /// </summary>
 public sealed record StudentSubjectItem(string Subject, string? TargetLevel);
+
+/// <summary>
+/// Öğretmen-öğrenci bağlantısı için anlaşılan ders ücretini taşır (B-07).
+/// </summary>
+public sealed record SetStudentRateRequest(decimal AgreedRateAmount, string Currency);
+
+/// <summary>
+/// Öğrenci davetini taşır (B-06). Hedef kullanıcı isteğe bağlı; belirtilmezse açık davet olur.
+/// </summary>
+public sealed record InviteStudentRequest(Guid? TargetUserId);
 
 /// <summary>
 /// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.

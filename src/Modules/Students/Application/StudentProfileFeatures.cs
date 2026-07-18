@@ -4,6 +4,11 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
 
+internal static class StudentLimits
+{
+    public const int FreeStudentLimit = 5; // TODO(M17): premium sınırsız
+}
+
 public sealed record StudentSubjectRequest(string Subject, string? TargetLevel);
 
 public sealed record CreateStudentProfileCommand(
@@ -23,7 +28,7 @@ public sealed record GetStudentProfileByIdQuery(Guid StudentId) : IQuery<Result<
 
 public sealed record GetStudentProfileByUserIdQuery(Guid UserId) : IQuery<Result<StudentProfileResponse>>;
 
-public sealed record ListStudentsByTeacherQuery(Guid TeacherUserId) : IQuery<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>;
+public sealed record ListStudentsByTeacherQuery(Guid TeacherUserId, bool IncludeArchived = false) : IQuery<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>;
 
 public sealed record UpdateStudentProfileCommand(
     Guid StudentId,
@@ -44,7 +49,10 @@ public sealed record StudentProfileSummaryResponse(
     string GradeLevel,
     string Origin,
     bool IsActive,
-    DateTime CreatedOnUtc);
+    DateTime CreatedOnUtc,
+    bool IsArchived,
+    decimal? AgreedRateAmount,
+    string LinkStatus);
 
 public sealed record StudentProfileResponse(
     Guid Id,
@@ -73,6 +81,8 @@ public interface IStudentProfileRepository
 
     Task<IReadOnlyCollection<StudentProfile>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<StudentProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
     Task AddAsync(StudentProfile profile, CancellationToken cancellationToken);
 
     Task ReplaceSubjectsAsync(Guid studentProfileId, IReadOnlyList<StudentSubject> newSubjects, CancellationToken cancellationToken);
@@ -84,13 +94,20 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
 {
     private static readonly Error InvalidOrigin = new("students.invalid_origin", "Öğrenci profili kaynağı ile kimlik bilgileri uyumsuz.");
     private static readonly Error DuplicateUserProfile = new("students.user_profile_exists", "Bu kullanıcı için öğrenci profili zaten var.");
+    private static readonly Error FreeLimitReached = new("students.free_limit_reached", "Free planda en fazla 5 ogrenci ekleyebilirsiniz. Premium'a gecin.");
     private readonly IStudentProfileRepository _repository;
+    private readonly ITeacherStudentLinkRepository _linkRepository;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
-    public CreateStudentProfileCommandHandler(IStudentProfileRepository repository, IIdGenerator idGenerator, IClock clock)
+    public CreateStudentProfileCommandHandler(
+        IStudentProfileRepository repository,
+        ITeacherStudentLinkRepository linkRepository,
+        IIdGenerator idGenerator,
+        IClock clock)
     {
         _repository = repository;
+        _linkRepository = linkRepository;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -113,6 +130,15 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
             if (existingProfile is not null)
             {
                 return Result<StudentProfileResponse>.Failure(DuplicateUserProfile);
+            }
+        }
+
+        if (command.Origin == StudentOrigin.TeacherManaged && command.CreatedByTeacherUserId is { } teacherId)
+        {
+            var count = await _linkRepository.CountByTeacherAsync(teacherId, cancellationToken);
+            if (count >= StudentLimits.FreeStudentLimit)
+            {
+                return Result<StudentProfileResponse>.Failure(FreeLimitReached);
             }
         }
 
@@ -144,6 +170,13 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
 
         await _repository.AddAsync(profile, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
+
+        if (command.Origin == StudentOrigin.TeacherManaged && command.CreatedByTeacherUserId is { } linkTeacherId)
+        {
+            var link = new TeacherStudentLink(_idGenerator.New(), linkTeacherId, profile.Id, TeacherStudentLinkStatus.Manual, now);
+            await _linkRepository.AddAsync(link, cancellationToken);
+            await _linkRepository.SaveChangesAsync(cancellationToken);
+        }
 
         return Result<StudentProfileResponse>.Success(profile.ToResponse());
     }
@@ -190,24 +223,38 @@ public sealed class GetStudentProfileByUserIdQueryHandler : IQueryHandler<GetStu
 public sealed class ListStudentsByTeacherQueryHandler : IQueryHandler<ListStudentsByTeacherQuery, Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>
 {
     private readonly IStudentProfileRepository _repository;
+    private readonly ITeacherStudentLinkRepository _linkRepository;
 
-    public ListStudentsByTeacherQueryHandler(IStudentProfileRepository repository)
+    public ListStudentsByTeacherQueryHandler(IStudentProfileRepository repository, ITeacherStudentLinkRepository linkRepository)
     {
         _repository = repository;
+        _linkRepository = linkRepository;
     }
 
     public async Task<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>> Handle(ListStudentsByTeacherQuery query, CancellationToken cancellationToken)
     {
-        var students = await _repository.ListByTeacherUserIdAsync(query.TeacherUserId, cancellationToken);
-        var payload = students
-            .OrderBy(student => student.FullName)
-            .Select(student => new StudentProfileSummaryResponse(
-                student.Id,
-                student.FullName,
-                student.GradeLevel,
-                student.Origin.ToString(),
-                student.IsActive,
-                student.CreatedOnUtc))
+        var links = await _linkRepository.ListByTeacherAsync(query.TeacherUserId, query.IncludeArchived, cancellationToken);
+        var studentIds = links.Select(link => link.StudentId).ToArray();
+        var profiles = await _repository.ListByIdsAsync(studentIds, cancellationToken);
+        var profilesById = profiles.ToDictionary(profile => profile.Id);
+
+        var payload = links
+            .Where(link => profilesById.ContainsKey(link.StudentId))
+            .Select(link =>
+            {
+                var profile = profilesById[link.StudentId];
+                return new StudentProfileSummaryResponse(
+                    profile.Id,
+                    profile.FullName,
+                    profile.GradeLevel,
+                    profile.Origin.ToString(),
+                    profile.IsActive,
+                    profile.CreatedOnUtc,
+                    link.IsArchived,
+                    link.AgreedRateAmount,
+                    link.Status.ToString());
+            })
+            .OrderBy(summary => summary.FullName)
             .ToArray();
 
         return Result<IReadOnlyCollection<StudentProfileSummaryResponse>>.Success(payload);

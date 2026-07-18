@@ -67,6 +67,7 @@ internal sealed class LessonSessionCompletedIntegrationEventHandler : IIntegrati
             summary,
             lessonSession.CoveredContent,
             lessonSession.TeacherNotes,
+            LessonNoteVisibility.Private,
             _clock.UtcNow);
 
         await _repository.AddLessonNoteAsync(note, cancellationToken);

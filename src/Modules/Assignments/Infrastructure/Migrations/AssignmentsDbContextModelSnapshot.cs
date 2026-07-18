@@ -57,6 +57,10 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("TeacherFeedback")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uuid");
 
@@ -104,6 +108,11 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
 
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.HasKey("Id");
 

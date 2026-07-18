@@ -43,6 +43,7 @@ internal sealed class LessonSessionConfiguration : IEntityTypeConfiguration<Less
         builder.Property(entity => entity.CoveredContent).HasMaxLength(2000);
         builder.Property(entity => entity.TeacherNotes).HasMaxLength(2000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Property(entity => entity.IsChargeable);
         builder.HasIndex(entity => entity.LessonScheduleId);
         builder.HasIndex(entity => new { entity.StudentId, entity.PlannedStartAtUtc });
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.PlannedStartAtUtc });

@@ -38,14 +38,45 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapPost("/lessons/{lessonId:guid}/cancel", CancelLessonScheduleAsync)
         .WithSummary("Ders planını iptal eder");
 
+        group.MapPost("/lessons/{lessonId:guid}/reschedule", RescheduleLessonScheduleAsync)
+        .WithSummary("Dersi yeni tarih/saate erteler");
+
         group.MapPost("/lessons/{lessonId:guid}/complete", CompleteLessonScheduleAsync)
         .WithSummary("Ders planını tamamlandı olarak işaretler");
+
+        group.MapDelete("/lessons/{lessonId:guid}", DeleteLessonScheduleAsync)
+        .WithSummary("Yanlış eklenen dersi siler (24s + gelecek kuralı)");
 
         group.MapGet("/lessons/{lessonId:guid}", GetLessonScheduleByIdAsync)
         .WithSummary("Ders planı detayını getirir");
 
         group.MapGet("/teachers/{teacherUserId:guid}/lessons", ListLessonSchedulesForTeacherAsync)
         .WithSummary("Öğretmenin ders planlarını listeler");
+
+        group.MapGet("/students/{studentId:guid}/lessons", ListLessonSchedulesForStudentAsync)
+        .WithSummary("Öğrencinin ders planlarını listeler");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/time-off", CreateTimeOffBlockAsync)
+        .WithSummary("Tatil / müsait değil bloğu oluşturur; çakışan dersleri döndürür");
+
+        group.MapGet("/teachers/{teacherUserId:guid}/time-off", ListTimeOffBlocksAsync)
+        .WithSummary("Öğretmenin tatil bloklarını listeler");
+
+        group.MapDelete("/teachers/{teacherUserId:guid}/time-off/{timeOffId:guid}", DeleteTimeOffBlockAsync)
+        .WithSummary("Tatil bloğunu siler");
+
+        // Öğrenci-sahipli kişisel program (StudyScheduleEntry) + birleşik takvim.
+        group.MapGet("/students/{studentId:guid}/calendar", GetStudentCalendarAsync)
+        .WithSummary("Öğrencinin takvimini (öğretmen dersleri + kendi programı, tekrarlar genişletilmiş) getirir");
+
+        group.MapPost("/students/{studentId:guid}/study-entries", CreateStudyScheduleEntryAsync)
+        .WithSummary("Öğrencinin kendi program girdisini oluşturur");
+
+        group.MapPut("/study-entries/{entryId:guid}", UpdateStudyScheduleEntryAsync)
+        .WithSummary("Öğrencinin kendi program girdisini günceller");
+
+        group.MapDelete("/study-entries/{entryId:guid}", DeleteStudyScheduleEntryAsync)
+        .WithSummary("Öğrencinin kendi program girdisini siler");
     }
 
     /// <summary>
@@ -85,7 +116,25 @@ public sealed class SchedulingModule : ModuleDefinition
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(new CancelLessonScheduleCommand(lessonId, request.CancellationNote), cancellationToken);
+        var result = await dispatcher.Dispatch(
+            new CancelLessonScheduleCommand(lessonId, request.Reason, request.IsChargeable, request.CancellationNote, request.Scope, request.OccurrenceStartAtUtc),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Planlı dersi yeni tarih/saate erteler; statü Planned kalır, erteleme geçmişi tutulur.
+    /// </summary>
+    private static async Task<IResult> RescheduleLessonScheduleAsync(
+        HttpContext context,
+        Guid lessonId,
+        RescheduleLessonScheduleRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note, request.Scope, request.OccurrenceStartAtUtc),
+            cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -100,6 +149,27 @@ public sealed class SchedulingModule : ModuleDefinition
     {
         var result = await dispatcher.Dispatch(new CompleteLessonScheduleCommand(lessonId), cancellationToken);
         return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Yanlış eklenen dersi siler; yalnızca oluşturmadan sonra ≤24 saat ve ders gelecekteyse izinlidir.
+    /// </summary>
+    private static async Task<IResult> DeleteLessonScheduleAsync(
+        HttpContext context,
+        Guid lessonId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new DeleteLessonScheduleCommand(lessonId), cancellationToken);
+        return result.IsSuccess
+            ? Results.NoContent()
+            : result.Error.Code switch
+            {
+                "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                "scheduling.delete_not_allowed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
     }
 
     /// <summary>
@@ -133,6 +203,128 @@ public sealed class SchedulingModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// Öğrencinin belirli UTC tarih aralığındaki ders planlarını listeler. Yalnızca öğrencinin
+    /// kendisi (veya admin) erişebilir; sahiplik <c>IStudentDirectory</c> üzerinden doğrulanır.
+    /// </summary>
+    private static async Task<IResult> ListLessonSchedulesForStudentAsync(
+        HttpContext context,
+        Guid studentId,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListLessonSchedulesForStudentQuery(studentId, startAtUtc, endAtUtc),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğrencinin takvimini (öğretmen dersleri + kendi programı) tekrar kuralları genişletilmiş olarak getirir.
+    /// Yalnızca öğrencinin kendisi (veya admin) erişebilir; sahiplik <c>IStudentDirectory</c> ile doğrulanır.
+    /// </summary>
+    private static async Task<IResult> GetStudentCalendarAsync(
+        HttpContext context,
+        Guid studentId,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new GetStudentCalendarQuery(studentId, startAtUtc, endAtUtc),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğrencinin kendi program girdisini (tek/tekrarlı) oluşturur. Öğretmen dersiyle saat çakışması reddedilir.
+    /// </summary>
+    private static async Task<IResult> CreateStudyScheduleEntryAsync(
+        HttpContext context,
+        Guid studentId,
+        CreateStudyScheduleEntryRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(studentId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğrencinin kendi program girdisini günceller. Öğretmen dersiyle saat çakışması reddedilir.
+    /// </summary>
+    private static async Task<IResult> UpdateStudyScheduleEntryAsync(
+        HttpContext context,
+        Guid entryId,
+        UpdateStudyScheduleEntryRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(entryId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğrencinin kendi program girdisini siler (soft-cancel).
+    /// </summary>
+    private static async Task<IResult> DeleteStudyScheduleEntryAsync(
+        HttpContext context,
+        Guid entryId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new DeleteStudyScheduleEntryCommand(entryId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen için tatil / müsait değil bloğu oluşturur ve blokla çakışan planlı dersleri yanıtta döndürür.
+    /// </summary>
+    private static async Task<IResult> CreateTimeOffBlockAsync(
+        HttpContext context, Guid teacherUserId, CreateTimeOffBlockRequest request,
+        ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new CreateTimeOffBlockCommand(teacherUserId, request.Type, request.Title, request.StartAtUtc, request.EndAtUtc, request.IsAllDay),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin belirli UTC aralığındaki tatil bloklarını listeler.
+    /// </summary>
+    private static async Task<IResult> ListTimeOffBlocksAsync(
+        HttpContext context, Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc,
+        IQueryDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListTimeOffBlocksForTeacherQuery(teacherUserId, startAtUtc, endAtUtc), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin tatil bloğunu siler.
+    /// </summary>
+    private static async Task<IResult> DeleteTimeOffBlockAsync(
+        HttpContext context, Guid teacherUserId, Guid timeOffId,
+        ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new DeleteTimeOffBlockCommand(timeOffId), cancellationToken);
+        return result.IsSuccess
+            ? Results.NoContent()
+            : result.Error.Code switch
+            {
+                "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
+    }
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -144,6 +336,8 @@ public sealed class SchedulingModule : ModuleDefinition
         {
             "scheduling.teacher_conflict" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "scheduling.entry_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.not_editable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
@@ -166,6 +360,7 @@ public sealed record CreateLessonScheduleRequest(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes)
 {
     public CreateLessonScheduleCommand ToCommand()
@@ -181,6 +376,7 @@ public sealed record CreateLessonScheduleRequest(
             RecurrenceRule,
             ReminderOffsetMinutes,
             LocationLabel,
+            MeetingUrl,
             Notes);
     }
 }
@@ -197,6 +393,7 @@ public sealed record UpdateLessonScheduleRequest(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes)
 {
     public UpdateLessonScheduleCommand ToCommand(Guid lessonId)
@@ -211,6 +408,7 @@ public sealed record UpdateLessonScheduleRequest(
             RecurrenceRule,
             ReminderOffsetMinutes,
             LocationLabel,
+            MeetingUrl,
             Notes);
     }
 }
@@ -218,4 +416,85 @@ public sealed record UpdateLessonScheduleRequest(
 /// <summary>
 /// Planlı ders iptal edilirken tutulacak isteğe bağlı açıklamayı taşır.
 /// </summary>
-public sealed record CancelLessonScheduleRequest(string? CancellationNote);
+public sealed record CancelLessonScheduleRequest(
+    CancellationReason Reason,
+    bool IsChargeable,
+    string? CancellationNote,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null);
+
+/// <summary>
+/// Dersi ertelemek için yeni başlangıç/bitiş ve isteğe bağlı erteleme notunu taşır.
+/// </summary>
+public sealed record RescheduleLessonScheduleRequest(
+    DateTime NewStartAtUtc,
+    DateTime NewEndAtUtc,
+    string? Note,
+    OccurrenceScope Scope = OccurrenceScope.All,
+    DateTime? OccurrenceStartAtUtc = null);
+
+/// <summary>
+/// Tatil / müsait değil bloğu oluşturmak için tür, başlık, zaman aralığı ve tüm-gün bayrağını taşır.
+/// </summary>
+public sealed record CreateTimeOffBlockRequest(
+    TimeOffType Type, string Title, DateTime StartAtUtc, DateTime EndAtUtc, bool IsAllDay);
+
+/// <summary>
+/// Öğrencinin kendi program girdisini oluşturmak için ders, konu, zaman, tekrar ve renk verilerini taşır.
+/// </summary>
+public sealed record CreateStudyScheduleEntryRequest(
+    string Subject,
+    string? Topic,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string TimeZone,
+    string? RecurrenceRule,
+    int ReminderOffsetMinutes,
+    string? ColorHex,
+    string? Notes)
+{
+    public CreateStudyScheduleEntryCommand ToCommand(Guid studentId)
+    {
+        return new CreateStudyScheduleEntryCommand(
+            studentId,
+            Subject,
+            Topic,
+            StartAtUtc,
+            EndAtUtc,
+            TimeZone,
+            RecurrenceRule,
+            ReminderOffsetMinutes,
+            ColorHex,
+            Notes);
+    }
+}
+
+/// <summary>
+/// Öğrencinin kendi program girdisini güncellemek için yeni ders, konu, zaman, tekrar ve renk verilerini taşır.
+/// </summary>
+public sealed record UpdateStudyScheduleEntryRequest(
+    string Subject,
+    string? Topic,
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    string TimeZone,
+    string? RecurrenceRule,
+    int ReminderOffsetMinutes,
+    string? ColorHex,
+    string? Notes)
+{
+    public UpdateStudyScheduleEntryCommand ToCommand(Guid entryId)
+    {
+        return new UpdateStudyScheduleEntryCommand(
+            entryId,
+            Subject,
+            Topic,
+            StartAtUtc,
+            EndAtUtc,
+            TimeZone,
+            RecurrenceRule,
+            ReminderOffsetMinutes,
+            ColorHex,
+            Notes);
+    }
+}

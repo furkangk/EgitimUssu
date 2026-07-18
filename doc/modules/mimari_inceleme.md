@@ -40,8 +40,6 @@
 > - **Y2** (comp. denetim, mimari testler) — **YAPILDI.** (1) **Cross-module referans yasağı** mimari testi eklendi (`Modules_Should_Not_Reference_Other_Modules`); tetikleyici olarak son kalan ihlal (`Assignments.Application → LessonSessions.Application`) giderildi: `ILessonSessionAccessService`+`LessonSessionDetails` **`Shared/Contracts`**'a taşındı (paylaşılan read kontratı), Assignments artık LessonSessions'a referans vermiyor. (2) **Liste IDOR/varsayılan-deny** davranışsal koruması: `LessonSessionListAuthorizationTests` (server sahiplik filtresini zorlar; başka öğretmenin id'si yok sayılır; unauth reddedilir).
 > - **`AuthorizationCoverageTests` blind-spot düzeltmesi (2026-07-06):** Test, **Study**'nin 14 command/query'sini "authorizer'sız" sanıyordu. Aslında Study **korumalı** — açık-generik `StudyOwnershipCommandAuthorizer<T>`/`StudyOwnershipQueryAuthorizer<T>` (`T : IStudentScopedRequest`, `StudyOwnershipGuard` ile) DI'da her somut tip için kapalı olarak kayıtlı; startup validator geçiyor, app başlıyor. Reflection-tabanlı test yalnız **kapalı** authorizer'ları görüyordu. Test, açık-generik authorizer'ları kısıt (constraint) arayüzü üzerinden tanıyacak şekilde genişletildi (gerçek bir güvenlik açığı yoktu; redundant authorizer eklenmedi).
 > - **M14** (Testcontainers gerçek-DB testleri) — **YAPILDI.** `tests/Integration/` altında gerçek Postgres + Redis container'larıyla 3 test: (1) migration'lar gerçek Postgres'e uygulanıyor + unique constraint zorlanıyor, (2) **K5** outbox `FOR UPDATE SKIP LOCKED` + retry/dead-letter gerçek Postgres'te (Aşama 1'de yalnız derlemede doğrulanmıştı), (3) **Y4** dağıtık rate limiter gerçek Redis'e karşı 429 (fail-open değil). Docker yoksa `Skip.IfNot` ile zarifçe atlanır. Paket: 45 test (Docker'lı) / 42 + 3 skip (Docker'sız). CI'da (GitHub runner) Docker mevcut → koşar.
->
-> ADR'lerde planlıdır: [`../adr/`](../adr/).
 
 ---
 
@@ -133,14 +131,18 @@ Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) bi
 ### O6 — `LessonSchedule` durum yaşam döngüsü kısmen
 ✅ _Düzeltme (2026-06-24):_ **Ders çakışması kontrolü ASLINDA mevcut** — `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) ve `scheduling.invalid_range` (400) koddan doğrulandı; teacher-lesson liste endpoint'i `startAtUtc`/`endAtUtc` tarih filtresi alıyor.
 ✅ _Düzeltme (2026-06-26):_ **`Planned → Completed` geçişi eklendi** — `Complete(updatedOnUtc)` domain metodu, `CompleteLessonScheduleCommand`/handler, `POST /lessons/{id}/complete` endpoint ve mobil `completeLesson` cubit metodu + UI butonu eklendi.
-**Hâlâ eksik:** `Reschedule` geçişi; online ders linki (`MeetingUrl`), tekrar açılımı, tatil/blackout ve **öğrenci tarafı çakışma önceliği** (bkz. [`m04_scheduling.md`](m04_scheduling.md)).
+✅ _Düzeltme (Dilim A, 2026-07-18):_ **`Reschedule` geçişi** (`Reschedule()` + `POST /lessons/{id}/reschedule`, erteleme geçmişi), **online ders linki** (`MeetingUrl` ayrı alan), **tatil/blackout** (`TimeOffBlock` + endpoint'ler), **tekrar occurrence yönetimi** (`LessonOccurrenceException` + `RecurrenceExpander` istisnaları + `Scope`), **iptal nedeni + ücretlendirme + sil** (B-08/B-09) koddan doğrulandı. **Öğrenci tarafı çakışma önceliği** zaten mevcuttu (`StudyScheduleConflict`).
+**Hâlâ eksik:** Öğretmen `LessonSchedule` listesinin kendi tarafında tekrar açılımı (öğrenci birleşik takviminde açılıyor).
 
 ### O7 — Test kapsamı çok düşük
 Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test edilmiyor; Y1, K3 bir test olsa yakalanırdı.
 
-### O8 — Dosya yükleme/depolama servisi yok (YENİ — yükseltilebilir 🟠)
-`Shared/`'da **`IFileStorage`/blob soyutlaması yok**; dosya URL'leri (`Assignment.AttachmentUrl`, `TeacherProfile.ProfilePhotoUrl`) düz string olarak kabul ediliyor, gerçek yükleme/saklama katmanı yok. Bu, promp.txt'teki şu özellikleri **bloklar**: öğrenci **ödev yükleme** (`AssignmentSubmission`), ders **kaynağı (kaynak)** paylaşımı (`LessonResource`), profil fotoğrafı.
-**Öneri:** `Shared/Infrastructure`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob) + yükleme endpoint deseni (bkz. [`m06_assignments.md`](m06_assignments.md)).
+### O8 — Dosya yükleme/depolama servisi (kısmen çözüldü 🟡 — 2026-07-09)
+**Öğrenci ödev yükleme çözüldü:** M06'da `IAssignmentFileStorage`/`LocalAssignmentFileStorage` (yerel disk) +
+`POST /api/assignments/{id}/submission` (multipart) + modül-içi yetkili indirme eklendi. **Kalan:** `Shared/`'da
+ortak `IFileStorage`/blob soyutlaması hâlâ yok; `TeacherProfile.ProfilePhotoUrl`, ders **kaynağı (LessonResource)**
+düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya (S3/Blob) taşınmalı.
+**Öneri:** `Shared/Infrastructure`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob).
 
 ---
 
@@ -150,7 +152,7 @@ Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test 
 - **D3** — Placeholder dosyalar: `Shared/*/Class1.cs` ve boş `AssemblyReference.cs` kaldırılmalı.
 - **D4** — ✅ _Düzeltildi._ Doküman tutarsızlığı (.NET 8/10) gerçek hedef **.NET 9** ile hizalandı.
 - **D5** — `StudentProfileQueryAuthorizer` 3 arayüzle 3 kez `AddScoped` → 3 instance (gereksiz).
-- **D6** — İskelet modüller (`Study`, `Parents`, `Matching`, `Reviews`, `ProgressTracking`, `Reporting`) yalnız `/status` döndürüyor — beklenen (yol haritası), tasarımları [`m08`](m08_study.md)/[`m09`](m09_parents.md)/[`m10`](m10_progress_tracking.md)/[`m12`](m12_matching.md)/[`m13`](m13_reviews.md)/[`m14`](m14_reporting.md)'te.
+- **D6** — İskelet modüller (`Matching`, `Reviews`, `Reporting`) yalnız `/status` döndürüyor — beklenen (yol haritası), tasarımları [`m12`](m12_matching.md)/[`m13`](m13_reviews.md)/[`m14`](m14_reporting.md)'te. (`Study` 🟢, `Parents` 🟢, `ProgressTracking` 🟡 artık gerçek endpoint'ler.)
 
 ---
 
@@ -184,4 +186,4 @@ Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-07-01 — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

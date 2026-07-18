@@ -168,6 +168,34 @@ public interface IStudyRepository
 
     Task AddTopicAsync(StudyTopic topic, CancellationToken cancellationToken);
 
+    // Ders/konu kataloğu (öğrencinin tanımladığı)
+    Task<IReadOnlyList<StudentSubjectCatalog>> ListCatalogSubjectsAsync(Guid studentId, CancellationToken cancellationToken);
+
+    Task<StudentSubjectCatalog?> GetCatalogSubjectAsync(Guid subjectId, CancellationToken cancellationToken);
+
+    Task AddCatalogSubjectAsync(StudentSubjectCatalog subject, CancellationToken cancellationToken);
+
+    Task RemoveCatalogSubjectAsync(StudentSubjectCatalog subject, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<StudentTopicCatalog>> ListCatalogTopicsAsync(Guid studentId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<StudentTopicCatalog>> ListCatalogTopicsBySubjectAsync(Guid subjectId, CancellationToken cancellationToken);
+
+    Task<StudentTopicCatalog?> GetCatalogTopicAsync(Guid topicId, CancellationToken cancellationToken);
+
+    Task AddCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken);
+
+    Task RemoveCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken);
+
+    // Öğrenci ders notları
+    Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken);
+
+    Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken);
+
+    Task AddNoteAsync(StudyNote note, CancellationToken cancellationToken);
+
+    Task RemoveNoteAsync(StudyNote note, CancellationToken cancellationToken);
+
     // Başarımlar
     Task<IReadOnlyList<Achievement>> ListCatalogAsync(CancellationToken cancellationToken);
 

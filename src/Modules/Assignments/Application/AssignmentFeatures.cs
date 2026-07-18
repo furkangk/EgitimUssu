@@ -16,7 +16,8 @@ public sealed record CreateLessonSessionFollowUpCommand(
     string Summary,
     string? CoveredTopics,
     string? Recommendations,
-    IReadOnlyCollection<AssignmentDraft> Assignments) : ICommand<Result<LessonSessionFollowUpResponse>>;
+    IReadOnlyCollection<AssignmentDraft> Assignments,
+    LessonNoteVisibility Visibility = LessonNoteVisibility.Private) : ICommand<Result<LessonSessionFollowUpResponse>>;
 
 public sealed record GetLessonSessionFollowUpQuery(Guid LessonSessionId) : IQuery<Result<LessonSessionFollowUpResponse>>;
 public sealed record ListAssignmentsQuery(Guid? TeacherUserId, Guid? StudentId, Guid? LessonSessionId) : IQuery<Result<IReadOnlyCollection<AssignmentResponse>>>;
@@ -32,7 +33,8 @@ public sealed record AssignmentResponse(
     string Status,
     string? AttachmentUrl,
     DateTime CreatedOnUtc,
-    DateTime? CompletedOnUtc);
+    DateTime? CompletedOnUtc,
+    string? TeacherFeedback);
 
 public sealed record LessonNoteResponse(
     Guid Id,
@@ -42,6 +44,7 @@ public sealed record LessonNoteResponse(
     string Summary,
     string? CoveredTopics,
     string? Recommendations,
+    string Visibility,
     DateTime CreatedOnUtc);
 
 public sealed record LessonSessionFollowUpResponse(
@@ -51,6 +54,8 @@ public sealed record LessonSessionFollowUpResponse(
 
 public interface IAssignmentRepository
 {
+    Task<Assignment?> GetAssignmentByIdAsync(Guid assignmentId, CancellationToken cancellationToken);
+
     Task<LessonNote?> GetLessonNoteByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<Assignment>> ListByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);
@@ -148,7 +153,8 @@ public sealed class CreateLessonSessionFollowUpCommandHandler : ICommandHandler<
                 existingNote.Update(
                     command.Summary.Trim(),
                     command.CoveredTopics?.Trim(),
-                    command.Recommendations?.Trim());
+                    command.Recommendations?.Trim(),
+                    command.Visibility);
 
                 var appendedAssignments = command.Assignments
                     .Select(item => new Assignment(
@@ -185,6 +191,7 @@ public sealed class CreateLessonSessionFollowUpCommandHandler : ICommandHandler<
             command.Summary.Trim(),
             command.CoveredTopics?.Trim(),
             command.Recommendations?.Trim(),
+            command.Visibility,
             now);
 
         var assignments = command.Assignments
@@ -270,6 +277,7 @@ public sealed class GetLessonSessionFollowUpQueryHandler : IQueryHandler<GetLess
             BuildAutoSummary(lessonSession),
             lessonSession.CoveredContent,
             lessonSession.TeacherNotes,
+            LessonNoteVisibility.Private,
             _clock.UtcNow);
 
         await _repository.AddLessonNoteAsync(note, cancellationToken);
@@ -308,7 +316,8 @@ internal static class AssignmentMappings
             assignment.Status.ToString(),
             assignment.AttachmentUrl,
             assignment.CreatedOnUtc,
-            assignment.CompletedOnUtc);
+            assignment.CompletedOnUtc,
+            assignment.TeacherFeedback);
     }
 
     public static LessonNoteResponse ToResponse(this LessonNote note)
@@ -321,6 +330,7 @@ internal static class AssignmentMappings
             note.Summary,
             note.CoveredTopics,
             note.Recommendations,
+            note.Visibility.ToString(),
             note.CreatedOnUtc);
     }
 }

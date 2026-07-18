@@ -56,6 +56,38 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
                     b.ToTable("teacher_availability_slots", "teachers");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherCertificate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("Institution")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TeacherProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherProfileId");
+
+                    b.ToTable("teacher_certificates", "teachers");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -138,6 +170,27 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
                     b.ToTable("teacher_profiles", "teachers");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherSubject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("TeacherProfileId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherProfileId");
+
+                    b.ToTable("teacher_subjects", "teachers");
+                });
+
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>
                 {
                     b.Property<Guid>("Id")
@@ -206,9 +259,31 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherCertificate", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Teachers.Domain.TeacherProfile", null)
+                        .WithMany("Certificates")
+                        .HasForeignKey("TeacherProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherSubject", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Teachers.Domain.TeacherProfile", null)
+                        .WithMany("Subjects")
+                        .HasForeignKey("TeacherProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherProfile", b =>
                 {
                     b.Navigation("AvailabilitySlots");
+
+                    b.Navigation("Certificates");
+
+                    b.Navigation("Subjects");
                 });
 #pragma warning restore 612, 618
         }

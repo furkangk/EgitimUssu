@@ -113,6 +113,52 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
                     b.ToTable("student_subjects", "students");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Students.Domain.TeacherStudentLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AgreedRateAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<Guid?>("InviteTargetUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TeacherUserId", "StudentId")
+                        .IsUnique();
+
+                    b.ToTable("teacher_student_links", "students");
+                });
+
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>
                 {
                     b.Property<Guid>("Id")

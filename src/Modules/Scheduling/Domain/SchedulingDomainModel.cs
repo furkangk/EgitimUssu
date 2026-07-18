@@ -21,6 +21,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         LessonScheduleStatus status,
         int reminderOffsetMinutes,
         string? locationLabel,
+        string? meetingUrl,
         string? notes,
         DateTime createdOnUtc)
     {
@@ -36,6 +37,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Status = status;
         ReminderOffsetMinutes = reminderOffsetMinutes;
         LocationLabel = locationLabel;
+        MeetingUrl = meetingUrl;
         Notes = notes;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
@@ -65,11 +67,21 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
     public string? LocationLabel { get; private set; }
 
+    public string? MeetingUrl { get; private set; }
+
     public string? Notes { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
+
+    public DateTime? OriginalStartAtUtc { get; private set; }
+
+    public string? RescheduleNote { get; private set; }
+
+    public CancellationReason? CancellationReason { get; private set; }
+
+    public bool IsChargeable { get; private set; }
 
     /// <summary>
     /// Yalnizca taslak/planli dersler duzenlenebilir; tamamlanmis veya iptal edilmis ders degistirilemez.
@@ -88,6 +100,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         string? recurrenceRule,
         int reminderOffsetMinutes,
         string? locationLabel,
+        string? meetingUrl,
         string? notes,
         DateTime updatedOnUtc)
     {
@@ -99,15 +112,52 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         RecurrenceRule = recurrenceRule;
         ReminderOffsetMinutes = reminderOffsetMinutes;
         LocationLabel = locationLabel;
+        MeetingUrl = meetingUrl;
         Notes = notes;
         UpdatedOnUtc = updatedOnUtc;
 
         Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
     }
 
-    public void Cancel(string? cancellationNote, DateTime updatedOnUtc)
+    /// <summary>
+    /// Dersi yeni tarih/saate taşır. Statü Planned kalır (ERTELENDİ geçici bir işaret değil, kayıtlı bir taşımadır).
+    /// İlk ertelemede özgün başlangıç saklanır; öğrenci/veli bildirimi için Rescheduled olayı yayılır.
+    /// </summary>
+    public void Reschedule(DateTime newStartAtUtc, DateTime newEndAtUtc, string? note, DateTime updatedOnUtc)
+    {
+        OriginalStartAtUtc ??= StartAtUtc;
+        StartAtUtc = newStartAtUtc;
+        EndAtUtc = newEndAtUtc;
+        RescheduleNote = note;
+        UpdatedOnUtc = updatedOnUtc;
+
+        Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
+    }
+
+    /// <summary>Silme yalnızca oluşturmadan sonraki 24 saat içinde ve ders gelecekteyse mümkündür; aksi halde iptal kullanılır.</summary>
+    public bool CanBeDeletedAt(DateTime nowUtc)
+        => nowUtc <= CreatedOnUtc.AddHours(24) && StartAtUtc > nowUtc;
+
+    /// <summary>Tekrar serisini verilen tarihten önce sonlandırır (RecurrenceRule'a UNTIL ekler). "Bu ve sonrakiler" iptali için.</summary>
+    public void EndSeriesBefore(DateTime cutoffUtc, DateTime updatedOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(RecurrenceRule))
+        {
+            return;
+        }
+
+        var until = cutoffUtc.AddDays(-1).ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        RecurrenceRule = RecurrenceRule.Contains("UNTIL=", StringComparison.OrdinalIgnoreCase)
+            ? System.Text.RegularExpressions.Regex.Replace(RecurrenceRule, "UNTIL=[^;]*", $"UNTIL={until}")
+            : $"{RecurrenceRule};UNTIL={until}";
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;
+        CancellationReason = reason;
+        IsChargeable = isChargeable;
         UpdatedOnUtc = updatedOnUtc;
 
         if (!string.IsNullOrWhiteSpace(cancellationNote))
@@ -127,6 +177,14 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
         Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
     }
+}
+
+public enum CancellationReason
+{
+    TeacherCancelled = 1,
+    StudentCancelled = 2,
+    Holiday = 3,
+    Other = 4
 }
 
 public enum ScheduledLessonFormat
@@ -172,3 +230,84 @@ public sealed record LessonSessionCompletedDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime CompletedOnUtc) : DomainEvent;
+
+public sealed class TimeOffBlock : AggregateRoot<Guid>
+{
+    private TimeOffBlock() { }
+
+    public TimeOffBlock(
+        Guid id,
+        Guid teacherUserId,
+        TimeOffType type,
+        string title,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        bool isAllDay,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        TeacherUserId = teacherUserId;
+        Type = type;
+        Title = title;
+        StartAtUtc = startAtUtc;
+        EndAtUtc = endAtUtc;
+        IsAllDay = isAllDay;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid TeacherUserId { get; private set; }
+    public TimeOffType Type { get; private set; }
+    public string Title { get; private set; } = string.Empty;
+    public DateTime StartAtUtc { get; private set; }
+    public DateTime EndAtUtc { get; private set; }
+    public bool IsAllDay { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+}
+
+public enum TimeOffType
+{
+    Holiday = 1,
+    Leave = 2,
+    Official = 3,
+    Other = 4
+}
+
+public sealed class LessonOccurrenceException : Entity<Guid>
+{
+    private LessonOccurrenceException() { }
+
+    public LessonOccurrenceException(
+        Guid id,
+        Guid seriesLessonScheduleId,
+        DateTime originalStartAtUtc,
+        OccurrenceExceptionAction action,
+        DateTime? overrideStartAtUtc,
+        DateTime? overrideEndAtUtc,
+        string? note,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        SeriesLessonScheduleId = seriesLessonScheduleId;
+        OriginalStartAtUtc = originalStartAtUtc;
+        Action = action;
+        OverrideStartAtUtc = overrideStartAtUtc;
+        OverrideEndAtUtc = overrideEndAtUtc;
+        Note = note;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid SeriesLessonScheduleId { get; private set; }
+    public DateTime OriginalStartAtUtc { get; private set; }
+    public OccurrenceExceptionAction Action { get; private set; }
+    public DateTime? OverrideStartAtUtc { get; private set; }
+    public DateTime? OverrideEndAtUtc { get; private set; }
+    public string? Note { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+}
+
+public enum OccurrenceExceptionAction
+{
+    Skipped = 1,
+    Cancelled = 2,
+    Rescheduled = 3
+}

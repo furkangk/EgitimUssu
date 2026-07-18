@@ -21,6 +21,10 @@ public sealed class TeachersDbContext : ModuleDbContext
 
     public DbSet<TeacherAvailabilitySlot> TeacherAvailabilitySlots => Set<TeacherAvailabilitySlot>();
 
+    public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
+
+    public DbSet<TeacherCertificate> TeacherCertificates => Set<TeacherCertificate>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Teachers";
@@ -54,6 +58,32 @@ internal sealed class TeacherProfileConfiguration : IEntityTypeConfiguration<Tea
         builder.HasIndex(entity => entity.UserId).IsUnique();
         builder.HasIndex(entity => new { entity.City, entity.Subject });
         builder.HasMany(entity => entity.AvailabilitySlots).WithOne().HasForeignKey(entity => entity.TeacherProfileId);
+        builder.HasMany(entity => entity.Subjects).WithOne().HasForeignKey(entity => entity.TeacherProfileId);
+        builder.HasMany(entity => entity.Certificates).WithOne().HasForeignKey(entity => entity.TeacherProfileId);
+    }
+}
+
+internal sealed class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubject>
+{
+    public void Configure(EntityTypeBuilder<TeacherSubject> builder)
+    {
+        builder.ToTable("teacher_subjects");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Subject).HasMaxLength(120).IsRequired();
+        builder.HasIndex(entity => entity.TeacherProfileId);
+    }
+}
+
+internal sealed class TeacherCertificateConfiguration : IEntityTypeConfiguration<TeacherCertificate>
+{
+    public void Configure(EntityTypeBuilder<TeacherCertificate> builder)
+    {
+        builder.ToTable("teacher_certificates");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
+        builder.Property(entity => entity.Institution).HasMaxLength(200);
+        builder.Property(entity => entity.FileUrl).HasMaxLength(512);
+        builder.HasIndex(entity => entity.TeacherProfileId);
     }
 }
 

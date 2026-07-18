@@ -42,6 +42,19 @@ internal sealed class StudentProfileRepository : IStudentProfileRepository
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<StudentProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await _dbContext.StudentProfiles
+            .Include(profile => profile.Subjects)
+            .Where(profile => ids.Contains(profile.Id))
+            .ToArrayAsync(cancellationToken);
+    }
+
     public Task AddAsync(StudentProfile profile, CancellationToken cancellationToken)
     {
         return _dbContext.StudentProfiles.AddAsync(profile, cancellationToken).AsTask();

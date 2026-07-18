@@ -42,6 +42,7 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
         builder.Property(entity => entity.Description).HasMaxLength(2000);
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.AttachmentUrl).HasMaxLength(512);
+        builder.Property(entity => entity.TeacherFeedback).HasMaxLength(2000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.StudentId, entity.Status });
         builder.HasIndex(entity => entity.LessonSessionId);
@@ -57,6 +58,7 @@ internal sealed class LessonNoteConfiguration : IEntityTypeConfiguration<LessonN
         builder.Property(entity => entity.Summary).HasMaxLength(1000).IsRequired();
         builder.Property(entity => entity.CoveredTopics).HasMaxLength(2000);
         builder.Property(entity => entity.Recommendations).HasMaxLength(2000);
+        builder.Property(entity => entity.Visibility).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.LessonSessionId).IsUnique();
     }

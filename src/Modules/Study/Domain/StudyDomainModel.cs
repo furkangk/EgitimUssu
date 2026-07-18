@@ -284,7 +284,7 @@ public sealed class TestResult : AggregateRoot<Guid>
         IsSharedWithTeacher = isSharedWithTeacher;
         CreatedOnUtc = createdOnUtc;
 
-        Raise(new TestResultRecordedDomainEvent(Id, StudentId, Subject, Net, TakenOnUtc));
+        Raise(new TestResultRecordedDomainEvent(Id, StudentId, Subject, Topic, TotalQuestions, Correct, Wrong, Blank, Net, TakenOnUtc));
     }
 
     public Guid StudentId { get; private set; }
@@ -696,6 +696,11 @@ public sealed record TestResultRecordedDomainEvent(
     Guid TestResultId,
     Guid StudentId,
     string Subject,
+    string? Topic,
+    int TotalQuestions,
+    int Correct,
+    int Wrong,
+    int Blank,
     decimal Net,
     DateTime TakenOnUtc) : DomainEvent;
 

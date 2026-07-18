@@ -64,3 +64,6 @@ mobile/artifacts/
 
 # Local SDK/cache folders
 .dotnet/
+
+# Kişisel/yerel Claude skill'leri (bu PC'ye özel — main'e commit edilmez)
+.claude/skills/

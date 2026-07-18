@@ -20,6 +20,8 @@
 | Profil güncelleme | ✅ var | `UpdateTeacherProfileCommandHandler` |
 | Profil getirme (userId ile) | ✅ var | `GetTeacherProfileByUserIdQueryHandler` |
 | Haftalık uygunluk slotları | ✅ var | `TeacherAvailabilitySlot` + upsert akışı |
+| **Çoklu branş** (birincil `Subject` korunur) | ✅ var (Dilim D) | `TeacherSubject` alt-koleksiyonu + `teacher_subjects` tablosu; upsert `Subjects` listesi (boşsa `Subject`'ten türetilir) |
+| **Sertifika/deneyim** | ✅ var (Dilim D) | `TeacherCertificate` alt-koleksiyonu + `teacher_certificates` tablosu; upsert `Certificates` listesi |
 | Çevrimiçi/yüz yüze ayrımı (slot bazında) | ✅ var | `IsOnlineAvailable`, `IsInPersonAvailable` |
 | Ders biçimi (yüz yüze/online/hibrit) | ✅ var | enum `TeacherLessonFormat` |
 | Saatlik ücret + para birimi | ✅ var | `HourlyRateAmount`, `Currency` (vars. `TRY`) |
@@ -40,7 +42,7 @@
 ## 2. Domain Modeli
 
 Kaynak: `src/Modules/Teachers/Domain/TeachersDomainModel.cs`. Şema: **`teachers`**.
-Tablolar: `teacher_profiles`, `teacher_availability_slots`.
+Tablolar: `teacher_profiles`, `teacher_availability_slots`, `teacher_subjects`, `teacher_certificates`.
 
 ### 2.1 🟢 Mevcut (koddan) — `TeacherProfile` (AggregateRoot&lt;Guid&gt;)
 
@@ -49,7 +51,7 @@ Tablolar: `teacher_profiles`, `teacher_availability_slots`.
 | `Id` | Guid | Profil kimliği |
 | `UserId` | Guid | Identity'deki kullanıcı (1 kullanıcı = 1 öğretmen profili) |
 | `FullName` | string | Ad soyad |
-| `Subject` | string | Branş (tek branş alanı — çoklu branş önerisi §2.4) |
+| `Subject` | string | **Birincil branş** (korunur — domain event + eşleştirme bu alana bağlı). Çoklu branş için §2.5 `Subjects` |
 | `City` | string | Şehir |
 | `District` | string | İlçe |
 | `Biography` | string? | Tanıtım metni |
@@ -63,8 +65,10 @@ Tablolar: `teacher_profiles`, `teacher_availability_slots`.
 | `ProfilePhotoUrl` | string? | Profil fotoğrafı URL'i |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `AvailabilitySlots` | List&lt;`TeacherAvailabilitySlot`&gt; | Haftalık uygunluk |
+| `Subjects` | List&lt;`TeacherSubject`&gt; | Çoklu branş (§2.5) |
+| `Certificates` | List&lt;`TeacherCertificate`&gt; | Sertifika/deneyim (§2.6) |
 
-**Davranışlar:** Yapıcı `TeacherProfileCreatedDomainEvent` yayar. `Update(...)` tüm düzenlenebilir alanları (ve uygunluk slotlarını `Clear` + `AddRange` ile) günceller ve `TeacherProfileUpdatedDomainEvent` yayar. `Update()` imzası `isVerified` parametresi **içermez**; doğrulama durumu yalnızca admin/doğrulama akışıyla değişebilir.
+**Davranışlar:** Yapıcı `TeacherProfileCreatedDomainEvent` yayar. `Update(...)` tüm düzenlenebilir alanları (uygunluk slotları, **`Subjects` ve `Certificates`** koleksiyonlarını `Clear` + `AddRange` ile) günceller ve `TeacherProfileUpdatedDomainEvent` yayar. `Update()` imzası `isVerified` parametresi **içermez**; doğrulama durumu yalnızca admin/doğrulama akışıyla değişebilir.
 
 ### 2.2 🟢 Mevcut (koddan) — `TeacherAvailabilitySlot` (Entity&lt;Guid&gt;)
 
@@ -96,11 +100,34 @@ TeacherProfileUpdatedDomainEvent(Guid TeacherProfileId, Guid UserId, string Subj
 
 | Öneri | Gerekçe |
 |-------|---------|
-| `TeacherSubject` alt-koleksiyonu (çoklu branş + seviye) | Tek `Subject` alanı çok branşlı öğretmenleri modelleyemiyor; eşleştirme (M12) için zayıf |
+| ✅ ~~`TeacherSubject` alt-koleksiyonu (çoklu branş)~~ | **Yapıldı (Dilim D)** — §2.5. Birincil `Subject` korunur. `TeacherSubject.Level` (seviye) hâlâ önerilebilir. |
 | `IsVerified` için ayrı `VerifyTeacher(...)` davranışı + `TeacherVerifiedDomainEvent` | Doğrulamayı sıradan güncellemeden ayırıp yalnız admin akışına bağlamak (Y1 çözümü) |
 | `ScheduleException` (tatil/izin istisnası) | Haftalık uygunluğun belirli tarihlerde geçersiz kılınması → **M04 Scheduling**'de modellenecek |
 | `AverageRating` / `ReviewCount` (okuma modeli) | Puanlama (M13) entegrasyonu için profil özetinde gösterim |
 | `ProfilePhoto` yükleme entegrasyonu | `ProfilePhotoUrl` yerine güvenli dosya-depolama (blob/object storage) + boyut/format doğrulama |
+
+### 2.5 🟢 Mevcut (koddan) — `TeacherSubject` (Entity&lt;Guid&gt;)
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `Id` | Guid | Kayıt kimliği |
+| `TeacherProfileId` | Guid | Bağlı profil |
+| `Subject` | string | Branş adı (`HasMaxLength(120)`) |
+
+> Çoklu branş. Birincil `TeacherProfile.Subject` korunur; upsert'te `Subjects` listesi boş gelirse birincil `Subject`'ten tek satır türetilir. Update'te tam değiştirme (`Clear` + `AddRange`). Mevcut profiller için birincil branş migration backfill'i ile `teacher_subjects`'e taşındı.
+
+### 2.6 🟢 Mevcut (koddan) — `TeacherCertificate` (Entity&lt;Guid&gt;)
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `Id` | Guid | Kayıt kimliği |
+| `TeacherProfileId` | Guid | Bağlı profil |
+| `Title` | string | Sertifika/deneyim başlığı (`HasMaxLength(200)`, zorunlu) |
+| `Institution` | string? | Veren kurum (`HasMaxLength(200)`) |
+| `Year` | int? | Alınan yıl |
+| `FileUrl` | string? | Belge bağlantısı (`HasMaxLength(512)`) |
+
+> Sertifika/deneyim listesi. Upsert'te `Title` boş olan kayıtlar filtrelenir. Update'te tam değiştirme (`Clear` + `AddRange`).
 
 ---
 
@@ -123,18 +150,27 @@ Tüm uçlar `RoutePrefix = /api/teachers` altında ve grup **`RequireAuthorizati
 TeacherAvailabilityItem(DayOfWeek DayOfWeek, TimeOnly StartTime, TimeOnly EndTime,
                         bool IsOnlineAvailable, bool IsInPersonAvailable)
 
+TeacherCertificateItem(string Title, string? Institution, int? Year, string? FileUrl)
+
 UpsertTeacherProfileRequest(Guid UserId, string FullName, string Subject, string City, string District,
                             string? Biography, string? Headline, TeacherLessonFormat LessonFormat,
                             int ExperienceYears, string EducationLevel, decimal HourlyRateAmount,
                             string Currency, string? ProfilePhotoUrl,
-                            IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots)
+                            IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots,
+                            IReadOnlyCollection<string> Subjects,
+                            IReadOnlyCollection<TeacherCertificateItem> Certificates)
 
 TeacherProfileResponse(Guid Id, Guid UserId, string FullName, string Subject, string City, string District,
                        string? Biography, string? Headline, string LessonFormat, int ExperienceYears,
                        string EducationLevel, decimal HourlyRateAmount, string Currency, bool IsVerified,
                        string? ProfilePhotoUrl, IReadOnlyCollection<TeacherAvailabilityResponse> AvailabilitySlots,
+                       IReadOnlyCollection<string> Subjects,
+                       IReadOnlyCollection<TeacherCertificateResponse> Certificates,
                        DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
+
+TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year, string? FileUrl)
 ```
+> `Subjects` boş gönderilirse birincil `Subject`'ten tek elemanlı liste türetilir; `Certificates` içinde `Title` boş olanlar yok sayılır.
 
 > ✅ **Y1 kapatıldı:** `UpsertTeacherProfileRequest` artık `IsVerified` alanı **içermez**. Client'tan gelen JSON'da bu alan olsa dahi yok sayılır. `TeacherProfile.Update()` da `isVerified` parametresi almaz; doğrulama durumu update akışında hiç dokunulmaz.
 
@@ -224,7 +260,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 1. ✅ ~~**`IsVerified` yazma yolunu kısıtla (Y1)**~~ — upsert'ten çıkarıldı. Kalan: admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent`.
 2. **`GET /profiles/{userId}` yetkilendirmesi (K3)** — authorizer ekle ve/veya public projeksiyon ayır.
 3. **Profil fotoğrafı dosya-depolama altyapısı** — yükleme ucu + güvenli saklama + format/boyut doğrulama.
-4. **Çoklu branş** — `Subject` (tekil) yerine `TeacherSubject` koleksiyonu; eşleştirme kalitesini artırır.
+4. ✅ ~~**Çoklu branş** — `TeacherSubject` koleksiyonu~~ — **yapıldı (Dilim D)**; birincil `Subject` korunur. Kalan: branş bazlı seviye (`Level`).
 5. **Tatil/izin istisnaları (ScheduleException)** — **M04 Scheduling** ile koordineli modelleme.
 6. **Öğretmen listeleme/arama** — şehir/branş/format/ücret filtreleri (M12 ile).
 7. **Puanlama özeti** — `AverageRating`/`ReviewCount` okuma alanları (M13 ile).
@@ -247,5 +283,5 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-06-24 (dashboard mobil feature eklendi)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->
