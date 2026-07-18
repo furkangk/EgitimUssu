@@ -18,6 +18,7 @@ public static class DependencyInjection
         // Uygulama servisleri
         services.AddScoped<StudyOwnershipGuard>();
         services.AddScoped<StudyLinkResolver>();
+        services.AddScoped<StudyMembershipResolver>();
         services.AddScoped<AchievementEvaluator>();
         services.AddScoped<StudyCompletionService>();
 

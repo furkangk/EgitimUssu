@@ -214,6 +214,7 @@ public sealed class StudyModule : ModuleDefinition
             "study.topic_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.note_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.session_active" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "study.premium_required" => ApiErrorHttpResults.FromError(context, StatusCodes.Status402PaymentRequired, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };

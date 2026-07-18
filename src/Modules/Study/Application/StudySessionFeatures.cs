@@ -49,6 +49,7 @@ internal static class StudyErrors
     public static readonly Error InvalidRequest = new("study.invalid_request", "Çalışma bilgileri eksik veya hatalı.");
     public static readonly Error InvalidTest = new("study.invalid_test", "Deneme bilgileri geçersiz: doğru + yanlış + boş, toplam soruya eşit olmalı.");
     public static readonly Error GoalNotFound = new("study.goal_not_found", "Çalışma hedefi bulunamadı.");
+    public static readonly Error PremiumRequired = new("study.premium_required", "Bu özellik Premium'a özeldir.");
 }
 
 /// <summary>
@@ -433,15 +434,23 @@ public sealed class ListStudySessionsQueryHandler
     : IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>
 {
     private readonly IStudyRepository _repository;
+    private readonly StudyMembershipResolver _membership;
+    private readonly IClock _clock;
 
-    public ListStudySessionsQueryHandler(IStudyRepository repository)
+    public ListStudySessionsQueryHandler(IStudyRepository repository, StudyMembershipResolver membership, IClock clock)
     {
         _repository = repository;
+        _membership = membership;
+        _clock = clock;
     }
 
     public async Task<Result<IReadOnlyCollection<StudySessionResponse>>> Handle(ListStudySessionsQuery query, CancellationToken cancellationToken)
     {
-        var sessions = await _repository.ListSessionsAsync(query.StudentId, query.FromUtc, query.ToUtc, query.Subject, cancellationToken);
+        // Ö-D: Free geçmiş penceresi son 30 güne kısılır; Premium sınırsız.
+        var tier = await _membership.CurrentTierAsync(cancellationToken);
+        var fromUtc = MembershipGate.ClampFrom(tier, query.FromUtc, _clock.UtcNow);
+
+        var sessions = await _repository.ListSessionsAsync(query.StudentId, fromUtc, query.ToUtc, query.Subject, cancellationToken);
         var payload = sessions.Select(s => s.ToResponse()).ToArray();
         return Result<IReadOnlyCollection<StudySessionResponse>>.Success(payload);
     }

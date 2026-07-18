@@ -42,4 +42,20 @@ public static class MembershipGate
 
     /// <summary>Verilen premium özelliğe erişim: Free hepsi false; Premium hepsi true.</summary>
     public static bool Allows(MembershipTier tier, PremiumFeature feature) => tier == MembershipTier.Premium;
+
+    /// <summary>
+    /// Geçmiş sorgusunun alt sınırını tier penceresine göre kısar (clamp). Premium (sınırsız) → istek
+    /// değiştirilmez. Free → <c>Max(istenenBaşlangıç, now - 30gün)</c>; istek yoksa pencere başlangıcı.
+    /// </summary>
+    public static DateTime? ClampFrom(MembershipTier tier, DateTime? requestedFromUtc, DateTime nowUtc)
+    {
+        var window = HistoryWindowDays(tier);
+        if (window is null)
+        {
+            return requestedFromUtc;
+        }
+
+        var lowerBound = nowUtc.AddDays(-window.Value);
+        return requestedFromUtc is { } from && from > lowerBound ? from : lowerBound;
+    }
 }

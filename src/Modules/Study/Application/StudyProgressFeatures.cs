@@ -69,14 +69,16 @@ public sealed class UpdateStudyGoalsCommandHandler : ICommandHandler<UpdateStudy
 {
     private readonly IStudyRepository _repository;
     private readonly StudyLinkResolver _linkResolver;
+    private readonly StudyMembershipResolver _membership;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public UpdateStudyGoalsCommandHandler(
-        IStudyRepository repository, StudyLinkResolver linkResolver, IIdGenerator idGenerator, IClock clock)
+        IStudyRepository repository, StudyLinkResolver linkResolver, StudyMembershipResolver membership, IIdGenerator idGenerator, IClock clock)
     {
         _repository = repository;
         _linkResolver = linkResolver;
+        _membership = membership;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -86,6 +88,16 @@ public sealed class UpdateStudyGoalsCommandHandler : ICommandHandler<UpdateStudy
         if (command.DailyGoalMinutes < 0)
         {
             return Result<StudyGoalResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        // Ö-D: Hedef net/puan takibi Premium'a özeldir. Free kullanıcı bu alanları belirleyemez.
+        if (command.TargetNet.HasValue || command.TargetScore.HasValue)
+        {
+            var tier = await _membership.CurrentTierAsync(cancellationToken);
+            if (!MembershipGate.Allows(tier, PremiumFeature.TargetTracking))
+            {
+                return Result<StudyGoalResponse>.Failure(StudyErrors.PremiumRequired);
+            }
         }
 
         await _linkResolver.EnsureAsync(command.StudentId, cancellationToken);

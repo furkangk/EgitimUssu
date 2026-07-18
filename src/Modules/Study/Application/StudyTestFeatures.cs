@@ -226,15 +226,23 @@ public sealed class ListTestResultsQueryHandler
     : IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>
 {
     private readonly IStudyRepository _repository;
+    private readonly StudyMembershipResolver _membership;
+    private readonly IClock _clock;
 
-    public ListTestResultsQueryHandler(IStudyRepository repository)
+    public ListTestResultsQueryHandler(IStudyRepository repository, StudyMembershipResolver membership, IClock clock)
     {
         _repository = repository;
+        _membership = membership;
+        _clock = clock;
     }
 
     public async Task<Result<IReadOnlyCollection<TestResultResponse>>> Handle(ListTestResultsQuery query, CancellationToken cancellationToken)
     {
-        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, query.FromUtc, query.ToUtc, cancellationToken);
+        // Ö-D: Free deneme geçmişi son 30 güne kısılır; Premium sınırsız.
+        var tier = await _membership.CurrentTierAsync(cancellationToken);
+        var fromUtc = MembershipGate.ClampFrom(tier, query.FromUtc, _clock.UtcNow);
+
+        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, fromUtc, query.ToUtc, cancellationToken);
         var payload = tests.Select(t => t.ToResponse()).ToArray();
         return Result<IReadOnlyCollection<TestResultResponse>>.Success(payload);
     }
@@ -244,15 +252,23 @@ public sealed class NetTrendQueryHandler
     : IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>
 {
     private readonly IStudyRepository _repository;
+    private readonly StudyMembershipResolver _membership;
+    private readonly IClock _clock;
 
-    public NetTrendQueryHandler(IStudyRepository repository)
+    public NetTrendQueryHandler(IStudyRepository repository, StudyMembershipResolver membership, IClock clock)
     {
         _repository = repository;
+        _membership = membership;
+        _clock = clock;
     }
 
     public async Task<Result<NetTrendResponse>> Handle(NetTrendQuery query, CancellationToken cancellationToken)
     {
-        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, null, null, cancellationToken);
+        // Ö-D: Free net trendi son 30 güne kısılır; Premium sınırsız.
+        var tier = await _membership.CurrentTierAsync(cancellationToken);
+        var fromUtc = MembershipGate.ClampFrom(tier, null, _clock.UtcNow);
+
+        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, fromUtc, null, cancellationToken);
         var points = tests
             .OrderBy(t => t.TakenOnUtc)
             .Select(t => new NetTrendPointResponse(t.TakenOnUtc, t.Net, t.TestName, t.TotalQuestions))

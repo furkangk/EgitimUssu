@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Study.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Study.Application;
@@ -138,6 +139,35 @@ public sealed class StudyLinkResolver
         link = new StudyStudent(studentId, userId, _clock.UtcNow);
         await _repository.AddLinkAsync(link, cancellationToken);
         return link;
+    }
+}
+
+/// <summary>
+/// Free/Premium kapıları için oturum açan kullanıcının üyelik seviyesini çözer (Ö-D).
+/// Bu Study endpoint'lerine (sahiplik kapısıyla) yalnızca öğrencinin kendisi veya Admin eriştiğinden,
+/// oturum kullanıcısının tier'ı = öğrencinin tier'ıdır. Admin daima Premium (tam erişim) sayılır.
+/// </summary>
+public sealed class StudyMembershipResolver
+{
+    private readonly ICurrentUser _currentUser;
+    private readonly IMembershipDirectory _directory;
+
+    public StudyMembershipResolver(ICurrentUser currentUser, IMembershipDirectory directory)
+    {
+        _currentUser = currentUser;
+        _directory = directory;
+    }
+
+    public async Task<MembershipTier> CurrentTierAsync(CancellationToken cancellationToken)
+    {
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return MembershipTier.Premium;
+        }
+
+        return Guid.TryParse(_currentUser.UserId, out var userId)
+            ? await _directory.GetTierAsync(userId, cancellationToken)
+            : MembershipTier.Free;
     }
 }
 
