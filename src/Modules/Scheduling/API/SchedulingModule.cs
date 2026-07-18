@@ -262,6 +262,7 @@ public sealed record CreateLessonScheduleRequest(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes)
 {
     public CreateLessonScheduleCommand ToCommand()
@@ -277,6 +278,7 @@ public sealed record CreateLessonScheduleRequest(
             RecurrenceRule,
             ReminderOffsetMinutes,
             LocationLabel,
+            MeetingUrl,
             Notes);
     }
 }
@@ -293,6 +295,7 @@ public sealed record UpdateLessonScheduleRequest(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes)
 {
     public UpdateLessonScheduleCommand ToCommand(Guid lessonId)
@@ -307,6 +310,7 @@ public sealed record UpdateLessonScheduleRequest(
             RecurrenceRule,
             ReminderOffsetMinutes,
             LocationLabel,
+            MeetingUrl,
             Notes);
     }
 }

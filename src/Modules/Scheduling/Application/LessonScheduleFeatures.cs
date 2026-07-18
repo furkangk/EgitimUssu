@@ -15,6 +15,7 @@ public sealed record CreateLessonScheduleCommand(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record UpdateLessonScheduleCommand(
@@ -27,6 +28,7 @@ public sealed record UpdateLessonScheduleCommand(
     string? RecurrenceRule,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record CancelLessonScheduleCommand(
@@ -60,6 +62,7 @@ public sealed record LessonScheduleResponse(
     string Status,
     int ReminderOffsetMinutes,
     string? LocationLabel,
+    string? MeetingUrl,
     string? Notes,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
@@ -135,6 +138,7 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
             LessonScheduleStatus.Planned,
             command.ReminderOffsetMinutes,
             command.LocationLabel?.Trim(),
+            command.MeetingUrl?.Trim(),
             command.Notes?.Trim(),
             _clock.UtcNow);
 
@@ -203,6 +207,7 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
             command.RecurrenceRule?.Trim(),
             command.ReminderOffsetMinutes,
             command.LocationLabel?.Trim(),
+            command.MeetingUrl?.Trim(),
             command.Notes?.Trim(),
             _clock.UtcNow);
 
@@ -351,6 +356,7 @@ internal static class LessonScheduleMappings
             lesson.Status.ToString(),
             lesson.ReminderOffsetMinutes,
             lesson.LocationLabel,
+            lesson.MeetingUrl,
             lesson.Notes,
             lesson.CreatedOnUtc,
             lesson.UpdatedOnUtc);

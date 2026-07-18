@@ -21,6 +21,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         LessonScheduleStatus status,
         int reminderOffsetMinutes,
         string? locationLabel,
+        string? meetingUrl,
         string? notes,
         DateTime createdOnUtc)
     {
@@ -36,6 +37,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Status = status;
         ReminderOffsetMinutes = reminderOffsetMinutes;
         LocationLabel = locationLabel;
+        MeetingUrl = meetingUrl;
         Notes = notes;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
@@ -65,6 +67,8 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
     public string? LocationLabel { get; private set; }
 
+    public string? MeetingUrl { get; private set; }
+
     public string? Notes { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
@@ -88,6 +92,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         string? recurrenceRule,
         int reminderOffsetMinutes,
         string? locationLabel,
+        string? meetingUrl,
         string? notes,
         DateTime updatedOnUtc)
     {
@@ -99,6 +104,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         RecurrenceRule = recurrenceRule;
         ReminderOffsetMinutes = reminderOffsetMinutes;
         LocationLabel = locationLabel;
+        MeetingUrl = meetingUrl;
         Notes = notes;
         UpdatedOnUtc = updatedOnUtc;
 

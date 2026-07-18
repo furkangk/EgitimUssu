@@ -44,6 +44,7 @@ internal sealed class LessonScheduleConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.RecurrenceRule).HasMaxLength(256);
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.LocationLabel).HasMaxLength(256);
+        builder.Property(entity => entity.MeetingUrl).HasMaxLength(512);
         builder.Property(entity => entity.Notes).HasMaxLength(1000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
