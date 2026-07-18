@@ -6,7 +6,7 @@
 >
 > İlgili: [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) (ürün) · [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) (modül indeksi) · [`../INDEX.md`](../INDEX.md)
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-07-18
 
 ---
 
@@ -74,13 +74,19 @@ Veli–çocuk bağı onaya dayalıdır ve bir velinin birden çok çocuğu olabi
 Öğrencinin kendi planı ile özel ders **çakışırsa önceliği özel ders** alır ve öğrenci uyarılır
 (bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md), [`../modules/m08_study.md`](../modules/m08_study.md)).
 
-### 4.4 Üyelik (free/premium) tüm rollerde
+### 4.4 Bir öğrenci birden fazla öğretmene bağlanabilir (Dilim C, 2026-07-18)
+Öğretmen–öğrenci ilişkisi çok-öğretmenlidir: aynı öğrenci farklı branşlar için **birden fazla öğretmene** bağlanabilir.
+Her bağ ayrı bir `TeacherStudentLink`'tir (`(TeacherUserId, StudentId)` benzersiz); öğretmenin öğrenci listesi bu bağ üzerinden yürür.
+Free planda öğretmen başına **en fazla 5 aktif bağ** vardır (arşivli dâhil, reddedilen hariç); öğrenci bazlı ücret ve arşivleme bağ üzerinde tutulur.
+Manuel öğrenci **davet/kabul** ile gerçek öğrenci hesabına bağlanır (bkz. [`../modules/m03_students.md`](../modules/m03_students.md)).
+
+### 4.5 Üyelik (free/premium) tüm rollerde
 Her rol için ücretsiz ve ücretli üyelik vardır. Ücretsiz kullanıcılar **reklam görür** ve **limitlere** tabidir; ücretli kullanıcılar reklamsız + sınırsız + ekstra özelliklere sahiptir. Kampanyalar: ilk ay ücretsiz, arkadaşını getir → 1 ay ücretsiz (bkz. [`../modules/m17_membership.md`](../modules/m17_membership.md)).
 
-### 4.5 Profil ve bildirim izinleri
+### 4.6 Profil ve bildirim izinleri
 Üç rol de kendi profilini düzenler ve bildirim izinlerini ayarlar (bkz. [`../modules/m15_settings.md`](../modules/m15_settings.md)).
 
-### 4.6 Gizlilik / veri paylaşımı
+### 4.7 Gizlilik / veri paylaşımı
 Öğrenci, bireysel çalışma verisini veli/öğretmenle paylaşıp paylaşmayacağını kontrol eder; ödeme bilgisi veliyle ayrı bir bayrakla paylaşılır (M15 `ShareStudyDataWith*`, M07 `IsSharedWithParent`). KVKK: reşit olmayan öğrencilerde veli erişimi varsayılan.
 
 ---
@@ -105,4 +111,4 @@ Welcome → Rol seçimi
 
 ---
 
-*Roller Genel Bakış | Güncelleme: 2026-06-24*
+*Roller Genel Bakış | Güncelleme: 2026-07-18 (Dilim C: bir öğrenci birden fazla öğretmene bağlanabilir — `TeacherStudentLink`, free limit=5, davet/kabul — §4.4)*

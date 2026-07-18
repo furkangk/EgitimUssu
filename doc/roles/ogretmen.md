@@ -122,11 +122,11 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 | B-03 | **Tekrar eden ders occurrence yönetimi** (bu/bu+sonraki/tümü) | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonOccurrenceException` + `RecurrenceExpander` istisna overload'u; cancel/reschedule `Scope=Single/ThisAndFuture/All` | — |
 | B-05 | **Not görünürlüğü** (özel/öğrenci/veli) | ✅ **yapıldı (Dilim B, 2026-07-18)** — `LessonNote.Visibility` enum (`Private`/`Student`/`StudentAndParent`); follow-up isteğinde seçilir, response'ta döner | — |
 | T-06.7/8 | **Ödev onay / geri gönder + geri bildirim** | ✅ **yapıldı (Dilim B, 2026-07-18)** — `Assignment.Approve()`/`ReturnForRevision()` + `Approved`/`ReturnedForRevision` statüleri + `TeacherFeedback`; `POST /assignments/{id}/approve`, `POST /assignments/{id}/return` (öğretmen sahiplik yetkisi); geri gönderilen ödev yeniden teslimde `InProgress`'e döner | — |
-| B-07 | **Öğrenci bazlı ücret** override | Ücret yalnız profil ya da ders bazında; öğrenciye özel alan yok | Gerçek fiyatlamayı karşılamıyor (Dilim C) |
+| B-07 | **Öğrenci bazlı ücret** override | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.AgreedRateAmount`/`Currency` + `PUT /teachers/{id}/students/{sid}/rate`; ücret öğrenci-öğretmen ikilisine özel | — |
 | B-08 | **Gelmedi + ücretlendirme kararı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonSession.IsChargeable` + complete akışı (otomatik ödeme yok; audit/rapor için) | — |
 | B-09 | **İptal nedeni + ücretlendirme + Sil ayrımı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `Cancel(reason, isChargeable, …)` + `CancellationReason` enum + `DELETE /lessons/{id}` (24s+gelecek kuralı) | — |
-| B-04 | **Öğrenci arşivleme** | `IsActive` bayrağı var; arşiv akışı/filtresi + Free-limit bağı yok | Free limit yönetimi eksik (Dilim C) |
-| B-06 | **Öğrenci-öğretmen davet/bağlanma** | Öğrenci için davet/onay akışı yok (yalnız veli `LinkParent` var) | İki giriş yolu birleşmiyor (Faz 2) |
+| B-04 | **Öğrenci arşivleme + Free limit** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.IsArchived` + `POST .../archive|unarchive` + liste `?includeArchived=`; Free limit=5 (`students.free_limit_reached`), arşivli link limite dâhil, premium bypass yok (`// TODO(M17)`) | — |
+| B-06 | **Öğrenci-öğretmen davet/bağlanma** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `Invite` → `Accept`/`Reject` (`POST .../invite`, `POST /links/{linkId}/accept|reject`); kabul eden `currentUser` profile `LinkUser` ile bağlanır. Identity'de e-posta araması yapılmaz (StudentId deseni) | — |
 | B-10 | **Online link semantiği** | ✅ **yapıldı (Dilim A, 2026-07-18)** — ayrı `MeetingUrl` alanı; `LocationLabel` yüz yüze adresi için | — |
 
 ### 10.2 Yanlış yapılandırma (sadece eksik değil — düzeltme gerekir)
@@ -139,14 +139,14 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 ### 10.3 Önceliklendirilmiş düzeltme sırası
 
 - **Öncelik 1 (Faz 1'i kullanılabilir yapan):** ✅ B-03 (occurrence yönetimi), ✅ B-01 (tatil bloğu), ✅ B-02 (erteleme) — **Dilim A tamam**; ✅ B-05 (not görünürlüğü) + ✅ T-06.7/8 (ödev onay/geri gönder) — **Dilim B tamam (2026-07-18)**.
-- **Öncelik 2 (yüksek etkili):** B-07 (öğrenci bazlı ücret, Dilim C), ✅ B-08 (gelmedi→ücretlendirme), ✅ B-09 (iptal nedeni/sil) — **Dilim A tamam**; B-04 (arşivleme, Dilim C).
-- **Öncelik 3 (olgunluk):** ✅ M02 çoklu branş + sertifika (Dilim D tamam, 2026-07-18), B-06 (öğrenci davet), ✅ B-10 (online link) — **Dilim A tamam**.
+- **Öncelik 2 (yüksek etkili):** ✅ B-07 (öğrenci bazlı ücret) — **Dilim C tamam (2026-07-18)**, ✅ B-08 (gelmedi→ücretlendirme), ✅ B-09 (iptal nedeni/sil) — **Dilim A tamam**; ✅ B-04 (arşivleme + free limit) — **Dilim C tamam**.
+- **Öncelik 3 (olgunluk):** ✅ M02 çoklu branş + sertifika (Dilim D tamam, 2026-07-18), ✅ B-06 (öğrenci davet) — **Dilim C tamam (2026-07-18)**, ✅ B-10 (online link) — **Dilim A tamam**.
 
-### 10.4 Karar bekleyen sorular (veri modelini etkiler)
-1. Bir öğrenci **birden fazla öğretmene** bağlanabilir mi? (→ `TeacherStudent` bağlantı tablosu gerekli mi?)
-2. Free limit **aktif** öğrenci mi, toplam mı?
-3. Öğrenci limiti kesin sayı: **5 mi 10 mu?**
-4. Erken geri bildirim Faz 4'te herkese açılacak mı? (retroaktif yayın onayı)
+### 10.4 Karar bekleyen sorular (veri modelini etkiler) — Dilim C kararları
+1. Bir öğrenci **birden fazla öğretmene** bağlanabilir mi? → ✅ **Evet** (`TeacherStudentLink` bağlantı tablosu, `(TeacherUserId,StudentId)` benzersiz).
+2. Free limit **aktif** öğrenci mi, toplam mı? → ✅ **Toplam** (reddedilmiş hariç); arşivli linkler limite dâhil (arşiv kotayı boşaltmaz).
+3. Öğrenci limiti kesin sayı: **5 mi 10 mu?** → ✅ **5** (`StudentLimits.FreeStudentLimit`); premium sınırsız M17'de (`// TODO(M17)`).
+4. Erken geri bildirim Faz 4'te herkese açılacak mı? (retroaktif yayın onayı) — açık.
 
 ---
 
@@ -157,4 +157,4 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim D: M02 çoklu branş + sertifika)*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*

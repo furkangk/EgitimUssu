@@ -120,7 +120,9 @@ GET /api/teachers/profiles/{teacherUserId}/dashboard-summary  (auth)
 ### Students — `/api/students`
 ```
 POST /profiles   PUT /profiles/{studentId}   GET /profiles/{studentId}
-GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}
+GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}?includeArchived=   (liste link üzerinden)
+POST /teachers/{teacherUserId}/students/{studentId}/archive|unarchive   PUT .../rate   (arşiv + öğrenci bazlı ücret, B-04/B-07 2026-07-18)
+POST /teachers/{teacherUserId}/students/{studentId}/invite   POST /links/{linkId}/accept|reject   (çoklu öğretmen davet/kabul, B-06 2026-07-18)
 ```
 ### Scheduling — `/api/scheduling`
 ```
