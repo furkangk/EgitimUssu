@@ -95,7 +95,22 @@ public sealed class StudyCompletionService
             await _repository.AddStreakAsync(streak, cancellationToken);
         }
 
-        streak.RegisterStudyDay(StudyLocalTime.LocalDate(studiedOn), now);
+        var streakDate = StudyLocalTime.StreakDate(studiedOn);
+        var daySessions = await _repository.ListCompletedSessionsAsync(
+            session.StudentId,
+            StudyLocalTime.LocalDayStartUtc(streakDate),
+            StudyLocalTime.LocalDayStartUtc(streakDate.AddDays(1)),
+            cancellationToken);
+        var dayTotal = daySessions.Sum(s => s.EffectiveMinutes);
+
+        var goal = await _repository.GetActiveGoalAsync(session.StudentId, cancellationToken);
+        var thresholdPercent = goal?.StreakThresholdPercent ?? 60;
+        var dailyGoal = goal?.DailyGoalMinutes ?? 0;
+
+        if (StreakRules.DayCounts(dayTotal, dailyGoal, thresholdPercent))
+        {
+            streak.RegisterStudyDay(streakDate, now);
+        }
 
         await _repository.SaveChangesAsync(cancellationToken);
 
