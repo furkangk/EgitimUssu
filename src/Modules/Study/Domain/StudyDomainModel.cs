@@ -287,6 +287,50 @@ public sealed class TestResult : AggregateRoot<Guid>
         Raise(new TestResultRecordedDomainEvent(Id, StudentId, Subject, Topic, TotalQuestions, Correct, Wrong, Blank, Net, TakenOnUtc));
     }
 
+    /// <summary>Test kaydını düzenler; net (D − Y/ceza) yeniden hesaplanır.</summary>
+    public void Edit(
+        string subject,
+        string? topic,
+        string? testName,
+        TestType testType,
+        int totalQuestions,
+        int correct,
+        int wrong,
+        int blank,
+        int penaltyDivisor,
+        int? durationMinutes,
+        DateTime takenOnUtc,
+        DateTime nowUtc)
+    {
+        if (correct < 0 || wrong < 0 || blank < 0 || totalQuestions < 0)
+        {
+            throw new InvalidOperationException("Soru sayıları negatif olamaz.");
+        }
+
+        if (correct + wrong + blank != totalQuestions)
+        {
+            throw new InvalidOperationException("Doğru + Yanlış + Boş, toplam soru sayısına eşit olmalıdır.");
+        }
+
+        if (penaltyDivisor <= 0)
+        {
+            penaltyDivisor = 4;
+        }
+
+        Subject = subject.Trim();
+        Topic = string.IsNullOrWhiteSpace(topic) ? null : topic.Trim();
+        TestName = string.IsNullOrWhiteSpace(testName) ? null : testName.Trim();
+        TestType = testType;
+        TotalQuestions = totalQuestions;
+        Correct = correct;
+        Wrong = wrong;
+        Blank = blank;
+        PenaltyDivisor = penaltyDivisor;
+        Net = Math.Round(correct - ((decimal)wrong / penaltyDivisor), 2, MidpointRounding.AwayFromZero);
+        DurationMinutes = durationMinutes;
+        TakenOnUtc = takenOnUtc;
+    }
+
     public Guid StudentId { get; private set; }
 
     public string Subject { get; private set; } = string.Empty;

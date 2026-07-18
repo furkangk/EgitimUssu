@@ -116,6 +116,8 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken) =>
         _dbContext.TestResults.AddAsync(testResult, cancellationToken).AsTask();
 
+    public void RemoveTest(TestResult testResult) => _dbContext.TestResults.Remove(testResult);
+
     public Task<StudyGoal?> GetActiveGoalAsync(Guid studentId, CancellationToken cancellationToken) =>
         _dbContext.StudyGoals
             .Where(x => x.StudentId == studentId && x.IsActive)

@@ -49,6 +49,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<DiscardStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudySessionQuery>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTestResultQuery>, StudyTestOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<EditTestResultCommand>, StudyTestOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteTestResultCommand>, StudyTestOwnershipAuthorizer>();
 
         // Katalog: kimliği subjectId/topicId olan istekler için sahiplik yetkilendiricileri
         services.AddScoped<ICommandAuthorizer<UpdateSubjectCatalogCommand>, StudyCatalogSubjectOwnershipAuthorizer>();
@@ -81,6 +83,8 @@ public static class DependencyInjection
 
         // Test komut/sorguları
         services.AddScoped<ICommandHandler<RecordTestResultCommand, Result<TestResultResponse>>, RecordTestResultCommandHandler>();
+        services.AddScoped<ICommandHandler<EditTestResultCommand, Result<TestResultResponse>>, EditTestResultCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteTestResultCommand, Result<bool>>, DeleteTestResultCommandHandler>();
         services.AddScoped<IQueryHandler<GetTestResultQuery, Result<TestResultResponse>>, GetTestResultQueryHandler>();
         services.AddScoped<IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>, ListTestResultsQueryHandler>();
         services.AddScoped<IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>, NetTrendQueryHandler>();

@@ -18,6 +18,22 @@ public sealed record RecordTestResultCommand(
     int? DurationMinutes,
     DateTime TakenOnUtc) : ICommand<Result<TestResultResponse>>, IStudentScopedRequest;
 
+public sealed record EditTestResultCommand(
+    Guid TestResultId,
+    string Subject,
+    string? Topic,
+    string TestType,
+    string? TestName,
+    int TotalQuestions,
+    int Correct,
+    int Wrong,
+    int Blank,
+    int? PenaltyDivisor,
+    int? DurationMinutes,
+    DateTime TakenOnUtc) : ICommand<Result<TestResultResponse>>;
+
+public sealed record DeleteTestResultCommand(Guid TestResultId) : ICommand<Result<bool>>;
+
 public sealed record GetTestResultQuery(Guid TestResultId) : IQuery<Result<TestResultResponse>>;
 
 public sealed record ListTestResultsQuery(Guid StudentId, string? Subject, string? Topic, DateTime? FromUtc, DateTime? ToUtc)
@@ -102,6 +118,86 @@ public sealed class RecordTestResultCommandHandler
 
     private static TestType ParseTestType(string value) =>
         Enum.TryParse<TestType>(value, ignoreCase: true, out var parsed) ? parsed : TestType.General;
+}
+
+public sealed class EditTestResultCommandHandler
+    : ICommandHandler<EditTestResultCommand, Result<TestResultResponse>>
+{
+    private static readonly Error NotFound = new("study.test_not_found", "Deneme sonucu bulunamadı.");
+    private readonly IStudyRepository _repository;
+    private readonly IClock _clock;
+
+    public EditTestResultCommandHandler(IStudyRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<TestResultResponse>> Handle(EditTestResultCommand command, CancellationToken cancellationToken)
+    {
+        if (command.Correct < 0 || command.Wrong < 0 || command.Blank < 0
+            || command.Correct + command.Wrong + command.Blank != command.TotalQuestions
+            || command.TotalQuestions <= 0)
+        {
+            return Result<TestResultResponse>.Failure(StudyErrors.InvalidTest);
+        }
+
+        if (command.TakenOnUtc > _clock.UtcNow.AddMinutes(1))
+        {
+            return Result<TestResultResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        var test = await _repository.GetTestAsync(command.TestResultId, cancellationToken);
+        if (test is null)
+        {
+            return Result<TestResultResponse>.Failure(NotFound);
+        }
+
+        var penaltyDivisor = command.PenaltyDivisor is > 0 ? command.PenaltyDivisor.Value : 4;
+        test.Edit(
+            command.Subject.Trim(),
+            command.Topic,
+            command.TestName,
+            ParseTestType(command.TestType),
+            command.TotalQuestions,
+            command.Correct,
+            command.Wrong,
+            command.Blank,
+            penaltyDivisor,
+            command.DurationMinutes,
+            DateTime.SpecifyKind(command.TakenOnUtc, DateTimeKind.Utc),
+            _clock.UtcNow);
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<TestResultResponse>.Success(test.ToResponse());
+    }
+
+    private static TestType ParseTestType(string value) =>
+        Enum.TryParse<TestType>(value, ignoreCase: true, out var parsed) ? parsed : TestType.General;
+}
+
+public sealed class DeleteTestResultCommandHandler : ICommandHandler<DeleteTestResultCommand, Result<bool>>
+{
+    private static readonly Error NotFound = new("study.test_not_found", "Deneme sonucu bulunamadı.");
+    private readonly IStudyRepository _repository;
+
+    public DeleteTestResultCommandHandler(IStudyRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<bool>> Handle(DeleteTestResultCommand command, CancellationToken cancellationToken)
+    {
+        var test = await _repository.GetTestAsync(command.TestResultId, cancellationToken);
+        if (test is null)
+        {
+            return Result<bool>.Failure(NotFound);
+        }
+
+        _repository.RemoveTest(test);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<bool>.Success(true);
+    }
 }
 
 public sealed class GetTestResultQueryHandler

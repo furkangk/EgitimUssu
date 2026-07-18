@@ -357,7 +357,10 @@ public sealed class StudySessionOwnershipAuthorizer :
     }
 }
 
-public sealed class StudyTestOwnershipAuthorizer : IQueryAuthorizer<GetTestResultQuery>
+public sealed class StudyTestOwnershipAuthorizer :
+    IQueryAuthorizer<GetTestResultQuery>,
+    ICommandAuthorizer<EditTestResultCommand>,
+    ICommandAuthorizer<DeleteTestResultCommand>
 {
     private readonly IStudyRepository _repository;
     private readonly StudyOwnershipGuard _guard;
@@ -368,9 +371,18 @@ public sealed class StudyTestOwnershipAuthorizer : IQueryAuthorizer<GetTestResul
         _guard = guard;
     }
 
-    public async Task<Result> Authorize(GetTestResultQuery query, CancellationToken cancellationToken)
+    public Task<Result> Authorize(GetTestResultQuery query, CancellationToken cancellationToken) =>
+        AuthorizeTestAsync(query.TestResultId, cancellationToken);
+
+    public Task<Result> Authorize(EditTestResultCommand command, CancellationToken cancellationToken) =>
+        AuthorizeTestAsync(command.TestResultId, cancellationToken);
+
+    public Task<Result> Authorize(DeleteTestResultCommand command, CancellationToken cancellationToken) =>
+        AuthorizeTestAsync(command.TestResultId, cancellationToken);
+
+    private async Task<Result> AuthorizeTestAsync(Guid testResultId, CancellationToken cancellationToken)
     {
-        var test = await _repository.GetTestAsync(query.TestResultId, cancellationToken);
+        var test = await _repository.GetTestAsync(testResultId, cancellationToken);
         if (test is null)
         {
             return Result.Failure(new Error("study.test_not_found", "Deneme sonucu bulunamadı."));

@@ -42,6 +42,8 @@ public sealed class StudyModule : ModuleDefinition
         // Deneme / test
         group.MapPost("/test-results", RecordTestAsync).WithSummary("Deneme/test sonucu kaydeder (net otomatik)");
         group.MapGet("/test-results/{testResultId:guid}", GetTestAsync).WithSummary("Deneme sonucunu getirir");
+        group.MapPut("/test-results/{testResultId:guid}", EditTestAsync).WithSummary("Deneme sonucunu düzenler (net yeniden hesaplanır)");
+        group.MapDelete("/test-results/{testResultId:guid}", DeleteTestAsync).WithSummary("Deneme sonucunu siler");
         group.MapGet("/students/{studentId:guid}/test-results", ListTestsAsync).WithSummary("Öğrencinin deneme sonuçlarını listeler");
         group.MapGet("/students/{studentId:guid}/net-trend", NetTrendAsync).WithSummary("Ders/konu bazlı net trendini getirir");
 
@@ -105,6 +107,14 @@ public sealed class StudyModule : ModuleDefinition
 
     private static async Task<IResult> GetTestAsync(HttpContext ctx, Guid testResultId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetTestResultQuery(testResultId), ct));
+
+    private static async Task<IResult> EditTestAsync(HttpContext ctx, Guid testResultId, RecordTestResultRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new EditTestResultCommand(
+            testResultId, req.Subject, req.Topic, req.TestType, req.TestName, req.TotalQuestions,
+            req.Correct, req.Wrong, req.Blank, req.PenaltyDivisor, req.DurationMinutes, req.TakenOnUtc), ct));
+
+    private static async Task<IResult> DeleteTestAsync(HttpContext ctx, Guid testResultId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteTestResultCommand(testResultId), ct));
 
     private static async Task<IResult> ListTestsAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, DateTime? from, DateTime? to, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListTestResultsQuery(studentId, subject, topic, from, to), ct));

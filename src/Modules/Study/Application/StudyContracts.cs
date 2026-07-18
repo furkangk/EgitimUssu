@@ -154,6 +154,8 @@ public interface IStudyRepository
 
     Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken);
 
+    void RemoveTest(TestResult testResult);
+
     // Hedefler
     Task<StudyGoal?> GetActiveGoalAsync(Guid studentId, CancellationToken cancellationToken);
 
