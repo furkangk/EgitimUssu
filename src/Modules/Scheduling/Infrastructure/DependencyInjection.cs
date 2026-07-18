@@ -34,6 +34,16 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<ListLessonSchedulesForTeacherQuery>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSchedulesForStudentQuery>, StudentLessonQueryAuthorizer>();
 
+        // B-01: Tatil / müsait değil blokları.
+        services.AddScoped<ITimeOffBlockRepository, TimeOffBlockRepository>();
+        services.AddScoped<ICommandHandler<CreateTimeOffBlockCommand, Result<CreateTimeOffResponse>>, CreateTimeOffBlockCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteTimeOffBlockCommand, Result>, DeleteTimeOffBlockCommandHandler>();
+        services.AddScoped<IQueryHandler<ListTimeOffBlocksForTeacherQuery, Result<IReadOnlyCollection<TimeOffBlockResponse>>>, ListTimeOffBlocksForTeacherQueryHandler>();
+        services.AddScoped<ICommandValidator<CreateTimeOffBlockCommand>, CreateTimeOffBlockCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<CreateTimeOffBlockCommand>, TimeOffBlockAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteTimeOffBlockCommand>, TimeOffBlockAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<ListTimeOffBlocksForTeacherQuery>, TimeOffBlockAuthorizer>();
+
         // Öğrenci-sahipli kişisel program (StudyScheduleEntry) + birleşik takvim.
         services.AddScoped<IStudyScheduleEntryRepository, StudyScheduleEntryRepository>();
         services.AddScoped<ICommandHandler<CreateStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, CreateStudyScheduleEntryCommandHandler>();

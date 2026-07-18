@@ -56,6 +56,15 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapGet("/students/{studentId:guid}/lessons", ListLessonSchedulesForStudentAsync)
         .WithSummary("Öğrencinin ders planlarını listeler");
 
+        group.MapPost("/teachers/{teacherUserId:guid}/time-off", CreateTimeOffBlockAsync)
+        .WithSummary("Tatil / müsait değil bloğu oluşturur; çakışan dersleri döndürür");
+
+        group.MapGet("/teachers/{teacherUserId:guid}/time-off", ListTimeOffBlocksAsync)
+        .WithSummary("Öğretmenin tatil bloklarını listeler");
+
+        group.MapDelete("/teachers/{teacherUserId:guid}/time-off/{timeOffId:guid}", DeleteTimeOffBlockAsync)
+        .WithSummary("Tatil bloğunu siler");
+
         // Öğrenci-sahipli kişisel program (StudyScheduleEntry) + birleşik takvim.
         group.MapGet("/students/{studentId:guid}/calendar", GetStudentCalendarAsync)
         .WithSummary("Öğrencinin takvimini (öğretmen dersleri + kendi programı, tekrarlar genişletilmiş) getirir");
@@ -273,6 +282,49 @@ public sealed class SchedulingModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// Öğretmen için tatil / müsait değil bloğu oluşturur ve blokla çakışan planlı dersleri yanıtta döndürür.
+    /// </summary>
+    private static async Task<IResult> CreateTimeOffBlockAsync(
+        HttpContext context, Guid teacherUserId, CreateTimeOffBlockRequest request,
+        ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new CreateTimeOffBlockCommand(teacherUserId, request.Type, request.Title, request.StartAtUtc, request.EndAtUtc, request.IsAllDay),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin belirli UTC aralığındaki tatil bloklarını listeler.
+    /// </summary>
+    private static async Task<IResult> ListTimeOffBlocksAsync(
+        HttpContext context, Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc,
+        IQueryDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListTimeOffBlocksForTeacherQuery(teacherUserId, startAtUtc, endAtUtc), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmenin tatil bloğunu siler.
+    /// </summary>
+    private static async Task<IResult> DeleteTimeOffBlockAsync(
+        HttpContext context, Guid teacherUserId, Guid timeOffId,
+        ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new DeleteTimeOffBlockCommand(timeOffId), cancellationToken);
+        return result.IsSuccess
+            ? Results.NoContent()
+            : result.Error.Code switch
+            {
+                "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
+    }
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -285,6 +337,7 @@ public sealed class SchedulingModule : ModuleDefinition
             "scheduling.teacher_conflict" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.entry_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.not_editable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
@@ -369,6 +422,12 @@ public sealed record CancelLessonScheduleRequest(CancellationReason Reason, bool
 /// Dersi ertelemek için yeni başlangıç/bitiş ve isteğe bağlı erteleme notunu taşır.
 /// </summary>
 public sealed record RescheduleLessonScheduleRequest(DateTime NewStartAtUtc, DateTime NewEndAtUtc, string? Note);
+
+/// <summary>
+/// Tatil / müsait değil bloğu oluşturmak için tür, başlık, zaman aralığı ve tüm-gün bayrağını taşır.
+/// </summary>
+public sealed record CreateTimeOffBlockRequest(
+    TimeOffType Type, string Title, DateTime StartAtUtc, DateTime EndAtUtc, bool IsAllDay);
 
 /// <summary>
 /// Öğrencinin kendi program girdisini oluşturmak için ders, konu, zaman, tekrar ve renk verilerini taşır.

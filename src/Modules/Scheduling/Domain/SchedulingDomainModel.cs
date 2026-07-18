@@ -215,3 +215,44 @@ public sealed record LessonSessionCompletedDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime CompletedOnUtc) : DomainEvent;
+
+public sealed class TimeOffBlock : AggregateRoot<Guid>
+{
+    private TimeOffBlock() { }
+
+    public TimeOffBlock(
+        Guid id,
+        Guid teacherUserId,
+        TimeOffType type,
+        string title,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        bool isAllDay,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        TeacherUserId = teacherUserId;
+        Type = type;
+        Title = title;
+        StartAtUtc = startAtUtc;
+        EndAtUtc = endAtUtc;
+        IsAllDay = isAllDay;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid TeacherUserId { get; private set; }
+    public TimeOffType Type { get; private set; }
+    public string Title { get; private set; } = string.Empty;
+    public DateTime StartAtUtc { get; private set; }
+    public DateTime EndAtUtc { get; private set; }
+    public bool IsAllDay { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+}
+
+public enum TimeOffType
+{
+    Holiday = 1,
+    Leave = 2,
+    Official = 3,
+    Other = 4
+}

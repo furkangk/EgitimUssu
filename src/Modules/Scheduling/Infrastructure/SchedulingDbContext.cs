@@ -21,6 +21,8 @@ public sealed class SchedulingDbContext : ModuleDbContext
 
     public DbSet<StudyScheduleEntry> StudyScheduleEntries => Set<StudyScheduleEntry>();
 
+    public DbSet<TimeOffBlock> TimeOffBlocks => Set<TimeOffBlock>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Scheduling";
@@ -52,6 +54,21 @@ internal sealed class LessonScheduleConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StartAtUtc });
         builder.HasIndex(entity => new { entity.StudentId, entity.StartAtUtc });
+    }
+}
+
+internal sealed class TimeOffBlockConfiguration : IEntityTypeConfiguration<TimeOffBlock>
+{
+    public void Configure(EntityTypeBuilder<TimeOffBlock> builder)
+    {
+        builder.ToTable("time_off_blocks");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Type).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.Title).HasMaxLength(160).IsRequired();
+        builder.Property(entity => entity.StartAtUtc).IsRequired();
+        builder.Property(entity => entity.EndAtUtc).IsRequired();
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.StartAtUtc });
     }
 }
 
