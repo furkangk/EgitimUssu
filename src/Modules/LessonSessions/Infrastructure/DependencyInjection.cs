@@ -2,6 +2,7 @@ using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,9 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<CompleteLessonSessionCommand>, LessonSessionCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetLessonSessionByIdQuery>, LessonSessionCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSessionsQuery>, LessonSessionCommandAuthorizer>();
+
+        // Ö-C: profil birleştirmede kaynak öğrenciye ait ders seanslarını kanonik öğrenciye taşır.
+        services.AddScoped<IIntegrationEventHandler, LessonSessionsStudentMergedHandler>();
         return services;
     }
 }

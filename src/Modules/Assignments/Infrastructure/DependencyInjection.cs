@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetLessonSessionFollowUpQuery>, AssignmentFollowUpAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListAssignmentsQuery>, AssignmentFollowUpAuthorizer>();
         services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedIntegrationEventHandler>();
+        services.AddScoped<IIntegrationEventHandler, AssignmentsStudentMergedHandler>();
 
         // Öğrenci ödev aksiyonları (tamamlama + teslim + dosya indirme)
         services.AddScoped<IQueryHandler<GetAssignmentQuery, Result<AssignmentResponse>>, GetAssignmentQueryHandler>();

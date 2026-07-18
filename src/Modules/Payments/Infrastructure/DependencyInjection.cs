@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Payments.Application;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,9 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<ListFilteredPaymentRecordsForTeacherQuery>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryAuthorizer<SearchPaymentRecordsForTeacherQuery>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherPaymentSummaryQuery>, PaymentRecordAuthorizer>();
+
+        // Ö-C: profil birleştirmede kaynak öğrenciye ait ödeme kayıtlarını kanonik öğrenciye taşır.
+        services.AddScoped<IIntegrationEventHandler, PaymentsStudentMergedHandler>();
         return services;
     }
 }
