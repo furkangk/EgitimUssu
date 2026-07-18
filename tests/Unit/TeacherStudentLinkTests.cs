@@ -180,7 +180,7 @@ public sealed class TeacherStudentLinkTests
     {
         var target = Guid.NewGuid();
         var link = New();
-        link.MarkInviteSent(target, Now);
+        link.MarkInviteSent("123456", target, Now);
         Assert.Equal(TeacherStudentLinkStatus.InviteSent, link.Status);
         Assert.Equal(target, link.InviteTargetUserId);
 
@@ -188,7 +188,7 @@ public sealed class TeacherStudentLinkTests
         Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
 
         var link2 = New();
-        link2.MarkInviteSent(target, Now);
+        link2.MarkInviteSent("654321", target, Now);
         link2.Reject(Now);
         Assert.Equal(TeacherStudentLinkStatus.Rejected, link2.Status);
     }

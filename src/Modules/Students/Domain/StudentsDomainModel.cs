@@ -200,6 +200,9 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
 
     public Guid? InviteTargetUserId { get; private set; }
 
+    /// <summary>Öğrencinin hesabını devralmak (claim) için girdiği tekil davet kodu (6 haneli, rakam) (Ö-C).</summary>
+    public string? InviteCode { get; private set; }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -223,13 +226,18 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
-    public void MarkInviteSent(Guid? targetUserId, DateTime updatedOnUtc)
+    public void MarkInviteSent(string inviteCode, Guid? targetUserId, DateTime updatedOnUtc)
     {
         Status = TeacherStudentLinkStatus.InviteSent;
+        InviteCode = inviteCode;
         InviteTargetUserId = targetUserId;
         UpdatedOnUtc = updatedOnUtc;
         Raise(new TeacherStudentInviteSentDomainEvent(Id, TeacherUserId, StudentId, targetUserId, updatedOnUtc));
     }
+
+    /// <summary>6 haneli rakamsal davet kodu üretir (Ö-C). Handler tarafından üretilip <see cref="MarkInviteSent"/>'e geçilir.</summary>
+    public static string GenerateInviteCode()
+        => Random.Shared.Next(0, 1_000_000).ToString("D6");
 
     public void Accept(DateTime updatedOnUtc)
     {

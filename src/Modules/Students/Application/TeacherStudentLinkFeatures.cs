@@ -109,7 +109,7 @@ public sealed class InviteStudentCommandHandler : ICommandHandler<InviteStudentC
             return Result.Failure(NotFound);
         }
 
-        link.MarkInviteSent(command.TargetUserId, _clock.UtcNow);
+        link.MarkInviteSent(TeacherStudentLink.GenerateInviteCode(), command.TargetUserId, _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }

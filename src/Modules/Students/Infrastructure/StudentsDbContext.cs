@@ -65,9 +65,11 @@ internal sealed class TeacherStudentLinkConfiguration : IEntityTypeConfiguration
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.Currency).HasMaxLength(8).IsRequired();
         builder.Property(entity => entity.AgreedRateAmount).HasPrecision(12, 2);
+        builder.Property(entity => entity.InviteCode).HasMaxLength(8);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StudentId }).IsUnique();
+        builder.HasIndex(entity => entity.InviteCode);
     }
 }
 
