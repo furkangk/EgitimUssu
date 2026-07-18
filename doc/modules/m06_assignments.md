@@ -24,6 +24,8 @@
 | Öğretmen eki (`AttachmentUrl`) | ✅ Mevcut | `Assignment.AttachmentUrl` (öğretmenin paylaştığı dosya linki) |
 | Ödev **tamamlandı** işaretleme | ✅ Endpoint | `Assignment.MarkCompleted()` + `POST /{id}/complete` (öğrenci) |
 | Öğrenci **dosya yükleme** (teslim) | ✅ Endpoint | `Assignment.SubmitWork()` + `POST /{id}/submission` (multipart) + yerel depolama |
+| Ödev **onay / geri gönder** + geri bildirim | ✅ Endpoint | `Assignment.Approve()`/`ReturnForRevision()` + `POST /{id}/approve`, `POST /{id}/return` (öğretmen) |
+| Not **görünürlük** kontrolü | ✅ Mevcut | `LessonNote.Visibility` (`Private`/`Student`/`StudentAndParent`) — B-05 |
 | Ders **kaynağı** (`LessonResource`) | 🔴 **Yok** | Önerilen — not'tan ayrı materyal paylaşımı |
 | Öğrenci ödev **yükleme** (`AssignmentSubmission`) | 🔴 **Yok** | Önerilen — öğrenci dosya yükler |
 | Son teslim uyarısı (veliye bildirim) | 🔴 **Yok** | Önerilen — m11 + m09 |
@@ -47,13 +49,20 @@
 | `Title` | `string` | Ödev başlığı |
 | `Description` | `string?` | Açıklama |
 | `DueDateUtc` | `DateTime?` | Son teslim tarihi |
-| `Status` | enum `AssignmentStatus` | `Pending=1`, `InProgress=2`, `Completed=3`, `Cancelled=4` |
+| `Status` | enum `AssignmentStatus` | `Pending=1`, `InProgress=2`, `Completed=3`, `Cancelled=4`, `Approved=5`, `ReturnedForRevision=6` |
 | `AttachmentUrl` | `string?` | **ÖĞRETMEN tarafı** ek (ödev dosyası/yönerge linki) |
 | `CreatedOnUtc` | `DateTime` | Oluşturma |
 | `CompletedOnUtc` | `DateTime?` | Tamamlanma |
+| `TeacherFeedback` | `string?` | Öğretmenin onay/geri gönder geri bildirimi (T-06.7/8) |
 
-**Davranış:** `MarkCompleted(completedOnUtc)` → `Status = Completed`, `AssignmentCompletedDomainEvent` yayılır.
+**Davranış:**
+- `MarkCompleted(completedOnUtc)` → `Status = Completed`, `AssignmentCompletedDomainEvent` yayılır.
+- `SubmitWork(attachmentUrl, nowUtc)` → teslim; `Pending` **veya** `ReturnedForRevision` durumundaki ödevi `InProgress` yapar, `AssignmentSubmittedDomainEvent` yayılır.
+- `Approve(feedback?, nowUtc)` → `Status = Approved`, `TeacherFeedback` set edilir, `AssignmentApprovedDomainEvent` yayılır (T-06.7).
+- `ReturnForRevision(feedback, nowUtc)` → `Status = ReturnedForRevision`, `TeacherFeedback` set edilir, `AssignmentReturnedDomainEvent` yayılır (T-06.8).
 > Yeni ödev her zaman `Pending` ile oluşturulur (`CreateLessonSessionFollowUpCommandHandler`).
+
+**Ödev durum makinesi:** `Pending → InProgress` (teslim) `→ Completed` (öğrenci tamamlar) `→ Approved` (öğretmen onaylar) **veya** `→ ReturnedForRevision` (öğretmen geri gönderir) `→ InProgress` (öğrenci yeniden teslim eder).
 
 ### 2.2 🟢 Mevcut (koddan) — `LessonNote` (AggregateRoot<Guid>)
 
@@ -65,13 +74,15 @@
 | `Summary` | `string` | Ders özeti |
 | `CoveredTopics` | `string?` | İşlenen konular |
 | `Recommendations` | `string?` | Öneriler / sonraki adımlar |
+| `Visibility` | enum `LessonNoteVisibility` | Not görünürlüğü: `Private=1`, `Student=2`, `StudentAndParent=3` (B-05) |
 | `CreatedOnUtc` | `DateTime` | Oluşturma |
 
-**Davranış:** `Update(summary, coveredTopics?, recommendations?)` → not içeriğini günceller (event yok).
+**Davranış:** `Update(summary, coveredTopics?, recommendations?, visibility)` → not içeriğini ve görünürlüğü günceller (event yok).
 
-**Enum (koddan birebir):**
+**Enum'lar (koddan birebir):**
 ```
-AssignmentStatus : Pending = 1, InProgress = 2, Completed = 3, Cancelled = 4
+AssignmentStatus     : Pending = 1, InProgress = 2, Completed = 3, Cancelled = 4, Approved = 5, ReturnedForRevision = 6
+LessonNoteVisibility : Private = 1, Student = 2, StudentAndParent = 3
 ```
 
 **Domain Event'ler (koddan birebir):**
@@ -79,6 +90,9 @@ AssignmentStatus : Pending = 1, InProgress = 2, Completed = 3, Cancelled = 4
 |-------|---------|
 | `AssignmentCreatedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, LessonSessionId?, CreatedOnUtc` |
 | `AssignmentCompletedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, LessonSessionId?, CompletedOnUtc` |
+| `AssignmentSubmittedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, LessonSessionId?, SubmittedOnUtc` |
+| `AssignmentApprovedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, OnUtc` |
+| `AssignmentReturnedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, OnUtc` |
 | `LessonNoteCreatedDomainEvent` | `LessonNoteId, LessonSessionId, TeacherUserId, StudentId, CreatedOnUtc` |
 
 ### 2.3 ⚠️ Önerilen (henüz kodda yok)
@@ -131,12 +145,12 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | Ödev listele | `GET /api/assignments?teacherUserId=&studentId=&lessonSessionId=` | → `AssignmentResponse[]` | **K2 (2026-07-01):** Admin dışı çağıranlar için sahiplik filtresi **server tarafında zorlanır**; istemci filtresine güvenilmez (IDOR kapandı). |
 
 **`CreateLessonSessionFollowUpRequest` (koddan):**
-`Summary, CoveredTopics?, Recommendations?, Assignments?` — burada `Assignments` öğesi:
+`Summary, CoveredTopics?, Recommendations?, Assignments?, Visibility` (varsayılan `Private`) — burada `Assignments` öğesi:
 `CreateLessonSessionFollowUpAssignmentRequest { Title, Description?, DueDateUtc?, AttachmentUrl? }`
 
 **`LessonSessionFollowUpResponse` (koddan):** `LessonSessionId, Note: LessonNoteResponse, Assignments: AssignmentResponse[]`
-- `LessonNoteResponse`: `Id, LessonSessionId, TeacherUserId, StudentId, Summary, CoveredTopics?, Recommendations?, CreatedOnUtc`
-- `AssignmentResponse`: `Id, StudentId, TeacherUserId, LessonSessionId?, Title, Description?, DueDateUtc?, Status (string), AttachmentUrl?, CreatedOnUtc, CompletedOnUtc?`
+- `LessonNoteResponse`: `Id, LessonSessionId, TeacherUserId, StudentId, Summary, CoveredTopics?, Recommendations?, Visibility (string), CreatedOnUtc`
+- `AssignmentResponse`: `Id, StudentId, TeacherUserId, LessonSessionId?, Title, Description?, DueDateUtc?, Status (string), AttachmentUrl?, CreatedOnUtc, CompletedOnUtc?, TeacherFeedback?`
 
 **Hata kodu → HTTP eşlemesi (koddan):**
 | Kod | HTTP | Anlam |
@@ -145,6 +159,8 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | `assignments.lesson_session_not_found` | `404` | Oturum yok |
 | `assignments.follow_up_not_found` | `404` | Bu oturum için not/ödev yok |
 | `assignments.lesson_session_not_completed` | `400` (varsayılan) | Oturum tamamlanmadan not/ödev oluşturulamaz |
+| `assignments.assignment_not_found` | `404` | Ödev yok (onay/geri gönder) |
+| `assignments.feedback_required` | `400` (varsayılan) | Geri gönderme için geri bildirim zorunlu |
 | `shared.forbidden` | `403` | Yetki yok |
 
 ### 3.2 ✅ Öğrenci ödev aksiyonları (2026-07-09 eklendi)
@@ -159,7 +175,18 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 > Dosya önce belleğe alınır, komut/yetki başarılıysa diske yazılır (başka öğrencinin dosyasının üzerine
 > yazılması engellenir). Maks. 20 MB. **Depolama** yerel disk ile başlar; üretimde nesne depolamaya (S3/Blob) geçilebilir.
 
-### 3.3 ⚠️ Eksik / Önerilen Endpoint'ler
+### 3.3 ✅ Öğretmen ödev onay / geri gönder (2026-07-18 eklendi — T-06.7/8)
+
+| Yetenek | Endpoint | İstek | Not |
+|---------|----------|-------|-----|
+| Ödevi onayla | `POST /api/assignments/{assignmentId}/approve` | `ApproveAssignmentRequest { Feedback? }` | `Approve()`; `Status = Approved`, `TeacherFeedback` set edilir |
+| Ödevi geri gönder | `POST /api/assignments/{assignmentId}/return` | `ReturnAssignmentRequest { Feedback }` | `ReturnForRevision()`; `Status = ReturnedForRevision`; **geri bildirim zorunlu** (`assignments.feedback_required` → 400) |
+
+> Sahiplik `AssignmentTeacherAuthorizer` ile: yalnızca ödevin öğretmeni (veya admin) onay/geri gönder yapabilir
+> (`assignment.TeacherUserId == currentUser`); aksi halde `shared.forbidden` (403). Her ikisi de `AssignmentResponse` döner.
+> Geri gönderilen ödev, öğrenci yeniden teslim ettiğinde (`SubmitWork`) `InProgress`'e döner.
+
+### 3.4 ⚠️ Eksik / Önerilen Endpoint'ler
 
 | Yetenek | Öneri | Gerekçe |
 |---------|-------|---------|
@@ -250,6 +277,8 @@ POST /assignments/{id}/complete
 - [x] Not yoksa GET'te otomatik özet üretilir.
 - [x] Öğretmen ödev/not listeleyebilir (teacherUserId/studentId/lessonSessionId).
 - [x] Öğretmen eki (`AttachmentUrl`) paylaşabilir.
+- [x] Öğretmen not görünürlüğünü (`Private`/`Student`/`StudentAndParent`) seçebilir (B-05).
+- [x] Öğretmen ödevi onaylayabilir / geri bildirimle geri gönderebilir (T-06.7/8); geri gönderme için geri bildirim zorunlu.
 - [ ] ⚠️ Ödev "tamamla" endpoint'i (`MarkCompleted` açığa çıkarılmalı).
 - [ ] ⚠️ `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü.
 - [ ] ⚠️ `AssignmentSubmission` (öğrenci yükleme) + değerlendirme.
@@ -283,4 +312,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-09 (öğrenci ödev tamamlama + dosya yükleme/indirme endpoint'leri + yerel dosya depolama)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*

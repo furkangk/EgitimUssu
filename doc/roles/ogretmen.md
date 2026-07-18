@@ -37,8 +37,8 @@ Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, il
 | 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 (çoklu branş + sertifika ✅ Dilim D) |
 | 2 | Öğrenci ekle & listele | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 (silme/arşiv/davet ⚠️ — bkz. §11) |
 | 3 | Takvimde ders planla (tek/tekrarlı, online/yüz yüze + link) | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 (Dilim A tamam: link+tatil+erteleme+iptal-nedeni/sil+occurrence-kapsamı, 2026-07-18) |
-| 4 | Dersi işle/tamamla, katılım & not | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | M05 | 🟢 (gelmedi→ücretlendirme ✅ Dilim A; not görünürlüğü ⚠️ Dilim B) |
-| 5 | Ders notu + **kaynak** + ödev ver/takip | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟡 (ödev onay/geri gönder + geri bildirim + not görünürlüğü ⚠️) |
+| 4 | Dersi işle/tamamla, katılım & not | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | M05 | 🟢 (gelmedi→ücretlendirme ✅ Dilim A; not görünürlüğü ✅ Dilim B) |
+| 5 | Ders notu + **kaynak** + ödev ver/takip | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟢 (ödev onay/geri gönder + geri bildirim + not görünürlüğü ✅ Dilim B; kaynak/öğrenci yükleme ⚠️) |
 | 6 | Ödeme/bakiye takibi (manuel) + veli paylaşımı | [`m07_payments`](../modules/m07_payments.md) | M07 | 🟢 (öğrenci bazlı ücret + veli paylaşımı ⚠️) |
 | 7 | Yaklaşan ders + ödev/ödeme hatırlatması | [`m11_notifications`](../modules/m11_notifications.md) | M11 | 🟡 |
 | 8 | Gelir istatistik & rapor | [`m14_reporting`](../modules/m14_reporting.md) | M14 | 🔴 |
@@ -120,7 +120,8 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 | B-01 | **Tatil / müsait değil bloğu** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `TimeOffBlock` aggregate + `POST/GET/DELETE /teachers/{id}/time-off`; oluşturmada çakışan dersler yanıtta | — |
 | B-02 | **Ders erteleme** ayrı aksiyon | ✅ **yapıldı (Dilim A, 2026-07-18)** — `Reschedule()` + `POST /lessons/{id}/reschedule`; statü Planned kalır, `OriginalStartAtUtc`/`RescheduleNote` geçmişi, Rescheduled event | — |
 | B-03 | **Tekrar eden ders occurrence yönetimi** (bu/bu+sonraki/tümü) | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonOccurrenceException` + `RecurrenceExpander` istisna overload'u; cancel/reschedule `Scope=Single/ThisAndFuture/All` | — |
-| B-05 | **Not görünürlüğü** (özel/öğrenci/veli) | `LessonNote.TeacherNotes` düz string; visibility yok | Öğretmen dürüst özel not tutamaz; veli paylaşımı süzülemez (Dilim B) |
+| B-05 | **Not görünürlüğü** (özel/öğrenci/veli) | ✅ **yapıldı (Dilim B, 2026-07-18)** — `LessonNote.Visibility` enum (`Private`/`Student`/`StudentAndParent`); follow-up isteğinde seçilir, response'ta döner | — |
+| T-06.7/8 | **Ödev onay / geri gönder + geri bildirim** | ✅ **yapıldı (Dilim B, 2026-07-18)** — `Assignment.Approve()`/`ReturnForRevision()` + `Approved`/`ReturnedForRevision` statüleri + `TeacherFeedback`; `POST /assignments/{id}/approve`, `POST /assignments/{id}/return` (öğretmen sahiplik yetkisi); geri gönderilen ödev yeniden teslimde `InProgress`'e döner | — |
 | B-07 | **Öğrenci bazlı ücret** override | Ücret yalnız profil ya da ders bazında; öğrenciye özel alan yok | Gerçek fiyatlamayı karşılamıyor (Dilim C) |
 | B-08 | **Gelmedi + ücretlendirme kararı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonSession.IsChargeable` + complete akışı (otomatik ödeme yok; audit/rapor için) | — |
 | B-09 | **İptal nedeni + ücretlendirme + Sil ayrımı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `Cancel(reason, isChargeable, …)` + `CancellationReason` enum + `DELETE /lessons/{id}` (24s+gelecek kuralı) | — |
@@ -137,7 +138,7 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 ### 10.3 Önceliklendirilmiş düzeltme sırası
 
-- **Öncelik 1 (Faz 1'i kullanılabilir yapan):** ✅ B-03 (occurrence yönetimi), ✅ B-01 (tatil bloğu), ✅ B-02 (erteleme) — **Dilim A tamam**; B-05 (not görünürlüğü) → Dilim B.
+- **Öncelik 1 (Faz 1'i kullanılabilir yapan):** ✅ B-03 (occurrence yönetimi), ✅ B-01 (tatil bloğu), ✅ B-02 (erteleme) — **Dilim A tamam**; ✅ B-05 (not görünürlüğü) + ✅ T-06.7/8 (ödev onay/geri gönder) — **Dilim B tamam (2026-07-18)**.
 - **Öncelik 2 (yüksek etkili):** B-07 (öğrenci bazlı ücret, Dilim C), ✅ B-08 (gelmedi→ücretlendirme), ✅ B-09 (iptal nedeni/sil) — **Dilim A tamam**; B-04 (arşivleme, Dilim C).
 - **Öncelik 3 (olgunluk):** ✅ M02 çoklu branş + sertifika (Dilim D tamam, 2026-07-18), B-06 (öğrenci davet), ✅ B-10 (online link) — **Dilim A tamam**.
 
@@ -156,4 +157,4 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim D: M02 çoklu branş + sertifika)*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim D: M02 çoklu branş + sertifika)*

@@ -24,7 +24,7 @@
 | M03 | Öğrenci Profili | [`m03_students.md`](m03_students.md) | `Students` | `/api/students` | 🟢 / 🟡 (self-register) |
 | M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link+tatil+erteleme+occurrence, 2026-07-18) |
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
-| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (öğrenci tamamlama+dosya yükleme eklendi) |
+| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (Dilim B: not görünürlüğü + ödev onay/geri gönder) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
 | M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
 | M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
@@ -146,6 +146,8 @@ GET  /lesson-sessions/{lessonSessionId}/follow-up
 POST /{assignmentId}/complete        (öğrenci tamamlar)
 POST /{assignmentId}/submission      (öğrenci dosya yükler — multipart)
 GET  /{assignmentId}/attachment      (teslim dosyasını indir — öğrenci/öğretmen/admin)
+POST /{assignmentId}/approve         (öğretmen onaylar + geri bildirim — T-06.7)
+POST /{assignmentId}/return          (öğretmen geri gönderir + geri bildirim — T-06.8)
 ```
 ### Payments — `/api/payments`
 ```
@@ -203,4 +205,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
