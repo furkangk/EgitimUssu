@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
         services.AddScoped<ITeacherStudentLinkRepository, TeacherStudentLinkRepository>();
         services.AddScoped<IStudentDirectory, StudentDirectory>();
+        services.AddScoped<IMembershipDirectory, MembershipDirectory>();
         services.AddScoped<ICommandHandler<CreateStudentProfileCommand, Result<StudentProfileResponse>>, CreateStudentProfileCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByIdQueryHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByUserIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByUserIdQueryHandler>();

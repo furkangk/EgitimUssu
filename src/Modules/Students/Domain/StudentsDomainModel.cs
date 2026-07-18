@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Domain;
@@ -74,6 +75,9 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     /// <summary>Öğrencinin hedeflediği sınav; net formülü ve deneme türetimlerinde kullanılır (S-03.9).</summary>
     public TargetExam TargetExam { get; private set; }
 
+    /// <summary>Öğrencinin üyelik seviyesi (Free/Premium). Free/Premium kapılarını belirler (Ö-D §14.3).</summary>
+    public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -106,6 +110,13 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     public void SetTargetExam(TargetExam targetExam, DateTime updatedOnUtc)
     {
         TargetExam = targetExam;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>Öğrencinin üyelik seviyesini günceller (Ö-D). Premium satın alma / iptal akışında çağrılır.</summary>
+    public void SetMembershipTier(MembershipTier tier, DateTime updatedOnUtc)
+    {
+        MembershipTier = tier;
         UpdatedOnUtc = updatedOnUtc;
     }
 

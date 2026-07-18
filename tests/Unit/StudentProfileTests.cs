@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Students.Domain;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -11,6 +12,25 @@ public sealed class StudentProfileTests
     {
         var profile = NewProfile();
         Assert.Equal(TargetExam.None, profile.TargetExam);
+    }
+
+    [Fact]
+    public void NewProfile_DefaultsToFreeMembership()
+    {
+        var profile = NewProfile();
+        Assert.Equal(MembershipTier.Free, profile.MembershipTier);
+    }
+
+    [Fact]
+    public void SetMembershipTier_UpdatesValueAndTimestamp()
+    {
+        var profile = NewProfile();
+        var later = Now.AddMinutes(5);
+
+        profile.SetMembershipTier(MembershipTier.Premium, later);
+
+        Assert.Equal(MembershipTier.Premium, profile.MembershipTier);
+        Assert.Equal(later, profile.UpdatedOnUtc);
     }
 
     [Fact]
