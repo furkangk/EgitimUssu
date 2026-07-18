@@ -43,6 +43,7 @@ public sealed class StudentFreeLimitTests
         public Task<StudentProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct) => Task.FromResult<StudentProfile?>(null);
         public Task<bool> ExistsByContactEmailAsync(string normalizedEmail, CancellationToken ct) => Task.FromResult(false);
         public Task<IReadOnlyCollection<StudentProfile>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<StudentProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => throw new NotImplementedException();
         public Task AddAsync(StudentProfile profile, CancellationToken ct) => Task.CompletedTask;
         public Task ReplaceSubjectsAsync(Guid studentProfileId, IReadOnlyList<StudentSubject> newSubjects, CancellationToken ct) => Task.CompletedTask;
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;

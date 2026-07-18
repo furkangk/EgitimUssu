@@ -28,7 +28,7 @@ public sealed record GetStudentProfileByIdQuery(Guid StudentId) : IQuery<Result<
 
 public sealed record GetStudentProfileByUserIdQuery(Guid UserId) : IQuery<Result<StudentProfileResponse>>;
 
-public sealed record ListStudentsByTeacherQuery(Guid TeacherUserId) : IQuery<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>;
+public sealed record ListStudentsByTeacherQuery(Guid TeacherUserId, bool IncludeArchived = false) : IQuery<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>;
 
 public sealed record UpdateStudentProfileCommand(
     Guid StudentId,
@@ -49,7 +49,10 @@ public sealed record StudentProfileSummaryResponse(
     string GradeLevel,
     string Origin,
     bool IsActive,
-    DateTime CreatedOnUtc);
+    DateTime CreatedOnUtc,
+    bool IsArchived,
+    decimal? AgreedRateAmount,
+    string LinkStatus);
 
 public sealed record StudentProfileResponse(
     Guid Id,
@@ -77,6 +80,8 @@ public interface IStudentProfileRepository
     Task<bool> ExistsByContactEmailAsync(string normalizedEmail, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<StudentProfile>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<StudentProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 
     Task AddAsync(StudentProfile profile, CancellationToken cancellationToken);
 
@@ -218,24 +223,38 @@ public sealed class GetStudentProfileByUserIdQueryHandler : IQueryHandler<GetStu
 public sealed class ListStudentsByTeacherQueryHandler : IQueryHandler<ListStudentsByTeacherQuery, Result<IReadOnlyCollection<StudentProfileSummaryResponse>>>
 {
     private readonly IStudentProfileRepository _repository;
+    private readonly ITeacherStudentLinkRepository _linkRepository;
 
-    public ListStudentsByTeacherQueryHandler(IStudentProfileRepository repository)
+    public ListStudentsByTeacherQueryHandler(IStudentProfileRepository repository, ITeacherStudentLinkRepository linkRepository)
     {
         _repository = repository;
+        _linkRepository = linkRepository;
     }
 
     public async Task<Result<IReadOnlyCollection<StudentProfileSummaryResponse>>> Handle(ListStudentsByTeacherQuery query, CancellationToken cancellationToken)
     {
-        var students = await _repository.ListByTeacherUserIdAsync(query.TeacherUserId, cancellationToken);
-        var payload = students
-            .OrderBy(student => student.FullName)
-            .Select(student => new StudentProfileSummaryResponse(
-                student.Id,
-                student.FullName,
-                student.GradeLevel,
-                student.Origin.ToString(),
-                student.IsActive,
-                student.CreatedOnUtc))
+        var links = await _linkRepository.ListByTeacherAsync(query.TeacherUserId, query.IncludeArchived, cancellationToken);
+        var studentIds = links.Select(link => link.StudentId).ToArray();
+        var profiles = await _repository.ListByIdsAsync(studentIds, cancellationToken);
+        var profilesById = profiles.ToDictionary(profile => profile.Id);
+
+        var payload = links
+            .Where(link => profilesById.ContainsKey(link.StudentId))
+            .Select(link =>
+            {
+                var profile = profilesById[link.StudentId];
+                return new StudentProfileSummaryResponse(
+                    profile.Id,
+                    profile.FullName,
+                    profile.GradeLevel,
+                    profile.Origin.ToString(),
+                    profile.IsActive,
+                    profile.CreatedOnUtc,
+                    link.IsArchived,
+                    link.AgreedRateAmount,
+                    link.Status.ToString());
+            })
+            .OrderBy(summary => summary.FullName)
             .ToArray();
 
         return Result<IReadOnlyCollection<StudentProfileSummaryResponse>>.Success(payload);

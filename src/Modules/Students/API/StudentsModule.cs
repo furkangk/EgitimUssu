@@ -91,9 +91,10 @@ public sealed class StudentsModule : ModuleDefinition
         HttpContext context,
         Guid teacherUserId,
         IQueryDispatcher dispatcher,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeArchived = false)
     {
-        var result = await dispatcher.Dispatch(new ListStudentsByTeacherQuery(teacherUserId), cancellationToken);
+        var result = await dispatcher.Dispatch(new ListStudentsByTeacherQuery(teacherUserId, includeArchived), cancellationToken);
         return ToHttpResult(context, result);
     }
 
