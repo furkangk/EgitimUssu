@@ -75,6 +75,10 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
     public DateTime UpdatedOnUtc { get; private set; }
 
+    public DateTime? OriginalStartAtUtc { get; private set; }
+
+    public string? RescheduleNote { get; private set; }
+
     /// <summary>
     /// Yalnizca taslak/planli dersler duzenlenebilir; tamamlanmis veya iptal edilmis ders degistirilemez.
     /// </summary>
@@ -106,6 +110,21 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         LocationLabel = locationLabel;
         MeetingUrl = meetingUrl;
         Notes = notes;
+        UpdatedOnUtc = updatedOnUtc;
+
+        Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
+    }
+
+    /// <summary>
+    /// Dersi yeni tarih/saate taşır. Statü Planned kalır (ERTELENDİ geçici bir işaret değil, kayıtlı bir taşımadır).
+    /// İlk ertelemede özgün başlangıç saklanır; öğrenci/veli bildirimi için Rescheduled olayı yayılır.
+    /// </summary>
+    public void Reschedule(DateTime newStartAtUtc, DateTime newEndAtUtc, string? note, DateTime updatedOnUtc)
+    {
+        OriginalStartAtUtc ??= StartAtUtc;
+        StartAtUtc = newStartAtUtc;
+        EndAtUtc = newEndAtUtc;
+        RescheduleNote = note;
         UpdatedOnUtc = updatedOnUtc;
 
         Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));

@@ -35,6 +35,12 @@ public sealed record CancelLessonScheduleCommand(
     Guid LessonId,
     string? CancellationNote) : ICommand<Result<LessonScheduleResponse>>;
 
+public sealed record RescheduleLessonScheduleCommand(
+    Guid LessonId,
+    DateTime NewStartAtUtc,
+    DateTime NewEndAtUtc,
+    string? Note) : ICommand<Result<LessonScheduleResponse>>;
+
 public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record GetLessonScheduleByIdQuery(Guid LessonId) : IQuery<Result<LessonScheduleResponse>>;
@@ -65,7 +71,8 @@ public sealed record LessonScheduleResponse(
     string? MeetingUrl,
     string? Notes,
     DateTime CreatedOnUtc,
-    DateTime UpdatedOnUtc);
+    DateTime UpdatedOnUtc,
+    DateTime? OriginalStartAtUtc);
 
 public interface ILessonScheduleRepository
 {
@@ -246,6 +253,52 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
     }
 }
 
+public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<RescheduleLessonScheduleCommand, Result<LessonScheduleResponse>>
+{
+    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
+    private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
+    private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders ertelenebilir.");
+    private readonly ILessonScheduleRepository _repository;
+    private readonly IClock _clock;
+
+    public RescheduleLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<LessonScheduleResponse>> Handle(RescheduleLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        if (command.NewEndAtUtc <= command.NewStartAtUtc)
+        {
+            return Result<LessonScheduleResponse>.Failure(InvalidRange);
+        }
+
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        if (lesson is null)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotFound);
+        }
+
+        if (!lesson.IsEditable)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotEditable);
+        }
+
+        var hasConflict = await _repository.HasTeacherConflictAsync(
+            lesson.TeacherUserId, command.NewStartAtUtc, command.NewEndAtUtc, lesson.Id, cancellationToken);
+        if (hasConflict)
+        {
+            return Result<LessonScheduleResponse>.Failure(Conflict);
+        }
+
+        lesson.Reschedule(command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+    }
+}
+
 public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<CompleteLessonScheduleCommand, Result<LessonScheduleResponse>>
 {
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
@@ -359,6 +412,7 @@ internal static class LessonScheduleMappings
             lesson.MeetingUrl,
             lesson.Notes,
             lesson.CreatedOnUtc,
-            lesson.UpdatedOnUtc);
+            lesson.UpdatedOnUtc,
+            lesson.OriginalStartAtUtc);
     }
 }

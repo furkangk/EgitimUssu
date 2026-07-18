@@ -28,4 +28,24 @@ public sealed class LessonScheduleTests
             "Europe/Istanbul", null, 60, "adres", "https://new", null, Start.AddMinutes(1));
         Assert.Equal("https://new", lesson.MeetingUrl);
     }
+
+    [Fact]
+    public void Reschedule_KeepsPlanned_SetsOriginalStartOnce_RaisesEvent()
+    {
+        var lesson = NewLesson();
+        var newStart = Start.AddDays(2);
+        var newEnd = End.AddDays(2);
+
+        lesson.Reschedule(newStart, newEnd, "Öğrenci hasta", Start.AddHours(1));
+
+        Assert.Equal(LessonScheduleStatus.Planned, lesson.Status);
+        Assert.Equal(newStart, lesson.StartAtUtc);
+        Assert.Equal(Start, lesson.OriginalStartAtUtc);
+        Assert.Equal("Öğrenci hasta", lesson.RescheduleNote);
+        Assert.Contains(lesson.DomainEvents, e => e is LessonScheduleRescheduledDomainEvent);
+
+        // İkinci erteleme OriginalStart'ı değiştirmez
+        lesson.Reschedule(newStart.AddDays(1), newEnd.AddDays(1), null, Start.AddHours(2));
+        Assert.Equal(Start, lesson.OriginalStartAtUtc);
+    }
 }

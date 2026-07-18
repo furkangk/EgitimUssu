@@ -38,6 +38,9 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapPost("/lessons/{lessonId:guid}/cancel", CancelLessonScheduleAsync)
         .WithSummary("Ders planını iptal eder");
 
+        group.MapPost("/lessons/{lessonId:guid}/reschedule", RescheduleLessonScheduleAsync)
+        .WithSummary("Dersi yeni tarih/saate erteler");
+
         group.MapPost("/lessons/{lessonId:guid}/complete", CompleteLessonScheduleAsync)
         .WithSummary("Ders planını tamamlandı olarak işaretler");
 
@@ -102,6 +105,22 @@ public sealed class SchedulingModule : ModuleDefinition
         CancellationToken cancellationToken)
     {
         var result = await dispatcher.Dispatch(new CancelLessonScheduleCommand(lessonId, request.CancellationNote), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Planlı dersi yeni tarih/saate erteler; statü Planned kalır, erteleme geçmişi tutulur.
+    /// </summary>
+    private static async Task<IResult> RescheduleLessonScheduleAsync(
+        HttpContext context,
+        Guid lessonId,
+        RescheduleLessonScheduleRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note),
+            cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -319,6 +338,11 @@ public sealed record UpdateLessonScheduleRequest(
 /// Planlı ders iptal edilirken tutulacak isteğe bağlı açıklamayı taşır.
 /// </summary>
 public sealed record CancelLessonScheduleRequest(string? CancellationNote);
+
+/// <summary>
+/// Dersi ertelemek için yeni başlangıç/bitiş ve isteğe bağlı erteleme notunu taşır.
+/// </summary>
+public sealed record RescheduleLessonScheduleRequest(DateTime NewStartAtUtc, DateTime NewEndAtUtc, string? Note);
 
 /// <summary>
 /// Öğrencinin kendi program girdisini oluşturmak için ders, konu, zaman, tekrar ve renk verilerini taşır.

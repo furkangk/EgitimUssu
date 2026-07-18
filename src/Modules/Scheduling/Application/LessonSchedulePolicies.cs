@@ -39,6 +39,7 @@ public sealed class LessonScheduleCommandAuthorizer :
     ICommandAuthorizer<CreateLessonScheduleCommand>,
     ICommandAuthorizer<UpdateLessonScheduleCommand>,
     ICommandAuthorizer<CancelLessonScheduleCommand>,
+    ICommandAuthorizer<RescheduleLessonScheduleCommand>,
     ICommandAuthorizer<CompleteLessonScheduleCommand>,
     IQueryAuthorizer<GetLessonScheduleByIdQuery>,
     IQueryAuthorizer<ListLessonSchedulesForTeacherQuery>
@@ -68,6 +69,14 @@ public sealed class LessonScheduleCommandAuthorizer :
     }
 
     public async Task<Result> Authorize(CancelLessonScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
+        return lesson is null
+            ? Result.Failure(NotFound)
+            : (CanManageTeacher(lesson.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    public async Task<Result> Authorize(RescheduleLessonScheduleCommand command, CancellationToken cancellationToken)
     {
         var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
         return lesson is null
