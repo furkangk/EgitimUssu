@@ -204,6 +204,26 @@ public sealed class StudySession : AggregateRoot<Guid>
             Id, StudentId, Subject, Topic, EffectiveMinutes, BreakMinutes, nowUtc));
     }
 
+    /// <summary>Tamamlanmış bir seansın ders/konu/süre/notunu düzenler.</summary>
+    public void EditCompleted(string subject, string? topic, int effectiveMinutes, string? personalNote, DateTime nowUtc)
+    {
+        if (Status != StudySessionStatus.Completed)
+        {
+            throw new InvalidOperationException("Yalnızca tamamlanmış seans düzenlenebilir.");
+        }
+
+        if (effectiveMinutes <= 0)
+        {
+            throw new InvalidOperationException("Süre 0'dan büyük olmalıdır.");
+        }
+
+        Subject = subject.Trim();
+        Topic = string.IsNullOrWhiteSpace(topic) ? null : topic.Trim();
+        EffectiveMinutes = effectiveMinutes;
+        PersonalNote = string.IsNullOrWhiteSpace(personalNote) ? PersonalNote : personalNote.Trim();
+        UpdatedOnUtc = nowUtc;
+    }
+
     /// <summary>Yanlış başlatılan seansı iptal eder; hiçbir istatistiğe dahil edilmez.</summary>
     public void Discard(DateTime nowUtc)
     {
@@ -643,6 +663,15 @@ public sealed class StudyTopic : Entity<Guid>
         TotalEffectiveMinutes += effectiveMinutes;
         SessionCount += 1;
         LastStudiedOnUtc = studiedOnUtc;
+    }
+
+    /// <summary>Rollup'ı tamamlanmış seanslardan yeniden türetilen değerlerle üzerine yazar.</summary>
+    public void Overwrite(int totalEffectiveMinutes, int sessionCount, DateTime firstStudiedOnUtc, DateTime lastStudiedOnUtc)
+    {
+        TotalEffectiveMinutes = totalEffectiveMinutes;
+        SessionCount = sessionCount;
+        FirstStudiedOnUtc = firstStudiedOnUtc;
+        LastStudiedOnUtc = lastStudiedOnUtc;
     }
 }
 

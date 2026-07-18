@@ -79,6 +79,17 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddSessionAsync(StudySession session, CancellationToken cancellationToken) =>
         _dbContext.StudySessions.AddAsync(session, cancellationToken).AsTask();
 
+    public void RemoveSession(StudySession session) => _dbContext.StudySessions.Remove(session);
+
+    public async Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(
+        Guid studentId, string subject, string topic, CancellationToken cancellationToken) =>
+        await _dbContext.StudySessions
+            .Where(x => x.StudentId == studentId
+                        && x.Status == StudySessionStatus.Completed
+                        && x.Subject == subject
+                        && x.Topic == topic)
+            .ToArrayAsync(cancellationToken);
+
     public Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken) =>
         _dbContext.TestResults.FirstOrDefaultAsync(x => x.Id == testResultId, cancellationToken);
 
@@ -139,6 +150,8 @@ internal sealed class StudyRepository : IStudyRepository
 
     public Task AddTopicAsync(StudyTopic topic, CancellationToken cancellationToken) =>
         _dbContext.StudyTopics.AddAsync(topic, cancellationToken).AsTask();
+
+    public void RemoveTopic(StudyTopic topic) => _dbContext.StudyTopics.Remove(topic);
 
     public async Task<IReadOnlyList<StudentSubjectCatalog>> ListCatalogSubjectsAsync(Guid studentId, CancellationToken cancellationToken) =>
         await _dbContext.StudentSubjectCatalogs

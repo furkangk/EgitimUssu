@@ -319,6 +319,8 @@ public sealed class StudySessionOwnershipAuthorizer :
     ICommandAuthorizer<ResumeStudySessionCommand>,
     ICommandAuthorizer<CompleteStudySessionCommand>,
     ICommandAuthorizer<DiscardStudySessionCommand>,
+    ICommandAuthorizer<EditStudySessionCommand>,
+    ICommandAuthorizer<DeleteStudySessionCommand>,
     IQueryAuthorizer<GetStudySessionQuery>
 {
     private readonly IStudyRepository _repository;
@@ -340,6 +342,12 @@ public sealed class StudySessionOwnershipAuthorizer :
         AuthorizeSessionAsync(command.SessionId, cancellationToken);
 
     public Task<Result> Authorize(DiscardStudySessionCommand command, CancellationToken cancellationToken) =>
+        AuthorizeSessionAsync(command.SessionId, cancellationToken);
+
+    public Task<Result> Authorize(EditStudySessionCommand command, CancellationToken cancellationToken) =>
+        AuthorizeSessionAsync(command.SessionId, cancellationToken);
+
+    public Task<Result> Authorize(DeleteStudySessionCommand command, CancellationToken cancellationToken) =>
         AuthorizeSessionAsync(command.SessionId, cancellationToken);
 
     public Task<Result> Authorize(GetStudySessionQuery query, CancellationToken cancellationToken) =>

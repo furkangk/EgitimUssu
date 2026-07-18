@@ -47,6 +47,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<ResumeStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<CompleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DiscardStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<EditStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudySessionQuery>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTestResultQuery>, StudyTestOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<EditTestResultCommand>, StudyTestOwnershipAuthorizer>();
@@ -75,6 +77,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ResumeStudySessionCommand, Result<StudySessionResponse>>, ResumeStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteStudySessionCommand, Result<StudySessionResponse>>, CompleteStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<DiscardStudySessionCommand, Result<StudySessionResponse>>, DiscardStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<EditStudySessionCommand, Result<StudySessionResponse>>, EditStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteStudySessionCommand, Result<bool>>, DeleteStudySessionCommandHandler>();
 
         // Seans sorguları
         services.AddScoped<IQueryHandler<GetStudySessionQuery, Result<StudySessionResponse>>, GetStudySessionQueryHandler>();

@@ -36,6 +36,8 @@ public sealed class StudyModule : ModuleDefinition
         group.MapPost("/sessions/{sessionId:guid}/complete", CompleteSessionAsync).WithSummary("Çalışma seansını tamamlar");
         group.MapPost("/sessions/{sessionId:guid}/discard", DiscardSessionAsync).WithSummary("Çalışma seansını iptal eder");
         group.MapGet("/sessions/{sessionId:guid}", GetSessionAsync).WithSummary("Seans detayını getirir");
+        group.MapPut("/sessions/{sessionId:guid}", EditSessionAsync).WithSummary("Tamamlanmış seansı düzenler (konu rollup yeniden türetilir)");
+        group.MapDelete("/sessions/{sessionId:guid}", DeleteSessionAsync).WithSummary("Çalışma seansını siler (konu rollup yeniden türetilir)");
         group.MapGet("/students/{studentId:guid}/sessions", ListSessionsAsync).WithSummary("Öğrencinin seans geçmişini listeler");
         group.MapGet("/students/{studentId:guid}/weekly-summary", WeeklySummaryAsync).WithSummary("Haftalık çalışma özetini getirir");
 
@@ -93,6 +95,13 @@ public sealed class StudyModule : ModuleDefinition
 
     private static async Task<IResult> GetSessionAsync(HttpContext ctx, Guid sessionId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetStudySessionQuery(sessionId), ct));
+
+    private static async Task<IResult> EditSessionAsync(HttpContext ctx, Guid sessionId, EditSessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(
+            new EditStudySessionCommand(sessionId, req.Subject, req.Topic, req.EffectiveMinutes, req.PersonalNote), ct));
+
+    private static async Task<IResult> DeleteSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteStudySessionCommand(sessionId), ct));
 
     private static async Task<IResult> ListSessionsAsync(HttpContext ctx, Guid studentId, DateTime? from, DateTime? to, string? subject, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListStudySessionsQuery(studentId, from, to, subject), ct));
@@ -208,6 +217,8 @@ public sealed record CreateManualSessionRequest(
     Guid StudentId, string Subject, string? Topic, int EffectiveMinutes, DateTime StudiedOnUtc, string? PersonalNote);
 
 public sealed record CompleteSessionRequest(string? PersonalNote);
+
+public sealed record EditSessionRequest(string Subject, string? Topic, int EffectiveMinutes, string? PersonalNote);
 
 public sealed record RecordTestResultRequest(
     Guid StudentId,

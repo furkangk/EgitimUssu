@@ -26,6 +26,12 @@ public sealed record CompleteStudySessionCommand(Guid SessionId, string? Persona
 
 public sealed record DiscardStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
 
+public sealed record EditStudySessionCommand(
+    Guid SessionId, string Subject, string? Topic, int EffectiveMinutes, string? PersonalNote)
+    : ICommand<Result<StudySessionResponse>>;
+
+public sealed record DeleteStudySessionCommand(Guid SessionId) : ICommand<Result<bool>>;
+
 // ---- Sorgular ----
 
 public sealed record GetStudySessionQuery(Guid SessionId) : IQuery<Result<StudySessionResponse>>;
@@ -322,6 +328,85 @@ public sealed class DiscardStudySessionCommandHandler
         session.Discard(_clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<StudySessionResponse>.Success(session.ToResponse());
+    }
+}
+
+public sealed class EditStudySessionCommandHandler
+    : ICommandHandler<EditStudySessionCommand, Result<StudySessionResponse>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+
+    public EditStudySessionCommandHandler(IStudyRepository repository, IIdGenerator idGenerator, IClock clock)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+        _clock = clock;
+    }
+
+    public async Task<Result<StudySessionResponse>> Handle(EditStudySessionCommand command, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.Subject) || command.EffectiveMinutes <= 0)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        var session = await _repository.GetSessionAsync(command.SessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
+        }
+
+        if (session.Status != StudySessionStatus.Completed)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        var oldSubject = session.Subject;
+        var oldTopic = session.Topic;
+
+        session.EditCompleted(command.Subject, command.Topic, command.EffectiveMinutes, command.PersonalNote, _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await StudyRecompute.RebuildTopicAsync(_repository, _idGenerator, session.StudentId, oldSubject, oldTopic, cancellationToken);
+        await StudyRecompute.RebuildTopicAsync(_repository, _idGenerator, session.StudentId, session.Subject, session.Topic, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<StudySessionResponse>.Success(session.ToResponse());
+    }
+}
+
+public sealed class DeleteStudySessionCommandHandler : ICommandHandler<DeleteStudySessionCommand, Result<bool>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+
+    public DeleteStudySessionCommandHandler(IStudyRepository repository, IIdGenerator idGenerator)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+    }
+
+    public async Task<Result<bool>> Handle(DeleteStudySessionCommand command, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetSessionAsync(command.SessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<bool>.Failure(StudyErrors.SessionNotFound);
+        }
+
+        var studentId = session.StudentId;
+        var subject = session.Subject;
+        var topic = session.Topic;
+
+        _repository.RemoveSession(session);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await StudyRecompute.RebuildTopicAsync(_repository, _idGenerator, studentId, subject, topic, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<bool>.Success(true);
     }
 }
 

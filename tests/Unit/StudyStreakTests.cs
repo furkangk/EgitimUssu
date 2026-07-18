@@ -129,6 +129,9 @@ internal sealed class FakeStudyRepository : IStudyRepository
     public Task<StudySession?> GetActiveSessionAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<IReadOnlyList<StudySession>> ListSessionsAsync(Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task AddSessionAsync(StudySession session, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public void RemoveSession(StudySession session) => throw new NotImplementedException();
+    public Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(Guid studentId, string subject, string topic, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public void RemoveTopic(StudyTopic topic) => throw new NotImplementedException();
     public Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<IReadOnlyList<TestResult>> ListTestsAsync(Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken) => throw new NotImplementedException();

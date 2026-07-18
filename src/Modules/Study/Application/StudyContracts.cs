@@ -144,6 +144,11 @@ public interface IStudyRepository
 
     Task AddSessionAsync(StudySession session, CancellationToken cancellationToken);
 
+    void RemoveSession(StudySession session);
+
+    Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(
+        Guid studentId, string subject, string topic, CancellationToken cancellationToken);
+
     // Testler
     Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken);
 
@@ -170,6 +175,8 @@ public interface IStudyRepository
     Task<StudyTopic?> GetTopicAsync(Guid studentId, string subject, string topic, CancellationToken cancellationToken);
 
     Task AddTopicAsync(StudyTopic topic, CancellationToken cancellationToken);
+
+    void RemoveTopic(StudyTopic topic);
 
     // Ders/konu kataloğu (öğrencinin tanımladığı)
     Task<IReadOnlyList<StudentSubjectCatalog>> ListCatalogSubjectsAsync(Guid studentId, CancellationToken cancellationToken);
