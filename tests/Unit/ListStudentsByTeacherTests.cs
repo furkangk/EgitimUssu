@@ -56,6 +56,7 @@ public sealed class ListStudentsByTeacherTests
         public Task AddAsync(TeacherStudentLink link, CancellationToken ct) => throw new NotImplementedException();
         public Task<TeacherStudentLink?> GetByIdAsync(Guid linkId, CancellationToken ct) => throw new NotImplementedException();
         public Task<TeacherStudentLink?> GetByTeacherAndStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<TeacherStudentLink?> GetByInviteCodeAsync(string inviteCode, CancellationToken ct) => throw new NotImplementedException();
         public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken ct) => throw new NotImplementedException();
     }

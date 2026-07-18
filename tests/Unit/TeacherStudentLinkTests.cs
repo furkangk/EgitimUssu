@@ -39,6 +39,7 @@ public sealed class TeacherStudentLinkTests
         public Task<TeacherStudentLink?> GetByTeacherAndStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken ct)
             => Task.FromResult(_link);
         public Task<TeacherStudentLink?> GetByIdAsync(Guid linkId, CancellationToken ct) => Task.FromResult(_link);
+        public Task<TeacherStudentLink?> GetByInviteCodeAsync(string inviteCode, CancellationToken ct) => Task.FromResult(_link);
         public Task SaveChangesAsync(CancellationToken ct)
         {
             SaveCount++;
