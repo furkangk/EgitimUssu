@@ -33,6 +33,8 @@ public sealed record UpdateLessonScheduleCommand(
 
 public sealed record CancelLessonScheduleCommand(
     Guid LessonId,
+    CancellationReason Reason,
+    bool IsChargeable,
     string? CancellationNote) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record RescheduleLessonScheduleCommand(
@@ -72,7 +74,9 @@ public sealed record LessonScheduleResponse(
     string? Notes,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc,
-    DateTime? OriginalStartAtUtc);
+    DateTime? OriginalStartAtUtc,
+    string? CancellationReason,
+    bool IsChargeable);
 
 public interface ILessonScheduleRepository
 {
@@ -246,7 +250,7 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             return Result<LessonScheduleResponse>.Failure(NotFound);
         }
 
-        lesson.Cancel(command.CancellationNote?.Trim(), _clock.UtcNow);
+        lesson.Cancel(command.Reason, command.IsChargeable, command.CancellationNote?.Trim(), _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         // Y1: Hatirlatma iptali LessonScheduleCancelledDomainEvent -> outbox -> Notifications handler yoluyla yapilir.
         return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
@@ -413,6 +417,8 @@ internal static class LessonScheduleMappings
             lesson.Notes,
             lesson.CreatedOnUtc,
             lesson.UpdatedOnUtc,
-            lesson.OriginalStartAtUtc);
+            lesson.OriginalStartAtUtc,
+            lesson.CancellationReason?.ToString(),
+            lesson.IsChargeable);
     }
 }

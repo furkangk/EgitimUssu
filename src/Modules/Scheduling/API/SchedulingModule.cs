@@ -104,7 +104,9 @@ public sealed class SchedulingModule : ModuleDefinition
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(new CancelLessonScheduleCommand(lessonId, request.CancellationNote), cancellationToken);
+        var result = await dispatcher.Dispatch(
+            new CancelLessonScheduleCommand(lessonId, request.Reason, request.IsChargeable, request.CancellationNote),
+            cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -337,7 +339,7 @@ public sealed record UpdateLessonScheduleRequest(
 /// <summary>
 /// Planlı ders iptal edilirken tutulacak isteğe bağlı açıklamayı taşır.
 /// </summary>
-public sealed record CancelLessonScheduleRequest(string? CancellationNote);
+public sealed record CancelLessonScheduleRequest(CancellationReason Reason, bool IsChargeable, string? CancellationNote);
 
 /// <summary>
 /// Dersi ertelemek için yeni başlangıç/bitiş ve isteğe bağlı erteleme notunu taşır.

@@ -46,6 +46,7 @@ internal sealed class LessonScheduleConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.LocationLabel).HasMaxLength(256);
         builder.Property(entity => entity.MeetingUrl).HasMaxLength(512);
         builder.Property(entity => entity.RescheduleNote).HasMaxLength(500);
+        builder.Property(entity => entity.CancellationReason).HasConversion<string>().HasMaxLength(32);
         builder.Property(entity => entity.Notes).HasMaxLength(1000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();

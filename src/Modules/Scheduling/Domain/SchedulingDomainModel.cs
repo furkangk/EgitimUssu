@@ -79,6 +79,10 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
     public string? RescheduleNote { get; private set; }
 
+    public CancellationReason? CancellationReason { get; private set; }
+
+    public bool IsChargeable { get; private set; }
+
     /// <summary>
     /// Yalnizca taslak/planli dersler duzenlenebilir; tamamlanmis veya iptal edilmis ders degistirilemez.
     /// </summary>
@@ -130,9 +134,11 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
     }
 
-    public void Cancel(string? cancellationNote, DateTime updatedOnUtc)
+    public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;
+        CancellationReason = reason;
+        IsChargeable = isChargeable;
         UpdatedOnUtc = updatedOnUtc;
 
         if (!string.IsNullOrWhiteSpace(cancellationNote))
@@ -152,6 +158,14 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
         Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
     }
+}
+
+public enum CancellationReason
+{
+    TeacherCancelled = 1,
+    StudentCancelled = 2,
+    Holiday = 3,
+    Other = 4
 }
 
 public enum ScheduledLessonFormat

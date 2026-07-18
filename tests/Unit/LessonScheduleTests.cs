@@ -48,4 +48,16 @@ public sealed class LessonScheduleTests
         lesson.Reschedule(newStart.AddDays(1), newEnd.AddDays(1), null, Start.AddHours(2));
         Assert.Equal(Start, lesson.OriginalStartAtUtc);
     }
+
+    [Fact]
+    public void Cancel_StoresReasonAndChargeable()
+    {
+        var lesson = NewLesson();
+        lesson.Cancel(CancellationReason.StudentCancelled, isChargeable: true, "geç haber verdi", Start.AddHours(1));
+
+        Assert.Equal(LessonScheduleStatus.Cancelled, lesson.Status);
+        Assert.Equal(CancellationReason.StudentCancelled, lesson.CancellationReason);
+        Assert.True(lesson.IsChargeable);
+        Assert.Contains(lesson.DomainEvents, e => e is LessonScheduleCancelledDomainEvent);
+    }
 }
