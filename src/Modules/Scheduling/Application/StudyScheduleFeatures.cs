@@ -94,7 +94,8 @@ internal static class StudyScheduleConflict
         DateTime startAtUtc,
         DateTime endAtUtc,
         string? recurrenceRule,
-        IReadOnlyCollection<LessonSchedule> teacherLessons)
+        IReadOnlyCollection<LessonSchedule> teacherLessons,
+        IReadOnlyDictionary<Guid, IReadOnlyCollection<OccurrenceOverride>> exceptionsByLesson)
     {
         if (teacherLessons.Count == 0)
         {
@@ -114,9 +115,19 @@ internal static class StudyScheduleConflict
 
         foreach (var lesson in teacherLessons)
         {
+            var lessonExceptions = exceptionsByLesson.TryGetValue(lesson.Id, out var ex)
+                ? ex
+                : Array.Empty<OccurrenceOverride>();
+
             foreach (var lessonOccurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, windowStart, windowEnd))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, windowStart, windowEnd, lessonExceptions))
             {
+                // İptal/atlanan oluşum o an ders yapılmadığı için çakışma sayılmaz.
+                if (lessonOccurrence.IsCancelled)
+                {
+                    continue;
+                }
+
                 foreach (var own in candidate)
                 {
                     if (own.StartAtUtc < lessonOccurrence.EndAtUtc && own.EndAtUtc > lessonOccurrence.StartAtUtc)
@@ -128,6 +139,32 @@ internal static class StudyScheduleConflict
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Verilen derslerin tekrar serilerine ait occurrence istisnalarını ders kimliğine göre toplar.
+    /// Yalnız tekrarlı dersler için sorgu yapılır (tek-seferlik derste istisna anlamsız).
+    /// </summary>
+    public static async Task<IReadOnlyDictionary<Guid, IReadOnlyCollection<OccurrenceOverride>>> LoadExceptionsByLessonAsync(
+        ILessonScheduleRepository lessonRepository,
+        IEnumerable<LessonSchedule> lessons,
+        CancellationToken cancellationToken)
+    {
+        var map = new Dictionary<Guid, IReadOnlyCollection<OccurrenceOverride>>();
+        foreach (var lesson in lessons)
+        {
+            if (string.IsNullOrWhiteSpace(lesson.RecurrenceRule) || map.ContainsKey(lesson.Id))
+            {
+                continue;
+            }
+
+            var exceptions = await lessonRepository.ListExceptionsForSeriesAsync(lesson.Id, cancellationToken);
+            map[lesson.Id] = exceptions
+                .Select(x => new OccurrenceOverride(x.OriginalStartAtUtc, x.Action, x.OverrideStartAtUtc, x.OverrideEndAtUtc))
+                .ToArray();
+        }
+
+        return map;
     }
 }
 
@@ -164,7 +201,9 @@ public sealed class CreateStudyScheduleEntryCommandHandler : ICommandHandler<Cre
             command.StartAtUtc.AddDays(StudyScheduleConflict.HorizonDays),
             cancellationToken);
 
-        if (StudyScheduleConflict.OverlapsTeacherLesson(command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), teacherLessons))
+        var exceptionsByLesson = await StudyScheduleConflict.LoadExceptionsByLessonAsync(_lessonRepository, teacherLessons, cancellationToken);
+
+        if (StudyScheduleConflict.OverlapsTeacherLesson(command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), teacherLessons, exceptionsByLesson))
         {
             return Result<StudyScheduleEntryResponse>.Failure(TeacherConflict);
         }
@@ -229,7 +268,9 @@ public sealed class UpdateStudyScheduleEntryCommandHandler : ICommandHandler<Upd
             command.StartAtUtc.AddDays(StudyScheduleConflict.HorizonDays),
             cancellationToken);
 
-        if (StudyScheduleConflict.OverlapsTeacherLesson(command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), teacherLessons))
+        var exceptionsByLesson = await StudyScheduleConflict.LoadExceptionsByLessonAsync(_lessonRepository, teacherLessons, cancellationToken);
+
+        if (StudyScheduleConflict.OverlapsTeacherLesson(command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), teacherLessons, exceptionsByLesson))
         {
             return Result<StudyScheduleEntryResponse>.Failure(TeacherConflict);
         }
@@ -299,11 +340,22 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
         var occurrences = new List<StudentCalendarOccurrenceResponse>();
 
         var lessons = await _lessonRepository.ListActiveForStudentUntilAsync(query.StudentId, query.EndAtUtc, cancellationToken);
+        var exceptionsByLesson = await StudyScheduleConflict.LoadExceptionsByLessonAsync(_lessonRepository, lessons, cancellationToken);
         foreach (var lesson in lessons)
         {
+            var lessonExceptions = exceptionsByLesson.TryGetValue(lesson.Id, out var ex)
+                ? ex
+                : Array.Empty<OccurrenceOverride>();
+
             foreach (var occurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, query.StartAtUtc, query.EndAtUtc))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, query.StartAtUtc, query.EndAtUtc, lessonExceptions))
             {
+                // İptal edilen tek oluşum takvimde gösterilmez (bu sürümde soluk-gösterim alanı yok).
+                if (occurrence.IsCancelled)
+                {
+                    continue;
+                }
+
                 occurrences.Add(new StudentCalendarOccurrenceResponse(
                     lesson.Id,
                     "Teacher",

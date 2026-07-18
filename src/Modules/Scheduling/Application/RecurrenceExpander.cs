@@ -1,9 +1,20 @@
 using System.Globalization;
+using EgitimUssu.Modules.Scheduling.Domain;
 
 namespace EgitimUssu.Modules.Scheduling.Application;
 
 /// <summary>Tekrar kuralından üretilmiş somut bir ders oluşumu (occurrence).</summary>
-public readonly record struct ScheduleOccurrence(DateTime StartAtUtc, DateTime EndAtUtc);
+public readonly record struct ScheduleOccurrence(DateTime StartAtUtc, DateTime EndAtUtc, bool IsCancelled = false);
+
+/// <summary>
+/// Tekrar serisindeki tek bir oluşuma uygulanan istisna (iCal RECURRENCE-ID/EXDATE deseni).
+/// <see cref="OriginalStartAtUtc"/> hedef oluşumu tanımlar; <see cref="Action"/> atlama/iptal/erteleme.
+/// </summary>
+public readonly record struct OccurrenceOverride(
+    DateTime OriginalStartAtUtc,
+    OccurrenceExceptionAction Action,
+    DateTime? OverrideStartAtUtc,
+    DateTime? OverrideEndAtUtc);
 
 /// <summary>
 /// iCal benzeri <c>RecurrenceRule</c> (FREQ=DAILY/WEEKLY/MONTHLY, BYDAY, UNTIL) + ilk oluşumu alıp,
@@ -97,6 +108,48 @@ public static class RecurrenceExpander
                 }
 
                 break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Tekrar oluşumlarını üretirken occurrence istisnalarını uygular: Skipped atlanır,
+    /// Cancelled iptal işaretiyle döner (takvimde soluk), Rescheduled override tarih/saatle döner.
+    /// </summary>
+    public static IEnumerable<ScheduleOccurrence> Expand(
+        DateTime anchorStartUtc,
+        DateTime anchorEndUtc,
+        string? recurrenceRule,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        IReadOnlyCollection<OccurrenceOverride> exceptions)
+    {
+        var byOriginal = exceptions.ToDictionary(e => e.OriginalStartAtUtc);
+
+        foreach (var occurrence in Expand(anchorStartUtc, anchorEndUtc, recurrenceRule, rangeStartUtc, rangeEndUtc))
+        {
+            if (!byOriginal.TryGetValue(occurrence.StartAtUtc, out var ex))
+            {
+                yield return occurrence;
+                continue;
+            }
+
+            switch (ex.Action)
+            {
+                case OccurrenceExceptionAction.Skipped:
+                    continue;
+                case OccurrenceExceptionAction.Cancelled:
+                    yield return occurrence with { IsCancelled = true };
+                    break;
+                case OccurrenceExceptionAction.Rescheduled:
+                    var start = ex.OverrideStartAtUtc ?? occurrence.StartAtUtc;
+                    var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
+                    if (start <= rangeEndUtc && end >= rangeStartUtc)
+                    {
+                        yield return new ScheduleOccurrence(start, end);
+                    }
+
+                    break;
             }
         }
     }

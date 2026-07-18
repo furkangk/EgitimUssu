@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Scheduling.Application;
+using EgitimUssu.Modules.Scheduling.Domain;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -90,5 +91,63 @@ public sealed class RecurrenceExpanderTests
         Assert.Equal(2, result.Length);
         Assert.Equal(13, result[0].StartAtUtc.Day);
         Assert.Equal(20, result[1].StartAtUtc.Day);
+    }
+
+    [Fact]
+    public void Expand_WithSkipException_OmitsThatOccurrence()
+    {
+        // Her Pazartesi, 3 hafta
+        var rule = "FREQ=WEEKLY;BYDAY=MO";
+        var rangeStart = Monday.AddDays(-1);
+        var rangeEnd = Monday.AddDays(21);
+        var secondMonday = Monday.AddDays(7);
+
+        var exceptions = new[]
+        {
+            new OccurrenceOverride(secondMonday, OccurrenceExceptionAction.Skipped, null, null)
+        };
+
+        var result = RecurrenceExpander
+            .Expand(Monday, MondayEnd, rule, rangeStart, rangeEnd, exceptions)
+            .ToArray();
+
+        Assert.DoesNotContain(result, o => o.StartAtUtc == secondMonday);
+        Assert.Contains(result, o => o.StartAtUtc == Monday);
+    }
+
+    [Fact]
+    public void Expand_WithRescheduleException_MovesOccurrence()
+    {
+        var rule = "FREQ=WEEKLY;BYDAY=MO";
+        var secondMonday = Monday.AddDays(7);
+        var moved = secondMonday.AddDays(2); // Çarşamba
+        var exceptions = new[]
+        {
+            new OccurrenceOverride(secondMonday, OccurrenceExceptionAction.Rescheduled, moved, moved.AddHours(1))
+        };
+
+        var result = RecurrenceExpander
+            .Expand(Monday, MondayEnd, rule, Monday.AddDays(-1), Monday.AddDays(21), exceptions)
+            .ToArray();
+
+        Assert.DoesNotContain(result, o => o.StartAtUtc == secondMonday);
+        Assert.Contains(result, o => o.StartAtUtc == moved);
+    }
+
+    [Fact]
+    public void Expand_WithCancelException_MarksCancelled()
+    {
+        var rule = "FREQ=WEEKLY;BYDAY=MO";
+        var secondMonday = Monday.AddDays(7);
+        var exceptions = new[]
+        {
+            new OccurrenceOverride(secondMonday, OccurrenceExceptionAction.Cancelled, null, null)
+        };
+
+        var result = RecurrenceExpander
+            .Expand(Monday, MondayEnd, rule, Monday.AddDays(-1), Monday.AddDays(21), exceptions)
+            .ToArray();
+
+        Assert.Contains(result, o => o.StartAtUtc == secondMonday && o.IsCancelled);
     }
 }
