@@ -153,7 +153,11 @@ public sealed class StudySession : AggregateRoot<Guid>
     }
 
     /// <summary>Aktif dilimi net süreye ekler ve seansı molaya alır.</summary>
-    public void Pause(DateTime nowUtc)
+    /// <param name="clientEffectiveMinutes">
+    /// İstemcinin bildirdiği toplam net süre (offline/arka planda birikmiş). Makul aralıktaysa
+    /// (0 &lt; değer ≤ sunucu-hesabı + <see cref="ClientMinutesToleranceMinutes"/>) net süre olarak baz alınır.
+    /// </param>
+    public void Pause(DateTime nowUtc, int? clientEffectiveMinutes = null)
     {
         if (Status != StudySessionStatus.Running)
         {
@@ -161,6 +165,13 @@ public sealed class StudySession : AggregateRoot<Guid>
         }
 
         EffectiveMinutes += MinutesBetween(LastResumedAtUtc ?? StartedAtUtc, nowUtc);
+
+        // İstemci-otoriter süre: makul üst sınır içinde kalırsa istemci toplamını baz al.
+        if (clientEffectiveMinutes is int c && c > 0 && c <= EffectiveMinutes + ClientMinutesToleranceMinutes)
+        {
+            EffectiveMinutes = c;
+        }
+
         Status = StudySessionStatus.Paused;
         LastPausedAtUtc = nowUtc;
         LastResumedAtUtc = null;
@@ -252,6 +263,28 @@ public sealed class StudySession : AggregateRoot<Guid>
         Status = StudySessionStatus.Discarded;
         EndedAtUtc = nowUtc;
         UpdatedOnUtc = nowUtc;
+    }
+
+    /// <summary>
+    /// Çökme/kesinti sonrası takılı kalmış (Running/Paused) bir seansı, istemcinin bildirdiği net süreyle
+    /// tamamlanmış olarak kurtarır. Süre şüpheli olduğundan sunucu-hesabı yapılmaz; verilen değer (≥ 0) kullanılır.
+    /// </summary>
+    public void RecoverStuck(int effectiveMinutes, DateTime nowUtc)
+    {
+        if (Status is not (StudySessionStatus.Running or StudySessionStatus.Paused))
+        {
+            throw new InvalidOperationException("Yalnızca takılı (çalışan/molada) bir seans kurtarılabilir.");
+        }
+
+        EffectiveMinutes = Math.Max(0, effectiveMinutes);
+        Status = StudySessionStatus.Completed;
+        EndedAtUtc = nowUtc;
+        LastResumedAtUtc = null;
+        LastPausedAtUtc = null;
+        UpdatedOnUtc = nowUtc;
+
+        Raise(new StudySessionCompletedDomainEvent(
+            Id, StudentId, Subject, Topic, EffectiveMinutes, BreakMinutes, nowUtc));
     }
 
     /// <summary>

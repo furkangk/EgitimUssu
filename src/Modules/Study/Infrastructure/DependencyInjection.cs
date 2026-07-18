@@ -35,6 +35,7 @@ public static class DependencyInjection
 
         AddStudentScopedQueryAuthorizer<ListSubjectCatalogQuery>(services);
         AddStudentScopedQueryAuthorizer<ListStudyNotesQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetActiveSessionQuery>(services);
         AddStudentScopedQueryAuthorizer<ListStudySessionsQuery>(services);
         AddStudentScopedQueryAuthorizer<WeeklySummaryQuery>(services);
         AddStudentScopedQueryAuthorizer<ListTestResultsQuery>(services);
@@ -49,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<PauseStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<ResumeStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<CompleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RecoverStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DiscardStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<EditStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DeleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
@@ -79,12 +81,14 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<PauseStudySessionCommand, Result<StudySessionResponse>>, PauseStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<ResumeStudySessionCommand, Result<StudySessionResponse>>, ResumeStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteStudySessionCommand, Result<StudySessionResponse>>, CompleteStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<RecoverStudySessionCommand, Result<StudySessionResponse>>, RecoverStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<DiscardStudySessionCommand, Result<StudySessionResponse>>, DiscardStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<EditStudySessionCommand, Result<StudySessionResponse>>, EditStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteStudySessionCommand, Result<bool>>, DeleteStudySessionCommandHandler>();
 
         // Seans sorguları
         services.AddScoped<IQueryHandler<GetStudySessionQuery, Result<StudySessionResponse>>, GetStudySessionQueryHandler>();
+        services.AddScoped<IQueryHandler<GetActiveSessionQuery, Result<ActiveSessionResponse?>>, GetActiveSessionQueryHandler>();
         services.AddScoped<IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>, ListStudySessionsQueryHandler>();
         services.AddScoped<IQueryHandler<WeeklySummaryQuery, Result<WeeklySummaryResponse>>, WeeklySummaryQueryHandler>();
 

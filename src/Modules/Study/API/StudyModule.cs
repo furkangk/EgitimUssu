@@ -34,10 +34,12 @@ public sealed class StudyModule : ModuleDefinition
         group.MapPost("/sessions/{sessionId:guid}/pause", PauseSessionAsync).WithSummary("Çalışma seansını molaya alır");
         group.MapPost("/sessions/{sessionId:guid}/resume", ResumeSessionAsync).WithSummary("Çalışma seansını sürdürür");
         group.MapPost("/sessions/{sessionId:guid}/complete", CompleteSessionAsync).WithSummary("Çalışma seansını tamamlar");
+        group.MapPost("/sessions/{sessionId:guid}/recover", RecoverSessionAsync).WithSummary("Takılı (çökme/kesinti sonrası) seansı bildirilen süreyle kurtarır");
         group.MapPost("/sessions/{sessionId:guid}/discard", DiscardSessionAsync).WithSummary("Çalışma seansını iptal eder");
         group.MapGet("/sessions/{sessionId:guid}", GetSessionAsync).WithSummary("Seans detayını getirir");
         group.MapPut("/sessions/{sessionId:guid}", EditSessionAsync).WithSummary("Tamamlanmış seansı düzenler (konu rollup yeniden türetilir)");
         group.MapDelete("/sessions/{sessionId:guid}", DeleteSessionAsync).WithSummary("Çalışma seansını siler (konu rollup yeniden türetilir)");
+        group.MapGet("/students/{studentId:guid}/active-session", ActiveSessionAsync).WithSummary("Öğrencinin o an aktif (çalışan/molada) seansını ve takılı olup olmadığını getirir");
         group.MapGet("/students/{studentId:guid}/sessions", ListSessionsAsync).WithSummary("Öğrencinin seans geçmişini listeler");
         group.MapGet("/students/{studentId:guid}/weekly-summary", WeeklySummaryAsync).WithSummary("Haftalık çalışma özetini getirir");
 
@@ -82,14 +84,17 @@ public sealed class StudyModule : ModuleDefinition
         => ToHttpResult(ctx, await dispatcher.Dispatch(
             new CreateManualStudySessionCommand(req.StudentId, req.Subject, req.Topic, req.EffectiveMinutes, req.StudiedOnUtc, req.PersonalNote), ct));
 
-    private static async Task<IResult> PauseSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new PauseStudySessionCommand(sessionId), ct));
+    private static async Task<IResult> PauseSessionAsync(HttpContext ctx, Guid sessionId, PauseSessionRequest? req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new PauseStudySessionCommand(sessionId, req?.ClientEffectiveMinutes), ct));
 
     private static async Task<IResult> ResumeSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ResumeStudySessionCommand(sessionId), ct));
 
     private static async Task<IResult> CompleteSessionAsync(HttpContext ctx, Guid sessionId, CompleteSessionRequest? req, ICommandDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new CompleteStudySessionCommand(sessionId, req?.PersonalNote), ct));
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new CompleteStudySessionCommand(sessionId, req?.PersonalNote, req?.ClientEffectiveMinutes), ct));
+
+    private static async Task<IResult> RecoverSessionAsync(HttpContext ctx, Guid sessionId, RecoverSessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new RecoverStudySessionCommand(sessionId, req.EffectiveMinutes), ct));
 
     private static async Task<IResult> DiscardSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new DiscardStudySessionCommand(sessionId), ct));
@@ -103,6 +108,9 @@ public sealed class StudyModule : ModuleDefinition
 
     private static async Task<IResult> DeleteSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteStudySessionCommand(sessionId), ct));
+
+    private static async Task<IResult> ActiveSessionAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new GetActiveSessionQuery(studentId), ct));
 
     private static async Task<IResult> ListSessionsAsync(HttpContext ctx, Guid studentId, DateTime? from, DateTime? to, string? subject, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListStudySessionsQuery(studentId, from, to, subject), ct));
@@ -226,7 +234,11 @@ public sealed record StartStudySessionRequest(Guid StudentId, string Subject, st
 public sealed record CreateManualSessionRequest(
     Guid StudentId, string Subject, string? Topic, int EffectiveMinutes, DateTime StudiedOnUtc, string? PersonalNote);
 
-public sealed record CompleteSessionRequest(string? PersonalNote);
+public sealed record CompleteSessionRequest(string? PersonalNote, int? ClientEffectiveMinutes = null);
+
+public sealed record PauseSessionRequest(int? ClientEffectiveMinutes = null);
+
+public sealed record RecoverSessionRequest(int EffectiveMinutes);
 
 public sealed record EditSessionRequest(string Subject, string? Topic, int EffectiveMinutes, string? PersonalNote);
 

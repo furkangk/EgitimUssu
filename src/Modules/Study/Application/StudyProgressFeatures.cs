@@ -330,6 +330,7 @@ public sealed class StudySessionOwnershipAuthorizer :
     ICommandAuthorizer<PauseStudySessionCommand>,
     ICommandAuthorizer<ResumeStudySessionCommand>,
     ICommandAuthorizer<CompleteStudySessionCommand>,
+    ICommandAuthorizer<RecoverStudySessionCommand>,
     ICommandAuthorizer<DiscardStudySessionCommand>,
     ICommandAuthorizer<EditStudySessionCommand>,
     ICommandAuthorizer<DeleteStudySessionCommand>,
@@ -351,6 +352,9 @@ public sealed class StudySessionOwnershipAuthorizer :
         AuthorizeSessionAsync(command.SessionId, cancellationToken);
 
     public Task<Result> Authorize(CompleteStudySessionCommand command, CancellationToken cancellationToken) =>
+        AuthorizeSessionAsync(command.SessionId, cancellationToken);
+
+    public Task<Result> Authorize(RecoverStudySessionCommand command, CancellationToken cancellationToken) =>
         AuthorizeSessionAsync(command.SessionId, cancellationToken);
 
     public Task<Result> Authorize(DiscardStudySessionCommand command, CancellationToken cancellationToken) =>

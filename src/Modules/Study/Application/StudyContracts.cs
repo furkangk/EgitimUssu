@@ -27,6 +27,9 @@ public sealed record StudySessionResponse(
     bool IsSharedWithTeacher,
     DateTime CreatedOnUtc);
 
+/// <summary>Öğrencinin o an aktif (çalışan/molada) seansı ve takılı (unutulmuş) olup olmadığı.</summary>
+public sealed record ActiveSessionResponse(StudySessionResponse Session, bool IsStale);
+
 public sealed record SubjectMinutesResponse(string Subject, int EffectiveMinutes, int SessionCount);
 
 public sealed record DayMinutesResponse(DateOnly Date, int EffectiveMinutes, int SessionCount);

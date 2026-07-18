@@ -17,11 +17,15 @@ public sealed record CreateManualStudySessionCommand(
     DateTime StudiedOnUtc,
     string? PersonalNote) : ICommand<Result<StudySessionResponse>>, IStudentScopedRequest;
 
-public sealed record PauseStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
+public sealed record PauseStudySessionCommand(Guid SessionId, int? ClientEffectiveMinutes = null)
+    : ICommand<Result<StudySessionResponse>>;
 
 public sealed record ResumeStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
 
-public sealed record CompleteStudySessionCommand(Guid SessionId, string? PersonalNote)
+public sealed record CompleteStudySessionCommand(Guid SessionId, string? PersonalNote, int? ClientEffectiveMinutes = null)
+    : ICommand<Result<StudySessionResponse>>;
+
+public sealed record RecoverStudySessionCommand(Guid SessionId, int EffectiveMinutes)
     : ICommand<Result<StudySessionResponse>>;
 
 public sealed record DiscardStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
@@ -35,6 +39,9 @@ public sealed record DeleteStudySessionCommand(Guid SessionId) : ICommand<Result
 // ---- Sorgular ----
 
 public sealed record GetStudySessionQuery(Guid SessionId) : IQuery<Result<StudySessionResponse>>;
+
+public sealed record GetActiveSessionQuery(Guid StudentId)
+    : IQuery<Result<ActiveSessionResponse?>>, IStudentScopedRequest;
 
 public sealed record ListStudySessionsQuery(Guid StudentId, DateTime? FromUtc, DateTime? ToUtc, string? Subject)
     : IQuery<Result<IReadOnlyCollection<StudySessionResponse>>>, IStudentScopedRequest;
@@ -244,7 +251,7 @@ public sealed class PauseStudySessionCommandHandler
             return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
         }
 
-        session.Pause(_clock.UtcNow);
+        session.Pause(_clock.UtcNow, command.ClientEffectiveMinutes);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<StudySessionResponse>.Success(session.ToResponse());
     }
@@ -299,7 +306,37 @@ public sealed class CompleteStudySessionCommandHandler
             return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
         }
 
-        session.Complete(_clock.UtcNow, command.PersonalNote);
+        session.Complete(_clock.UtcNow, command.PersonalNote, command.ClientEffectiveMinutes);
+        await _completion.RecordCompletedAsync(session, cancellationToken);
+
+        return Result<StudySessionResponse>.Success(session.ToResponse());
+    }
+}
+
+public sealed class RecoverStudySessionCommandHandler
+    : ICommandHandler<RecoverStudySessionCommand, Result<StudySessionResponse>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly StudyCompletionService _completion;
+    private readonly IClock _clock;
+
+    public RecoverStudySessionCommandHandler(
+        IStudyRepository repository, StudyCompletionService completion, IClock clock)
+    {
+        _repository = repository;
+        _completion = completion;
+        _clock = clock;
+    }
+
+    public async Task<Result<StudySessionResponse>> Handle(RecoverStudySessionCommand command, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetSessionAsync(command.SessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
+        }
+
+        session.RecoverStuck(command.EffectiveMinutes, _clock.UtcNow);
         await _completion.RecordCompletedAsync(session, cancellationToken);
 
         return Result<StudySessionResponse>.Success(session.ToResponse());
@@ -427,6 +464,27 @@ public sealed class GetStudySessionQueryHandler
         return session is null
             ? Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound)
             : Result<StudySessionResponse>.Success(session.ToResponse());
+    }
+}
+
+public sealed class GetActiveSessionQueryHandler
+    : IQueryHandler<GetActiveSessionQuery, Result<ActiveSessionResponse?>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly IClock _clock;
+
+    public GetActiveSessionQueryHandler(IStudyRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<ActiveSessionResponse?>> Handle(GetActiveSessionQuery query, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetActiveSessionAsync(query.StudentId, cancellationToken);
+        return session is null
+            ? Result<ActiveSessionResponse?>.Success(null)
+            : Result<ActiveSessionResponse?>.Success(new ActiveSessionResponse(session.ToResponse(), session.IsStale(_clock.UtcNow)));
     }
 }
 
