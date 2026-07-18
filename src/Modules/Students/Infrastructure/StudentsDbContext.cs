@@ -47,6 +47,7 @@ internal sealed class StudentProfileConfiguration : IEntityTypeConfiguration<Stu
         builder.Property(entity => entity.GoalSummary).HasMaxLength(1000);
         builder.Property(entity => entity.LevelNotes).HasMaxLength(1000);
         builder.Property(entity => entity.Origin).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.TargetExam).HasConversion<string>().HasMaxLength(16).IsRequired().HasDefaultValue(TargetExam.None);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.UserId).IsUnique();

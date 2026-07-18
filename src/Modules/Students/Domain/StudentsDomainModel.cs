@@ -21,7 +21,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         string? levelNotes,
         StudentOrigin origin,
         bool isActive,
-        DateTime createdOnUtc)
+        DateTime createdOnUtc,
+        TargetExam targetExam = TargetExam.None)
     {
         Id = id;
         UserId = userId;
@@ -35,6 +36,7 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         LevelNotes = levelNotes;
         Origin = origin;
         IsActive = isActive;
+        TargetExam = targetExam;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
 
@@ -63,6 +65,9 @@ public sealed class StudentProfile : AggregateRoot<Guid>
 
     public bool IsActive { get; private set; }
 
+    /// <summary>Öğrencinin hedeflediği sınav; net formülü ve deneme türetimlerinde kullanılır (S-03.9).</summary>
+    public TargetExam TargetExam { get; private set; }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -77,7 +82,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         string? goalSummary,
         string? levelNotes,
         bool isActive,
-        DateTime updatedOnUtc)
+        DateTime updatedOnUtc,
+        TargetExam targetExam = TargetExam.None)
     {
         FullName = fullName.Trim();
         GradeLevel = gradeLevel.Trim();
@@ -86,6 +92,14 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         GoalSummary = goalSummary?.Trim();
         LevelNotes = levelNotes?.Trim();
         IsActive = isActive;
+        TargetExam = targetExam;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>Öğrencinin hedef sınavını günceller (S-03.9).</summary>
+    public void SetTargetExam(TargetExam targetExam, DateTime updatedOnUtc)
+    {
+        TargetExam = targetExam;
         UpdatedOnUtc = updatedOnUtc;
     }
 
@@ -133,6 +147,18 @@ public enum StudentOrigin
 {
     TeacherManaged = 1,
     SelfRegistered = 2
+}
+
+/// <summary>Öğrencinin hedeflediği sınav türü. Net formülü ceza katsayısını buradan türetir (LGS /3, TYT/AYT /4, School yanlış götürmez).</summary>
+public enum TargetExam
+{
+    None = 0,
+    LGS = 1,
+    TYT = 2,
+    AYT = 3,
+    YDS = 4,
+    School = 5,
+    Other = 6
 }
 
 public sealed record StudentProfileCreatedDomainEvent(

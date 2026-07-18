@@ -282,7 +282,8 @@ public sealed record UpdateStudentProfileRequest(
     string? GoalSummary,
     string? LevelNotes,
     bool IsActive,
-    IReadOnlyCollection<StudentSubjectItem> Subjects)
+    IReadOnlyCollection<StudentSubjectItem> Subjects,
+    TargetExam TargetExam = TargetExam.None)
 {
     public UpdateStudentProfileCommand ToCommand(Guid studentId)
     {
@@ -295,7 +296,8 @@ public sealed record UpdateStudentProfileRequest(
             GoalSummary,
             LevelNotes,
             IsActive,
-            Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray());
+            Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray(),
+            TargetExam);
     }
 }
 
@@ -313,7 +315,8 @@ public sealed record CreateStudentProfileRequest(
     string? GoalSummary,
     string? LevelNotes,
     StudentOrigin Origin,
-    IReadOnlyCollection<StudentSubjectItem> Subjects)
+    IReadOnlyCollection<StudentSubjectItem> Subjects,
+    TargetExam TargetExam = TargetExam.None)
 {
     public CreateStudentProfileCommand ToCommand()
     {
@@ -328,6 +331,7 @@ public sealed record CreateStudentProfileRequest(
             GoalSummary,
             LevelNotes,
             Origin,
-            Subjects.Select(subject => new StudentSubjectRequest(subject.Subject, subject.TargetLevel)).ToArray());
+            Subjects.Select(subject => new StudentSubjectRequest(subject.Subject, subject.TargetLevel)).ToArray(),
+            TargetExam);
     }
 }

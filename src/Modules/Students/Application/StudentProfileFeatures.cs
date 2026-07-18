@@ -22,7 +22,8 @@ public sealed record CreateStudentProfileCommand(
     string? GoalSummary,
     string? LevelNotes,
     StudentOrigin Origin,
-    IReadOnlyCollection<StudentSubjectRequest> Subjects) : ICommand<Result<StudentProfileResponse>>;
+    IReadOnlyCollection<StudentSubjectRequest> Subjects,
+    TargetExam TargetExam = TargetExam.None) : ICommand<Result<StudentProfileResponse>>;
 
 public sealed record GetStudentProfileByIdQuery(Guid StudentId) : IQuery<Result<StudentProfileResponse>>;
 
@@ -39,7 +40,8 @@ public sealed record UpdateStudentProfileCommand(
     string? GoalSummary,
     string? LevelNotes,
     bool IsActive,
-    IReadOnlyCollection<StudentSubjectRequest> Subjects) : ICommand<Result<StudentProfileResponse>>;
+    IReadOnlyCollection<StudentSubjectRequest> Subjects,
+    TargetExam TargetExam = TargetExam.None) : ICommand<Result<StudentProfileResponse>>;
 
 public sealed record StudentSubjectResponse(string Subject, string? TargetLevel);
 
@@ -67,6 +69,7 @@ public sealed record StudentProfileResponse(
     string? LevelNotes,
     string Origin,
     bool IsActive,
+    string TargetExam,
     IReadOnlyCollection<StudentSubjectResponse> Subjects,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
@@ -157,7 +160,8 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
             command.LevelNotes?.Trim(),
             command.Origin,
             true,
-            now);
+            now,
+            command.TargetExam);
 
         foreach (var subject in command.Subjects.Where(subject => !string.IsNullOrWhiteSpace(subject.Subject)))
         {
@@ -291,7 +295,8 @@ public sealed class UpdateStudentProfileCommandHandler : ICommandHandler<UpdateS
             command.GoalSummary,
             command.LevelNotes,
             command.IsActive,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            command.TargetExam);
 
         var newSubjects = command.Subjects
             .Where(s => !string.IsNullOrWhiteSpace(s.Subject))
@@ -327,6 +332,7 @@ internal static class StudentProfileMappings
             profile.LevelNotes,
             profile.Origin.ToString(),
             profile.IsActive,
+            profile.TargetExam.ToString(),
             subjects.Select(subject => new StudentSubjectResponse(subject.Subject, subject.TargetLevel)).ToArray(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
