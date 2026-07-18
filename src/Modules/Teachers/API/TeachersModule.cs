@@ -123,7 +123,8 @@ public sealed record UpsertTeacherProfileRequest(
     decimal HourlyRateAmount,
     string Currency,
     string? ProfilePhotoUrl,
-    IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots)
+    IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots,
+    IReadOnlyCollection<string> Subjects)
 {
     public CreateTeacherProfileCommand ToCreateCommand()
     {
@@ -148,7 +149,8 @@ public sealed record UpsertTeacherProfileRequest(
                     slot.EndTime,
                     slot.IsOnlineAvailable,
                     slot.IsInPersonAvailable))
-                .ToArray());
+                .ToArray(),
+            Subjects ?? Array.Empty<string>());
     }
 
     public UpdateTeacherProfileCommand ToUpdateCommand(Guid userId)
@@ -174,6 +176,7 @@ public sealed record UpsertTeacherProfileRequest(
                     slot.EndTime,
                     slot.IsOnlineAvailable,
                     slot.IsInPersonAvailable))
-                .ToArray());
+                .ToArray(),
+            Subjects ?? Array.Empty<string>());
     }
 }

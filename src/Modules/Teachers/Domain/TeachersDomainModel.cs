@@ -81,6 +81,10 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
 
     public List<TeacherAvailabilitySlot> AvailabilitySlots { get; private set; } = [];
 
+    public List<TeacherSubject> Subjects { get; private set; } = [];
+
+    public List<TeacherCertificate> Certificates { get; private set; } = [];
+
     public void Update(
         string fullName,
         string subject,
@@ -95,6 +99,8 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         string currency,
         string? profilePhotoUrl,
         IReadOnlyCollection<TeacherAvailabilitySlot> availabilitySlots,
+        IReadOnlyCollection<TeacherSubject> subjects,
+        IReadOnlyCollection<TeacherCertificate> certificates,
         DateTime updatedOnUtc)
     {
         FullName = fullName;
@@ -113,6 +119,10 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
 
         AvailabilitySlots.Clear();
         AvailabilitySlots.AddRange(availabilitySlots);
+        Subjects.Clear();
+        Subjects.AddRange(subjects);
+        Certificates.Clear();
+        Certificates.AddRange(certificates);
 
         Raise(new TeacherProfileUpdatedDomainEvent(Id, UserId, Subject, updatedOnUtc));
     }
@@ -153,6 +163,51 @@ public sealed class TeacherAvailabilitySlot : Entity<Guid>
     public bool IsOnlineAvailable { get; private set; }
 
     public bool IsInPersonAvailable { get; private set; }
+}
+
+public sealed class TeacherSubject : Entity<Guid>
+{
+    private TeacherSubject()
+    {
+    }
+
+    public TeacherSubject(Guid id, Guid teacherProfileId, string subject)
+    {
+        Id = id;
+        TeacherProfileId = teacherProfileId;
+        Subject = subject;
+    }
+
+    public Guid TeacherProfileId { get; private set; }
+
+    public string Subject { get; private set; } = string.Empty;
+}
+
+public sealed class TeacherCertificate : Entity<Guid>
+{
+    private TeacherCertificate()
+    {
+    }
+
+    public TeacherCertificate(Guid id, Guid teacherProfileId, string title, string? institution, int? year, string? fileUrl)
+    {
+        Id = id;
+        TeacherProfileId = teacherProfileId;
+        Title = title;
+        Institution = institution;
+        Year = year;
+        FileUrl = fileUrl;
+    }
+
+    public Guid TeacherProfileId { get; private set; }
+
+    public string Title { get; private set; } = string.Empty;
+
+    public string? Institution { get; private set; }
+
+    public int? Year { get; private set; }
+
+    public string? FileUrl { get; private set; }
 }
 
 public enum TeacherLessonFormat

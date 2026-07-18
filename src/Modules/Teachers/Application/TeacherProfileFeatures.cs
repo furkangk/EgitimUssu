@@ -25,7 +25,8 @@ public sealed record CreateTeacherProfileCommand(
     decimal HourlyRateAmount,
     string Currency,
     string? ProfilePhotoUrl,
-    IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots) : ICommand<Result<TeacherProfileResponse>>;
+    IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots,
+    IReadOnlyCollection<string> Subjects) : ICommand<Result<TeacherProfileResponse>>;
 
 public sealed record UpdateTeacherProfileCommand(
     Guid UserId,
@@ -41,7 +42,8 @@ public sealed record UpdateTeacherProfileCommand(
     decimal HourlyRateAmount,
     string Currency,
     string? ProfilePhotoUrl,
-    IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots) : ICommand<Result<TeacherProfileResponse>>;
+    IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots,
+    IReadOnlyCollection<string> Subjects) : ICommand<Result<TeacherProfileResponse>>;
 
 public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>;
 
@@ -69,6 +71,7 @@ public sealed record TeacherProfileResponse(
     bool IsVerified,
     string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityResponse> AvailabilitySlots,
+    IReadOnlyCollection<string> Subjects,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
 
@@ -141,6 +144,13 @@ public sealed class CreateTeacherProfileCommandHandler : ICommandHandler<CreateT
 
         profile.AvailabilitySlots.AddRange(slots);
 
+        var subjectNames = command.Subjects is { Count: > 0 } ? command.Subjects : new[] { command.Subject };
+        var teacherSubjects = subjectNames
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => new TeacherSubject(_idGenerator.New(), profileId, s.Trim()))
+            .ToArray();
+        profile.Subjects.AddRange(teacherSubjects);
+
         await _repository.AddAsync(profile, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
 
@@ -204,6 +214,12 @@ public sealed class UpdateTeacherProfileCommandHandler : ICommandHandler<UpdateT
             request.IsOnlineAvailable,
             request.IsInPersonAvailable)).ToArray();
 
+        var subjectNames = command.Subjects is { Count: > 0 } ? command.Subjects : new[] { command.Subject };
+        var teacherSubjects = subjectNames
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => new TeacherSubject(_idGenerator.New(), profile.Id, s.Trim()))
+            .ToArray();
+
         profile.Update(
             command.FullName.Trim(),
             command.Subject.Trim(),
@@ -218,6 +234,8 @@ public sealed class UpdateTeacherProfileCommandHandler : ICommandHandler<UpdateT
             command.Currency.Trim().ToUpperInvariant(),
             command.ProfilePhotoUrl?.Trim(),
             slots,
+            teacherSubjects,
+            Array.Empty<TeacherCertificate>(),
             _clock.UtcNow);
 
         await _repository.SaveChangesAsync(cancellationToken);
@@ -273,6 +291,9 @@ internal static class TeacherProfileMappings
                     slot.EndTime,
                     slot.IsOnlineAvailable,
                     slot.IsInPersonAvailable))
+                .ToArray(),
+            profile.Subjects
+                .Select(s => s.Subject)
                 .ToArray(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
