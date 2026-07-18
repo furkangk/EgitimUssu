@@ -52,6 +52,15 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapPut("/teachers/{teacherUserId:guid}/students/{studentId:guid}/rate", SetStudentRateAsync)
         .WithSummary("Öğrenci bazlı anlaşılan ücreti günceller");
+
+        group.MapPost("/teachers/{teacherUserId:guid}/students/{studentId:guid}/invite", InviteStudentAsync)
+        .WithSummary("Öğrenciyi gerçek kullanıcı hesabına bağlanmaya davet eder");
+
+        group.MapPost("/links/{linkId:guid}/accept", AcceptLinkAsync)
+        .WithSummary("Öğretmen davetini kabul eder (öğrenci)");
+
+        group.MapPost("/links/{linkId:guid}/reject", RejectLinkAsync)
+        .WithSummary("Öğretmen davetini reddeder (öğrenci)");
     }
 
     /// <summary>
@@ -166,11 +175,65 @@ public sealed class StudentsModule : ModuleDefinition
         return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
     }
 
+    /// <summary>
+    /// Öğrenciyi gerçek kullanıcı hesabına bağlanmaya davet eder (B-06). İsteğe bağlı hedef kullanıcı belirtilir.
+    /// </summary>
+    private static async Task<IResult> InviteStudentAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        Guid studentId,
+        InviteStudentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new InviteStudentCommand(teacherUserId, studentId, request.TargetUserId),
+            cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini kabul eder ve profiline bağlanır.
+    /// </summary>
+    private static async Task<IResult> AcceptLinkAsync(
+        HttpContext context,
+        Guid linkId,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var acceptingUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Daveti yanıtlayan kullanıcı belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(new AcceptTeacherStudentLinkCommand(linkId, acceptingUserId), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
+    /// <summary>
+    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini reddeder.
+    /// </summary>
+    private static async Task<IResult> RejectLinkAsync(
+        HttpContext context,
+        Guid linkId,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var rejectingUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Daveti yanıtlayan kullanıcı belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(new RejectTeacherStudentLinkCommand(linkId, rejectingUserId), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
     private static IResult MapLinkError(HttpContext context, Result result)
         => result.Error.Code switch
         {
             "students.link_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "students.user_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -202,6 +265,11 @@ public sealed record StudentSubjectItem(string Subject, string? TargetLevel);
 /// Öğretmen-öğrenci bağlantısı için anlaşılan ders ücretini taşır (B-07).
 /// </summary>
 public sealed record SetStudentRateRequest(decimal AgreedRateAmount, string Currency);
+
+/// <summary>
+/// Öğrenci davetini taşır (B-06). Hedef kullanıcı isteğe bağlı; belirtilmezse açık davet olur.
+/// </summary>
+public sealed record InviteStudentRequest(Guid? TargetUserId);
 
 /// <summary>
 /// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.

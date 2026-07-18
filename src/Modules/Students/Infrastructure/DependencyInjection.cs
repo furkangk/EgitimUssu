@@ -32,6 +32,12 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<SetTeacherStudentRateCommand, Result>, SetTeacherStudentRateCommandHandler>();
         services.AddScoped<ICommandAuthorizer<ArchiveTeacherStudentLinkCommand>, TeacherStudentLinkAuthorizer>();
         services.AddScoped<ICommandAuthorizer<SetTeacherStudentRateCommand>, TeacherStudentLinkAuthorizer>();
+        services.AddScoped<ICommandHandler<InviteStudentCommand, Result>, InviteStudentCommandHandler>();
+        services.AddScoped<ICommandHandler<AcceptTeacherStudentLinkCommand, Result>, AcceptTeacherStudentLinkCommandHandler>();
+        services.AddScoped<ICommandHandler<RejectTeacherStudentLinkCommand, Result>, RejectTeacherStudentLinkCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<InviteStudentCommand>, TeacherStudentLinkAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<AcceptTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RejectTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
         return services;
     }

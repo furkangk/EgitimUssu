@@ -104,6 +104,58 @@ public sealed class TeacherStudentLinkTests
         Assert.Equal("students.link_not_found", result.Error.Code);
     }
 
+    private sealed class SingleProfileRepo : IStudentProfileRepository
+    {
+        private readonly StudentProfile? _profile;
+        public SingleProfileRepo(StudentProfile? profile) => _profile = profile;
+
+        public Task<StudentProfile?> GetByIdAsync(Guid studentId, CancellationToken ct) => Task.FromResult(_profile);
+        public Task<StudentProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<bool> ExistsByContactEmailAsync(string normalizedEmail, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<StudentProfile>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<StudentProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => throw new NotImplementedException();
+        public Task AddAsync(StudentProfile profile, CancellationToken ct) => throw new NotImplementedException();
+        public Task ReplaceSubjectsAsync(Guid studentProfileId, IReadOnlyList<StudentSubject> newSubjects, CancellationToken ct) => throw new NotImplementedException();
+        public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task InviteThenAccept_MarksLinkedAndBindsStudentUser()
+    {
+        var teacherId = Guid.NewGuid();
+        var studentId = Guid.NewGuid();
+        var studentUserId = Guid.NewGuid();
+        var linkId = Guid.NewGuid();
+        var link = new TeacherStudentLink(linkId, teacherId, studentId, TeacherStudentLinkStatus.Manual, Now);
+        var profile = new StudentProfile(studentId, null, teacherId, null, "Ali", "9", null, null, null, null, StudentOrigin.TeacherManaged, true, Now);
+        var linkRepo = new SingleLinkRepo(link);
+
+        var invite = new InviteStudentCommandHandler(linkRepo, new FakeClock());
+        var inviteResult = await invite.Handle(new InviteStudentCommand(teacherId, studentId, studentUserId), CancellationToken.None);
+
+        Assert.True(inviteResult.IsSuccess);
+        Assert.Equal(TeacherStudentLinkStatus.InviteSent, link.Status);
+        Assert.Equal(studentUserId, link.InviteTargetUserId);
+
+        var accept = new AcceptTeacherStudentLinkCommandHandler(linkRepo, new SingleProfileRepo(profile), new FakeClock());
+        var acceptResult = await accept.Handle(new AcceptTeacherStudentLinkCommand(linkId, studentUserId), CancellationToken.None);
+
+        Assert.True(acceptResult.IsSuccess);
+        Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
+        Assert.Equal(studentUserId, profile.UserId);
+    }
+
+    [Fact]
+    public async Task RejectHandler_MissingLink_ReturnsNotFound()
+    {
+        var handler = new RejectTeacherStudentLinkCommandHandler(new SingleLinkRepo(null), new FakeClock());
+
+        var result = await handler.Handle(new RejectTeacherStudentLinkCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("students.link_not_found", result.Error.Code);
+    }
+
     [Fact]
     public void SetRate_StoresAmountAndCurrency()
     {

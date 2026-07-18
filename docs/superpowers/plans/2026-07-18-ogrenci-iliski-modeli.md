@@ -598,8 +598,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Modify: `src/Modules/Students/Infrastructure/DependencyInjection.cs`
 - Test: `tests/Unit/TeacherStudentLinkTests.cs`
 
-**Interfaces:**
-- Produces: `InviteStudentCommand(Guid TeacherUserId, Guid StudentId, string? Email, string? Phone)`, `AcceptTeacherStudentLinkCommand(Guid LinkId)`, `RejectTeacherStudentLinkCommand(Guid LinkId)`. Endpoint'ler `POST .../teachers/{teacherUserId}/students/{studentId}/invite`, `POST .../links/{linkId}/accept`, `POST .../links/{linkId}/reject`. Kullanıcı arama `Shared/Contracts` kontratıyla (Parents deseni). Error'lar `students.user_not_found`, `students.link_not_found`.
+**Interfaces (KARAR 2026-07-18):** Kullanıcı-arama kontratı **yok**; Parents e-posta/telefonla değil `StudentId` ile bağlanıyor. Identity modülüne dokunulmaz. Davet, mevcut manuel öğrenci link'i üzerinden yürür; kabul eden `currentUser` öğrenci profiline bağlanır.
+- Produces: `InviteStudentCommand(Guid TeacherUserId, Guid StudentId, Guid? TargetUserId)`, `AcceptTeacherStudentLinkCommand(Guid LinkId, Guid AcceptingUserId)`, `RejectTeacherStudentLinkCommand(Guid LinkId, Guid RejectingUserId)`. Endpoint'ler `POST .../teachers/{teacherUserId}/students/{studentId}/invite`, `POST .../links/{linkId}/accept`, `POST .../links/{linkId}/reject` (accept/reject `currentUser`'dan kimliği alır). `TeacherStudentLink.MarkInviteSent(Guid? targetUserId, ...)`; kabulde `StudentProfile.LinkUser(Guid userId, DateTime)`. Error'lar `students.link_not_found`. Davet authorizer'ı `CanManage(teacherUserId)`; accept/reject authorizer'ı link'in `InviteTargetUserId == currentUser` (belirli hedef varsa) veya admin.
 
 - [ ] **Step 1: Discover user-directory contract**
 

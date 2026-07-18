@@ -97,6 +97,15 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         ParentUserId = parentUserId;
         UpdatedOnUtc = updatedOnUtc;
     }
+
+    /// <summary>
+    /// Öğretmen davetini kabul eden gerçek öğrenci kullanıcısını profile bağlar (B-06 davet/kabul akışı).
+    /// </summary>
+    public void LinkUser(Guid userId, DateTime updatedOnUtc)
+    {
+        UserId = userId;
+        UpdatedOnUtc = updatedOnUtc;
+    }
 }
 
 public sealed class StudentSubject : Entity<Guid>
@@ -188,7 +197,7 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
-    public void MarkInviteSent(Guid targetUserId, DateTime updatedOnUtc)
+    public void MarkInviteSent(Guid? targetUserId, DateTime updatedOnUtc)
     {
         Status = TeacherStudentLinkStatus.InviteSent;
         InviteTargetUserId = targetUserId;
@@ -223,7 +232,7 @@ public sealed record TeacherStudentInviteSentDomainEvent(
     Guid LinkId,
     Guid TeacherUserId,
     Guid StudentId,
-    Guid TargetUserId,
+    Guid? TargetUserId,
     DateTime OnUtc) : DomainEvent;
 
 public sealed record TeacherStudentLinkAcceptedDomainEvent(
