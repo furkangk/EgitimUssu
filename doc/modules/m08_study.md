@@ -65,10 +65,12 @@
 
 **Davranışlar (metotlar):**
 - `Start(...)` → ctor; `Status = Running`, `StartedAtUtc = LastResumedAtUtc = now`. `StudySessionStartedDomainEvent` yükseltir.
-- `Pause(nowUtc)` → aktif dilimi `EffectiveMinutes`'e ekler, `Status = Paused`, mola sayacı başlar.
+- `Pause(nowUtc, clientEffectiveMinutes?)` → aktif dilimi `EffectiveMinutes`'e ekler, `Status = Paused`, mola sayacı başlar. **İstemci-otoriter süre (Ö-E):** `clientEffectiveMinutes` makul aralıktaysa (`0 < değer ≤ sunucu-hesabı + 2`) net süre olarak baz alınır.
 - `Resume(nowUtc)` → ara biten süreyi `BreakMinutes`'e ekler, `LastResumedAtUtc = now`, `Status = Running`.
-- `Complete(nowUtc, note?)` → son aktif dilimi ekler, `EndedAtUtc` set, `Status = Completed`,
-  **`StudySessionCompletedDomainEvent`** yükseltir (mimari dokümanında öngörülen `StudySessionEndedEvent`'in kanonik karşılığı).
+- `Complete(nowUtc, note?, clientEffectiveMinutes?)` → son aktif dilimi ekler, `EndedAtUtc` set, `Status = Completed`,
+  **`StudySessionCompletedDomainEvent`** yükseltir (mimari dokümanında öngörülen `StudySessionEndedEvent`'in kanonik karşılığı). **İstemci-otoriter süre (Ö-E):** `clientEffectiveMinutes` makul aralıktaysa (`0 < değer ≤ sunucu-hesabı + 2`, `StudySession.ClientMinutesToleranceMinutes`) offline/arka planda birikmiş net süre kabul edilir; şişirme (ör. 999 dk) sunucu hesabıyla reddedilir.
+- `RecoverStuck(effectiveMinutes, nowUtc)` (Ö-E) → çökme/kesinti sonrası takılı (`Running`/`Paused`) seansı bildirilen süreyle (`EffectiveMinutes = max(0, değer)`) `Completed` yapar ve `StudySessionCompletedDomainEvent` yükseltir. Süre şüpheli olduğundan sunucu-hesabı yapılmaz.
+- `IsStale(nowUtc)` (Ö-E) → seans hâlâ `Running` ve son sürdürme/başlangıçtan bu yana **6 saatten** (`StudySession.StaleThresholdHours`) fazla geçtiyse "takılı/unutulmuş" sayılır (B-02/AKIŞ 4 tespiti).
 - `Discard()` → yanlış başlatılan seansı iptal eder (`Status = Discarded`, istatistiğe dahil edilmez).
 
 ```csharp
@@ -244,11 +246,16 @@ hem M10 `TopicMastery` ile hizalamada kullanılır.
 ```
 POST   /api/study/sessions/start
        body: { studentId, subject, topic?, source }            → 201 { sessionId, status, startedAtUtc }
-POST   /api/study/sessions/{id}/pause                           → 200 { status, effectiveMinutes, breakMinutes }
+POST   /api/study/sessions/{id}/pause
+       body: { clientEffectiveMinutes? }                        → 200 { status, effectiveMinutes, breakMinutes }  (clientEffectiveMinutes: Ö-E istemci-otoriter süre)
 POST   /api/study/sessions/{id}/resume                          → 200 { status, lastResumedAtUtc }
 POST   /api/study/sessions/{id}/complete
-       body: { personalNote? }                                  → 200 { summary: süre, mola, konu }
+       body: { personalNote?, clientEffectiveMinutes? }         → 200 { summary: süre, mola, konu }  (clientEffectiveMinutes: Ö-E istemci-otoriter süre)
+POST   /api/study/sessions/{id}/recover                         (Ö-E)
+       body: { effectiveMinutes }                               → 200 (takılı Running/Paused seansı bildirilen süreyle Completed yapar)
 POST   /api/study/sessions/{id}/discard                         → 204
+GET    /api/study/students/{studentId}/active-session           (Ö-E)
+                                                                → 200 { session, isStale }  (aktif seans yoksa null; isStale=6 saat kuralı)
 POST   /api/study/sessions/manual
        body: { studentId, subject, topic?, effectiveMinutes,
                studiedOnUtc, personalNote? }                    → 201 (kronometresiz manuel giriş)

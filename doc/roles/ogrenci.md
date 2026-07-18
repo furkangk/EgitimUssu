@@ -103,6 +103,7 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 ## 9. Kabul Kriterleri (Faz 2)
 - [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
 - [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
+- [x] **Sayaç güvenilirliği (Ö-E, API):** offline/arka planda birikmiş net süre istemci-otoriter kabul edilir (`clientEffectiveMinutes`, şişirmeye karşı `elapsed+2` tavanı); çökme sonrası takılı seans `recover` ile kurtarılır; `active-session` sorgusu 6 saatten uzun süredir çalışan seansı `isStale` ile işaretler (B-02/AKIŞ 4). *Not: asıl arka plan/offline mantığı mobil tarafta ayrı iştir.*
 - [x] Test girişi + net + konu bazlı takip (net-trend).
 - [x] **Çok dersli deneme** (`MockExam`): dersler tek oturumda girilir, toplam net türetilir.
 - [x] **Hedef sınav** (`TargetExam`) net ceza bölenini belirler (LGS/3, TYT-AYT/4, okul yanlış götürmez).
