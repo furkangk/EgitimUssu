@@ -7,6 +7,12 @@ namespace EgitimUssu.Modules.Study.Domain;
 /// </summary>
 public sealed class StudySession : AggregateRoot<Guid>
 {
+    /// <summary>İstemci-bildirimli net sürede kabul edilen üst tolerans (dakika); şişirmeyi sınırlar.</summary>
+    public const int ClientMinutesToleranceMinutes = 2;
+
+    /// <summary>Bu süreden uzun süredir çalışan bir seans "takılı" (unutulmuş) sayılır.</summary>
+    public const int StaleThresholdHours = 6;
+
     private StudySession()
     {
     }
@@ -177,7 +183,12 @@ public sealed class StudySession : AggregateRoot<Guid>
     }
 
     /// <summary>Son aktif/mola dilimini kapatır, seansı tamamlar ve tamamlanma olayını yükseltir.</summary>
-    public void Complete(DateTime nowUtc, string? personalNote)
+    /// <param name="clientEffectiveMinutes">
+    /// İstemcinin (offline/arka planda birikmiş) bildirdiği net süre. Verilirse ve makul aralıktaysa
+    /// (0 &lt; değer ≤ sunucu-hesabı + <see cref="ClientMinutesToleranceMinutes"/>) net süre olarak kullanılır;
+    /// aksi halde şişirmeye karşı sunucu hesabı korunur.
+    /// </param>
+    public void Complete(DateTime nowUtc, string? personalNote, int? clientEffectiveMinutes = null)
     {
         if (Status is not (StudySessionStatus.Running or StudySessionStatus.Paused))
         {
@@ -191,6 +202,12 @@ public sealed class StudySession : AggregateRoot<Guid>
         else
         {
             BreakMinutes += MinutesBetween(LastPausedAtUtc ?? nowUtc, nowUtc);
+        }
+
+        // İstemci-otoriter süre: makul üst sınır (sunucu-hesabı + tolerans) içinde kalırsa istemciyi baz al.
+        if (clientEffectiveMinutes is int c && c > 0 && c <= EffectiveMinutes + ClientMinutesToleranceMinutes)
+        {
+            EffectiveMinutes = c;
         }
 
         Status = StudySessionStatus.Completed;
@@ -236,6 +253,14 @@ public sealed class StudySession : AggregateRoot<Guid>
         EndedAtUtc = nowUtc;
         UpdatedOnUtc = nowUtc;
     }
+
+    /// <summary>
+    /// Seans hâlâ <see cref="StudySessionStatus.Running"/> ve son sürdürme/başlangıçtan bu yana
+    /// <see cref="StaleThresholdHours"/> saatten fazla geçtiyse "takılı" (unutulmuş) sayılır.
+    /// </summary>
+    public bool IsStale(DateTime nowUtc)
+        => Status == StudySessionStatus.Running
+           && nowUtc - (LastResumedAtUtc ?? StartedAtUtc) > TimeSpan.FromHours(StaleThresholdHours);
 
     private static int MinutesBetween(DateTime from, DateTime to)
     {
