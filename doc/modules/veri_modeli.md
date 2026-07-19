@@ -3,7 +3,7 @@
 > **Kapsam:** Tüm `src/Modules/` domain aggregate root'larının kimlik (Guid) ve modüller arası referans alanları.
 > **Yöntem:** Mevcut varlıklar koddan doğrulanmıştır (`<Module>/Domain/<Module>DomainModel.cs`); promp.txt vizyonuyla gelen
 > yeni varlıklar **⚠️ Önerilen (henüz kodda yok)** olarak işaretlidir.
-> **Güncelleme:** 2026-07-04
+> **Güncelleme:** 2026-07-19
 >
 > İlgili: [`00_genel_bakis.md`](00_genel_bakis.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`../INDEX.md`](../INDEX.md)
 
@@ -25,6 +25,13 @@
 
 > ⚠️ **Asimetri:** Öğretmen tarafı `TeacherUserId` (Identity `UserAccount.Id`) ile; öğrenci tarafı `StudentId`
 > (`StudentProfile.Id`, Identity değil) ile referanslanır. Yeni modül yazarken dikkat.
+>
+> 🔀 **Profil birleştirme (Ö-C/B5):** İki `StudentProfile` birleştiğinde (öğrenci davet kodunu girip claim yapar ve zaten
+> bir self-profil'i varsa), kanonik = self-profil olur; manuel profil `IsMerged=true` + `MergedIntoStudentId` ile pasifleşir.
+> `Students`, `StudentProfilesMergedDomainEvent(FromStudentId, ToStudentId)`'ı Outbox ile yayar; **`StudentId` hub'ına bağlı
+> tüm modüller** (Scheduling, Assignments, Payments, LessonSessions, Study) kendi kayıtlarındaki `StudentId=FromStudentId`
+> satırlarını kanonik `ToStudentId`'ye yeniden atar (`ExecuteUpdateAsync`; `Study.StudyStudent` PK=StudentId olduğundan kaynak
+> satır silinir). Böylece veli paneli tek kanonik `StudentId`'den beslenir. Sözleşme: `Shared.Contracts.StudentProfilesMergedIntegrationEvent`.
 
 ---
 
@@ -50,6 +57,7 @@ erDiagram
     TeacherProfile ||--o{ TeacherSubject : has
     TeacherProfile ||--o{ TeacherCertificate : has
     StudentProfile ||--o{ StudentSubject : has
+    StudentProfile ||--o| StudentProfile : "MergedIntoStudentId (Ö-C merge → kanonik)"
     StudentProfile ||--o{ TeacherStudentLink : "StudentId (çoklu öğretmen)"
     ParentProfile ||--o{ ParentChildLink : "onaylı bağ"
     StudentProfile ||--o{ ParentChildLink : "StudentId"
@@ -65,6 +73,8 @@ erDiagram
     StudentProfile ||--o{ LessonReminder : "StudentId"
     StudentProfile ||--o{ StudySession : "StudentId (önerilen)"
     StudentProfile ||--o{ TestResult : "StudentId (önerilen)"
+    StudentProfile ||--o{ MockExam : "StudentId (çok dersli deneme)"
+    MockExam ||--o{ TestResult : "MockExamId (ders satırı)"
     StudentProfile ||--o{ TopicMastery : "StudentId (önerilen)"
 
     LessonSchedule ||--o| LessonSession : "LessonScheduleId"
@@ -96,9 +106,9 @@ erDiagram
 | | `TeacherAvailabilitySlot` | `Id` | `TeacherProfileId` → TeacherProfile | |
 | | `TeacherSubject` | `Id` | `TeacherProfileId` → TeacherProfile | çoklu branş (birincil `Subject` korunur) |
 | | `TeacherCertificate` | `Id` | `TeacherProfileId` → TeacherProfile | sertifika/deneyim |
-| Students (`students`) | `StudentProfile` (+`LinkUser` davranışı — B-06 2026-07-18) | `Id` | `UserId?`, `CreatedByTeacherUserId?`, `ParentUserId?` → UserAccount | [m03](m03_students.md) |
+| Students (`students`) | `StudentProfile` (+`MembershipTier` Free/Premium üyelik — Ö-D 2026-07-19; `IsMerged`/`MergedIntoStudentId` profil birleştirme — Ö-C 2026-07-19; `TargetExam` hedef sınav S-03.9 — Ö-B 2026-07-19; `LinkUser` davranışı — B-06 2026-07-18) | `Id` | `UserId?`, `CreatedByTeacherUserId?`, `ParentUserId?` → UserAccount · `MergedIntoStudentId?` → StudentProfile (kanonik) | [m03](m03_students.md) |
 | | `StudentSubject` | `Id` | `StudentProfileId` → StudentProfile | |
-| | `TeacherStudentLink` (çoklu öğretmen bağı, free limit=5, arşiv, öğrenci bazlı ücret — Dilim C 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile · `InviteTargetUserId?` · UNIQUE `(TeacherUserId,StudentId)` | [m03](m03_students.md) |
+| | `TeacherStudentLink` (+`InviteCode` davet kodu/claim — Ö-C 2026-07-19; çoklu öğretmen bağı, free limit=5, arşiv, öğrenci bazlı ücret — Dilim C 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile · `InviteTargetUserId?` · `InviteCode?` (indexli) · UNIQUE `(TeacherUserId,StudentId)` | [m03](m03_students.md) |
 | Scheduling (`scheduling`) | `LessonSchedule` (+`MeetingUrl`, `OriginalStartAtUtc`, `RescheduleNote`, `CancellationReason`, `IsChargeable` — 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
 | | `StudyScheduleEntry` (öğrenci kişisel programı, 2026-07-08) | `Id` | `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
 | | `TimeOffBlock` (tatil/müsait değil bloğu, B-01 2026-07-18) | `Id` | `TeacherUserId` → UserAccount | [m04](m04_scheduling.md) |
@@ -110,7 +120,8 @@ erDiagram
 | Notifications (`notifications`) | `LessonReminder` | `Id` | `LessonScheduleId` (UNIQUE) · `TeacherUserId` · `StudentId` | [m11](m11_notifications.md) |
 | Settings (`settings`) | `UserSetting` | `Id` | `UserId` → UserAccount (UNIQUE) | [m15](m15_settings.md) |
 | Study (`study`) | `StudySession` | `Id` | `StudentId` → StudentProfile | [m08](m08_study.md) |
-| | `TestResult` | `Id` | `StudentId` → StudentProfile | |
+| | `TestResult` (+`MockExamId?` — Ö-B 2026-07-19) | `Id` | `StudentId` → StudentProfile · `MockExamId?` → MockExam | |
+| | `MockExam` (çok dersli deneme, net toplama — Ö-B 2026-07-19) | `Id` | `StudentId` → StudentProfile · INDEX `(StudentId,TakenOnUtc)` | |
 | | `StudyGoal` | `Id` | `StudentId` (aktif hedef) | |
 | | `StudyStreak` | `Id` | `StudentId` (UNIQUE) | |
 | | `Achievement` (katalog) | `Id` | `Code` (UNIQUE) — 10 rozet seed | |
@@ -126,7 +137,7 @@ erDiagram
 | | `KnownStudent` (read-model) | `Id` | `StudentId` → StudentProfile · `UserId` → UserAccount | |
 | | `ProcessedIntegrationEvent` (idempotency) | `Id` | işlenmiş event kimliği | |
 
-**Enum'lar (koddan):** `UserRole`(Admin1,Teacher2,Student3,Parent4) · `UserAccountStatus`(PendingActivation1,Active2,Suspended3,Closed4) · `TeacherLessonFormat`/`ScheduledLessonFormat`(InPerson1,Online2,Hybrid3) · `StudentOrigin`(TeacherManaged1,SelfRegistered2) · `TeacherStudentLinkStatus`(Manual1,InviteSent2,Linked3,Rejected4,Disconnected5) · `LessonScheduleStatus`(Draft1,Planned2,Cancelled3,Completed4) · `CancellationReason`(TeacherCancelled1,StudentCancelled2,Holiday3,Other4) · `OccurrenceScope`(Single1,ThisAndFuture2,All3) · `TimeOffType`(Holiday1,Leave2,Official3,Other4) · `OccurrenceExceptionAction`(Skipped1,Cancelled2,Rescheduled3) · `StudyScheduleEntryStatus`(Active1,Cancelled2) · `LessonSessionStatus`(Planned1,InProgress2,Completed3,Cancelled4) · `StudentAttendanceStatus`(Unknown1,Attended2,Late3,Absent4) · `AssignmentStatus`(Pending1,InProgress2,Completed3,Cancelled4,Approved5,ReturnedForRevision6) · `LessonNoteVisibility`(Private1,Student2,StudentAndParent3) · `BillingItemType`(LessonFee1,MonthlyPackage2,ManualAdjustment3) · `PaymentStatus`(Pending1,PartiallyPaid2,Paid3,Overdue4,Cancelled5) · `NotificationChannel`(InApp1,Push2) · `ReminderStatus`(Pending1,Sent2,Cancelled3) · `PrivacyLevel`(Standard1,Limited2,Hidden3) · `SessionTerminationPolicy`(KeepLatest1,TerminateOtherSessions2) · `ParentChildLinkStatus`(Pending1,Approved2,Rejected3,Revoked4) · **Parents** `NotificationChannel`(Push1,Email2,Both3) — Notifications modülünün aynı adlı enum'undan (InApp1,Push2) **ayrıdır** · **Study** `StudySessionStatus`(Running1,Paused2,Completed3,Discarded4) · `StudySessionSource`(Stopwatch1,Manual2) · `TestType`(Branch1,General2,Subject3,Topic4) · `AchievementCategory`(Streak1,StudyTime2,TestPerformance3,Goal4,Consistency5).
+**Enum'lar (koddan):** `UserRole`(Admin1,Teacher2,Student3,Parent4) · `UserAccountStatus`(PendingActivation1,Active2,Suspended3,Closed4) · `TeacherLessonFormat`/`ScheduledLessonFormat`(InPerson1,Online2,Hybrid3) · `StudentOrigin`(TeacherManaged1,SelfRegistered2) · `TargetExam`(None0,LGS1,TYT2,AYT3,YDS4,School5,Other6 — DB'de string; M08 net böleni) · `MembershipTier`(Free1,Premium2 — DB'de string, Shared/Contracts; M08 Free/Premium kapıları, Ö-D) · `TeacherStudentLinkStatus`(Manual1,InviteSent2,Linked3,Rejected4,Disconnected5) · `LessonScheduleStatus`(Draft1,Planned2,Cancelled3,Completed4) · `CancellationReason`(TeacherCancelled1,StudentCancelled2,Holiday3,Other4) · `OccurrenceScope`(Single1,ThisAndFuture2,All3) · `TimeOffType`(Holiday1,Leave2,Official3,Other4) · `OccurrenceExceptionAction`(Skipped1,Cancelled2,Rescheduled3) · `StudyScheduleEntryStatus`(Active1,Cancelled2) · `LessonSessionStatus`(Planned1,InProgress2,Completed3,Cancelled4) · `StudentAttendanceStatus`(Unknown1,Attended2,Late3,Absent4) · `AssignmentStatus`(Pending1,InProgress2,Completed3,Cancelled4,Approved5,ReturnedForRevision6) · `LessonNoteVisibility`(Private1,Student2,StudentAndParent3) · `BillingItemType`(LessonFee1,MonthlyPackage2,ManualAdjustment3) · `PaymentStatus`(Pending1,PartiallyPaid2,Paid3,Overdue4,Cancelled5) · `NotificationChannel`(InApp1,Push2) · `ReminderStatus`(Pending1,Sent2,Cancelled3) · `PrivacyLevel`(Standard1,Limited2,Hidden3) · `SessionTerminationPolicy`(KeepLatest1,TerminateOtherSessions2) · `ParentChildLinkStatus`(Pending1,Approved2,Rejected3,Revoked4) · **Parents** `NotificationChannel`(Push1,Email2,Both3) — Notifications modülünün aynı adlı enum'undan (InApp1,Push2) **ayrıdır** · **Study** `StudySessionStatus`(Running1,Paused2,Completed3,Discarded4) · `StudySessionSource`(Stopwatch1,Manual2) · `TestType`(Branch1,General2,Subject3,Topic4) · `AchievementCategory`(Streak1,StudyTime2,TestPerformance3,Goal4,Consistency5).
 
 ---
 
@@ -161,4 +172,4 @@ erDiagram
 
 ---
 
-*Veri Modeli & ER Şeması | Güncelleme: 2026-07-18 (Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*
+*Veri Modeli & ER Şeması | Güncelleme: 2026-07-19 (Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*

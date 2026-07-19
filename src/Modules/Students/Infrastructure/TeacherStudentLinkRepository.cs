@@ -30,6 +30,11 @@ internal sealed class TeacherStudentLinkRepository : ITeacherStudentLinkReposito
             cancellationToken);
     }
 
+    public Task<TeacherStudentLink?> GetByInviteCodeAsync(string inviteCode, CancellationToken cancellationToken)
+    {
+        return _dbContext.TeacherStudentLinks.FirstOrDefaultAsync(link => link.InviteCode == inviteCode, cancellationToken);
+    }
+
     public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken)
     {
         return _dbContext.TeacherStudentLinks.CountAsync(

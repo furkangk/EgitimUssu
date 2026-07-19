@@ -15,7 +15,7 @@
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### ✅ Var olan (uçtan uca — 2026-07-04'te inşa edildi)
-- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudentSubjectCatalog` + `StudentTopicCatalog` (öğrencinin tanımladığı ders/konu kataloğu), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
+- **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı; opsiyonel `MockExamId`), `MockExam` (çok dersli deneme; net toplama), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudentSubjectCatalog` + `StudentTopicCatalog` (öğrencinin tanımladığı ders/konu kataloğu), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
 - **Application (CQRS)** (`StudyContracts/SessionFeatures/TestFeatures/ProgressFeatures/Policies`): Start/Pause/Resume/Complete/Discard/Manual seans komutları; RecordTest; UpdateGoals; UpdateSharing. Sorgular: session, list-sessions, weekly-summary, test, list-tests, net-trend, goals, streak, achievements, sharing, dashboard. `StudyCompletionService` (konu rollup + streak + başarım değerlendirme), `AchievementEvaluator`, `StudyOwnershipGuard`/`StudyLinkResolver`.
 - **Infrastructure**: `StudyDbContext` 8 `DbSet` + EF config'ler (snake_case, enum→string), `StudyRepository` (tek unit-of-work), `AddStudyModule` DI, `StudyDesignTimeDbContextFactory`, **`InitialStudy` migration** (`study` şeması + achievement katalog seed'i 10 rozet).
 - **API** (`API/StudyModule.cs`): §3'teki tüm uçlar, `AuthenticatedUser` politikası, sahiplik yetkilendirmesi, hata→HTTP eşlemesi.
@@ -26,7 +26,7 @@
 
 ### ⚠️ Sınır / Gelecek işler
 - **Sahiplik modeli:** Study, kendi sınırı içinde `StudyStudent` bağını **ilk yazımda oturum kullanıcısına** bağlar. Manuel öğrenci hijack'ini tümüyle kapatmak için M03 `StudentProfileCreated` integration event tüketimi eklenmeli.
-- **Yerel gün (streak):** M15 zaman dilimi tercihi gelene kadar Türkiye saati (UTC+3) varsayılır (`StudyLocalTime`).
+- **Yerel gün (streak):** M15 zaman dilimi tercihi gelene kadar Türkiye saati (UTC+3) varsayılır (`StudyLocalTime`). Streak gün sınırı 04:00'tir (`StudyLocalTime.StreakDate`); istatistik/haftalık özet ise gece yarısı tabanlı `LocalDate` kullanır.
 - **Konu sözlüğü:** `Subject/Topic` serbest metin; M15 müfredat sözlüğüne bağlanmalı.
 - **Veli/öğretmen okuma yolu:** Paylaşım bayrakları (`IsSharedWith*`) kayıtlarda tutulur; M09/öğretmen görünümünün bunları okuması bağ + integration event ile tamamlanacak.
 
@@ -65,10 +65,12 @@
 
 **Davranışlar (metotlar):**
 - `Start(...)` → ctor; `Status = Running`, `StartedAtUtc = LastResumedAtUtc = now`. `StudySessionStartedDomainEvent` yükseltir.
-- `Pause(nowUtc)` → aktif dilimi `EffectiveMinutes`'e ekler, `Status = Paused`, mola sayacı başlar.
+- `Pause(nowUtc, clientEffectiveMinutes?)` → aktif dilimi `EffectiveMinutes`'e ekler, `Status = Paused`, mola sayacı başlar. **İstemci-otoriter süre (Ö-E):** `clientEffectiveMinutes` makul aralıktaysa (`0 < değer ≤ sunucu-hesabı + 2`) net süre olarak baz alınır.
 - `Resume(nowUtc)` → ara biten süreyi `BreakMinutes`'e ekler, `LastResumedAtUtc = now`, `Status = Running`.
-- `Complete(nowUtc, note?)` → son aktif dilimi ekler, `EndedAtUtc` set, `Status = Completed`,
-  **`StudySessionCompletedDomainEvent`** yükseltir (mimari dokümanında öngörülen `StudySessionEndedEvent`'in kanonik karşılığı).
+- `Complete(nowUtc, note?, clientEffectiveMinutes?)` → son aktif dilimi ekler, `EndedAtUtc` set, `Status = Completed`,
+  **`StudySessionCompletedDomainEvent`** yükseltir (mimari dokümanında öngörülen `StudySessionEndedEvent`'in kanonik karşılığı). **İstemci-otoriter süre (Ö-E):** `clientEffectiveMinutes` makul aralıktaysa (`0 < değer ≤ sunucu-hesabı + 2`, `StudySession.ClientMinutesToleranceMinutes`) offline/arka planda birikmiş net süre kabul edilir; şişirme (ör. 999 dk) sunucu hesabıyla reddedilir.
+- `RecoverStuck(effectiveMinutes, nowUtc)` (Ö-E) → çökme/kesinti sonrası takılı (`Running`/`Paused`) seansı bildirilen süreyle (`EffectiveMinutes = max(0, değer)`) `Completed` yapar ve `StudySessionCompletedDomainEvent` yükseltir. Süre şüpheli olduğundan sunucu-hesabı yapılmaz.
+- `IsStale(nowUtc)` (Ö-E) → seans hâlâ `Running` ve son sürdürme/başlangıçtan bu yana **6 saatten** (`StudySession.StaleThresholdHours`) fazla geçtiyse "takılı/unutulmuş" sayılır (B-02/AKIŞ 4 tespiti).
 - `Discard()` → yanlış başlatılan seansı iptal eder (`Status = Discarded`, istatistiğe dahil edilmez).
 
 ```csharp
@@ -84,6 +86,7 @@ public enum StudySessionSource { Stopwatch = 1, Manual = 2 }
 |------|-----|:------:|----------|
 | `Id` | `Guid` | ✓ | |
 | `StudentId` | `Guid` | ✓ | M03 `StudentProfile.Id` |
+| `MockExamId` | `Guid?` | — | Çok dersli denemenin (`MockExam`) parçasıysa o denemenin kimliği; tekil test ise null (`AttachToMockExam`) |
 | `Subject` | `string` | ✓ | Ders |
 | `Topic` | `string?` | — | Konu (branş denemesi ise null olabilir) |
 | `TestName` | `string?` | — | Deneme adı (örn. "3D Yayınları TYT-5") |
@@ -107,6 +110,22 @@ public enum StudySessionSource { Stopwatch = 1, Manual = 2 }
 public enum TestType { Branch = 1, General = 2, Subject = 3, Topic = 4 }
 ```
 
+### 2.2b `MockExam` (AggregateRoot) — Çok dersli deneme sınavı
+
+Tam bir deneme oturumu (ör. tüm TYT/AYT/LGS). Her ders bir `TestResult` olarak eklenir; toplam net derslerin netlerinin toplamıdır. Öğrencinin **hedef sınavı** (M03 `StudentProfile.TargetExam`, S-03.9) net ceza bölenini belirler; Study modülü Students'a referans vermez, hedef sınav istemci tarafından **string** olarak geçer.
+
+| Alan | Tip | Zorunlu | Açıklama |
+|------|-----|:------:|----------|
+| `Id` | `Guid` | ✓ | |
+| `StudentId` | `Guid` | ✓ | M03 `StudentProfile.Id` |
+| `ExamType` | `string` | ✓ | Deneme türü (örn. "TYT", "AYT", "LGS") — ders bazlı böleni de sürükler |
+| `TakenOnUtc` | `DateTime` | ✓ | Denemenin çözüldüğü tarih |
+| `TotalNet` | `decimal` | ✓ | Derslerin net toplamı (`AddSubject` ile birikir) |
+| `EstimatedRank` | `int?` | — | Tahmini sıralama (dış hesap/istemci girdisi; `SetEstimatedRank`) |
+| `CreatedOnUtc` | `DateTime` | ✓ | |
+
+**Davranış:** `AddSubject(TestResult)` → ders sonucunu denemeye bağlar (`TestResult.AttachToMockExam`) ve `TotalNet += result.Net`. Deneme, her dersin `TestResult`'ıyla birlikte **tek `SaveChanges`** içinde yazılır (Task/B6).
+
 ### 2.3 `StudyGoal` (AggregateRoot) — Çalışma hedefleri
 
 Öğrencinin kendine koyduğu hedefler. Streak ve günlük ilerleme bunlara göre değerlendirilir.
@@ -120,6 +139,7 @@ public enum TestType { Branch = 1, General = 2, Subject = 3, Topic = 4 }
 | `TargetNet` | `decimal?` | — | Ders/genel için hedef net |
 | `TargetScore` | `decimal?` | — | Hedef puan (örn. sıralama/puan) |
 | `Subject` | `string?` | — | Hedef belirli bir derse özelse |
+| `StreakThresholdPercent` | `int` | ✓ | Günün seriye sayılması için günlük hedefin tamamlanması gereken yüzdesi (1–100, varsayılan 60; `Math.Clamp`) |
 | `EffectiveFromUtc` | `DateTime` | ✓ | Hedefin geçerlilik başlangıcı |
 | `IsActive` | `bool` | ✓ | Aktif mi |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
@@ -145,6 +165,8 @@ Motivasyon çekirdeği: ardışık çalışılan gün sayısı ve kişisel rekor
 - dün ise `CurrentStreakDays++`,
 - arada boşluk varsa `CurrentStreakDays = 1` (seri kırıldı, `StreakBrokenDomainEvent`),
 - `LongestStreakDays` güncellenir; rekor kırılırsa `StreakMilestoneReachedDomainEvent`.
+
+**Streak eşiği (B3):** `RegisterStudyDay` artık her tamamlanan seansta çağrılmaz. `StudyCompletionService`, o günün (04:00 tabanlı `StudyLocalTime.StreakDate`) toplam efektif dakikasını hesaplar ve yalnız eşik aşılınca günü seriye işler. Eşik saf `StreakRules` sınıfındadır: günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk** (`MinFixedThresholdMinutes`). Gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).
 
 ### 2.5 `Achievement` / `StudentAchievement` — Başarım rozetleri
 
@@ -224,15 +246,23 @@ hem M10 `TopicMastery` ile hizalamada kullanılır.
 ```
 POST   /api/study/sessions/start
        body: { studentId, subject, topic?, source }            → 201 { sessionId, status, startedAtUtc }
-POST   /api/study/sessions/{id}/pause                           → 200 { status, effectiveMinutes, breakMinutes }
+POST   /api/study/sessions/{id}/pause
+       body: { clientEffectiveMinutes? }                        → 200 { status, effectiveMinutes, breakMinutes }  (clientEffectiveMinutes: Ö-E istemci-otoriter süre)
 POST   /api/study/sessions/{id}/resume                          → 200 { status, lastResumedAtUtc }
 POST   /api/study/sessions/{id}/complete
-       body: { personalNote? }                                  → 200 { summary: süre, mola, konu }
+       body: { personalNote?, clientEffectiveMinutes? }         → 200 { summary: süre, mola, konu }  (clientEffectiveMinutes: Ö-E istemci-otoriter süre)
+POST   /api/study/sessions/{id}/recover                         (Ö-E)
+       body: { effectiveMinutes }                               → 200 (takılı Running/Paused seansı bildirilen süreyle Completed yapar)
 POST   /api/study/sessions/{id}/discard                         → 204
+GET    /api/study/students/{studentId}/active-session           (Ö-E)
+                                                                → 200 { session, isStale }  (aktif seans yoksa null; isStale=6 saat kuralı)
 POST   /api/study/sessions/manual
        body: { studentId, subject, topic?, effectiveMinutes,
                studiedOnUtc, personalNote? }                    → 201 (kronometresiz manuel giriş)
 GET    /api/study/sessions/{id}                                 → 200 seans detayı
+PUT    /api/study/sessions/{id}
+       body: { subject, topic?, effectiveMinutes, personalNote? } → 200 (yalnız tamamlanmış seans; konu rollup yeniden türetilir)
+DELETE /api/study/sessions/{id}                                 → 200 (konu rollup yeniden türetilir)
 GET    /api/study/students/{studentId}/sessions?from=&to=&subject=
                                                                 → 200 seans listesi (sayfalı)
 GET    /api/study/students/{studentId}/weekly-summary?weekStart=
@@ -246,11 +276,23 @@ POST   /api/study/test-results
                totalQuestions, correct, wrong, blank,
                durationMinutes?, takenOnUtc }                   → 201 { testResultId, net }
 GET    /api/study/test-results/{id}                             → 200
+PUT    /api/study/test-results/{id}
+       body: { subject, topic?, testType, testName?, totalQuestions,
+               correct, wrong, blank, penaltyDivisor?, durationMinutes?,
+               takenOnUtc }                                      → 200 (net yeniden hesaplanır)
+DELETE /api/study/test-results/{id}                             → 200
 GET    /api/study/students/{studentId}/test-results?subject=&from=&to=
                                                                 → 200 liste
 GET    /api/study/students/{studentId}/net-trend?subject=&topic=
                                                                 → 200 zaman serisi (net artış/azalış)
+POST   /api/study/students/{studentId}/mock-exams
+       body: { examType, takenOnUtc,
+               subjects: [ { subject, topic?, testName?, totalQuestions,
+                             correct, wrong, blank, penaltyDivisor?, targetExam? } ] }
+                                                                → 200 { id, examType, totalNet, subjects[] } (çok dersli deneme)
 ```
+> `test-results` (tekil) ve `mock-exams` (çok dersli) net'i aynı `ExamPenalty` böleniyle hesaplar (bkz. 4.3).
+> `mock-exams`'te her ders satırının böleni: açık `penaltyDivisor` > yoksa satırın `targetExam`'ı > yoksa denemenin `examType`'ından türetilir.
 
 ### 3.3 Hedef, streak, başarım
 ```
@@ -310,6 +352,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - Aynı anda bir öğrencinin yalnızca **bir `Running`/`Paused` seansı** olabilir (yeni başlatma öncekini engeller veya devralmayı önerir).
 - `Discarded` seanslar hiçbir istatistiğe (süre, streak, konu rollup) **dahil edilmez**.
 - Çok uzun (örn. > 8 saat) açık kalan seans için otomatik kapatma/uyarı önerilir (sayaç unutulması).
+- **Seans düzenle/sil (S-08.10):** Yalnızca **tamamlanmış** seans düzenlenir (`EditCompleted`: ders/konu/süre/not; süre > 0). Düzenleme/silme sonrası ilgili `(Subject, Topic)` **konu rollup'ı** (`StudyTopic`) o öğrencinin tamamlanmış seanslarından **yeniden türetilir** (`StudyRecompute.RebuildTopicAsync`; konu değişirse hem eski hem yeni konu için). Kalan seans yoksa rollup silinir. **Streak zinciri v1'de retroaktif geri sarılmaz** (YAGNI): o günün streak-uygunluğu bir sonraki seans kaydında yeniden değerlendirilir.
 
 ### 4.2 Manuel giriş
 - Kronometre kullanmadan geçmişe dönük seans eklenebilir (`Source = Manual`); `studiedOnUtc` bugünden ileri olamaz.
@@ -317,8 +360,9 @@ DELETE /api/study/notes/{noteId}                                       → 200
 ### 4.3 Test/net hesabı
 - **Doğrulama:** `Correct + Wrong + Blank == TotalQuestions` (ihlalde komut reddedilir).
 - **Net formülü:** `Net = Correct - (Wrong / PenaltyDivisor)`; varsayılan `PenaltyDivisor = 4` (4 yanlış 1 doğruyu götürür).
-  Katsayı ve yuvarlama **M15 (Settings)** üzerinden konfigüre edilebilir (örn. LGS vs YKS).
+- **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/YDS/diğer → 4**, **School → null** (okul denemesi **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
 - `Net` negatif olabilir; saklanır (ham veri).
+- **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
 ### 4.4 Streak & hedef
 - Bir gün **en az 1 tamamlanmış seans** (veya günlük hedef dakikasının karşılanması — konfigüre edilebilir) o günü "çalışılmış" sayar.
@@ -333,6 +377,29 @@ DELETE /api/study/notes/{noteId}                                       → 200
 ### 4.6 Plan çakışması önceliği (M04 ile)
 - Öğrencinin kendi çalışma planı ile öğretmenle yapılacak **özel ders** çakışırsa **özel ders önceliklidir**.
 - Çakışma anında öğrenciye **uyarı** gösterilir ve bireysel plan ikinci plana atılır (planlama kuralı `m04_scheduling.md`'de işlenir; M08 yalnızca uyarıyı yüzeye çıkarır).
+
+### 4.7 Free/Premium kapıları (Ö-D — PRD §14.3 uyarlaması)
+Öğrencinin üyelik seviyesi `MembershipTier` (`Free=1` / `Premium=2`) M03 `StudentProfile`'da hafifçe tutulur (M17 tam modülü gelene kadar; [`m17_membership.md`](m17_membership.md)). Study, tier'ı modüller-arası `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okur (Students'a doğrudan referans vermez). Karar: **Free geniş** (streak tam + son 30 gün) — büyüme önce; **Premium yalnız derinlik**. Kapı mantığı saf + birim testlidir (`MembershipGate`).
+
+| Yetenek | Free | Premium |
+|---------|------|---------|
+| Kronometre / manuel seans / mola | ✅ | ✅ |
+| Test/deneme girişi + net + net-trend | ✅ | ✅ |
+| Streak (seri) — tam | ✅ | ✅ |
+| Başarım rozetleri | ✅ | ✅ |
+| Haftalık özet | ✅ | ✅ |
+| **Çalışma/deneme geçmişi** | **son 30 gün** | **sınırsız** |
+| **Net-trend penceresi** | son 30 gün | sınırsız |
+| **Hedef net/puan takibi** (`TargetNet`/`TargetScore`) | ⛔ | ✅ |
+| Aylık analiz | ⛔ *(endpoint henüz yok)* | ✅ *(planlı)* |
+| Konu zayıflık analizi | ⛔ *(henüz yok)* | ✅ *(planlı)* |
+| Streak dondurma | ⛔ *(Ö-A dondurma özelliğine bağlı — no-op)* | ✅ *(planlı)* |
+
+**Uygulama:**
+- Geçmiş sorguları (`ListStudySessions`, `ListTestResults`, `NetTrend`) Free'de `fromUtc = Max(istenen, now − 30 gün)`'e kısılır (`MembershipGate.ClampFrom`); Premium sınırsız.
+- `UpdateStudyGoals`'ta `TargetNet`/`TargetScore` set edilmişse ve tier Free ise `study.premium_required` (**HTTP 402**) döner.
+- Tier çözümü (`StudyMembershipResolver`): bu uçlar sahiplik kapısıyla korunduğundan erişen = öğrencinin kendisi; oturum kullanıcısının tier'ı okunur. **Admin → Premium** (tam erişim).
+- Aylık analiz / konu zayıflık / streak dondurma için `MembershipGate.Allows(tier, PremiumFeature.…)` mekanizması hazırdır; ilgili endpoint'ler eklendiğinde bağlanır.
 
 ---
 
@@ -441,4 +508,8 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-09*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19*
+
+<!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
+<!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + IMembershipDirectory + MembershipGate; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->
+

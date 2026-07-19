@@ -123,6 +123,7 @@ POST /profiles   PUT /profiles/{studentId}   GET /profiles/{studentId}
 GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}?includeArchived=   (liste link üzerinden)
 POST /teachers/{teacherUserId}/students/{studentId}/archive|unarchive   PUT .../rate   (arşiv + öğrenci bazlı ücret, B-04/B-07 2026-07-18)
 POST /teachers/{teacherUserId}/students/{studentId}/invite   POST /links/{linkId}/accept|reject   (çoklu öğretmen davet/kabul, B-06 2026-07-18)
+POST /links/claim   (6 haneli davet koduyla profili devral + mevcut self-profil varsa birleştir/merge, Ö-C 2026-07-19)
 ```
 ### Scheduling — `/api/scheduling`
 ```
@@ -170,11 +171,13 @@ GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; 
 ### Study — `/api/study`  (tümü auth "AuthenticatedUser"; öğrenci kendi StudentId'sine erişir)
 ```
 POST /sessions/start   /sessions/manual
-POST /sessions/{id}/pause   /resume   /complete   /discard
-GET  /sessions/{id}
+POST /sessions/{id}/pause   /resume   /complete   /discard   /recover   (pause/complete: opsiyonel clientEffectiveMinutes; recover: takılı seansı kurtarır — Ö-E)
+GET  /sessions/{id}   PUT /sessions/{id}   DELETE /sessions/{id}
+GET  /students/{studentId}/active-session   (aktif seans + IsStale takılı bayrağı — Ö-E)
 GET  /students/{studentId}/sessions?from=&to=&subject=   /weekly-summary?weekStart=
-POST /test-results   GET /test-results/{id}
+POST /test-results   GET /test-results/{id}   PUT /test-results/{id}   DELETE /test-results/{id}
 GET  /students/{studentId}/test-results?subject=&topic=&from=&to=   /net-trend?subject=&topic=
+POST /students/{studentId}/mock-exams   (çok dersli deneme; net ExamPenalty böleniyle)
 GET  /students/{studentId}/goals   PUT /students/{studentId}/goals
 GET  /students/{studentId}/streak   /achievements   /dashboard
 GET  /students/{studentId}/sharing   PUT /students/{studentId}/sharing
@@ -207,4 +210,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*

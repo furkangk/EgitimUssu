@@ -7,6 +7,12 @@ namespace EgitimUssu.Modules.Study.Domain;
 /// </summary>
 public sealed class StudySession : AggregateRoot<Guid>
 {
+    /// <summary>İstemci-bildirimli net sürede kabul edilen üst tolerans (dakika); şişirmeyi sınırlar.</summary>
+    public const int ClientMinutesToleranceMinutes = 2;
+
+    /// <summary>Bu süreden uzun süredir çalışan bir seans "takılı" (unutulmuş) sayılır.</summary>
+    public const int StaleThresholdHours = 6;
+
     private StudySession()
     {
     }
@@ -147,7 +153,11 @@ public sealed class StudySession : AggregateRoot<Guid>
     }
 
     /// <summary>Aktif dilimi net süreye ekler ve seansı molaya alır.</summary>
-    public void Pause(DateTime nowUtc)
+    /// <param name="clientEffectiveMinutes">
+    /// İstemcinin bildirdiği toplam net süre (offline/arka planda birikmiş). Makul aralıktaysa
+    /// (0 &lt; değer ≤ sunucu-hesabı + <see cref="ClientMinutesToleranceMinutes"/>) net süre olarak baz alınır.
+    /// </param>
+    public void Pause(DateTime nowUtc, int? clientEffectiveMinutes = null)
     {
         if (Status != StudySessionStatus.Running)
         {
@@ -155,6 +165,13 @@ public sealed class StudySession : AggregateRoot<Guid>
         }
 
         EffectiveMinutes += MinutesBetween(LastResumedAtUtc ?? StartedAtUtc, nowUtc);
+
+        // İstemci-otoriter süre: makul üst sınır içinde kalırsa istemci toplamını baz al.
+        if (clientEffectiveMinutes is int c && c > 0 && c <= EffectiveMinutes + ClientMinutesToleranceMinutes)
+        {
+            EffectiveMinutes = c;
+        }
+
         Status = StudySessionStatus.Paused;
         LastPausedAtUtc = nowUtc;
         LastResumedAtUtc = null;
@@ -177,7 +194,12 @@ public sealed class StudySession : AggregateRoot<Guid>
     }
 
     /// <summary>Son aktif/mola dilimini kapatır, seansı tamamlar ve tamamlanma olayını yükseltir.</summary>
-    public void Complete(DateTime nowUtc, string? personalNote)
+    /// <param name="clientEffectiveMinutes">
+    /// İstemcinin (offline/arka planda birikmiş) bildirdiği net süre. Verilirse ve makul aralıktaysa
+    /// (0 &lt; değer ≤ sunucu-hesabı + <see cref="ClientMinutesToleranceMinutes"/>) net süre olarak kullanılır;
+    /// aksi halde şişirmeye karşı sunucu hesabı korunur.
+    /// </param>
+    public void Complete(DateTime nowUtc, string? personalNote, int? clientEffectiveMinutes = null)
     {
         if (Status is not (StudySessionStatus.Running or StudySessionStatus.Paused))
         {
@@ -193,6 +215,12 @@ public sealed class StudySession : AggregateRoot<Guid>
             BreakMinutes += MinutesBetween(LastPausedAtUtc ?? nowUtc, nowUtc);
         }
 
+        // İstemci-otoriter süre: makul üst sınır (sunucu-hesabı + tolerans) içinde kalırsa istemciyi baz al.
+        if (clientEffectiveMinutes is int c && c > 0 && c <= EffectiveMinutes + ClientMinutesToleranceMinutes)
+        {
+            EffectiveMinutes = c;
+        }
+
         Status = StudySessionStatus.Completed;
         EndedAtUtc = nowUtc;
         LastResumedAtUtc = null;
@@ -202,6 +230,26 @@ public sealed class StudySession : AggregateRoot<Guid>
 
         Raise(new StudySessionCompletedDomainEvent(
             Id, StudentId, Subject, Topic, EffectiveMinutes, BreakMinutes, nowUtc));
+    }
+
+    /// <summary>Tamamlanmış bir seansın ders/konu/süre/notunu düzenler.</summary>
+    public void EditCompleted(string subject, string? topic, int effectiveMinutes, string? personalNote, DateTime nowUtc)
+    {
+        if (Status != StudySessionStatus.Completed)
+        {
+            throw new InvalidOperationException("Yalnızca tamamlanmış seans düzenlenebilir.");
+        }
+
+        if (effectiveMinutes <= 0)
+        {
+            throw new InvalidOperationException("Süre 0'dan büyük olmalıdır.");
+        }
+
+        Subject = subject.Trim();
+        Topic = string.IsNullOrWhiteSpace(topic) ? null : topic.Trim();
+        EffectiveMinutes = effectiveMinutes;
+        PersonalNote = string.IsNullOrWhiteSpace(personalNote) ? PersonalNote : personalNote.Trim();
+        UpdatedOnUtc = nowUtc;
     }
 
     /// <summary>Yanlış başlatılan seansı iptal eder; hiçbir istatistiğe dahil edilmez.</summary>
@@ -216,6 +264,36 @@ public sealed class StudySession : AggregateRoot<Guid>
         EndedAtUtc = nowUtc;
         UpdatedOnUtc = nowUtc;
     }
+
+    /// <summary>
+    /// Çökme/kesinti sonrası takılı kalmış (Running/Paused) bir seansı, istemcinin bildirdiği net süreyle
+    /// tamamlanmış olarak kurtarır. Süre şüpheli olduğundan sunucu-hesabı yapılmaz; verilen değer (≥ 0) kullanılır.
+    /// </summary>
+    public void RecoverStuck(int effectiveMinutes, DateTime nowUtc)
+    {
+        if (Status is not (StudySessionStatus.Running or StudySessionStatus.Paused))
+        {
+            throw new InvalidOperationException("Yalnızca takılı (çalışan/molada) bir seans kurtarılabilir.");
+        }
+
+        EffectiveMinutes = Math.Max(0, effectiveMinutes);
+        Status = StudySessionStatus.Completed;
+        EndedAtUtc = nowUtc;
+        LastResumedAtUtc = null;
+        LastPausedAtUtc = null;
+        UpdatedOnUtc = nowUtc;
+
+        Raise(new StudySessionCompletedDomainEvent(
+            Id, StudentId, Subject, Topic, EffectiveMinutes, BreakMinutes, nowUtc));
+    }
+
+    /// <summary>
+    /// Seans hâlâ <see cref="StudySessionStatus.Running"/> ve son sürdürme/başlangıçtan bu yana
+    /// <see cref="StaleThresholdHours"/> saatten fazla geçtiyse "takılı" (unutulmuş) sayılır.
+    /// </summary>
+    public bool IsStale(DateTime nowUtc)
+        => Status == StudySessionStatus.Running
+           && nowUtc - (LastResumedAtUtc ?? StartedAtUtc) > TimeSpan.FromHours(StaleThresholdHours);
 
     private static int MinutesBetween(DateTime from, DateTime to)
     {
@@ -287,7 +365,56 @@ public sealed class TestResult : AggregateRoot<Guid>
         Raise(new TestResultRecordedDomainEvent(Id, StudentId, Subject, Topic, TotalQuestions, Correct, Wrong, Blank, Net, TakenOnUtc));
     }
 
+    /// <summary>Test kaydını düzenler; net (D − Y/ceza) yeniden hesaplanır.</summary>
+    public void Edit(
+        string subject,
+        string? topic,
+        string? testName,
+        TestType testType,
+        int totalQuestions,
+        int correct,
+        int wrong,
+        int blank,
+        int penaltyDivisor,
+        int? durationMinutes,
+        DateTime takenOnUtc,
+        DateTime nowUtc)
+    {
+        if (correct < 0 || wrong < 0 || blank < 0 || totalQuestions < 0)
+        {
+            throw new InvalidOperationException("Soru sayıları negatif olamaz.");
+        }
+
+        if (correct + wrong + blank != totalQuestions)
+        {
+            throw new InvalidOperationException("Doğru + Yanlış + Boş, toplam soru sayısına eşit olmalıdır.");
+        }
+
+        if (penaltyDivisor <= 0)
+        {
+            penaltyDivisor = 4;
+        }
+
+        Subject = subject.Trim();
+        Topic = string.IsNullOrWhiteSpace(topic) ? null : topic.Trim();
+        TestName = string.IsNullOrWhiteSpace(testName) ? null : testName.Trim();
+        TestType = testType;
+        TotalQuestions = totalQuestions;
+        Correct = correct;
+        Wrong = wrong;
+        Blank = blank;
+        PenaltyDivisor = penaltyDivisor;
+        Net = Math.Round(correct - ((decimal)wrong / penaltyDivisor), 2, MidpointRounding.AwayFromZero);
+        DurationMinutes = durationMinutes;
+        TakenOnUtc = takenOnUtc;
+    }
+
+    /// <summary>Bu sonuç bir çok dersli denemenin (MockExam) parçasıysa o denemenin kimliği; tekil test ise null.</summary>
+    public void AttachToMockExam(Guid mockExamId) => MockExamId = mockExamId;
+
     public Guid StudentId { get; private set; }
+
+    public Guid? MockExamId { get; private set; }
 
     public string Subject { get; private set; } = string.Empty;
 
@@ -321,6 +448,54 @@ public sealed class TestResult : AggregateRoot<Guid>
 }
 
 /// <summary>
+/// Çok dersli deneme sınavı (ör. tam TYT/AYT/LGS oturumu). Her ders bir <see cref="TestResult"/> olarak eklenir,
+/// toplam net derslerin netlerinin toplamıdır.
+/// </summary>
+public sealed class MockExam : AggregateRoot<Guid>
+{
+    private MockExam()
+    {
+    }
+
+    public MockExam(
+        Guid id,
+        Guid studentId,
+        string examType,
+        DateTime takenOnUtc,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        StudentId = studentId;
+        ExamType = examType;
+        TakenOnUtc = takenOnUtc;
+        TotalNet = 0m;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid StudentId { get; private set; }
+
+    public string ExamType { get; private set; } = string.Empty;
+
+    public DateTime TakenOnUtc { get; private set; }
+
+    public decimal TotalNet { get; private set; }
+
+    public int? EstimatedRank { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    /// <summary>Bir dersin sonucunu denemeye ekler: net toplama eklenir ve sonuç bu denemeye bağlanır.</summary>
+    public void AddSubject(TestResult subjectResult)
+    {
+        subjectResult.AttachToMockExam(Id);
+        TotalNet += subjectResult.Net;
+    }
+
+    /// <summary>Deneme için tahmini sıralamayı ayarlar (dış hesaplama/istemci girdisi).</summary>
+    public void SetEstimatedRank(int? estimatedRank) => EstimatedRank = estimatedRank;
+}
+
+/// <summary>
 /// Öğrencinin kendine koyduğu çalışma hedefleri. Öğrenci başına tek aktif kayıt.
 /// </summary>
 public sealed class StudyGoal : AggregateRoot<Guid>
@@ -337,6 +512,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         decimal? targetNet,
         decimal? targetScore,
         string? subject,
+        int streakThresholdPercent,
         DateTime effectiveFromUtc)
     {
         Id = id;
@@ -346,6 +522,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         TargetNet = targetNet;
         TargetScore = targetScore;
         Subject = subject;
+        StreakThresholdPercent = Math.Clamp(streakThresholdPercent <= 0 ? 60 : streakThresholdPercent, 1, 100);
         EffectiveFromUtc = effectiveFromUtc;
         IsActive = true;
         CreatedOnUtc = effectiveFromUtc;
@@ -364,6 +541,9 @@ public sealed class StudyGoal : AggregateRoot<Guid>
 
     public string? Subject { get; private set; }
 
+    /// <summary>Günün streak'e sayılması için günlük hedefin tamamlanması gereken yüzdesi (1-100, varsayılan 60).</summary>
+    public int StreakThresholdPercent { get; private set; }
+
     public DateTime EffectiveFromUtc { get; private set; }
 
     public bool IsActive { get; private set; }
@@ -378,6 +558,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         decimal? targetNet,
         decimal? targetScore,
         string? subject,
+        int streakThresholdPercent,
         DateTime nowUtc)
     {
         DailyGoalMinutes = dailyGoalMinutes;
@@ -385,6 +566,7 @@ public sealed class StudyGoal : AggregateRoot<Guid>
         TargetNet = targetNet;
         TargetScore = targetScore;
         Subject = subject;
+        StreakThresholdPercent = Math.Clamp(streakThresholdPercent <= 0 ? 60 : streakThresholdPercent, 1, 100);
         IsActive = true;
         UpdatedOnUtc = nowUtc;
 
@@ -592,6 +774,15 @@ public sealed class StudyTopic : Entity<Guid>
         TotalEffectiveMinutes += effectiveMinutes;
         SessionCount += 1;
         LastStudiedOnUtc = studiedOnUtc;
+    }
+
+    /// <summary>Rollup'ı tamamlanmış seanslardan yeniden türetilen değerlerle üzerine yazar.</summary>
+    public void Overwrite(int totalEffectiveMinutes, int sessionCount, DateTime firstStudiedOnUtc, DateTime lastStudiedOnUtc)
+    {
+        TotalEffectiveMinutes = totalEffectiveMinutes;
+        SessionCount = sessionCount;
+        FirstStudiedOnUtc = firstStudiedOnUtc;
+        LastStudiedOnUtc = lastStudiedOnUtc;
     }
 }
 

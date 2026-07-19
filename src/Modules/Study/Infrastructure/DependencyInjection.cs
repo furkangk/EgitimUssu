@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Study.Application;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         // Uygulama servisleri
         services.AddScoped<StudyOwnershipGuard>();
         services.AddScoped<StudyLinkResolver>();
+        services.AddScoped<StudyMembershipResolver>();
         services.AddScoped<AchievementEvaluator>();
         services.AddScoped<StudyCompletionService>();
 
@@ -25,6 +27,7 @@ public static class DependencyInjection
         AddStudentScopedCommandAuthorizer<StartStudySessionCommand>(services);
         AddStudentScopedCommandAuthorizer<CreateManualStudySessionCommand>(services);
         AddStudentScopedCommandAuthorizer<RecordTestResultCommand>(services);
+        AddStudentScopedCommandAuthorizer<CreateMockExamCommand>(services);
         AddStudentScopedCommandAuthorizer<UpdateStudyGoalsCommand>(services);
         AddStudentScopedCommandAuthorizer<UpdateStudySharingCommand>(services);
         AddStudentScopedCommandAuthorizer<CreateSubjectCatalogCommand>(services);
@@ -32,6 +35,7 @@ public static class DependencyInjection
 
         AddStudentScopedQueryAuthorizer<ListSubjectCatalogQuery>(services);
         AddStudentScopedQueryAuthorizer<ListStudyNotesQuery>(services);
+        AddStudentScopedQueryAuthorizer<GetActiveSessionQuery>(services);
         AddStudentScopedQueryAuthorizer<ListStudySessionsQuery>(services);
         AddStudentScopedQueryAuthorizer<WeeklySummaryQuery>(services);
         AddStudentScopedQueryAuthorizer<ListTestResultsQuery>(services);
@@ -46,9 +50,14 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<PauseStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<ResumeStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<CompleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RecoverStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DiscardStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<EditStudySessionCommand>, StudySessionOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteStudySessionCommand>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudySessionQuery>, StudySessionOwnershipAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTestResultQuery>, StudyTestOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<EditTestResultCommand>, StudyTestOwnershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteTestResultCommand>, StudyTestOwnershipAuthorizer>();
 
         // Katalog: kimliği subjectId/topicId olan istekler için sahiplik yetkilendiricileri
         services.AddScoped<ICommandAuthorizer<UpdateSubjectCatalogCommand>, StudyCatalogSubjectOwnershipAuthorizer>();
@@ -72,15 +81,22 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<PauseStudySessionCommand, Result<StudySessionResponse>>, PauseStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<ResumeStudySessionCommand, Result<StudySessionResponse>>, ResumeStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteStudySessionCommand, Result<StudySessionResponse>>, CompleteStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<RecoverStudySessionCommand, Result<StudySessionResponse>>, RecoverStudySessionCommandHandler>();
         services.AddScoped<ICommandHandler<DiscardStudySessionCommand, Result<StudySessionResponse>>, DiscardStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<EditStudySessionCommand, Result<StudySessionResponse>>, EditStudySessionCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteStudySessionCommand, Result<bool>>, DeleteStudySessionCommandHandler>();
 
         // Seans sorguları
         services.AddScoped<IQueryHandler<GetStudySessionQuery, Result<StudySessionResponse>>, GetStudySessionQueryHandler>();
+        services.AddScoped<IQueryHandler<GetActiveSessionQuery, Result<ActiveSessionResponse?>>, GetActiveSessionQueryHandler>();
         services.AddScoped<IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>, ListStudySessionsQueryHandler>();
         services.AddScoped<IQueryHandler<WeeklySummaryQuery, Result<WeeklySummaryResponse>>, WeeklySummaryQueryHandler>();
 
         // Test komut/sorguları
         services.AddScoped<ICommandHandler<RecordTestResultCommand, Result<TestResultResponse>>, RecordTestResultCommandHandler>();
+        services.AddScoped<ICommandHandler<EditTestResultCommand, Result<TestResultResponse>>, EditTestResultCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteTestResultCommand, Result<bool>>, DeleteTestResultCommandHandler>();
+        services.AddScoped<ICommandHandler<CreateMockExamCommand, Result<MockExamResponse>>, CreateMockExamCommandHandler>();
         services.AddScoped<IQueryHandler<GetTestResultQuery, Result<TestResultResponse>>, GetTestResultQueryHandler>();
         services.AddScoped<IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>, ListTestResultsQueryHandler>();
         services.AddScoped<IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>, NetTrendQueryHandler>();
@@ -108,6 +124,9 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CreateStudyNoteCommand, Result<StudyNoteResponse>>, CreateStudyNoteCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateStudyNoteCommand, Result<StudyNoteResponse>>, UpdateStudyNoteCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteStudyNoteCommand, Result<bool>>, DeleteStudyNoteCommandHandler>();
+
+        // Ö-C: profil birleştirmede kaynak öğrenciye ait tüm çalışma verisini kanonik öğrenciye taşır.
+        services.AddScoped<IIntegrationEventHandler, StudyStudentMergedHandler>();
 
         return services;
     }

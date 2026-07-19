@@ -60,9 +60,24 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsMerged")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("LevelNotes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("MembershipTier")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Free");
+
+                    b.Property<Guid?>("MergedIntoStudentId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Origin")
                         .IsRequired()
@@ -71,6 +86,13 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
 
                     b.Property<Guid?>("ParentUserId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("TargetExam")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("None");
 
                     b.Property<DateTime>("UpdatedOnUtc")
                         .HasColumnType("timestamp with time zone");
@@ -131,6 +153,10 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<string>("InviteCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
                     b.Property<Guid?>("InviteTargetUserId")
                         .HasColumnType("uuid");
 
@@ -152,6 +178,8 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InviteCode");
 
                     b.HasIndex("TeacherUserId", "StudentId")
                         .IsUnique();

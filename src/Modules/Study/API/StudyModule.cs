@@ -34,16 +34,23 @@ public sealed class StudyModule : ModuleDefinition
         group.MapPost("/sessions/{sessionId:guid}/pause", PauseSessionAsync).WithSummary("Çalışma seansını molaya alır");
         group.MapPost("/sessions/{sessionId:guid}/resume", ResumeSessionAsync).WithSummary("Çalışma seansını sürdürür");
         group.MapPost("/sessions/{sessionId:guid}/complete", CompleteSessionAsync).WithSummary("Çalışma seansını tamamlar");
+        group.MapPost("/sessions/{sessionId:guid}/recover", RecoverSessionAsync).WithSummary("Takılı (çökme/kesinti sonrası) seansı bildirilen süreyle kurtarır");
         group.MapPost("/sessions/{sessionId:guid}/discard", DiscardSessionAsync).WithSummary("Çalışma seansını iptal eder");
         group.MapGet("/sessions/{sessionId:guid}", GetSessionAsync).WithSummary("Seans detayını getirir");
+        group.MapPut("/sessions/{sessionId:guid}", EditSessionAsync).WithSummary("Tamamlanmış seansı düzenler (konu rollup yeniden türetilir)");
+        group.MapDelete("/sessions/{sessionId:guid}", DeleteSessionAsync).WithSummary("Çalışma seansını siler (konu rollup yeniden türetilir)");
+        group.MapGet("/students/{studentId:guid}/active-session", ActiveSessionAsync).WithSummary("Öğrencinin o an aktif (çalışan/molada) seansını ve takılı olup olmadığını getirir");
         group.MapGet("/students/{studentId:guid}/sessions", ListSessionsAsync).WithSummary("Öğrencinin seans geçmişini listeler");
         group.MapGet("/students/{studentId:guid}/weekly-summary", WeeklySummaryAsync).WithSummary("Haftalık çalışma özetini getirir");
 
         // Deneme / test
         group.MapPost("/test-results", RecordTestAsync).WithSummary("Deneme/test sonucu kaydeder (net otomatik)");
         group.MapGet("/test-results/{testResultId:guid}", GetTestAsync).WithSummary("Deneme sonucunu getirir");
+        group.MapPut("/test-results/{testResultId:guid}", EditTestAsync).WithSummary("Deneme sonucunu düzenler (net yeniden hesaplanır)");
+        group.MapDelete("/test-results/{testResultId:guid}", DeleteTestAsync).WithSummary("Deneme sonucunu siler");
         group.MapGet("/students/{studentId:guid}/test-results", ListTestsAsync).WithSummary("Öğrencinin deneme sonuçlarını listeler");
         group.MapGet("/students/{studentId:guid}/net-trend", NetTrendAsync).WithSummary("Ders/konu bazlı net trendini getirir");
+        group.MapPost("/students/{studentId:guid}/mock-exams", CreateMockExamAsync).WithSummary("Çok dersli deneme sınavı kaydeder (net dersler üzerinden toplanır)");
 
         // Hedef / streak / başarım / paylaşım / dashboard
         group.MapGet("/students/{studentId:guid}/goals", GetGoalsAsync).WithSummary("Aktif çalışma hedeflerini getirir");
@@ -77,20 +84,33 @@ public sealed class StudyModule : ModuleDefinition
         => ToHttpResult(ctx, await dispatcher.Dispatch(
             new CreateManualStudySessionCommand(req.StudentId, req.Subject, req.Topic, req.EffectiveMinutes, req.StudiedOnUtc, req.PersonalNote), ct));
 
-    private static async Task<IResult> PauseSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new PauseStudySessionCommand(sessionId), ct));
+    private static async Task<IResult> PauseSessionAsync(HttpContext ctx, Guid sessionId, PauseSessionRequest? req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new PauseStudySessionCommand(sessionId, req?.ClientEffectiveMinutes), ct));
 
     private static async Task<IResult> ResumeSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ResumeStudySessionCommand(sessionId), ct));
 
     private static async Task<IResult> CompleteSessionAsync(HttpContext ctx, Guid sessionId, CompleteSessionRequest? req, ICommandDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new CompleteStudySessionCommand(sessionId, req?.PersonalNote), ct));
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new CompleteStudySessionCommand(sessionId, req?.PersonalNote, req?.ClientEffectiveMinutes), ct));
+
+    private static async Task<IResult> RecoverSessionAsync(HttpContext ctx, Guid sessionId, RecoverSessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new RecoverStudySessionCommand(sessionId, req.EffectiveMinutes), ct));
 
     private static async Task<IResult> DiscardSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new DiscardStudySessionCommand(sessionId), ct));
 
     private static async Task<IResult> GetSessionAsync(HttpContext ctx, Guid sessionId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetStudySessionQuery(sessionId), ct));
+
+    private static async Task<IResult> EditSessionAsync(HttpContext ctx, Guid sessionId, EditSessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(
+            new EditStudySessionCommand(sessionId, req.Subject, req.Topic, req.EffectiveMinutes, req.PersonalNote), ct));
+
+    private static async Task<IResult> DeleteSessionAsync(HttpContext ctx, Guid sessionId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteStudySessionCommand(sessionId), ct));
+
+    private static async Task<IResult> ActiveSessionAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new GetActiveSessionQuery(studentId), ct));
 
     private static async Task<IResult> ListSessionsAsync(HttpContext ctx, Guid studentId, DateTime? from, DateTime? to, string? subject, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListStudySessionsQuery(studentId, from, to, subject), ct));
@@ -101,10 +121,18 @@ public sealed class StudyModule : ModuleDefinition
     private static async Task<IResult> RecordTestAsync(HttpContext ctx, RecordTestResultRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new RecordTestResultCommand(
             req.StudentId, req.Subject, req.Topic, req.TestType, req.TestName, req.TotalQuestions,
-            req.Correct, req.Wrong, req.Blank, req.PenaltyDivisor, req.DurationMinutes, req.TakenOnUtc), ct));
+            req.Correct, req.Wrong, req.Blank, req.PenaltyDivisor, req.DurationMinutes, req.TakenOnUtc, req.TargetExam), ct));
 
     private static async Task<IResult> GetTestAsync(HttpContext ctx, Guid testResultId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetTestResultQuery(testResultId), ct));
+
+    private static async Task<IResult> EditTestAsync(HttpContext ctx, Guid testResultId, RecordTestResultRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new EditTestResultCommand(
+            testResultId, req.Subject, req.Topic, req.TestType, req.TestName, req.TotalQuestions,
+            req.Correct, req.Wrong, req.Blank, req.PenaltyDivisor, req.DurationMinutes, req.TakenOnUtc), ct));
+
+    private static async Task<IResult> DeleteTestAsync(HttpContext ctx, Guid testResultId, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteTestResultCommand(testResultId), ct));
 
     private static async Task<IResult> ListTestsAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, DateTime? from, DateTime? to, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListTestResultsQuery(studentId, subject, topic, from, to), ct));
@@ -112,12 +140,20 @@ public sealed class StudyModule : ModuleDefinition
     private static async Task<IResult> NetTrendAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new NetTrendQuery(studentId, subject, topic), ct));
 
+    private static async Task<IResult> CreateMockExamAsync(HttpContext ctx, Guid studentId, CreateMockExamRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new CreateMockExamCommand(
+            studentId,
+            req.ExamType,
+            req.TakenOnUtc,
+            req.Subjects.Select(s => new MockExamSubjectInput(
+                s.Subject, s.Topic, s.TestName, s.TotalQuestions, s.Correct, s.Wrong, s.Blank, s.PenaltyDivisor, s.TargetExam)).ToArray()), ct));
+
     private static async Task<IResult> GetGoalsAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetStudyGoalsQuery(studentId), ct));
 
     private static async Task<IResult> UpdateGoalsAsync(HttpContext ctx, Guid studentId, UpdateGoalsRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new UpdateStudyGoalsCommand(
-            studentId, req.DailyGoalMinutes, req.WeeklyGoalMinutes, req.TargetNet, req.TargetScore, req.Subject), ct));
+            studentId, req.DailyGoalMinutes, req.WeeklyGoalMinutes, req.TargetNet, req.TargetScore, req.Subject, req.StreakThresholdPercent), ct));
 
     private static async Task<IResult> GetStreakAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetStreakQuery(studentId), ct));
@@ -186,6 +222,7 @@ public sealed class StudyModule : ModuleDefinition
             "study.topic_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.note_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "study.session_active" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "study.premium_required" => ApiErrorHttpResults.FromError(context, StatusCodes.Status402PaymentRequired, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -197,7 +234,13 @@ public sealed record StartStudySessionRequest(Guid StudentId, string Subject, st
 public sealed record CreateManualSessionRequest(
     Guid StudentId, string Subject, string? Topic, int EffectiveMinutes, DateTime StudiedOnUtc, string? PersonalNote);
 
-public sealed record CompleteSessionRequest(string? PersonalNote);
+public sealed record CompleteSessionRequest(string? PersonalNote, int? ClientEffectiveMinutes = null);
+
+public sealed record PauseSessionRequest(int? ClientEffectiveMinutes = null);
+
+public sealed record RecoverSessionRequest(int EffectiveMinutes);
+
+public sealed record EditSessionRequest(string Subject, string? Topic, int EffectiveMinutes, string? PersonalNote);
 
 public sealed record RecordTestResultRequest(
     Guid StudentId,
@@ -211,10 +254,27 @@ public sealed record RecordTestResultRequest(
     int Blank,
     int? PenaltyDivisor,
     int? DurationMinutes,
-    DateTime TakenOnUtc);
+    DateTime TakenOnUtc,
+    string? TargetExam = null);
+
+public sealed record CreateMockExamRequest(
+    string ExamType,
+    DateTime TakenOnUtc,
+    IReadOnlyCollection<MockExamSubjectItem> Subjects);
+
+public sealed record MockExamSubjectItem(
+    string Subject,
+    string? Topic,
+    string? TestName,
+    int TotalQuestions,
+    int Correct,
+    int Wrong,
+    int Blank,
+    int? PenaltyDivisor,
+    string? TargetExam);
 
 public sealed record UpdateGoalsRequest(
-    int DailyGoalMinutes, int? WeeklyGoalMinutes, decimal? TargetNet, decimal? TargetScore, string? Subject);
+    int DailyGoalMinutes, int? WeeklyGoalMinutes, decimal? TargetNet, decimal? TargetScore, string? Subject, int StreakThresholdPercent = 60);
 
 public sealed record UpdateSharingRequest(
     bool ShareStudyWithParent, bool ShareTestsWithParent, bool ShareStudyWithTeacher, bool ShareTestsWithTeacher);

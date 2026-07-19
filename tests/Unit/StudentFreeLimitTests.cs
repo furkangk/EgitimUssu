@@ -32,6 +32,7 @@ public sealed class StudentFreeLimitTests
 
         public Task<TeacherStudentLink?> GetByIdAsync(Guid linkId, CancellationToken ct) => throw new NotImplementedException();
         public Task<TeacherStudentLink?> GetByTeacherAndStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<TeacherStudentLink?> GetByInviteCodeAsync(string inviteCode, CancellationToken ct) => throw new NotImplementedException();
         public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken ct) => Task.FromResult(_count);
         public Task<IReadOnlyCollection<TeacherStudentLink>> ListByTeacherAsync(Guid teacherUserId, bool includeArchived, CancellationToken ct) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;

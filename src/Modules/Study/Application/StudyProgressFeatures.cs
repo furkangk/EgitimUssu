@@ -14,7 +14,8 @@ public sealed record UpdateStudyGoalsCommand(
     int? WeeklyGoalMinutes,
     decimal? TargetNet,
     decimal? TargetScore,
-    string? Subject) : ICommand<Result<StudyGoalResponse>>, IStudentScopedRequest;
+    string? Subject,
+    int StreakThresholdPercent) : ICommand<Result<StudyGoalResponse>>, IStudentScopedRequest;
 
 public sealed record GetStreakQuery(Guid StudentId) : IQuery<Result<StreakResponse>>, IStudentScopedRequest;
 
@@ -68,14 +69,16 @@ public sealed class UpdateStudyGoalsCommandHandler : ICommandHandler<UpdateStudy
 {
     private readonly IStudyRepository _repository;
     private readonly StudyLinkResolver _linkResolver;
+    private readonly StudyMembershipResolver _membership;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public UpdateStudyGoalsCommandHandler(
-        IStudyRepository repository, StudyLinkResolver linkResolver, IIdGenerator idGenerator, IClock clock)
+        IStudyRepository repository, StudyLinkResolver linkResolver, StudyMembershipResolver membership, IIdGenerator idGenerator, IClock clock)
     {
         _repository = repository;
         _linkResolver = linkResolver;
+        _membership = membership;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -85,6 +88,16 @@ public sealed class UpdateStudyGoalsCommandHandler : ICommandHandler<UpdateStudy
         if (command.DailyGoalMinutes < 0)
         {
             return Result<StudyGoalResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        // Ö-D: Hedef net/puan takibi Premium'a özeldir. Free kullanıcı bu alanları belirleyemez.
+        if (command.TargetNet.HasValue || command.TargetScore.HasValue)
+        {
+            var tier = await _membership.CurrentTierAsync(cancellationToken);
+            if (!MembershipGate.Allows(tier, PremiumFeature.TargetTracking))
+            {
+                return Result<StudyGoalResponse>.Failure(StudyErrors.PremiumRequired);
+            }
         }
 
         await _linkResolver.EnsureAsync(command.StudentId, cancellationToken);
@@ -102,12 +115,13 @@ public sealed class UpdateStudyGoalsCommandHandler : ICommandHandler<UpdateStudy
                 command.TargetNet,
                 command.TargetScore,
                 subject,
+                command.StreakThresholdPercent,
                 now);
             await _repository.AddGoalAsync(goal, cancellationToken);
         }
         else
         {
-            goal.UpdateGoals(command.DailyGoalMinutes, command.WeeklyGoalMinutes, command.TargetNet, command.TargetScore, subject, now);
+            goal.UpdateGoals(command.DailyGoalMinutes, command.WeeklyGoalMinutes, command.TargetNet, command.TargetScore, subject, command.StreakThresholdPercent, now);
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
@@ -316,7 +330,10 @@ public sealed class StudySessionOwnershipAuthorizer :
     ICommandAuthorizer<PauseStudySessionCommand>,
     ICommandAuthorizer<ResumeStudySessionCommand>,
     ICommandAuthorizer<CompleteStudySessionCommand>,
+    ICommandAuthorizer<RecoverStudySessionCommand>,
     ICommandAuthorizer<DiscardStudySessionCommand>,
+    ICommandAuthorizer<EditStudySessionCommand>,
+    ICommandAuthorizer<DeleteStudySessionCommand>,
     IQueryAuthorizer<GetStudySessionQuery>
 {
     private readonly IStudyRepository _repository;
@@ -337,7 +354,16 @@ public sealed class StudySessionOwnershipAuthorizer :
     public Task<Result> Authorize(CompleteStudySessionCommand command, CancellationToken cancellationToken) =>
         AuthorizeSessionAsync(command.SessionId, cancellationToken);
 
+    public Task<Result> Authorize(RecoverStudySessionCommand command, CancellationToken cancellationToken) =>
+        AuthorizeSessionAsync(command.SessionId, cancellationToken);
+
     public Task<Result> Authorize(DiscardStudySessionCommand command, CancellationToken cancellationToken) =>
+        AuthorizeSessionAsync(command.SessionId, cancellationToken);
+
+    public Task<Result> Authorize(EditStudySessionCommand command, CancellationToken cancellationToken) =>
+        AuthorizeSessionAsync(command.SessionId, cancellationToken);
+
+    public Task<Result> Authorize(DeleteStudySessionCommand command, CancellationToken cancellationToken) =>
         AuthorizeSessionAsync(command.SessionId, cancellationToken);
 
     public Task<Result> Authorize(GetStudySessionQuery query, CancellationToken cancellationToken) =>
@@ -355,7 +381,10 @@ public sealed class StudySessionOwnershipAuthorizer :
     }
 }
 
-public sealed class StudyTestOwnershipAuthorizer : IQueryAuthorizer<GetTestResultQuery>
+public sealed class StudyTestOwnershipAuthorizer :
+    IQueryAuthorizer<GetTestResultQuery>,
+    ICommandAuthorizer<EditTestResultCommand>,
+    ICommandAuthorizer<DeleteTestResultCommand>
 {
     private readonly IStudyRepository _repository;
     private readonly StudyOwnershipGuard _guard;
@@ -366,9 +395,18 @@ public sealed class StudyTestOwnershipAuthorizer : IQueryAuthorizer<GetTestResul
         _guard = guard;
     }
 
-    public async Task<Result> Authorize(GetTestResultQuery query, CancellationToken cancellationToken)
+    public Task<Result> Authorize(GetTestResultQuery query, CancellationToken cancellationToken) =>
+        AuthorizeTestAsync(query.TestResultId, cancellationToken);
+
+    public Task<Result> Authorize(EditTestResultCommand command, CancellationToken cancellationToken) =>
+        AuthorizeTestAsync(command.TestResultId, cancellationToken);
+
+    public Task<Result> Authorize(DeleteTestResultCommand command, CancellationToken cancellationToken) =>
+        AuthorizeTestAsync(command.TestResultId, cancellationToken);
+
+    private async Task<Result> AuthorizeTestAsync(Guid testResultId, CancellationToken cancellationToken)
     {
-        var test = await _repository.GetTestAsync(query.TestResultId, cancellationToken);
+        var test = await _repository.GetTestAsync(testResultId, cancellationToken);
         if (test is null)
         {
             return Result.Failure(new Error("study.test_not_found", "Deneme sonucu bulunamadı."));

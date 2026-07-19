@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Domain;
@@ -21,7 +22,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         string? levelNotes,
         StudentOrigin origin,
         bool isActive,
-        DateTime createdOnUtc)
+        DateTime createdOnUtc,
+        TargetExam targetExam = TargetExam.None)
     {
         Id = id;
         UserId = userId;
@@ -35,6 +37,7 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         LevelNotes = levelNotes;
         Origin = origin;
         IsActive = isActive;
+        TargetExam = targetExam;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
 
@@ -63,6 +66,18 @@ public sealed class StudentProfile : AggregateRoot<Guid>
 
     public bool IsActive { get; private set; }
 
+    /// <summary>Bu profil başka bir kanonik profile birleştirildiyse true olur (Ö-C claim/merge).</summary>
+    public bool IsMerged { get; private set; }
+
+    /// <summary>Birleştirme sonrası kanonik (hedef) öğrenci profilinin kimliği; birleşmediyse null.</summary>
+    public Guid? MergedIntoStudentId { get; private set; }
+
+    /// <summary>Öğrencinin hedeflediği sınav; net formülü ve deneme türetimlerinde kullanılır (S-03.9).</summary>
+    public TargetExam TargetExam { get; private set; }
+
+    /// <summary>Öğrencinin üyelik seviyesi (Free/Premium). Free/Premium kapılarını belirler (Ö-D §14.3).</summary>
+    public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -77,7 +92,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         string? goalSummary,
         string? levelNotes,
         bool isActive,
-        DateTime updatedOnUtc)
+        DateTime updatedOnUtc,
+        TargetExam targetExam = TargetExam.None)
     {
         FullName = fullName.Trim();
         GradeLevel = gradeLevel.Trim();
@@ -86,6 +102,21 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         GoalSummary = goalSummary?.Trim();
         LevelNotes = levelNotes?.Trim();
         IsActive = isActive;
+        TargetExam = targetExam;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>Öğrencinin hedef sınavını günceller (S-03.9).</summary>
+    public void SetTargetExam(TargetExam targetExam, DateTime updatedOnUtc)
+    {
+        TargetExam = targetExam;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>Öğrencinin üyelik seviyesini günceller (Ö-D). Premium satın alma / iptal akışında çağrılır.</summary>
+    public void SetMembershipTier(MembershipTier tier, DateTime updatedOnUtc)
+    {
+        MembershipTier = tier;
         UpdatedOnUtc = updatedOnUtc;
     }
 
@@ -105,6 +136,20 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     {
         UserId = userId;
         UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>
+    /// Bu (manuel) profili, öğrencinin mevcut kanonik self-profil'ine birleştirir (Ö-C claim/merge).
+    /// Profil pasifleştirilir ve modüller-arası <c>StudentId</c> yeniden atamasını tetikleyecek
+    /// <see cref="StudentProfilesMergedDomainEvent"/> yayılır (Outbox → integration event).
+    /// </summary>
+    public void MarkMerged(Guid canonicalStudentId, DateTime updatedOnUtc)
+    {
+        IsMerged = true;
+        MergedIntoStudentId = canonicalStudentId;
+        IsActive = false;
+        UpdatedOnUtc = updatedOnUtc;
+        Raise(new StudentProfilesMergedDomainEvent(Id, canonicalStudentId, updatedOnUtc));
     }
 }
 
@@ -135,12 +180,33 @@ public enum StudentOrigin
     SelfRegistered = 2
 }
 
+/// <summary>Öğrencinin hedeflediği sınav türü. Net formülü ceza katsayısını buradan türetir (LGS /3, TYT/AYT /4, School yanlış götürmez).</summary>
+public enum TargetExam
+{
+    None = 0,
+    LGS = 1,
+    TYT = 2,
+    AYT = 3,
+    YDS = 4,
+    School = 5,
+    Other = 6
+}
+
 public sealed record StudentProfileCreatedDomainEvent(
     Guid StudentProfileId,
     Guid? UserId,
     Guid? CreatedByTeacherUserId,
     StudentOrigin Origin,
     DateTime CreatedOnUtc) : DomainEvent;
+
+/// <summary>
+/// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge) yayılır. Diğer modüller bu olayı
+/// tüketerek <c>FromStudentId</c>'ye ait kayıtlarını kanonik <c>ToStudentId</c>'ye yeniden atar.
+/// </summary>
+public sealed record StudentProfilesMergedDomainEvent(
+    Guid FromStudentId,
+    Guid ToStudentId,
+    DateTime OnUtc) : DomainEvent;
 
 public sealed class TeacherStudentLink : AggregateRoot<Guid>
 {
@@ -174,6 +240,9 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
 
     public Guid? InviteTargetUserId { get; private set; }
 
+    /// <summary>Öğrencinin hesabını devralmak (claim) için girdiği tekil davet kodu (6 haneli, rakam) (Ö-C).</summary>
+    public string? InviteCode { get; private set; }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -197,13 +266,18 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
-    public void MarkInviteSent(Guid? targetUserId, DateTime updatedOnUtc)
+    public void MarkInviteSent(string inviteCode, Guid? targetUserId, DateTime updatedOnUtc)
     {
         Status = TeacherStudentLinkStatus.InviteSent;
+        InviteCode = inviteCode;
         InviteTargetUserId = targetUserId;
         UpdatedOnUtc = updatedOnUtc;
         Raise(new TeacherStudentInviteSentDomainEvent(Id, TeacherUserId, StudentId, targetUserId, updatedOnUtc));
     }
+
+    /// <summary>6 haneli rakamsal davet kodu üretir (Ö-C). Handler tarafından üretilip <see cref="MarkInviteSent"/>'e geçilir.</summary>
+    public static string GenerateInviteCode()
+        => Random.Shared.Next(0, 1_000_000).ToString("D6");
 
     public void Accept(DateTime updatedOnUtc)
     {

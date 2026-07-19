@@ -17,18 +17,31 @@ public sealed record CreateManualStudySessionCommand(
     DateTime StudiedOnUtc,
     string? PersonalNote) : ICommand<Result<StudySessionResponse>>, IStudentScopedRequest;
 
-public sealed record PauseStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
+public sealed record PauseStudySessionCommand(Guid SessionId, int? ClientEffectiveMinutes = null)
+    : ICommand<Result<StudySessionResponse>>;
 
 public sealed record ResumeStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
 
-public sealed record CompleteStudySessionCommand(Guid SessionId, string? PersonalNote)
+public sealed record CompleteStudySessionCommand(Guid SessionId, string? PersonalNote, int? ClientEffectiveMinutes = null)
+    : ICommand<Result<StudySessionResponse>>;
+
+public sealed record RecoverStudySessionCommand(Guid SessionId, int EffectiveMinutes)
     : ICommand<Result<StudySessionResponse>>;
 
 public sealed record DiscardStudySessionCommand(Guid SessionId) : ICommand<Result<StudySessionResponse>>;
 
+public sealed record EditStudySessionCommand(
+    Guid SessionId, string Subject, string? Topic, int EffectiveMinutes, string? PersonalNote)
+    : ICommand<Result<StudySessionResponse>>;
+
+public sealed record DeleteStudySessionCommand(Guid SessionId) : ICommand<Result<bool>>;
+
 // ---- Sorgular ----
 
 public sealed record GetStudySessionQuery(Guid SessionId) : IQuery<Result<StudySessionResponse>>;
+
+public sealed record GetActiveSessionQuery(Guid StudentId)
+    : IQuery<Result<ActiveSessionResponse?>>, IStudentScopedRequest;
 
 public sealed record ListStudySessionsQuery(Guid StudentId, DateTime? FromUtc, DateTime? ToUtc, string? Subject)
     : IQuery<Result<IReadOnlyCollection<StudySessionResponse>>>, IStudentScopedRequest;
@@ -43,6 +56,7 @@ internal static class StudyErrors
     public static readonly Error InvalidRequest = new("study.invalid_request", "Çalışma bilgileri eksik veya hatalı.");
     public static readonly Error InvalidTest = new("study.invalid_test", "Deneme bilgileri geçersiz: doğru + yanlış + boş, toplam soruya eşit olmalı.");
     public static readonly Error GoalNotFound = new("study.goal_not_found", "Çalışma hedefi bulunamadı.");
+    public static readonly Error PremiumRequired = new("study.premium_required", "Bu özellik Premium'a özeldir.");
 }
 
 /// <summary>
@@ -95,7 +109,22 @@ public sealed class StudyCompletionService
             await _repository.AddStreakAsync(streak, cancellationToken);
         }
 
-        streak.RegisterStudyDay(StudyLocalTime.LocalDate(studiedOn), now);
+        var streakDate = StudyLocalTime.StreakDate(studiedOn);
+        var daySessions = await _repository.ListCompletedSessionsAsync(
+            session.StudentId,
+            StudyLocalTime.LocalDayStartUtc(streakDate),
+            StudyLocalTime.LocalDayStartUtc(streakDate.AddDays(1)),
+            cancellationToken);
+        var dayTotal = daySessions.Sum(s => s.EffectiveMinutes);
+
+        var goal = await _repository.GetActiveGoalAsync(session.StudentId, cancellationToken);
+        var thresholdPercent = goal?.StreakThresholdPercent ?? 60;
+        var dailyGoal = goal?.DailyGoalMinutes ?? 0;
+
+        if (StreakRules.DayCounts(dayTotal, dailyGoal, thresholdPercent))
+        {
+            streak.RegisterStudyDay(streakDate, now);
+        }
 
         await _repository.SaveChangesAsync(cancellationToken);
 
@@ -222,7 +251,7 @@ public sealed class PauseStudySessionCommandHandler
             return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
         }
 
-        session.Pause(_clock.UtcNow);
+        session.Pause(_clock.UtcNow, command.ClientEffectiveMinutes);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<StudySessionResponse>.Success(session.ToResponse());
     }
@@ -277,7 +306,37 @@ public sealed class CompleteStudySessionCommandHandler
             return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
         }
 
-        session.Complete(_clock.UtcNow, command.PersonalNote);
+        session.Complete(_clock.UtcNow, command.PersonalNote, command.ClientEffectiveMinutes);
+        await _completion.RecordCompletedAsync(session, cancellationToken);
+
+        return Result<StudySessionResponse>.Success(session.ToResponse());
+    }
+}
+
+public sealed class RecoverStudySessionCommandHandler
+    : ICommandHandler<RecoverStudySessionCommand, Result<StudySessionResponse>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly StudyCompletionService _completion;
+    private readonly IClock _clock;
+
+    public RecoverStudySessionCommandHandler(
+        IStudyRepository repository, StudyCompletionService completion, IClock clock)
+    {
+        _repository = repository;
+        _completion = completion;
+        _clock = clock;
+    }
+
+    public async Task<Result<StudySessionResponse>> Handle(RecoverStudySessionCommand command, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetSessionAsync(command.SessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
+        }
+
+        session.RecoverStuck(command.EffectiveMinutes, _clock.UtcNow);
         await _completion.RecordCompletedAsync(session, cancellationToken);
 
         return Result<StudySessionResponse>.Success(session.ToResponse());
@@ -310,6 +369,85 @@ public sealed class DiscardStudySessionCommandHandler
     }
 }
 
+public sealed class EditStudySessionCommandHandler
+    : ICommandHandler<EditStudySessionCommand, Result<StudySessionResponse>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+
+    public EditStudySessionCommandHandler(IStudyRepository repository, IIdGenerator idGenerator, IClock clock)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+        _clock = clock;
+    }
+
+    public async Task<Result<StudySessionResponse>> Handle(EditStudySessionCommand command, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.Subject) || command.EffectiveMinutes <= 0)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        var session = await _repository.GetSessionAsync(command.SessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.SessionNotFound);
+        }
+
+        if (session.Status != StudySessionStatus.Completed)
+        {
+            return Result<StudySessionResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        var oldSubject = session.Subject;
+        var oldTopic = session.Topic;
+
+        session.EditCompleted(command.Subject, command.Topic, command.EffectiveMinutes, command.PersonalNote, _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await StudyRecompute.RebuildTopicAsync(_repository, _idGenerator, session.StudentId, oldSubject, oldTopic, cancellationToken);
+        await StudyRecompute.RebuildTopicAsync(_repository, _idGenerator, session.StudentId, session.Subject, session.Topic, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<StudySessionResponse>.Success(session.ToResponse());
+    }
+}
+
+public sealed class DeleteStudySessionCommandHandler : ICommandHandler<DeleteStudySessionCommand, Result<bool>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+
+    public DeleteStudySessionCommandHandler(IStudyRepository repository, IIdGenerator idGenerator)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+    }
+
+    public async Task<Result<bool>> Handle(DeleteStudySessionCommand command, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetSessionAsync(command.SessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<bool>.Failure(StudyErrors.SessionNotFound);
+        }
+
+        var studentId = session.StudentId;
+        var subject = session.Subject;
+        var topic = session.Topic;
+
+        _repository.RemoveSession(session);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        await StudyRecompute.RebuildTopicAsync(_repository, _idGenerator, studentId, subject, topic, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<bool>.Success(true);
+    }
+}
+
 public sealed class GetStudySessionQueryHandler
     : IQueryHandler<GetStudySessionQuery, Result<StudySessionResponse>>
 {
@@ -329,19 +467,48 @@ public sealed class GetStudySessionQueryHandler
     }
 }
 
+public sealed class GetActiveSessionQueryHandler
+    : IQueryHandler<GetActiveSessionQuery, Result<ActiveSessionResponse?>>
+{
+    private readonly IStudyRepository _repository;
+    private readonly IClock _clock;
+
+    public GetActiveSessionQueryHandler(IStudyRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<ActiveSessionResponse?>> Handle(GetActiveSessionQuery query, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetActiveSessionAsync(query.StudentId, cancellationToken);
+        return session is null
+            ? Result<ActiveSessionResponse?>.Success(null)
+            : Result<ActiveSessionResponse?>.Success(new ActiveSessionResponse(session.ToResponse(), session.IsStale(_clock.UtcNow)));
+    }
+}
+
 public sealed class ListStudySessionsQueryHandler
     : IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>
 {
     private readonly IStudyRepository _repository;
+    private readonly StudyMembershipResolver _membership;
+    private readonly IClock _clock;
 
-    public ListStudySessionsQueryHandler(IStudyRepository repository)
+    public ListStudySessionsQueryHandler(IStudyRepository repository, StudyMembershipResolver membership, IClock clock)
     {
         _repository = repository;
+        _membership = membership;
+        _clock = clock;
     }
 
     public async Task<Result<IReadOnlyCollection<StudySessionResponse>>> Handle(ListStudySessionsQuery query, CancellationToken cancellationToken)
     {
-        var sessions = await _repository.ListSessionsAsync(query.StudentId, query.FromUtc, query.ToUtc, query.Subject, cancellationToken);
+        // Ö-D: Free geçmiş penceresi son 30 güne kısılır; Premium sınırsız.
+        var tier = await _membership.CurrentTierAsync(cancellationToken);
+        var fromUtc = MembershipGate.ClampFrom(tier, query.FromUtc, _clock.UtcNow);
+
+        var sessions = await _repository.ListSessionsAsync(query.StudentId, fromUtc, query.ToUtc, query.Subject, cancellationToken);
         var payload = sessions.Select(s => s.ToResponse()).ToArray();
         return Result<IReadOnlyCollection<StudySessionResponse>>.Success(payload);
     }

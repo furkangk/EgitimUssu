@@ -6,7 +6,7 @@
 > takip edebilsin; öğretmenle eşleşirse ders/ödev akışı da buraya bağlansın.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogretmen.md`](ogretmen.md) · [`veli.md`](veli.md) · [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
-> **Güncelleme:** 2026-07-07
+> **Güncelleme:** 2026-07-19
 
 ---
 
@@ -22,7 +22,7 @@
 | Öğrenci kendi kaydoldu | `SelfRegistered` | set | null |
 | Öğretmen ekledi (manuel) | `TeacherManaged` | null (başta) | set |
 
-Manuel öğrenci sonradan gerçek hesabına bağlanabilir (davet/eşleşme — ⚠️ planlanan). Detay: [`../modules/m03_students.md`](../modules/m03_students.md).
+**S-01.2 Davet kodu ile devralma (claim) + profil birleştirme (Ö-C):** Öğretmen bir manuel öğrenciyi davet ettiğinde sistem 6 haneli bir **davet kodu** üretir. Öğrenci hesabıyla giriş yapıp bu kodu girer (`POST /api/students/links/claim`), böylece öğretmenin oluşturduğu profili **kendi hesabına devralır**. Öğrencinin zaten kendi kaydettiği bir profili (`SelfRegistered`) varsa iki profil **birleşir**: kanonik profil öğrencinin self-profil'i olur; manuel profile bağlı tüm veriler (ders programı, ödev, ders notu, ödeme, ders seansı, çalışma kayıtları) kanonik profile taşınır — böylece **veri bölünmesi biter** (B-01/AKIŞ 3) ve veli paneli tek bir öğrenciden beslenir. Birleştirme **her zaman öğrencinin onayıyla** (kod girişi) gerçekleşir. Detay: [`../modules/m03_students.md`](../modules/m03_students.md) §4 (kural 18–19), §5.
 
 ---
 
@@ -36,6 +36,8 @@ Manuel öğrenci sonradan gerçek hesabına bağlanabilir (davet/eşleşme — �
 | **Ders/konu kataloğu** (ders + tekrar kullanılabilir konu listesi; kronometre/deneme/takvim/gelişim temeli) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 (2026-07-09 — `StudentSubjectCatalog`/`StudentTopicCatalog` + `SubjectCatalogPage`) |
 | **Çalışma kronometresi** (odak süresi) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Deneme/test** (D-Y-boş, net, artış/azalış analizi) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
+| **Çok dersli deneme** (tam deneme oturumu; dersler toplanıp toplam net) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 (2026-07-19 — `MockExam`, `POST /students/{id}/mock-exams`) |
+| **Hedef sınav** (LGS/TYT/AYT/…; net ceza bölenini belirler) | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 (2026-07-19 — `StudentProfile.TargetExam`, S-03.9) |
 | **Hedefler** (deneme net hedefi, günlük hedef) | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Seri (streak) + başarımlar** | [`m08_study`](../modules/m08_study.md) | M08 | 🟢 |
 | **Konu eksikleri + konu gelişimi + konu hedefleri** | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) | M10 | 🟡 (2026-07-09 — konu hâkimiyeti/eksik-güçlü + hedef + `ProgressOverviewPage`; zaman serisi grafiği ⚠️) |
@@ -66,10 +68,11 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 1. **Öğretmensiz tam işlevsellik:** Bireysel çalışma (kronometre, test, hedef, seri, konu gelişimi) öğretmen gerektirmez.
 2. **Özel ders otomatik program + çakışma önceliği** (promp): Öğretmenle eşleşilen ders **otomatik** öğrencinin programına eklenir. Öğrencinin kendi planı ile özel ders **çakışırsa öncelik özel derstedir** ve öğrenci **uyarılır** (M04/M08).
 3. **Mola net süreye eklenmez:** Kronometrede mola süresi toplam **net** çalışma süresine dahil edilmez (M08).
-4. **Net hesabı:** Test girişinde `Doğru + Yanlış + Boş = Toplam`; net formülü (örn. `Doğru − Yanlış/4`) konfigüre edilebilir (M08).
+4. **Net hesabı:** Test girişinde `Doğru + Yanlış + Boş = Toplam`; net = `Doğru − Yanlış/ceza`. Ceza böleni hedef sınava göre türetilir (`ExamPenalty`): **LGS → 3**, **TYT/AYT → 4**, **okul denemesi → yanlış götürmez** (M08/M03 `TargetExam`).
 5. **Ödev yükleme + son tarih:** Öğretmene bağlıysa öğrenci ödevini **yükler**; son teslim tarihinden önce yüklemezse **veliye bildirim** gidebilir (M06 + M11 + M09).
 6. **Gizlilik:** Öğrenci bireysel çalışma verisini veli/öğretmenle paylaşıp paylaşmayacağını seçer (M15 `ShareStudyDataWith*`).
 7. **Gamification amacı:** Seri ve başarımlar, öğrenciyi çalışmaya teşvik ve sistemde tutma içindir.
+8. **Streak eşiği (anlamlı seri):** Bir gün seriye ancak günlük hedefin ayarlanabilir bir yüzdesi (`StreakThresholdPercent`, varsayılan **%60**; günlük hedef yoksa sabit **20 dk**) tamamlanınca sayılır — kısa bir seans seriyi ilerletmez. Streak gün sınırı **04:00**'tir; gece geç çalışan öğrenci dünkü serisini korur (M08).
 
 ---
 
@@ -95,11 +98,17 @@ Kayıt (Student, öğretmensiz) → kendi ders programını oluştur
 ## 8. Üyelik Etkisi (Free/Premium)
 Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık analiz, hedef belirleme, seri/motivasyon, öğretmenle detaylı veri paylaşımı. Free: temel kronometre/test + reklam + limit (PRD §9.2, [`../modules/m17_membership.md`](../modules/m17_membership.md)).
 
+**Kodda uygulanan kapılar (Ö-D):** Üyelik seviyesi `MembershipTier` (Free/Premium) M03 profilde tutulur; Study modülü Free/Premium kapılarını `IMembershipDirectory` sözleşmesinden okur. **Karar: Free geniş** (streak tam + son 30 gün geçmiş), **Premium yalnız derinlik**. Bugün zorlanan farklar: geçmiş/net-trend Free'de **son 30 güne** kısılı (Premium sınırsız); **hedef net/puan takibi** (`TargetNet`/`TargetScore`) Premium'a özel → Free'de `study.premium_required` (HTTP 402). Aylık analiz / konu zayıflık / streak dondurma kapı mekanizması hazır, endpoint'leri gelince bağlanacak. Ayrıntı: [`../modules/m08_study.md`](../modules/m08_study.md) §4.7.
+
 ## 9. Kabul Kriterleri (Faz 2)
 - [x] Öğretmensiz kayıt (`SelfRegistered`) — mobil ilk girişte otomatik profil.
 - [x] Çalışma kronometresi (konu seç, başlat/durdur/bitir, mola) + seans geçmişi + haftalık özet.
+- [x] **Sayaç güvenilirliği (Ö-E, API):** offline/arka planda birikmiş net süre istemci-otoriter kabul edilir (`clientEffectiveMinutes`, şişirmeye karşı `elapsed+2` tavanı); çökme sonrası takılı seans `recover` ile kurtarılır; `active-session` sorgusu 6 saatten uzun süredir çalışan seansı `isStale` ile işaretler (B-02/AKIŞ 4). *Not: asıl arka plan/offline mantığı mobil tarafta ayrı iştir.*
 - [x] Test girişi + net + konu bazlı takip (net-trend).
-- [x] Hedef + seri + başarım sistemi.
+- [x] **Çok dersli deneme** (`MockExam`): dersler tek oturumda girilir, toplam net türetilir.
+- [x] **Hedef sınav** (`TargetExam`) net ceza bölenini belirler (LGS/3, TYT-AYT/4, okul yanlış götürmez).
+- [x] Tamamlanmış seans/test **düzenle-sil** (net + konu rollup tutarlı kalır; streak zinciri v1'de geri sarılmaz).
+- [x] Hedef + seri + başarım sistemi (seri, ayarlanabilir günlük-hedef eşiği + 04:00 gün sınırı ile — anlamlı streak).
 - [ ] Konu eksik/gelişim/hedef (M10 — iskelet).
 - [ ] Öğretmene bağlıysa ödev yükleme + ders notu/kaynak görüntüleme (M06 öğrenci görünümü ⚠️).
 - [ ] Özel ders çakışmasında öncelik + uyarı (M04 entegrasyonu ⚠️).
@@ -110,4 +119,4 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 
 ---
 
-*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*
+*Öğrenci Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-C: S-01.2 davet kodu ile profili devralma (claim) + tam profil birleştirme (merge) → modüller-arası veri taşıma · Ö-B: çok dersli deneme `MockExam` + hedef sınav `TargetExam` → sınav tipine göre net böleni `ExamPenalty` · Ö-A streak eşiği: `StreakThresholdPercent` + 04:00 gün sınırı — anlamlı seri) · 2026-07-09 (Öğretmenlerim ekranı: bağlı öğretmen(ler) bilgi kartı `GET /api/teachers/profiles/{userId}` ile eklendi; ux §4 IA: 5 sekme — Ana Sayfa/Çalışmalarım/Testler/**Takvim**/Diğer; Hedefler+Öğretmenlerim+Profil Diğer hub'ında; **Takvim** = birleşik ders programı, öğrenci kişisel `StudyScheduleEntry` CRUD + tekrar + öğretmen çakışma reddi; Dersler gerçek — güvenli öğrenci-kapsamlı scheduling endpoint'i `IStudentDirectory` ile)*

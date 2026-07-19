@@ -27,6 +27,9 @@ public sealed record StudySessionResponse(
     bool IsSharedWithTeacher,
     DateTime CreatedOnUtc);
 
+/// <summary>Öğrencinin o an aktif (çalışan/molada) seansı ve takılı (unutulmuş) olup olmadığı.</summary>
+public sealed record ActiveSessionResponse(StudySessionResponse Session, bool IsStale);
+
 public sealed record SubjectMinutesResponse(string Subject, int EffectiveMinutes, int SessionCount);
 
 public sealed record DayMinutesResponse(DateOnly Date, int EffectiveMinutes, int SessionCount);
@@ -73,6 +76,7 @@ public sealed record StudyGoalResponse(
     decimal? TargetNet,
     decimal? TargetScore,
     string? Subject,
+    int StreakThresholdPercent,
     bool IsActive,
     DateTime UpdatedOnUtc);
 
@@ -143,6 +147,11 @@ public interface IStudyRepository
 
     Task AddSessionAsync(StudySession session, CancellationToken cancellationToken);
 
+    void RemoveSession(StudySession session);
+
+    Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(
+        Guid studentId, string subject, string topic, CancellationToken cancellationToken);
+
     // Testler
     Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken);
 
@@ -152,6 +161,11 @@ public interface IStudyRepository
     Task<int> CountTestsAsync(Guid studentId, CancellationToken cancellationToken);
 
     Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken);
+
+    void RemoveTest(TestResult testResult);
+
+    // Çok dersli deneme
+    Task AddMockExamAsync(MockExam mockExam, CancellationToken cancellationToken);
 
     // Hedefler
     Task<StudyGoal?> GetActiveGoalAsync(Guid studentId, CancellationToken cancellationToken);
@@ -167,6 +181,8 @@ public interface IStudyRepository
     Task<StudyTopic?> GetTopicAsync(Guid studentId, string subject, string topic, CancellationToken cancellationToken);
 
     Task AddTopicAsync(StudyTopic topic, CancellationToken cancellationToken);
+
+    void RemoveTopic(StudyTopic topic);
 
     // Ders/konu kataloğu (öğrencinin tanımladığı)
     Task<IReadOnlyList<StudentSubjectCatalog>> ListCatalogSubjectsAsync(Guid studentId, CancellationToken cancellationToken);

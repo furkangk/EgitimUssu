@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
         services.AddScoped<ITeacherStudentLinkRepository, TeacherStudentLinkRepository>();
         services.AddScoped<IStudentDirectory, StudentDirectory>();
+        services.AddScoped<IMembershipDirectory, MembershipDirectory>();
         services.AddScoped<ICommandHandler<CreateStudentProfileCommand, Result<StudentProfileResponse>>, CreateStudentProfileCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByIdQueryHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByUserIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByUserIdQueryHandler>();
@@ -35,9 +36,11 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<InviteStudentCommand, Result>, InviteStudentCommandHandler>();
         services.AddScoped<ICommandHandler<AcceptTeacherStudentLinkCommand, Result>, AcceptTeacherStudentLinkCommandHandler>();
         services.AddScoped<ICommandHandler<RejectTeacherStudentLinkCommand, Result>, RejectTeacherStudentLinkCommandHandler>();
+        services.AddScoped<ICommandHandler<ClaimStudentLinkCommand, Result>, ClaimStudentLinkCommandHandler>();
         services.AddScoped<ICommandAuthorizer<InviteStudentCommand>, TeacherStudentLinkAuthorizer>();
         services.AddScoped<ICommandAuthorizer<AcceptTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<ICommandAuthorizer<RejectTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<ClaimStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
         return services;
     }

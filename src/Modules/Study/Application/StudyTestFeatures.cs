@@ -16,7 +16,24 @@ public sealed record RecordTestResultCommand(
     int Blank,
     int? PenaltyDivisor,
     int? DurationMinutes,
-    DateTime TakenOnUtc) : ICommand<Result<TestResultResponse>>, IStudentScopedRequest;
+    DateTime TakenOnUtc,
+    string? TargetExam = null) : ICommand<Result<TestResultResponse>>, IStudentScopedRequest;
+
+public sealed record EditTestResultCommand(
+    Guid TestResultId,
+    string Subject,
+    string? Topic,
+    string TestType,
+    string? TestName,
+    int TotalQuestions,
+    int Correct,
+    int Wrong,
+    int Blank,
+    int? PenaltyDivisor,
+    int? DurationMinutes,
+    DateTime TakenOnUtc) : ICommand<Result<TestResultResponse>>;
+
+public sealed record DeleteTestResultCommand(Guid TestResultId) : ICommand<Result<bool>>;
 
 public sealed record GetTestResultQuery(Guid TestResultId) : IQuery<Result<TestResultResponse>>;
 
@@ -64,7 +81,9 @@ public sealed class RecordTestResultCommandHandler
         }
 
         var link = await _linkResolver.EnsureAsync(command.StudentId, cancellationToken);
-        var penaltyDivisor = command.PenaltyDivisor is > 0 ? command.PenaltyDivisor.Value : 4;
+        var penaltyDivisor = command.PenaltyDivisor is > 0
+            ? command.PenaltyDivisor.Value
+            : ExamPenalty.DivisorFor(command.TargetExam) ?? int.MaxValue; // School → int.MaxValue: yanlış götürmez (Net ≈ Correct)
 
         var testResult = new TestResult(
             _idGenerator.New(),
@@ -104,6 +123,86 @@ public sealed class RecordTestResultCommandHandler
         Enum.TryParse<TestType>(value, ignoreCase: true, out var parsed) ? parsed : TestType.General;
 }
 
+public sealed class EditTestResultCommandHandler
+    : ICommandHandler<EditTestResultCommand, Result<TestResultResponse>>
+{
+    private static readonly Error NotFound = new("study.test_not_found", "Deneme sonucu bulunamadı.");
+    private readonly IStudyRepository _repository;
+    private readonly IClock _clock;
+
+    public EditTestResultCommandHandler(IStudyRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<TestResultResponse>> Handle(EditTestResultCommand command, CancellationToken cancellationToken)
+    {
+        if (command.Correct < 0 || command.Wrong < 0 || command.Blank < 0
+            || command.Correct + command.Wrong + command.Blank != command.TotalQuestions
+            || command.TotalQuestions <= 0)
+        {
+            return Result<TestResultResponse>.Failure(StudyErrors.InvalidTest);
+        }
+
+        if (command.TakenOnUtc > _clock.UtcNow.AddMinutes(1))
+        {
+            return Result<TestResultResponse>.Failure(StudyErrors.InvalidRequest);
+        }
+
+        var test = await _repository.GetTestAsync(command.TestResultId, cancellationToken);
+        if (test is null)
+        {
+            return Result<TestResultResponse>.Failure(NotFound);
+        }
+
+        var penaltyDivisor = command.PenaltyDivisor is > 0 ? command.PenaltyDivisor.Value : 4;
+        test.Edit(
+            command.Subject.Trim(),
+            command.Topic,
+            command.TestName,
+            ParseTestType(command.TestType),
+            command.TotalQuestions,
+            command.Correct,
+            command.Wrong,
+            command.Blank,
+            penaltyDivisor,
+            command.DurationMinutes,
+            DateTime.SpecifyKind(command.TakenOnUtc, DateTimeKind.Utc),
+            _clock.UtcNow);
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<TestResultResponse>.Success(test.ToResponse());
+    }
+
+    private static TestType ParseTestType(string value) =>
+        Enum.TryParse<TestType>(value, ignoreCase: true, out var parsed) ? parsed : TestType.General;
+}
+
+public sealed class DeleteTestResultCommandHandler : ICommandHandler<DeleteTestResultCommand, Result<bool>>
+{
+    private static readonly Error NotFound = new("study.test_not_found", "Deneme sonucu bulunamadı.");
+    private readonly IStudyRepository _repository;
+
+    public DeleteTestResultCommandHandler(IStudyRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<bool>> Handle(DeleteTestResultCommand command, CancellationToken cancellationToken)
+    {
+        var test = await _repository.GetTestAsync(command.TestResultId, cancellationToken);
+        if (test is null)
+        {
+            return Result<bool>.Failure(NotFound);
+        }
+
+        _repository.RemoveTest(test);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<bool>.Success(true);
+    }
+}
+
 public sealed class GetTestResultQueryHandler
     : IQueryHandler<GetTestResultQuery, Result<TestResultResponse>>
 {
@@ -127,15 +226,23 @@ public sealed class ListTestResultsQueryHandler
     : IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>
 {
     private readonly IStudyRepository _repository;
+    private readonly StudyMembershipResolver _membership;
+    private readonly IClock _clock;
 
-    public ListTestResultsQueryHandler(IStudyRepository repository)
+    public ListTestResultsQueryHandler(IStudyRepository repository, StudyMembershipResolver membership, IClock clock)
     {
         _repository = repository;
+        _membership = membership;
+        _clock = clock;
     }
 
     public async Task<Result<IReadOnlyCollection<TestResultResponse>>> Handle(ListTestResultsQuery query, CancellationToken cancellationToken)
     {
-        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, query.FromUtc, query.ToUtc, cancellationToken);
+        // Ö-D: Free deneme geçmişi son 30 güne kısılır; Premium sınırsız.
+        var tier = await _membership.CurrentTierAsync(cancellationToken);
+        var fromUtc = MembershipGate.ClampFrom(tier, query.FromUtc, _clock.UtcNow);
+
+        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, fromUtc, query.ToUtc, cancellationToken);
         var payload = tests.Select(t => t.ToResponse()).ToArray();
         return Result<IReadOnlyCollection<TestResultResponse>>.Success(payload);
     }
@@ -145,15 +252,23 @@ public sealed class NetTrendQueryHandler
     : IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>
 {
     private readonly IStudyRepository _repository;
+    private readonly StudyMembershipResolver _membership;
+    private readonly IClock _clock;
 
-    public NetTrendQueryHandler(IStudyRepository repository)
+    public NetTrendQueryHandler(IStudyRepository repository, StudyMembershipResolver membership, IClock clock)
     {
         _repository = repository;
+        _membership = membership;
+        _clock = clock;
     }
 
     public async Task<Result<NetTrendResponse>> Handle(NetTrendQuery query, CancellationToken cancellationToken)
     {
-        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, null, null, cancellationToken);
+        // Ö-D: Free net trendi son 30 güne kısılır; Premium sınırsız.
+        var tier = await _membership.CurrentTierAsync(cancellationToken);
+        var fromUtc = MembershipGate.ClampFrom(tier, null, _clock.UtcNow);
+
+        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, fromUtc, null, cancellationToken);
         var points = tests
             .OrderBy(t => t.TakenOnUtc)
             .Select(t => new NetTrendPointResponse(t.TakenOnUtc, t.Net, t.TestName, t.TotalQuestions))

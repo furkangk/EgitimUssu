@@ -21,7 +21,7 @@
 - **Mobil:** abonelik/paywall/reklam feature'ı **yok**.
 - **Şema:** PostgreSQL'de `membership` şeması **yok**.
 - **Ödeme:** Herhangi bir ödeme sağlayıcısı entegrasyonu (App Store/Google Play/Iyzico vb.) **yok**.
-- **Kısıtlama uygulaması:** Bugün hiçbir modül "free limiti" uygulamıyor (örn. öğretmen öğrenci sayısı sınırsız). Free/Premium ayrımı henüz hiçbir yerde zorlanmıyor.
+- **Kısıtlama uygulaması:** Tam entitlement altyapısı henüz yok. **İstisna (Ö-D, 2026-07-19):** Study modülü hafif bir Free/Premium kapısı uygular — öğrencinin `MembershipTier`'ı (Free/Premium) M03 `StudentProfile`'da tutulur ve `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okunur. Bugün zorlanan: Free geçmiş/net-trend son 30 güne kısılı, hedef net/puan takibi Premium'a özel (`study.premium_required` → 402). Bu, M17 tam modülü gelene kadar geçici bir çekirdektir; M17 açılınca tier depolama + entitlement bu modüle taşınır (bkz. [`m08_study.md`](m08_study.md) §4.7).
 
 > ⚠️ Bu dokümandaki **tüm** içerik **önerilen / planlanan**dır. PRD §10.1'e göre bu modül **en geç açılan**
 > bileşenlerdendir: Faz 1-3 gerçek kullanıcıda doğrulanmadan premium'a geçilmez.
@@ -303,4 +303,4 @@ POST /webhooks/payment (imza doğrulanır)
 
 ---
 
-*Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Güncelleme: 2026-06-24*
+*Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Güncelleme: 2026-07-19 (Ö-D: Study'de hafif Free/Premium çekirdeği — `StudentProfile.MembershipTier` + `IMembershipDirectory`)*

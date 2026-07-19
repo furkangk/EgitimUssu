@@ -166,6 +166,40 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Study.Domain.MockExam", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EstimatedRank")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ExamType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("TakenOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("TotalNet")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("numeric(7,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "TakenOnUtc");
+
+                    b.ToTable("mock_exams", "study");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Study.Domain.StudentAchievement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -283,6 +317,11 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("StreakThresholdPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60);
 
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
@@ -555,6 +594,9 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
                     b.Property<bool>("IsSharedWithTeacher")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("MockExamId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Net")
                         .HasPrecision(7, 2)
                         .HasColumnType("numeric(7,2)");
@@ -593,6 +635,8 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("MockExamId");
 
                     b.HasIndex("StudentId", "Subject", "TakenOnUtc");
 

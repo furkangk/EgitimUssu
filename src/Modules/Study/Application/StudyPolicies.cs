@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Study.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Study.Application;
@@ -8,7 +9,7 @@ namespace EgitimUssu.Modules.Study.Application;
 /// Öğrencinin yerel takvim günü hesabı. M15 (Settings) zaman dilimi tercihi devreye girene kadar
 /// Türkiye saati (UTC+3) varsayılır.
 /// </summary>
-internal static class StudyLocalTime
+public static class StudyLocalTime
 {
     public const int OffsetHours = 3;
 
@@ -16,6 +17,23 @@ internal static class StudyLocalTime
 
     public static DateTime LocalDayStartUtc(DateOnly localDate) =>
         DateTime.SpecifyKind(localDate.ToDateTime(TimeOnly.MinValue).AddHours(-OffsetHours), DateTimeKind.Utc);
+
+    /// <summary>Streak gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).</summary>
+    public static DateOnly StreakDate(DateTime utcNow) => DateOnly.FromDateTime(utcNow.AddHours(OffsetHours).AddHours(-4));
+}
+
+/// <summary>Streak (seri) kuralları — birim testli saf mantık.</summary>
+public static class StreakRules
+{
+    public const int MinFixedThresholdMinutes = 20;
+
+    public static int EffectiveThresholdMinutes(int dailyGoalMinutes, int thresholdPercent)
+        => dailyGoalMinutes > 0
+            ? (int)Math.Ceiling(dailyGoalMinutes * (thresholdPercent / 100.0))
+            : MinFixedThresholdMinutes;
+
+    public static bool DayCounts(int dayTotalMinutes, int dailyGoalMinutes, int thresholdPercent)
+        => dayTotalMinutes >= EffectiveThresholdMinutes(dailyGoalMinutes, thresholdPercent);
 }
 
 /// <summary>
@@ -125,6 +143,35 @@ public sealed class StudyLinkResolver
 }
 
 /// <summary>
+/// Free/Premium kapıları için oturum açan kullanıcının üyelik seviyesini çözer (Ö-D).
+/// Bu Study endpoint'lerine (sahiplik kapısıyla) yalnızca öğrencinin kendisi veya Admin eriştiğinden,
+/// oturum kullanıcısının tier'ı = öğrencinin tier'ıdır. Admin daima Premium (tam erişim) sayılır.
+/// </summary>
+public sealed class StudyMembershipResolver
+{
+    private readonly ICurrentUser _currentUser;
+    private readonly IMembershipDirectory _directory;
+
+    public StudyMembershipResolver(ICurrentUser currentUser, IMembershipDirectory directory)
+    {
+        _currentUser = currentUser;
+        _directory = directory;
+    }
+
+    public async Task<MembershipTier> CurrentTierAsync(CancellationToken cancellationToken)
+    {
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return MembershipTier.Premium;
+        }
+
+        return Guid.TryParse(_currentUser.UserId, out var userId)
+            ? await _directory.GetTierAsync(userId, cancellationToken)
+            : MembershipTier.Free;
+    }
+}
+
+/// <summary>
 /// Tamamlanan seans/test sonrası eşik-tabanlı başarım kazanımını değerlendirir.
 /// </summary>
 public sealed class AchievementEvaluator
@@ -225,5 +272,5 @@ internal static class StudyMappings
 
     public static StudyGoalResponse ToResponse(this StudyGoal g) => new(
         g.Id, g.StudentId, g.DailyGoalMinutes, g.WeeklyGoalMinutes, g.TargetNet, g.TargetScore,
-        g.Subject, g.IsActive, g.UpdatedOnUtc);
+        g.Subject, g.StreakThresholdPercent, g.IsActive, g.UpdatedOnUtc);
 }

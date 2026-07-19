@@ -61,6 +61,9 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapPost("/links/{linkId:guid}/reject", RejectLinkAsync)
         .WithSummary("Öğretmen davetini reddeder (öğrenci)");
+
+        group.MapPost("/links/claim", ClaimLinkAsync)
+        .WithSummary("Davet kodu ile öğretmen profilini devralır (öğrenci)");
     }
 
     /// <summary>
@@ -230,10 +233,32 @@ public sealed class StudentsModule : ModuleDefinition
         return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
     }
 
+    /// <summary>
+    /// Oturum açmış öğrenci kullanıcısı 6 haneli davet kodunu girerek öğretmenin oluşturduğu profili
+    /// kendi hesabına devralır (Ö-C). Kullanıcının zaten bir profili varsa birleştirme (merge) uygulanır.
+    /// </summary>
+    private static async Task<IResult> ClaimLinkAsync(
+        HttpContext context,
+        ClaimLinkRequest request,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var claimingUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Daveti devralan kullanıcı belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(new ClaimStudentLinkCommand(request.InviteCode, claimingUserId), cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
+    }
+
     private static IResult MapLinkError(HttpContext context, Result result)
         => result.Error.Code switch
         {
             "students.link_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "students.invite_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "students.invite_invalid" => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -272,6 +297,11 @@ public sealed record SetStudentRateRequest(decimal AgreedRateAmount, string Curr
 public sealed record InviteStudentRequest(Guid? TargetUserId);
 
 /// <summary>
+/// Öğrencinin öğretmen profilini devralmak için girdiği 6 haneli davet kodunu taşır (Ö-C).
+/// </summary>
+public sealed record ClaimLinkRequest(string InviteCode);
+
+/// <summary>
 /// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.
 /// </summary>
 public sealed record UpdateStudentProfileRequest(
@@ -282,7 +312,8 @@ public sealed record UpdateStudentProfileRequest(
     string? GoalSummary,
     string? LevelNotes,
     bool IsActive,
-    IReadOnlyCollection<StudentSubjectItem> Subjects)
+    IReadOnlyCollection<StudentSubjectItem> Subjects,
+    TargetExam TargetExam = TargetExam.None)
 {
     public UpdateStudentProfileCommand ToCommand(Guid studentId)
     {
@@ -295,7 +326,8 @@ public sealed record UpdateStudentProfileRequest(
             GoalSummary,
             LevelNotes,
             IsActive,
-            Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray());
+            Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray(),
+            TargetExam);
     }
 }
 
@@ -313,7 +345,8 @@ public sealed record CreateStudentProfileRequest(
     string? GoalSummary,
     string? LevelNotes,
     StudentOrigin Origin,
-    IReadOnlyCollection<StudentSubjectItem> Subjects)
+    IReadOnlyCollection<StudentSubjectItem> Subjects,
+    TargetExam TargetExam = TargetExam.None)
 {
     public CreateStudentProfileCommand ToCommand()
     {
@@ -328,6 +361,7 @@ public sealed record CreateStudentProfileRequest(
             GoalSummary,
             LevelNotes,
             Origin,
-            Subjects.Select(subject => new StudentSubjectRequest(subject.Subject, subject.TargetLevel)).ToArray());
+            Subjects.Select(subject => new StudentSubjectRequest(subject.Subject, subject.TargetLevel)).ToArray(),
+            TargetExam);
     }
 }

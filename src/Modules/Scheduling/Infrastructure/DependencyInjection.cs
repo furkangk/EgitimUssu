@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Scheduling.Infrastructure;
@@ -56,6 +57,9 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<UpdateStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DeleteStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudentCalendarQuery>, StudyScheduleEntryAuthorizer>();
+
+        // Ö-C: profil birleştirmede kaynak öğrenciye ait kayıtları kanonik öğrenciye taşır.
+        services.AddScoped<IIntegrationEventHandler, SchedulingStudentMergedHandler>();
         return services;
     }
 }

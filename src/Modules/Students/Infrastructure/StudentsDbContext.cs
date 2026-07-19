@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Students.Domain;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +48,10 @@ internal sealed class StudentProfileConfiguration : IEntityTypeConfiguration<Stu
         builder.Property(entity => entity.GoalSummary).HasMaxLength(1000);
         builder.Property(entity => entity.LevelNotes).HasMaxLength(1000);
         builder.Property(entity => entity.Origin).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.TargetExam).HasConversion<string>().HasMaxLength(16).IsRequired().HasDefaultValue(TargetExam.None);
+        builder.Property(entity => entity.MembershipTier).HasConversion<string>().HasMaxLength(16).IsRequired().HasDefaultValue(MembershipTier.Free);
+        builder.Property(entity => entity.IsMerged).IsRequired().HasDefaultValue(false);
+        builder.Property(entity => entity.MergedIntoStudentId);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.UserId).IsUnique();
@@ -64,9 +69,11 @@ internal sealed class TeacherStudentLinkConfiguration : IEntityTypeConfiguration
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.Currency).HasMaxLength(8).IsRequired();
         builder.Property(entity => entity.AgreedRateAmount).HasPrecision(12, 2);
+        builder.Property(entity => entity.InviteCode).HasMaxLength(8);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StudentId }).IsUnique();
+        builder.HasIndex(entity => entity.InviteCode);
     }
 }
 
