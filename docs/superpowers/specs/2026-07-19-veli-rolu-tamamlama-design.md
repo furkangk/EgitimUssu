@@ -96,3 +96,20 @@ Kullanıcı her dilimin implementasyon planı yazılırken ilgili ürün kararı
 
 ## 7. Kapsam dışı (bu roadmap)
 Mobil UI, M12 eşleştirme, M13, Premium satın alma/aile paketi altyapısı, WhatsApp/SMS kanalı. Bunlar ayrı fazlarda ele alınır.
+
+## 8. Plan dosyaları (2026-07-19, ürün kararlarıyla)
+- **V-A** `plans/2026-07-19-veli-vA-ogrenci-dogum-tarihi.md` — DateOfBirth (yaş-kapısı yok, KVKK ertelendi).
+- **V-B** `plans/2026-07-19-veli-vB-gizlilik-filtresi.md` — "paylaşılmıyor" şeffaf işaret; Settings okuma/yazma yüzeyi + `IStudentPrivacyDirectory`.
+- **V-C** `plans/2026-07-19-veli-vC-dogrulama-baglanti-seffaflik.md` — birincil veli tekilliği + bağlantı şeffaflık olayı (teslim V-E).
+- **V-D** `plans/2026-07-19-veli-vD-veli-davet-claim.md` — öğretmen davet kodu → veli claim (veli onayı ile).
+- **V-E** `plans/2026-07-19-veli-vE-bildirim-motoru.md` — veli bildirim motoru, **Premium kapılı** (`ParentProfile.MembershipTier` + `ParentNotification` + kontratlar).
+- **V-F** `plans/2026-07-19-veli-vF-dashboard-zenginlestirme.md` — çalışma verisi (bug fix) + son ders/yaklaşan + öğretmen notları (Student+StudentAndParent) + ödeme detay.
+- **V-G** `plans/2026-07-19-veli-vG-odedim-beyani.md` — ödeme beyanı, öğretmen teyitli (`ParentPaymentDeclaration`).
+
+## 9. Keşif notları (kod gerçeği — planları etkileyen)
+- **Settings iskelet:** `ShareStudyDataWithParent` alanı var ama Application/endpoint/event yok → V-B minimal okuma/yazma yüzeyi kurar.
+- **Veli tier'ı yok + `IMembershipDirectory` yalnız öğrenci biliyor** → V-E `ParentProfile.MembershipTier` ekler; satın alma yok, başta Admin set.
+- **Çalışma verisi read-model'e hiç yazılmıyor** (`WeeklyStudyMinutes`/`StudyStreakDays` atıl) → V-F canlı `IStudyDigestDirectory` ile düzeltir.
+- **Öğretmen-girdiği veli-iletişim alanı + Identity telefon araması yok** → V-D davet-kodu modeli.
+- **Payments tamamen öğretmen-sahipli, veli yetkisi yok** → V-G `IParentAccessDirectory` + yeni aggregate.
+- **Bağımlılıklar:** V-C→V-E (bildirim teslimi), V-D→V-C (Approve imzası), V-F→V-B (gizlilik), V-G→V-E (öğretmen bildirimi).
