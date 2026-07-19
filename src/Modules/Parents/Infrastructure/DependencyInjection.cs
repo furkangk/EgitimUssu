@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddModuleDbContext<ParentsDbContext>(configuration, "Parents", ParentsDbContext.SchemaName);
         services.AddScoped<IParentRepository, ParentRepository>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IParentAccessDirectory, ParentAccessDirectory>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IParentNotificationDirectory, ParentNotificationDirectory>();
 
         // Command handler'ları
         services.AddScoped<ICommandHandler<CreateParentProfileCommand, Result<ParentProfileResponse>>, CreateParentProfileCommandHandler>();
