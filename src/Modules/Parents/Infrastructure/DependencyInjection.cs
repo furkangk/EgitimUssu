@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<RejectChildLinkCommand, Result<ChildLinkResponse>>, RejectChildLinkCommandHandler>();
         services.AddScoped<ICommandHandler<RevokeChildLinkCommand, Result<ChildLinkResponse>>, RevokeChildLinkCommandHandler>();
         services.AddScoped<ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>, ClaimParentInviteCommandHandler>();
+        services.AddScoped<ICommandHandler<SetParentMembershipTierCommand, Result<ParentProfileResponse>>, SetParentMembershipTierCommandHandler>();
 
         // Query handler'ları
         services.AddScoped<IQueryHandler<GetParentProfileQuery, Result<ParentProfileResponse>>, GetParentProfileQueryHandler>();
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<RejectChildLinkCommand>, ParentAuthorizer>();
         services.AddScoped<ICommandAuthorizer<RevokeChildLinkCommand>, ParentAuthorizer>();
         services.AddScoped<ICommandAuthorizer<ClaimParentInviteCommand>, ParentAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<SetParentMembershipTierCommand>, ParentAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetParentProfileQuery>, ParentAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListChildrenQuery>, ParentAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetChildDashboardQuery>, ParentAuthorizer>();

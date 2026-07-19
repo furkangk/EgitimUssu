@@ -48,6 +48,7 @@ internal sealed class ParentProfileConfiguration : IEntityTypeConfiguration<Pare
         builder.Property(entity => entity.ContactPhone).HasMaxLength(32);
         builder.Property(entity => entity.ContactEmail).HasMaxLength(256);
         builder.Property(entity => entity.NotificationChannel).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.MembershipTier).HasConversion<string>().HasMaxLength(16).IsRequired().HasDefaultValue(EgitimUssu.Shared.Contracts.MembershipTier.Free);
         builder.HasIndex(entity => entity.UserId).IsUnique();
     }
 }

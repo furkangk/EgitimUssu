@@ -45,6 +45,7 @@ public sealed class ParentAuthorizer :
     ICommandAuthorizer<RejectChildLinkCommand>,
     ICommandAuthorizer<RevokeChildLinkCommand>,
     ICommandAuthorizer<ClaimParentInviteCommand>,
+    ICommandAuthorizer<SetParentMembershipTierCommand>,
     IQueryAuthorizer<GetParentProfileQuery>,
     IQueryAuthorizer<ListChildrenQuery>,
     IQueryAuthorizer<GetChildDashboardQuery>
@@ -96,6 +97,11 @@ public sealed class ParentAuthorizer :
     // Davet kodu claim: kodu bilen, kendi kimliğiyle işlem yapan veli (veya Admin). Kod bilgisi onay kanıtıdır.
     public Task<Result> Authorize(ClaimParentInviteCommand command, CancellationToken cancellationToken)
         => Task.FromResult(RequireSelfOrAdmin(command.ParentUserId));
+
+    // Üyelik seviyesi değişimi: yalnız Admin (satın alma altyapısı gelene kadar; Veli V-E).
+    public Task<Result> Authorize(SetParentMembershipTierCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(
+            _currentUser.IsAuthenticated && IsAdmin ? Result.Success() : Result.Failure(Forbidden));
 
     public Task<Result> Authorize(GetParentProfileQuery query, CancellationToken cancellationToken)
         => Task.FromResult(RequireSelfOrAdmin(query.UserId));

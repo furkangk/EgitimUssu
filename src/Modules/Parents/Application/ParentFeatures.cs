@@ -40,6 +40,8 @@ public sealed record RevokeChildLinkCommand(Guid LinkId) : ICommand<Result<Child
 
 public sealed record ClaimParentInviteCommand(Guid ParentUserId, string InviteCode) : ICommand<Result<ChildLinkResponse>>;
 
+public sealed record SetParentMembershipTierCommand(Guid ParentUserId, MembershipTier Tier) : ICommand<Result<ParentProfileResponse>>;
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -62,6 +64,7 @@ public sealed record ParentProfileResponse(
     string? ContactEmail,
     NotificationPreferencesResponse Preferences,
     bool IsActive,
+    string MembershipTier,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
 
@@ -338,6 +341,31 @@ public sealed class RevokeChildLinkCommandHandler : ICommandHandler<RevokeChildL
     }
 }
 
+public sealed class SetParentMembershipTierCommandHandler : ICommandHandler<SetParentMembershipTierCommand, Result<ParentProfileResponse>>
+{
+    private readonly IParentRepository _repository;
+    private readonly IClock _clock;
+
+    public SetParentMembershipTierCommandHandler(IParentRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<ParentProfileResponse>> Handle(SetParentMembershipTierCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetProfileByUserIdAsync(command.ParentUserId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<ParentProfileResponse>.Failure(ParentErrors.ProfileNotFound);
+        }
+
+        profile.SetMembershipTier(command.Tier, _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<ParentProfileResponse>.Success(profile.ToResponse());
+    }
+}
+
 public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>
 {
     private readonly IParentRepository _repository;
@@ -504,6 +532,7 @@ internal static class ParentMappings
                 profile.NotifyPayments,
                 profile.NotificationChannel.ToString()),
             profile.IsActive,
+            profile.MembershipTier.ToString(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
     }
