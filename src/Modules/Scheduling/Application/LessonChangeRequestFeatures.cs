@@ -90,7 +90,8 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
     {
         var lesson = await _lessonRepository.GetByIdAsync(command.LessonScheduleId, cancellationToken);
         // Ders bulunamazsa veya öğrenciye ait değilse: IDOR sızıntısını önlemek için ayrım yapmadan bulunamadı döneriz.
-        if (lesson is null || lesson.StudentId != command.StudentId)
+        // Öğretmensiz (self) ders için erteleme talebi anlamsızdır (öğrenci kendi dersini doğrudan düzenler).
+        if (lesson is null || lesson.StudentId != command.StudentId || lesson.TeacherUserId is null)
         {
             return Result<LessonChangeRequestResponse>.Failure(LessonNotFound);
         }
@@ -107,7 +108,7 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
             _idGenerator.New(),
             lesson.Id,
             lesson.StudentId,
-            lesson.TeacherUserId,
+            lesson.TeacherUserId.Value,
             command.Reason.Trim(),
             command.ProposedStartAtUtc,
             command.ProposedEndAtUtc,

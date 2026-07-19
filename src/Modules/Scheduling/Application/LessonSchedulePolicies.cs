@@ -114,7 +114,7 @@ public sealed class LessonScheduleCommandAuthorizer :
         return Task.FromResult(CanManageTeacher(query.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
     }
 
-    private bool CanManageTeacher(Guid teacherUserId)
+    private bool CanManageTeacher(Guid? teacherUserId)
     {
         if (!_currentUser.IsAuthenticated)
         {
@@ -122,8 +122,19 @@ public sealed class LessonScheduleCommandAuthorizer :
         }
 
         var isAdmin = _currentUser.Roles.Contains("Admin");
+        if (isAdmin)
+        {
+            return true;
+        }
+
+        // Öğretmensiz (self) ders bu yetkilendiriciye düşmez; öğretmen kimliği yoksa öğretmen rolü yönetemez.
+        if (teacherUserId is not { } ownerTeacherId)
+        {
+            return false;
+        }
+
         var isTeacher = _currentUser.Roles.Contains("Teacher");
-        return isAdmin || (isTeacher && Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == teacherUserId);
+        return isTeacher && Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == ownerTeacherId;
     }
 }
 

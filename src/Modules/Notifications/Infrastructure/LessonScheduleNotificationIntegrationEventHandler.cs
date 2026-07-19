@@ -67,7 +67,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : IInteg
         var reminder = new LessonReminder(
             _idGenerator.New(),
             payload.LessonScheduleId,
-            payload.TeacherUserId,
+            payload.TeacherUserId ?? Guid.Empty,
             payload.StudentId,
             "Yaklasan ders hatirlatmasi",
             $"Ders {payload.StartAtUtc:O} tarihinde baslayacak.",
@@ -101,7 +101,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : IInteg
 
     private sealed record LessonScheduledEventPayload(
         Guid LessonScheduleId,
-        Guid TeacherUserId,
+        Guid? TeacherUserId,
         Guid StudentId,
         DateTime StartAtUtc,
         DateTime EndAtUtc,
@@ -110,7 +110,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : IInteg
 
     private sealed record LessonScheduleCancelledEventPayload(
         Guid LessonScheduleId,
-        Guid TeacherUserId,
+        Guid? TeacherUserId,
         Guid StudentId,
         DateTime CancelledOnUtc);
 }

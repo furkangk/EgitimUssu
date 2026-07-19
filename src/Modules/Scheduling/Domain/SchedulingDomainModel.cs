@@ -45,13 +45,69 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Raise(new LessonScheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, ReminderOffsetMinutes, createdOnUtc));
     }
 
-    public Guid TeacherUserId { get; private set; }
+    /// <summary>
+    /// Öğrencinin kendi dersi (öğretmensiz). Birleşik <see cref="LessonSchedule"/>'de <c>TeacherUserId is null</c>
+    /// ve <c>LessonFormat</c> yoktur; konu/renk taşınır (Ç-06). Yaklaşan-ders hatırlatması için
+    /// <see cref="LessonScheduledDomainEvent"/> (teacher null) yayılır.
+    /// </summary>
+    public static LessonSchedule CreateSelfLesson(
+        Guid id,
+        Guid studentId,
+        string subject,
+        string? topic,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        string timeZone,
+        string? recurrenceRule,
+        int reminderOffsetMinutes,
+        string? colorHex,
+        string? notes,
+        DateTime createdOnUtc)
+    {
+        var lesson = new LessonSchedule
+        {
+            Id = id,
+            TeacherUserId = null,
+            StudentId = studentId,
+            Subject = subject,
+            Topic = topic,
+            LessonFormat = null,
+            StartAtUtc = startAtUtc,
+            EndAtUtc = endAtUtc,
+            TimeZone = timeZone,
+            RecurrenceRule = recurrenceRule,
+            Status = LessonScheduleStatus.Planned,
+            ReminderOffsetMinutes = reminderOffsetMinutes,
+            ColorHex = colorHex,
+            Notes = notes,
+            IsChargeable = false,
+            CreatedOnUtc = createdOnUtc,
+            UpdatedOnUtc = createdOnUtc,
+        };
+
+        lesson.Raise(new LessonScheduledDomainEvent(
+            lesson.Id, null, lesson.StudentId, lesson.StartAtUtc, lesson.EndAtUtc, lesson.ReminderOffsetMinutes, createdOnUtc));
+
+        return lesson;
+    }
+
+    public Guid? TeacherUserId { get; private set; }
 
     public Guid StudentId { get; private set; }
 
     public string Subject { get; private set; } = string.Empty;
 
-    public ScheduledLessonFormat LessonFormat { get; private set; }
+    /// <summary>Öğretmen dersinde format; öğrencinin kendi dersinde (self) <c>null</c>.</summary>
+    public ScheduledLessonFormat? LessonFormat { get; private set; }
+
+    /// <summary>Konu başlığı (self derste kullanılır; öğretmen dersinde opsiyonel). </summary>
+    public string? Topic { get; private set; }
+
+    /// <summary>Takvimde renk kodlaması için hex (ör. <c>#20A4A9</c>). Genellikle self derste. Opsiyonel.</summary>
+    public string? ColorHex { get; private set; }
+
+    /// <summary>Öğrencinin kendi dersi mi (öğretmensiz)? <c>TeacherUserId is null</c>.</summary>
+    public bool IsSelfPlanned => TeacherUserId is null;
 
     public DateTime StartAtUtc { get; private set; }
 
@@ -175,7 +231,38 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Status = LessonScheduleStatus.Completed;
         UpdatedOnUtc = updatedOnUtc;
 
-        Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
+        // Self derste öğretmen yoktur; tamamlanma olayı öğretmen kimliği taşır, boş Guid ile geçilir.
+        Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId ?? Guid.Empty, StudentId, updatedOnUtc));
+    }
+
+    /// <summary>
+    /// Öğrencinin kendi dersinin (self) konu/renk dahil bilgilerini günceller. Öğretmen dersi için
+    /// <see cref="UpdateDetails"/> kullanılır (format zorunlu). Hatırlatma yeniden planı için olay yayar.
+    /// </summary>
+    public void UpdateSelfDetails(
+        string subject,
+        string? topic,
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        string timeZone,
+        string? recurrenceRule,
+        int reminderOffsetMinutes,
+        string? colorHex,
+        string? notes,
+        DateTime updatedOnUtc)
+    {
+        Subject = subject;
+        Topic = topic;
+        StartAtUtc = startAtUtc;
+        EndAtUtc = endAtUtc;
+        TimeZone = timeZone;
+        RecurrenceRule = recurrenceRule;
+        ReminderOffsetMinutes = reminderOffsetMinutes;
+        ColorHex = colorHex;
+        Notes = notes;
+        UpdatedOnUtc = updatedOnUtc;
+
+        Raise(new LessonScheduleRescheduledDomainEvent(Id, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, updatedOnUtc));
     }
 }
 
@@ -204,7 +291,7 @@ public enum LessonScheduleStatus
 
 public sealed record LessonScheduledDomainEvent(
     Guid LessonScheduleId,
-    Guid TeacherUserId,
+    Guid? TeacherUserId,
     Guid StudentId,
     DateTime StartAtUtc,
     DateTime EndAtUtc,
@@ -213,7 +300,7 @@ public sealed record LessonScheduledDomainEvent(
 
 public sealed record LessonScheduleRescheduledDomainEvent(
     Guid LessonScheduleId,
-    Guid TeacherUserId,
+    Guid? TeacherUserId,
     Guid StudentId,
     DateTime StartAtUtc,
     DateTime EndAtUtc,
@@ -221,7 +308,7 @@ public sealed record LessonScheduleRescheduledDomainEvent(
 
 public sealed record LessonScheduleCancelledDomainEvent(
     Guid LessonScheduleId,
-    Guid TeacherUserId,
+    Guid? TeacherUserId,
     Guid StudentId,
     DateTime CancelledOnUtc) : DomainEvent;
 

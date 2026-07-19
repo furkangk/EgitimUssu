@@ -72,7 +72,7 @@ public sealed record ListLessonSchedulesForStudentQuery(
 
 public sealed record LessonScheduleResponse(
     Guid Id,
-    Guid TeacherUserId,
+    Guid? TeacherUserId,
     Guid StudentId,
     string Subject,
     string LessonFormat,
@@ -219,7 +219,7 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
         }
 
         var hasConflict = await _repository.HasTeacherConflictAsync(
-            lesson.TeacherUserId,
+            lesson.TeacherUserId ?? Guid.Empty,
             command.StartAtUtc,
             command.EndAtUtc,
             lesson.Id,
@@ -335,7 +335,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
         }
 
         var hasConflict = await _repository.HasTeacherConflictAsync(
-            lesson.TeacherUserId, command.NewStartAtUtc, command.NewEndAtUtc, lesson.Id, cancellationToken);
+            lesson.TeacherUserId ?? Guid.Empty, command.NewStartAtUtc, command.NewEndAtUtc, lesson.Id, cancellationToken);
         if (hasConflict)
         {
             return Result<LessonScheduleResponse>.Failure(Conflict);

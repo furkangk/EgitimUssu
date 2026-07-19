@@ -45,9 +45,12 @@ internal sealed class LessonScheduleConfiguration : IEntityTypeConfiguration<Les
         builder.ToTable("lesson_schedules");
         builder.HasKey(entity => entity.Id);
         builder.Property(entity => entity.Subject).HasMaxLength(120).IsRequired();
-        builder.Property(entity => entity.LessonFormat).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.Topic).HasMaxLength(160);
+        // Ç-06: format artık nullable (öğrencinin kendi dersinde yok) — IsRequired kaldırıldı.
+        builder.Property(entity => entity.LessonFormat).HasConversion<string>().HasMaxLength(32);
         builder.Property(entity => entity.TimeZone).HasMaxLength(80).IsRequired();
         builder.Property(entity => entity.RecurrenceRule).HasMaxLength(256);
+        builder.Property(entity => entity.ColorHex).HasMaxLength(16);
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.LocationLabel).HasMaxLength(256);
         builder.Property(entity => entity.MeetingUrl).HasMaxLength(512);
@@ -58,6 +61,8 @@ internal sealed class LessonScheduleConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StartAtUtc });
         builder.HasIndex(entity => new { entity.StudentId, entity.StartAtUtc });
+        // Ç-06: öğrencinin kendi derslerini (TeacherUserId null) sorgulamak için.
+        builder.HasIndex(entity => new { entity.StudentId, entity.TeacherUserId, entity.StartAtUtc });
     }
 }
 
