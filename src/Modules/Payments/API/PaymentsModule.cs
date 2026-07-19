@@ -49,6 +49,81 @@ public sealed class PaymentsModule : ModuleDefinition
 
         group.MapGet("/teachers/{teacherUserId:guid}/records/search", SearchPaymentRecordsForTeacherAsync)
         .WithSummary("Öğretmenin ödemelerinde arama + filtre + sayfalama");
+
+        // Veli "ödedim" beyanı (Veli V-G)
+        group.MapPost("/records/{paymentRecordId:guid}/declare-paid", DeclarePaymentPaidAsync)
+        .WithSummary("Veli bir ödeme kaydı için ödedim beyanı verir (öğretmen teyidine gider)");
+
+        group.MapGet("/teachers/{teacherUserId:guid}/payment-declarations", ListPaymentDeclarationsForTeacherAsync)
+        .WithSummary("Öğretmene gelen veli ödeme beyanlarını listeler");
+
+        group.MapPost("/payment-declarations/{declarationId:guid}/confirm", ConfirmPaymentDeclarationAsync)
+        .WithSummary("Öğretmen veli ödeme beyanını teyit eder → kayıt tahsil edildi");
+
+        group.MapPost("/payment-declarations/{declarationId:guid}/reject", RejectPaymentDeclarationAsync)
+        .WithSummary("Öğretmen veli ödeme beyanını reddeder");
+    }
+
+    /// <summary>
+    /// Veli, bir ödeme kaydı için "ödedim" beyanı verir (Veli V-G). Para transferi değil; öğretmen teyidine gider.
+    /// </summary>
+    private static async Task<IResult> DeclarePaymentPaidAsync(
+        HttpContext context,
+        Guid paymentRecordId,
+        DeclarePaidRequest request,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var parentUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Beyanı veren veli belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(
+            new DeclarePaymentPaidCommand(parentUserId, paymentRecordId, request.DeclaredAmount, request.Note),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmene gelen veli ödeme beyanlarını listeler (opsiyonel sadece bekleyenler).
+    /// </summary>
+    private static async Task<IResult> ListPaymentDeclarationsForTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        bool onlyPending = false)
+    {
+        var result = await dispatcher.Dispatch(new ListPaymentDeclarationsForTeacherQuery(teacherUserId, onlyPending), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen veli ödeme beyanını teyit eder; ödeme kaydı tam tahsil edilmiş işaretlenir (Veli V-G).
+    /// </summary>
+    private static async Task<IResult> ConfirmPaymentDeclarationAsync(
+        HttpContext context,
+        Guid declarationId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ConfirmPaymentDeclarationCommand(declarationId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen veli ödeme beyanını reddeder; ödeme kaydına dokunulmaz (Veli V-G).
+    /// </summary>
+    private static async Task<IResult> RejectPaymentDeclarationAsync(
+        HttpContext context,
+        Guid declarationId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RejectPaymentDeclarationCommand(declarationId), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     /// <summary>
@@ -183,12 +258,16 @@ public sealed class PaymentsModule : ModuleDefinition
 
         return result.Error.Code switch
         {
-            "payments.record_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "payments.record_not_found" or "payments.declaration_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "payments.declaration_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
     }
 }
+
+/// <summary>Velinin "ödedim" beyanını taşır (Veli V-G): beyan edilen tutar + opsiyonel not (ör. havale/elden).</summary>
+public sealed record DeclarePaidRequest(decimal DeclaredAmount, string? Note);
 
 /// <summary>
 /// Ödeme kaydı oluşturma ve güncelleme işlemlerinde kullanılan tutar, vade, durum ve dönem bilgilerini taşır.
