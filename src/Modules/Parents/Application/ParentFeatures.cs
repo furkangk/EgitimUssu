@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Parents.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Parents.Application;
@@ -37,6 +38,10 @@ public sealed record RejectChildLinkCommand(Guid LinkId, Guid RejectedByUserId) 
 
 public sealed record RevokeChildLinkCommand(Guid LinkId) : ICommand<Result<ChildLinkResponse>>;
 
+public sealed record ClaimParentInviteCommand(Guid ParentUserId, string InviteCode) : ICommand<Result<ChildLinkResponse>>;
+
+public sealed record SetParentMembershipTierCommand(Guid ParentUserId, MembershipTier Tier) : ICommand<Result<ParentProfileResponse>>;
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -59,6 +64,7 @@ public sealed record ParentProfileResponse(
     string? ContactEmail,
     NotificationPreferencesResponse Preferences,
     bool IsActive,
+    string MembershipTier,
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
 
@@ -96,9 +102,18 @@ public sealed record ChildDashboardResponse(
     LessonSummaryResponse Lessons,
     AssignmentSummaryResponse Assignments,
     PaymentSummaryResponse Payments,
+    IReadOnlyCollection<UpcomingLesson> UpcomingLessons,
+    LastLessonSummary? LastLesson,
+    IReadOnlyCollection<ParentVisibleNote> TeacherNotes,
+    IReadOnlyCollection<ParentPaymentLine> PaymentLines,
     DateTime? UpdatedOnUtc);
 
-public sealed record StudySummaryResponse(int WeeklyStudyMinutes, int StreakDays, bool HasData);
+public sealed record StudySummaryResponse(
+    int WeeklyStudyMinutes,
+    int StreakDays,
+    bool HasData,
+    bool IsShared,
+    IReadOnlyCollection<StudySubjectMinutes> SubjectBreakdown);
 
 public sealed record LessonSummaryResponse(int CompletedLessonCount, int PlannedLessonCount, DateTime? LastLessonCompletedAtUtc);
 
@@ -124,6 +139,8 @@ public interface IParentRepository
     Task<ParentChildLink?> GetActiveLinkAsync(Guid parentUserId, Guid studentId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<ParentChildLink>> ListLinksByParentAsync(Guid parentUserId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<ParentChildLink>> ListApprovedLinksForStudentAsync(Guid studentId, CancellationToken cancellationToken);
 
     Task<ChildProgressSnapshot?> GetSnapshotAsync(Guid studentId, CancellationToken cancellationToken);
 
@@ -267,7 +284,17 @@ public sealed class ApproveChildLinkCommandHandler : ICommandHandler<ApproveChil
             return Result<ChildLinkResponse>.Failure(ParentErrors.LinkNotFound);
         }
 
-        link.Approve(command.ApprovedByUserId, _clock.UtcNow);
+        var approvedLinks = await _repository.ListApprovedLinksForStudentAsync(link.StudentId, cancellationToken);
+        var existingPrimary = approvedLinks.FirstOrDefault(l => l.IsPrimaryContact && l.Id != link.Id);
+
+        // Birincil-veli tekilliği: bu bağ birincil olacaksa ve zaten bir birincil veli varsa,
+        // onaylayan kişi mevcut birincil veli değilse reddet (Admin authorizer'da zaten geçebilir).
+        if (link.IsPrimaryContact && existingPrimary is not null && existingPrimary.ParentUserId != command.ApprovedByUserId)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.PrimaryExists);
+        }
+
+        link.Approve(command.ApprovedByUserId, existingPrimary?.ParentUserId, _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
@@ -319,6 +346,77 @@ public sealed class RevokeChildLinkCommandHandler : ICommandHandler<RevokeChildL
 
         link.Revoke(_clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
+        return Result<ChildLinkResponse>.Success(link.ToResponse(null));
+    }
+}
+
+public sealed class SetParentMembershipTierCommandHandler : ICommandHandler<SetParentMembershipTierCommand, Result<ParentProfileResponse>>
+{
+    private readonly IParentRepository _repository;
+    private readonly IClock _clock;
+
+    public SetParentMembershipTierCommandHandler(IParentRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<ParentProfileResponse>> Handle(SetParentMembershipTierCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetProfileByUserIdAsync(command.ParentUserId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<ParentProfileResponse>.Failure(ParentErrors.ProfileNotFound);
+        }
+
+        profile.SetMembershipTier(command.Tier, _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<ParentProfileResponse>.Success(profile.ToResponse());
+    }
+}
+
+public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>
+{
+    private readonly IParentRepository _repository;
+    private readonly IParentInviteDirectory _inviteDirectory;
+    private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
+
+    public ClaimParentInviteCommandHandler(IParentRepository repository, IParentInviteDirectory inviteDirectory, IClock clock, IIdGenerator idGenerator)
+    {
+        _repository = repository;
+        _inviteDirectory = inviteDirectory;
+        _clock = clock;
+        _idGenerator = idGenerator;
+    }
+
+    public async Task<Result<ChildLinkResponse>> Handle(ClaimParentInviteCommand command, CancellationToken cancellationToken)
+    {
+        var info = await _inviteDirectory.ResolveAsync(command.InviteCode.Trim(), cancellationToken);
+        if (info is null)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.InviteNotFound);
+        }
+
+        var existing = await _repository.GetActiveLinkAsync(command.ParentUserId, info.StudentId, cancellationToken);
+        if (existing is not null)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.LinkAlreadyExists);
+        }
+
+        var now = _clock.UtcNow;
+        // Bu çocuğa halihazırda birincil veli var mı? (V-C birincil tekilliği)
+        var approved = await _repository.ListApprovedLinksForStudentAsync(info.StudentId, cancellationToken);
+        var existingPrimary = approved.FirstOrDefault(l => l.IsPrimaryContact);
+        var isPrimary = existingPrimary is null; // ilk veli birincil olur; ikinci veli birincil olmaz
+
+        var link = new ParentChildLink(_idGenerator.New(), command.ParentUserId, info.StudentId, info.ChildDisplayName, null, command.InviteCode.Trim(), isPrimary, now);
+        await _repository.AddLinkAsync(link, cancellationToken);
+        // Öğretmen kodu = öğretmen onayı; veli kodu girdi = veli onayı → doğrudan Approved.
+        link.Approve(command.ParentUserId, existingPrimary?.ParentUserId, now);
+        await _repository.SaveChangesAsync(cancellationToken);
+        await _inviteDirectory.MarkClaimedAsync(info.InviteId, command.ParentUserId, cancellationToken);
+
         return Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
 }
@@ -377,11 +475,37 @@ public sealed class ListChildrenQueryHandler : IQueryHandler<ListChildrenQuery, 
 
 public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashboardQuery, Result<ChildDashboardResponse>>
 {
+    private const int UpcomingTake = 5;
+    private const int NotesTake = 10;
+    private const int PaymentLinesTake = 20;
+    private static readonly IReadOnlyCollection<StudySubjectMinutes> NoSubjects = Array.Empty<StudySubjectMinutes>();
     private readonly IParentRepository _repository;
+    private readonly IStudentPrivacyDirectory _privacy;
+    private readonly IStudyDigestDirectory _studyDigest;
+    private readonly IStudentUpcomingLessonsDirectory _upcomingLessons;
+    private readonly IStudentLastLessonDirectory _lastLesson;
+    private readonly IStudentNotesDirectory _notes;
+    private readonly IStudentPaymentDigestDirectory _payments;
+    private readonly IClock _clock;
 
-    public GetChildDashboardQueryHandler(IParentRepository repository)
+    public GetChildDashboardQueryHandler(
+        IParentRepository repository,
+        IStudentPrivacyDirectory privacy,
+        IStudyDigestDirectory studyDigest,
+        IStudentUpcomingLessonsDirectory upcomingLessons,
+        IStudentLastLessonDirectory lastLesson,
+        IStudentNotesDirectory notes,
+        IStudentPaymentDigestDirectory payments,
+        IClock clock)
     {
         _repository = repository;
+        _privacy = privacy;
+        _studyDigest = studyDigest;
+        _upcomingLessons = upcomingLessons;
+        _lastLesson = lastLesson;
+        _notes = notes;
+        _payments = payments;
+        _clock = clock;
     }
 
     public async Task<Result<ChildDashboardResponse>> Handle(GetChildDashboardQuery query, CancellationToken cancellationToken)
@@ -393,8 +517,42 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
             return Result<ChildDashboardResponse>.Failure(ParentErrors.LinkNotApproved);
         }
 
+        // Gizlilik: öğrenci çalışma verisini veli ile paylaşmıyorsa çalışma alanları maskelenir (Veli V-B).
+        // Ayar kaydı yoksa (KnownStudent/UserId çözülemezse) paylaşım açık varsayılır.
+        var isStudyShared = true;
+        var known = await _repository.GetKnownStudentAsync(query.StudentId, cancellationToken);
+        if (known?.UserId is { } studentUserId)
+        {
+            var privacy = await _privacy.GetForUserAsync(studentUserId, cancellationToken);
+            isStudyShared = privacy.ShareStudyDataWithParent;
+        }
+
+        // Çalışma verisi canlı digest'ten gelir (Veli V-F): ChildProgressSnapshot'taki WeeklyStudyMinutes/StudyStreakDays
+        // hiç yazılmıyordu (bug). Paylaşım kapalıysa digest hiç çağrılmaz; maskeli 0/boş döner (V-B davranışı).
+        StudySummaryResponse study;
+        if (isStudyShared)
+        {
+            var digest = await _studyDigest.GetWeeklyDigestAsync(query.StudentId, _clock.UtcNow, cancellationToken);
+            var hasData = digest.WeeklyStudyMinutes > 0 || digest.StreakDays > 0 || digest.SubjectBreakdown.Count > 0;
+            study = new StudySummaryResponse(digest.WeeklyStudyMinutes, digest.StreakDays, hasData, true, digest.SubjectBreakdown);
+        }
+        else
+        {
+            study = new StudySummaryResponse(0, 0, false, false, NoSubjects);
+        }
+
+        // Ders verisi (öğretmen bağlı): yaklaşan dersler + son tamamlanan ders özeti — canlı okuma (Veli V-F).
+        var upcoming = await _upcomingLessons.GetUpcomingAsync(query.StudentId, _clock.UtcNow, UpcomingTake, cancellationToken);
+        var lastLesson = await _lastLesson.GetLastCompletedAsync(query.StudentId, cancellationToken);
+
+        // Öğretmen notları: yalnız veli-görünür (Student/StudentAndParent); Private asla (Veli V-F).
+        var teacherNotes = await _notes.GetParentVisibleNotesAsync(query.StudentId, NotesTake, cancellationToken);
+
+        // Ödeme detay listesi (canlı okuma, Veli V-F).
+        var paymentLines = await _payments.GetLinesAsync(query.StudentId, PaymentLinesTake, cancellationToken);
+
         var snapshot = await _repository.GetSnapshotAsync(query.StudentId, cancellationToken);
-        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link));
+        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link, study, upcoming, lastLesson, teacherNotes, paymentLines));
     }
 }
 
@@ -408,6 +566,8 @@ public static class ParentErrors
     public static readonly Error LinkNotFound = new("parents.link_not_found", "Veli–çocuk bağı bulunamadı.");
     public static readonly Error LinkAlreadyExists = new("parents.link_exists", "Bu çocuk için zaten aktif bir bağ talebi/onayı var.");
     public static readonly Error LinkNotApproved = new("parents.link_not_approved", "Bu çocuğun verilerine erişmek için bağın onaylı olması gerekir.");
+    public static readonly Error PrimaryExists = new("parents.primary_exists", "Bu çocuğun zaten bir birincil velisi var; birincil bağ için mevcut birincil velinin (veya yöneticinin) onayı gerekir.");
+    public static readonly Error InviteNotFound = new("parents.invite_not_found", "Davet kodu bulunamadı veya kullanılmış.");
     public static readonly Error InvalidRequest = new("parents.invalid_request", "Veli isteği bilgileri eksik veya hatalı.");
 }
 
@@ -429,6 +589,7 @@ internal static class ParentMappings
                 profile.NotifyPayments,
                 profile.NotificationChannel.ToString()),
             profile.IsActive,
+            profile.MembershipTier.ToString(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
     }
@@ -459,7 +620,15 @@ internal static class ParentMappings
                 snapshot.WeeklyStudyMinutes);
     }
 
-    public static ChildDashboardResponse ToDashboard(this ChildProgressSnapshot? snapshot, Guid studentId, ParentChildLink link)
+    public static ChildDashboardResponse ToDashboard(
+        this ChildProgressSnapshot? snapshot,
+        Guid studentId,
+        ParentChildLink link,
+        StudySummaryResponse study,
+        IReadOnlyCollection<UpcomingLesson> upcomingLessons,
+        LastLessonSummary? lastLesson,
+        IReadOnlyCollection<ParentVisibleNote> teacherNotes,
+        IReadOnlyCollection<ParentPaymentLine> paymentLines)
     {
         if (snapshot is null)
         {
@@ -467,19 +636,22 @@ internal static class ParentMappings
                 studentId,
                 link.ChildDisplayName,
                 link.Status.ToString(),
-                new StudySummaryResponse(0, 0, false),
+                study,
                 new LessonSummaryResponse(0, 0, null),
                 new AssignmentSummaryResponse(0, 0, 0),
                 new PaymentSummaryResponse("TRY", 0m, 0m, 0m, null),
+                upcomingLessons,
+                lastLesson,
+                teacherNotes,
+                paymentLines,
                 null);
         }
 
-        var hasStudyData = snapshot.WeeklyStudyMinutes > 0 || snapshot.StudyStreakDays > 0;
         return new ChildDashboardResponse(
             studentId,
             link.ChildDisplayName,
             link.Status.ToString(),
-            new StudySummaryResponse(snapshot.WeeklyStudyMinutes, snapshot.StudyStreakDays, hasStudyData),
+            study,
             new LessonSummaryResponse(snapshot.CompletedLessonCount, snapshot.PlannedLessonCount, snapshot.LastLessonCompletedAtUtc),
             new AssignmentSummaryResponse(snapshot.TotalAssignmentCount, snapshot.OpenAssignmentCount, snapshot.CompletedAssignmentCount),
             new PaymentSummaryResponse(
@@ -488,6 +660,10 @@ internal static class ParentMappings
                 snapshot.CollectedPaymentTotal,
                 snapshot.OutstandingPaymentTotal,
                 snapshot.LastPaymentUpdatedAtUtc),
+            upcomingLessons,
+            lastLesson,
+            teacherNotes,
+            paymentLines,
             snapshot.UpdatedOnUtc);
     }
 }

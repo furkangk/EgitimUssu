@@ -24,6 +24,8 @@ public sealed class StudentsDbContext : ModuleDbContext
 
     public DbSet<TeacherStudentLink> TeacherStudentLinks => Set<TeacherStudentLink>();
 
+    public DbSet<StudentParentInvite> StudentParentInvites => Set<StudentParentInvite>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Students";
@@ -50,6 +52,7 @@ internal sealed class StudentProfileConfiguration : IEntityTypeConfiguration<Stu
         builder.Property(entity => entity.Origin).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.TargetExam).HasConversion<string>().HasMaxLength(16).IsRequired().HasDefaultValue(TargetExam.None);
         builder.Property(entity => entity.MembershipTier).HasConversion<string>().HasMaxLength(16).IsRequired().HasDefaultValue(MembershipTier.Free);
+        builder.Property(entity => entity.DateOfBirth).HasColumnType("date");
         builder.Property(entity => entity.IsMerged).IsRequired().HasDefaultValue(false);
         builder.Property(entity => entity.MergedIntoStudentId);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
@@ -74,6 +77,22 @@ internal sealed class TeacherStudentLinkConfiguration : IEntityTypeConfiguration
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StudentId }).IsUnique();
         builder.HasIndex(entity => entity.InviteCode);
+    }
+}
+
+internal sealed class StudentParentInviteConfiguration : IEntityTypeConfiguration<StudentParentInvite>
+{
+    public void Configure(EntityTypeBuilder<StudentParentInvite> builder)
+    {
+        builder.ToTable("student_parent_invites");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.InviteCode).HasMaxLength(8).IsRequired();
+        builder.Property(entity => entity.ChildDisplayName).HasMaxLength(200);
+        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => entity.InviteCode);
+        builder.HasIndex(entity => entity.TeacherUserId);
+        builder.HasIndex(entity => entity.StudentId);
     }
 }
 

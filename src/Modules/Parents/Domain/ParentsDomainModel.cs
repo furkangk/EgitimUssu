@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Parents.Domain;
@@ -62,6 +63,9 @@ public sealed class ParentProfile : AggregateRoot<Guid>
 
     public ParentNotificationChannel NotificationChannel { get; private set; }
 
+    /// <summary>Velinin üyelik seviyesi (Free/Premium). Veli bildirimleri yalnız Premium'a gider (Veli V-E, PRD 9.3).</summary>
+    public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
+
     public bool IsActive { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
@@ -91,6 +95,13 @@ public sealed class ParentProfile : AggregateRoot<Guid>
         NotifyTestResults = notifyTestResults;
         NotifyPayments = notifyPayments;
         NotificationChannel = channel;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>Velinin üyelik seviyesini günceller (Veli V-E). Satın alma altyapısı gelene kadar Admin set eder.</summary>
+    public void SetMembershipTier(MembershipTier tier, DateTime updatedOnUtc)
+    {
+        MembershipTier = tier;
         UpdatedOnUtc = updatedOnUtc;
     }
 }
@@ -153,7 +164,7 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
 
     public bool IsApproved => Status == ParentChildLinkStatus.Approved;
 
-    public void Approve(Guid approvedByUserId, DateTime nowUtc)
+    public void Approve(Guid approvedByUserId, Guid? existingPrimaryParentUserId, DateTime nowUtc)
     {
         if (Status == ParentChildLinkStatus.Approved)
         {
@@ -166,6 +177,8 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
         UpdatedOnUtc = nowUtc;
 
         Raise(new ParentChildLinkApprovedDomainEvent(Id, ParentUserId, StudentId, IsPrimaryContact, nowUtc));
+        Raise(new ParentLinkConnectionNoticeDomainEvent(
+            Id, StudentId, ParentUserId, existingPrimaryParentUserId, IsPrimaryContact, nowUtc));
     }
 
     public void Reject(Guid rejectedByUserId, DateTime nowUtc)
@@ -246,3 +259,16 @@ public sealed record ParentChildLinkRevokedDomainEvent(
     Guid ParentUserId,
     Guid StudentId,
     DateTime RevokedOnUtc) : DomainEvent;
+
+/// <summary>
+/// "Sessizce bağlanma yok" (Veli V-C): bir veli–çocuk bağı onaylandığında şeffaflık için yayılır.
+/// Alıcılar (V-E bildirim motoru teslim eder): <c>StudentId</c> = çocuk ve varsa
+/// <c>ExistingPrimaryParentUserId</c> = mevcut birincil veli — "X hesabı veli olarak bağlandı".
+/// </summary>
+public sealed record ParentLinkConnectionNoticeDomainEvent(
+    Guid LinkId,
+    Guid StudentId,
+    Guid ConnectedParentUserId,
+    Guid? ExistingPrimaryParentUserId,
+    bool IsPrimaryContact,
+    DateTime ConnectedOnUtc) : DomainEvent;

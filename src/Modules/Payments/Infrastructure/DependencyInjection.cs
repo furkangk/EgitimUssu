@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<PaymentsDbContext>(configuration, "Payments", PaymentsDbContext.SchemaName);
         services.AddScoped<IPaymentRecordRepository, PaymentRecordRepository>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IStudentPaymentDigestDirectory, StudentPaymentDigestDirectory>();
         services.AddScoped<ICommandHandler<CreatePaymentRecordCommand, Result<PaymentRecordResponse>>, CreatePaymentRecordCommandHandler>();
         services.AddScoped<ICommandHandler<UpdatePaymentRecordCommand, Result<PaymentRecordResponse>>, UpdatePaymentRecordCommandHandler>();
         services.AddScoped<IQueryHandler<GetPaymentRecordByIdQuery, Result<PaymentRecordResponse>>, GetPaymentRecordByIdQueryHandler>();
@@ -38,6 +39,19 @@ public static class DependencyInjection
 
         // Ö-C: profil birleştirmede kaynak öğrenciye ait ödeme kayıtlarını kanonik öğrenciye taşır.
         services.AddScoped<IIntegrationEventHandler, PaymentsStudentMergedHandler>();
+
+        // Veli "ödedim" beyanı (Veli V-G)
+        services.AddScoped<IParentPaymentDeclarationRepository, ParentPaymentDeclarationRepository>();
+        services.AddScoped<ICommandHandler<DeclarePaymentPaidCommand, Result<ParentPaymentDeclarationResponse>>, DeclarePaymentPaidCommandHandler>();
+        services.AddScoped<ICommandHandler<ConfirmPaymentDeclarationCommand, Result<ParentPaymentDeclarationResponse>>, ConfirmPaymentDeclarationCommandHandler>();
+        services.AddScoped<ICommandHandler<RejectPaymentDeclarationCommand, Result<ParentPaymentDeclarationResponse>>, RejectPaymentDeclarationCommandHandler>();
+        services.AddScoped<IQueryHandler<ListPaymentDeclarationsForTeacherQuery, Result<IReadOnlyCollection<ParentPaymentDeclarationResponse>>>, ListPaymentDeclarationsForTeacherQueryHandler>();
+        services.AddScoped<ICommandValidator<DeclarePaymentPaidCommand>, DeclarePaymentPaidCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<DeclarePaymentPaidCommand>, DeclarePaymentPaidCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<ConfirmPaymentDeclarationCommand>, PaymentDeclarationResolveAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RejectPaymentDeclarationCommand>, PaymentDeclarationResolveAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<ListPaymentDeclarationsForTeacherQuery>, PaymentDeclarationResolveAuthorizer>();
+
         return services;
     }
 }

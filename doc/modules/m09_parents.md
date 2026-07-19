@@ -64,6 +64,7 @@
 | `NotifyTestResults` | `bool` | ✓ | Yeni deneme sonucu bildirimi |
 | `NotifyPayments` | `bool` | ✓ | Ödeme hatırlatması (öğretmen bağlıysa) |
 | `NotificationChannel` | `NotificationChannel` (enum) | ✓ | `Push=1` / `Email=2` / `Both=3` |
+| `MembershipTier` | `MembershipTier` (Shared.Contracts) | ✓ | **Free/Premium (Veli V-E).** Veli bildirimleri yalnız `Premium`'a gider (M11 `ParentEventNotificationHandler` Premium kapısı). Varsayılan `Free`; Admin `PUT /membership-tier` ile set eder (satın alma altyapısı sonraki faz). |
 | `IsActive` | `bool` | ✓ | |
 | `CreatedOnUtc` | `DateTime` | ✓ | |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
@@ -72,7 +73,9 @@
 public enum NotificationChannel { Push = 1, Email = 2, Both = 3 }
 ```
 
-**Davranışlar:** `UpdateContact(...)`, `UpdateNotificationPreferences(...)`. Olay: `ParentProfileCreatedDomainEvent`.
+**Davranışlar:** `UpdateContact(...)`, `UpdateNotificationPreferences(...)`, **`SetMembershipTier(...)`** (Veli V-E). Olay: `ParentProfileCreatedDomainEvent`.
+
+> **Bildirim tercihleri artık fiilen tüketiliyor (Veli V-E, 2026-07-19):** Bu anahtarlar M11 `ParentEventNotificationHandler` + haftalık özet servisi tarafından okunur (`IParentNotificationDirectory` üzerinden). `NotifyMissedAssignment`→yeni ödev, `NotifyLessonReminders`→ders tamamlandı, `NotifyPayments`→ödeme, `NotifyWeeklyProgressSummary`→haftalık özet; bağlantı bildirimi (V-C) koşulsuz. **Tümü Premium kapısına tabidir.**
 
 ### 2.2 `ParentChildLink` (AggregateRoot) — Veli–öğrenci bağı (onaylı, çoklu)
 
@@ -140,6 +143,8 @@ GET  /api/parents/profiles/{userId}                                → 200 profi
 PUT  /api/parents/{parentUserId}/notification-preferences
      body: { missedAssignment, weeklyProgressSummary, lessonReminders,
              testResults, payments, channel }                      → 200 profil
+PUT  /api/parents/{parentUserId}/membership-tier                   → 200 profil (Admin; Veli V-E)
+     body: { tier: "Free" | "Premium" }
 
 POST /api/parents/children/link
      body: { parentUserId, studentId, relationship?, childDisplayName?,
@@ -160,6 +165,23 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 > Yanıt read-model tablolarından (`ChildProgressSnapshot`) toplanır; kaynak modüllerden veri **doğrudan DB ile değil**,
 > integration event ile beslenir (bkz. `00_genel_bakis.md` modül sınırı kuralı). Dashboard **yalnız `Approved` bağda** döner;
 > aksi halde `403`.
+>
+> **Zenginleştirilmiş panel (Veli V-F, 2026-07-19 — uygulandı):** Dashboard artık **canlı `Shared.Contracts` digest** arayüzlerinden beslenir (read-model snapshot yerine):
+> - **Çalışma verisi** `IStudyDigestDirectory.GetWeeklyDigestAsync` (Study) — son 7 gün toplam dk + streak + **ders bazlı dağılım** (`SubjectBreakdown`). Bu, `ChildProgressSnapshot.WeeklyStudyMinutes`/`StudyStreakDays` alanlarının **hiç yazılmadığı** bug'ını (panelde çalışma hep 0) giderir → o iki alan artık **kullanımdan kalktı**. Gizlilik kapalıysa digest **hiç çağrılmaz** (V-B; 0/boş döner).
+> - **Yaklaşan dersler** `IStudentUpcomingLessonsDirectory` (Scheduling — Planned, gelecekteki ilk N) → `UpcomingLessons`.
+> - **Son ders özeti** `IStudentLastLessonDirectory` (LessonSessions — son Completed; konu başlığı) → `LastLesson`. `TeacherNotes` bu özette **null** (veli-görünürlük garantisi yok; notlar aşağıdaki filtreli kanaldan gelir).
+> - **Öğretmen notları** `IStudentNotesDirectory` (Assignments/M06 `LessonNote`) — yalnız `Visibility ∈ {Student, StudentAndParent}`; **`Private` asla** → `TeacherNotes`.
+> - **Ödeme detay listesi** `IStudentPaymentDigestDirectory` (Payments) — kalem düzeyi (tutar/vade/durum) → `PaymentLines`.
+>
+> Yanıt: `ChildDashboardResponse(StudentId, ChildDisplayName, LinkStatus, Study{…,SubjectBreakdown}, Lessons, Assignments, Payments, UpcomingLessons[], LastLesson?, TeacherNotes[], PaymentLines[], UpdatedOnUtc)`.
+
+> **Gizlilik filtresi (Veli V-B, 2026-07-19):** Dashboard'un `study` bölümü öğrencinin paylaşım tercihine uyar. Handler,
+> `KnownStudent` read-model'i ile `StudentId → UserId` çözer ve `IStudentPrivacyDirectory` (Settings uygular) üzerinden
+> `ShareStudyDataWithParent`'ı okur. Paylaşım **kapalıysa** çalışma alanları maskelenir: `WeeklyStudyMinutes=0`,
+> `StreakDays=0`, `HasData=false` ve **`IsShared=false`** ("Ayşe bu veriyi paylaşmıyor" — değer sızmadan, şeffaf işaret).
+> Ayar kaydı yoksa paylaşım **açık** varsayılır (`IsShared=true`). **Değişmez kural:** çocuğun kişisel seans notu hiçbir
+> koşulda dashboard'da dönmez (zaten read-model'de yer almaz). `StudySummaryResponse(WeeklyStudyMinutes, StreakDays, HasData, IsShared)`.
+> Öğrenci tercihini `PUT /api/settings/users/{userId}/study-sharing` (M15) ile ayarlar.
 
 ---
 
@@ -174,6 +196,28 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 - **Reşit olmayan öğrenci:** velinin erişimi velayet gereği varsayılan kabul edilir; yine de bağ kaydı (`Approved`) oluşturulur.
 - **Reşit öğrenci:** bağ ve veri paylaşımı **öğrenci onayı** gerektirir; öğrenci dilediğinde bağı reddedebilir/iptal ettirebilir.
 - Onaylanan bağ M03'te `StudentProfile.ParentUserId`'yi (birincil veli için) güncelleyebilir.
+
+### 4.2.1 "Sessizce bağlanma yok" + birincil veli tekilliği (Veli V-C, 2026-07-19 — uygulandı)
+- **Şeffaflık olayı:** Bir bağ onaylandığında (`Approve`), `ParentChildLinkApprovedDomainEvent`'e ek olarak
+  **`ParentLinkConnectionNoticeDomainEvent`** yayılır. Alıcılar: `StudentId` = çocuk ve (varsa)
+  `ExistingPrimaryParentUserId` = mevcut birincil veli — "X hesabı veli olarak bağlandı". Fiili bildirim teslimi
+  **V-E bildirim motoruna** aittir (Parents yalnız olayı üretir; olay Outbox'a yazılır).
+- **Birincil veli tekilliği:** Bir çocuğun aynı anda **tek birincil velisi** (`IsPrimaryContact=true`) olabilir. İkinci bir bağ
+  birincil olacaksa ve zaten onaylı bir birincil veli varsa, **onaylayan kişi mevcut birincil veli değilse** onay reddedilir →
+  `parents.primary_exists` (**409**). Kural admin onayında da geçerlidir (veri tutarlılığı — mevcut birincil varken ikinci
+  birincil oluşturulamaz). Handler, `ListApprovedLinksForStudentAsync` ile mevcut birincil veliyi çözer ve
+  `Approve(approvedByUserId, existingPrimaryParentUserId?, nowUtc)` imzasına geçirir.
+- **Öğretmen teyidi** bu dilimde YOK (karar 2026-07-19); doğrulama seviyesi = bildirim şeffaflığı + birincil tekilliği.
+
+### 4.2.2 Öğretmen→veli davet kodu claim (Veli V-D, 2026-07-19 — uygulandı)
+- Öğretmen bir öğrenci için veli davet kodu üretir (`POST /api/students/profiles/{studentId}/parent-invite`, M03 `StudentParentInvite`).
+- Veli kaydolur ve kodu girer: **`POST /api/parents/children/claim-invite`** (`ClaimParentInviteRequest(InviteCode)`, `currentUser` = veli).
+  Handler (`ClaimParentInviteCommandHandler`) `IParentInviteDirectory.ResolveAsync` ile kodu çözer; kod geçersiz/kullanılmışsa
+  `parents.invite_not_found` (**404**). Zaten aktif bağ varsa `parents.link_exists` (409).
+- **Onay modeli:** öğretmenin kod üretmesi = öğretmen onayı, velinin kodu girmesi = veli onayı → bağ doğrudan **`Approved`** oluşturulur
+  (`ParentChildLink.Approve` + şeffaflık olayı). İlk veli **birincil** (`IsPrimaryContact=true`), sonraki veli birincil olmaz (V-C tekilliği).
+  Claim sonrası davet `Claimed` işaretlenir (`MarkClaimedAsync`); mevcut `ParentChildLinkApprovedIntegrationEventHandler` (Students)
+  `StudentProfile.ParentUserId`'yi back-fill eder. **Karar (2026-07-19):** telefon eşleştirme YOK; davet-kodu modeli.
 
 ### 4.3 İki veri kaynağı (PRD §M09)
 | Kaynak | İçerik | Önkoşul |
@@ -291,4 +335,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-04*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*

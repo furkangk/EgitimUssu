@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<SchedulingDbContext>(configuration, "Scheduling", SchedulingDbContext.SchemaName);
         services.AddScoped<ILessonScheduleRepository, LessonScheduleRepository>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IStudentUpcomingLessonsDirectory, StudentUpcomingLessonsDirectory>();
         services.AddScoped<ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>, CreateLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateLessonScheduleCommand, Result<LessonScheduleResponse>>, UpdateLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<CancelLessonScheduleCommand, Result<LessonScheduleResponse>>, CancelLessonScheduleCommandHandler>();

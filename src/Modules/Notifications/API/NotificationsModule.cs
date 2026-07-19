@@ -30,6 +30,22 @@ public sealed class NotificationsModule : ModuleDefinition
 
         group.MapGet("/teachers/{teacherUserId:guid}/lesson-reminders", ListTeacherLessonRemindersAsync)
         .WithSummary("Öğretmenin ders hatırlatmalarını listeler");
+
+        group.MapGet("/parents/{parentUserId:guid}/notifications", ListParentNotificationsAsync)
+        .WithSummary("Velinin bildirimlerini listeler (Veli V-E)");
+    }
+
+    /// <summary>
+    /// Velinin bildirimlerini (en yeni önce) listeler (Veli V-E). Yalnız Premium veliye bildirim üretilir.
+    /// </summary>
+    private static async Task<IResult> ListParentNotificationsAsync(
+        HttpContext context,
+        Guid parentUserId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ListParentNotificationsQuery(parentUserId), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     /// <summary>

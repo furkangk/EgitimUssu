@@ -64,6 +64,25 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapPost("/links/claim", ClaimLinkAsync)
         .WithSummary("Davet kodu ile öğretmen profilini devralır (öğrenci)");
+
+        group.MapPost("/profiles/{studentId:guid}/parent-invite", CreateParentInviteAsync)
+        .WithSummary("Öğrenci için veli davet kodu üretir (öğretmen) (Veli V-D)");
+    }
+
+    /// <summary>
+    /// Öğretmen, bir öğrenci için veli davet kodu üretir; veli bu kodu girerek çocuğuna bağlanır (Veli V-D).
+    /// </summary>
+    private static async Task<IResult> CreateParentInviteAsync(
+        HttpContext context,
+        Guid studentId,
+        CreateParentInviteRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new CreateParentInviteCommand(studentId, request.TeacherUserId, request.ChildDisplayName),
+            cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     /// <summary>
@@ -274,7 +293,7 @@ public sealed class StudentsModule : ModuleDefinition
         {
             "students.user_profile_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "students.free_limit_reached" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
-            "students.profile_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "students.profile_not_found" or "students.student_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -302,6 +321,11 @@ public sealed record InviteStudentRequest(Guid? TargetUserId);
 public sealed record ClaimLinkRequest(string InviteCode);
 
 /// <summary>
+/// Öğretmenin bir öğrenci için veli davet kodu üretmesini taşır (Veli V-D). Çocuğun görünen adı opsiyonel.
+/// </summary>
+public sealed record CreateParentInviteRequest(Guid TeacherUserId, string? ChildDisplayName);
+
+/// <summary>
 /// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.
 /// </summary>
 public sealed record UpdateStudentProfileRequest(
@@ -313,7 +337,8 @@ public sealed record UpdateStudentProfileRequest(
     string? LevelNotes,
     bool IsActive,
     IReadOnlyCollection<StudentSubjectItem> Subjects,
-    TargetExam TargetExam = TargetExam.None)
+    TargetExam TargetExam = TargetExam.None,
+    DateTime? DateOfBirth = null)
 {
     public UpdateStudentProfileCommand ToCommand(Guid studentId)
     {
@@ -327,7 +352,8 @@ public sealed record UpdateStudentProfileRequest(
             LevelNotes,
             IsActive,
             Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray(),
-            TargetExam);
+            TargetExam,
+            DateOfBirth);
     }
 }
 
@@ -346,7 +372,8 @@ public sealed record CreateStudentProfileRequest(
     string? LevelNotes,
     StudentOrigin Origin,
     IReadOnlyCollection<StudentSubjectItem> Subjects,
-    TargetExam TargetExam = TargetExam.None)
+    TargetExam TargetExam = TargetExam.None,
+    DateTime? DateOfBirth = null)
 {
     public CreateStudentProfileCommand ToCommand()
     {
@@ -362,6 +389,7 @@ public sealed record CreateStudentProfileRequest(
             LevelNotes,
             Origin,
             Subjects.Select(subject => new StudentSubjectRequest(subject.Subject, subject.TargetLevel)).ToArray(),
-            TargetExam);
+            TargetExam,
+            DateOfBirth);
     }
 }

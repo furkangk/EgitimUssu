@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddModuleDbContext<LessonSessionsDbContext>(configuration, "LessonSessions", LessonSessionsDbContext.SchemaName);
         services.AddScoped<ILessonSessionRepository, LessonSessionRepository>();
         services.AddScoped<ILessonSessionAccessService, LessonSessionAccessService>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IStudentLastLessonDirectory, StudentLastLessonDirectory>();
         services.AddScoped<ICommandHandler<CreateLessonSessionCommand, Result<LessonSessionResponse>>, CreateLessonSessionCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteLessonSessionCommand, Result<LessonSessionResponse>>, CompleteLessonSessionCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionByIdQuery, Result<LessonSessionResponse>>, GetLessonSessionByIdQueryHandler>();

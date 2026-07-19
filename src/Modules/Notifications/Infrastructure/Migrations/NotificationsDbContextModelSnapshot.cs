@@ -80,6 +80,62 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                     b.ToTable("lesson_reminders", "notifications");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Notifications.Domain.ParentNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("ParentUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentUserId", "CreatedOnUtc");
+
+                    b.ToTable("parent_notifications", "notifications");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Notifications.Domain.ProcessedIntegrationEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("EventName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("ProcessedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("processed_integration_events", "notifications");
+                });
+
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>
                 {
                     b.Property<Guid>("Id")

@@ -14,13 +14,19 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<NotificationsDbContext>(configuration, "Notifications", NotificationsDbContext.SchemaName);
         services.AddScoped<ILessonReminderRepository, LessonReminderRepository>();
+        services.AddScoped<IParentNotificationRepository, ParentNotificationRepository>();
         services.AddScoped<INotificationDispatchProcessor, NotificationDispatchProcessor>();
         services.AddScoped<IQueryHandler<ListTeacherLessonRemindersQuery, Result<IReadOnlyCollection<LessonReminderResponse>>>, ListTeacherLessonRemindersQueryHandler>();
         services.AddScoped<IQueryValidator<ListTeacherLessonRemindersQuery>, ListTeacherLessonRemindersQueryValidator>();
         services.AddScoped<IQueryAuthorizer<ListTeacherLessonRemindersQuery>, LessonReminderQueryAuthorizer>();
+        services.AddScoped<IQueryHandler<ListParentNotificationsQuery, Result<IReadOnlyCollection<ParentNotificationResponse>>>, ListParentNotificationsQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<ListParentNotificationsQuery>, LessonReminderQueryAuthorizer>();
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, StudyScheduleReminderIntegrationEventHandler>();
+        services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();
+        services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
         services.AddHostedService<NotificationDispatcher>();
+        services.AddHostedService<ParentWeeklySummaryService>();
         return services;
     }
 }

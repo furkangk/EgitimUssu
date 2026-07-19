@@ -54,6 +54,30 @@
 
 ---
 
+## 1.5 🟢 Veli Bildirim Motoru (Veli V-E, 2026-07-19 — uygulandı)
+
+Veliye bildirim üretir; **yalnız Premium veliye** (PRD 9.3) ve velinin tercih anahtarlarına saygılı.
+
+- **`ParentNotification : AggregateRoot<Guid>`** (`Id, ParentUserId, StudentId, Type, Title, Message, CreatedOnUtc`); tablo `parent_notifications`
+  (index `{ParentUserId, CreatedOnUtc}`). `enum ParentNotificationType { WeeklySummary, NewAssignment, LessonCompleted, PaymentUpdate, LinkConnected, PaymentDeclared }`.
+- **`ProcessedIntegrationEvent`** dedup tablosu (`processed_integration_events`) — Parents deseni birebir (çift-üretim engeli).
+- **`ParentEventNotificationHandler : IIntegrationEventHandler`** — dinlediği olaylar ve tercih/tip eşlemesi:
+  | Olay (SourceModule/Name) | Tip | Tercih kapısı |
+  |---|---|---|
+  | Assignments/`AssignmentCreatedDomainEvent` | `NewAssignment` | `NotifyMissedAssignment` |
+  | LessonSessions/`LessonSessionCompletedDomainEvent` | `LessonCompleted` | `NotifyLessonReminders` |
+  | Payments/`PaymentRecordUpdatedDomainEvent` | `PaymentUpdate` | `NotifyPayments` |
+  | Parents/`ParentLinkConnectionNoticeDomainEvent` (V-C) | `LinkConnected` | **koşulsuz** (güvenlik bildirimi) |
+
+  Her hedef için **`Tier == Premium`** kapısı + (varsa) tercih kapısı uygulanır; `IParentNotificationDirectory.GetApprovedParentsForStudentAsync`
+  ile öğrencinin onaylı velileri + tier + tercih okunur. `EventId` ile idempotent. V-G'nin `ParentPaymentDeclaredDomainEvent`'i öğretmen hedefli
+  olduğundan bu handler'da **veli bildirimi üretmez** (öğretmen bildirimi sonraki faz).
+- **`ParentWeeklySummaryService : BackgroundService`** (6 saatte bir poll) → `ParentWeeklySummaryProcessor.RunAsync(now)` her Premium +
+  `NotifyWeeklyProgressSummary` açık veliye **hafta başına bir** `WeeklySummary` üretir; hafta dedup anahtarı deterministik `Guid(parentUserId, isoYear, isoWeek)`
+  (`ProcessedIntegrationEvent` ile). Metin MVP'de sabit; V-F study verisiyle zenginleşecek.
+- **Premium kaynağı:** `ParentProfile.MembershipTier` (Veli V-E, m09). Satın alma altyapısı yok → başlangıçta tüm veliler Free; bildirimler yalnız
+  Admin `PUT /api/parents/{id}/membership-tier` ile Premium yapılan velilere gider. "Bildirimler Free" istenirse Premium kapısı tek satırla kaldırılır.
+
 ## 2. Domain Modeli
 
 ### 🟢 Mevcut — `LessonReminder` (AggregateRoot)
@@ -142,6 +166,7 @@ Mevcut model yalnızca **ders hatırlatması**na özgüdür ve alıcısı yalnı
 | Yetenek | Method + Route | Yetki |
 |---------|----------------|-------|
 | Öğretmen ders hatırlatmaları | `GET /api/notifications/teachers/{teacherUserId}/lesson-reminders?activeOnly={bool}` | `AuthenticatedUser` + Admin **veya** sahibi öğretmen (`LessonReminderQueryAuthorizer`) |
+| **Veli bildirim listesi (Veli V-E)** | `GET /api/notifications/parents/{parentUserId}/notifications` | `AuthenticatedUser` + self **veya** Admin (`LessonReminderQueryAuthorizer`) — `ParentNotificationResponse[]`, en yeni önce |
 
 ### Eksik / Önerilen ⚠️
 
@@ -259,4 +284,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*

@@ -23,7 +23,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         StudentOrigin origin,
         bool isActive,
         DateTime createdOnUtc,
-        TargetExam targetExam = TargetExam.None)
+        TargetExam targetExam = TargetExam.None,
+        DateTime? dateOfBirth = null)
     {
         Id = id;
         UserId = userId;
@@ -38,6 +39,7 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         Origin = origin;
         IsActive = isActive;
         TargetExam = targetExam;
+        DateOfBirth = dateOfBirth;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
 
@@ -78,6 +80,9 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     /// <summary>Öğrencinin üyelik seviyesi (Free/Premium). Free/Premium kapılarını belirler (Ö-D §14.3).</summary>
     public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
 
+    /// <summary>Öğrencinin doğum tarihi (opsiyonel). Yaş türetimi + veli claim eşleşmesi için temel (Veli V-A).</summary>
+    public DateTime? DateOfBirth { get; private set; }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -93,7 +98,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         string? levelNotes,
         bool isActive,
         DateTime updatedOnUtc,
-        TargetExam targetExam = TargetExam.None)
+        TargetExam targetExam = TargetExam.None,
+        DateTime? dateOfBirth = null)
     {
         FullName = fullName.Trim();
         GradeLevel = gradeLevel.Trim();
@@ -103,6 +109,7 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         LevelNotes = levelNotes?.Trim();
         IsActive = isActive;
         TargetExam = targetExam;
+        DateOfBirth = dateOfBirth;
         UpdatedOnUtc = updatedOnUtc;
     }
 
@@ -314,3 +321,50 @@ public sealed record TeacherStudentLinkAcceptedDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime OnUtc) : DomainEvent;
+
+/// <summary>
+/// Öğretmenin bir öğrenci için ürettiği veli davet kodu (Veli V-D). Veli kodu girerek claim eder ("veli onayı");
+/// claim, Parents tarafında ParentChildLink oluşturup onaylar. Durum: Pending → Claimed.
+/// </summary>
+public sealed class StudentParentInvite : AggregateRoot<Guid>
+{
+    private StudentParentInvite() { }
+
+    public StudentParentInvite(Guid id, Guid studentId, Guid teacherUserId, string inviteCode, string? childDisplayName, DateTime createdOnUtc)
+    {
+        Id = id;
+        StudentId = studentId;
+        TeacherUserId = teacherUserId;
+        InviteCode = inviteCode;
+        ChildDisplayName = childDisplayName?.Trim();
+        Status = ParentInviteStatus.Pending;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid StudentId { get; private set; }
+    public Guid TeacherUserId { get; private set; }
+    public string InviteCode { get; private set; } = string.Empty;
+    public string? ChildDisplayName { get; private set; }
+    public ParentInviteStatus Status { get; private set; }
+    public Guid? ClaimedByParentUserId { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+    public DateTime? ClaimedOnUtc { get; private set; }
+
+    public void Claim(Guid parentUserId, DateTime nowUtc)
+    {
+        if (Status != ParentInviteStatus.Pending)
+        {
+            throw new InvalidOperationException("Davet zaten kullanılmış.");
+        }
+
+        Status = ParentInviteStatus.Claimed;
+        ClaimedByParentUserId = parentUserId;
+        ClaimedOnUtc = nowUtc;
+    }
+}
+
+public enum ParentInviteStatus
+{
+    Pending = 1,
+    Claimed = 2
+}

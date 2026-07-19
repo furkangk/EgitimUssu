@@ -23,6 +23,52 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.Payments.Domain.ParentPaymentDeclaration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("DeclaredAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("ParentUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PaymentRecordId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ResolvedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentRecordId");
+
+                    b.HasIndex("TeacherUserId", "Status");
+
+                    b.ToTable("parent_payment_declarations", "payments");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Payments.Domain.PaymentRecord", b =>
                 {
                     b.Property<Guid>("Id")

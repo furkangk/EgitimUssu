@@ -29,11 +29,11 @@
 | M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
 | M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
 | M10 | Gelişim Takibi | [`m10_progress_tracking.md`](m10_progress_tracking.md) | `ProgressTracking` | `/api/progress-tracking` | 🟡 Çalışır çekirdek (konu hâkimiyeti + hedef + mobil) |
-| M11 | Bildirim | [`m11_notifications.md`](m11_notifications.md) | `Notifications` | `/api/notifications` | 🟡 (gerçek push yok) |
+| M11 | Bildirim | [`m11_notifications.md`](m11_notifications.md) | `Notifications` | `/api/notifications` | 🟡 (veli bildirim motoru Premium — Veli V-E; gerçek push yok) |
 | M12 | Eşleştirme & İlan | [`m12_matching.md`](m12_matching.md) | `Matching` | `/api/matching` | 🔴 İskelet |
 | M13 | Puanlama & Yorum | [`m13_reviews.md`](m13_reviews.md) | `Reviews` | `/api/reviews` | 🔴 İskelet |
 | M14 | Raporlama & Analiz | [`m14_reporting.md`](m14_reporting.md) | `Reporting` | `/api/reporting` | 🔴 İskelet |
-| M15 | Ayarlar & Güvenlik | [`m15_settings.md`](m15_settings.md) | `Settings` | `/api/settings` | 🟡 (domain var, endpoint yok) |
+| M15 | Ayarlar & Güvenlik | [`m15_settings.md`](m15_settings.md) | `Settings` | `/api/settings` | 🟡 (çalışma paylaşımı endpoint + `IStudentPrivacyDirectory` — Veli V-B; kalan ayarlar bekliyor) |
 | M16 | Mesajlaşma | [`m16_messaging.md`](m16_messaging.md) | _(yok — yeni)_ | `/api/messaging` | 🔴 Planlanan |
 | M17 | Üyelik & Para Kazanma | [`m17_membership.md`](m17_membership.md) | _(yok — yeni)_ | `/api/membership` | 🔴 Planlanan |
 | M18 | Geri Bildirim & Şikayet | [`m18_feedback.md`](m18_feedback.md) | _(yok — yeni)_ | `/api/feedback` | 🔴 Planlanan |
@@ -124,6 +124,8 @@ GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}?includ
 POST /teachers/{teacherUserId}/students/{studentId}/archive|unarchive   PUT .../rate   (arşiv + öğrenci bazlı ücret, B-04/B-07 2026-07-18)
 POST /teachers/{teacherUserId}/students/{studentId}/invite   POST /links/{linkId}/accept|reject   (çoklu öğretmen davet/kabul, B-06 2026-07-18)
 POST /links/claim   (6 haneli davet koduyla profili devral + mevcut self-profil varsa birleştir/merge, Ö-C 2026-07-19)
+POST /profiles/{studentId}/parent-invite   (öğretmen veli davet kodu üretir → ParentInviteResponse, Veli V-D 2026-07-19)
+[expose] IParentInviteDirectory (Shared.Contracts) — Parents claim bunu tüketir
 ```
 ### Scheduling — `/api/scheduling`
 ```
@@ -157,17 +159,26 @@ POST /{assignmentId}/return          (öğretmen geri gönderir + geri bildirim 
 ```
 POST /records   PUT /records/{paymentRecordId}   GET /records/{paymentRecordId}
 GET /teachers/{teacherUserId}/records   /summary   /records/filter
+POST /records/{paymentRecordId}/declare-paid   (veli "ödedim" beyanı, Veli V-G 2026-07-19)
+GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-declarations/{id}/confirm|reject   (öğretmen teyit/red)
+[expose] IParentAccessDirectory (Shared.Contracts) — Parents uygular; veli-öğrenci onaylı bağ doğrulaması
 ```
 ### Notifications — `/api/notifications`
 ```
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
+GET /parents/{parentUserId}/notifications   (veli bildirim listesi, Premium; Veli V-E 2026-07-19)
+[consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification (Premium + tercih kapılı, idempotent)
+[hosted] ParentWeeklySummaryService (haftalık özet, Premium)
 ```
 ### Parents — `/api/parents`  (tümü auth "AuthenticatedUser")
 ```
 POST /profiles   GET /profiles/{userId}   PUT /{parentUserId}/notification-preferences
 POST /children/link   POST /children/{linkId}/approve   /reject   /revoke   (onay: öğrenci/öğretmen/Admin)
+POST /children/claim-invite   (öğretmen davet kodunu girerek çocuğa bağlan → Approved, Veli V-D 2026-07-19)
+PUT /{parentUserId}/membership-tier   (Admin: veli Free/Premium, Veli V-E 2026-07-19)
+[expose] IParentNotificationDirectory (Shared.Contracts) — Notifications veli bildirim motoru bunu tüketir
 GET  /{parentUserId}/children
-GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403)
+GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403; study alanları gizlilik filtreli — Veli V-B)
 ```
 ### Study — `/api/study`  (tümü auth "AuthenticatedUser"; öğrenci kendi StudentId'sine erişir)
 ```
@@ -195,10 +206,16 @@ GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topi
 POST /topic-goals/{goalId}/cancel
 [consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent)
 ```
+### Settings (M15 — kısmi: gizlilik paylaşımı)
+```
+GET /api/settings/status
+PUT /api/settings/users/{userId}/study-sharing   → öğrenci çalışma verisi öğretmen/veli paylaşım tercihi (Veli V-B)
+[expose] IStudentPrivacyDirectory (Shared.Contracts) — Parents dashboard gizlilik filtresi bunu tüketir
+```
 ### İskelet modüller (sadece durum endpoint'i)
 ```
 GET /api/matching/status
-/api/reviews/status   /api/reporting/status   /api/settings/status
+/api/reviews/status   /api/reporting/status
 ```
 
 ---

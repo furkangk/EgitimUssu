@@ -61,6 +61,13 @@ public sealed class UserSetting : AggregateRoot<Guid>
     public SessionTerminationPolicy SessionTerminationPolicy { get; private set; }
 
     public DateTime LastUpdatedOnUtc { get; private set; }
+
+    public void SetStudySharing(bool shareWithTeacher, bool shareWithParent, DateTime updatedOnUtc)
+    {
+        ShareStudyDataWithTeacher = shareWithTeacher;
+        ShareStudyDataWithParent = shareWithParent;
+        LastUpdatedOnUtc = updatedOnUtc;
+    }
 }
 
 public enum PrivacyLevel

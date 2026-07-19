@@ -98,6 +98,72 @@ public sealed class LessonReminder : AggregateRoot<Guid>
     }
 }
 
+/// <summary>
+/// Veliye üretilmiş bildirim (Veli V-E). Yalnız Premium veliye + ilgili tercih açıkken üretilir.
+/// Olay bazlı (yeni ödev, ders tamamlandı, ödeme, bağlantı) veya haftalık özet.
+/// </summary>
+public sealed class ParentNotification : AggregateRoot<Guid>
+{
+    private ParentNotification()
+    {
+    }
+
+    public ParentNotification(Guid id, Guid parentUserId, Guid studentId, ParentNotificationType type, string title, string message, DateTime createdOnUtc)
+    {
+        Id = id;
+        ParentUserId = parentUserId;
+        StudentId = studentId;
+        Type = type;
+        Title = title;
+        Message = message;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid ParentUserId { get; private set; }
+
+    public Guid StudentId { get; private set; }
+
+    public ParentNotificationType Type { get; private set; }
+
+    public string Title { get; private set; } = string.Empty;
+
+    public string Message { get; private set; } = string.Empty;
+
+    public DateTime CreatedOnUtc { get; private set; }
+}
+
+public enum ParentNotificationType
+{
+    WeeklySummary = 1,
+    NewAssignment = 2,
+    LessonCompleted = 3,
+    PaymentUpdate = 4,
+    LinkConnected = 5,
+    PaymentDeclared = 6
+}
+
+/// <summary>
+/// İşlenmiş entegrasyon olayı idempotency anahtarı (Notifications; Parents deseni birebir).
+/// Veli bildirim işleyicileri ve haftalık özet servisi çift-üretimi önlemek için kullanır.
+/// </summary>
+public sealed class ProcessedIntegrationEvent : Entity<Guid>
+{
+    private ProcessedIntegrationEvent()
+    {
+    }
+
+    public ProcessedIntegrationEvent(Guid eventId, string eventName, DateTime processedOnUtc)
+    {
+        Id = eventId;
+        EventName = eventName;
+        ProcessedOnUtc = processedOnUtc;
+    }
+
+    public string EventName { get; private set; } = string.Empty;
+
+    public DateTime ProcessedOnUtc { get; private set; }
+}
+
 public enum NotificationChannel
 {
     InApp = 1,

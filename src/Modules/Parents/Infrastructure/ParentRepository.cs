@@ -43,6 +43,11 @@ internal sealed class ParentRepository : IParentRepository
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<ParentChildLink>> ListApprovedLinksForStudentAsync(Guid studentId, CancellationToken cancellationToken)
+        => await _dbContext.ParentChildLinks
+            .Where(l => l.StudentId == studentId && l.Status == ParentChildLinkStatus.Approved)
+            .ToArrayAsync(cancellationToken);
+
     public Task<ChildProgressSnapshot?> GetSnapshotAsync(Guid studentId, CancellationToken cancellationToken)
     {
         return _dbContext.ChildProgressSnapshots.FirstOrDefaultAsync(snapshot => snapshot.StudentId == studentId, cancellationToken);

@@ -14,6 +14,8 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<ParentsDbContext>(configuration, "Parents", ParentsDbContext.SchemaName);
         services.AddScoped<IParentRepository, ParentRepository>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IParentAccessDirectory, ParentAccessDirectory>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IParentNotificationDirectory, ParentNotificationDirectory>();
 
         // Command handler'ları
         services.AddScoped<ICommandHandler<CreateParentProfileCommand, Result<ParentProfileResponse>>, CreateParentProfileCommandHandler>();
@@ -22,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ApproveChildLinkCommand, Result<ChildLinkResponse>>, ApproveChildLinkCommandHandler>();
         services.AddScoped<ICommandHandler<RejectChildLinkCommand, Result<ChildLinkResponse>>, RejectChildLinkCommandHandler>();
         services.AddScoped<ICommandHandler<RevokeChildLinkCommand, Result<ChildLinkResponse>>, RevokeChildLinkCommandHandler>();
+        services.AddScoped<ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>, ClaimParentInviteCommandHandler>();
+        services.AddScoped<ICommandHandler<SetParentMembershipTierCommand, Result<ParentProfileResponse>>, SetParentMembershipTierCommandHandler>();
 
         // Query handler'ları
         services.AddScoped<IQueryHandler<GetParentProfileQuery, Result<ParentProfileResponse>>, GetParentProfileQueryHandler>();
@@ -39,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<ApproveChildLinkCommand>, ParentAuthorizer>();
         services.AddScoped<ICommandAuthorizer<RejectChildLinkCommand>, ParentAuthorizer>();
         services.AddScoped<ICommandAuthorizer<RevokeChildLinkCommand>, ParentAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<ClaimParentInviteCommand>, ParentAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<SetParentMembershipTierCommand>, ParentAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetParentProfileQuery>, ParentAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListChildrenQuery>, ParentAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetChildDashboardQuery>, ParentAuthorizer>();

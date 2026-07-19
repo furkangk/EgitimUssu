@@ -23,6 +23,52 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.Students.Domain.StudentParentInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChildDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("ClaimedByParentUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ClaimedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InviteCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InviteCode");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TeacherUserId");
+
+                    b.ToTable("student_parent_invites", "students");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Students.Domain.StudentProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -42,6 +88,9 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("date");
 
                     b.Property<string>("FullName")
                         .IsRequired()

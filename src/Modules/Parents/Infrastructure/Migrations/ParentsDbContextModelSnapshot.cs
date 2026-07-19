@@ -188,6 +188,13 @@ namespace EgitimUssu.Modules.Parents.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("MembershipTier")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("Free");
+
                     b.Property<string>("NotificationChannel")
                         .IsRequired()
                         .HasMaxLength(16)

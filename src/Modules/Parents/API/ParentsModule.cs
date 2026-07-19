@@ -48,6 +48,43 @@ public sealed class ParentsModule : ModuleDefinition
             .WithSummary("Velinin bağlı çocuklarını (durum + özet) listeler");
         group.MapGet("/{parentUserId:guid}/children/{studentId:guid}/dashboard", GetChildDashboardAsync)
             .WithSummary("Onaylı bağlı çocuğun birleşik gelişim panelini getirir");
+        group.MapPost("/children/claim-invite", ClaimParentInviteAsync)
+            .WithSummary("Öğretmenin ürettiği davet kodunu girerek çocuğa bağlanır (veli) (Veli V-D)");
+        group.MapPut("/{parentUserId:guid}/membership-tier", SetMembershipTierAsync)
+            .WithSummary("Veli üyelik seviyesini ayarlar (Admin) (Veli V-E)");
+    }
+
+    /// <summary>
+    /// Velinin üyelik seviyesini (Free/Premium) ayarlar (Veli V-E). Yalnız Admin; satın alma altyapısı gelene kadar.
+    /// </summary>
+    private static async Task<IResult> SetMembershipTierAsync(
+        HttpContext context,
+        Guid parentUserId,
+        SetMembershipTierRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new SetParentMembershipTierCommand(parentUserId, request.Tier), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Veli, öğretmenin ürettiği davet kodunu girerek çocuğuna bağlanır (Veli V-D). Kod girmek onay eylemidir → Approved.
+    /// </summary>
+    private static async Task<IResult> ClaimParentInviteAsync(
+        HttpContext context,
+        ClaimParentInviteRequest request,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var parentUserId))
+        {
+            return ApiErrorHttpResults.Unauthorized(context, "Daveti kullanan kullanıcı belirlenemedi.");
+        }
+
+        var result = await dispatcher.Dispatch(new ClaimParentInviteCommand(parentUserId, request.InviteCode), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     private static async Task<IResult> CreateProfileAsync(
@@ -186,15 +223,21 @@ public sealed class ParentsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "shared.forbidden" or "parents.link_not_approved" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
-            "parents.profile_not_found" or "parents.link_not_found" =>
+            "parents.profile_not_found" or "parents.link_not_found" or "parents.invite_not_found" =>
                 ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "parents.link_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "parents.link_exists" or "parents.primary_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
     }
 }
 
 public sealed record CreateParentProfileRequest(Guid UserId, string FullName, string? ContactPhone, string? ContactEmail);
+
+/// <summary>Velinin, öğretmenin ürettiği davet kodunu girerek çocuğuna bağlanmasını taşır (Veli V-D).</summary>
+public sealed record ClaimParentInviteRequest(string InviteCode);
+
+/// <summary>Velinin üyelik seviyesini (Free/Premium) taşır (Veli V-E; Admin ayarlar).</summary>
+public sealed record SetMembershipTierRequest(EgitimUssu.Shared.Contracts.MembershipTier Tier);
 
 public sealed record UpdateNotificationPreferencesRequest(
     bool MissedAssignment,

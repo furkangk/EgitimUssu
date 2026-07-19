@@ -67,6 +67,7 @@ Tablolar: `student_profiles`, `student_subjects`, `teacher_student_links`.
 | `LevelNotes` | string? | Seviye/başlangıç notları |
 | `Origin` | enum `StudentOrigin` | Profilin kaynağı (kim oluşturdu) |
 | `TargetExam` | enum `TargetExam` | Öğrencinin hedeflediği sınav (S-03.9); varsayılan `None`. M08 net formülü ceza bölenini bundan türetir (`SetTargetExam`) |
+| `DateOfBirth` | `DateTime?` | **Doğum tarihi (opsiyonel, Veli V-A 2026-07-19).** DB `date`; yaş türetimi + veli claim eşleşmesi temeli. Yaş-bazlı politika/KVKK bu dilimde YOK. |
 | `IsActive` | bool | Aktif/pasif (create'te `true`) |
 | `IsMerged` | bool | Profil başka bir kanonik profile birleştirildiyse `true` (Ö-C claim/merge); birleşince `IsActive=false` |
 | `MergedIntoStudentId` | Guid? | Birleştirme sonrası kanonik (hedef) `StudentProfile.Id`; birleşmediyse null |
@@ -167,6 +168,9 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 | Daveti kabul et | `POST /links/{linkId:guid}/accept` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
 | Daveti reddet | `POST /links/{linkId:guid}/reject` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
 | **Davet kodu ile profili devral (Ö-C)** | `POST /links/claim` | `TeacherStudentLinkResponseAuthorizer` (açık claim: kimliği doğrulanmış herhangi bir öğrenci; kod bilgisi sahiplik yerine geçer) | `ClaimLinkRequest` (`currentUser` = devralan) | `204` |
+| **Veli davet kodu üret (Veli V-D)** | `POST /profiles/{studentId:guid}/parent-invite` | `CreateParentInviteCommandAuthorizer` (öğretmen = `TeacherUserId` / Admin) | `CreateParentInviteRequest(TeacherUserId, ChildDisplayName?)` | `ParentInviteResponse(Id, InviteCode)` · öğrenci yoksa `404 students.student_not_found` |
+
+**`StudentParentInvite` aggregate (Veli V-D):** Öğretmenin bir öğrenci için ürettiği veli davet kodu (`InviteCode` 6 haneli, `TeacherStudentLink.GenerateInviteCode()` deseni). Alanlar: `Id, StudentId, TeacherUserId, InviteCode, ChildDisplayName?, Status (Pending→Claimed), ClaimedByParentUserId?, CreatedOnUtc, ClaimedOnUtc?`. `Claim(parentUserId, now)` yalnız `Pending`'den çalışır (tekrar → `InvalidOperationException`). Tablo `student_parent_invites`. Veli tarafı bu kodu **`IParentInviteDirectory`** (`ResolveAsync`/`MarkClaimedAsync`, Students uygular) ile çözer; claim, Parents'ta `ParentChildLink` oluşturup **onaylar** (öğretmen kodu = öğretmen onayı, veli kod girer = veli onayı).
 
 **Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
 `IStudentDirectory` (`GetOwnerUserIdAsync(studentId) → Guid?`) sözleşmesini `StudentDirectory` ile uygular
@@ -183,17 +187,17 @@ CreateStudentProfileRequest(Guid? UserId, Guid? CreatedByTeacherUserId, Guid? Pa
                             string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                             string? GoalSummary, string? LevelNotes, StudentOrigin Origin,
                             IReadOnlyCollection<StudentSubjectItem> Subjects,
-                            TargetExam TargetExam = TargetExam.None)
+                            TargetExam TargetExam = TargetExam.None, DateTime? DateOfBirth = null)
 
 UpdateStudentProfileRequest(string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                             string? GoalSummary, string? LevelNotes, bool IsActive,
                             IReadOnlyCollection<StudentSubjectItem> Subjects,
-                            TargetExam TargetExam = TargetExam.None)  // branşlar tam yeniden yazar
+                            TargetExam TargetExam = TargetExam.None, DateTime? DateOfBirth = null)  // branşlar tam yeniden yazar
 
 StudentProfileResponse(Guid Id, Guid? UserId, Guid? CreatedByTeacherUserId, Guid? ParentUserId,
                        string FullName, string GradeLevel, string? ContactEmail, string? ContactPhone,
                        string? GoalSummary, string? LevelNotes, string Origin, bool IsActive,
-                       string TargetExam,
+                       string TargetExam, DateTime? DateOfBirth,
                        IReadOnlyCollection<StudentSubjectResponse> Subjects, DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
 
 StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, string Origin,
@@ -361,4 +365,4 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

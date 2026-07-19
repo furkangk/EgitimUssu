@@ -19,6 +19,10 @@ public sealed class NotificationsDbContext : ModuleDbContext
 
     public DbSet<LessonReminder> LessonReminders => Set<LessonReminder>();
 
+    public DbSet<ParentNotification> ParentNotifications => Set<ParentNotification>();
+
+    public DbSet<ProcessedIntegrationEvent> ProcessedIntegrationEvents => Set<ProcessedIntegrationEvent>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Notifications";
@@ -42,5 +46,30 @@ internal sealed class LessonReminderConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.HasIndex(entity => entity.LessonScheduleId).IsUnique();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status, entity.RemindAtUtc });
+    }
+}
+
+internal sealed class ParentNotificationConfiguration : IEntityTypeConfiguration<ParentNotification>
+{
+    public void Configure(EntityTypeBuilder<ParentNotification> builder)
+    {
+        builder.ToTable("parent_notifications");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
+        builder.Property(entity => entity.Message).HasMaxLength(1000).IsRequired();
+        builder.Property(entity => entity.Type).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.ParentUserId, entity.CreatedOnUtc });
+    }
+}
+
+internal sealed class ProcessedIntegrationEventConfiguration : IEntityTypeConfiguration<ProcessedIntegrationEvent>
+{
+    public void Configure(EntityTypeBuilder<ProcessedIntegrationEvent> builder)
+    {
+        builder.ToTable("processed_integration_events");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.EventName).HasMaxLength(256).IsRequired();
+        builder.Property(entity => entity.ProcessedOnUtc).IsRequired();
     }
 }

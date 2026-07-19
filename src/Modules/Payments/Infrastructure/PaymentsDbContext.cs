@@ -19,6 +19,8 @@ public sealed class PaymentsDbContext : ModuleDbContext
 
     public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
 
+    public DbSet<ParentPaymentDeclaration> ParentPaymentDeclarations => Set<ParentPaymentDeclaration>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Payments";
@@ -45,5 +47,20 @@ internal sealed class PaymentRecordConfiguration : IEntityTypeConfiguration<Paym
         builder.Property(entity => entity.Notes).HasMaxLength(1000);
         builder.HasIndex(entity => new { entity.StudentId, entity.Status, entity.DueDateUtc });
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.DueDateUtc });
+    }
+}
+
+internal sealed class ParentPaymentDeclarationConfiguration : IEntityTypeConfiguration<ParentPaymentDeclaration>
+{
+    public void Configure(EntityTypeBuilder<ParentPaymentDeclaration> builder)
+    {
+        builder.ToTable("parent_payment_declarations");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.DeclaredAmount).HasPrecision(18, 2);
+        builder.Property(entity => entity.Note).HasMaxLength(500);
+        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status });
+        builder.HasIndex(entity => entity.PaymentRecordId);
     }
 }
