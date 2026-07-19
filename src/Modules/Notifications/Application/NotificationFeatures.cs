@@ -20,6 +20,28 @@ public sealed record LessonReminderResponse(
     DateTime CreatedOnUtc,
     DateTime UpdatedOnUtc);
 
+public sealed record ParentNotificationResponse(
+    Guid Id,
+    Guid ParentUserId,
+    Guid StudentId,
+    string Type,
+    string Title,
+    string Message,
+    DateTime CreatedOnUtc);
+
+public interface IParentNotificationRepository
+{
+    Task AddAsync(ParentNotification notification, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<ParentNotification>> ListByParentAsync(Guid parentUserId, CancellationToken cancellationToken);
+
+    Task<bool> HasProcessedAsync(Guid eventId, CancellationToken cancellationToken);
+
+    void MarkProcessed(Guid eventId, string eventName, DateTime nowUtc);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
 public interface ILessonReminderRepository
 {
     Task<LessonReminder?> GetByLessonScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken);

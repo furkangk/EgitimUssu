@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<NotificationsDbContext>(configuration, "Notifications", NotificationsDbContext.SchemaName);
         services.AddScoped<ILessonReminderRepository, LessonReminderRepository>();
+        services.AddScoped<IParentNotificationRepository, ParentNotificationRepository>();
         services.AddScoped<INotificationDispatchProcessor, NotificationDispatchProcessor>();
         services.AddScoped<IQueryHandler<ListTeacherLessonRemindersQuery, Result<IReadOnlyCollection<LessonReminderResponse>>>, ListTeacherLessonRemindersQueryHandler>();
         services.AddScoped<IQueryValidator<ListTeacherLessonRemindersQuery>, ListTeacherLessonRemindersQueryValidator>();
