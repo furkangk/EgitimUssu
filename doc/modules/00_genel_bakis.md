@@ -159,6 +159,9 @@ POST /{assignmentId}/return          (öğretmen geri gönderir + geri bildirim 
 ```
 POST /records   PUT /records/{paymentRecordId}   GET /records/{paymentRecordId}
 GET /teachers/{teacherUserId}/records   /summary   /records/filter
+POST /records/{paymentRecordId}/declare-paid   (veli "ödedim" beyanı, Veli V-G 2026-07-19)
+GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-declarations/{id}/confirm|reject   (öğretmen teyit/red)
+[expose] IParentAccessDirectory (Shared.Contracts) — Parents uygular; veli-öğrenci onaylı bağ doğrulaması
 ```
 ### Notifications — `/api/notifications`
 ```
