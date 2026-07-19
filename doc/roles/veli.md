@@ -6,7 +6,7 @@
 > ödemeleri ve öğretmen etkileşimlerini izlesin.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`ogretmen.md`](ogretmen.md) · [`../modules/m09_parents.md`](../modules/m09_parents.md)
-> **Güncelleme:** 2026-07-04
+> **Güncelleme:** 2026-07-19
 
 ---
 
@@ -68,7 +68,7 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 2. **Onaylı bağ:** Veli–çocuk bağı onay gerektirir (özellikle büyük yaş grubu için); KVKK gereği reşit öğrencide öğrenci onayı esas, reşit olmayanda veli erişimi varsayılan.
 3. **Çoklu çocuk:** Bir veli birden çok öğrenciye bağlanabilir; panelde çocuk seçici bulunur.
 4. **Yalnız görüntüleme:** Veli ders/ödev/ödeme verisini **düzenleyemez**, yalnızca görüntüler.
-5. **Gizlilik:** Öğrenci, hangi verilerin veliye yansıyacağını kontrol edebilir (M15); ödeme yalnızca `IsSharedWithParent` ise görünür (M07).
+5. **Gizlilik:** Öğrenci, hangi verilerin veliye yansıyacağını kontrol edebilir (M15); ödeme yalnızca `IsSharedWithParent` ise görünür (M07). **(Veli V-B, 2026-07-19 — uygulandı)** Öğrenci `PUT /api/settings/users/{userId}/study-sharing` ile çalışma verisi paylaşımını kapatabilir; kapalıysa veli panelinde çalışma alanları (haftalık dakika, streak) **"paylaşılmıyor"** işaretiyle (`IsShared=false`, değer 0) döner — değer sızmaz. **Değişmez kural:** çocuğun kişisel seans notu veliye hiçbir koşulda açılmaz.
 6. **Ödev kaçırma bildirimi:** Öğrenci ödevini son tarihten önce yüklemezse veliye bildirim gider (M06 + M11).
 
 ---
@@ -108,4 +108,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-04*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*

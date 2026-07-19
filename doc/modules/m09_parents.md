@@ -160,6 +160,14 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 > Yanıt read-model tablolarından (`ChildProgressSnapshot`) toplanır; kaynak modüllerden veri **doğrudan DB ile değil**,
 > integration event ile beslenir (bkz. `00_genel_bakis.md` modül sınırı kuralı). Dashboard **yalnız `Approved` bağda** döner;
 > aksi halde `403`.
+>
+> **Gizlilik filtresi (Veli V-B, 2026-07-19):** Dashboard'un `study` bölümü öğrencinin paylaşım tercihine uyar. Handler,
+> `KnownStudent` read-model'i ile `StudentId → UserId` çözer ve `IStudentPrivacyDirectory` (Settings uygular) üzerinden
+> `ShareStudyDataWithParent`'ı okur. Paylaşım **kapalıysa** çalışma alanları maskelenir: `WeeklyStudyMinutes=0`,
+> `StreakDays=0`, `HasData=false` ve **`IsShared=false`** ("Ayşe bu veriyi paylaşmıyor" — değer sızmadan, şeffaf işaret).
+> Ayar kaydı yoksa paylaşım **açık** varsayılır (`IsShared=true`). **Değişmez kural:** çocuğun kişisel seans notu hiçbir
+> koşulda dashboard'da dönmez (zaten read-model'de yer almaz). `StudySummaryResponse(WeeklyStudyMinutes, StreakDays, HasData, IsShared)`.
+> Öğrenci tercihini `PUT /api/settings/users/{userId}/study-sharing` (M15) ile ayarlar.
 
 ---
 
@@ -291,4 +299,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-04*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*

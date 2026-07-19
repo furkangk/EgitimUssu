@@ -33,7 +33,7 @@
 | M12 | Eşleştirme & İlan | [`m12_matching.md`](m12_matching.md) | `Matching` | `/api/matching` | 🔴 İskelet |
 | M13 | Puanlama & Yorum | [`m13_reviews.md`](m13_reviews.md) | `Reviews` | `/api/reviews` | 🔴 İskelet |
 | M14 | Raporlama & Analiz | [`m14_reporting.md`](m14_reporting.md) | `Reporting` | `/api/reporting` | 🔴 İskelet |
-| M15 | Ayarlar & Güvenlik | [`m15_settings.md`](m15_settings.md) | `Settings` | `/api/settings` | 🟡 (domain var, endpoint yok) |
+| M15 | Ayarlar & Güvenlik | [`m15_settings.md`](m15_settings.md) | `Settings` | `/api/settings` | 🟡 (çalışma paylaşımı endpoint + `IStudentPrivacyDirectory` — Veli V-B; kalan ayarlar bekliyor) |
 | M16 | Mesajlaşma | [`m16_messaging.md`](m16_messaging.md) | _(yok — yeni)_ | `/api/messaging` | 🔴 Planlanan |
 | M17 | Üyelik & Para Kazanma | [`m17_membership.md`](m17_membership.md) | _(yok — yeni)_ | `/api/membership` | 🔴 Planlanan |
 | M18 | Geri Bildirim & Şikayet | [`m18_feedback.md`](m18_feedback.md) | _(yok — yeni)_ | `/api/feedback` | 🔴 Planlanan |
@@ -195,10 +195,16 @@ GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topi
 POST /topic-goals/{goalId}/cancel
 [consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent)
 ```
+### Settings (M15 — kısmi: gizlilik paylaşımı)
+```
+GET /api/settings/status
+PUT /api/settings/users/{userId}/study-sharing   → öğrenci çalışma verisi öğretmen/veli paylaşım tercihi (Veli V-B)
+[expose] IStudentPrivacyDirectory (Shared.Contracts) — Parents dashboard gizlilik filtresi bunu tüketir
+```
 ### İskelet modüller (sadece durum endpoint'i)
 ```
 GET /api/matching/status
-/api/reviews/status   /api/reporting/status   /api/settings/status
+/api/reviews/status   /api/reporting/status
 ```
 
 ---

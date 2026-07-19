@@ -172,6 +172,8 @@ erDiagram
 
 **`LessonSessions.LessonSession.Id`'ye:** Assignment.LessonSessionId? · LessonNote.LessonSessionId · PaymentRecord.RelatedLessonSessionId?
 
+**Modüller-arası salt-okunur kontratlar (`Shared.Contracts`):** `IStudentDirectory` · `IMembershipDirectory` (Students uygular) · `IStudentPrivacyDirectory` → `StudentPrivacy(ShareStudyDataWithParent, ShareStudyDataWithTeacher)` (**Settings uygular**, kayıt yoksa paylaşım açık; Parents dashboard gizlilik filtresi tüketir — Veli V-B) · `ILessonSessionAccessService` (LessonSessions).
+
 ---
 
-*Veri Modeli & ER Şeması | Güncelleme: 2026-07-19 (Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi · Ö-F: `LessonChangeRequest` öğrenci ders erteleme talebi · Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*
+*Veri Modeli & ER Şeması | Güncelleme: 2026-07-19 (Veli V-B: `IStudentPrivacyDirectory` gizlilik kontratı — Settings · Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi · Ö-F: `LessonChangeRequest` öğrenci ders erteleme talebi · Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*
