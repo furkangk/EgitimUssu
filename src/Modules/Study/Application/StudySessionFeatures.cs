@@ -6,7 +6,13 @@ namespace EgitimUssu.Modules.Study.Application;
 
 // ---- Komutlar ----
 
-public sealed record StartStudySessionCommand(Guid StudentId, string Subject, string? Topic)
+public sealed record StartStudySessionCommand(
+    Guid StudentId,
+    string Subject,
+    string? Topic,
+    Guid? LessonId = null,
+    Guid? SubjectId = null,
+    Guid? TopicId = null)
     : ICommand<Result<StudySessionResponse>>, IStudentScopedRequest;
 
 public sealed record CreateManualStudySessionCommand(
@@ -15,7 +21,10 @@ public sealed record CreateManualStudySessionCommand(
     string? Topic,
     int EffectiveMinutes,
     DateTime StudiedOnUtc,
-    string? PersonalNote) : ICommand<Result<StudySessionResponse>>, IStudentScopedRequest;
+    string? PersonalNote,
+    Guid? LessonId = null,
+    Guid? SubjectId = null,
+    Guid? TopicId = null) : ICommand<Result<StudySessionResponse>>, IStudentScopedRequest;
 
 public sealed record PauseStudySessionCommand(Guid SessionId, int? ClientEffectiveMinutes = null)
     : ICommand<Result<StudySessionResponse>>;
@@ -48,6 +57,47 @@ public sealed record ListStudySessionsQuery(Guid StudentId, DateTime? FromUtc, D
 
 public sealed record WeeklySummaryQuery(Guid StudentId, DateOnly? WeekStart)
     : IQuery<Result<WeeklySummaryResponse>>, IStudentScopedRequest;
+
+/// <summary>
+/// Ç-06: SubjectId/TopicId verildiyse katalogdan (sahiplik doğrulanarak) adı çözer; böylece seansın
+/// Subject/Topic'i katalog adıyla tutarlı denormalize saklanır. Id yoksa/eşleşmezse gelen string kullanılır.
+/// </summary>
+internal static class StudyCatalogResolve
+{
+    public static async Task<(string Subject, string? Topic)> ResolveAsync(
+        IStudyRepository repository,
+        Guid studentId,
+        string subject,
+        string? topic,
+        Guid? subjectId,
+        Guid? topicId,
+        CancellationToken cancellationToken)
+    {
+        var resolvedSubject = subject;
+        if (subjectId is { } sid)
+        {
+            var catalog = await repository.GetCatalogSubjectAsync(sid, cancellationToken);
+            if (catalog is not null && catalog.StudentId == studentId)
+            {
+                resolvedSubject = catalog.Name;
+            }
+        }
+
+        var resolvedTopic = topic;
+        if (topicId is { } tid)
+        {
+            var catalog = await repository.GetCatalogTopicAsync(tid, cancellationToken);
+            if (catalog is not null && catalog.StudentId == studentId)
+            {
+                resolvedTopic = catalog.Name;
+            }
+        }
+
+        return (
+            resolvedSubject.Trim(),
+            string.IsNullOrWhiteSpace(resolvedTopic) ? null : resolvedTopic.Trim());
+    }
+}
 
 internal static class StudyErrors
 {
@@ -165,14 +215,17 @@ public sealed class StartStudySessionCommandHandler
         }
 
         var link = await _linkResolver.EnsureAsync(command.StudentId, cancellationToken);
+        var (subject, topic) = await StudyCatalogResolve.ResolveAsync(
+            _repository, command.StudentId, command.Subject, command.Topic, command.SubjectId, command.TopicId, cancellationToken);
         var session = StudySession.StartStopwatch(
             _idGenerator.New(),
             command.StudentId,
-            command.Subject.Trim(),
-            string.IsNullOrWhiteSpace(command.Topic) ? null : command.Topic.Trim(),
+            subject,
+            topic,
             link.ShareStudyWithParent,
             link.ShareStudyWithTeacher,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            command.LessonId);
 
         await _repository.AddSessionAsync(session, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -212,17 +265,20 @@ public sealed class CreateManualStudySessionCommandHandler
         }
 
         var link = await _linkResolver.EnsureAsync(command.StudentId, cancellationToken);
+        var (subject, topic) = await StudyCatalogResolve.ResolveAsync(
+            _repository, command.StudentId, command.Subject, command.Topic, command.SubjectId, command.TopicId, cancellationToken);
         var session = StudySession.CreateManual(
             _idGenerator.New(),
             command.StudentId,
-            command.Subject.Trim(),
-            string.IsNullOrWhiteSpace(command.Topic) ? null : command.Topic.Trim(),
+            subject,
+            topic,
             command.EffectiveMinutes,
             DateTime.SpecifyKind(command.StudiedOnUtc, DateTimeKind.Utc),
             command.PersonalNote?.Trim(),
             link.ShareStudyWithParent,
             link.ShareStudyWithTeacher,
-            _clock.UtcNow);
+            _clock.UtcNow,
+            command.LessonId);
 
         await _repository.AddSessionAsync(session, cancellationToken);
         await _completion.RecordCompletedAsync(session, cancellationToken);

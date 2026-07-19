@@ -78,11 +78,12 @@ public sealed class StudyModule : ModuleDefinition
     }
 
     private static async Task<IResult> StartSessionAsync(HttpContext ctx, StartStudySessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new StartStudySessionCommand(req.StudentId, req.Subject, req.Topic), ct));
+        => ToHttpResult(ctx, await dispatcher.Dispatch(
+            new StartStudySessionCommand(req.StudentId, req.Subject, req.Topic, req.LessonId, req.SubjectId, req.TopicId), ct));
 
     private static async Task<IResult> CreateManualSessionAsync(HttpContext ctx, CreateManualSessionRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(
-            new CreateManualStudySessionCommand(req.StudentId, req.Subject, req.Topic, req.EffectiveMinutes, req.StudiedOnUtc, req.PersonalNote), ct));
+            new CreateManualStudySessionCommand(req.StudentId, req.Subject, req.Topic, req.EffectiveMinutes, req.StudiedOnUtc, req.PersonalNote, req.LessonId, req.SubjectId, req.TopicId), ct));
 
     private static async Task<IResult> PauseSessionAsync(HttpContext ctx, Guid sessionId, PauseSessionRequest? req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new PauseStudySessionCommand(sessionId, req?.ClientEffectiveMinutes), ct));
@@ -229,10 +230,13 @@ public sealed class StudyModule : ModuleDefinition
     }
 }
 
-public sealed record StartStudySessionRequest(Guid StudentId, string Subject, string? Topic);
+public sealed record StartStudySessionRequest(
+    Guid StudentId, string Subject, string? Topic,
+    Guid? LessonId = null, Guid? SubjectId = null, Guid? TopicId = null);
 
 public sealed record CreateManualSessionRequest(
-    Guid StudentId, string Subject, string? Topic, int EffectiveMinutes, DateTime StudiedOnUtc, string? PersonalNote);
+    Guid StudentId, string Subject, string? Topic, int EffectiveMinutes, DateTime StudiedOnUtc, string? PersonalNote,
+    Guid? LessonId = null, Guid? SubjectId = null, Guid? TopicId = null);
 
 public sealed record CompleteSessionRequest(string? PersonalNote, int? ClientEffectiveMinutes = null);
 
