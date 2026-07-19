@@ -5,7 +5,7 @@
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-07-04
+> **Son güncelleme:** 2026-07-19
 
 ---
 
@@ -91,6 +91,16 @@
 ## 5. Sayfa (Ekran) Dokümanları (`doc/pages/`)
 
 > Kodda **var olan** her Flutter ekranı için birer md. İndeks → [`pages/00_pages_index.md`](pages/00_pages_index.md). Öğrenci/veli ve yeni özellik (mesajlaşma/ilan/üyelik) ekranları **planlanandır**.
+
+## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
+
+> Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak: `doc/*_rolu_fonksiyonel_dokuman_v1.md`. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).
+
+| Rol | Dosya | Kaynak fonksiyonel doküman |
+|-----|-------|----------------------------|
+| 🎓 Öğrenci | [`ogrenci`](diagrams/rol_sayfa_mimarisi/ogrenci.md) | [`ogrenci_rolu_fonksiyonel_dokuman_v1`](ogrenci_rolu_fonksiyonel_dokuman_v1.md) |
+| 👨‍🏫 Öğretmen | [`ogretmen`](diagrams/rol_sayfa_mimarisi/ogretmen.md) | [`ogretmen_rolu_fonksiyonel_dokuman_v1`](ogretmen_rolu_fonksiyonel_dokuman_v1.md) |
+| 👪 Veli | [`veli`](diagrams/rol_sayfa_mimarisi/veli.md) | [`veli_rolu_fonksiyonel_dokuman_v1`](veli_rolu_fonksiyonel_dokuman_v1.md) |
 
 ## 6. Türev / Operasyon Dosyaları
 
