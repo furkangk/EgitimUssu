@@ -47,6 +47,7 @@ Veli, **kendi verisi üretmeyen**, çoğunlukla diğer modüllerin verisini veli
 | Öğretmen-öğrenci **etkileşimleri** | [`m05`](../modules/m05_lesson_sessions.md)/[`m06`](../modules/m06_assignments.md) | 👁️ |
 | Öğretmenle **mesajlaşma** | [`m16_messaging`](../modules/m16_messaging.md) | 🔴 |
 | Bildirimler (ödev kaçırma vb.) | [`m11_notifications`](../modules/m11_notifications.md) | 🟡 |
+| **Veli bildirim motoru** (olay + haftalık özet, **Premium**) | [`m11_notifications`](../modules/m11_notifications.md) | 🟢 (Veli V-E) |
 | Profil/bildirim/üyelik | [`m15_settings`](../modules/m15_settings.md) / [`m17_membership`](../modules/m17_membership.md) | 🟡/🔴 |
 
 ---
@@ -74,6 +75,7 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 7. **Sessizce bağlanma yok + birincil veli (Veli V-C, 2026-07-19 — uygulandı):** Bir bağ onaylandığında şeffaflık olayı (`ParentLinkConnectionNoticeDomainEvent`) yayılır — çocuk ve varsa mevcut birincil veli "X hesabı veli olarak bağlandı" bilgilendirilir (teslim V-E). Bir çocuğun tek **birincil velisi** olabilir; ikinci veli birincil olmak isterse mevcut birincil veli (veya admin) onaylamadıkça olamaz (`parents.primary_exists`, 409). Yani veli, çocuk/mevcut veli **haberdar edilmeden bağlanamaz**.
 8. **Öğretmen→veli davet kodu (Veli V-D, 2026-07-19 — uygulandı):** Öğretmen bir öğrenci için veli davet kodu üretir (`POST /api/students/profiles/{studentId}/parent-invite`); veli kaydolup kodu `POST /api/parents/children/claim-invite` ile girerek çocuğuna bağlanır. Kod girmek onay eylemidir → bağ doğrudan **Approved** (öğretmen kodu = öğretmen onayı, veli kod = veli onayı). İlk veli birincil olur. Telefon eşleştirme yok; kod modeli.
 9. **"Ödedim" beyanı (Veli V-G, 2026-07-19 — uygulandı):** Veli bir ödeme kaydı için "ödedim" beyan eder (`POST /api/payments/records/{id}/declare-paid`) → öğretmene bildirim gider (teslim V-E) → öğretmen **teyit** edince (`.../confirm`) kayıt tam tahsil edilmiş (`Paid`) işaretlenir; reddederse kayıt değişmez. **Para transferi değildir**, mutabakat kaydıdır (PRD "platform para tahsil etmez" korunur). Yetki: yalnız onaylı veli beyan eder, yalnız ilgili öğretmen teyit eder.
+10. **Bildirimler Premium (Veli V-E, 2026-07-19 — uygulandı):** Veli bildirimleri (yeni ödev, ders tamamlandı, ödeme güncellemesi, bağlantı bildirimi + haftalık özet) yalnız **Premium** veliye gider (`ParentProfile.MembershipTier`; PRD 9.3) ve velinin tercih anahtarlarına saygılıdır. Bağlantı bildirimi güvenlik gereği koşulsuz (yine de Premium). Satın alma altyapısı olmadığından başlangıçta tüm veliler Free — Premium yalnız Admin `PUT /membership-tier` ile verilir. Liste: `GET /api/notifications/parents/{parentUserId}/notifications`.
 
 ---
 
@@ -95,6 +97,7 @@ Rol bazlı yönlendirme uygulandı: `session.roles` 'Parent' içeriyorsa `/paren
 
 ## 9. Üyelik Etkisi (Free/Premium)
 Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalışma süresi geçmişi, gelişmiş bildirimler. Free: temel özet + reklam (PRD §9.3, [`../modules/m17_membership.md`](../modules/m17_membership.md)).
+> **Kod gerçeği (Veli V-E, 2026-07-19):** `ParentProfile.MembershipTier` (Free/Premium) eklendi ve **veli bildirim motoru (M11) Premium kapılı** çalışır. Satın alma/aile paketi altyapısı henüz yok — tier yalnız Admin `PUT /api/parents/{id}/membership-tier` ile set edilir (sonraki faz: V-Premium).
 
 ## 10. Kabul Kriterleri
 **Faz 2 (öğretmensiz):**
@@ -112,4 +115,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*

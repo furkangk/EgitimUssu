@@ -29,7 +29,7 @@
 | M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
 | M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
 | M10 | Gelişim Takibi | [`m10_progress_tracking.md`](m10_progress_tracking.md) | `ProgressTracking` | `/api/progress-tracking` | 🟡 Çalışır çekirdek (konu hâkimiyeti + hedef + mobil) |
-| M11 | Bildirim | [`m11_notifications.md`](m11_notifications.md) | `Notifications` | `/api/notifications` | 🟡 (gerçek push yok) |
+| M11 | Bildirim | [`m11_notifications.md`](m11_notifications.md) | `Notifications` | `/api/notifications` | 🟡 (veli bildirim motoru Premium — Veli V-E; gerçek push yok) |
 | M12 | Eşleştirme & İlan | [`m12_matching.md`](m12_matching.md) | `Matching` | `/api/matching` | 🔴 İskelet |
 | M13 | Puanlama & Yorum | [`m13_reviews.md`](m13_reviews.md) | `Reviews` | `/api/reviews` | 🔴 İskelet |
 | M14 | Raporlama & Analiz | [`m14_reporting.md`](m14_reporting.md) | `Reporting` | `/api/reporting` | 🔴 İskelet |
@@ -166,12 +166,17 @@ GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-
 ### Notifications — `/api/notifications`
 ```
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
+GET /parents/{parentUserId}/notifications   (veli bildirim listesi, Premium; Veli V-E 2026-07-19)
+[consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification (Premium + tercih kapılı, idempotent)
+[hosted] ParentWeeklySummaryService (haftalık özet, Premium)
 ```
 ### Parents — `/api/parents`  (tümü auth "AuthenticatedUser")
 ```
 POST /profiles   GET /profiles/{userId}   PUT /{parentUserId}/notification-preferences
 POST /children/link   POST /children/{linkId}/approve   /reject   /revoke   (onay: öğrenci/öğretmen/Admin)
 POST /children/claim-invite   (öğretmen davet kodunu girerek çocuğa bağlan → Approved, Veli V-D 2026-07-19)
+PUT /{parentUserId}/membership-tier   (Admin: veli Free/Premium, Veli V-E 2026-07-19)
+[expose] IParentNotificationDirectory (Shared.Contracts) — Notifications veli bildirim motoru bunu tüketir
 GET  /{parentUserId}/children
 GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403; study alanları gizlilik filtreli — Veli V-B)
 ```

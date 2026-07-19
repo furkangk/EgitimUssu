@@ -64,6 +64,7 @@
 | `NotifyTestResults` | `bool` | ✓ | Yeni deneme sonucu bildirimi |
 | `NotifyPayments` | `bool` | ✓ | Ödeme hatırlatması (öğretmen bağlıysa) |
 | `NotificationChannel` | `NotificationChannel` (enum) | ✓ | `Push=1` / `Email=2` / `Both=3` |
+| `MembershipTier` | `MembershipTier` (Shared.Contracts) | ✓ | **Free/Premium (Veli V-E).** Veli bildirimleri yalnız `Premium`'a gider (M11 `ParentEventNotificationHandler` Premium kapısı). Varsayılan `Free`; Admin `PUT /membership-tier` ile set eder (satın alma altyapısı sonraki faz). |
 | `IsActive` | `bool` | ✓ | |
 | `CreatedOnUtc` | `DateTime` | ✓ | |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
@@ -72,7 +73,9 @@
 public enum NotificationChannel { Push = 1, Email = 2, Both = 3 }
 ```
 
-**Davranışlar:** `UpdateContact(...)`, `UpdateNotificationPreferences(...)`. Olay: `ParentProfileCreatedDomainEvent`.
+**Davranışlar:** `UpdateContact(...)`, `UpdateNotificationPreferences(...)`, **`SetMembershipTier(...)`** (Veli V-E). Olay: `ParentProfileCreatedDomainEvent`.
+
+> **Bildirim tercihleri artık fiilen tüketiliyor (Veli V-E, 2026-07-19):** Bu anahtarlar M11 `ParentEventNotificationHandler` + haftalık özet servisi tarafından okunur (`IParentNotificationDirectory` üzerinden). `NotifyMissedAssignment`→yeni ödev, `NotifyLessonReminders`→ders tamamlandı, `NotifyPayments`→ödeme, `NotifyWeeklyProgressSummary`→haftalık özet; bağlantı bildirimi (V-C) koşulsuz. **Tümü Premium kapısına tabidir.**
 
 ### 2.2 `ParentChildLink` (AggregateRoot) — Veli–öğrenci bağı (onaylı, çoklu)
 
@@ -140,6 +143,8 @@ GET  /api/parents/profiles/{userId}                                → 200 profi
 PUT  /api/parents/{parentUserId}/notification-preferences
      body: { missedAssignment, weeklyProgressSummary, lessonReminders,
              testResults, payments, channel }                      → 200 profil
+PUT  /api/parents/{parentUserId}/membership-tier                   → 200 profil (Admin; Veli V-E)
+     body: { tier: "Free" | "Premium" }
 
 POST /api/parents/children/link
      body: { parentUserId, studentId, relationship?, childDisplayName?,
@@ -321,4 +326,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
