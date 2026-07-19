@@ -124,6 +124,8 @@ GET /profiles/by-user/{userId}   GET /profiles/by-teacher/{teacherUserId}?includ
 POST /teachers/{teacherUserId}/students/{studentId}/archive|unarchive   PUT .../rate   (arşiv + öğrenci bazlı ücret, B-04/B-07 2026-07-18)
 POST /teachers/{teacherUserId}/students/{studentId}/invite   POST /links/{linkId}/accept|reject   (çoklu öğretmen davet/kabul, B-06 2026-07-18)
 POST /links/claim   (6 haneli davet koduyla profili devral + mevcut self-profil varsa birleştir/merge, Ö-C 2026-07-19)
+POST /profiles/{studentId}/parent-invite   (öğretmen veli davet kodu üretir → ParentInviteResponse, Veli V-D 2026-07-19)
+[expose] IParentInviteDirectory (Shared.Contracts) — Parents claim bunu tüketir
 ```
 ### Scheduling — `/api/scheduling`
 ```
@@ -166,8 +168,9 @@ GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
 ```
 POST /profiles   GET /profiles/{userId}   PUT /{parentUserId}/notification-preferences
 POST /children/link   POST /children/{linkId}/approve   /reject   /revoke   (onay: öğrenci/öğretmen/Admin)
+POST /children/claim-invite   (öğretmen davet kodunu girerek çocuğa bağlan → Approved, Veli V-D 2026-07-19)
 GET  /{parentUserId}/children
-GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403)
+GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403; study alanları gizlilik filtreli — Veli V-B)
 ```
 ### Study — `/api/study`  (tümü auth "AuthenticatedUser"; öğrenci kendi StudentId'sine erişir)
 ```

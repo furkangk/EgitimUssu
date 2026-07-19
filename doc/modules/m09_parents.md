@@ -195,6 +195,16 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
   `Approve(approvedByUserId, existingPrimaryParentUserId?, nowUtc)` imzasına geçirir.
 - **Öğretmen teyidi** bu dilimde YOK (karar 2026-07-19); doğrulama seviyesi = bildirim şeffaflığı + birincil tekilliği.
 
+### 4.2.2 Öğretmen→veli davet kodu claim (Veli V-D, 2026-07-19 — uygulandı)
+- Öğretmen bir öğrenci için veli davet kodu üretir (`POST /api/students/profiles/{studentId}/parent-invite`, M03 `StudentParentInvite`).
+- Veli kaydolur ve kodu girer: **`POST /api/parents/children/claim-invite`** (`ClaimParentInviteRequest(InviteCode)`, `currentUser` = veli).
+  Handler (`ClaimParentInviteCommandHandler`) `IParentInviteDirectory.ResolveAsync` ile kodu çözer; kod geçersiz/kullanılmışsa
+  `parents.invite_not_found` (**404**). Zaten aktif bağ varsa `parents.link_exists` (409).
+- **Onay modeli:** öğretmenin kod üretmesi = öğretmen onayı, velinin kodu girmesi = veli onayı → bağ doğrudan **`Approved`** oluşturulur
+  (`ParentChildLink.Approve` + şeffaflık olayı). İlk veli **birincil** (`IsPrimaryContact=true`), sonraki veli birincil olmaz (V-C tekilliği).
+  Claim sonrası davet `Claimed` işaretlenir (`MarkClaimedAsync`); mevcut `ParentChildLinkApprovedIntegrationEventHandler` (Students)
+  `StudentProfile.ParentUserId`'yi back-fill eder. **Karar (2026-07-19):** telefon eşleştirme YOK; davet-kodu modeli.
+
 ### 4.3 İki veri kaynağı (PRD §M09)
 | Kaynak | İçerik | Önkoşul |
 |--------|--------|---------|
@@ -311,4 +321,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
