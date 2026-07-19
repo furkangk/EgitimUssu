@@ -45,6 +45,26 @@ public sealed class StudentProfileTests
         Assert.Equal(later, profile.UpdatedOnUtc);
     }
 
+    [Fact]
+    public void NewProfile_DefaultsToNullDateOfBirth()
+    {
+        var profile = NewProfile();
+        Assert.Null(profile.DateOfBirth);
+    }
+
+    [Fact]
+    public void Update_SetsDateOfBirth()
+    {
+        var profile = NewProfile();
+        var dob = new DateTime(2012, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var later = Now.AddMinutes(5);
+
+        profile.Update("Ali Veli", "8", null, null, null, null, true, later, TargetExam.None, dob);
+
+        Assert.Equal(dob, profile.DateOfBirth);
+        Assert.Equal(later, profile.UpdatedOnUtc);
+    }
+
     private static StudentProfile NewProfile()
         => new(
             Guid.NewGuid(),
