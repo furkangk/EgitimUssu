@@ -26,7 +26,7 @@ Md içindeki her mermaid bloğu, `@mermaid-js/mermaid-cli` ile SVG olarak da ren
 
 | Rol | Dizin | SVG | Dosyalar |
 |-----|-------|-----|----------|
-| 🎓 Öğrenci | [`svg/ogrenci/`](svg/ogrenci/) | 6 | `01_sayfa_yapisi_ia` · `02_gezinme_haritasi` · `03_veri_akisi` · `04_durum_seans` · `05_durum_hesap` · `06_durum_odev` |
+| 🎓 Öğrenci | [`svg/ogrenci/`](svg/ogrenci/) | 9 | `01_sayfa_yapisi_ia` · `02_kavramsal_model` · `03_gezinme_haritasi` · `04_ogretmensiz_dongu` · `05_veri_akisi` · `06_durum_seans` · `07_durum_kendi_ders` · `08_durum_hesap` · `09_durum_odev` |
 | 👨‍🏫 Öğretmen | [`svg/ogretmen/`](svg/ogretmen/) | 7 | `01_sayfa_yapisi_ia` · `02_gezinme_haritasi` · `03_veri_akisi_ders_tamamlandi` · `04_durum_ders` · `05_durum_baglanti` · `06_durum_odev` · `07_durum_odeme` |
 | 👪 Veli | [`svg/veli/`](svg/veli/) | 5 | `01_sayfa_yapisi_ia` · `02_panel_veri_durumu` · `03_gezinme_haritasi` · `04_veri_akisi_panel_sorgusu` · `05_durum_baglanti` |
 

@@ -1,19 +1,21 @@
 # 🎓 Öğrenci Rolü — Sayfa Mimarisi (Diyagramlar)
 
-> **Referans:** yalnızca [`doc/ogrenci_rolu_fonksiyonel_dokuman_v1.md`](../../ogrenci_rolu_fonksiyonel_dokuman_v1.md) (v1.0).
+> **Referans:** yalnızca [`doc/ogrenci_rolu_fonksiyonel_dokuman_v1.md`](../../ogrenci_rolu_fonksiyonel_dokuman_v1.md) (v1.0) + **Ç-06 kararı** (bkz. §1.2).
 > Bu şemalar dokümanın **“olması gereken”** tasarımını yansıtır — **mevcut Flutter uygulamasını değil.**
 > `[YENİ]` etiketli maddeler dokümandaki önerilerdir (onay bekler).
 >
 > **Seri:** 1/3 Öğrenci · 2/3 Öğretmen · 3/3 Veli
 > **Güncelleme:** 2026-07-19
 
-**Lejant:** 🟢 Free (çekirdek) · 🟣 Premium · ⚠️ *9.2 çelişkisi* (PRD 9.2 → Premium ↔ Böl. 14.3 önerisi → Free) · 🔵 Faz-kapılı · ⭐ kritik/hassas · **[Y]** = [YENİ] öneri
+**Lejant:** 🟢 Free · 🟣 Premium · ⚠️ *9.2 çelişkisi* (PRD 9.2 → Premium ↔ Böl. 14.3 → Free) · 🔵 Faz-kapılı · ⭐ kritik/hassas · 👤 kendi · 👨‍🏫 öğretmen bağlı · **[Y]** = [YENİ] öneri
+
+> **Ç-06 kararı (bu dosyanın getirdiği güncelleme):** Öğrenci **kendi dersini de öğretmen dersi gibi ekleyip planlar** — tek fark öğretmen bağının (`teacher_id`) olmamasıdır. **“Seans” kaldırılmadı;** planın *gerçekleşme* katmanı oldu (bir derse bağlı ya da serbest). Böylece dokümanın **Ç-06 boşluğu** (öğrencinin kendi çalışma programı) kapanır ve *“hangi gün hangi derse/konuya çalışacağım”* senaryosu karşılanır.
 
 ---
 
 ## 1. Sayfa Yapısı — Bilgi Mimarisi (IA ağacı)
 
-5 alt sekme. **Açılış ekranı ⏱️ Çalış (Sayaç)**’tır — öğrenci uygulamayı *“bugün ne kadar çalıştım?”* ile açar, *“dersim ne zaman?”* ile değil (Böl. 5, 3.1). Kaynak: **Bölüm 5** ekran haritası.
+5 alt sekme. **Açılış ekranı ⏱️ Çalış (Sayaç)**’tır (Böl. 5, 3.1). **📚 Derslerim artık öğretmensiz de doludur:** kendi dersleri + (varsa) öğretmen dersleri birlikte, program/takvim olarak.
 
 ```mermaid
 flowchart TD
@@ -25,7 +27,7 @@ flowchart TD
   ROOT --> T5["👤 PROFİL"]
 
   T1 --> T1a["Büyük sayaç"]
-  T1 --> T1b["Konu / ders seçici"]
+  T1 --> T1b["Planlı dersten VEYA serbest başlat"]
   T1 --> T1c["Başlat · Mola · Bitir"]
   T1 --> T1d["Bugünkü toplam süre"]
   T1 --> T1e["🔥 Streak göstergesi"]
@@ -41,50 +43,90 @@ flowchart TD
   T2 --> T2e["Aylık analiz"]
   T2 --> T2f["Kişisel rekorlar"]
 
-  T3 --> N["ÖĞRETMEN YOKSA — boş durum"]
-  N --> N1["Öğretmen Bul · Faz 4"]
-  N --> N2["Davet kodu gir · claim"]
-  T3 --> Y["ÖĞRETMEN VARSA"]
-  Y --> Y1["Yaklaşan dersler"]
-  Y --> Y2["Ders geçmişi"]
-  Y --> Y3["Ödevlerim"]
-  Y --> Y4["Öğretmen notları · paylaşılan"]
-  Y --> Y5["Gelişim değerlendirmem · Faz 3"]
+  T3 --> P0["🗓️ Program / Takvim · hangi gün hangi ders"]
+  T3 --> P1["👤 Kendi derslerim"]
+  P1 --> P1a["+ Kendi ders ekle · ders·konu·tarih·saat·süre"]
+  T3 --> P2["📖 Dersler & Konular kataloğu"]
+  T3 --> P3["👨‍🏫 Öğretmen dersleri · varsa"]
+  P3 --> P3a["Yaklaşan / geçmiş"]
+  P3 --> P3b["Ödevlerim"]
+  P3 --> P3c["Öğretmen notları · paylaşılan"]
+  P3 --> P3d["Gelişim değerlendirmem · Faz 3"]
+  T3 --> P4["Öğretmen yoksa: Öğretmen Bul · Faz 4 · davet kodu"]
 
   T4 --> F1["Öğretmen arama"]
   T4 --> F2["Filtre: branş·şehir·ücret·şekil·saat"]
   T4 --> F3["Öğretmen profili"]
-  T4 --> F4["Favorilerim"]
-  T4 --> F5["Taleplerim"]
+  T4 --> F4["Favorilerim · Taleplerim"]
 
-  T5 --> P1["Profil bilgileri"]
-  T5 --> P2["Velim · bağlantı"]
-  T5 --> P3["⭐ Gizlilik ayarları"]
-  T5 --> P4["Abonelik · Faz 5"]
-  T5 --> P5["Bildirim ayarları"]
-  T5 --> P6["Ayarlar & Güvenlik"]
+  T5 --> Q1["Profil bilgileri"]
+  T5 --> Q2["Velim · bağlantı"]
+  T5 --> Q3["⭐ Gizlilik ayarları"]
+  T5 --> Q4["Abonelik · Faz 5"]
+  T5 --> Q5["Bildirim ayarları"]
+  T5 --> Q6["Ayarlar & Güvenlik"]
 
   classDef open fill:#f8ede0,stroke:#c9791f,stroke-width:2px,color:#5a3410,font-weight:700;
-  classDef faz fill:#eaf1f9,stroke:#5c93cf,color:#123;
+  classDef self fill:#f8ede0,stroke:#c9791f,color:#5a3410;
+  classDef teach fill:#eaf1f9,stroke:#5c93cf,color:#123;
   classDef star fill:#f3eefb,stroke:#6d54b5,color:#33235e;
   class T1 open;
-  class T4 faz;
-  class P3 star;
+  class P1,P1a self;
+  class P3,P3a,P3b,P3c,P3d teach;
+  class T4 teach;
+  class Q3 star;
 ```
 
-**Tasarım kuralı:** Sayaç 0 tıkla erişilir; *“Öğretmenim”* / *“Hedefler”* gibi ikincil hedefler ayrı alt sekme değil, ilgili sekme/hub içindedir.
+**Tasarım kuralı:** Açılış = Sayaç (0 tık). **Derslerim öğretmensiz de anlamlıdır** — kendi derslerini planlarsın; öğretmen bağlanınca aynı görünüme öğretmen dersleri de düşer (rozetle ayrışır).
 
-### 1.1 Faz bazlı sekme durumu (Böl. 5.1)
+### 1.1 Faz bazlı sekme durumu (Böl. 5.1 + Ç-06 kararı)
 
 | Sekme | Faz 1 | Faz 2 | Faz 3 | Faz 4 |
 |---|---|---|---|---|
 | ⏱️ Çalış | ✗ yok | ✅ tam | ✅ | ✅ |
 | 📊 Performans | ✗ yok | ◑ temel | ✅ tam | ✅ |
-| 📚 Derslerim | ✅ **tek sekme** | ✅ | ✅ | ✅ |
+| 📚 Derslerim | ✅ öğretmen dersleri | ✅ **+ kendi dersler/plan** | ✅ | ✅ |
 | 🔍 Keşfet | ✗ | ✗ | ✗ | ✅ |
 | 👤 Profil | ✅ | ✅ | ✅ | ✅ |
 
-> **Faz 1’de öğrenci uygulaması yalnızca “Derslerim”dir** — öğretmenin uzantısı. **Öğrenci ürünü Faz 2’de doğar.**
+> **Faz 1:** Derslerim yalnız öğretmen dersleri (öğrenci izleyici). **Faz 2:** öğrenci ürünü doğar — **kendi ders/plan** eklenir, öğretmensiz de dolu.
+
+### 1.2 Kavramsal model — Ders (plan) + Seans (gerçekleşme)
+
+İki **ortogonal** katman. Tek fark, dersin **öğretmen bağı** olup olmaması (`teacher_id`).
+
+```mermaid
+flowchart TD
+  subgraph PLAN["🗓️ PLAN KATMANI · Ders (Lesson)"]
+    L1["👤 Kendi dersim · teacher_id = null"]
+    L2["👨‍🏫 Öğretmen dersi · teacher_id = dolu"]
+  end
+  subgraph EXEC["⏱️ GERÇEKLEŞME KATMANI"]
+    S1["Seans · derse bağlı · lesson_id = dolu"]
+    S2["Seans · serbest/anlık · lesson_id = null"]
+    LS["LessonSession · öğretmen tamamlar"]
+  end
+  L1 -->|"öğrenci sayaçla çalışır"| S1
+  L2 -->|"öğretmen ders sonrası"| LS
+  S2 -.->|"plansız çalışma da mümkün"| EXEC
+
+  classDef self fill:#f8ede0,stroke:#c9791f,stroke-width:2px,color:#5a3410;
+  classDef teach fill:#eaf1f9,stroke:#5c93cf,color:#123;
+  class L1,S1,S2 self;
+  class L2,LS teach;
+```
+
+**Veri modeline etki** (öğretmen tarafıyla simetrik — Böl. 13 revizyonu):
+
+```
+Lesson
+  ├─ teacher_id   NULLABLE   ← boş = kendi dersi · dolu = öğretmen dersi
+  ├─ ders, konu, tarih, saat, süre
+  ├─ kaynak (kendi | öğretmen)
+  └─ (öğretmenliyse) 1:1 LessonSession · Homework · Payment · not
+StudySession (seans)
+  └─ lesson_id    NULLABLE   ← derse bağlı ya da serbest
+```
 
 ---
 
@@ -97,12 +139,13 @@ Her sekmenin içerdiği bloklar; kaynak yetenek (`S-xx` / modül), faz ve Free/P
 
 | Blok | Kaynak | Kural / Not | Durum |
 |---|---|---|---|
-| Büyük sayaç | `S-08.1` | ders/konu seçip başlat | 🟢 Free |
+| Büyük sayaç | `S-08.1` | **planlı dersten** ya da **serbest** başlat | 🟢 Free |
 | Başlat · Mola · Bitir | `S-08.2–4` | **mola süresi toplama eklenmez** | 🟢 Free |
+| Seans → derse işlenir | Ç-06 | planlı derse başladıysan `lesson_id` dolu | 🟢 Free |
 | Bugünkü toplam süre | `S-08.20` | — | 🟢 Free |
-| 🔥 Streak göstergesi | `S-08.25` | retention motoru | ⚠️ 9.2 |
+| 🔥 Streak göstergesi | `S-08.25` | 9.2: Premium ↔ 14.3: Free | ⚠️ 9.2 |
 | Günlük hedef ilerlemesi | `S-08.26` | — | ⚠️ 9.2 |
-| + Manuel seans ekle | `S-08.8` **[Y]** | sayaç unutulunca | 🟢 Free |
+| + Manuel seans ekle | `S-08.8` **[Y]** | — | 🟢 Free |
 | Arka plan + offline sayaç | `B-02` **[Y]** | **kritik teknik gereksinim** | 🟢 Free |
 
 ### 📊 Performans — *Faz 2–3*
@@ -118,25 +161,19 @@ Her sekmenin içerdiği bloklar; kaynak yetenek (`S-xx` / modül), faz ve Free/P
 | Aylık analiz | `S-08.24` | — | 🟣 Premium |
 | Kişisel rekorlar | `S-08.28` | — | ⚠️ 9.2 |
 
-### 📚 Derslerim — *Faz 1 · iki hâl*
+### 📚 Derslerim — *Faz 1 (öğretmen) → Faz 2 (kendi) · Ç-06 modeli*
 
-**Öğretmen YOKSA (boş durum):**
-
-| Blok | Kaynak | Not | Durum |
+| Blok | Kaynak | Kural / Not | Durum |
 |---|---|---|---|
-| “Henüz öğretmenin yok” + Öğretmen Bul | — | Faz 4’te aktif | 🔵 Faz 4 |
-| Davet kodum var → devral (claim) | `S-01.2 / B-01` **[Y]** | **kritik** — iki giriş yolunu birleştirir | 🟢 Free |
-
-**Öğretmen VARSA (salt-okunur izleyici):**
-
-| Blok | Kaynak | Not | Durum |
-|---|---|---|---|
-| Yaklaşan dersler | `S-04.1` | M04 izleyici | 🟢 Free |
-| Ders geçmişi | `S-05.1` | M05 izleyici | 🟢 Free |
-| Ödevlerim (bekleyen/tamam/geciken) | `S-06.1` | — | 🟢 Free |
-| Ödev teslimi — dosya/foto yükle | `S-06.6 / B-06` **[Y]** | ödev modülünü çift yönlü yapar | 🟢 Free |
-| Öğretmen notları — **yalnız paylaşılan** | `S-05.3` | özel notu **GÖRMEZ** (`S-03.10`) | 🟢 Free |
-| Gelişim değerlendirmem | `S-10.x` | salt-okunur | 🔵 Faz 3 |
+| 🗓️ Program / Takvim | `S-04.6` (Ç-06) | **hangi gün hangi ders/konu** · kendi + öğretmen | 🟢 Free |
+| 👤 + Kendi ders ekle | Ç-06 **[Y]** | öğretmen dersi gibi: ders·konu·tarih·saat·süre · `teacher_id=null` | 🟢 Free |
+| 📖 Dersler & Konular kataloğu | Ç-06 **[Y]** | çalışılan ders/konuları yönet | 🟢 Free |
+| Ders kartı rozeti + filtre | Ç-06 | `👤 Kendi` / `👨‍🏫 Öğretmen` · Tümü/Kendi/Öğretmen | 🟢 Free |
+| 👨‍🏫 Yaklaşan / geçmiş dersler | `S-04.1 / S-05.1` | öğretmen dersleri · salt-okunur | 🟢 Free |
+| 👨‍🏫 Ödevlerim + teslim (foto) | `S-06.1 / S-06.6` **[Y]** | yalnız öğretmenli derslerde | 🟢 Free |
+| 👨‍🏫 Öğretmen notları | `S-05.3` | yalnız paylaşılan (özel notu görmez) | 🟢 Free |
+| 👨‍🏫 Gelişim değerlendirmem | `S-10.x` | salt-okunur | 🔵 Faz 3 |
+| Öğretmen yoksa: Öğretmen Bul / davet | `S-01.2 / B-01` **[Y]** | boş durum değil — ikincil eylem | 🔵 Faz 4 / claim |
 
 ### 🔍 Keşfet — *Faz 4*
 
@@ -165,7 +202,7 @@ Her sekmenin içerdiği bloklar; kaynak yetenek (`S-xx` / modül), faz ve Free/P
 
 ### 3a. Gezinme haritası
 
-Onboarding sayaca akıtır (öğretmen sorulmaz). “Öğretmensiz” Derslerim, Keşfet’e köprüdür; Faz 4 kabulü döngüyü kapatır.
+Onboarding sayaca akıtır (öğretmen sorulmaz). Derslerim öğretmensiz de doludur (kendi dersler); Faz 4 kabulüyle öğretmen dersleri eklenir.
 
 ```mermaid
 flowchart LR
@@ -175,30 +212,51 @@ flowchart LR
   KAY -->|"davet kodum var"| CLAIM["Claim / Devralma"]
   CLAIM --> DER
 
-  CAL["⏱️ Çalış · açılış"] -->|"bitir"| SO["Seans Özeti + not"]
-  CAL -->|"+"| MS["Manuel Seans"]
+  CAL["⏱️ Çalış · açılış"] -->|"seans bitir"| SO["Seans Özeti + not"]
+  CAL -->|"planlı derse başla"| DER
   PER["📊 Performans"] -->|"+"| TG["Test / Deneme Gir"]
 
-  DER["📚 Derslerim"] -->|"öğretmen yok"| KES
-  DER -->|"derse dokun"| DD["Ders Detayı"]
+  DER["📚 Derslerim · program"] -->|"+ kendi ders"| ADD["Kendi Ders Ekle"]
+  DER -->|"katalog"| CAT["Dersler & Konular"]
+  DER -->|"öğretmen dersine dokun"| DD["Ders Detayı"]
   DER -->|"ödeve dokun"| OD["Ödev Detayı"]
   OD -->|"tamamla"| OT["Ödev Teslimi + foto"]
+  DER -->|"öğretmen yok"| KES
   DD -->|"ders tamamlandı"| DEG["Öğretmen Değerlendirme · M13"]
 
-  KES["🔍 Keşfet · Faz 4"] -->|"profil"| OP["Öğretmen Profili"]
-  OP -->|"talep gönder"| TL["Talep"]
+  KES["🔍 Keşfet · Faz4"] -->|"profil"| OP["Öğretmen Profili"]
+  OP -->|"talep"| TL["Talep"]
   TL -->|"öğretmen kabul"| DER
 
   PRO["👤 Profil"] --> GZ["⭐ Gizlilik Ayarları"]
   PRO --> VL["Velim · bağlantı"]
 
   classDef open fill:#f8ede0,stroke:#c9791f,stroke-width:2px,color:#5a3410;
+  classDef self fill:#f8ede0,stroke:#c9791f,color:#5a3410;
   classDef faz fill:#eaf1f9,stroke:#5c93cf,color:#123;
   class CAL open;
+  class ADD,CAT self;
   class KES,OP,TL,DEG faz;
 ```
 
-### 3b. Veri akışı (Böl. 7 AKIŞ 4, Böl. 11.1)
+### 3b. Öğretmensiz çalışma döngüsü (Ç-06 senaryosu)
+
+Öğretmene hiç ihtiyaç duymadan tam döngü — kayıt → planla → çalış → analiz → yeniden planla.
+
+```mermaid
+flowchart LR
+  A["Öğretmensiz kayıt"] --> B["Ders + konuları ekle<br/>(katalog)"]
+  B --> C["Hedef belirle"]
+  C --> D["🗓️ Programla<br/>hangi gün hangi ders/konu"]
+  D --> E["⏱️ Çalış · sayaç<br/>seans → derse işlenir"]
+  E --> F["📊 Analiz<br/>ilerleme · eksik konular"]
+  F --> D
+
+  classDef s fill:#f8ede0,stroke:#c9791f,stroke-width:2px,color:#5a3410;
+  class A,B,C,D,E,F s;
+```
+
+### 3c. Veri akışı — seans kaydı (Böl. 7 AKIŞ 4, Böl. 11.1)
 
 Her türev veri, dış role çıkmadan önce **veri katmanındaki** gizlilik/yaş filtresinden geçer.
 **Değişmez kural:** kişisel seans notu hiçbir yaşta, hiçbir role açılmaz.
@@ -206,6 +264,7 @@ Her türev veri, dış role çıkmadan önce **veri katmanındaki** gizlilik/ya�
 ```mermaid
 flowchart TD
   SEANS(["Çalışma Seansı KAYDEDİLDİ<br/>süre + konu + kişisel not"])
+  SEANS --> LNK["Derse bağlıysa → ders ilerlemesine işlenir"]
   SEANS --> D1["Günlük toplam süre"]
   SEANS --> D2["🔥 Streak kontrolü"]
   SEANS --> D3["Günlük hedef ilerlemesi"]
@@ -235,9 +294,9 @@ flowchart TD
   class KN,SINK lock;
 ```
 
-### 3c. Durum makineleri (Böl. 11)
+### 3d. Durum makineleri
 
-**Çalışma seansı** (11.1) — mola süresi toplama eklenmez:
+**Çalışma seansı** (Böl. 11.1) — mola süresi toplama eklenmez:
 
 ```mermaid
 stateDiagram-v2
@@ -256,7 +315,21 @@ stateDiagram-v2
   I --> [*]
 ```
 
-**Hesap durumu** (11.2) — 18 altı onaysız tam aktifleşmez:
+**Kendi dersi (plan)** — Ç-06 · öğretmen dersinin öğretmensiz karşılığı:
+
+```mermaid
+stateDiagram-v2
+  state "PLANLANDI" as P
+  state "ÇALIŞILDI · seans var" as C
+  state "ATLANDI" as A
+  [*] --> P: kendi dersini ekle
+  P --> C: sayaçla çalıştın
+  P --> A: gün geçti, çalışılmadı
+  A --> P: yeniden planla
+  C --> [*]
+```
+
+**Hesap durumu** (Böl. 11.2) — 18 altı onaysız tam aktifleşmez:
 
 ```mermaid
 stateDiagram-v2
@@ -276,7 +349,7 @@ stateDiagram-v2
   AK --> OL: Faz 1 / Faz 4
 ```
 
-**Ödev — öğrenci görünümü** (11.3) — onay/geri-gönderme **[Y]**:
+**Ödev — öğrenci görünümü** (Böl. 11.3) — onay/geri-gönderme **[Y]**:
 
 ```mermaid
 stateDiagram-v2
@@ -298,4 +371,4 @@ stateDiagram-v2
 
 ---
 
-**Kaynak bölümler:** Böl. 4 (yetenek matrisi) · 5 (ekran haritası) · 7–10 (akışlar) · 11 (durum makineleri) · 13 (veri modeli) · 14 (Free/Premium) · 16 (boşluk/çelişki).
+**Kaynak bölümler:** Böl. 4 (yetenek matrisi) · 5 (ekran haritası) · 7–10 (akışlar) · 11 (durum makineleri) · 13 (veri modeli · Ç-06 ile revize) · 14 (Free/Premium) · 16 (boşluk/çelişki · Ç-06).

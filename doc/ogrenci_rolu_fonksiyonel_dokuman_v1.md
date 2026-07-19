@@ -188,8 +188,9 @@ Veliyi bağla (ops.)      │  Hedef kontrol         ╔════════
 | S-04.4 | **Ders ekleyemez / değiştiremez / iptal edemez** | [TÜRETİLMİŞ] | 1 |
 | S-04.5 | **Ders erteleme talebi gönderebilir** | **[YENİ]** | 1 |
 | S-04.6 | **Kendi çalışma programını oluşturabilir** (derslerden bağımsız) | [PRD 9.2] | 2 |
+| S-04.7 | **Kendi dersini/planını ekleyebilir·düzenleyebilir·silebilir** (`teacher_id=null`; öğretmenin M04 dersine dokunamaz) | **[YENİ]** ✅ Ç-06 | 2 |
 
-> ⚠️ **[PRD]** Bölüm 9.2'de öğrenci Free özelliği olarak **"Ders programı oluşturma ✅"** yazıyor. Ancak M04 modülü tamamen öğretmene ait ve öğrencinin ders ekleme yetkisi hiçbir yerde tanımlı değil. Bu ifadenin **"kendi çalışma programı"** (öğrenci kendine plan yapar, öğretmen dersi değil) anlamına geldiği varsayılmıştır. **Netleştirilmeli** — Bölüm 16.2/Ç-06.
+> ⚠️ **[PRD]** Bölüm 9.2'de öğrenci Free özelliği olarak **"Ders programı oluşturma ✅"** yazıyor. Ancak M04 modülü tamamen öğretmene ait ve öğrencinin ders ekleme yetkisi hiçbir yerde tanımlı değil. Bu ifadenin **"kendi çalışma programı"** (öğrenci kendine plan yapar, öğretmen dersi değil) anlamına geldiği varsayılmıştır. **✅ Çözüldü** — bkz. **§5.2 Kendi Ders/Plan Modeli**: öğrenci kendi dersini (`teacher_id=null`) ekleyip planlar, seans bu derse bağlanır; `S-04.4` gereği **öğretmenin** dersine yine dokunamaz.
 
 ### M05 — Ders Geçmişi (İzleyici)
 
@@ -450,6 +451,36 @@ Veliyi bağla (ops.)      │  Hedef kontrol         ╔════════
 | 👤 Profil | ✅ | ✅ | ✅ | ✅ |
 
 > **Kritik gözlem:** **Faz 1'de öğrencinin uygulamada yapabildiği tek şey "ders geçmişi ve ödevleri görmek"tir** (PRD 1.7, öncelik: Yüksek). Bu, tek başına indirilecek bir uygulama değildir. Faz 1'de öğrenci uygulaması **öğretmenin bir uzantısıdır** ve bu bilinçli bir karardır — PRD Faz 1'in hedefi öğretmendir. Öğrenci ürünü Faz 2'de doğar.
+
+### 5.2 Karar — Kendi Ders/Plan Modeli (Ç-06 çözümü) **[YENİ — onaylandı 2026-07-19]**
+
+**Sorun:** §5 ekran haritasında **Derslerim yalnız öğretmen içeriklidir**; öğretmensiz öğrenci *"hangi gün hangi derse/konuya çalışacağım"* planını hiçbir ekranda yapamıyordu (Ç-06). Sayaç (seans) reaktiftir — *"şu an çalış"* — proaktif planlama katmanı yoktu.
+
+**Karar:** Öğrenci **kendi dersini de öğretmen dersi gibi** ekleyip planlar. **Tek fark öğretmen bağının (`teacher_id`) olmamasıdır.** "Seans" kaldırılmadı; planın **gerçekleşme** katmanı oldu — bir derse bağlı (`lesson_id` dolu) ya da serbest (anlık çalışma) olabilir.
+
+| Katman | Ne | Öğretmensiz (kendi) | Öğretmenli |
+|---|---|---|---|
+| **Plan = Ders** | kim/ne zaman/hangi konu | öğrenci ekler (`teacher_id=null`) | öğretmen ekler |
+| **Gerçekleşme = Seans** | fiilen çalışılan süre | `StudySession` (sayaç) | `LessonSession` (öğretmen tamamlar) |
+
+**Derslerim'in yeni içeriği:**
+- 🗓️ **Program / Takvim** — kendi + öğretmen dersleri, gün gün (*"hangi gün hangi ders"*)
+- 👤 **Kendi ders ekle** — ders·konu·tarih·saat·süre (öğretmen dersi gibi, `teacher_id=null`)
+- 📖 **Dersler & Konular kataloğu** — çalışılan ders/konuları yönet
+- Kart rozeti + filtre: `👤 Kendi` / `👨‍🏫 Öğretmen` (Tümü/Kendi/Öğretmen)
+- Öğretmen bağlı derslerde ek: ödev·not·katılım·değerlendirme (kendi derste bunlar yok)
+
+**Sınır:** `S-04.4` **geçerliliğini korur** — öğrenci **öğretmenin** M04 dersine dokunamaz; yalnızca **kendi** dersini yönetir.
+
+**Veri modeli etkisi (§13 revizyonu — öğretmen tarafıyla simetrik):**
+```
+Lesson.teacher_id      NULLABLE   ← boş = kendi dersi
+StudySession.lesson_id NULLABLE   ← derse bağlı ya da serbest
+```
+
+**Faz:** Kendi ders/plan **Faz 2** (öğrenci ürünüyle birlikte). Faz 1'de Derslerim yalnız öğretmen dersleridir.
+
+**Diyagramlar:** [`diagrams/rol_sayfa_mimarisi/ogrenci.md`](diagrams/rol_sayfa_mimarisi/ogrenci.md) §1.2 (kavramsal model) + §3b (öğretmensiz döngü) + SVG'ler.
 
 ---
 
@@ -1104,7 +1135,7 @@ Detaylı analiz Bölüm 14'te. Karar seçenekleri:
 | Ç-03 | **Hedef belirleme** | M08'de temel, Faz 3.4'te iş kalemi, 9.2'de "Free ❌" |
 | Ç-04 | **Geçmiş seans listesi** | M08'de temel ("geçmişe dönük seans listesi"), 9.2'de "Free ❌" |
 | Ç-05 | **"Tam işlevsel"** | M08: *"öğretmensiz de tam işlevsel"*; 9.2 Free'de değil |
-| Ç-06 | **"Ders programı oluşturma ✅ Free"** | 9.2'de öğrenci özelliği; ama M04 tamamen öğretmene ait, öğrencinin ders yetkisi yok. Ne kastediliyor? |
+| Ç-06 | **"Ders programı oluşturma ✅ Free"** | ✅ **Çözüldü (2026-07-19)** — §5.2 Kendi Ders/Plan Modeli: öğrenci kendi dersini (`teacher_id=null`) ekler/planlar, seans gerçekleşme katmanıdır. Öğretmenin M04 dersine dokunamaz. |
 | Ç-07 | **Gizlilik** | *"otomatik veli paneline yansır"* vs *"öğrenci isterse gizleyebilir"* — yaş politikası olmadan çözülemez |
 | Ç-08 | **Gizli geri bildirim** | Faz 1'de "sadece öğretmen görür" → Faz 4'te açılırsa rıza ihlali |
 
