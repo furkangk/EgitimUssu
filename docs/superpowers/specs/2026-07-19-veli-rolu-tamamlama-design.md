@@ -32,10 +32,11 @@ Parents modülü (M09) Faz-2 çekirdeği + temel Faz-3 dashboard olarak çalış
 
 ### Faz-2 güvenlik/yasal çekirdek
 
-**V-A — Yaş + KVKK açık rıza + yaş bazlı bağlantı politikası**
-- Students: öğrenciye doğum tarihi/yaş alanı; yaş türetimi.
-- Parents: bağlantı akışı yaşa göre dallanır (18-: otomatik bağlan + haberdar et; 18+: onay zorunlu). Bağlantıda KVKK açık rıza kaydı (metin + tarih + versiyon).
-- Açık ürün kararı: yaş eşiği (18?), rıza metni versiyonlama, 13-17 ara bandı olacak mı.
+**V-A — Öğrenci doğum tarihi alanı** *(karar 2026-07-19: sadeleştirildi)*
+- Students: öğrenciye `DateOfBirth` (tam doğum tarihi) alanı; uçtan uca create/update/response + migration.
+- **Karar:** Yaş-bazlı bağlantı politikası (18-/18+ otomatik-vs-onay) **yapılmayacak**; KVKK açık rıza kaydı **bu dilimde atlanır** (ayrı dilime ertelendi).
+- Gerekçe: alan ileride veli claim eşleşmesi (V-D) ve olası yaş politikaları için temel; şimdilik yalnız veri.
+- Plan: `docs/superpowers/plans/2026-07-19-veli-vA-ogrenci-dogum-tarihi.md`.
 
 **V-B — Gizlilik filtresi**
 - Parents dashboard `ShareStudyDataWithParent` + `PrivacyLevel`'e uyar (veri katmanında, arayüzde değil). Gizli alanlar "paylaşılmıyor" işaretiyle döner. Kişisel seans notu hiçbir koşulda dönmez.
