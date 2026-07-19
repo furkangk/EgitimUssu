@@ -12,8 +12,9 @@ internal sealed class StudentUpcomingLessonsDirectory : IStudentUpcomingLessonsD
     public StudentUpcomingLessonsDirectory(SchedulingDbContext dbContext) => _dbContext = dbContext;
 
     public async Task<IReadOnlyCollection<UpcomingLesson>> GetUpcomingAsync(Guid studentId, DateTime fromUtc, int take, CancellationToken cancellationToken)
+        // Ç-06: veli paneli öğretmen derslerini gösterir; öğrencinin kendi dersleri (TeacherUserId null) hariç.
         => await _dbContext.LessonSchedules
-            .Where(l => l.StudentId == studentId && l.Status == LessonScheduleStatus.Planned && l.StartAtUtc >= fromUtc)
+            .Where(l => l.StudentId == studentId && l.TeacherUserId != null && l.Status == LessonScheduleStatus.Planned && l.StartAtUtc >= fromUtc)
             .OrderBy(l => l.StartAtUtc)
             .Take(take)
             .Select(l => new UpcomingLesson(l.Id, l.Subject, l.StartAtUtc, l.EndAtUtc))

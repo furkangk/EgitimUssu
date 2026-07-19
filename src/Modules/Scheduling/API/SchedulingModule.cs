@@ -291,7 +291,7 @@ public sealed class SchedulingModule : ModuleDefinition
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(new DeleteStudyScheduleEntryCommand(entryId), cancellationToken);
+        var result = await dispatcher.Dispatch(new DeleteSelfLessonCommand(entryId), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -545,9 +545,9 @@ public sealed record CreateStudyScheduleEntryRequest(
     string? ColorHex,
     string? Notes)
 {
-    public CreateStudyScheduleEntryCommand ToCommand(Guid studentId)
+    public CreateSelfLessonCommand ToCommand(Guid studentId)
     {
-        return new CreateStudyScheduleEntryCommand(
+        return new CreateSelfLessonCommand(
             studentId,
             Subject,
             Topic,
@@ -575,9 +575,9 @@ public sealed record UpdateStudyScheduleEntryRequest(
     string? ColorHex,
     string? Notes)
 {
-    public UpdateStudyScheduleEntryCommand ToCommand(Guid entryId)
+    public UpdateSelfLessonCommand ToCommand(Guid entryId)
     {
-        return new UpdateStudyScheduleEntryCommand(
+        return new UpdateSelfLessonCommand(
             entryId,
             Subject,
             Topic,

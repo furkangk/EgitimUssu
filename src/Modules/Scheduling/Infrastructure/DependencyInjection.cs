@@ -46,18 +46,17 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<DeleteTimeOffBlockCommand>, TimeOffBlockAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListTimeOffBlocksForTeacherQuery>, TimeOffBlockAuthorizer>();
 
-        // Öğrenci-sahipli kişisel program (StudyScheduleEntry) + birleşik takvim.
-        services.AddScoped<IStudyScheduleEntryRepository, StudyScheduleEntryRepository>();
-        services.AddScoped<ICommandHandler<CreateStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, CreateStudyScheduleEntryCommandHandler>();
-        services.AddScoped<ICommandHandler<UpdateStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, UpdateStudyScheduleEntryCommandHandler>();
-        services.AddScoped<ICommandHandler<DeleteStudyScheduleEntryCommand, Result<StudyScheduleEntryResponse>>, DeleteStudyScheduleEntryCommandHandler>();
+        // Ç-06: Öğrencinin kendi dersi (self LessonSchedule, TeacherUserId null) + birleşik takvim.
+        services.AddScoped<ICommandHandler<CreateSelfLessonCommand, Result<SelfLessonResponse>>, CreateSelfLessonCommandHandler>();
+        services.AddScoped<ICommandHandler<UpdateSelfLessonCommand, Result<SelfLessonResponse>>, UpdateSelfLessonCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteSelfLessonCommand, Result<SelfLessonResponse>>, DeleteSelfLessonCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentCalendarQuery, Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>>, GetStudentCalendarQueryHandler>();
-        services.AddScoped<ICommandValidator<CreateStudyScheduleEntryCommand>, CreateStudyScheduleEntryCommandValidator>();
-        services.AddScoped<ICommandValidator<UpdateStudyScheduleEntryCommand>, UpdateStudyScheduleEntryCommandValidator>();
-        services.AddScoped<ICommandAuthorizer<CreateStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
-        services.AddScoped<ICommandAuthorizer<UpdateStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
-        services.AddScoped<ICommandAuthorizer<DeleteStudyScheduleEntryCommand>, StudyScheduleEntryAuthorizer>();
-        services.AddScoped<IQueryAuthorizer<GetStudentCalendarQuery>, StudyScheduleEntryAuthorizer>();
+        services.AddScoped<ICommandValidator<CreateSelfLessonCommand>, CreateSelfLessonCommandValidator>();
+        services.AddScoped<ICommandValidator<UpdateSelfLessonCommand>, UpdateSelfLessonCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<CreateSelfLessonCommand>, SelfLessonAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<UpdateSelfLessonCommand>, SelfLessonAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<DeleteSelfLessonCommand>, SelfLessonAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetStudentCalendarQuery>, SelfLessonAuthorizer>();
 
         // Ö-C: profil birleştirmede kaynak öğrenciye ait kayıtları kanonik öğrenciye taşır.
         services.AddScoped<IIntegrationEventHandler, SchedulingStudentMergedHandler>();

@@ -21,8 +21,9 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<ListTeacherLessonRemindersQuery>, LessonReminderQueryAuthorizer>();
         services.AddScoped<IQueryHandler<ListParentNotificationsQuery, Result<IReadOnlyCollection<ParentNotificationResponse>>>, ListParentNotificationsQueryHandler>();
         services.AddScoped<IQueryAuthorizer<ListParentNotificationsQuery>, LessonReminderQueryAuthorizer>();
+        // Ç-06: Kendi ders hatırlatmaları da LessonScheduledDomainEvent (teacher null) üzerinden üretilir;
+        // ayrı StudyScheduleEntry hatırlatma handler'ı kaldırıldı.
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
-        services.AddScoped<IIntegrationEventHandler, StudyScheduleReminderIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();
         services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
         services.AddHostedService<NotificationDispatcher>();

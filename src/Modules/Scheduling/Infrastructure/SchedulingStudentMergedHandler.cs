@@ -32,9 +32,8 @@ internal sealed class SchedulingStudentMergedHandler : IIntegrationEventHandler
             return;
         }
 
+        // Ç-06: öğretmen dersleri + öğrencinin kendi dersleri (self) tek tabloda (lesson_schedules) tutulur.
         await _db.LessonSchedules.Where(x => x.StudentId == payload.FromStudentId)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, payload.ToStudentId), cancellationToken);
-        await _db.StudyScheduleEntries.Where(x => x.StudentId == payload.FromStudentId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, payload.ToStudentId), cancellationToken);
     }
 }

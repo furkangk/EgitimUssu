@@ -40,8 +40,10 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
 
     public async Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
     {
+        // Ç-06: bu liste öğretmen derslerini döndürür (öğrencinin kendi dersleri /calendar'da gelir).
         return await _dbContext.LessonSchedules
             .Where(lesson => lesson.StudentId == studentId
+                && lesson.TeacherUserId != null
                 && lesson.StartAtUtc >= startAtUtc
                 && lesson.StartAtUtc <= endAtUtc)
             .ToArrayAsync(cancellationToken);

@@ -19,8 +19,6 @@ public sealed class SchedulingDbContext : ModuleDbContext
 
     public DbSet<LessonSchedule> LessonSchedules => Set<LessonSchedule>();
 
-    public DbSet<StudyScheduleEntry> StudyScheduleEntries => Set<StudyScheduleEntry>();
-
     public DbSet<TimeOffBlock> TimeOffBlocks => Set<TimeOffBlock>();
 
     public DbSet<LessonOccurrenceException> LessonOccurrenceExceptions => Set<LessonOccurrenceException>();
@@ -108,21 +106,3 @@ internal sealed class TimeOffBlockConfiguration : IEntityTypeConfiguration<TimeO
     }
 }
 
-internal sealed class StudyScheduleEntryConfiguration : IEntityTypeConfiguration<StudyScheduleEntry>
-{
-    public void Configure(EntityTypeBuilder<StudyScheduleEntry> builder)
-    {
-        builder.ToTable("study_schedule_entries");
-        builder.HasKey(entity => entity.Id);
-        builder.Property(entity => entity.Subject).HasMaxLength(120).IsRequired();
-        builder.Property(entity => entity.Topic).HasMaxLength(160);
-        builder.Property(entity => entity.TimeZone).HasMaxLength(80).IsRequired();
-        builder.Property(entity => entity.RecurrenceRule).HasMaxLength(256);
-        builder.Property(entity => entity.ColorHex).HasMaxLength(16);
-        builder.Property(entity => entity.Notes).HasMaxLength(1000);
-        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
-        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
-        builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
-        builder.HasIndex(entity => new { entity.StudentId, entity.Status });
-    }
-}
