@@ -5,63 +5,74 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
 
-public sealed class StudentPrivacyFilterTests
+public sealed class ChildDashboardEnrichmentTests
 {
     private static readonly DateTime Now = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
 
-    private static GetChildDashboardQueryHandler Handler(IParentRepository repo, IStudentPrivacyDirectory privacy)
-        => new(repo, privacy, new FakeStudyDigest(), new FixedClock(Now));
-
     [Fact]
-    public async Task Dashboard_WhenNotShared_MasksStudyFields()
+    public async Task Dashboard_WhenShared_FillsStudyFromDigest()
     {
-        var parentUserId = Guid.NewGuid();
-        var studentId = Guid.NewGuid();
-        var studentUserId = Guid.NewGuid();
+        var (parentUserId, studentId) = (Guid.NewGuid(), Guid.NewGuid());
+        var repo = ApprovedRepo(parentUserId, studentId, studentUserId: Guid.NewGuid());
+        var privacy = new FakePrivacy(new StudentPrivacy(ShareStudyDataWithParent: true, ShareStudyDataWithTeacher: true));
+        var digest = new FakeStudyDigest(new StudyDigest(120, 5, new[]
+        {
+            new StudySubjectMinutes("Matematik", 80),
+            new StudySubjectMinutes("Fizik", 40)
+        }));
 
-        var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
-        link.Approve(Guid.NewGuid(), null, Now);
-        var snapshot = new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now);
-        // snapshot çalışma alanlarını doldurmak için mevcut mutator yoksa 0 kalır; test IsShared davranışını doğrular.
-
-        var repo = new FakeParentRepository(link, snapshot, studentUserId);
-        var privacy = new FakePrivacyDirectory(new StudentPrivacy(ShareStudyDataWithParent: false, ShareStudyDataWithTeacher: true));
-        var handler = Handler(repo, privacy);
-
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
-        Assert.False(result.Value.Study.IsShared);
-        Assert.Equal(0, result.Value.Study.WeeklyStudyMinutes);
+        Assert.True(result.Value.Study.IsShared);
+        Assert.Equal(120, result.Value.Study.WeeklyStudyMinutes);
+        Assert.Equal(5, result.Value.Study.StreakDays);
+        Assert.True(result.Value.Study.HasData);
+        Assert.Equal(2, result.Value.Study.SubjectBreakdown.Count);
     }
 
     [Fact]
-    public async Task Dashboard_WhenShared_MarksIsSharedTrue()
+    public async Task Dashboard_WhenNotShared_MasksStudyAndSkipsDigest()
     {
-        var parentUserId = Guid.NewGuid();
-        var studentId = Guid.NewGuid();
-        var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
-        link.Approve(Guid.NewGuid(), null, Now);
-        var repo = new FakeParentRepository(link, new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now), Guid.NewGuid());
-        var privacy = new FakePrivacyDirectory(new StudentPrivacy(true, true));
-        var handler = Handler(repo, privacy);
+        var (parentUserId, studentId) = (Guid.NewGuid(), Guid.NewGuid());
+        var repo = ApprovedRepo(parentUserId, studentId, studentUserId: Guid.NewGuid());
+        var privacy = new FakePrivacy(new StudentPrivacy(ShareStudyDataWithParent: false, ShareStudyDataWithTeacher: true));
+        var digest = new FakeStudyDigest(new StudyDigest(120, 5, new[] { new StudySubjectMinutes("Matematik", 120) }));
 
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.True(result.Value.Study.IsShared);
+        Assert.False(result.Value.Study.IsShared);
+        Assert.Equal(0, result.Value.Study.WeeklyStudyMinutes);
+        Assert.Empty(result.Value.Study.SubjectBreakdown);
+        Assert.False(digest.Called);
     }
 
-    private sealed class FakePrivacyDirectory : IStudentPrivacyDirectory
+    private static FakeParentRepository ApprovedRepo(Guid parentUserId, Guid studentId, Guid studentUserId)
     {
-        private readonly StudentPrivacy _value;
-        public FakePrivacyDirectory(StudentPrivacy value) => _value = value;
-        public Task<StudentPrivacy> GetForUserAsync(Guid userId, CancellationToken ct) => Task.FromResult(_value);
+        var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
+        link.Approve(Guid.NewGuid(), null, Now);
+        return new FakeParentRepository(link, new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now), studentUserId);
     }
 
     private sealed class FakeStudyDigest : IStudyDigestDirectory
     {
+        private readonly StudyDigest _digest;
+        public bool Called { get; private set; }
+        public FakeStudyDigest(StudyDigest digest) => _digest = digest;
         public Task<StudyDigest> GetWeeklyDigestAsync(Guid studentId, DateTime nowUtc, CancellationToken ct)
-            => Task.FromResult(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>()));
+        {
+            Called = true;
+            return Task.FromResult(_digest);
+        }
+    }
+
+    private sealed class FakePrivacy : IStudentPrivacyDirectory
+    {
+        private readonly StudentPrivacy _value;
+        public FakePrivacy(StudentPrivacy value) => _value = value;
+        public Task<StudentPrivacy> GetForUserAsync(Guid userId, CancellationToken ct) => Task.FromResult(_value);
     }
 
     private sealed class FixedClock(DateTime utcNow) : IClock

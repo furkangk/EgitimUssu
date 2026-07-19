@@ -104,7 +104,12 @@ public sealed record ChildDashboardResponse(
     PaymentSummaryResponse Payments,
     DateTime? UpdatedOnUtc);
 
-public sealed record StudySummaryResponse(int WeeklyStudyMinutes, int StreakDays, bool HasData, bool IsShared);
+public sealed record StudySummaryResponse(
+    int WeeklyStudyMinutes,
+    int StreakDays,
+    bool HasData,
+    bool IsShared,
+    IReadOnlyCollection<StudySubjectMinutes> SubjectBreakdown);
 
 public sealed record LessonSummaryResponse(int CompletedLessonCount, int PlannedLessonCount, DateTime? LastLessonCompletedAtUtc);
 
@@ -466,13 +471,22 @@ public sealed class ListChildrenQueryHandler : IQueryHandler<ListChildrenQuery, 
 
 public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashboardQuery, Result<ChildDashboardResponse>>
 {
+    private static readonly IReadOnlyCollection<StudySubjectMinutes> NoSubjects = Array.Empty<StudySubjectMinutes>();
     private readonly IParentRepository _repository;
     private readonly IStudentPrivacyDirectory _privacy;
+    private readonly IStudyDigestDirectory _studyDigest;
+    private readonly IClock _clock;
 
-    public GetChildDashboardQueryHandler(IParentRepository repository, IStudentPrivacyDirectory privacy)
+    public GetChildDashboardQueryHandler(
+        IParentRepository repository,
+        IStudentPrivacyDirectory privacy,
+        IStudyDigestDirectory studyDigest,
+        IClock clock)
     {
         _repository = repository;
         _privacy = privacy;
+        _studyDigest = studyDigest;
+        _clock = clock;
     }
 
     public async Task<Result<ChildDashboardResponse>> Handle(GetChildDashboardQuery query, CancellationToken cancellationToken)
@@ -494,8 +508,22 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
             isStudyShared = privacy.ShareStudyDataWithParent;
         }
 
+        // Çalışma verisi canlı digest'ten gelir (Veli V-F): ChildProgressSnapshot'taki WeeklyStudyMinutes/StudyStreakDays
+        // hiç yazılmıyordu (bug). Paylaşım kapalıysa digest hiç çağrılmaz; maskeli 0/boş döner (V-B davranışı).
+        StudySummaryResponse study;
+        if (isStudyShared)
+        {
+            var digest = await _studyDigest.GetWeeklyDigestAsync(query.StudentId, _clock.UtcNow, cancellationToken);
+            var hasData = digest.WeeklyStudyMinutes > 0 || digest.StreakDays > 0 || digest.SubjectBreakdown.Count > 0;
+            study = new StudySummaryResponse(digest.WeeklyStudyMinutes, digest.StreakDays, hasData, true, digest.SubjectBreakdown);
+        }
+        else
+        {
+            study = new StudySummaryResponse(0, 0, false, false, NoSubjects);
+        }
+
         var snapshot = await _repository.GetSnapshotAsync(query.StudentId, cancellationToken);
-        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link, isStudyShared));
+        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link, study));
     }
 }
 
@@ -563,7 +591,7 @@ internal static class ParentMappings
                 snapshot.WeeklyStudyMinutes);
     }
 
-    public static ChildDashboardResponse ToDashboard(this ChildProgressSnapshot? snapshot, Guid studentId, ParentChildLink link, bool isStudyShared)
+    public static ChildDashboardResponse ToDashboard(this ChildProgressSnapshot? snapshot, Guid studentId, ParentChildLink link, StudySummaryResponse study)
     {
         if (snapshot is null)
         {
@@ -571,21 +599,18 @@ internal static class ParentMappings
                 studentId,
                 link.ChildDisplayName,
                 link.Status.ToString(),
-                new StudySummaryResponse(0, 0, false, isStudyShared),
+                study,
                 new LessonSummaryResponse(0, 0, null),
                 new AssignmentSummaryResponse(0, 0, 0),
                 new PaymentSummaryResponse("TRY", 0m, 0m, 0m, null),
                 null);
         }
 
-        var weeklyMinutes = isStudyShared ? snapshot.WeeklyStudyMinutes : 0;
-        var streakDays = isStudyShared ? snapshot.StudyStreakDays : 0;
-        var hasStudyData = isStudyShared && (snapshot.WeeklyStudyMinutes > 0 || snapshot.StudyStreakDays > 0);
         return new ChildDashboardResponse(
             studentId,
             link.ChildDisplayName,
             link.Status.ToString(),
-            new StudySummaryResponse(weeklyMinutes, streakDays, hasStudyData, isStudyShared),
+            study,
             new LessonSummaryResponse(snapshot.CompletedLessonCount, snapshot.PlannedLessonCount, snapshot.LastLessonCompletedAtUtc),
             new AssignmentSummaryResponse(snapshot.TotalAssignmentCount, snapshot.OpenAssignmentCount, snapshot.CompletedAssignmentCount),
             new PaymentSummaryResponse(
