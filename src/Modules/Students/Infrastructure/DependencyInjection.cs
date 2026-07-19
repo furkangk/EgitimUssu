@@ -42,6 +42,14 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<RejectTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<ICommandAuthorizer<ClaimStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
+
+        // Veli davet kodu (Veli V-D)
+        services.AddScoped<IStudentParentInviteRepository, StudentParentInviteRepository>();
+        services.AddScoped<IParentInviteDirectory, ParentInviteDirectory>();
+        services.AddScoped<ICommandHandler<CreateParentInviteCommand, Result<ParentInviteResponse>>, CreateParentInviteCommandHandler>();
+        services.AddScoped<ICommandValidator<CreateParentInviteCommand>, CreateParentInviteCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<CreateParentInviteCommand>, CreateParentInviteCommandAuthorizer>();
+
         return services;
     }
 }
