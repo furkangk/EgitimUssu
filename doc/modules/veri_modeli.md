@@ -65,7 +65,7 @@ erDiagram
     StudentProfile ||--o| KnownStudent : "StudentId→UserId (read-model)"
 
     StudentProfile ||--o{ LessonSchedule : "StudentId"
-    StudentProfile ||--o{ StudyScheduleEntry : "StudentId (öğrenci kişisel programı)"
+    StudentProfile ||--o{ LessonSchedule : "StudentId (öğretmen dersi + Ç-06 kendi dersi: TeacherUserId null)"
     StudentProfile ||--o{ LessonSession : "StudentId"
     StudentProfile ||--o{ Assignment : "StudentId"
     StudentProfile ||--o{ LessonNote : "StudentId"
@@ -111,7 +111,7 @@ erDiagram
 | | `StudentSubject` | `Id` | `StudentProfileId` → StudentProfile | |
 | | `TeacherStudentLink` (+`InviteCode` davet kodu/claim — Ö-C 2026-07-19; çoklu öğretmen bağı, free limit=5, arşiv, öğrenci bazlı ücret — Dilim C 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile · `InviteTargetUserId?` · `InviteCode?` (indexli) · UNIQUE `(TeacherUserId,StudentId)` | [m03](m03_students.md) |
 | Scheduling (`scheduling`) | `LessonSchedule` (+`MeetingUrl`, `OriginalStartAtUtc`, `RescheduleNote`, `CancellationReason`, `IsChargeable` — 2026-07-18) | `Id` | `TeacherUserId` → UserAccount · `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
-| | `StudyScheduleEntry` (öğrenci kişisel programı, 2026-07-08) | `Id` | `StudentId` → StudentProfile | [m04](m04_scheduling.md) |
+| | ~~`StudyScheduleEntry`~~ **kaldırıldı (Ç-06, 2026-07-19)** → birleşik `LessonSchedule` (`TeacherUserId` null = kendi ders; +`Topic`/`ColorHex`). Migration `UnifyLessonSchedule` (veri göçü + tablo drop) | — | — | [m04](m04_scheduling.md) |
 | | `TimeOffBlock` (tatil/müsait değil bloğu, B-01 2026-07-18) | `Id` | `TeacherUserId` → UserAccount | [m04](m04_scheduling.md) |
 | | `LessonOccurrenceException` (tekrar oturum istisnası, B-03 2026-07-18; `Entity<Guid>`) | `Id` | `SeriesLessonScheduleId` → LessonSchedule | [m04](m04_scheduling.md) |
 | | `LessonChangeRequest` (öğrenci ders erteleme talebi, Ö-F 2026-07-18) | `Id` | `LessonScheduleId` → LessonSchedule · `StudentId` → StudentProfile · `TeacherUserId` → UserAccount | [m04](m04_scheduling.md) |
@@ -170,7 +170,9 @@ erDiagram
 
 **`Identity.UserAccount.Id`'ye:** TeacherProfile.UserId · StudentProfile.{UserId, CreatedByTeacherUserId, ParentUserId} · LessonSchedule.TeacherUserId · LessonSession.TeacherUserId · Assignment.TeacherUserId · LessonNote.TeacherUserId · PaymentRecord.TeacherUserId · LessonReminder.TeacherUserId · UserSetting.UserId · ParentProfile.UserId · ParentChildLink.ParentUserId · KnownStudent.UserId
 
-**`Students.StudentProfile.Id`'ye:** LessonSchedule · StudyScheduleEntry · LessonSession · Assignment · LessonNote · PaymentRecord · LessonReminder (hepsi `.StudentId`) · ParentChildLink.StudentId · ChildProgressSnapshot.StudentId · KnownStudent.StudentId · TeacherStudentLink.StudentId
+**`Students.StudentProfile.Id`'ye:** LessonSchedule (Ç-06: öğretmen dersi + kendi ders) · LessonSession · Assignment · LessonNote · PaymentRecord · LessonReminder (hepsi `.StudentId`) · ParentChildLink.StudentId · ChildProgressSnapshot.StudentId · KnownStudent.StudentId · TeacherStudentLink.StudentId
+
+**Ç-06 gevşek referanslar (Guid?, FK yok):** `Study.StudySession.LessonId` → Scheduling `LessonSchedule.Id` (takvim occurrence entryId'si). Tamamlanma, `IStudyPlanCompletionReader` sözleşmesiyle Scheduling'e okunur.
 
 **`Scheduling.LessonSchedule.Id`'ye:** LessonSession.LessonScheduleId? · LessonReminder.LessonScheduleId (UNIQUE) · LessonOccurrenceException.SeriesLessonScheduleId (B-03) · LessonChangeRequest.LessonScheduleId (Ö-F)
 

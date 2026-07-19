@@ -472,11 +472,17 @@ Veliyi bağla (ops.)      │  Hedef kontrol         ╔════════
 
 **Sınır:** `S-04.4` **geçerliliğini korur** — öğrenci **öğretmenin** M04 dersine dokunamaz; yalnızca **kendi** dersini yönetir.
 
-**Veri modeli etkisi (§13 revizyonu — öğretmen tarafıyla simetrik):**
+**Veri modeli etkisi — fiziksel (kodda uygulanmış, Ç-06):** Kendi ders artık ayrı bir `StudyScheduleEntry`
+değil; **birleşik `LessonSchedule`** entity'sinde `TeacherUserId` null olarak tutulur. Eski
+`scheduling.study_schedule_entries` tablosu `lesson_schedules`'e göç edilip kaldırıldı (StudyScheduleEntry
+domain/uygulama/altyapı katmanları da silindi). Takvim tek kaynaktan (`lesson_schedules`) okunur.
 ```
-Lesson.teacher_id      NULLABLE   ← boş = kendi dersi
-StudySession.lesson_id NULLABLE   ← derse bağlı ya da serbest
+LessonSchedule.TeacherUserId  Guid? NULLABLE   ← boş = kendi dersi
+LessonSchedule.Topic/ColorHex                  ← kendi derste kullanılır (öğretmen dersinde LessonFormat)
+StudySession.LessonId         Guid? NULLABLE   ← derse bağlı ya da serbest (gevşek referans, FK yok)
+CalendarOccurrence.completed                   ← o gün derse bağlı tamamlanmış seans (planla→çalış→✓)
 ```
+Modüller arası okuma `IStudyPlanCompletionReader` sözleşmesiyle yapılır (Study → Scheduling; doğrudan referans yok).
 
 **Faz:** Kendi ders/plan **Faz 2** (öğrenci ürünüyle birlikte). Faz 1'de Derslerim yalnız öğretmen dersleridir.
 

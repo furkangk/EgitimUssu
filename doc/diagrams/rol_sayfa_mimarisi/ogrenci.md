@@ -116,16 +116,20 @@ flowchart TD
   class L2,LS teach;
 ```
 
-**Veri modeline etki** (öğretmen tarafıyla simetrik — Böl. 13 revizyonu):
+**Veri modeline etki** — fiziksel model (kodda uygulanmış, Ç-06): öğrencinin kendi dersi ayrı bir
+`StudyScheduleEntry` değil; **tek `LessonSchedule` entity**'sinde `TeacherUserId` null olarak tutulur
+(eski `study_schedule_entries` tablosu `lesson_schedules`'e göç edip kaldırıldı):
 
 ```
-Lesson
-  ├─ teacher_id   NULLABLE   ← boş = kendi dersi · dolu = öğretmen dersi
-  ├─ ders, konu, tarih, saat, süre
-  ├─ kaynak (kendi | öğretmen)
-  └─ (öğretmenliyse) 1:1 LessonSession · Homework · Payment · not
-StudySession (seans)
-  └─ lesson_id    NULLABLE   ← derse bağlı ya da serbest
+LessonSchedule            (Scheduling modülü — tek entity)
+  ├─ TeacherUserId  Guid? NULLABLE   ← null = öğrencinin kendi dersi
+  ├─ StudentId      required
+  ├─ Subject, Topic?, Start/End, TimeZone, RecurrenceRule?, Status, ColorHex?
+  └─ (öğretmenliyse) LessonFormat, LocationLabel, MeetingUrl
+StudySession (Study modülü)
+  └─ LessonId       Guid? NULLABLE   ← derse bağlı ya da serbest
+CalendarOccurrence  (okuma modeli) → source = TeacherUserId is null ? "Self" : "Teacher";
+                     completed = o gün derse bağlı tamamlanmış seans var mı (planla→çalış→✓)
 ```
 
 ---

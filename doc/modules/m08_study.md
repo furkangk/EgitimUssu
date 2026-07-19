@@ -15,6 +15,7 @@
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### ✅ Var olan (uçtan uca — 2026-07-04'te inşa edildi)
+- **Ç-06 (2026-07-19):** `StudySession`'a `LessonId` (Guid?, plana gevşek bağ — FK yok) eklendi; `POST /sessions/start` ve `/sessions/manual` opsiyonel `lessonId`/`subjectId`/`topicId` alır (`subjectId`/`topicId` verilirse katalogdan ad çözülüp `Subject`/`Topic` denormalize saklanır). Study, `IStudyPlanCompletionReader` (Shared/Contracts) sözleşmesini **yayınlar** (`StudyPlanCompletionReader`: tamamlanmış + `LessonId`'li seanslardan (LessonId, tarih)) → Scheduling takvim occurrence'ının `completed` rozetini doldurur. Migration `AddLessonIdToStudySession`.
 - **Domain** (`Domain/StudyDomainModel.cs`): `StudySession` (kronometre; start/pause/resume/complete/discard, mola muhasebesi), `TestResult` (net doğrulama + hesabı; opsiyonel `MockExamId`), `MockExam` (çok dersli deneme; net toplama), `StudyGoal`, `StudyStreak` (`RegisterStudyDay`), `Achievement` (katalog) + `StudentAchievement` (kazanım), `StudyTopic` (konu rollup), `StudentSubjectCatalog` + `StudentTopicCatalog` (öğrencinin tanımladığı ders/konu kataloğu), `StudyStudent` (öğrenci↔kullanıcı bağı + paylaşım tercihleri). Enum'lar: `StudySessionStatus`, `StudySessionSource`, `TestType`, `AchievementCategory`. Domain olayları: `StudySessionStarted/Completed`, `TestResultRecorded`, `StudyGoalUpdated`, `StreakMilestoneReached`, `StreakBroken`, `AchievementEarned` (Outbox'a düşer).
 - **Application (CQRS)** (`StudyContracts/SessionFeatures/TestFeatures/ProgressFeatures/Policies`): Start/Pause/Resume/Complete/Discard/Manual seans komutları; RecordTest; UpdateGoals; UpdateSharing. Sorgular: session, list-sessions, weekly-summary, test, list-tests, net-trend, goals, streak, achievements, sharing, dashboard. `StudyCompletionService` (konu rollup + streak + başarım değerlendirme), `AchievementEvaluator`, `StudyOwnershipGuard`/`StudyLinkResolver`.
 - **Infrastructure**: `StudyDbContext` 8 `DbSet` + EF config'ler (snake_case, enum→string), `StudyRepository` (tek unit-of-work), `AddStudyModule` DI, `StudyDesignTimeDbContextFactory`, **`InitialStudy` migration** (`study` şeması + achievement katalog seed'i 10 rozet).
@@ -508,7 +509,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19 (Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19 (Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
 
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
 <!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + IMembershipDirectory + MembershipGate; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->

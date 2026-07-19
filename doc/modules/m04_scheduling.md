@@ -32,8 +32,9 @@
 | Ders silme (24s + gelecek) | 🟢 **Mevcut (2026-07-18, B-09)** | `CanBeDeletedAt()` + `DELETE /lessons/{id}`; yalnız oluşturmadan ≤24 saat **ve** ders gelecekteyse, aksi halde `scheduling.delete_not_allowed` (409) |
 | Tatil / müsait değil bloğu (`TimeOffBlock`) | 🟢 **Mevcut (2026-07-18, B-01)** | Yeni aggregate + `POST/GET/DELETE /teachers/{id}/time-off`; oluşturmada çakışan planlı dersler yanıtta döner. Migration `AddTimeOffBlocks` |
 | Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🟢 **Mevcut (öğrenci takviminde + occurrence istisnaları)** | `RecurrenceExpander` (DAILY/WEEKLY+BYDAY/MONTHLY + UNTIL) → `GET /students/{id}/calendar` somut oluşumları üretir; **occurrence istisnaları** (`LessonOccurrenceException`: skip/cancel/reschedule) uygulanır (2026-07-18, B-03). Öğretmen `LessonSchedule` listesi hâlâ açılımsız (tek örnek) |
-| Öğrenci kişisel programı (`StudyScheduleEntry`) | 🟢 **Mevcut (2026-07-08)** | Öğrenci-sahipli aggregate + CRUD + birleşik takvim; öğretmen dersiyle saat çakışması reddedilir. Bkz. §2.3 |
-| Öğrenci programı **hatırlatması** | 🟢 **Mevcut (2026-07-08)** | Oluştur/güncelle/sil → outbox → Notifications `StudyScheduleReminderIntegrationEventHandler` → `LessonReminder` (ilk oluşuma göre; `0 dk` = kapalı). Bkz. §5 |
+| Öğrenci kişisel programı (**birleşik `LessonSchedule`**) | 🟢 **Mevcut (2026-07-19, Ç-06)** | Ayrı `StudyScheduleEntry` **kaldırıldı**; öğrencinin kendi dersi birleşik `LessonSchedule`'da `TeacherUserId=null` (self) olarak tutulur. `CreateSelfLesson` fabrikası + `CreateSelfLesson/UpdateSelfLesson/DeleteSelfLesson` komut yolu. `/students/{id}/study-entries` (POST) · `PUT/DELETE /study-entries/{id}` rotaları korunur (mobil geriye-uyum), self-lesson komutlarına köprülenir. Öğretmen dersiyle saat çakışması reddedilir. Migration `UnifyLessonSchedule` (veri göçü + tablo drop) |
+| Birleşik takvim `completed` (planla→çalış→✓) | 🟢 **Mevcut (2026-07-19, Ç-06)** | `GET /students/{id}/calendar` occurrence'ına `completed` alanı eklendi; `IStudyPlanCompletionReader` (Shared/Contracts) ile Study'den (LessonId'ye bağlı tamamlanmış seanslar) doldurulur. `source`/`isEditable`/`topic`/`colorHex` tek kaynaktan (`lesson_schedules`) türetilir |
+| Öğrenci programı **hatırlatması** | 🟢 **Mevcut (2026-07-19, Ç-06 revizyon)** | Kendi ders hatırlatması artık `LessonScheduledDomainEvent` (teacher null) → Notifications `LessonScheduleNotificationIntegrationEventHandler` üzerinden üretilir; ayrı `StudyScheduleReminderIntegrationEventHandler` **kaldırıldı**. Bkz. §5 |
 | Ders güncelleme (`PUT /lessons/{id}`) | ✅ **Mevcut** | `UpdateDetails()` domain metodu + `PUT /lessons/{id}` + `UpdateLessonScheduleCommand`; kendini hariç tutan çakışma kontrolü + hatırlatma yeniden planlanır; yalnızca Planli/Taslak düzenlenebilir (2026-06-28) |
 | `Planned → Completed` geçişi | ✅ **Mevcut** | `Complete()` domain metodu + `POST /lessons/{id}/complete` + `CompleteLessonScheduleCommand` (2026-06-26) |
 
@@ -123,8 +124,8 @@ Tekrar serisinde tek bir oluşuma uygulanan istisna (iCal `EXDATE`/`RECURRENCE-I
 **Domain Event'ler (koddan birebir):**
 | Event | Alanlar |
 |-------|---------|
-| `LessonScheduledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, ReminderOffsetMinutes, CreatedOnUtc` (2026-07-01: `ReminderOffsetMinutes` eklendi — Notifications handler'ı offset'i buradan alır, Y1) |
-| `LessonScheduleCancelledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CancelledOnUtc` |
+| `LessonScheduledDomainEvent` | `LessonScheduleId, TeacherUserId (Guid? — Ç-06: self derste null), StudentId, StartAtUtc, EndAtUtc, ReminderOffsetMinutes, CreatedOnUtc` (2026-07-01: `ReminderOffsetMinutes` eklendi — Notifications handler'ı offset'i buradan alır, Y1) |
+| `LessonScheduleCancelledDomainEvent` | `LessonScheduleId, TeacherUserId (Guid? — Ç-06), StudentId, CancelledOnUtc` |
 | `LessonSessionCompletedDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CompletedOnUtc` |
 | `LessonChangeRequestedDomainEvent` | `RequestId, LessonScheduleId, StudentId, TeacherUserId, CreatedOnUtc` (Ö-F: öğretmene "yeni erteleme talebi" bildirimi için) |
 | `LessonChangeRequestResolvedDomainEvent` | `RequestId, LessonScheduleId, StudentId, TeacherUserId, Status, ResolvedOnUtc` (Ö-F: öğrenciye "talebiniz kabul/red edildi" bildirimi için) |
@@ -408,4 +409,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
