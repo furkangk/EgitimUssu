@@ -104,6 +104,7 @@ public sealed record ChildDashboardResponse(
     PaymentSummaryResponse Payments,
     IReadOnlyCollection<UpcomingLesson> UpcomingLessons,
     LastLessonSummary? LastLesson,
+    IReadOnlyCollection<ParentVisibleNote> TeacherNotes,
     DateTime? UpdatedOnUtc);
 
 public sealed record StudySummaryResponse(
@@ -474,12 +475,14 @@ public sealed class ListChildrenQueryHandler : IQueryHandler<ListChildrenQuery, 
 public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashboardQuery, Result<ChildDashboardResponse>>
 {
     private const int UpcomingTake = 5;
+    private const int NotesTake = 10;
     private static readonly IReadOnlyCollection<StudySubjectMinutes> NoSubjects = Array.Empty<StudySubjectMinutes>();
     private readonly IParentRepository _repository;
     private readonly IStudentPrivacyDirectory _privacy;
     private readonly IStudyDigestDirectory _studyDigest;
     private readonly IStudentUpcomingLessonsDirectory _upcomingLessons;
     private readonly IStudentLastLessonDirectory _lastLesson;
+    private readonly IStudentNotesDirectory _notes;
     private readonly IClock _clock;
 
     public GetChildDashboardQueryHandler(
@@ -488,6 +491,7 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
         IStudyDigestDirectory studyDigest,
         IStudentUpcomingLessonsDirectory upcomingLessons,
         IStudentLastLessonDirectory lastLesson,
+        IStudentNotesDirectory notes,
         IClock clock)
     {
         _repository = repository;
@@ -495,6 +499,7 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
         _studyDigest = studyDigest;
         _upcomingLessons = upcomingLessons;
         _lastLesson = lastLesson;
+        _notes = notes;
         _clock = clock;
     }
 
@@ -535,8 +540,11 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
         var upcoming = await _upcomingLessons.GetUpcomingAsync(query.StudentId, _clock.UtcNow, UpcomingTake, cancellationToken);
         var lastLesson = await _lastLesson.GetLastCompletedAsync(query.StudentId, cancellationToken);
 
+        // Öğretmen notları: yalnız veli-görünür (Student/StudentAndParent); Private asla (Veli V-F).
+        var teacherNotes = await _notes.GetParentVisibleNotesAsync(query.StudentId, NotesTake, cancellationToken);
+
         var snapshot = await _repository.GetSnapshotAsync(query.StudentId, cancellationToken);
-        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link, study, upcoming, lastLesson));
+        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link, study, upcoming, lastLesson, teacherNotes));
     }
 }
 
@@ -610,7 +618,8 @@ internal static class ParentMappings
         ParentChildLink link,
         StudySummaryResponse study,
         IReadOnlyCollection<UpcomingLesson> upcomingLessons,
-        LastLessonSummary? lastLesson)
+        LastLessonSummary? lastLesson,
+        IReadOnlyCollection<ParentVisibleNote> teacherNotes)
     {
         if (snapshot is null)
         {
@@ -624,6 +633,7 @@ internal static class ParentMappings
                 new PaymentSummaryResponse("TRY", 0m, 0m, 0m, null),
                 upcomingLessons,
                 lastLesson,
+                teacherNotes,
                 null);
         }
 
@@ -642,6 +652,7 @@ internal static class ParentMappings
                 snapshot.LastPaymentUpdatedAtUtc),
             upcomingLessons,
             lastLesson,
+            teacherNotes,
             snapshot.UpdatedOnUtc);
     }
 }

@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<AssignmentsDbContext>(configuration, "Assignments", AssignmentsDbContext.SchemaName);
         services.AddScoped<IAssignmentRepository, AssignmentRepository>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IStudentNotesDirectory, StudentNotesDirectory>();
         services.AddSingleton<IAssignmentFileStorage, LocalAssignmentFileStorage>();
         services.AddScoped<ICommandHandler<CreateLessonSessionFollowUpCommand, Result<LessonSessionFollowUpResponse>>, CreateLessonSessionFollowUpCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionFollowUpQuery, Result<LessonSessionFollowUpResponse>>, GetLessonSessionFollowUpQueryHandler>();

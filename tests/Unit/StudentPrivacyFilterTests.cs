@@ -10,7 +10,7 @@ public sealed class StudentPrivacyFilterTests
     private static readonly DateTime Now = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
 
     private static GetChildDashboardQueryHandler Handler(IParentRepository repo, IStudentPrivacyDirectory privacy)
-        => new(repo, privacy, new FakeStudyDigest(), new FakeUpcoming(), new FakeLastLesson(), new FixedClock(Now));
+        => new(repo, privacy, new FakeStudyDigest(), new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FixedClock(Now));
 
     [Fact]
     public async Task Dashboard_WhenNotShared_MasksStudyFields()
@@ -73,6 +73,12 @@ public sealed class StudentPrivacyFilterTests
     private sealed class FakeLastLesson : IStudentLastLessonDirectory
     {
         public Task<LastLessonSummary?> GetLastCompletedAsync(Guid studentId, CancellationToken ct) => Task.FromResult<LastLessonSummary?>(null);
+    }
+
+    private sealed class FakeNotes : IStudentNotesDirectory
+    {
+        public Task<IReadOnlyCollection<ParentVisibleNote>> GetParentVisibleNotesAsync(Guid studentId, int take, CancellationToken ct)
+            => Task.FromResult<IReadOnlyCollection<ParentVisibleNote>>(Array.Empty<ParentVisibleNote>());
     }
 
     private sealed class FixedClock(DateTime utcNow) : IClock

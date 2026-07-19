@@ -21,7 +21,7 @@ public sealed class ChildDashboardEnrichmentTests
             new StudySubjectMinutes("Fizik", 40)
         }));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
@@ -40,7 +40,7 @@ public sealed class ChildDashboardEnrichmentTests
         var privacy = new FakePrivacy(new StudentPrivacy(ShareStudyDataWithParent: false, ShareStudyDataWithTeacher: true));
         var digest = new FakeStudyDigest(new StudyDigest(120, 5, new[] { new StudySubjectMinutes("Matematik", 120) }));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.False(result.Value.Study.IsShared);
@@ -68,7 +68,7 @@ public sealed class ChildDashboardEnrichmentTests
         });
         var lastLesson = new FakeLastLesson(new LastLessonSummary(Guid.NewGuid(), "Türev", null, Now.AddDays(-1)));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())), upcoming, lastLesson, new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())), upcoming, lastLesson, new FakeNotes(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.Single(result.Value.UpcomingLessons);
@@ -76,6 +76,23 @@ public sealed class ChildDashboardEnrichmentTests
         Assert.NotNull(result.Value.LastLesson);
         Assert.Equal("Türev", result.Value.LastLesson!.TopicTitle);
         Assert.Null(result.Value.LastLesson.TeacherNotes); // veli-görünürlük garantisi olmadan not sızmaz
+    }
+
+    [Fact]
+    public async Task Dashboard_FillsParentVisibleTeacherNotes()
+    {
+        var (parentUserId, studentId) = (Guid.NewGuid(), Guid.NewGuid());
+        var repo = ApprovedRepo(parentUserId, studentId, studentUserId: Guid.NewGuid());
+        var notes = new FakeNotes(new[] { new ParentVisibleNote(Guid.NewGuid(), "Bugün türev işledik", Now.AddDays(-1)) });
+
+        var handler = new GetChildDashboardQueryHandler(
+            repo, new FakePrivacy(new StudentPrivacy(true, true)),
+            new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())),
+            new FakeUpcoming(), new FakeLastLesson(), notes, new FixedClock(Now));
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        Assert.Single(result.Value.TeacherNotes);
+        Assert.Equal("Bugün türev işledik", result.Value.TeacherNotes.First().Content);
     }
 
     private sealed class FakeUpcoming : IStudentUpcomingLessonsDirectory
@@ -91,6 +108,14 @@ public sealed class ChildDashboardEnrichmentTests
         private readonly LastLessonSummary? _last;
         public FakeLastLesson(LastLessonSummary? last = null) => _last = last;
         public Task<LastLessonSummary?> GetLastCompletedAsync(Guid studentId, CancellationToken ct) => Task.FromResult(_last);
+    }
+
+    private sealed class FakeNotes : IStudentNotesDirectory
+    {
+        private readonly IReadOnlyCollection<ParentVisibleNote> _notes;
+        public FakeNotes(IReadOnlyCollection<ParentVisibleNote>? notes = null) => _notes = notes ?? Array.Empty<ParentVisibleNote>();
+        public Task<IReadOnlyCollection<ParentVisibleNote>> GetParentVisibleNotesAsync(Guid studentId, int take, CancellationToken ct)
+            => Task.FromResult(_notes);
     }
 
     private sealed class FakeStudyDigest : IStudyDigestDirectory
