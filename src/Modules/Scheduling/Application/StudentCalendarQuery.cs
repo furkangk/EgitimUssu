@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Scheduling.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Scheduling.Application;
@@ -27,15 +28,20 @@ public sealed record StudentCalendarOccurrenceResponse(
     string? ColorHex,
     string? RecurrenceRule,
     string? Notes,
-    bool IsEditable);
+    bool IsEditable,
+    bool Completed);
 
 public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCalendarQuery, Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>>
 {
     private readonly ILessonScheduleRepository _lessonRepository;
+    private readonly IStudyPlanCompletionReader _completionReader;
 
-    public GetStudentCalendarQueryHandler(ILessonScheduleRepository lessonRepository)
+    public GetStudentCalendarQueryHandler(
+        ILessonScheduleRepository lessonRepository,
+        IStudyPlanCompletionReader completionReader)
     {
         _lessonRepository = lessonRepository;
+        _completionReader = completionReader;
     }
 
     public async Task<Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>> Handle(GetStudentCalendarQuery query, CancellationToken cancellationToken)
@@ -45,6 +51,14 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
         // Tek kaynak: öğretmen + kendi dersleri (TeacherUserId null = self).
         var lessons = await _lessonRepository.ListActiveForStudentUntilAsync(query.StudentId, query.EndAtUtc, cancellationToken);
         var exceptionsByLesson = await SelfLessonConflict.LoadExceptionsByLessonAsync(_lessonRepository, lessons, cancellationToken);
+
+        // Ç-06: (LessonId, tarih) → çalışıldı kümesi (Study modülünden okuma sözleşmesiyle).
+        var completions = await _completionReader.GetCompletionsAsync(
+            query.StudentId,
+            DateOnly.FromDateTime(query.StartAtUtc),
+            DateOnly.FromDateTime(query.EndAtUtc),
+            cancellationToken);
+        var completedSet = completions.Select(c => (c.LessonId, c.Date)).ToHashSet();
 
         foreach (var lesson in lessons)
         {
@@ -74,7 +88,8 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                     lesson.ColorHex,
                     lesson.RecurrenceRule,
                     lesson.Notes,
-                    IsEditable: isSelf));
+                    IsEditable: isSelf,
+                    Completed: completedSet.Contains((lesson.Id, DateOnly.FromDateTime(occurrence.StartAtUtc)))));
             }
         }
 

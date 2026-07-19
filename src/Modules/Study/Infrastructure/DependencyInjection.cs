@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddModuleDbContext<StudyDbContext>(configuration, "Study", StudyDbContext.SchemaName);
         services.AddScoped<IStudyRepository, StudyRepository>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudyDigestDirectory, StudyDigestDirectory>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IStudyPlanCompletionReader, StudyPlanCompletionReader>();
 
         // Uygulama servisleri
         services.AddScoped<StudyOwnershipGuard>();
