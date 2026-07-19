@@ -21,7 +21,7 @@ public sealed class ChildDashboardEnrichmentTests
             new StudySubjectMinutes("Fizik", 40)
         }));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
@@ -40,7 +40,7 @@ public sealed class ChildDashboardEnrichmentTests
         var privacy = new FakePrivacy(new StudentPrivacy(ShareStudyDataWithParent: false, ShareStudyDataWithTeacher: true));
         var digest = new FakeStudyDigest(new StudyDigest(120, 5, new[] { new StudySubjectMinutes("Matematik", 120) }));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.False(result.Value.Study.IsShared);
@@ -54,6 +54,43 @@ public sealed class ChildDashboardEnrichmentTests
         var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
         link.Approve(Guid.NewGuid(), null, Now);
         return new FakeParentRepository(link, new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now), studentUserId);
+    }
+
+    [Fact]
+    public async Task Dashboard_FillsUpcomingLessonsAndLastLesson()
+    {
+        var (parentUserId, studentId) = (Guid.NewGuid(), Guid.NewGuid());
+        var repo = ApprovedRepo(parentUserId, studentId, studentUserId: Guid.NewGuid());
+        var privacy = new FakePrivacy(new StudentPrivacy(true, true));
+        var upcoming = new FakeUpcoming(new[]
+        {
+            new UpcomingLesson(Guid.NewGuid(), "Matematik", Now.AddDays(1), Now.AddDays(1).AddHours(1))
+        });
+        var lastLesson = new FakeLastLesson(new LastLessonSummary(Guid.NewGuid(), "Türev", null, Now.AddDays(-1)));
+
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())), upcoming, lastLesson, new FixedClock(Now));
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        Assert.Single(result.Value.UpcomingLessons);
+        Assert.Equal("Matematik", result.Value.UpcomingLessons.First().Subject);
+        Assert.NotNull(result.Value.LastLesson);
+        Assert.Equal("Türev", result.Value.LastLesson!.TopicTitle);
+        Assert.Null(result.Value.LastLesson.TeacherNotes); // veli-görünürlük garantisi olmadan not sızmaz
+    }
+
+    private sealed class FakeUpcoming : IStudentUpcomingLessonsDirectory
+    {
+        private readonly IReadOnlyCollection<UpcomingLesson> _items;
+        public FakeUpcoming(IReadOnlyCollection<UpcomingLesson>? items = null) => _items = items ?? Array.Empty<UpcomingLesson>();
+        public Task<IReadOnlyCollection<UpcomingLesson>> GetUpcomingAsync(Guid studentId, DateTime fromUtc, int take, CancellationToken ct)
+            => Task.FromResult(_items);
+    }
+
+    private sealed class FakeLastLesson : IStudentLastLessonDirectory
+    {
+        private readonly LastLessonSummary? _last;
+        public FakeLastLesson(LastLessonSummary? last = null) => _last = last;
+        public Task<LastLessonSummary?> GetLastCompletedAsync(Guid studentId, CancellationToken ct) => Task.FromResult(_last);
     }
 
     private sealed class FakeStudyDigest : IStudyDigestDirectory
