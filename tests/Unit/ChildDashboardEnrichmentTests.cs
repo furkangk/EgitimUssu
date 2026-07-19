@@ -21,7 +21,7 @@ public sealed class ChildDashboardEnrichmentTests
             new StudySubjectMinutes("Fizik", 40)
         }));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
@@ -40,7 +40,7 @@ public sealed class ChildDashboardEnrichmentTests
         var privacy = new FakePrivacy(new StudentPrivacy(ShareStudyDataWithParent: false, ShareStudyDataWithTeacher: true));
         var digest = new FakeStudyDigest(new StudyDigest(120, 5, new[] { new StudySubjectMinutes("Matematik", 120) }));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.False(result.Value.Study.IsShared);
@@ -68,7 +68,7 @@ public sealed class ChildDashboardEnrichmentTests
         });
         var lastLesson = new FakeLastLesson(new LastLessonSummary(Guid.NewGuid(), "Türev", null, Now.AddDays(-1)));
 
-        var handler = new GetChildDashboardQueryHandler(repo, privacy, new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())), upcoming, lastLesson, new FakeNotes(), new FixedClock(Now));
+        var handler = new GetChildDashboardQueryHandler(repo, privacy, new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())), upcoming, lastLesson, new FakeNotes(), new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.Single(result.Value.UpcomingLessons);
@@ -88,11 +88,32 @@ public sealed class ChildDashboardEnrichmentTests
         var handler = new GetChildDashboardQueryHandler(
             repo, new FakePrivacy(new StudentPrivacy(true, true)),
             new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())),
-            new FakeUpcoming(), new FakeLastLesson(), notes, new FixedClock(Now));
+            new FakeUpcoming(), new FakeLastLesson(), notes, new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.Single(result.Value.TeacherNotes);
         Assert.Equal("Bugün türev işledik", result.Value.TeacherNotes.First().Content);
+    }
+
+    [Fact]
+    public async Task Dashboard_FillsPaymentLines()
+    {
+        var (parentUserId, studentId) = (Guid.NewGuid(), Guid.NewGuid());
+        var repo = ApprovedRepo(parentUserId, studentId, studentUserId: Guid.NewGuid());
+        var payments = new FakePayments(new[]
+        {
+            new ParentPaymentLine(Guid.NewGuid(), "Temmuz dersleri", "TRY", 1000m, 500m, Now.AddDays(-2), "PartiallyPaid")
+        });
+
+        var handler = new GetChildDashboardQueryHandler(
+            repo, new FakePrivacy(new StudentPrivacy(true, true)),
+            new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())),
+            new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), payments, new FixedClock(Now));
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        Assert.Single(result.Value.PaymentLines);
+        Assert.Equal("Temmuz dersleri", result.Value.PaymentLines.First().Description);
+        Assert.Equal("PartiallyPaid", result.Value.PaymentLines.First().Status);
     }
 
     private sealed class FakeUpcoming : IStudentUpcomingLessonsDirectory
@@ -116,6 +137,14 @@ public sealed class ChildDashboardEnrichmentTests
         public FakeNotes(IReadOnlyCollection<ParentVisibleNote>? notes = null) => _notes = notes ?? Array.Empty<ParentVisibleNote>();
         public Task<IReadOnlyCollection<ParentVisibleNote>> GetParentVisibleNotesAsync(Guid studentId, int take, CancellationToken ct)
             => Task.FromResult(_notes);
+    }
+
+    private sealed class FakePayments : IStudentPaymentDigestDirectory
+    {
+        private readonly IReadOnlyCollection<ParentPaymentLine> _lines;
+        public FakePayments(IReadOnlyCollection<ParentPaymentLine>? lines = null) => _lines = lines ?? Array.Empty<ParentPaymentLine>();
+        public Task<IReadOnlyCollection<ParentPaymentLine>> GetLinesAsync(Guid studentId, int take, CancellationToken ct)
+            => Task.FromResult(_lines);
     }
 
     private sealed class FakeStudyDigest : IStudyDigestDirectory

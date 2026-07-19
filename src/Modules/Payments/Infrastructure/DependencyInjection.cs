@@ -14,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<PaymentsDbContext>(configuration, "Payments", PaymentsDbContext.SchemaName);
         services.AddScoped<IPaymentRecordRepository, PaymentRecordRepository>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IStudentPaymentDigestDirectory, StudentPaymentDigestDirectory>();
         services.AddScoped<ICommandHandler<CreatePaymentRecordCommand, Result<PaymentRecordResponse>>, CreatePaymentRecordCommandHandler>();
         services.AddScoped<ICommandHandler<UpdatePaymentRecordCommand, Result<PaymentRecordResponse>>, UpdatePaymentRecordCommandHandler>();
         services.AddScoped<IQueryHandler<GetPaymentRecordByIdQuery, Result<PaymentRecordResponse>>, GetPaymentRecordByIdQueryHandler>();
