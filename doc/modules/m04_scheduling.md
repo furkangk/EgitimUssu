@@ -20,13 +20,14 @@
 |--------|-------|-------|
 | Domain (`LessonSchedule`) | ✅ Mevcut | `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` |
 | Application (CQRS + handler) | ✅ Mevcut | `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` |
-| API endpoint'leri | ✅ Mevcut (11 endpoint: planla/güncelle/iptal/tamamla/getir/öğretmen-takvimi/öğrenci-dersleri + öğrenci **birleşik takvim** + kişisel ders **ekle/güncelle/sil**) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
+| API endpoint'leri | ✅ Mevcut (planla/güncelle/iptal/ertele/tamamla/sil/getir/öğretmen-takvimi/öğrenci-dersleri + öğrenci **birleşik takvim** + kişisel ders **ekle/güncelle/sil** + tatil blokları + **erteleme talebi** aç/listele/kabul/red) | `src/Modules/Scheduling/API/SchedulingModule.cs` |
 | Infrastructure (DbContext + repo + migration) | ✅ Mevcut | `src/Modules/Scheduling/Infrastructure/*` |
 | Çakışma kontrolü (aynı öğretmen) | ✅ **Mevcut** | `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) |
 | Hatırlatma planlama | ✅ Mevcut | **Olay tabanlı (2026-07-01, Y1):** `LessonScheduledDomainEvent` → outbox → Notifications handler. Senkron `ILessonScheduleNotificationService` **kaldırıldı**; Scheduling artık Notifications'a doğrudan yazmaz |
 | Mobil takvim ekranı | ✅ Mevcut | `mobile/lib/features/scheduling` (`syncfusion_flutter_calendar`) |
 | Online ders linki (`MeetingUrl`) | 🟢 **Mevcut (2026-07-18, B-10)** | Ayrı `MeetingUrl` alanı; create/update request + response taşır. Migration `AddLessonMeetingUrl` |
 | Ders erteleme (`Reschedule`) | 🟢 **Mevcut (2026-07-18, B-02)** | `Reschedule()` domain metodu + `POST /lessons/{id}/reschedule`; statü `Planned` kalır, `OriginalStartAtUtc`/`RescheduleNote` erteleme geçmişi tutar, Rescheduled event yayılır |
+| **Öğrenci ders erteleme talebi** (`LessonChangeRequest`) | 🟢 **Mevcut (2026-07-18, Ö-F)** | Yeni hafif aggregate + `POST /students/{id}/lesson-requests` (öğrenci talep) · `GET /teachers/{id}/lesson-requests` · `POST /lesson-requests/{id}/accept` (kabulde **mevcut** Reschedule çalışır) · `/reject`. Öğrenci **dersi kendisi değiştirmez**, yalnızca talep eder. Migration `AddLessonChangeRequests` |
 | İptal nedeni + ücretlendirme (`CancellationReason`, `IsChargeable`) | 🟢 **Mevcut (2026-07-18, B-09)** | `Cancel()` genişletildi; iptal nedeni (enum) + ücretlendirme kararı saklanır |
 | Ders silme (24s + gelecek) | 🟢 **Mevcut (2026-07-18, B-09)** | `CanBeDeletedAt()` + `DELETE /lessons/{id}`; yalnız oluşturmadan ≤24 saat **ve** ders gelecekteyse, aksi halde `scheduling.delete_not_allowed` (409) |
 | Tatil / müsait değil bloğu (`TimeOffBlock`) | 🟢 **Mevcut (2026-07-18, B-01)** | Yeni aggregate + `POST/GET/DELETE /teachers/{id}/time-off`; oluşturmada çakışan planlı dersler yanıtta döner. Migration `AddTimeOffBlocks` |
@@ -125,6 +126,28 @@ Tekrar serisinde tek bir oluşuma uygulanan istisna (iCal `EXDATE`/`RECURRENCE-I
 | `LessonScheduledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, StartAtUtc, EndAtUtc, ReminderOffsetMinutes, CreatedOnUtc` (2026-07-01: `ReminderOffsetMinutes` eklendi — Notifications handler'ı offset'i buradan alır, Y1) |
 | `LessonScheduleCancelledDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CancelledOnUtc` |
 | `LessonSessionCompletedDomainEvent` | `LessonScheduleId, TeacherUserId, StudentId, CompletedOnUtc` |
+| `LessonChangeRequestedDomainEvent` | `RequestId, LessonScheduleId, StudentId, TeacherUserId, CreatedOnUtc` (Ö-F: öğretmene "yeni erteleme talebi" bildirimi için) |
+| `LessonChangeRequestResolvedDomainEvent` | `RequestId, LessonScheduleId, StudentId, TeacherUserId, Status, ResolvedOnUtc` (Ö-F: öğrenciye "talebiniz kabul/red edildi" bildirimi için) |
+
+### 2.1.3 🟢 Mevcut (koddan) — `LessonChangeRequest` (AggregateRoot<Guid>) — Ö-F, 2026-07-18
+
+`src/Modules/Scheduling/Domain/SchedulingDomainModel.cs`. Öğrencinin bir dersin ertelenmesi için açtığı **hafif talep**.
+Öğrenci **dersi kendisi değiştirmez** (yetki matrisi #1 korunur); yalnızca neden + isteğe bağlı alternatif tarih önerir.
+Öğretmen kabul ederse **mevcut** `RescheduleLessonScheduleCommand` çalışır; redde talep kapanır.
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `Id` | `Guid` | |
+| `LessonScheduleId` | `Guid` | Ertelenmesi istenen ders (`LessonSchedule`) |
+| `StudentId` | `Guid` | Talebi açan öğrenci (dersin öğrencisi olmalı) |
+| `TeacherUserId` | `Guid` | Dersin öğretmeni (dersten okunur, öğrenci veremez) |
+| `Reason` | `string` | Erteleme nedeni (maxlen 500, zorunlu) |
+| `ProposedStartAtUtc`, `ProposedEndAtUtc` | `DateTime?` | Önerilen alternatif tarih; ya ikisi birlikte ya da ikisi de boş |
+| `Status` | enum `LessonChangeRequestStatus` | `Pending=1, Accepted=2, Rejected=3` |
+| `CreatedOnUtc` | `DateTime` | |
+| `ResolvedOnUtc` | `DateTime?` | Kabul/redde işaretlenir |
+
+**Davranışlar:** `Accept(nowUtc)` / `Reject(nowUtc)` — **yalnızca `Pending`'den** geçiş yapar; aksi halde `InvalidOperationException` (handler'da `scheduling.request_not_pending` 409'a çevrilir). İkisi de `LessonChangeRequestResolvedDomainEvent` yayar; ctor `Pending` + `LessonChangeRequestedDomainEvent`.
 
 ### 2.2 ⚠️ Önerilen (henüz kodda yok)
 
@@ -216,6 +239,10 @@ Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda 
 | **Kişisel ders ekle** | `POST /api/scheduling/students/{studentId}/study-entries` | `CreateStudyScheduleEntryRequest` → `StudyScheduleEntryResponse` | **2026-07-08.** Öğrenci kendi programına ders ekler. Öğretmen dersiyle **saat çakışması** `409 scheduling.teacher_conflict`; aralık `400 invalid_range`. Sahip-yetki (owner-only) |
 | **Kişisel ders güncelle** | `PUT /api/scheduling/study-entries/{entryId}` | `UpdateStudyScheduleEntryRequest` → `StudyScheduleEntryResponse` | **2026-07-08.** Yoksa `404 scheduling.entry_not_found`; çakışma yeniden kontrol edilir |
 | **Kişisel ders sil** | `DELETE /api/scheduling/study-entries/{entryId}` | → `StudyScheduleEntryResponse` | **2026-07-08.** Soft-cancel (`Status=Cancelled`). Yoksa `404 scheduling.entry_not_found` |
+| **Erteleme talebi aç** (öğrenci) | `POST /api/scheduling/students/{studentId}/lesson-requests` | `CreateLessonChangeRequestRequest { LessonScheduleId, Reason, ProposedStartAtUtc?, ProposedEndAtUtc? }` → `LessonChangeRequestResponse` | **Ö-F, 2026-07-18.** Öğrenci talep açar; ders öğrenciye ait değilse `404 scheduling.lesson_not_found` (IDOR koruması). Alternatif tarih tek taraflıysa/tutarsızsa `400 scheduling.invalid_range`. Sahiplik `IStudentDirectory` (owner-only) |
+| **Erteleme taleplerini listele** (öğretmen) | `GET /api/scheduling/teachers/{teacherUserId}/lesson-requests?onlyPending=` | → `LessonChangeRequestResponse[]` | **Ö-F, 2026-07-18.** `onlyPending=true` yalnız bekleyenler; `CreatedOnUtc` azalan sıralı. Öğretmen yalnız kendi taleplerini görür |
+| **Talebi kabul et** (öğretmen) | `POST /api/scheduling/lesson-requests/{requestId}/accept` | → `LessonChangeRequestResponse` | **Ö-F, 2026-07-18.** Alternatif tarih doluysa **mevcut** `RescheduleLessonScheduleCommand` çalışır (çakışma/edit kontrolü dahil); erteleme başarısızsa talep kabul edilmez, hata olduğu gibi döner. Yoksa `404 scheduling.request_not_found`; sonuçlanmışsa `409 scheduling.request_not_pending` |
+| **Talebi reddet** (öğretmen) | `POST /api/scheduling/lesson-requests/{requestId}/reject` | → `LessonChangeRequestResponse` | **Ö-F, 2026-07-18.** Talep kapanır, ders değişmez. Yoksa `404`; sonuçlanmışsa `409 scheduling.request_not_pending` |
 
 **`CreateLessonScheduleRequest` (koddan):** `TeacherUserId, StudentId, Subject, LessonFormat, StartAtUtc, EndAtUtc, TimeZone, RecurrenceRule?, ReminderOffsetMinutes, LocationLabel?, MeetingUrl?, Notes?`
 
@@ -230,6 +257,8 @@ Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda 
 | `scheduling.lesson_not_found` | `404` | Ders planı yok |
 | `scheduling.entry_not_found` | `404` | Öğrenci program girdisi yok (2026-07-08) |
 | `scheduling.timeoff_not_found` | `404` | Tatil bloğu yok (B-01, 2026-07-18) |
+| `scheduling.request_not_found` | `404` | Erteleme talebi yok (Ö-F, 2026-07-18) |
+| `scheduling.request_not_pending` | `409` | Talep zaten kabul/red edilmiş (Ö-F, 2026-07-18) |
 | `scheduling.delete_not_allowed` | `409` | Silme 24s/gelecek kuralı dışında (B-09, 2026-07-18) |
 | `scheduling.not_editable` | `409` | Yalnız planlı ders düzenlenir/ertelenir |
 | `scheduling.already_completed` | `409` | Ders zaten tamamlanmış |
@@ -259,6 +288,7 @@ Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda 
 8. **⚠️ Tatil çakışması:** Bir `ScheduleException` aralığına ders planlanırken uyarı verilmeli (sert engel değil, esnek uyarı önerilir).
 9. **⚠️ Güncellemede yeniden kontrol:** `PUT` ile saat değişirse çakışma yeniden değerlendirilmeli ve hatırlatma yeniden planlanmalı.
 10. **Sahiplik (yetki):** Öğretmen yalnızca kendi derslerini görüp düzenleyebilir (`LessonSchedulePolicies.cs`); ihlalde `shared.forbidden`.
+11. **Öğrenci erteleme talebi (🟢 kodda, Ö-F, 2026-07-18):** Öğrenci dersi **kendisi değiştiremez**; yalnızca `POST /students/{id}/lesson-requests` ile **talep** açar (neden + isteğe bağlı alternatif tarih). Talep yalnız öğrencinin **kendi dersine** açılabilir (`lesson.StudentId == studentId`, aksi halde `lesson_not_found`). Öğretmen `accept` → kabulde **mevcut** `Reschedule` akışı (çakışma/edit kontrolü korunur) çalışır; `reject` → talep kapanır. Durum makinesi `Pending → Accepted|Rejected`; sonuçlanmış talep tekrar sonuçlandırılamaz (`request_not_pending`). Böylece yetki matrisi #1 (öğrenci dersi değiştiremez) korunur ve `Reschedule` DRY biçimde yeniden kullanılır.
 
 ---
 
@@ -288,6 +318,15 @@ PUT /study-entries/{id}
    → StudyScheduleEntryRescheduledDomainEvent → mevcut hatırlatma yeni saate taşınır (offset 0 ise iptal)
 DELETE /study-entries/{id}
    → StudyScheduleEntryCancelledDomainEvent → hatırlatma iptal edilir
+
+POST /students/{id}/lesson-requests  (öğrenci erteleme talebi — Ö-F)
+   → LessonChangeRequestedDomainEvent
+       → outbox → m11 Notifications: öğretmene "yeni erteleme talebi" bildirimi
+POST /lesson-requests/{id}/accept
+   → (alternatif tarih varsa) RescheduleLessonScheduleCommand → LessonScheduleRescheduledDomainEvent (mevcut akış)
+   → LessonChangeRequestResolvedDomainEvent (Status=Accepted) → öğrenciye "talebiniz kabul edildi"
+POST /lesson-requests/{id}/reject
+   → LessonChangeRequestResolvedDomainEvent (Status=Rejected) → öğrenciye "talebiniz reddedildi"
 ```
 
 > **Not:** Öğrenci kişisel programı hatırlatması, öğretmen dersleriyle **aynı** `LessonReminder` aggregate'ında
@@ -336,6 +375,7 @@ DELETE /study-entries/{id}
 - [x] **Öğrenci kişisel programı** (`StudyScheduleEntry`) CRUD + tekrar (günlük/haftalık/aylık) + birleşik takvim (2026-07-08).
 - [x] **Tekrar açılımı** öğrenci takviminde (`RecurrenceExpander`) — DAILY/WEEKLY+BYDAY/MONTHLY + UNTIL + occurrence istisnaları (2026-07-08 / B-03 2026-07-18).
 - [x] **Öğrenci tarafı öncelik kuralı** — kendi girdisi öğretmen dersiyle çakışamaz (`scheduling.teacher_conflict`), 2026-07-08.
+- [x] **Öğrenci ders erteleme talebi** (`LessonChangeRequest`) — öğrenci talep açar, öğretmen kabul (mevcut Reschedule)/red eder; öğrenci dersi kendisi değiştirmez (Ö-F, 2026-07-18).
 - [ ] ⚠️ Öğretmen `LessonSchedule` listesinde tekrar açılımı (şu an tek örnek; öğrenci birleşik takviminde açılıyor).
 - [x] **Öğrenci kişisel programına hatırlatma** — oluştur/güncelle/sil → outbox → Notifications; `0 dk` kapalı, tekrarlıda ilk oluşum (2026-07-08).
 - [ ] ⚠️ `Planned → Completed` geçişi (M05 ile köprü).

@@ -22,7 +22,7 @@
 | M01 | Kullanıcı & Rol | [`m01_identity.md`](m01_identity.md) | `Identity` | `/api/identity` | 🟢 |
 | M02 | Öğretmen Profili | [`m02_teachers.md`](m02_teachers.md) | `Teachers` | `/api/teachers` | 🟢 |
 | M03 | Öğrenci Profili | [`m03_students.md`](m03_students.md) | `Students` | `/api/students` | 🟢 / 🟡 (self-register) |
-| M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link+tatil+erteleme+occurrence, 2026-07-18) |
+| M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link+tatil+erteleme+occurrence+öğrenci erteleme talebi, 2026-07-18) |
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
 | M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (Dilim B: not görünürlüğü + ödev onay/geri gönder) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
@@ -134,6 +134,7 @@ POST /teachers/{teacherUserId}/time-off   GET /teachers/{teacherUserId}/time-off
 GET /students/{studentId}/lessons?startAtUtc=&endAtUtc=       (öğrenci kendi dersleri, IDOR korumalı)
 GET /students/{studentId}/calendar?startAtUtc=&endAtUtc=      (birleşik takvim: öğretmen dersleri + kendi programı, tekrarlar + occurrence istisnaları genişletilmiş)
 POST /students/{studentId}/study-entries   PUT /study-entries/{entryId}   DELETE /study-entries/{entryId}   (öğrenci kişisel programı)
+POST /students/{studentId}/lesson-requests   GET /teachers/{teacherUserId}/lesson-requests?onlyPending=   POST /lesson-requests/{requestId}/accept   POST /lesson-requests/{requestId}/reject   (öğrenci ders erteleme talebi, Ö-F 2026-07-18)
 ```
 ### LessonSessions — `/api/lesson-sessions`
 ```
