@@ -120,6 +120,8 @@ class _StudentHomeView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Ç-06) Bugünün planı — bugünkü occurrence'lar; dokununca sayaç derse bağlı başlar.
+                  _TodayPlanCard(studentId: studentId),
                   // 4) Hızlı işlemler — özet kartlarının hemen altında (ux §14)
                   const _SectionHeader(title: 'Hızlı işlemler'),
                   const SizedBox(height: 12),
@@ -388,6 +390,151 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Ç-06: "Bugünün planı" — bugünkü takvim occurrence'ları. Her satıra dokununca çalışma sayacı
+/// o derse bağlı (lessonId) başlar; çalışılmış occurrence ✓ ile işaretlenir. Plan yoksa gizlenir.
+class _TodayPlanCard extends StatefulWidget {
+  const _TodayPlanCard({required this.studentId});
+
+  final String studentId;
+
+  @override
+  State<_TodayPlanCard> createState() => _TodayPlanCardState();
+}
+
+class _TodayPlanCardState extends State<_TodayPlanCard> {
+  List<CalendarOccurrence> _today = const <CalendarOccurrence>[];
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final now = DateTime.now();
+      final startUtc = DateTime.utc(now.year, now.month, now.day);
+      final endUtc = startUtc.add(const Duration(days: 1));
+      final occ = await injector<SchedulingRepository>().getStudentCalendar(
+        studentId: widget.studentId,
+        startAtUtc: startUtc,
+        endAtUtc: endUtc,
+      );
+      final sorted = <CalendarOccurrence>[...occ]
+        ..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
+      if (!mounted) return;
+      setState(() {
+        _today = sorted;
+        _loaded = true;
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() => _loaded = true);
+    }
+  }
+
+  void _startFromPlan(CalendarOccurrence occ) {
+    final params = <String, String>{
+      'studentId': widget.studentId,
+      'lessonId': occ.entryId,
+      'subject': occ.subject,
+      if ((occ.topic ?? '').isNotEmpty) 'topic': occ.topic!,
+    };
+    final query = params.entries
+        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    context.push('/study/timer?$query');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _today.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: <Widget>[
+        const _SectionHeader(title: 'Bugünün planı'),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadows.soft,
+          ),
+          child: Column(
+            children: <Widget>[
+              for (var i = 0; i < _today.length; i++) ...<Widget>[
+                if (i > 0)
+                  const Divider(height: 1, color: AppColors.divider),
+                _TodayPlanRow(
+                  occ: _today[i],
+                  onTap: () => _startFromPlan(_today[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _TodayPlanRow extends StatelessWidget {
+  const _TodayPlanRow({required this.occ, required this.onTap});
+
+  final CalendarOccurrence occ;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final String title = (occ.topic ?? '').isEmpty
+        ? occ.subject
+        : '${occ.subject} · ${occ.topic}';
+    final DateTime local = occ.startAtUtc.toLocal();
+    final String hhmm =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    return InkWell(
+      onTap: occ.completed ? null : onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: <Widget>[
+            Text(
+              hhmm,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (occ.completed)
+              const Icon(Icons.check_circle_rounded,
+                  color: AppColors.accentGreen, size: 22)
+            else
+              const Icon(Icons.play_circle_fill_rounded,
+                  color: AppColors.primary, size: 26),
+          ],
+        ),
+      ),
     );
   }
 }

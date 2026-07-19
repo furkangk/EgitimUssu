@@ -19,6 +19,7 @@ class StudyTimerPage extends StatelessWidget {
     required this.studentId,
     this.initialSubject,
     this.initialTopic,
+    this.initialLessonId,
   });
 
   final String studentId;
@@ -26,6 +27,9 @@ class StudyTimerPage extends StatelessWidget {
   /// "Devam Et" gibi akışlardan gelen ön-doldurulmuş ders/konu.
   final String? initialSubject;
   final String? initialTopic;
+
+  /// Ç-06: "Bugünün planı"ndan / takvimden başlatıldığında bağlı plan (occurrence entryId).
+  final String? initialLessonId;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +39,7 @@ class StudyTimerPage extends StatelessWidget {
         studentId: studentId,
         initialSubject: initialSubject,
         initialTopic: initialTopic,
+        initialLessonId: initialLessonId,
       ),
     );
   }
@@ -45,11 +50,13 @@ class _StudyTimerView extends StatefulWidget {
     required this.studentId,
     this.initialSubject,
     this.initialTopic,
+    this.initialLessonId,
   });
 
   final String studentId;
   final String? initialSubject;
   final String? initialTopic;
+  final String? initialLessonId;
 
   @override
   State<_StudyTimerView> createState() => _StudyTimerViewState();
@@ -65,10 +72,58 @@ class _StudyTimerViewState extends State<_StudyTimerView> {
   /// başlangıç formunda hızlı seçim çipleri olarak sunulur.
   List<String> _scheduledSubjects = const <String>[];
 
+  /// Öğrencinin ders kataloğu (isim tutarlılığı için subjectId/topicId çözümü).
+  List<SubjectCatalog> _catalog = const <SubjectCatalog>[];
+
+  /// Ç-06: bir plandan başlatıldıysa bağlı occurrence'ın entryId'si; seansı derse bağlar.
+  String? _lessonId;
+
   @override
   void initState() {
     super.initState();
+    _lessonId = widget.initialLessonId;
     _loadScheduledSubjects();
+    _loadCatalog();
+  }
+
+  Future<void> _loadCatalog() async {
+    try {
+      final subjects =
+          await injector<StudyRepository>().listSubjects(widget.studentId);
+      if (!mounted) return;
+      setState(() {
+        _catalog = subjects;
+        // Katalog derslerini de hızlı-seçim çiplerine kat (isim tutarlılığı).
+        final seen = _scheduledSubjects.map((s) => s.toLowerCase()).toSet();
+        final merged = <String>[..._scheduledSubjects];
+        for (final s in subjects) {
+          final name = s.name.trim();
+          if (name.isNotEmpty && seen.add(name.toLowerCase())) merged.add(name);
+        }
+        _scheduledSubjects = merged;
+      });
+    } catch (_) {
+      // Katalog alınamazsa elle giriş her zaman mümkün.
+    }
+  }
+
+  /// Girilen ders/konu adını katalogla eşleştirip id çözer (bulunamazsa null).
+  ({String? subjectId, String? topicId}) _resolveCatalogIds(
+      String subject, String? topic) {
+    for (final s in _catalog) {
+      if (s.name.trim().toLowerCase() != subject.trim().toLowerCase()) continue;
+      String? topicId;
+      if (topic != null && topic.trim().isNotEmpty) {
+        for (final t in s.topics) {
+          if (t.name.trim().toLowerCase() == topic.trim().toLowerCase()) {
+            topicId = t.id;
+            break;
+          }
+        }
+      }
+      return (subjectId: s.id, topicId: topicId);
+    }
+    return (subjectId: null, topicId: null);
   }
 
   Future<void> _loadScheduledSubjects() async {
@@ -140,10 +195,18 @@ class _StudyTimerViewState extends State<_StudyTimerView> {
                 // Ders seçmeden başlatılırsa serbest çalışma olarak kaydedilir.
                 final raw = _subjectController.text.trim();
                 final subject = raw.isEmpty ? 'Serbest çalışma' : raw;
+                final topic = _topicController.text.trim().isEmpty
+                    ? null
+                    : _topicController.text.trim();
+                // Katalogla eşleşiyorsa id'leri geç (isim tutarlılığı); ayrıca plan bağı (lessonId).
+                final ids = _resolveCatalogIds(subject, topic);
                 cubit.start(
                   widget.studentId,
                   subject,
-                  _topicController.text.trim().isEmpty ? null : _topicController.text.trim(),
+                  topic,
+                  lessonId: _lessonId,
+                  subjectId: ids.subjectId,
+                  topicId: ids.topicId,
                 );
               },
             );

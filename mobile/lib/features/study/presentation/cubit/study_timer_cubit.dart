@@ -39,12 +39,25 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
     }
   }
 
-  Future<void> start(String studentId, String subject, String? topic) async {
+  Future<void> start(
+    String studentId,
+    String subject,
+    String? topic, {
+    String? lessonId,
+    String? subjectId,
+    String? topicId,
+  }) async {
     if (state.isBusy) return;
     emit(state.copyWith(isBusy: true, clearError: true, clearSummary: true));
     try {
-      final session =
-          await _studyRepository.startSession(studentId, subject: subject, topic: topic);
+      final session = await _studyRepository.startSession(
+        studentId,
+        subject: subject,
+        topic: topic,
+        lessonId: lessonId,
+        subjectId: subjectId,
+        topicId: topicId,
+      );
       emit(state.copyWith(
         session: session,
         isBusy: false,

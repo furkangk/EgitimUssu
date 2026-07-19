@@ -599,6 +599,33 @@ class _DayEventTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  /// Ç-06: çalışıldı (✓) / atlandı (○) rozeti. Çalışıldıysa yeşil ✓; geçmiş + çalışılmamış
+  /// + kendi dersi ise soluk ○ "atlandı". Aksi halde rozet gösterilmez.
+  List<Widget> _buildStatusBadge() {
+    final bool isPast = occ.endAtUtc.isBefore(DateTime.now().toUtc());
+    if (occ.completed) {
+      return const <Widget>[
+        SizedBox(width: 8),
+        _StatusBadge(
+          icon: Icons.check_circle_rounded,
+          label: 'Çalışıldı',
+          color: AppColors.accentGreen,
+        ),
+      ];
+    }
+    if (isPast && occ.isSelf) {
+      return const <Widget>[
+        SizedBox(width: 8),
+        _StatusBadge(
+          icon: Icons.radio_button_unchecked_rounded,
+          label: 'Atlandı',
+          color: AppColors.textMuted,
+        ),
+      ];
+    }
+    return const <Widget>[];
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool teacher = occ.isTeacher;
@@ -642,6 +669,7 @@ class _DayEventTile extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                  ..._buildStatusBadge(),
                 ],
               ),
               const SizedBox(height: 5),
@@ -705,6 +733,44 @@ class _DayEventTile extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Ç-06: occurrence tamamlanma durumu rozeti (çalışıldı/atlandı).
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

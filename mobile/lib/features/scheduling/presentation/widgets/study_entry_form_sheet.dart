@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/scheduling_format.dart';
+import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:flutter/material.dart';
 
 /// Öğrencinin kendi ders programı girdisini (StudyScheduleEntry) oluşturma/düzenleme formu.
@@ -62,11 +63,35 @@ class _StudyEntryFormSheetState extends State<StudyEntryFormSheet> {
   int _reminderMinutes = 0;
   bool _saving = false;
 
+  /// Ç-06: öğrencinin ders kataloğu — ders/konu katalog seçicisi (isim tutarlılığı).
+  List<SubjectCatalog> _catalog = const <SubjectCatalog>[];
+
   bool get _isEdit => widget.initial != null;
+
+  /// Girilen ders adına karşılık gelen katalog dersinin konuları (yoksa boş).
+  List<TopicCatalog> get _topicsForSubject {
+    final name = _subjectController.text.trim().toLowerCase();
+    for (final s in _catalog) {
+      if (s.name.trim().toLowerCase() == name) return s.topics;
+    }
+    return const <TopicCatalog>[];
+  }
+
+  Future<void> _loadCatalog() async {
+    try {
+      final subjects =
+          await injector<StudyRepository>().listSubjects(widget.studentId);
+      if (!mounted) return;
+      setState(() => _catalog = subjects);
+    } catch (_) {
+      // Katalog alınamazsa serbest metin girişi her zaman mümkün.
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadCatalog();
     final edit = widget.initial;
     if (edit != null) {
       final start = edit.startAtUtc.toLocal();
@@ -185,9 +210,22 @@ class _StudyEntryFormSheetState extends State<StudyEntryFormSheet> {
                 ],
                 const _Label('Ders adı'),
                 const SizedBox(height: 8),
+                if (_catalog.isNotEmpty) ...<Widget>[
+                  _CatalogChips(
+                    labels: <String>[for (final s in _catalog) s.name],
+                    selected: _subjectController.text.trim(),
+                    onSelected: (name) => setState(() {
+                      _subjectController.text = name;
+                      // Ders değişince önceki konu seçimi geçersiz olabilir.
+                      _topicController.clear();
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 TextFormField(
                   controller: _subjectController,
                   decoration: _decoration('Örn. Matematik'),
+                  onChanged: (_) => setState(() {}),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? 'Ders adı zorunlu.'
                       : null,
@@ -195,6 +233,15 @@ class _StudyEntryFormSheetState extends State<StudyEntryFormSheet> {
                 const SizedBox(height: 16),
                 const _Label('Konu (isteğe bağlı)'),
                 const SizedBox(height: 8),
+                if (_topicsForSubject.isNotEmpty) ...<Widget>[
+                  _CatalogChips(
+                    labels: <String>[for (final t in _topicsForSubject) t.name],
+                    selected: _topicController.text.trim(),
+                    onSelected: (name) =>
+                        setState(() => _topicController.text = name),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 TextFormField(
                   controller: _topicController,
                   decoration: _decoration('Örn. Türev'),
@@ -554,6 +601,50 @@ class _StudyEntryFormSheetState extends State<StudyEntryFormSheet> {
         borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: AppColors.border),
       ),
+    );
+  }
+}
+
+/// Ç-06: katalogdan hızlı seçim çipleri (ders/konu). Seçilen çip ilgili metin alanını doldurur;
+/// serbest metin girişi de her zaman mümkündür.
+class _CatalogChips extends StatelessWidget {
+  const _CatalogChips({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        for (final label in labels)
+          ChoiceChip(
+            label: Text(label),
+            selected: label.trim().toLowerCase() == selected.toLowerCase(),
+            onSelected: (_) => onSelected(label),
+            showCheckmark: false,
+            selectedColor: AppColors.primaryLight,
+            labelStyle: TextStyle(
+              color: label.trim().toLowerCase() == selected.toLowerCase()
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+              side: const BorderSide(color: AppColors.border),
+            ),
+          ),
+      ],
     );
   }
 }

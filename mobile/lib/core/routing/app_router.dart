@@ -164,6 +164,7 @@ class AppRouter {
             studentId: state.uri.queryParameters['studentId'] ?? '',
             initialSubject: state.uri.queryParameters['subject'],
             initialTopic: state.uri.queryParameters['topic'],
+            initialLessonId: state.uri.queryParameters['lessonId'],
           ),
         ),
         GoRoute(
