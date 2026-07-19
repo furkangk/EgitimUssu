@@ -1,5 +1,14 @@
 # Öğrenci Birleşik Ders Modeli (Ç-06) Implementation Plan
 
+> **✅ UYGULANDI (2026-07-19, dal `worktree-ogrenci-birlesik-ders-modeli`).** Kod gerçeği esas alınarak
+> gerçek mimariye (repository + command handler + public ctor) adapte edildi. Önemli uzlaştırmalar:
+> - **Test projesi:** Plan yeni proje varsayıyordu; mevcut `tests/Unit/EgitimUssu.Tests.Unit.csproj` kullanıldı (Task A1 gereksiz). Toplam **+11 test** (self ders, validator, authorizer, birleşik takvim), 151/151 yeşil.
+> - **Plan A** iki derlenen commit'e gruplandı (domain additive + cutover); `LessonSchedule` fabrika değil **public ctor + repository**; `LessonScheduled/Cancelled/Rescheduled` event'leri nullable teacher; `LessonSessionCompleted` `Guid` kaldı (`?? Guid.Empty`).
+> - **Migration yolu** `--output-dir Migrations` (plan `Infrastructure/Migrations` bu repoda yanlıştı); `dotnet ef database update` **çalıştırılamadı** (canlı Postgres yok) — Up/Down inceleme + InMemory ile doğrulandı.
+> - **Faz 0 SVG:** mermaid kaynağı değişmediği için regen gerekmedi (yalnız düz veri-modeli bloğu güncellendi).
+> - **Mobil `flutter test`:** 23 geçti; 6 test **önceden bozuk** (auth fake `roleId` eksik — `main`'de de böyle, Ç-06 ile ilgisiz). `flutter analyze lib` yeni sorun eklemedi.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Öğrencinin kendi dersini öğretmen dersiyle **tek `LessonSchedule` entity**'sinde (nullable `TeacherUserId`) tutmak, çalışma seansını bu derse bağlamak ve "planlandı → çalışıldı → atlandı" durumunu backend contract ile üretmek — böylece öğretmensiz "programla → çalış → analiz" döngüsü uçtan uca kapanır.
