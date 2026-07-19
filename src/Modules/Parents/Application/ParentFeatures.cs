@@ -126,6 +126,8 @@ public interface IParentRepository
 
     Task<IReadOnlyCollection<ParentChildLink>> ListLinksByParentAsync(Guid parentUserId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<ParentChildLink>> ListApprovedLinksForStudentAsync(Guid studentId, CancellationToken cancellationToken);
+
     Task<ChildProgressSnapshot?> GetSnapshotAsync(Guid studentId, CancellationToken cancellationToken);
 
     Task<KnownStudent?> GetKnownStudentAsync(Guid studentId, CancellationToken cancellationToken);
@@ -268,7 +270,17 @@ public sealed class ApproveChildLinkCommandHandler : ICommandHandler<ApproveChil
             return Result<ChildLinkResponse>.Failure(ParentErrors.LinkNotFound);
         }
 
-        link.Approve(command.ApprovedByUserId, _clock.UtcNow);
+        var approvedLinks = await _repository.ListApprovedLinksForStudentAsync(link.StudentId, cancellationToken);
+        var existingPrimary = approvedLinks.FirstOrDefault(l => l.IsPrimaryContact && l.Id != link.Id);
+
+        // Birincil-veli tekilliği: bu bağ birincil olacaksa ve zaten bir birincil veli varsa,
+        // onaylayan kişi mevcut birincil veli değilse reddet (Admin authorizer'da zaten geçebilir).
+        if (link.IsPrimaryContact && existingPrimary is not null && existingPrimary.ParentUserId != command.ApprovedByUserId)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.PrimaryExists);
+        }
+
+        link.Approve(command.ApprovedByUserId, existingPrimary?.ParentUserId, _clock.UtcNow);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
@@ -421,6 +433,7 @@ public static class ParentErrors
     public static readonly Error LinkNotFound = new("parents.link_not_found", "Veli–çocuk bağı bulunamadı.");
     public static readonly Error LinkAlreadyExists = new("parents.link_exists", "Bu çocuk için zaten aktif bir bağ talebi/onayı var.");
     public static readonly Error LinkNotApproved = new("parents.link_not_approved", "Bu çocuğun verilerine erişmek için bağın onaylı olması gerekir.");
+    public static readonly Error PrimaryExists = new("parents.primary_exists", "Bu çocuğun zaten bir birincil velisi var; birincil bağ için mevcut birincil velinin (veya yöneticinin) onayı gerekir.");
     public static readonly Error InvalidRequest = new("parents.invalid_request", "Veli isteği bilgileri eksik veya hatalı.");
 }
 

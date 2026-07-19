@@ -153,7 +153,7 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
 
     public bool IsApproved => Status == ParentChildLinkStatus.Approved;
 
-    public void Approve(Guid approvedByUserId, DateTime nowUtc)
+    public void Approve(Guid approvedByUserId, Guid? existingPrimaryParentUserId, DateTime nowUtc)
     {
         if (Status == ParentChildLinkStatus.Approved)
         {
@@ -166,6 +166,8 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
         UpdatedOnUtc = nowUtc;
 
         Raise(new ParentChildLinkApprovedDomainEvent(Id, ParentUserId, StudentId, IsPrimaryContact, nowUtc));
+        Raise(new ParentLinkConnectionNoticeDomainEvent(
+            Id, StudentId, ParentUserId, existingPrimaryParentUserId, IsPrimaryContact, nowUtc));
     }
 
     public void Reject(Guid rejectedByUserId, DateTime nowUtc)
@@ -246,3 +248,16 @@ public sealed record ParentChildLinkRevokedDomainEvent(
     Guid ParentUserId,
     Guid StudentId,
     DateTime RevokedOnUtc) : DomainEvent;
+
+/// <summary>
+/// "Sessizce bağlanma yok" (Veli V-C): bir veli–çocuk bağı onaylandığında şeffaflık için yayılır.
+/// Alıcılar (V-E bildirim motoru teslim eder): <c>StudentId</c> = çocuk ve varsa
+/// <c>ExistingPrimaryParentUserId</c> = mevcut birincil veli — "X hesabı veli olarak bağlandı".
+/// </summary>
+public sealed record ParentLinkConnectionNoticeDomainEvent(
+    Guid LinkId,
+    Guid StudentId,
+    Guid ConnectedParentUserId,
+    Guid? ExistingPrimaryParentUserId,
+    bool IsPrimaryContact,
+    DateTime ConnectedOnUtc) : DomainEvent;

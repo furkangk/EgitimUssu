@@ -188,7 +188,7 @@ public sealed class ParentsModule : ModuleDefinition
             "shared.forbidden" or "parents.link_not_approved" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             "parents.profile_not_found" or "parents.link_not_found" =>
                 ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "parents.link_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "parents.link_exists" or "parents.primary_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
     }

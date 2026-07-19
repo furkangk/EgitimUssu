@@ -16,7 +16,7 @@ public sealed class StudentPrivacyFilterTests
         var studentUserId = Guid.NewGuid();
 
         var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
-        link.Approve(Guid.NewGuid(), Now);
+        link.Approve(Guid.NewGuid(), null, Now);
         var snapshot = new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now);
         // snapshot çalışma alanlarını doldurmak için mevcut mutator yoksa 0 kalır; test IsShared davranışını doğrular.
 
@@ -37,7 +37,7 @@ public sealed class StudentPrivacyFilterTests
         var parentUserId = Guid.NewGuid();
         var studentId = Guid.NewGuid();
         var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
-        link.Approve(Guid.NewGuid(), Now);
+        link.Approve(Guid.NewGuid(), null, Now);
         var repo = new FakeParentRepository(link, new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now), Guid.NewGuid());
         var privacy = new FakePrivacyDirectory(new StudentPrivacy(true, true));
         var handler = new GetChildDashboardQueryHandler(repo, privacy);
@@ -63,6 +63,7 @@ public sealed class StudentPrivacyFilterTests
         { _link = link; _snapshot = snapshot; _studentUserId = studentUserId; }
 
         public Task<ParentChildLink?> GetActiveLinkAsync(Guid parentUserId, Guid studentId, CancellationToken ct) => Task.FromResult<ParentChildLink?>(_link);
+        public Task<IReadOnlyCollection<ParentChildLink>> ListApprovedLinksForStudentAsync(Guid studentId, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<ParentChildLink>>(new[] { _link });
         public Task<ChildProgressSnapshot?> GetSnapshotAsync(Guid studentId, CancellationToken ct) => Task.FromResult<ChildProgressSnapshot?>(_snapshot);
         public Task<KnownStudent?> GetKnownStudentAsync(Guid studentId, CancellationToken ct)
             => Task.FromResult<KnownStudent?>(new KnownStudent(Guid.NewGuid(), studentId, _studentUserId, Now));
