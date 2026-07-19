@@ -19,6 +19,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListTeacherLessonRemindersQuery, Result<IReadOnlyCollection<LessonReminderResponse>>>, ListTeacherLessonRemindersQueryHandler>();
         services.AddScoped<IQueryValidator<ListTeacherLessonRemindersQuery>, ListTeacherLessonRemindersQueryValidator>();
         services.AddScoped<IQueryAuthorizer<ListTeacherLessonRemindersQuery>, LessonReminderQueryAuthorizer>();
+        services.AddScoped<IQueryHandler<ListParentNotificationsQuery, Result<IReadOnlyCollection<ParentNotificationResponse>>>, ListParentNotificationsQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<ListParentNotificationsQuery>, LessonReminderQueryAuthorizer>();
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, StudyScheduleReminderIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();

@@ -13,7 +13,9 @@ public sealed class ListTeacherLessonRemindersQueryValidator : IQueryValidator<L
     }
 }
 
-public sealed class LessonReminderQueryAuthorizer : IQueryAuthorizer<ListTeacherLessonRemindersQuery>
+public sealed class LessonReminderQueryAuthorizer :
+    IQueryAuthorizer<ListTeacherLessonRemindersQuery>,
+    IQueryAuthorizer<ListParentNotificationsQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynaga erisim yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
@@ -34,5 +36,22 @@ public sealed class LessonReminderQueryAuthorizer : IQueryAuthorizer<ListTeacher
         var isTeacher = _currentUser.Roles.Contains("Teacher");
         var ownsList = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == query.TeacherUserId;
         return Task.FromResult(isAdmin || (isTeacher && ownsList) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    // Veli yalnız kendi bildirimlerini görür (self/Admin).
+    public Task<Result> Authorize(ListParentNotificationsQuery query, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Task.FromResult(Result.Failure(Forbidden));
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        var ownsList = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == query.ParentUserId;
+        return Task.FromResult(ownsList ? Result.Success() : Result.Failure(Forbidden));
     }
 }

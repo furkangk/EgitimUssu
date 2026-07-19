@@ -6,6 +6,8 @@ namespace EgitimUssu.Modules.Notifications.Application;
 
 public sealed record ListTeacherLessonRemindersQuery(Guid TeacherUserId, bool ActiveOnly) : IQuery<Result<IReadOnlyCollection<LessonReminderResponse>>>;
 
+public sealed record ListParentNotificationsQuery(Guid ParentUserId) : IQuery<Result<IReadOnlyCollection<ParentNotificationResponse>>>;
+
 public sealed record LessonReminderResponse(
     Guid Id,
     Guid LessonScheduleId,
@@ -75,6 +77,25 @@ public sealed class ListTeacherLessonRemindersQueryHandler : IQueryHandler<ListT
             .ToArray();
 
         return Result<IReadOnlyCollection<LessonReminderResponse>>.Success(payload);
+    }
+}
+
+public sealed class ListParentNotificationsQueryHandler : IQueryHandler<ListParentNotificationsQuery, Result<IReadOnlyCollection<ParentNotificationResponse>>>
+{
+    private readonly IParentNotificationRepository _repository;
+
+    public ListParentNotificationsQueryHandler(IParentNotificationRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<IReadOnlyCollection<ParentNotificationResponse>>> Handle(ListParentNotificationsQuery query, CancellationToken cancellationToken)
+    {
+        var items = await _repository.ListByParentAsync(query.ParentUserId, cancellationToken);
+        var payload = items
+            .Select(n => new ParentNotificationResponse(n.Id, n.ParentUserId, n.StudentId, n.Type.ToString(), n.Title, n.Message, n.CreatedOnUtc))
+            .ToArray();
+        return Result<IReadOnlyCollection<ParentNotificationResponse>>.Success(payload);
     }
 }
 
