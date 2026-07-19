@@ -313,7 +313,8 @@ public sealed record UpdateStudentProfileRequest(
     string? LevelNotes,
     bool IsActive,
     IReadOnlyCollection<StudentSubjectItem> Subjects,
-    TargetExam TargetExam = TargetExam.None)
+    TargetExam TargetExam = TargetExam.None,
+    DateTime? DateOfBirth = null)
 {
     public UpdateStudentProfileCommand ToCommand(Guid studentId)
     {
@@ -327,7 +328,8 @@ public sealed record UpdateStudentProfileRequest(
             LevelNotes,
             IsActive,
             Subjects.Select(s => new StudentSubjectRequest(s.Subject, s.TargetLevel)).ToArray(),
-            TargetExam);
+            TargetExam,
+            DateOfBirth);
     }
 }
 
@@ -346,7 +348,8 @@ public sealed record CreateStudentProfileRequest(
     string? LevelNotes,
     StudentOrigin Origin,
     IReadOnlyCollection<StudentSubjectItem> Subjects,
-    TargetExam TargetExam = TargetExam.None)
+    TargetExam TargetExam = TargetExam.None,
+    DateTime? DateOfBirth = null)
 {
     public CreateStudentProfileCommand ToCommand()
     {
@@ -362,6 +365,7 @@ public sealed record CreateStudentProfileRequest(
             LevelNotes,
             Origin,
             Subjects.Select(subject => new StudentSubjectRequest(subject.Subject, subject.TargetLevel)).ToArray(),
-            TargetExam);
+            TargetExam,
+            DateOfBirth);
     }
 }
