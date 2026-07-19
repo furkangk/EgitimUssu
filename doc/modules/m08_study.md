@@ -508,7 +508,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19 (Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
 
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
 <!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + IMembershipDirectory + MembershipGate; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->

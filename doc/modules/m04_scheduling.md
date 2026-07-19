@@ -408,4 +408,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*

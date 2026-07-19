@@ -312,4 +312,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*

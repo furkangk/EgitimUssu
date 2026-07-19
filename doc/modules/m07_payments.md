@@ -270,4 +270,4 @@ PUT /records/{id}
 
 ---
 
-*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
+*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*

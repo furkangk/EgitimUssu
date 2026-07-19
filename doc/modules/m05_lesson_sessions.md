@@ -232,4 +232,4 @@ POST /lesson-sessions/{id}/complete (Completed)
 
 ---
 
-*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-07-18*
+*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*

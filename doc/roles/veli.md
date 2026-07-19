@@ -37,7 +37,8 @@ Veli, **kendi verisi üretmeyen**, çoğunlukla diğer modüllerin verisini veli
 | Yetenek | Modül | Durum |
 |---------|-------|-------|
 | Veli profili + çocuğa onaylı bağ (çoklu çocuk) | [`m09_parents`](../modules/m09_parents.md) | 🟢 |
-| Bireysel çalışma görünümü (veli paneli/dashboard) | [`m09_parents`](../modules/m09_parents.md) | 🟢 (M08 verisi bekliyor) |
+| Bireysel çalışma görünümü (veli paneli/dashboard) | [`m09_parents`](../modules/m09_parents.md) | 🟢 (Veli V-F: canlı digest — çalışma "0" bug fix) |
+| Zengin panel: çalışma dağılımı + yaklaşan/son ders + öğretmen notları + ödeme detay | [`m09_parents`](../modules/m09_parents.md) | 🟢 (Veli V-F) |
 | Bildirim tercihleri (ödev kaçırma/haftalık özet/ders/test/ödeme + kanal) | [`m09_parents`](../modules/m09_parents.md) | 🟢 |
 | Çocuğun ders durumu/programı | [`m04_scheduling`](../modules/m04_scheduling.md) / [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | 👁️ |
 | Çocuğun **hedef + gelişim** (grafik/rapor) | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) / [`m14_reporting`](../modules/m14_reporting.md) | 🔴 |
@@ -76,6 +77,7 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 8. **Öğretmen→veli davet kodu (Veli V-D, 2026-07-19 — uygulandı):** Öğretmen bir öğrenci için veli davet kodu üretir (`POST /api/students/profiles/{studentId}/parent-invite`); veli kaydolup kodu `POST /api/parents/children/claim-invite` ile girerek çocuğuna bağlanır. Kod girmek onay eylemidir → bağ doğrudan **Approved** (öğretmen kodu = öğretmen onayı, veli kod = veli onayı). İlk veli birincil olur. Telefon eşleştirme yok; kod modeli.
 9. **"Ödedim" beyanı (Veli V-G, 2026-07-19 — uygulandı):** Veli bir ödeme kaydı için "ödedim" beyan eder (`POST /api/payments/records/{id}/declare-paid`) → öğretmene bildirim gider (teslim V-E) → öğretmen **teyit** edince (`.../confirm`) kayıt tam tahsil edilmiş (`Paid`) işaretlenir; reddederse kayıt değişmez. **Para transferi değildir**, mutabakat kaydıdır (PRD "platform para tahsil etmez" korunur). Yetki: yalnız onaylı veli beyan eder, yalnız ilgili öğretmen teyit eder.
 10. **Bildirimler Premium (Veli V-E, 2026-07-19 — uygulandı):** Veli bildirimleri (yeni ödev, ders tamamlandı, ödeme güncellemesi, bağlantı bildirimi + haftalık özet) yalnız **Premium** veliye gider (`ParentProfile.MembershipTier`; PRD 9.3) ve velinin tercih anahtarlarına saygılıdır. Bağlantı bildirimi güvenlik gereği koşulsuz (yine de Premium). Satın alma altyapısı olmadığından başlangıçta tüm veliler Free — Premium yalnız Admin `PUT /membership-tier` ile verilir. Liste: `GET /api/notifications/parents/{parentUserId}/notifications`.
+11. **Zenginleştirilmiş panel (Veli V-F, 2026-07-19 — uygulandı):** Veli paneli artık canlı digest'lerle beslenir: çalışma süresi + **ders bazlı dağılım** (panelde "hep 0" bug'ı düzeltildi), yaklaşan dersler, son ders özeti (konu), **veli-görünür öğretmen notları** (yalnız Student/StudentAndParent; Private asla), ödeme kalem listesi. Çalışma verisi gizlilik kapalıysa maskeli döner (V-B); kişisel seans notu hiçbir koşulda görünmez.
 
 ---
 
@@ -115,4 +117,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*

@@ -166,6 +166,15 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 > integration event ile beslenir (bkz. `00_genel_bakis.md` modül sınırı kuralı). Dashboard **yalnız `Approved` bağda** döner;
 > aksi halde `403`.
 >
+> **Zenginleştirilmiş panel (Veli V-F, 2026-07-19 — uygulandı):** Dashboard artık **canlı `Shared.Contracts` digest** arayüzlerinden beslenir (read-model snapshot yerine):
+> - **Çalışma verisi** `IStudyDigestDirectory.GetWeeklyDigestAsync` (Study) — son 7 gün toplam dk + streak + **ders bazlı dağılım** (`SubjectBreakdown`). Bu, `ChildProgressSnapshot.WeeklyStudyMinutes`/`StudyStreakDays` alanlarının **hiç yazılmadığı** bug'ını (panelde çalışma hep 0) giderir → o iki alan artık **kullanımdan kalktı**. Gizlilik kapalıysa digest **hiç çağrılmaz** (V-B; 0/boş döner).
+> - **Yaklaşan dersler** `IStudentUpcomingLessonsDirectory` (Scheduling — Planned, gelecekteki ilk N) → `UpcomingLessons`.
+> - **Son ders özeti** `IStudentLastLessonDirectory` (LessonSessions — son Completed; konu başlığı) → `LastLesson`. `TeacherNotes` bu özette **null** (veli-görünürlük garantisi yok; notlar aşağıdaki filtreli kanaldan gelir).
+> - **Öğretmen notları** `IStudentNotesDirectory` (Assignments/M06 `LessonNote`) — yalnız `Visibility ∈ {Student, StudentAndParent}`; **`Private` asla** → `TeacherNotes`.
+> - **Ödeme detay listesi** `IStudentPaymentDigestDirectory` (Payments) — kalem düzeyi (tutar/vade/durum) → `PaymentLines`.
+>
+> Yanıt: `ChildDashboardResponse(StudentId, ChildDisplayName, LinkStatus, Study{…,SubjectBreakdown}, Lessons, Assignments, Payments, UpcomingLessons[], LastLesson?, TeacherNotes[], PaymentLines[], UpdatedOnUtc)`.
+
 > **Gizlilik filtresi (Veli V-B, 2026-07-19):** Dashboard'un `study` bölümü öğrencinin paylaşım tercihine uyar. Handler,
 > `KnownStudent` read-model'i ile `StudentId → UserId` çözer ve `IStudentPrivacyDirectory` (Settings uygular) üzerinden
 > `ShareStudyDataWithParent`'ı okur. Paylaşım **kapalıysa** çalışma alanları maskelenir: `WeeklyStudyMinutes=0`,
@@ -326,4 +335,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
