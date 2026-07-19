@@ -134,7 +134,7 @@ erDiagram
 | | `StudyNote` (öğrenci ders notu) | `Id` | `StudentId` (+ opsiyonel Subject/Topic) | |
 | | `StudyStudent` (bağ + paylaşım) | `Id`=StudentId | `UserId` → UserAccount | |
 | Parents (`parents`) | `ParentProfile` | `Id` | `UserId` → UserAccount (gerçek Parent) | [m09](m09_parents.md) |
-| | `ParentChildLink` | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile · `ApprovedByUserId?` | |
+| | `ParentChildLink` (olaylar: `...Requested/Approved/Rejected/Revoked` + `ParentLinkConnectionNoticeDomainEvent` şeffaflık — Veli V-C) | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile · `ApprovedByUserId?` | |
 | | `ChildProgressSnapshot` (read-model) | `Id` | `StudentId` → StudentProfile (event ile beslenir) | |
 | | `KnownStudent` (read-model) | `Id` | `StudentId` → StudentProfile · `UserId` → UserAccount | |
 | | `ProcessedIntegrationEvent` (idempotency) | `Id` | işlenmiş event kimliği | |
@@ -176,4 +176,4 @@ erDiagram
 
 ---
 
-*Veri Modeli & ER Şeması | Güncelleme: 2026-07-19 (Veli V-B: `IStudentPrivacyDirectory` gizlilik kontratı — Settings · Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi · Ö-F: `LessonChangeRequest` öğrenci ders erteleme talebi · Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*
+*Veri Modeli & ER Şeması | Güncelleme: 2026-07-19 (Veli V-C: `ParentLinkConnectionNoticeDomainEvent` bağlantı şeffaflığı + birincil veli tekilliği · Veli V-B: `IStudentPrivacyDirectory` gizlilik kontratı — Settings · Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi · Ö-F: `LessonChangeRequest` öğrenci ders erteleme talebi · Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*

@@ -183,6 +183,18 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 - **Reşit öğrenci:** bağ ve veri paylaşımı **öğrenci onayı** gerektirir; öğrenci dilediğinde bağı reddedebilir/iptal ettirebilir.
 - Onaylanan bağ M03'te `StudentProfile.ParentUserId`'yi (birincil veli için) güncelleyebilir.
 
+### 4.2.1 "Sessizce bağlanma yok" + birincil veli tekilliği (Veli V-C, 2026-07-19 — uygulandı)
+- **Şeffaflık olayı:** Bir bağ onaylandığında (`Approve`), `ParentChildLinkApprovedDomainEvent`'e ek olarak
+  **`ParentLinkConnectionNoticeDomainEvent`** yayılır. Alıcılar: `StudentId` = çocuk ve (varsa)
+  `ExistingPrimaryParentUserId` = mevcut birincil veli — "X hesabı veli olarak bağlandı". Fiili bildirim teslimi
+  **V-E bildirim motoruna** aittir (Parents yalnız olayı üretir; olay Outbox'a yazılır).
+- **Birincil veli tekilliği:** Bir çocuğun aynı anda **tek birincil velisi** (`IsPrimaryContact=true`) olabilir. İkinci bir bağ
+  birincil olacaksa ve zaten onaylı bir birincil veli varsa, **onaylayan kişi mevcut birincil veli değilse** onay reddedilir →
+  `parents.primary_exists` (**409**). Kural admin onayında da geçerlidir (veri tutarlılığı — mevcut birincil varken ikinci
+  birincil oluşturulamaz). Handler, `ListApprovedLinksForStudentAsync` ile mevcut birincil veliyi çözer ve
+  `Approve(approvedByUserId, existingPrimaryParentUserId?, nowUtc)` imzasına geçirir.
+- **Öğretmen teyidi** bu dilimde YOK (karar 2026-07-19); doğrulama seviyesi = bildirim şeffaflığı + birincil tekilliği.
+
 ### 4.3 İki veri kaynağı (PRD §M09)
 | Kaynak | İçerik | Önkoşul |
 |--------|--------|---------|
@@ -299,4 +311,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-07-19 (Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*

@@ -70,6 +70,7 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 4. **Yalnız görüntüleme:** Veli ders/ödev/ödeme verisini **düzenleyemez**, yalnızca görüntüler.
 5. **Gizlilik:** Öğrenci, hangi verilerin veliye yansıyacağını kontrol edebilir (M15); ödeme yalnızca `IsSharedWithParent` ise görünür (M07). **(Veli V-B, 2026-07-19 — uygulandı)** Öğrenci `PUT /api/settings/users/{userId}/study-sharing` ile çalışma verisi paylaşımını kapatabilir; kapalıysa veli panelinde çalışma alanları (haftalık dakika, streak) **"paylaşılmıyor"** işaretiyle (`IsShared=false`, değer 0) döner — değer sızmaz. **Değişmez kural:** çocuğun kişisel seans notu veliye hiçbir koşulda açılmaz.
 6. **Ödev kaçırma bildirimi:** Öğrenci ödevini son tarihten önce yüklemezse veliye bildirim gider (M06 + M11).
+7. **Sessizce bağlanma yok + birincil veli (Veli V-C, 2026-07-19 — uygulandı):** Bir bağ onaylandığında şeffaflık olayı (`ParentLinkConnectionNoticeDomainEvent`) yayılır — çocuk ve varsa mevcut birincil veli "X hesabı veli olarak bağlandı" bilgilendirilir (teslim V-E). Bir çocuğun tek **birincil velisi** olabilir; ikinci veli birincil olmak isterse mevcut birincil veli (veya admin) onaylamadıkça olamaz (`parents.primary_exists`, 409). Yani veli, çocuk/mevcut veli **haberdar edilmeden bağlanamaz**.
 
 ---
 
@@ -108,4 +109,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
