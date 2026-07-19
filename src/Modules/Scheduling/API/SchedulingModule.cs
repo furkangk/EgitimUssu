@@ -77,6 +77,19 @@ public sealed class SchedulingModule : ModuleDefinition
 
         group.MapDelete("/study-entries/{entryId:guid}", DeleteStudyScheduleEntryAsync)
         .WithSummary("Öğrencinin kendi program girdisini siler");
+
+        // Ö-F: Öğrenci ders erteleme talebi (öğrenci talep eder, öğretmen kabul/red eder).
+        group.MapPost("/students/{studentId:guid}/lesson-requests", CreateLessonChangeRequestAsync)
+        .WithSummary("Öğrenci bir dersin ertelenmesini talep eder (neden + alternatif tarih)");
+
+        group.MapGet("/teachers/{teacherUserId:guid}/lesson-requests", ListLessonChangeRequestsForTeacherAsync)
+        .WithSummary("Öğretmene gelen erteleme taleplerini listeler (onlyPending ile filtreli)");
+
+        group.MapPost("/lesson-requests/{requestId:guid}/accept", AcceptLessonChangeRequestAsync)
+        .WithSummary("Öğretmen erteleme talebini kabul eder; alternatif tarih varsa dersi taşır");
+
+        group.MapPost("/lesson-requests/{requestId:guid}/reject", RejectLessonChangeRequestAsync)
+        .WithSummary("Öğretmen erteleme talebini reddeder");
     }
 
     /// <summary>
@@ -283,6 +296,63 @@ public sealed class SchedulingModule : ModuleDefinition
     }
 
     /// <summary>
+    /// Öğrenci bir dersin ertelenmesini talep eder (neden + isteğe bağlı alternatif tarih). Öğrenci dersi kendisi
+    /// değiştirmez; öğretmen kabul ederse taşıma gerçekleşir. Sahiplik <c>IStudentDirectory</c> ile doğrulanır.
+    /// </summary>
+    private static async Task<IResult> CreateLessonChangeRequestAsync(
+        HttpContext context,
+        Guid studentId,
+        CreateLessonChangeRequestRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(request.ToCommand(studentId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmene gelen erteleme taleplerini listeler; <c>onlyPending=true</c> ile yalnızca bekleyenler döner.
+    /// </summary>
+    private static async Task<IResult> ListLessonChangeRequestsForTeacherAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken,
+        bool onlyPending = false)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListLessonChangeRequestsForTeacherQuery(teacherUserId, onlyPending),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen erteleme talebini kabul eder; alternatif tarih doluysa mevcut erteleme akışıyla ders taşınır.
+    /// </summary>
+    private static async Task<IResult> AcceptLessonChangeRequestAsync(
+        HttpContext context,
+        Guid requestId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new AcceptLessonChangeRequestCommand(requestId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Öğretmen erteleme talebini reddeder; talep kapanır, ders değişmez.
+    /// </summary>
+    private static async Task<IResult> RejectLessonChangeRequestAsync(
+        HttpContext context,
+        Guid requestId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RejectLessonChangeRequestCommand(requestId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
     /// Öğretmen için tatil / müsait değil bloğu oluşturur ve blokla çakışan planlı dersleri yanıtta döndürür.
     /// </summary>
     private static async Task<IResult> CreateTimeOffBlockAsync(
@@ -338,7 +408,9 @@ public sealed class SchedulingModule : ModuleDefinition
             "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.entry_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "scheduling.request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "scheduling.request_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.not_editable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
@@ -432,6 +504,26 @@ public sealed record RescheduleLessonScheduleRequest(
     string? Note,
     OccurrenceScope Scope = OccurrenceScope.All,
     DateTime? OccurrenceStartAtUtc = null);
+
+/// <summary>
+/// Öğrencinin ders erteleme talebi için neden ve isteğe bağlı alternatif başlangıç/bitiş tarihini taşır.
+/// </summary>
+public sealed record CreateLessonChangeRequestRequest(
+    Guid LessonScheduleId,
+    string Reason,
+    DateTime? ProposedStartAtUtc,
+    DateTime? ProposedEndAtUtc)
+{
+    public CreateLessonChangeRequestCommand ToCommand(Guid studentId)
+    {
+        return new CreateLessonChangeRequestCommand(
+            studentId,
+            LessonScheduleId,
+            Reason,
+            ProposedStartAtUtc,
+            ProposedEndAtUtc);
+    }
+}
 
 /// <summary>
 /// Tatil / müsait değil bloğu oluşturmak için tür, başlık, zaman aralığı ve tüm-gün bayrağını taşır.

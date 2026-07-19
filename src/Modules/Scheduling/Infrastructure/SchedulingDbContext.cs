@@ -25,6 +25,8 @@ public sealed class SchedulingDbContext : ModuleDbContext
 
     public DbSet<LessonOccurrenceException> LessonOccurrenceExceptions => Set<LessonOccurrenceException>();
 
+    public DbSet<LessonChangeRequest> LessonChangeRequests => Set<LessonChangeRequest>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Scheduling";
@@ -69,6 +71,20 @@ internal sealed class LessonOccurrenceExceptionConfiguration : IEntityTypeConfig
         builder.Property(entity => entity.Note).HasMaxLength(500);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.SeriesLessonScheduleId, entity.OriginalStartAtUtc });
+    }
+}
+
+internal sealed class LessonChangeRequestConfiguration : IEntityTypeConfiguration<LessonChangeRequest>
+{
+    public void Configure(EntityTypeBuilder<LessonChangeRequest> builder)
+    {
+        builder.ToTable("lesson_change_requests");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Reason).HasMaxLength(500).IsRequired();
+        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status });
+        builder.HasIndex(entity => entity.StudentId);
     }
 }
 
