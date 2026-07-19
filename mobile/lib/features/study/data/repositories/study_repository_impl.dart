@@ -327,6 +327,9 @@ class StudyRepositoryImpl implements StudyRepository {
     String studentId, {
     required String subject,
     String? topic,
+    String? lessonId,
+    String? subjectId,
+    String? topicId,
   }) async {
     if (_mock) {
       return _mockSession(
@@ -336,6 +339,7 @@ class StudyRepositoryImpl implements StudyRepository {
         status: 'Running',
         source: 'Stopwatch',
         effectiveMinutes: 0,
+        lessonId: lessonId,
       );
     }
     final r = await _apiClient.post(
@@ -344,6 +348,9 @@ class StudyRepositoryImpl implements StudyRepository {
         'studentId': studentId,
         'subject': subject,
         'topic': topic,
+        if (lessonId != null) 'lessonId': lessonId,
+        if (subjectId != null) 'subjectId': subjectId,
+        if (topicId != null) 'topicId': topicId,
       },
     );
     return StudyMappers.session(r);
@@ -632,6 +639,7 @@ class StudyRepositoryImpl implements StudyRepository {
     DateTime? startedAtUtc,
     DateTime? endedAtUtc,
     String? personalNote,
+    String? lessonId,
   }) {
     return StudySession(
       id: id ?? 'mock-session-${_now.microsecondsSinceEpoch}',
@@ -645,6 +653,7 @@ class StudyRepositoryImpl implements StudyRepository {
       startedAtUtc: startedAtUtc ?? _now,
       endedAtUtc: endedAtUtc,
       personalNote: personalNote,
+      lessonId: lessonId,
     );
   }
 

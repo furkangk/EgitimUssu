@@ -84,6 +84,7 @@ class CalendarOccurrence {
     this.colorHex,
     this.recurrenceRule,
     this.notes,
+    this.completed = false,
   });
 
   /// Kaynak girdinin (ders planı ya da program girdisi) kimliği.
@@ -104,7 +105,11 @@ class CalendarOccurrence {
   /// Yalnızca öğrencinin kendi girdileri düzenlenebilir; öğretmen dersleri salt-okunurdur.
   final bool isEditable;
 
+  /// Ç-06: bu occurrence'ın gününde derse bağlı tamamlanmış bir çalışma seansı var mı (çalışıldı rozeti).
+  final bool completed;
+
   bool get isTeacher => source == 'Teacher';
+  bool get isSelf => source == 'Self';
   bool get isRecurring => (recurrenceRule ?? '').isNotEmpty;
 }
 

@@ -65,6 +65,7 @@ class CalendarOccurrenceModel extends CalendarOccurrence {
     super.colorHex,
     super.recurrenceRule,
     super.notes,
+    super.completed,
   });
 
   factory CalendarOccurrenceModel.fromJson(Map<String, dynamic> json) {
@@ -81,6 +82,7 @@ class CalendarOccurrenceModel extends CalendarOccurrence {
       recurrenceRule: json['recurrenceRule']?.toString(),
       notes: json['notes']?.toString(),
       isEditable: json['isEditable'] as bool? ?? false,
+      completed: json['completed'] as bool? ?? false,
     );
   }
 }

@@ -14,12 +14,16 @@ class StudySession {
     this.topic,
     this.endedAtUtc,
     this.personalNote,
+    this.lessonId,
   });
 
   final String id;
   final String studentId;
   final String subject;
   final String? topic;
+
+  /// Ç-06: seansın bağlı olduğu plan (takvim occurrence'ının entryId'si). Serbest çalışmada null.
+  final String? lessonId;
   final String status; // Running / Paused / Completed / Discarded
   final String source; // Stopwatch / Manual
   final int effectiveMinutes;
@@ -330,6 +334,9 @@ abstract interface class StudyRepository {
     String studentId, {
     required String subject,
     String? topic,
+    String? lessonId,
+    String? subjectId,
+    String? topicId,
   });
   Future<StudySession> pauseSession(String sessionId);
   Future<StudySession> resumeSession(String sessionId);

@@ -55,6 +55,7 @@ class StudyMappers {
         startedAtUtc: _date(j['startedAtUtc']),
         endedAtUtc: _dateOrNull(j['endedAtUtc']),
         personalNote: j['personalNote'] as String?,
+        lessonId: j['lessonId'] as String?,
       );
 
   static TestResult test(Map<String, dynamic> j) => TestResult(
