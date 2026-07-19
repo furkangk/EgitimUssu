@@ -44,6 +44,7 @@ public sealed class ParentAuthorizer :
     ICommandAuthorizer<ApproveChildLinkCommand>,
     ICommandAuthorizer<RejectChildLinkCommand>,
     ICommandAuthorizer<RevokeChildLinkCommand>,
+    ICommandAuthorizer<ClaimParentInviteCommand>,
     IQueryAuthorizer<GetParentProfileQuery>,
     IQueryAuthorizer<ListChildrenQuery>,
     IQueryAuthorizer<GetChildDashboardQuery>
@@ -90,6 +91,10 @@ public sealed class ParentAuthorizer :
         => Task.FromResult(RequireSelfOrAdmin(command.ParentUserId));
 
     public Task<Result> Authorize(RequestChildLinkCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(RequireSelfOrAdmin(command.ParentUserId));
+
+    // Davet kodu claim: kodu bilen, kendi kimliğiyle işlem yapan veli (veya Admin). Kod bilgisi onay kanıtıdır.
+    public Task<Result> Authorize(ClaimParentInviteCommand command, CancellationToken cancellationToken)
         => Task.FromResult(RequireSelfOrAdmin(command.ParentUserId));
 
     public Task<Result> Authorize(GetParentProfileQuery query, CancellationToken cancellationToken)

@@ -38,6 +38,8 @@ public sealed record RejectChildLinkCommand(Guid LinkId, Guid RejectedByUserId) 
 
 public sealed record RevokeChildLinkCommand(Guid LinkId) : ICommand<Result<ChildLinkResponse>>;
 
+public sealed record ClaimParentInviteCommand(Guid ParentUserId, string InviteCode) : ICommand<Result<ChildLinkResponse>>;
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -336,6 +338,52 @@ public sealed class RevokeChildLinkCommandHandler : ICommandHandler<RevokeChildL
     }
 }
 
+public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>
+{
+    private readonly IParentRepository _repository;
+    private readonly IParentInviteDirectory _inviteDirectory;
+    private readonly IClock _clock;
+    private readonly IIdGenerator _idGenerator;
+
+    public ClaimParentInviteCommandHandler(IParentRepository repository, IParentInviteDirectory inviteDirectory, IClock clock, IIdGenerator idGenerator)
+    {
+        _repository = repository;
+        _inviteDirectory = inviteDirectory;
+        _clock = clock;
+        _idGenerator = idGenerator;
+    }
+
+    public async Task<Result<ChildLinkResponse>> Handle(ClaimParentInviteCommand command, CancellationToken cancellationToken)
+    {
+        var info = await _inviteDirectory.ResolveAsync(command.InviteCode.Trim(), cancellationToken);
+        if (info is null)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.InviteNotFound);
+        }
+
+        var existing = await _repository.GetActiveLinkAsync(command.ParentUserId, info.StudentId, cancellationToken);
+        if (existing is not null)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.LinkAlreadyExists);
+        }
+
+        var now = _clock.UtcNow;
+        // Bu çocuğa halihazırda birincil veli var mı? (V-C birincil tekilliği)
+        var approved = await _repository.ListApprovedLinksForStudentAsync(info.StudentId, cancellationToken);
+        var existingPrimary = approved.FirstOrDefault(l => l.IsPrimaryContact);
+        var isPrimary = existingPrimary is null; // ilk veli birincil olur; ikinci veli birincil olmaz
+
+        var link = new ParentChildLink(_idGenerator.New(), command.ParentUserId, info.StudentId, info.ChildDisplayName, null, command.InviteCode.Trim(), isPrimary, now);
+        await _repository.AddLinkAsync(link, cancellationToken);
+        // Öğretmen kodu = öğretmen onayı; veli kodu girdi = veli onayı → doğrudan Approved.
+        link.Approve(command.ParentUserId, existingPrimary?.ParentUserId, now);
+        await _repository.SaveChangesAsync(cancellationToken);
+        await _inviteDirectory.MarkClaimedAsync(info.InviteId, command.ParentUserId, cancellationToken);
+
+        return Result<ChildLinkResponse>.Success(link.ToResponse(null));
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Query handlers
 // ---------------------------------------------------------------------------
@@ -434,6 +482,7 @@ public static class ParentErrors
     public static readonly Error LinkAlreadyExists = new("parents.link_exists", "Bu çocuk için zaten aktif bir bağ talebi/onayı var.");
     public static readonly Error LinkNotApproved = new("parents.link_not_approved", "Bu çocuğun verilerine erişmek için bağın onaylı olması gerekir.");
     public static readonly Error PrimaryExists = new("parents.primary_exists", "Bu çocuğun zaten bir birincil velisi var; birincil bağ için mevcut birincil velinin (veya yöneticinin) onayı gerekir.");
+    public static readonly Error InviteNotFound = new("parents.invite_not_found", "Davet kodu bulunamadı veya kullanılmış.");
     public static readonly Error InvalidRequest = new("parents.invalid_request", "Veli isteği bilgileri eksik veya hatalı.");
 }
 
