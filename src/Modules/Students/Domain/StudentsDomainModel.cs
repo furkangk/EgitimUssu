@@ -321,3 +321,50 @@ public sealed record TeacherStudentLinkAcceptedDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime OnUtc) : DomainEvent;
+
+/// <summary>
+/// Öğretmenin bir öğrenci için ürettiği veli davet kodu (Veli V-D). Veli kodu girerek claim eder ("veli onayı");
+/// claim, Parents tarafında ParentChildLink oluşturup onaylar. Durum: Pending → Claimed.
+/// </summary>
+public sealed class StudentParentInvite : AggregateRoot<Guid>
+{
+    private StudentParentInvite() { }
+
+    public StudentParentInvite(Guid id, Guid studentId, Guid teacherUserId, string inviteCode, string? childDisplayName, DateTime createdOnUtc)
+    {
+        Id = id;
+        StudentId = studentId;
+        TeacherUserId = teacherUserId;
+        InviteCode = inviteCode;
+        ChildDisplayName = childDisplayName?.Trim();
+        Status = ParentInviteStatus.Pending;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid StudentId { get; private set; }
+    public Guid TeacherUserId { get; private set; }
+    public string InviteCode { get; private set; } = string.Empty;
+    public string? ChildDisplayName { get; private set; }
+    public ParentInviteStatus Status { get; private set; }
+    public Guid? ClaimedByParentUserId { get; private set; }
+    public DateTime CreatedOnUtc { get; private set; }
+    public DateTime? ClaimedOnUtc { get; private set; }
+
+    public void Claim(Guid parentUserId, DateTime nowUtc)
+    {
+        if (Status != ParentInviteStatus.Pending)
+        {
+            throw new InvalidOperationException("Davet zaten kullanılmış.");
+        }
+
+        Status = ParentInviteStatus.Claimed;
+        ClaimedByParentUserId = parentUserId;
+        ClaimedOnUtc = nowUtc;
+    }
+}
+
+public enum ParentInviteStatus
+{
+    Pending = 1,
+    Claimed = 2
+}
