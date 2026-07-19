@@ -31,7 +31,8 @@ public sealed class StudySession : AggregateRoot<Guid>
         string? personalNote,
         bool isSharedWithParent,
         bool isSharedWithTeacher,
-        DateTime createdOnUtc)
+        DateTime createdOnUtc,
+        Guid? lessonId)
     {
         Id = id;
         StudentId = studentId;
@@ -47,11 +48,15 @@ public sealed class StudySession : AggregateRoot<Guid>
         LastResumedAtUtc = status == StudySessionStatus.Running ? startedAtUtc : null;
         IsSharedWithParent = isSharedWithParent;
         IsSharedWithTeacher = isSharedWithTeacher;
+        LessonId = lessonId;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
     }
 
     public Guid StudentId { get; private set; }
+
+    /// <summary>Ç-06: seansın bağlı olduğu plan (LessonSchedule/self ders) — gevşek referans, FK yok. Serbestse null.</summary>
+    public Guid? LessonId { get; private set; }
 
     public string Subject { get; private set; } = string.Empty;
 
@@ -91,7 +96,8 @@ public sealed class StudySession : AggregateRoot<Guid>
         string? topic,
         bool isSharedWithParent,
         bool isSharedWithTeacher,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        Guid? lessonId = null)
     {
         var session = new StudySession(
             id,
@@ -107,7 +113,8 @@ public sealed class StudySession : AggregateRoot<Guid>
             personalNote: null,
             isSharedWithParent,
             isSharedWithTeacher,
-            nowUtc);
+            nowUtc,
+            lessonId);
 
         session.Raise(new StudySessionStartedDomainEvent(id, studentId, subject, nowUtc));
         return session;
@@ -124,7 +131,8 @@ public sealed class StudySession : AggregateRoot<Guid>
         string? personalNote,
         bool isSharedWithParent,
         bool isSharedWithTeacher,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        Guid? lessonId = null)
     {
         if (effectiveMinutes <= 0)
         {
@@ -145,7 +153,8 @@ public sealed class StudySession : AggregateRoot<Guid>
             personalNote,
             isSharedWithParent,
             isSharedWithTeacher,
-            nowUtc);
+            nowUtc,
+            lessonId);
 
         session.Raise(new StudySessionCompletedDomainEvent(
             id, studentId, subject, topic, effectiveMinutes, 0, studiedOnUtc));

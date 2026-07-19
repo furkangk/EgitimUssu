@@ -66,6 +66,8 @@ internal sealed class StudySessionConfiguration : IEntityTypeConfiguration<Study
         builder.Property(e => e.StartedAtUtc).IsRequired();
         builder.HasIndex(e => new { e.StudentId, e.Status });
         builder.HasIndex(e => new { e.StudentId, e.StartedAtUtc });
+        // Ç-06: plana bağlı seansları (completion) sorgulamak için.
+        builder.HasIndex(e => e.LessonId);
     }
 }
 
