@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Parents.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Parents.Application;
@@ -98,7 +99,7 @@ public sealed record ChildDashboardResponse(
     PaymentSummaryResponse Payments,
     DateTime? UpdatedOnUtc);
 
-public sealed record StudySummaryResponse(int WeeklyStudyMinutes, int StreakDays, bool HasData);
+public sealed record StudySummaryResponse(int WeeklyStudyMinutes, int StreakDays, bool HasData, bool IsShared);
 
 public sealed record LessonSummaryResponse(int CompletedLessonCount, int PlannedLessonCount, DateTime? LastLessonCompletedAtUtc);
 
@@ -378,10 +379,12 @@ public sealed class ListChildrenQueryHandler : IQueryHandler<ListChildrenQuery, 
 public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashboardQuery, Result<ChildDashboardResponse>>
 {
     private readonly IParentRepository _repository;
+    private readonly IStudentPrivacyDirectory _privacy;
 
-    public GetChildDashboardQueryHandler(IParentRepository repository)
+    public GetChildDashboardQueryHandler(IParentRepository repository, IStudentPrivacyDirectory privacy)
     {
         _repository = repository;
+        _privacy = privacy;
     }
 
     public async Task<Result<ChildDashboardResponse>> Handle(GetChildDashboardQuery query, CancellationToken cancellationToken)
@@ -393,8 +396,18 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
             return Result<ChildDashboardResponse>.Failure(ParentErrors.LinkNotApproved);
         }
 
+        // Gizlilik: öğrenci çalışma verisini veli ile paylaşmıyorsa çalışma alanları maskelenir (Veli V-B).
+        // Ayar kaydı yoksa (KnownStudent/UserId çözülemezse) paylaşım açık varsayılır.
+        var isStudyShared = true;
+        var known = await _repository.GetKnownStudentAsync(query.StudentId, cancellationToken);
+        if (known?.UserId is { } studentUserId)
+        {
+            var privacy = await _privacy.GetForUserAsync(studentUserId, cancellationToken);
+            isStudyShared = privacy.ShareStudyDataWithParent;
+        }
+
         var snapshot = await _repository.GetSnapshotAsync(query.StudentId, cancellationToken);
-        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link));
+        return Result<ChildDashboardResponse>.Success(snapshot.ToDashboard(query.StudentId, link, isStudyShared));
     }
 }
 
@@ -459,7 +472,7 @@ internal static class ParentMappings
                 snapshot.WeeklyStudyMinutes);
     }
 
-    public static ChildDashboardResponse ToDashboard(this ChildProgressSnapshot? snapshot, Guid studentId, ParentChildLink link)
+    public static ChildDashboardResponse ToDashboard(this ChildProgressSnapshot? snapshot, Guid studentId, ParentChildLink link, bool isStudyShared)
     {
         if (snapshot is null)
         {
@@ -467,19 +480,21 @@ internal static class ParentMappings
                 studentId,
                 link.ChildDisplayName,
                 link.Status.ToString(),
-                new StudySummaryResponse(0, 0, false),
+                new StudySummaryResponse(0, 0, false, isStudyShared),
                 new LessonSummaryResponse(0, 0, null),
                 new AssignmentSummaryResponse(0, 0, 0),
                 new PaymentSummaryResponse("TRY", 0m, 0m, 0m, null),
                 null);
         }
 
-        var hasStudyData = snapshot.WeeklyStudyMinutes > 0 || snapshot.StudyStreakDays > 0;
+        var weeklyMinutes = isStudyShared ? snapshot.WeeklyStudyMinutes : 0;
+        var streakDays = isStudyShared ? snapshot.StudyStreakDays : 0;
+        var hasStudyData = isStudyShared && (snapshot.WeeklyStudyMinutes > 0 || snapshot.StudyStreakDays > 0);
         return new ChildDashboardResponse(
             studentId,
             link.ChildDisplayName,
             link.Status.ToString(),
-            new StudySummaryResponse(snapshot.WeeklyStudyMinutes, snapshot.StudyStreakDays, hasStudyData),
+            new StudySummaryResponse(weeklyMinutes, streakDays, hasStudyData, isStudyShared),
             new LessonSummaryResponse(snapshot.CompletedLessonCount, snapshot.PlannedLessonCount, snapshot.LastLessonCompletedAtUtc),
             new AssignmentSummaryResponse(snapshot.TotalAssignmentCount, snapshot.OpenAssignmentCount, snapshot.CompletedAssignmentCount),
             new PaymentSummaryResponse(
