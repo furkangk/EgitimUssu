@@ -22,7 +22,9 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, StudyScheduleReminderIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();
+        services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
         services.AddHostedService<NotificationDispatcher>();
+        services.AddHostedService<ParentWeeklySummaryService>();
         return services;
     }
 }
