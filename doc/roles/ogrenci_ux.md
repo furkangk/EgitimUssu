@@ -98,15 +98,18 @@ Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
 ⏱️ Çalış   ·   📊 Performans   ·   📚 Derslerim   ·   🔍 Keşfet   ·   👤 Profil
 ```
 
-> **Not (kod gerçeği, 2026-07-21 — Ç-06/Task 1 + Task 3, 5-sekme IA yeniden yapılandırması):** `StudentBottomNav`
+> **Not (kod gerçeği, 2026-07-21 — Ç-06/Task 1-6, 5-sekme IA yeniden yapılandırması TAMAMLANDI):** `StudentBottomNav`
 > (`StudentNavTab`) **5 sekme** ile uygulandı: **Çalış** (`/student-home`) · **Performans** (`/student/performance`)
 > · **Derslerim** (`/student/lessons`) · **Keşfet** (`/student/discover`, Faz 4 yer tutucu) · **Profil** (`/student/profile`).
 > Eski rotalar geri-uyum için redirect'lenir: `/student/tests`→`/student/performance`, `/student/calendar`→`/student/lessons`,
-> `/student/studies`→`/student-home` (Task 3, sayfa silindi). **Derslerim** sayfasının içeriği hâlâ eski Takvim ekranı
-> (`student_calendar_page.dart`); gerçek içerik/isimlendirme dönüşümü sonraki dilimlerde yapılır (spec: `study_student.md`).
-> Eski **Diğer** (`/student/more`) sayfası artık sekme değildir (`current: StudentNavTab.none`); rotası henüz silinmedi,
-> Task 6'da retire edilecek. **Profil** artık ayrı sekme (`/student/profile`); eski "Diğer hub'ından push" akışı kaldırılıyor.
-> Sekme/hub içerikleri (mevcut kod):
+> `/student/studies`→`/student-home` (Task 3, sayfa silindi), `/student/more`→`/student/profile` (Task 6, sayfa silindi).
+> **Derslerim** sayfasının içeriği hâlâ eski Takvim ekranı (`student_calendar_page.dart`), artık liste sonunda
+> **Ders araçları** bölümüyle genişledi (Task 4). Eski **Diğer** hub'ı (`student_more_page.dart`) **kaldırıldı** (Task 6,
+> 2026-07-21): tüm girdileri diğer sekmelere dağıtıldı — Rozetler/Hedefler → Çalış kısayolları (Task 2), Öğretmenlerim/
+> Dersler & Konular/Ödevlerim/Notlarım → Derslerim "Ders araçları" (Task 4), Gelişimim → Performans (Task 3),
+> Velim/Gizlilik/Bildirim/Abonelik/Ayarlar & Güvenlik/Çıkış → Profil'in yeni **Ayarlar menüsü** (Task 6). **Profil**
+> artık ayrı sekme (`/student/profile`), sayfa içi `AppPageHeader` kullanır (AppBar yok).
+> Sekme içerikleri (mevcut kod):
 > - **Performans** (`/student/performance`) 🟢: Task 3'te genişledi — eski Testler içeriğine (deneme gir + net trend
 >   grafiği + ders bazlı analiz (trend oku) + son denemeler, `listTests`'ten türetilir) ek olarak eski **Çalışmalarım**
 >   ekranının (`/student/studies`, artık silindi) analiz bloklarını **absorbe etti**: **Haftalık analiz** (günlük çubuk
@@ -119,15 +122,14 @@ Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
 >   listesi. "Ders ekle" ile tek/tekrarlı (günlük/haftalık/aylık) kişisel ders eklenir; öğretmen dersinin saatine kendi dersi
 >   eklenemez (çakışma reddi). Bkz. m04 §2.3.
 > - **Keşfet** 🔴 Faz 4 yer tutucu: işlevsel arama yok, "yakında" mesajı (`student_discover_page.dart`).
-> - **Diğer** (`student_more_page.dart`, artık sekme değil, geçici olarak erişilebilir) 🟢: hub — Rozetler
->   (`/study/achievements`), **Öğretmenlerim** (`/student/teacher`, push), **Hedefler** (`/student/goals-overview`, push),
->   Hedef & paylaşım (`/study/goals`), Hesap bilgileri (`/account-info`), Çıkış.
-> - **Öğretmenlerim** (Diğer'den açılır) 🟡: **yalnızca bağlı öğretmen(ler)i** gösterir. **Öğretmen(ler)im 🟢** gerçek — bağlı öğretmen(ler)
+> - **Öğretmenlerim** (artık Derslerim → "Ders araçları"nden açılır) 🟡: **yalnızca bağlı öğretmen(ler)i** gösterir. **Öğretmen(ler)im 🟢** gerçek — bağlı öğretmen(ler)
 >   güvenli öğrenci-kapsamlı derslerin (`GET /scheduling/students/{id}/lessons`, sahiplik `IStudentDirectory` ile doğrulanır, IDOR koruması)
 >   `teacherUserId` kümesinden türetilir, profilleri `GET /api/teachers/profiles/{userId}` ile getirilip bilgi kartı olarak gösterilir
 >   (avatar hero + ad/doğrulama + branş/konum/format meta + deneyim/eğitim/ücret istatistik bloğu + "Hakkında"; öğrenci ekranlarıyla tutarlı, birden fazla öğretmen desteklenir). Dersler bu ekranda listelenmez (Derslerim'de).
 >   Ödevler/Ders Notları/Mesajlar hâlâ "yakında" (backend yok). (§10: yalnızca öğretmen bağlıysa gösterme — hiç öğretmen yoksa boş durum gösterilir.)
-> - **Profil/İstatistik** (artık ayrı sekme, `/student/profile`) 🟢: toplam çalışma/gün/rekor + toplam deneme/net + en çok çalışılan ders + rozet özeti.
+> - **Profil/İstatistik** (ayrı sekme, `/student/profile`) 🟢: toplam çalışma/gün/rekor + toplam deneme/net + en çok çalışılan ders + rozet özeti
+>   + **Ayarlar menüsü** (Velim/Gizlilik ayarları [→`/study/goals`] · Bildirim ayarları [yakında] · Abonelik [Faz 5, yakında] ·
+>   Ayarlar & Güvenlik [→`/account-info`]) + Çıkış yap (bottom-sheet onayı).
 
 ---
 
@@ -267,8 +269,9 @@ Gösterilecekler:
 
 Her hedef **Progress Bar** ile gösterilecektir.
 
-> **Not (kod gerçeği, 2026-07-08):** "Hedefler" artık alt menüde ayrı sekme değil; **Diğer hub'ından** açılır
-> (`/student/goals-overview`, pushed, AppBar'lı). Yerini alt menüde **Derslerim** sekmesi aldı (§9a).
+> **Not (kod gerçeği, 2026-07-21 — Task 6):** "Hedefler" artık alt menüde ayrı sekme değil; **Çalış** sekmesinin
+> ikincil kısayollarından açılır (`/student/goals-overview`, pushed, AppBar'lı; eski Diğer hub'ı kaldırıldı). Yerini
+> alt menüde **Derslerim** sekmesi aldı (§9a).
 
 ---
 
@@ -286,7 +289,7 @@ Her hedef **Progress Bar** ile gösterilecektir.
 - **Ders araçları (Task 4, 2026-07-21):** takvim + seçili gün listesinin altında 4 tonlu-ikon giriş kartı ile
   ilgili ekranlara kısayol: **Dersler & Konular** (→`/study/catalog`), **Ödevlerim** (→`/student/assignments`),
   **Öğretmenlerim** (→`/student/teacher`), **Notlarım** (→`/study/notes`). Bu ekranlar hâlâ kendi rotalarında yaşar;
-  Derslerim yalnızca giriş noktası ekler (Diğer hub'ındaki eski girişler de geçerliliğini korur).
+  Derslerim yalnızca giriş noktası ekler (eski Diğer hub'ı kaldırıldı — Task 6, 2026-07-21).
 
 Teknik: `GET /scheduling/students/{id}/calendar` (tekrarlar backend'de genişletilir) — bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md) §2.3.
 
@@ -317,6 +320,12 @@ Bu sekme **yalnızca öğretmen bağlıysa** görünmelidir. Öğretmen(ler), ö
 - En çok çalışılan ders
 - Seri gün
 - Rozetler
+
+> **Not (kod gerçeği, 2026-07-21 — Task 6):** İstatistik kartlarına ek olarak sayfanın altında **Ayarlar menüsü**
+> var: Velim (→`/study/goals`) · Gizlilik ayarları (→`/study/goals`, aynı paylaşım ekranı) · Bildirim ayarları
+> (pasif, yakında) · Abonelik (pasif, Faz 5) · Ayarlar & Güvenlik (→`/account-info`) + **Çıkış yap** (bottom-sheet
+> onayı, `AuthCubit.logout()`). Sayfa artık `AppPageHeader` ile sayfa içi başlık kullanır (AppBar yok — bottom nav'ın
+> kök sekmesi). Eski **Diğer** hub'ı (`/student/more`) kaldırıldı; rota `/student/profile`'a redirect eder.
 
 ---
 

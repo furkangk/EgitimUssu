@@ -34,7 +34,6 @@ import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_cal
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_discover_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_goals_overview_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_home_page.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_more_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_profile_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_teacher_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_tests_page.dart';
@@ -163,7 +162,7 @@ class AppRouter {
         ),
         GoRoute(
           path: '/student/more',
-          builder: (context, state) => const StudentMorePage(),
+          redirect: (context, state) => '/student/profile',
         ),
         GoRoute(
           path: '/student/profile',

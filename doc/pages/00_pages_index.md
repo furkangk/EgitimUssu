@@ -3,7 +3,7 @@
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-07-21 (Task 3)
+> **Son güncelleme:** 2026-07-21 (Task 6)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -33,19 +33,19 @@
 | Çalış (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
 | Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir; Task 3: Çalışmalarım'ın haftalık/ders-konu analizi absorbe edildi — `/student/studies` sayfası silindi, rota `/student-home`'a redirect) |
 | Derslerim (sekme) | `/student/lessons` | [study_student](study_student.md) | 🟢 (eski `/student/calendar` redirect'lenir; 2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
-| Diğer (eski sekme, artık detabbed/dormant, hub) | `/student/more` | [study_student](study_student.md) | 🟢 |
+| ~~Diğer (eski sekme, hub)~~ | `/student/more` | [study_student](study_student.md) | Kaldırıldı (Task 6, 2026-07-21) — sayfa silindi, rota `/student/profile`'a redirect eder |
 | Keşfet (sekme) | `/student/discover` | [study_student](study_student.md) | 🔴 Faz 4 yer tutucu |
-| Profil (sekme) / İstatistik | `/student/profile` | [study_student](study_student.md) | 🟢 |
-| Hedefler (Diğer→push) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (2026-07-08: sekmeden Diğer'e taşındı) |
-| Öğretmenlerim (Diğer→push) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Derslerim'de), ödev/not/mesaj yakında |
+| Profil (sekme) / İstatistik + Ayarlar | `/student/profile` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: Ayarlar menüsü + Çıkış eklendi, AppBar → sayfa içi başlık) |
+| Hedefler (Çalış sekmesi kısayolu) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: erişim yolu Diğer yerine Çalış kısayolları) |
+| Öğretmenlerim (Derslerim → Ders araçları) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Derslerim'de), ödev/not/mesaj yakında |
 | Kronometre | `/study/timer` | [study_student](study_student.md) | 🟢 |
 | Deneme gir | `/study/test` | [study_student](study_student.md) | 🟢 |
 | Hedefler & paylaşım | `/study/goals` | [study_student](study_student.md) | 🟢 |
 | Çalışma geçmişi | `/study/history` | [study_student](study_student.md) | 🟢 |
-| Rozetler | `/study/achievements` | [study_student](study_student.md) | 🟢 |
-| Dersler & Konular (Diğer→push) | `/study/catalog` | [study_student](study_student.md) | 🟢 (2026-07-09: ders/konu kataloğu yönetimi) |
-| Notlarım (Diğer→push) | `/study/notes` | [study_student](study_student.md) | 🟢 (2026-07-09: öğrenci kendi ders notları) |
-| Gelişimim (Diğer→push) | `/student/progress` | — | 🟡 (2026-07-09: M10 konu hâkimiyeti/eksik-güçlü) |
+| Rozetler (Çalış sekmesi kısayolu) | `/study/achievements` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: erişim yolu Diğer yerine Çalış kısayolları) |
+| Dersler & Konular (Derslerim → Ders araçları) | `/study/catalog` | [study_student](study_student.md) | 🟢 (2026-07-09: ders/konu kataloğu yönetimi) |
+| Notlarım (Derslerim → Ders araçları) | `/study/notes` | [study_student](study_student.md) | 🟢 (2026-07-09: öğrenci kendi ders notları) |
+| Gelişimim (Performans sekmesi kısayolu) | `/student/progress` | — | 🟡 (2026-07-09: M10 konu hâkimiyeti/eksik-güçlü; Task 6, 2026-07-21: erişim yolu Diğer yerine Performans) |
 
 ## Lesson Sessions
 | Ekran | Route | md | Veri |

@@ -7,14 +7,17 @@ import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dar
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/student_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Profil / İstatistik ekranı (ogrenci_ux §11) — "Diğer" hub'ından açılır.
-/// İstatistik odaklı: toplam çalışma, toplam test/net, en çok çalışılan ders,
-/// seri gün, rozetler. Tüm değerler mevcut Study API verisinden türetilir.
+/// Profil sekmesi (ogrenci_ux §11) — 5-sekme alt navigasyonun kök ekranı.
+/// İstatistik özeti (toplam çalışma, toplam test/net, en çok çalışılan ders,
+/// seri gün, rozetler) + Ayarlar menüsü (Velim/Gizlilik/Bildirim/Abonelik/
+/// Ayarlar & Güvenlik) + Çıkış yap. Tüm istatistik değerleri mevcut Study
+/// API verisinden türetilir.
 class StudentProfilePage extends StatefulWidget {
   const StudentProfilePage({super.key});
 
@@ -79,12 +82,14 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Profil')),
-      body: _loading
-          ? const LoadingStateView(message: 'Profilin yükleniyor...')
-          : _error != null
-              ? ErrorStateView(message: _error!, onRetry: _load)
-              : _content(),
+      body: SafeArea(
+        bottom: false,
+        child: _loading
+            ? const LoadingStateView(message: 'Profilin yükleniyor...')
+            : _error != null
+                ? ErrorStateView(message: _error!, onRetry: _load)
+                : _content(),
+      ),
       bottomNavigationBar:
           const StudentBottomNav(current: StudentNavTab.profile),
     );
@@ -112,6 +117,11 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: <Widget>[
+          const AppPageHeader(
+            title: 'Profil',
+            subtitle: 'Bilgilerin, ayarların ve istatistiklerin.',
+          ),
+          const SizedBox(height: 16),
           _ProfileHeader(name: name, streakDays: streak.currentStreakDays),
           const SizedBox(height: 20),
           Row(
@@ -191,8 +201,107 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             onTap: () =>
                 context.push('/study/achievements?studentId=$studentId'),
           ),
+          const SizedBox(height: 24),
+          const StudySectionHeader(title: 'Ayarlar'),
+          const SizedBox(height: 12),
+          _ProfileMenuTile(
+            icon: Icons.family_restroom_rounded,
+            color: AppColors.accentBlue,
+            title: 'Velim',
+            subtitle: 'Veli bağlantısı ve paylaşım',
+            onTap: () => context.push('/study/goals?studentId=$studentId'),
+          ),
+          _ProfileMenuTile(
+            icon: Icons.shield_rounded,
+            color: AppColors.accentGreen,
+            title: 'Gizlilik ayarları',
+            subtitle: 'Veli/öğretmen paylaşım izinleri',
+            onTap: () => context.push('/study/goals?studentId=$studentId'),
+          ),
+          _ProfileMenuTile(
+            icon: Icons.notifications_rounded,
+            color: AppColors.accentOrange,
+            title: 'Bildirim ayarları',
+            subtitle: 'Yakında',
+            onTap: null,
+          ),
+          _ProfileMenuTile(
+            icon: Icons.workspace_premium_rounded,
+            color: AppColors.primary,
+            title: 'Abonelik',
+            subtitle: 'Faz 5 — yakında',
+            onTap: null,
+          ),
+          _ProfileMenuTile(
+            icon: Icons.manage_accounts_outlined,
+            color: AppColors.accentTeal,
+            title: 'Ayarlar & Güvenlik',
+            subtitle: 'E-posta, rol ve oturum',
+            onTap: () => context.push('/account-info'),
+          ),
+          const SizedBox(height: 12),
+          _ProfileMenuTile(
+            icon: Icons.logout_rounded,
+            color: AppColors.accentRed,
+            title: 'Çıkış yap',
+            subtitle: 'Oturumu kapat ve giriş ekranına dön',
+            titleColor: AppColors.accentRed,
+            onTap: () => _confirmLogout(context),
+          ),
         ],
       ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (BuildContext sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Çıkış yap',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                      color: AppColors.primary, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 10),
+              Text('Oturumunu kapatmak istediğine emin misin?',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary)),
+              const SizedBox(height: 18),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      child: const Text('Vazgeç'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.accentRed),
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        context.read<AuthCubit>().logout();
+                      },
+                      child: const Text('Çıkış yap'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -332,6 +441,83 @@ class _BadgeSummary extends StatelessWidget {
             const Icon(Icons.chevron_right_rounded,
                 color: AppColors.textSecondary),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Profil ayarlar menüsü satırı; onTap null ise pasif (yakında) görünür.
+class _ProfileMenuTile extends StatelessWidget {
+  const _ProfileMenuTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.titleColor,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final Color? titleColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onTap != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.55,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(title,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: titleColor ?? AppColors.textPrimary)),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                if (enabled)
+                  const Icon(Icons.chevron_right_rounded,
+                      color: AppColors.textSecondary),
+              ],
+            ),
+          ),
         ),
       ),
     );
