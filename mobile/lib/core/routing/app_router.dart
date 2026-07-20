@@ -36,7 +36,6 @@ import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_goa
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_home_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_more_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_profile_page.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_studies_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_teacher_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_tests_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_goals_page.dart';
@@ -86,7 +85,9 @@ class AppRouter {
         final roles = authCubit.state.session?.roles ?? const <String>[];
         final isParent = roles.contains('Parent');
         final isStudent =
-            !isParent && roles.contains('Student') && !roles.contains('Teacher');
+            !isParent &&
+            roles.contains('Student') &&
+            !roles.contains('Teacher');
         final home = isParent
             ? '/parent'
             : isStudent
@@ -133,7 +134,7 @@ class AppRouter {
         // Öğrenci alt navigasyon sekmeleri — 5-sekme IA (study_student.md §Navigasyon).
         GoRoute(
           path: '/student/studies',
-          builder: (context, state) => const StudentStudiesPage(),
+          redirect: (context, state) => '/student-home',
         ),
         GoRoute(
           path: '/student/performance',

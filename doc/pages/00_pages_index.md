@@ -3,7 +3,7 @@
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-07-21
+> **Son güncelleme:** 2026-07-21 (Task 3)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -31,8 +31,7 @@
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
 | Çalış (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
-| Çalışmalarım (eski sekme, artık detabbed/dormant) | `/student/studies` | [study_student](study_student.md) | 🟢 |
-| Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir) |
+| Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir; Task 3: Çalışmalarım'ın haftalık/ders-konu analizi absorbe edildi — `/student/studies` sayfası silindi, rota `/student-home`'a redirect) |
 | Derslerim (sekme) | `/student/lessons` | [study_student](study_student.md) | 🟢 (eski `/student/calendar` redirect'lenir; 2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
 | Diğer (eski sekme, artık detabbed/dormant, hub) | `/student/more` | [study_student](study_student.md) | 🟢 |
 | Keşfet (sekme) | `/student/discover` | [study_student](study_student.md) | 🔴 Faz 4 yer tutucu |

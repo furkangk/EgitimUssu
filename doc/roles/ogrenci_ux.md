@@ -98,22 +98,22 @@ Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
 ⏱️ Çalış   ·   📊 Performans   ·   📚 Derslerim   ·   🔍 Keşfet   ·   👤 Profil
 ```
 
-> **Not (kod gerçeği, 2026-07-21 — Ç-06/Task 1, 5-sekme IA yeniden yapılandırması):** `StudentBottomNav`
+> **Not (kod gerçeği, 2026-07-21 — Ç-06/Task 1 + Task 3, 5-sekme IA yeniden yapılandırması):** `StudentBottomNav`
 > (`StudentNavTab`) **5 sekme** ile uygulandı: **Çalış** (`/student-home`) · **Performans** (`/student/performance`)
 > · **Derslerim** (`/student/lessons`) · **Keşfet** (`/student/discover`, Faz 4 yer tutucu) · **Profil** (`/student/profile`).
-> Eski rotalar geri-uyum için redirect'lenir: `/student/tests`→`/student/performance`, `/student/calendar`→`/student/lessons`.
-> Bu görevde (Task 1) yalnızca nav iskeleti değişti — **Performans** sayfasının içeriği hâlâ eski Testler ekranı
-> (`student_tests_page.dart`), **Derslerim** sayfasının içeriği hâlâ eski Takvim ekranı (`student_calendar_page.dart`);
-> gerçek içerik/isimlendirme dönüşümü sonraki dilimlerde yapılır (spec: `study_student.md`). Eski **Çalışmalarım**
-> (`/student/studies`) ve **Diğer** (`/student/more`) sayfaları artık sekme değildir (`current: StudentNavTab.none`);
-> route'ları henüz silinmedi, Task 3/6'da retire edilecek. **Profil** artık ayrı sekme (`/student/profile`); eski
-> "Diğer hub'ından push" akışı kaldırılıyor.
-> Sekme/hub içerikleri (mevcut kod, henüz yeniden adlandırılmadı):
-> - **Performans** (`/student/performance`) 🟢: şu an **yalnızca eski Testler ekranının içeriğini** gösterir — deneme gir
->   + net trend grafiği + ders bazlı analiz (trend oku) + son denemeler (`listTests`'ten türetilir). Eski **Çalışmalarım**
->   ekranı (`/student/studies`: sayaç + haftalık grafik + derslere göre süre + son çalışmalar + istatistik seri/hafta/toplam
->   gün) artık sekme değildir — **detabbed/dormant** (`current: StudentNavTab.none`), Task 3/6'da retire edilecek; onun
->   analiz içeriğinin Performans'a taşınması **planlanmıştır ama henüz yapılmamıştır** — bugün Performans'ta görünmez.
+> Eski rotalar geri-uyum için redirect'lenir: `/student/tests`→`/student/performance`, `/student/calendar`→`/student/lessons`,
+> `/student/studies`→`/student-home` (Task 3, sayfa silindi). **Derslerim** sayfasının içeriği hâlâ eski Takvim ekranı
+> (`student_calendar_page.dart`); gerçek içerik/isimlendirme dönüşümü sonraki dilimlerde yapılır (spec: `study_student.md`).
+> Eski **Diğer** (`/student/more`) sayfası artık sekme değildir (`current: StudentNavTab.none`); rotası henüz silinmedi,
+> Task 6'da retire edilecek. **Profil** artık ayrı sekme (`/student/profile`); eski "Diğer hub'ından push" akışı kaldırılıyor.
+> Sekme/hub içerikleri (mevcut kod):
+> - **Performans** (`/student/performance`) 🟢: Task 3'te genişledi — eski Testler içeriğine (deneme gir + net trend
+>   grafiği + ders bazlı analiz (trend oku) + son denemeler, `listTests`'ten türetilir) ek olarak eski **Çalışmalarım**
+>   ekranının (`/student/studies`, artık silindi) analiz bloklarını **absorbe etti**: **Haftalık analiz** (günlük çubuk
+>   grafik, `getWeeklySummary`) + **Ders → konu kırılımı** (tüm zamanlar, açılır ders→konu, `listSessions`'tan
+>   istemci tarafında hesaplanır) + **Analiz & Gelişim** girişleri (Detaylı analiz → `/study/history`, Gelişimim →
+>   `/student/progress`). Çalışmalarım'ın sayaç/başlat/istatistik (seri/hafta/toplam gün) kısmı Task 2'de zaten
+>   `/student-home`'a taşınmıştı; bu görevde kalan analiz widget'ları da taşındı ve kaynak sayfa silindi.
 > - **Derslerim** (eski Takvim) 🟢: öğrencinin birleşik ders programı — öğretmenin planladığı dersler (salt-okunur, "Öğretmen"
 >   rozeti, öncelikli) + öğrencinin kendi oluşturduğu dersler (renkli, düzenle/sil). Ay takvimi (`SfCalendar`) → seçili gün
 >   listesi. "Ders ekle" ile tek/tekrarlı (günlük/haftalık/aylık) kişisel ders eklenir; öğretmen dersinin saatine kendi dersi
@@ -211,9 +211,14 @@ Gösterilecekler:
 
 ---
 
-## 7. Çalışmalarım
+## 7. Çalışmalarım (kaldırıldı — Task 3, 2026-07-21)
 
-Gösterilecek bilgiler:
+Bu, ayrı bir sekme olarak tasarlanmıştı; kod gerçeğinde `/student/studies` (`student_studies_page.dart`) idi.
+Sayaç/başlat/istatistik (seri/hafta/toplam gün) kısmı Task 2'de `/student-home`'a taşınmıştı; kalan analiz
+içeriği (haftalık grafik + ders bazlı dağılım) Task 3'te **Performans** sekmesine taşındı ve kaynak sayfa
+silindi (`/student/studies` artık `/student-home`'a redirect'lenir). Bkz. §8 ve §4 notu.
+
+Gösterilecek bilgiler (artık Performans'ta):
 
 - Günlük çalışma
 - Haftalık çalışma
@@ -224,9 +229,11 @@ Grafikler: **Pie Chart · Bar Chart · Timeline**
 
 ---
 
-## 8. Testler
+## 8. Testler (artık Performans sekmesi — Task 3, 2026-07-21)
 
-Test *eklemek* yerine **analiz** ekranı oluşturulacaktır.
+Test *eklemek* yerine **analiz** ekranı oluşturulacaktır. Kod gerçeğinde bu ekran `/student/performance`
+(`student_tests_page.dart`) — Task 3'te §7'deki Çalışmalarım analiz bloklarını (haftalık çubuk grafik +
+ders→konu kırılımı) absorbe etti + "Analiz & Gelişim" girişleri (Detaylı analiz, Gelişimim) eklendi. Bkz. §4 notu.
 
 Kart:
 
