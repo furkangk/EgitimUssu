@@ -131,7 +131,7 @@ class _StudentMorePageState extends State<StudentMorePage> {
                 ? ErrorStateView(message: _error!, onRetry: _load)
                 : _content(),
       ),
-      bottomNavigationBar: const StudentBottomNav(current: StudentNavTab.more),
+      bottomNavigationBar: const StudentBottomNav(current: StudentNavTab.none),
     );
   }
 

@@ -85,7 +85,7 @@ class _StudentStudiesPageState extends State<StudentStudiesPage> {
                 ? ErrorStateView(message: _error!, onRetry: _load)
                 : _content(),
       ),
-      bottomNavigationBar: const StudentBottomNav(current: StudentNavTab.studies),
+      bottomNavigationBar: const StudentBottomNav(current: StudentNavTab.none),
     );
   }
 

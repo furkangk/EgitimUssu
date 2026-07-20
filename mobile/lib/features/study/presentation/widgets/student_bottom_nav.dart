@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 /// Öğrenci paneline özgü alt navigasyon. Öğretmen [AppBottomNav] ve veli
-/// ParentBottomNav'ından ayrıdır; öğrenci sekmeleri farklıdır
-/// (Ana Sayfa · Çalışmalarım · Testler · Takvim · Diğer) —
-/// bkz. `doc/roles/ogrenci_ux.md` §4. "Öğretmenim" ve "Hedefler", Diğer hub'ının içindedir.
+/// ParentBottomNav'ından ayrıdır; öğrenci sekmeleri 5-sekme IA'ya göredir
+/// (⏱️ Çalış · 📊 Performans · 📚 Derslerim · 🔍 Keşfet · 👤 Profil) —
+/// bkz. `doc/roles/ogrenci_ux.md` §4 ve `doc/pages/study_student.md`.
 enum StudentNavTab {
-  home(Icons.home_rounded, 'Ana Sayfa', '/student-home'),
-  studies(Icons.menu_book_rounded, 'Çalışmalarım', '/student/studies'),
-  tests(Icons.insights_rounded, 'Testler', '/student/tests'),
-  calendar(Icons.calendar_month_rounded, 'Takvim', '/student/calendar'),
-  more(Icons.grid_view_rounded, 'Diğer', '/student/more'),
+  work(Icons.play_circle_fill_rounded, 'Çalış', '/student-home'),
+  performance(Icons.insights_rounded, 'Performans', '/student/performance'),
+  lessons(Icons.menu_book_rounded, 'Derslerim', '/student/lessons'),
+  discover(Icons.travel_explore_rounded, 'Keşfet', '/student/discover'),
+  profile(Icons.person_rounded, 'Profil', '/student/profile'),
   none(Icons.circle, '', '');
 
   const StudentNavTab(this.icon, this.label, this.route);
@@ -27,11 +27,11 @@ class StudentBottomNav extends StatelessWidget {
   final StudentNavTab current;
 
   static const List<StudentNavTab> _tabs = <StudentNavTab>[
-    StudentNavTab.home,
-    StudentNavTab.studies,
-    StudentNavTab.tests,
-    StudentNavTab.calendar,
-    StudentNavTab.more,
+    StudentNavTab.work,
+    StudentNavTab.performance,
+    StudentNavTab.lessons,
+    StudentNavTab.discover,
+    StudentNavTab.profile,
   ];
 
   @override

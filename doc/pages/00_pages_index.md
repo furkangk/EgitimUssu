@@ -3,7 +3,7 @@
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-07-04
+> **Son güncelleme:** 2026-07-21
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -35,6 +35,7 @@
 | Testler (sekme) | `/student/tests` | [study_student](study_student.md) | 🟢 |
 | Takvim (sekme) | `/student/calendar` | [study_student](study_student.md) | 🟢 (2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
 | Diğer (sekme, hub) | `/student/more` | [study_student](study_student.md) | 🟢 |
+| Keşfet (sekme) | `/student/discover` | [study_student](study_student.md) | 🔴 Faz 4 yer tutucu |
 | Profil / İstatistik | `/student/profile` | [study_student](study_student.md) | 🟢 |
 | Hedefler (Diğer→push) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (2026-07-08: sekmeden Diğer'e taşındı) |
 | Öğretmenlerim (Diğer→push) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Takvim'de), ödev/not/mesaj yakında |

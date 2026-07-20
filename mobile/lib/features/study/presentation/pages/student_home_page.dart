@@ -231,7 +231,7 @@ class _StudentHomeView extends StatelessWidget {
           },
         ),
       ),
-      bottomNavigationBar: const StudentBottomNav(current: StudentNavTab.home),
+      bottomNavigationBar: const StudentBottomNav(current: StudentNavTab.work),
     );
   }
 }

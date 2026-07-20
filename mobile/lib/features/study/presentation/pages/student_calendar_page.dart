@@ -251,7 +251,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
               label: const Text('Ders ekle'),
             ),
       bottomNavigationBar: const StudentBottomNav(
-        current: StudentNavTab.calendar,
+        current: StudentNavTab.lessons,
       ),
     );
   }

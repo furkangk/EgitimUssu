@@ -7,7 +7,7 @@
 > teknik detay → [`ogrenci.md`](ogrenci.md), ekran envanteri → [`../pages/00_pages_index.md`](../pages/00_pages_index.md).
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`../architecture/design_system.md`](../architecture/design_system.md) · [`../architecture/ux_rules.md`](../architecture/ux_rules.md)
-> **Güncelleme:** 2026-07-07
+> **Güncelleme:** 2026-07-21
 
 ---
 
@@ -95,28 +95,37 @@ Geçmiş bilgiler hiçbir zaman ilk odakta olmamalıdır.
 Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
 
 ```
-Ana Sayfa   ·   Çalışmalarım   ·   Testler   ·   Takvim   ·   Diğer
+⏱️ Çalış   ·   📊 Performans   ·   📚 Derslerim   ·   🔍 Keşfet   ·   👤 Profil
 ```
 
-> **Not (kod gerçeği, 2026-07-08):** `StudentBottomNav` **5 sekme** ile uygulandı: **Ana Sayfa** (`/student-home`) ·
-> **Çalışmalarım** (`/student/studies`) · **Testler** (`/student/tests`) · **Takvim** (`/student/calendar`) ·
-> **Diğer** (`/student/more`). Max-5 kuralı gereği **Öğretmenlerim** ve **Hedefler** ayrı sekme değil, **Diğer hub'ının** içindedir
-> (2026-07-08'de "Hedefler" sekmesi Diğer'e taşındı, yerine "Takvim" geldi).
-> Sekme/hub içerikleri:
-> - **Çalışmalarım** 🟢: sayaç + haftalık grafik + derslere göre süre + son çalışmalar + istatistik (streak/hafta/toplam gün).
-> - **Testler** 🟢: deneme gir + net trend grafiği + ders bazlı analiz (trend oku) + son denemeler (`listTests`'ten türetilir).
-> - **Takvim** 🟢 (2026-07-08): öğrencinin birleşik ders programı — öğretmenin planladığı dersler (salt-okunur, "Öğretmen" rozeti, öncelikli)
->   + öğrencinin kendi oluşturduğu dersler (renkli, düzenle/sil). Ay takvimi (`SfCalendar`) → seçili gün listesi. "Ders ekle" ile tek/tekrarlı
->   (günlük/haftalık/aylık) kişisel ders eklenir; öğretmen dersinin saatine kendi dersi eklenemez (çakışma reddi). Bkz. m04 §2.3.
-> - **Diğer** (`student_more_page.dart`) 🟢: hub — Profil/İstatistik (`/student/profile`, ux §11), Rozetler (`/study/achievements`),
->   **Öğretmenlerim** (`/student/teacher`, push), **Hedefler** (`/student/goals-overview`, push), Hedef & paylaşım (`/study/goals`),
->   Hesap bilgileri (`/account-info`), Çıkış.
+> **Not (kod gerçeği, 2026-07-21 — Ç-06/Task 1, 5-sekme IA yeniden yapılandırması):** `StudentBottomNav`
+> (`StudentNavTab`) **5 sekme** ile uygulandı: **Çalış** (`/student-home`) · **Performans** (`/student/performance`)
+> · **Derslerim** (`/student/lessons`) · **Keşfet** (`/student/discover`, Faz 4 yer tutucu) · **Profil** (`/student/profile`).
+> Eski rotalar geri-uyum için redirect'lenir: `/student/tests`→`/student/performance`, `/student/calendar`→`/student/lessons`.
+> Bu görevde (Task 1) yalnızca nav iskeleti değişti — **Performans** sayfasının içeriği hâlâ eski Testler ekranı
+> (`student_tests_page.dart`), **Derslerim** sayfasının içeriği hâlâ eski Takvim ekranı (`student_calendar_page.dart`);
+> gerçek içerik/isimlendirme dönüşümü sonraki dilimlerde yapılır (spec: `study_student.md`). Eski **Çalışmalarım**
+> (`/student/studies`) ve **Diğer** (`/student/more`) sayfaları artık sekme değildir (`current: StudentNavTab.none`);
+> route'ları henüz silinmedi, Task 3/6'da retire edilecek. **Profil** artık ayrı sekme (`/student/profile`); eski
+> "Diğer hub'ından push" akışı kaldırılıyor.
+> Sekme/hub içerikleri (mevcut kod, henüz yeniden adlandırılmadı):
+> - **Performans** (eski Çalışmalarım+Testler içeriği, ayrı ekranlar) 🟢: Çalışmalarım — sayaç + haftalık grafik + derslere göre
+>   süre + son çalışmalar + istatistik (streak/hafta/toplam gün); Testler — deneme gir + net trend grafiği + ders bazlı analiz
+>   (trend oku) + son denemeler (`listTests`'ten türetilir).
+> - **Derslerim** (eski Takvim) 🟢: öğrencinin birleşik ders programı — öğretmenin planladığı dersler (salt-okunur, "Öğretmen"
+>   rozeti, öncelikli) + öğrencinin kendi oluşturduğu dersler (renkli, düzenle/sil). Ay takvimi (`SfCalendar`) → seçili gün
+>   listesi. "Ders ekle" ile tek/tekrarlı (günlük/haftalık/aylık) kişisel ders eklenir; öğretmen dersinin saatine kendi dersi
+>   eklenemez (çakışma reddi). Bkz. m04 §2.3.
+> - **Keşfet** 🔴 Faz 4 yer tutucu: işlevsel arama yok, "yakında" mesajı (`student_discover_page.dart`).
+> - **Diğer** (`student_more_page.dart`, artık sekme değil, geçici olarak erişilebilir) 🟢: hub — Rozetler
+>   (`/study/achievements`), **Öğretmenlerim** (`/student/teacher`, push), **Hedefler** (`/student/goals-overview`, push),
+>   Hedef & paylaşım (`/study/goals`), Hesap bilgileri (`/account-info`), Çıkış.
 > - **Öğretmenlerim** (Diğer'den açılır) 🟡: **yalnızca bağlı öğretmen(ler)i** gösterir. **Öğretmen(ler)im 🟢** gerçek — bağlı öğretmen(ler)
 >   güvenli öğrenci-kapsamlı derslerin (`GET /scheduling/students/{id}/lessons`, sahiplik `IStudentDirectory` ile doğrulanır, IDOR koruması)
 >   `teacherUserId` kümesinden türetilir, profilleri `GET /api/teachers/profiles/{userId}` ile getirilip bilgi kartı olarak gösterilir
->   (avatar hero + ad/doğrulama + branş/konum/format meta + deneyim/eğitim/ücret istatistik bloğu + "Hakkında"; öğrenci ekranlarıyla tutarlı, birden fazla öğretmen desteklenir). Dersler bu ekranda listelenmez (Takvim'de).
+>   (avatar hero + ad/doğrulama + branş/konum/format meta + deneyim/eğitim/ücret istatistik bloğu + "Hakkında"; öğrenci ekranlarıyla tutarlı, birden fazla öğretmen desteklenir). Dersler bu ekranda listelenmez (Derslerim'de).
 >   Ödevler/Ders Notları/Mesajlar hâlâ "yakında" (backend yok). (§10: yalnızca öğretmen bağlıysa gösterme — hiç öğretmen yoksa boş durum gösterilir.)
-> - **Profil/İstatistik** (Diğer'den açılır) 🟢: toplam çalışma/gün/rekor + toplam deneme/net + en çok çalışılan ders + rozet özeti.
+> - **Profil/İstatistik** (artık ayrı sekme, `/student/profile`) 🟢: toplam çalışma/gün/rekor + toplam deneme/net + en çok çalışılan ders + rozet özeti.
 
 ---
 
@@ -375,4 +384,4 @@ AI yeni ekran tasarlarken aşağıdaki kurallara uymalıdır:
 
 ---
 
-*Öğrenci Deneyimi (Student UX) — Vizyon & Tasarım Hedefi | Güncelleme: 2026-07-09*
+*Öğrenci Deneyimi (Student UX) — Vizyon & Tasarım Hedefi | Güncelleme: 2026-07-21*

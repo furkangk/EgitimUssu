@@ -5,6 +5,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/widgets/student_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -84,6 +85,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           : _error != null
               ? ErrorStateView(message: _error!, onRetry: _load)
               : _content(),
+      bottomNavigationBar:
+          const StudentBottomNav(current: StudentNavTab.profile),
     );
   }
 
