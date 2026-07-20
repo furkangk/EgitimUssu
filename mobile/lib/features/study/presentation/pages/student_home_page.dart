@@ -1,6 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
-import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
@@ -13,6 +14,69 @@ import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
+// ── Premium ortak stil yardımcıları ────────────────────────────────────────
+// Kart yüzeyi düz beyaz yerine hafif dikey cam gradyanı + katmanlı gölge
+// (yakın "key" + geniş "ambient") ile derinlik kazanır; ikonlar dolu gradient
+// madalyonlar olarak renkli ışıma gölgesiyle çizilir. Tümü token tabanlıdır.
+
+/// Premium kart dekorasyonu — cam gradyanlı beyaz yüzey + iki katmanlı yumuşak gölge.
+BoxDecoration _softCard({double radius = 22}) => BoxDecoration(
+      gradient: const LinearGradient(
+        colors: <Color>[Colors.white, Color(0xFFF8FAFE)],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: const Color(0xFFEDF1F7)),
+      boxShadow: const <BoxShadow>[
+        BoxShadow(color: Color(0x0D101828), blurRadius: 2, offset: Offset(0, 1)),
+        BoxShadow(color: Color(0x14082B4F), blurRadius: 24, offset: Offset(0, 14)),
+      ],
+    );
+
+/// Dolu gradient ikon madalyonu — renk tonundan koyuya degrade + renkli ışıma
+/// gölgesi. Soluk tonlu düz kutulara göre çok daha premium okunur.
+class _IconChip extends StatelessWidget {
+  const _IconChip({
+    required this.icon,
+    required this.color,
+    this.size = 46,
+    this.iconSize = 22,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            color,
+            Color.lerp(color, const Color(0xFF000000), 0.20) ?? color,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(size * 0.31),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Icon(icon, color: Colors.white, size: iconSize),
+    );
+  }
+}
 
 class StudentHomePage extends StatelessWidget {
   const StudentHomePage({super.key});
@@ -87,37 +151,22 @@ class _StudentHomeView extends StatelessWidget {
               color: AppColors.primary,
               onRefresh: () async => _reload(context),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
                 children: <Widget>[
                   // 1) Karşılama — pozitif, güne özel motivasyon (ux §5)
                   AppPageHeader(
                     title: greeting,
                     subtitle: _motivationSubtitle(d),
                   ),
-                  const SizedBox(height: 20),
-                  // 2+3) Bugünkü çalışma + streak — yan yana eşit özet kartları
-                  // (ux §3 bilgi hiyerarşisi + §5/§12 motivasyon).
-                  SizedBox(
-                    height: 156,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        Expanded(
-                          child: _TodayGoalCard(
-                            todayMinutes: d.todayEffectiveMinutes,
-                            goalMinutes: d.todayGoalMinutes,
-                            met: d.todayGoalMet,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StreakBanner(
-                            currentStreakDays: d.currentStreakDays,
-                            studiedToday: d.todayEffectiveMinutes > 0,
-                          ),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 18),
+                  // 2+3) Premium hero: bugünkü hedef halkası + günlük seri rozeti
+                  // tek şık gradient blokta (ux §3 hiyerarşi + §5/§12 motivasyon).
+                  _HeroSummary(
+                    todayMinutes: d.todayEffectiveMinutes,
+                    goalMinutes: d.todayGoalMinutes,
+                    met: d.todayGoalMet,
+                    currentStreakDays: d.currentStreakDays,
+                    studiedToday: d.todayEffectiveMinutes > 0,
                   ),
                   const SizedBox(height: 24),
                   // Ç-06) Bugünün planı — bugünkü occurrence'lar; dokununca sayaç derse bağlı başlar.
@@ -187,6 +236,40 @@ class _StudentHomeView extends StatelessWidget {
   }
 }
 
+/// Basılıyken hafifçe küçülen (scale 0.97) dokunma geri bildirimi — premium
+/// his için birincil CTA, plan satırları ve hızlı işlem kutularında kullanılır
+/// (`animations.md` §4 mikro-etkileşim standardı).
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, required this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = widget.onTap != null;
+    return GestureDetector(
+      onTapDown: enabled ? (_) => setState(() => _down = true) : null,
+      onTapUp: enabled ? (_) => setState(() => _down = false) : null,
+      onTapCancel: enabled ? () => setState(() => _down = false) : null,
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 
@@ -194,107 +277,324 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.w800,
-      ),
+    return Row(
+      children: <Widget>[
+        // İnce vurgu çubuğu — bölüm başlıklarına premium ritim katar.
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: <Color>[AppColors.primary, AppColors.secondary],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ],
     );
   }
 }
 
-class _TodayGoalCard extends StatelessWidget {
-  const _TodayGoalCard({
+/// Ana sayfanın premium açılış bloğu: sol tarafta bugünkü hedefi gösteren dairesel
+/// ilerleme halkası (ortada bugünkü süre), sağda başlık/ipucu ve buzlu cam seri
+/// rozeti. Arka planda yumuşak ışıma daireleriyle derinlik kazanır. İki ayrı düz
+/// kartın yerini alır; veri ve davranış aynıdır.
+class _HeroSummary extends StatelessWidget {
+  const _HeroSummary({
     required this.todayMinutes,
     required this.goalMinutes,
     required this.met,
+    required this.currentStreakDays,
+    required this.studiedToday,
   });
 
   final int todayMinutes;
   final int goalMinutes;
   final bool met;
+  final int currentStreakDays;
+  final bool studiedToday;
 
   @override
   Widget build(BuildContext context) {
-    final hasGoal = goalMinutes > 0;
-    final progress =
+    final bool hasGoal = goalMinutes > 0;
+    final double progress =
         hasGoal ? (todayMinutes / goalMinutes).clamp(0.0, 1.0) : 0.0;
-    final percent = (progress * 100).round();
+    final int percent = (progress * 100).round();
     final String hint;
     if (!hasGoal) {
-      hint = 'Hedef belirle';
+      hint = 'Günlük hedef belirle';
     } else if (met) {
-      hint = 'Hedef tamam 🎉';
+      hint = 'Günlük hedef tamam 🎉';
     } else {
-      hint = '%$percent · Hedef ${StudyFormat.minutes(goalMinutes)}';
+      hint = '%$percent tamam · Hedef ${StudyFormat.minutes(goalMinutes)}';
     }
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: <Color>[AppColors.primary, Color(0xFF0E4A86), AppColors.secondary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x3D082B4F),
+              blurRadius: 30,
+              offset: Offset(0, 16),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppShadows.soft,
+        child: Stack(
+          children: <Widget>[
+            // Dekoratif ışıma daireleri — cam/derinlik hissi.
+            Positioned(
+              top: -34,
+              right: -18,
+              child: _glowCircle(130, 0.10),
+            ),
+            Positioned(
+              bottom: -46,
+              right: 60,
+              child: _glowCircle(96, 0.06),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: <Widget>[
+                  _ProgressRing(
+                    progress: progress,
+                    centerValue: StudyFormat.minutes(todayMinutes),
+                    centerLabel: 'bugün',
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Text(
+                          'Bugünkü çalışma',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          hint,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.5,
+                            height: 1.25,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _StreakPill(
+                          currentStreakDays: currentStreakDays,
+                          studiedToday: studiedToday,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  static Widget _glowCircle(double size, double alpha) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: alpha),
+        ),
+      );
+}
+
+/// Hero içindeki buzlu cam seri rozeti — 🔥 ikon + gün sayısı + kısa durum.
+class _StreakPill extends StatelessWidget {
+  const _StreakPill({
+    required this.currentStreakDays,
+    required this.studiedToday,
+  });
+
+  final int currentStreakDays;
+  final bool studiedToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool hasStreak = currentStreakDays > 0;
+    final String text = hasStreak
+        ? '$currentStreakDays gün seri · '
+            '${studiedToday ? 'bugün de tamam' : 'bugün çalış, bozma'}'
+        : 'Seriye bugün başla';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.track_changes_rounded,
-                    color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Bugünkü çalışma',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.5,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            StudyFormat.minutes(todayMinutes),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 2),
-          Text(hint,
+          const Icon(Icons.local_fire_department_rounded,
+              color: AppColors.amber, size: 18),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 7,
-              backgroundColor: Colors.white24,
-              valueColor: const AlwaysStoppedAnimation(Colors.white),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+/// Bugünkü hedef ilerlemesini gösteren dairesel halka; ortasında bugünkü süre.
+class _ProgressRing extends StatelessWidget {
+  const _ProgressRing({
+    required this.progress,
+    required this.centerValue,
+    required this.centerLabel,
+  });
+
+  final double progress;
+  final String centerValue;
+  final String centerLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          // Halka merkezinde yumuşak iç ışıma — metrik parlıyormuş hissi.
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          CustomPaint(
+            size: const Size(96, 96),
+            painter: _RingPainter(
+              progress: progress,
+              track: Colors.white.withValues(alpha: 0.20),
+              fill: Colors.white,
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    centerValue,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                centerLabel,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.progress,
+    required this.track,
+    required this.fill,
+  });
+
+  final double progress;
+  final Color track;
+  final Color fill;
+  static const double stroke = 9;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = size.center(Offset.zero);
+    final double radius = (math.min(size.width, size.height) - stroke) / 2;
+    final Paint trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    final Paint fillPaint = Paint()
+      ..color = fill
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, trackPaint);
+    final double sweep = 2 * math.pi * progress.clamp(0.0, 1.0);
+    if (sweep > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        sweep,
+        false,
+        fillPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.fill != fill ||
+      oldDelegate.track != track;
 }
 
 /// Öğrencinin bir sonraki dersini gösterir. Güvenli öğrenci-kapsamlı endpoint'ten
@@ -348,26 +648,14 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.skyBorder),
-            boxShadow: AppShadows.soft,
-          ),
+          decoration: _softCard(),
           child: Row(
             children: <Widget>[
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                    isOnline
-                        ? Icons.videocam_rounded
-                        : Icons.location_on_rounded,
-                    color: AppColors.primary),
+              _IconChip(
+                icon: isOnline
+                    ? Icons.videocam_rounded
+                    : Icons.location_on_rounded,
+                color: AppColors.primary,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -380,12 +668,15 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary)),
+                    const SizedBox(height: 2),
                     Text(StudyFormat.date(lesson.startAtUtc),
                         style: const TextStyle(
                             color: AppColors.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted),
             ],
           ),
         ),
@@ -454,22 +745,42 @@ class _TodayPlanCardState extends State<_TodayPlanCard> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded || _today.isEmpty) return const SizedBox.shrink();
+    final int doneCount = _today.where((o) => o.completed).length;
     return Column(
       children: <Widget>[
-        const _SectionHeader(title: 'Bugünün planı'),
+        Row(
+          children: <Widget>[
+            const _SectionHeader(title: 'Bugünün planı'),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$doneCount/${_today.length}',
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.border),
-            boxShadow: AppShadows.soft,
-          ),
+          decoration: _softCard(),
           child: Column(
             children: <Widget>[
               for (var i = 0; i < _today.length; i++) ...<Widget>[
                 if (i > 0)
-                  const Divider(height: 1, color: AppColors.divider),
+                  const Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: Color(0xFFEDF1F7)),
                 _TodayPlanRow(
                   occ: _today[i],
                   onTap: () => _startFromPlan(_today[i]),
@@ -498,19 +809,31 @@ class _TodayPlanRow extends StatelessWidget {
     final DateTime local = occ.startAtUtc.toLocal();
     final String hhmm =
         '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-    return InkWell(
-      onTap: occ.completed ? null : onTap,
-      borderRadius: BorderRadius.circular(18),
+    final bool done = occ.completed;
+    return _Pressable(
+      onTap: done ? null : onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: <Widget>[
-            Text(
-              hhmm,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: AppColors.textSecondary,
-                fontSize: 12,
+            // Saat çipi — okunabilir, premium küçük kapsül.
+            Container(
+              width: 54,
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              decoration: BoxDecoration(
+                color: done
+                    ? AppColors.successSurface
+                    : AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                hhmm,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: done ? AppColors.accentGreen : AppColors.primary,
+                  fontSize: 12.5,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -519,106 +842,41 @@ class _TodayPlanRow extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color:
+                      done ? AppColors.textMuted : AppColors.textPrimary,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            if (occ.completed)
+            if (done)
               const Icon(Icons.check_circle_rounded,
-                  color: AppColors.accentGreen, size: 22)
+                  color: AppColors.accentGreen, size: 26)
             else
-              const Icon(Icons.play_circle_fill_rounded,
-                  color: AppColors.primary, size: 26),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StreakBanner extends StatelessWidget {
-  const _StreakBanner({
-    required this.currentStreakDays,
-    required this.studiedToday,
-  });
-
-  final int currentStreakDays;
-  final bool studiedToday;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasStreak = currentStreakDays > 0;
-    final subtitle = hasStreak
-        ? (studiedToday ? 'Bugün de tamam!' : 'Bugün çalış, bozma')
-        : 'İlk günü yakala';
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            AppColors.amber.withValues(alpha: 0.18),
-            AppColors.accentOrange.withValues(alpha: 0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border:
-            Border.all(color: AppColors.accentOrange.withValues(alpha: 0.20)),
-        boxShadow: AppShadows.soft,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.accentOrange, AppColors.amber],
+                    colors: <Color>[AppColors.primary, AppColors.secondary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  shape: BoxShape.circle,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.32),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.local_fire_department_rounded,
-                    color: Colors.white, size: 20),
+                child: const Icon(Icons.play_arrow_rounded,
+                    color: Colors.white, size: 22),
               ),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Günlük seri',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 12.5,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            hasStreak ? '$currentStreakDays gün' : '0 gün',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                color: AppColors.accentOrange,
-                fontSize: 24,
-                fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 2),
-          Text(subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 11.5)),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -640,35 +898,33 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.skyBorder),
-        boxShadow: AppShadows.soft,
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+      decoration: _softCard(),
+      child: Row(
+        children: <Widget>[
+          _IconChip(icon: icon, color: color, size: 44, iconSize: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        fontSize: 16)),
+                const SizedBox(height: 2),
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11.5)),
+              ],
             ),
-            child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(height: 8),
-          Text(value,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  fontSize: 15)),
-          const SizedBox(height: 2),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 11)),
         ],
       ),
     );
@@ -726,9 +982,9 @@ class _ActionGrid extends StatelessWidget {
   }
 }
 
-/// Hızlı işlemler bölümünün birincil CTA'sı: tam genişlik, dolu primary zemin.
-/// "Kaldığın yerden devam et" kartıyla ikiz görünmemesi için ayrı ikon (timer)
-/// ve metin kullanır.
+/// Hızlı işlemler bölümünün birincil CTA'sı: tam genişlik, gradient primary zemin,
+/// hafif ışıltılı gölge. "Kaldığın yerden devam et" kartıyla ikiz görünmemesi için
+/// ayrı ikon (timer) ve metin kullanır.
 class _PrimaryActionCard extends StatelessWidget {
   const _PrimaryActionCard({
     required this.icon,
@@ -744,49 +1000,84 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(22),
+    return _Pressable(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: AppShadows.soft,
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(icon, color: Colors.white, size: 26),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: <Color>[AppColors.primary, Color(0xFF0E4A86), AppColors.secondary],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.34),
+                blurRadius: 22,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: <Widget>[
+              Positioned(
+                top: -30,
+                right: -10,
+                child: _HeroSummary._glowCircle(90, 0.10),
+              ),
+              Row(
                 children: <Widget>[
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18)),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 26),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          label,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.chevron_right_rounded,
+                        color: Colors.white, size: 22),
                   ),
                 ],
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.white),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -794,7 +1085,7 @@ class _PrimaryActionCard extends StatelessWidget {
 }
 
 /// Öğretmen panosundaki hızlı işlem kartlarıyla aynı düzen: yatay satır,
-/// solda yumuşak ikon, yanında etiket (2 sütunlu Wrap).
+/// solda gradient ikon madalyonu, yanında etiket (2 sütunlu Wrap).
 class _ActionTile extends StatelessWidget {
   const _ActionTile({required this.action, required this.onTap});
 
@@ -803,32 +1094,20 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(22),
+    return _Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppColors.skyBorder),
-          boxShadow: AppShadows.soft,
-        ),
+        decoration: _softCard(radius: 20),
         child: Row(
           children: <Widget>[
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: action.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(action.icon, color: action.color, size: 22),
-            ),
+            _IconChip(icon: action.icon, color: action.color, size: 44),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 action.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -861,41 +1140,41 @@ class _LastTestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.skyBorder),
-        boxShadow: AppShadows.soft,
-      ),
+      decoration: _softCard(),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.quiz_rounded, color: AppColors.primary),
-          ),
+          _IconChip(icon: Icons.quiz_rounded, color: AppColors.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(testName ?? subject,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
                 Text(subject,
                     style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 12)),
               ],
             ),
           ),
-          Text('${StudyFormat.net(net)} net',
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, color: AppColors.primary)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text('${StudyFormat.net(net)} net',
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    fontSize: 13)),
+          ),
         ],
       ),
     );
@@ -913,25 +1192,28 @@ class _SessionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.skyBorder),
-        boxShadow: AppShadows.soft,
-      ),
+      padding: const EdgeInsets.all(12),
+      decoration: _softCard(radius: 16),
       child: Row(
         children: [
-          const Icon(Icons.menu_book_rounded,
-              color: AppColors.textSecondary, size: 20),
-          const SizedBox(width: 10),
+          _IconChip(
+              icon: Icons.menu_book_rounded,
+              color: AppColors.accentTeal,
+              size: 38,
+              iconSize: 19),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(topic == null ? subject : '$subject · $topic',
-                style: const TextStyle(color: AppColors.textPrimary)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600)),
           ),
+          const SizedBox(width: 8),
           Text(StudyFormat.minutes(minutes),
               style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                  fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
         ],
       ),
     );
