@@ -12,12 +12,14 @@ import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 
-/// "Takvim" sekmesi — öğrencinin birleşik ders programı (ogrenci_ux §9a).
+/// "Derslerim" sekmesi — öğrencinin birleşik ders programı (ogrenci_ux §9a).
 /// Öğretmen takvim ekranıyla **aynı** takvim: `SfCalendar` (Aylık/Haftalık/Günlük geçişi +
 /// tarih gezinme çubuğu) + altında seçili günün listesi. Öğretmenin planladığı dersler
-/// salt-okunur/öncelikli; öğrenci kendi dersini ekler/düzenler/siler.
+/// salt-okunur/öncelikli; öğrenci kendi dersini ekler/düzenler/siler. Liste sonunda
+/// "Ders araçları" bölümü (Task 4): ilgili ekranlara kısayol kartları.
 class StudentCalendarPage extends StatefulWidget {
   const StudentCalendarPage({super.key});
 
@@ -266,8 +268,8 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
         children: <Widget>[
           const AppPageHeader(
-            title: 'Takvim',
-            subtitle: 'Ders programın tek yerde.',
+            title: 'Derslerim',
+            subtitle: 'Program, kendi derslerin ve ders araçların.',
           ),
           const SizedBox(height: 12),
           _ViewSwitcher(
@@ -344,6 +346,50 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             items: dayItems,
             onEdit: _editEntry,
             onDelete: _deleteEntry,
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Ders araçları',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _LessonToolTile(
+            icon: Icons.menu_book_rounded,
+            color: AppColors.accentTeal,
+            title: 'Dersler & Konular',
+            subtitle: 'Çalıştığın ders ve konuları yönet',
+            onTap: () {
+              final id = _studentId ?? '';
+              if (id.isNotEmpty) context.push('/study/catalog?studentId=$id');
+            },
+          ),
+          _LessonToolTile(
+            icon: Icons.assignment_turned_in_rounded,
+            color: AppColors.accentBlue,
+            title: 'Ödevlerim',
+            subtitle: 'Öğretmen ödevlerini yükle ve tamamla',
+            onTap: () => context.push('/student/assignments'),
+          ),
+          _LessonToolTile(
+            icon: Icons.school_rounded,
+            color: AppColors.primary,
+            title: 'Öğretmenlerim',
+            subtitle: 'Bağlı öğretmenlerin ve bilgileri',
+            onTap: () => context.push('/student/teacher'),
+          ),
+          _LessonToolTile(
+            icon: Icons.sticky_note_2_rounded,
+            color: AppColors.accentOrange,
+            title: 'Notlarım',
+            subtitle: 'Kendi ders notlarını ekle ve düzenle',
+            onTap: () {
+              final id = _studentId ?? '';
+              if (id.isNotEmpty) context.push('/study/notes?studentId=$id');
+            },
           ),
         ],
       ),
@@ -795,6 +841,85 @@ class _TimePill extends StatelessWidget {
           color: color,
           fontWeight: FontWeight.w800,
           fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+/// Derslerim sekmesi ders-araçları giriş kartı (tonlu ikon + başlık/alt + ok).
+class _LessonToolTile extends StatelessWidget {
+  const _LessonToolTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );

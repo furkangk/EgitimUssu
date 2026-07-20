@@ -268,11 +268,11 @@ Gösterilecekler:
 Her hedef **Progress Bar** ile gösterilecektir.
 
 > **Not (kod gerçeği, 2026-07-08):** "Hedefler" artık alt menüde ayrı sekme değil; **Diğer hub'ından** açılır
-> (`/student/goals-overview`, pushed, AppBar'lı). Yerini alt menüde **Takvim** sekmesi aldı (§9a).
+> (`/student/goals-overview`, pushed, AppBar'lı). Yerini alt menüde **Derslerim** sekmesi aldı (§9a).
 
 ---
 
-## 9a. Takvim (2026-07-08)
+## 9a. Derslerim (2026-07-08; başlık + Ders araçları — Task 4, 2026-07-21)
 
 Öğrencinin **kişisel eğitim asistanı** vizyonunun (§1) merkez parçası: öğrenci bir öğretmeni olmasa bile kendi
 çalışma programını kurar ve her gün buradan yönetir.
@@ -283,6 +283,10 @@ Her hedef **Progress Bar** ile gösterilecektir.
   bitiş tarihli) seçim. Örn. *her Pazartesi 15:00–16:00 Matematik*.
 - **Etkileşim:** Gerçek ay takvimi (`SfCalendar` ay görünümü, günlerde nokta göstergesi — öğretmen takvim sayfasıyla aynı bileşen) → seçilen günün listesi. Kendi dersinde düzenle/sil.
 - **Kronometre bağlantısı (§6):** Kronometre ders seçicisi takvimden beslenir; ders seçmeden başlatınca **serbest çalışma** kaydedilir.
+- **Ders araçları (Task 4, 2026-07-21):** takvim + seçili gün listesinin altında 4 tonlu-ikon giriş kartı ile
+  ilgili ekranlara kısayol: **Dersler & Konular** (→`/study/catalog`), **Ödevlerim** (→`/student/assignments`),
+  **Öğretmenlerim** (→`/student/teacher`), **Notlarım** (→`/study/notes`). Bu ekranlar hâlâ kendi rotalarında yaşar;
+  Derslerim yalnızca giriş noktası ekler (Diğer hub'ındaki eski girişler de geçerliliğini korur).
 
 Teknik: `GET /scheduling/students/{id}/calendar` (tekrarlar backend'de genişletilir) — bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md) §2.3.
 
@@ -293,7 +297,8 @@ Teknik: `GET /scheduling/students/{id}/calendar` (tekrarlar backend'de genişlet
 Bu sekme **yalnızca öğretmen bağlıysa** görünmelidir. Öğretmen(ler), öğrencinin derslerindeki
 `teacherUserId` kümesinden türetilir; hiç öğretmen yoksa boş durum kartı gösterilir.
 
-İçerik yalnızca bağlı öğretmen(ler)in bilgi kartıdır; dersler bu ekranda değil **Takvim** ekranında listelenir.
+İçerik yalnızca bağlı öğretmen(ler)in bilgi kartıdır; dersler bu ekranda değil **Derslerim** ekranında listelenir
+(Derslerim'in Ders araçları bölümünden de bu ekrana kısayol var — §9a).
 
 - **Öğretmen bilgi kartı 🟢** — açılır-kapanır gradient hero kartı: varsayılan yalnızca başlık (navy→mavi degrade band + avatar + ad + doğrulama rozeti + başlık + branş pill'i + sağda aç/kapat oku); oka/başlığa dokununca gövde açılır (deneyim/eğitim/ücret istatistik satırı + konum/format meta + "Hakkında" biyografi) (`GET /api/teachers/profiles/{userId}`). Birden fazla öğretmen desteklenir.
 - Ders notu (yakında)
