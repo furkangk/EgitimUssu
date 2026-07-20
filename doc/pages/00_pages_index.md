@@ -33,7 +33,6 @@
 | Çalış (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
 | Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir; Task 3: Çalışmalarım'ın haftalık/ders-konu analizi absorbe edildi — `/student/studies` sayfası silindi, rota `/student-home`'a redirect) |
 | Derslerim (sekme) | `/student/lessons` | [study_student](study_student.md) | 🟢 (eski `/student/calendar` redirect'lenir; 2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
-| ~~Diğer (eski sekme, hub)~~ | `/student/more` | [study_student](study_student.md) | Kaldırıldı (Task 6, 2026-07-21) — sayfa silindi, rota `/student/profile`'a redirect eder |
 | Keşfet (sekme) | `/student/discover` | [study_student](study_student.md) | 🔴 Faz 4 yer tutucu |
 | Profil (sekme) / İstatistik + Ayarlar | `/student/profile` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: Ayarlar menüsü + Çıkış eklendi, AppBar → sayfa içi başlık) |
 | Hedefler (Çalış sekmesi kısayolu) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: erişim yolu Diğer yerine Çalış kısayolları) |
