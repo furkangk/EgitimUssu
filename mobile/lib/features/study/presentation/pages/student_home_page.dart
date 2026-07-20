@@ -153,6 +153,15 @@ class _StudentHomeView extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
                 children: <Widget>[
+                  // 0) Birincil eylem: büyük sayaç/başlat kartı en üstte (0 tık ilkesi).
+                  _PrimaryActionCard(
+                    icon: Icons.timer_rounded,
+                    label: 'Çalışmaya Başla',
+                    subtitle: 'Kronometreyi başlat, serini büyüt',
+                    onTap: () =>
+                        context.push('/study/timer?studentId=$studentId'),
+                  ),
+                  const SizedBox(height: 18),
                   // 1) Karşılama — pozitif, güne özel motivasyon (ux §5)
                   AppPageHeader(
                     title: greeting,
@@ -941,42 +950,29 @@ class _ActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // İkincil kısayollar — birincil eylem (Kronometre) yukarıdaki hero CTA'da.
-    // 4 öğe temiz bir 2×2 ızgaraya oturur; artakalan tek kart sorunu olmaz.
+    // Çalış sekmesi kısayolları (IA: Hedefler · Rozetler · Manuel seans ekle).
+    // Birincil sayaç CTA'sı sayfanın en üstündedir.
     final secondary = <_ActionItem>[
-      _ActionItem(
-          'Deneme Gir', Icons.edit_note_rounded, AppColors.accentBlue, '/study/test'),
-      _ActionItem('Hedefler', Icons.flag_rounded, AppColors.accentGreen, '/study/goals'),
-      _ActionItem('Geçmiş', Icons.history_rounded, AppColors.accentTeal, '/study/history'),
-      _ActionItem('Rozetler', Icons.emoji_events_rounded, AppColors.accentOrange,
-          '/study/achievements'),
+      _ActionItem('Hedefler', Icons.flag_rounded, AppColors.accentGreen,
+          '/study/goals'),
+      _ActionItem('Rozetler', Icons.emoji_events_rounded,
+          AppColors.accentOrange, '/study/achievements'),
+      _ActionItem('Manuel Ekle', Icons.add_circle_rounded,
+          AppColors.accentBlue, '/study/history'),
     ];
     final halfWidth = (MediaQuery.of(context).size.width - 44) / 2;
-    return Column(
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
       children: <Widget>[
-        // Birincil eylem: bilgi hiyerarşisinde öne çıkan tek CTA (ux §14).
-        _PrimaryActionCard(
-          icon: Icons.timer_rounded,
-          label: 'Kronometre',
-          subtitle: 'Çalışma süreni tut',
-          onTap: () => _go(context, '/study/timer'),
-        ),
-        const SizedBox(height: 12),
-        // İkincil eylemler: öğretmen panosuyla aynı yatay kart stili, 2×2.
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: <Widget>[
-            for (final a in secondary)
-              SizedBox(
-                width: halfWidth,
-                child: _ActionTile(
-                  action: a,
-                  onTap: () => _go(context, a.route),
-                ),
-              ),
-          ],
-        ),
+        for (final a in secondary)
+          SizedBox(
+            width: halfWidth,
+            child: _ActionTile(
+              action: a,
+              onTap: () => _go(context, a.route),
+            ),
+          ),
       ],
     );
   }

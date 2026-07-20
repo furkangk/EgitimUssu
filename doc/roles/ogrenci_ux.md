@@ -174,13 +174,15 @@ Merhaba Furkan 👋
 - [ ] Paragraf
 - [ ] Fizik
 
-> **Not (kod gerçeği, 2026-07-07):** `student_home_page.dart` bilgi hiyerarşisine (§3) göre yeniden düzenlendi:
-> selamlama + **pozitif/güne özel motivasyon alt başlığı** ("Bugün 45dk daha çalışırsan hedefini tamamlayacaksın") →
-> **Bugünkü çalışma + Günlük seri** (yan yana eşit özet kartları) → **Hızlı işlemler** (Kronometre birincil
-> tam-genişlik CTA + 4 ikincil eylem 2×2 ızgarada) →
-> **İlerlemen** (bu hafta + rekor seri) → **Geçmiş** (son deneme + son çalışmalar).
-> Henüz uygulanmadı: **Yaklaşan Ders** (öğrenci-kapsamlı ders endpoint'i yok), **Haftalık Grafik** (dashboard
-> gün-bazlı veri döndürmüyor; `WeeklySummary.perDay` var ama panoya bağlı değil), **Günlük Görevler** (checkbox — veri yok).
+> **Not (kod gerçeği, 2026-07-07, güncelleme 2026-07-21 Task 2):** `student_home_page.dart` bilgi hiyerarşisine (§3)
+> göre yeniden düzenlendi: **büyük sayaç/başlat kartı en üstte** (0 tık — "Çalışmaya Başla", `/study/timer`'a doğrudan
+> açar) → selamlama + **pozitif/güne özel motivasyon alt başlığı** ("Bugün 45dk daha çalışırsan hedefini
+> tamamlayacaksın") → **Bugünkü çalışma + Günlük seri** (tek premium hero bloğu) → **Bugünün planı** (Ç-06
+> occurrence'ları) → **ikincil kısayollar** (Hedefler · Rozetler · Manuel Ekle — Deneme Gir/Geçmiş artık Performans
+> sekmesine ait, Task 3) → **İlerlemen** (bu hafta + rekor seri) → **Geçmiş** (son deneme + son çalışmalar).
+> Henüz uygulanmadı: **Haftalık Grafik** (dashboard gün-bazlı veri döndürmüyor; `WeeklySummary.perDay` var ama panoya
+> bağlı değil), **Günlük Görevler** (checkbox — veri yok). **Yaklaşan Ders** artık uygulandı (öğrenci-kapsamlı ders
+> endpoint'i eklendi, `_UpcomingLessonCard`).
 
 ---
 
