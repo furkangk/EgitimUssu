@@ -18,17 +18,71 @@ class StudentDiscoverPage extends StatelessWidget {
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-          children: const <Widget>[
-            AppPageHeader(
+          children: <Widget>[
+            const AppPageHeader(
               title: 'Keşfet',
               subtitle: 'Sana uygun öğretmeni bul.',
             ),
-            SizedBox(height: 40),
-            Center(
-              child: Text(
-                'Bu özellik yakında (Faz 4).',
-                style: TextStyle(color: AppColors.textSecondary),
+            const SizedBox(height: 16),
+            // Devre dışı arama kutusu görünümü (işlevsel değil).
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
               ),
+              child: Row(
+                children: const <Widget>[
+                  Icon(Icons.search_rounded, color: AppColors.textMuted),
+                  SizedBox(width: 10),
+                  Text('Öğretmen ara…',
+                      style: TextStyle(color: AppColors.textMuted)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Devre dışı filtre çipleri.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                for (final label in const <String>[
+                  'Branş',
+                  'Şehir',
+                  'Ücret',
+                  'Şekil',
+                  'Saat',
+                ])
+                  Chip(
+                    label: Text(label),
+                    backgroundColor: AppColors.background,
+                    side: const BorderSide(color: AppColors.border),
+                    labelStyle: const TextStyle(color: AppColors.textMuted),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 40),
+            // Belirgin "yakında" boş durumu.
+            Column(
+              children: const <Widget>[
+                Icon(Icons.travel_explore_rounded,
+                    size: 56, color: AppColors.primary),
+                SizedBox(height: 14),
+                Text('Bu özellik yakında (Faz 4)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        fontSize: 16)),
+                SizedBox(height: 6),
+                Text(
+                  'Öğretmen arama ve keşfi yakında burada olacak. '
+                  'Şimdilik davet koduyla öğretmenine bağlanabilirsin.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
             ),
           ],
         ),
