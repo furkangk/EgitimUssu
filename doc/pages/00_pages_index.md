@@ -30,15 +30,15 @@
 ## Study (Öğrenci — Bireysel Çalışma, M08)
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Ana Sayfa (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
-| Çalışmalarım (sekme) | `/student/studies` | [study_student](study_student.md) | 🟢 |
-| Testler (sekme) | `/student/tests` | [study_student](study_student.md) | 🟢 |
-| Takvim (sekme) | `/student/calendar` | [study_student](study_student.md) | 🟢 (2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
-| Diğer (sekme, hub) | `/student/more` | [study_student](study_student.md) | 🟢 |
+| Çalış (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
+| Çalışmalarım (eski sekme, artık detabbed/dormant) | `/student/studies` | [study_student](study_student.md) | 🟢 |
+| Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir) |
+| Derslerim (sekme) | `/student/lessons` | [study_student](study_student.md) | 🟢 (eski `/student/calendar` redirect'lenir; 2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
+| Diğer (eski sekme, artık detabbed/dormant, hub) | `/student/more` | [study_student](study_student.md) | 🟢 |
 | Keşfet (sekme) | `/student/discover` | [study_student](study_student.md) | 🔴 Faz 4 yer tutucu |
-| Profil / İstatistik | `/student/profile` | [study_student](study_student.md) | 🟢 |
+| Profil (sekme) / İstatistik | `/student/profile` | [study_student](study_student.md) | 🟢 |
 | Hedefler (Diğer→push) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (2026-07-08: sekmeden Diğer'e taşındı) |
-| Öğretmenlerim (Diğer→push) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Takvim'de), ödev/not/mesaj yakında |
+| Öğretmenlerim (Diğer→push) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Derslerim'de), ödev/not/mesaj yakında |
 | Kronometre | `/study/timer` | [study_student](study_student.md) | 🟢 |
 | Deneme gir | `/study/test` | [study_student](study_student.md) | 🟢 |
 | Hedefler & paylaşım | `/study/goals` | [study_student](study_student.md) | 🟢 |

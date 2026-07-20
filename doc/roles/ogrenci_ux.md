@@ -109,9 +109,11 @@ Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
 > route'ları henüz silinmedi, Task 3/6'da retire edilecek. **Profil** artık ayrı sekme (`/student/profile`); eski
 > "Diğer hub'ından push" akışı kaldırılıyor.
 > Sekme/hub içerikleri (mevcut kod, henüz yeniden adlandırılmadı):
-> - **Performans** (eski Çalışmalarım+Testler içeriği, ayrı ekranlar) 🟢: Çalışmalarım — sayaç + haftalık grafik + derslere göre
->   süre + son çalışmalar + istatistik (streak/hafta/toplam gün); Testler — deneme gir + net trend grafiği + ders bazlı analiz
->   (trend oku) + son denemeler (`listTests`'ten türetilir).
+> - **Performans** (`/student/performance`) 🟢: şu an **yalnızca eski Testler ekranının içeriğini** gösterir — deneme gir
+>   + net trend grafiği + ders bazlı analiz (trend oku) + son denemeler (`listTests`'ten türetilir). Eski **Çalışmalarım**
+>   ekranı (`/student/studies`: sayaç + haftalık grafik + derslere göre süre + son çalışmalar + istatistik seri/hafta/toplam
+>   gün) artık sekme değildir — **detabbed/dormant** (`current: StudentNavTab.none`), Task 3/6'da retire edilecek; onun
+>   analiz içeriğinin Performans'a taşınması **planlanmıştır ama henüz yapılmamıştır** — bugün Performans'ta görünmez.
 > - **Derslerim** (eski Takvim) 🟢: öğrencinin birleşik ders programı — öğretmenin planladığı dersler (salt-okunur, "Öğretmen"
 >   rozeti, öncelikli) + öğrencinin kendi oluşturduğu dersler (renkli, düzenle/sil). Ay takvimi (`SfCalendar`) → seçili gün
 >   listesi. "Ders ekle" ile tek/tekrarlı (günlük/haftalık/aylık) kişisel ders eklenir; öğretmen dersinin saatine kendi dersi
