@@ -14,8 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// "Testler" sekmesi — deneme girişi, sonuçlar, net grafiği ve ders bazlı
-/// analiz (ogrenci_ux §8). Analiz `listTests` verisinden türetilir.
+/// "Performans" sekmesi — deneme girişi, net grafiği, ders bazlı analiz
+/// (`listTests`) + haftalık analiz ve ders→konu kırılımı (`getWeeklySummary`/
+/// `listSessions`) + Analiz & Gelişim girişleri (ogrenci_ux §8, spec 2026-07-21).
 class StudentTestsPage extends StatefulWidget {
   const StudentTestsPage({super.key});
 
@@ -143,23 +144,26 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
             const StudySectionHeader(title: 'Son denemeler'),
             const SizedBox(height: 12),
             ...byNewest.take(8).map((TestResult t) => _TestTile(test: t)),
-            if (_weekly != null) ...<Widget>[
-              const SizedBox(height: 24),
-              const StudySectionHeader(title: 'Haftalık analiz'),
-              const SizedBox(height: 12),
-              _WeeklyBars(weekly: _weekly!),
-            ],
-            if (_sessions.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 24),
-              const StudySectionHeader(title: 'Ders → konu kırılımı'),
-              const SizedBox(height: 4),
-              const Text(
-                'Tüm zamanlar · derse ve konuya göre süre',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              _LessonBreakdown(lessons: _aggregateLessons(_sessions)),
-            ],
+          ],
+          // Haftalık analiz + ders→konu kırılımı deneme sonucundan bağımsızdır;
+          // yalnız haftalık/seans verisine bağlıdır — deneme yoksa da görünür
+          // (Çalışmalarım'dan kayıpsız taşınan içerik, spec §3.3).
+          if (_weekly != null) ...<Widget>[
+            const SizedBox(height: 24),
+            const StudySectionHeader(title: 'Haftalık analiz'),
+            const SizedBox(height: 12),
+            _WeeklyBars(weekly: _weekly!),
+          ],
+          if (_sessions.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 24),
+            const StudySectionHeader(title: 'Ders → konu kırılımı'),
+            const SizedBox(height: 4),
+            const Text(
+              'Tüm zamanlar · derse ve konuya göre süre',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            _LessonBreakdown(lessons: _aggregateLessons(_sessions)),
           ],
           const SizedBox(height: 24),
           const StudySectionHeader(title: 'Analiz & Gelişim'),
