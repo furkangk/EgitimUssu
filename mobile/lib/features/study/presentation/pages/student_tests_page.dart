@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/performance/personal_records.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/student_bottom_nav.dart';
@@ -14,9 +15,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// "Performans" sekmesi — deneme girişi, net grafiği, ders bazlı analiz
-/// (`listTests`) + haftalık analiz ve ders→konu kırılımı (`getWeeklySummary`/
-/// `listSessions`) + Analiz & Gelişim girişleri (ogrenci_ux §8, spec 2026-07-21).
+/// "Performans" sekmesi (Task 7, 2026-08-19): özet istatistik + hedef net takibi
+/// (`StudyGoal.targetNet`, yoksa demo) + net gelişim grafiği (ders/hafta-ay
+/// filtreli, `listTests`) + konu bazlı iki ayrı bölüm (test istatistikleri =
+/// `listSessions` ders→konu kırılımı, deneme istatistikleri = `listTests` ders
+/// analizi) + konu eksiği (mastery alanı yok → demo harita) + haftalık/aylık
+/// analiz (`getWeeklySummary` + `listSessions`den türetilen aylık kova) +
+/// kişisel rekorlar (`getStreak` + `listTests` + `listSessions`den türetilir) +
+/// Analiz & Gelişim girişleri (ogrenci_ux §8, spec 2026-07-21).
 class StudentTestsPage extends StatefulWidget {
   const StudentTestsPage({super.key});
 
@@ -31,6 +37,8 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
   List<TestResult> _tests = const <TestResult>[];
   WeeklySummary? _weekly;
   List<StudySession> _sessions = const <StudySession>[];
+  StudyGoal? _goal;
+  StudyStreak? _streak;
   bool _loading = true;
   String? _error;
 
@@ -56,6 +64,8 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
       final tests = await _repo.listTests(studentId);
       final weekly = await _repo.getWeeklySummary(studentId);
       final sessions = await _repo.listSessions(studentId);
+      final goal = await _repo.getGoals(studentId);
+      final streak = await _repo.getStreak(studentId);
       if (!mounted) return;
       setState(() {
         _studentId = studentId;
@@ -64,6 +74,8 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
         _sessions = sessions
             .where((StudySession s) => s.status == 'Completed')
             .toList();
+        _goal = goal;
+        _streak = streak;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -109,6 +121,22 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
       );
     final List<TestResult> chronological = byNewest.reversed.toList();
 
+    final List<double> nets = _tests.map((TestResult t) => t.net).toList();
+    final double avg = averageNet(nets);
+    final double best = bestNet(nets);
+
+    final double? realTarget = _goal?.targetNet;
+    final bool targetIsDemo = realTarget == null;
+    final double targetNet = realTarget ?? _demoTargetNet(best, avg);
+    final double remaining = targetNet - avg < 0 ? 0 : targetNet - avg;
+    final double ratio = targetNet <= 0 ? 0 : (avg / targetNet).clamp(0, 1);
+
+    final _PersonalRecords records = _computeRecords(
+      tests: _tests,
+      sessions: _sessions,
+      streak: _streak,
+    );
+
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _load,
@@ -121,51 +149,192 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
                 'Net gelişimini, çalışma analizini ve eksik konuları gör.',
           ),
           const SizedBox(height: 20),
-          if (_tests.isEmpty) ...<Widget>[
-            const EmptyStateView(
-              title: 'Henüz deneme yok',
-              subtitle: 'İlk denemeni girerek net takibine başla.',
-            ),
-            const SizedBox(height: 16),
-            _AddTestButton(onTap: _addTest),
-          ] else ...<Widget>[
-            _StatsRow(tests: _tests),
-            const SizedBox(height: 16),
-            _AddTestButton(onTap: _addTest),
-            const SizedBox(height: 24),
-            const StudySectionHeader(title: 'Net trendi'),
-            const SizedBox(height: 12),
-            _NetTrendChart(tests: chronological),
-            const SizedBox(height: 24),
-            const StudySectionHeader(title: 'Derslere göre net'),
-            const SizedBox(height: 12),
-            _SubjectAnalysis(tests: _tests),
-            const SizedBox(height: 24),
-            const StudySectionHeader(title: 'Son denemeler'),
-            const SizedBox(height: 12),
-            ...byNewest.take(8).map((TestResult t) => _TestTile(test: t)),
-          ],
-          // Haftalık analiz + ders→konu kırılımı deneme sonucundan bağımsızdır;
-          // yalnız haftalık/seans verisine bağlıdır — deneme yoksa da görünür
-          // (Çalışmalarım'dan kayıpsız taşınan içerik, spec §3.3).
-          if (_weekly != null) ...<Widget>[
-            const SizedBox(height: 24),
-            const StudySectionHeader(title: 'Haftalık analiz'),
-            const SizedBox(height: 12),
-            _WeeklyBars(weekly: _weekly!),
-          ],
-          if (_sessions.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 24),
-            const StudySectionHeader(title: 'Ders → konu kırılımı'),
-            const SizedBox(height: 4),
-            const Text(
-              'Tüm zamanlar · derse ve konuya göre süre',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            _LessonBreakdown(lessons: _aggregateLessons(_sessions)),
-          ],
+
+          // 2) Özet istatistik satırı.
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: StudyStatTile(
+                  icon: Icons.assignment_turned_in_rounded,
+                  color: AppColors.accentBlue,
+                  value: '${_tests.length}',
+                  label: 'Deneme',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StudyStatTile(
+                  icon: Icons.calculate_rounded,
+                  color: AppColors.accentTeal,
+                  value: StudyFormat.net(avg),
+                  label: 'Ort. net',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StudyStatTile(
+                  icon: Icons.emoji_events_rounded,
+                  color: AppColors.accentGreen,
+                  value: StudyFormat.net(best),
+                  label: 'En iyi net',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: targetIsDemo
+                    ? _DemoStatTile(
+                        icon: Icons.flag_rounded,
+                        color: AppColors.accentOrange,
+                        value: StudyFormat.net(remaining),
+                        label: 'Hedefe kalan',
+                      )
+                    : StudyStatTile(
+                        icon: Icons.flag_rounded,
+                        color: AppColors.accentOrange,
+                        value: StudyFormat.net(remaining),
+                        label: 'Hedefe kalan',
+                      ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // 3) Test / Deneme gir.
+          _AddTestButton(onTap: _addTest),
           const SizedBox(height: 24),
+
+          // 4) Hedef net takibi.
+          Row(
+            children: <Widget>[
+              const Expanded(
+                child: StudySectionHeader(title: 'Hedef net takibi'),
+              ),
+              if (targetIsDemo) const StudyDemoBadge(),
+            ],
+          ),
+          const SizedBox(height: 12),
+          StudyCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Text(
+                          'Hedef net',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          StudyFormat.net(targetNet),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        const Text(
+                          'Ortalama net',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          StudyFormat.net(avg),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                            fontSize: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                StudyProgressBar(
+                  value: ratio,
+                  color: _targetProgressColor(ratio),
+                  trailingLabel: remaining <= 0
+                      ? 'Hedefine ulaştın!'
+                      : '${StudyFormat.net(remaining)} net kaldı',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // 5) Net gelişim grafiği.
+          const StudySectionHeader(title: 'Net gelişim grafiği'),
+          const SizedBox(height: 12),
+          _NetTrendSection(tests: chronological),
+          const SizedBox(height: 24),
+
+          // 6) Konu bazlı — iki ayrı bölüm.
+          const StudySectionHeader(title: 'Test istatistikleri'),
+          const SizedBox(height: 4),
+          const Text(
+            'Tüm zamanlar · derse ve konuya göre çalışma süresi',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          _sessions.isEmpty
+              ? const StudyCard(
+                  child: Text(
+                    'Henüz çalışma seansı yok.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : _LessonBreakdown(lessons: _aggregateLessons(_sessions)),
+          const SizedBox(height: 24),
+
+          const StudySectionHeader(title: 'Deneme istatistikleri'),
+          const SizedBox(height: 12),
+          _tests.isEmpty
+              ? const StudyCard(
+                  child: Text(
+                    'Henüz deneme yok.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : _SubjectAnalysis(tests: _tests),
+          const SizedBox(height: 24),
+
+          // 7) Konu eksiği.
+          Row(
+            children: <Widget>[
+              const Expanded(child: StudySectionHeader(title: 'Konu eksiği')),
+              const StudyDemoBadge(),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _WeakTopicsCard(studentId: _studentId ?? ''),
+          const SizedBox(height: 24),
+
+          // 8) Haftalık/Aylık analiz.
+          const StudySectionHeader(title: 'Haftalık/Aylık analiz'),
+          const SizedBox(height: 12),
+          _PeriodAnalysisSection(weekly: _weekly, sessions: _sessions),
+          const SizedBox(height: 24),
+
+          // 9) Kişisel rekorlar.
+          const StudySectionHeader(title: 'Kişisel rekorlar'),
+          const SizedBox(height: 12),
+          _RecordsGrid(records: records),
+          const SizedBox(height: 24),
+
+          // 10) Alt linkler.
           const StudySectionHeader(title: 'Analiz & Gelişim'),
           const SizedBox(height: 12),
           _PerfLink(
@@ -197,6 +366,23 @@ class _StudentTestsPageState extends State<StudentTestsPage> {
   }
 }
 
+/// Gerçek `StudyGoal.targetNet` yokken kullanılan makul demo hedef:
+/// en iyi netin biraz üstü (motive edici, ulaşılabilir); hiç deneme yoksa
+/// ortalamaya göre, o da yoksa sabit bir değere düşer.
+double _demoTargetNet(double best, double avg) {
+  if (best > 0) return best + 10;
+  if (avg > 0) return avg + 15;
+  return 90;
+}
+
+/// Hedef net ilerleme çubuğu renk kuralı: hedefe ulaşıldıysa yeşil, iyi
+/// gidiyorsa teal, geride kalındıysa turuncu.
+Color _targetProgressColor(double ratio) {
+  if (ratio >= 1) return AppColors.accentGreen;
+  if (ratio >= 0.6) return AppColors.accentTeal;
+  return AppColors.accentOrange;
+}
+
 class _AddTestButton extends StatelessWidget {
   const _AddTestButton({required this.onTap});
 
@@ -224,7 +410,7 @@ class _AddTestButton extends StatelessWidget {
             SizedBox(width: 14),
             Expanded(
               child: Text(
-                'Deneme gir',
+                'Test / Deneme gir',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -240,47 +426,169 @@ class _AddTestButton extends StatelessWidget {
   }
 }
 
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.tests});
+/// Backend'i henüz olmayan/istemci tahmini istatistik kutusu — sağ üstte
+/// "Demo" rozeti (`student_home_page.dart::_DemoStatTile` ile aynı desen).
+class _DemoStatTile extends StatelessWidget {
+  const _DemoStatTile({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+  });
 
-  final List<TestResult> tests;
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final double avg =
-        tests.fold<double>(0, (double s, TestResult t) => s + t.net) /
-        tests.length;
-    final double best = tests
-        .map((TestResult t) => t.net)
-        .fold<double>(tests.first.net, (double m, double n) => n > m ? n : m);
-    return Row(
+    return Stack(
       children: <Widget>[
-        Expanded(
-          child: StudyStatTile(
-            icon: Icons.assignment_turned_in_rounded,
-            color: AppColors.accentBlue,
-            value: '${tests.length}',
-            label: 'Deneme',
+        StudyStatTile(icon: icon, color: color, value: value, label: label),
+        const Positioned(top: 8, right: 8, child: StudyDemoBadge()),
+      ],
+    );
+  }
+}
+
+enum _TrendPeriod { week, month }
+
+/// Hafta/Ay segment anahtarı — hem net trendi hem çalışma analizinde kullanılır.
+class _PeriodToggle extends StatelessWidget {
+  const _PeriodToggle({required this.value, required this.onChanged});
+
+  final _TrendPeriod value;
+  final ValueChanged<_TrendPeriod> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.skyBorder),
+      ),
+      child: Row(
+        children: _TrendPeriod.values.map((_TrendPeriod p) {
+          final bool selected = p == value;
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => onChanged(p),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  p == _TrendPeriod.week ? 'Hafta' : 'Ay',
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// Net gelişim grafiği — Genel/ders çipleri + Hafta/Ay filtresiyle
+/// `listTests`ten filtrelenen kronolojik listeyi `_NetTrendChart`e besler.
+class _NetTrendSection extends StatefulWidget {
+  const _NetTrendSection({required this.tests});
+
+  /// Kronolojik (eski→yeni) tüm denemeler.
+  final List<TestResult> tests;
+
+  @override
+  State<_NetTrendSection> createState() => _NetTrendSectionState();
+}
+
+class _NetTrendSectionState extends State<_NetTrendSection> {
+  static const String _general = 'Genel';
+  String _subject = _general;
+  _TrendPeriod _period = _TrendPeriod.month;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.tests.isEmpty) {
+      return const StudyCard(
+        child: Text(
+          'Henüz deneme yok. İlk denemeni girerek net gelişimini takip et.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+    final List<String> subjects = <String>[
+      _general,
+      ...<String>{for (final TestResult t in widget.tests) t.subject},
+    ];
+    if (!subjects.contains(_subject)) _subject = _general;
+
+    final DateTime now = DateTime.now().toUtc();
+    final DateTime cutoff = _period == _TrendPeriod.week
+        ? now.subtract(const Duration(days: 7))
+        : now.subtract(const Duration(days: 30));
+
+    final List<TestResult> filtered = widget.tests.where((TestResult t) {
+      final bool subjectOk = _subject == _general || t.subject == _subject;
+      final bool periodOk = t.takenOnUtc.isAfter(cutoff);
+      return subjectOk && periodOk;
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: subjects.map((String s) {
+              final bool selected = s == _subject;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(s),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _subject = s),
+                  selectedColor: AppColors.primaryLight,
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                  backgroundColor: AppColors.surface,
+                  side: const BorderSide(color: AppColors.skyBorder),
+                ),
+              );
+            }).toList(),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: StudyStatTile(
-            icon: Icons.calculate_rounded,
-            color: AppColors.accentTeal,
-            value: StudyFormat.net(avg),
-            label: 'Ortalama net',
-          ),
+        const SizedBox(height: 10),
+        _PeriodToggle(
+          value: _period,
+          onChanged: (_TrendPeriod p) => setState(() => _period = p),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: StudyStatTile(
-            icon: Icons.emoji_events_rounded,
-            color: AppColors.accentGreen,
-            value: StudyFormat.net(best),
-            label: 'En iyi net',
-          ),
-        ),
+        const SizedBox(height: 12),
+        filtered.isEmpty
+            ? const StudyCard(
+                child: Text(
+                  'Bu aralıkta deneme yok.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              )
+            : _NetTrendChart(tests: filtered),
       ],
     );
   }
@@ -373,9 +681,7 @@ class _SubjectAnalysis extends StatelessWidget {
         ..sort(
           (TestResult a, TestResult b) => a.takenOnUtc.compareTo(b.takenOnUtc),
         );
-      final double avg =
-          list.fold<double>(0, (double s, TestResult t) => s + t.net) /
-          list.length;
+      final double avg = averageNet(list.map((TestResult t) => t.net).toList());
       final double? delta = list.length >= 2
           ? list.last.net - list[list.length - 2].net
           : null;
@@ -473,88 +779,153 @@ class _TrendChip extends StatelessWidget {
   }
 }
 
-class _TestTile extends StatelessWidget {
-  const _TestTile({required this.test});
+/// Backend'de konu hâkimiyet/skor alanı yok (Task 5'te de yoktu) — sabit demo
+/// harita üzerinden `weakTopics` ile eşik altı konular gösterilir.
+const Map<String, double> _demoTopicScores = <String, double>{
+  'Paragraf': 38,
+  'Türev': 42,
+  'İntegral': 55,
+  'Elektrik ve Manyetizma': 58,
+  'Fonksiyonlar': 68,
+  'Hücre Bölünmesi': 74,
+};
 
-  final TestResult test;
+class _WeakTopicsCard extends StatelessWidget {
+  const _WeakTopicsCard({required this.studentId});
+
+  final String studentId;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.skyBorder),
-        boxShadow: AppShadows.soft,
-      ),
-      child: Row(
+    final List<String> weak = weakTopics(_demoTopicScores);
+    if (weak.isEmpty) {
+      return const StudyCard(
+        child: Text(
+          'Eksik konu tespit edilmedi.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+    return StudyCard(
+      child: Column(
         children: <Widget>[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(12),
+          for (int i = 0; i < weak.length; i++) ...<Widget>[
+            if (i > 0) const Divider(height: 20, color: AppColors.divider),
+            _WeakTopicRow(
+              topic: weak[i],
+              score: _demoTopicScores[weak[i]] ?? 0,
+              onStudy: studentId.isEmpty
+                  ? null
+                  : () => context.push('/study/timer?studentId=$studentId'),
             ),
-            child: const Icon(
-              Icons.fact_check_rounded,
-              color: AppColors.primary,
-              size: 20,
-            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WeakTopicRow extends StatelessWidget {
+  const _WeakTopicRow({
+    required this.topic,
+    required this.score,
+    required this.onStudy,
+  });
+
+  final String topic;
+  final double score;
+  final VoidCallback? onStudy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.accentRed.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  test.testName ?? test.subject,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  '${test.subject} · D:${test.correct} Y:${test.wrong} B:${test.blank}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  StudyFormat.date(test.takenOnUtc),
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+          child: const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.accentRed,
+            size: 18,
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                StudyFormat.net(test.net),
+                topic,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const Text(
-                'net',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              Text(
+                'Skor: ${StudyFormat.net(score)}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        TextButton.icon(
+          onPressed: onStudy,
+          icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+          label: const Text('Çalış'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        ),
+      ],
+    );
+  }
+}
+
+/// Haftalık/Aylık analiz segmenti: Hafta = gerçek `getWeeklySummary`
+/// (`_WeeklyBars`), Ay = `listSessions`ten türetilen son 28 günün haftalık
+/// kovaları (`_MonthlyBars`) — ikisi de gerçek veriden, demo değil.
+class _PeriodAnalysisSection extends StatefulWidget {
+  const _PeriodAnalysisSection({required this.weekly, required this.sessions});
+
+  final WeeklySummary? weekly;
+  final List<StudySession> sessions;
+
+  @override
+  State<_PeriodAnalysisSection> createState() => _PeriodAnalysisSectionState();
+}
+
+class _PeriodAnalysisSectionState extends State<_PeriodAnalysisSection> {
+  _TrendPeriod _period = _TrendPeriod.week;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _PeriodToggle(
+          value: _period,
+          onChanged: (_TrendPeriod p) => setState(() => _period = p),
+        ),
+        const SizedBox(height: 12),
+        if (_period == _TrendPeriod.week)
+          widget.weekly == null
+              ? const StudyCard(
+                  child: Text(
+                    'Bu hafta henüz çalışma yok.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
+              : _WeeklyBars(weekly: widget.weekly!)
+        else
+          _MonthlyBars(sessions: widget.sessions),
+      ],
     );
   }
 }
@@ -578,10 +949,10 @@ class _WeeklyBars extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<DayMinutes> days = weekly.perDay;
     if (days.isEmpty) {
-      return StudyCard(
+      return const StudyCard(
         child: Text(
           'Bu hafta henüz çalışma yok.',
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: AppColors.textSecondary),
         ),
       );
     }
@@ -652,6 +1023,129 @@ class _WeeklyBars extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         i < _dayLabels.length ? _dayLabels[i] : '',
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Son 28 günü 4 haftalık kovaya toplar (`listSessions`ten türetilir —
+/// gerçek veri, backend'de ayrı bir aylık özet endpoint'i yok).
+class _MonthlyBars extends StatelessWidget {
+  const _MonthlyBars({required this.sessions});
+
+  final List<StudySession> sessions;
+
+  static const List<String> _bucketLabels = <String>[
+    '4h önce',
+    '3h önce',
+    '2h önce',
+    'Bu hafta',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final List<int> bucketMinutes = List<int>.filled(4, 0);
+    final List<int> bucketSessions = List<int>.filled(4, 0);
+    for (final StudySession s in sessions) {
+      final DateTime d = s.startedAtUtc.toLocal();
+      final DateTime day = DateTime(d.year, d.month, d.day);
+      final int daysAgo = today.difference(day).inDays;
+      if (daysAgo < 0 || daysAgo >= 28) continue;
+      final int bucket = 3 - (daysAgo ~/ 7);
+      bucketMinutes[bucket] += s.effectiveMinutes;
+      bucketSessions[bucket] += 1;
+    }
+    final int total = bucketMinutes.fold<int>(0, (int a, int b) => a + b);
+    final int totalSessions = bucketSessions.fold<int>(
+      0,
+      (int a, int b) => a + b,
+    );
+    if (total == 0) {
+      return const StudyCard(
+        child: Text(
+          'Son 28 günde çalışma yok.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+    final int maxMinutes = bucketMinutes.fold<int>(
+      1,
+      (int m, int v) => v > m ? v : m,
+    );
+    return StudyCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Toplam: ${StudyFormat.minutes(total)}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          Text(
+            '$totalSessions seans · son 28 gün',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 150,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List<Widget>.generate(4, (int i) {
+                final double factor = (bucketMinutes[i] / maxMinutes).clamp(
+                  0.0,
+                  1.0,
+                );
+                return Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      Text(
+                        bucketMinutes[i] > 0 ? '${bucketMinutes[i]}' : '',
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Expanded(
+                        child: FractionallySizedBox(
+                          alignment: Alignment.bottomCenter,
+                          heightFactor: factor < 0.03 ? 0.03 : factor,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: bucketMinutes[i] > 0
+                                  ? AppColors.accentTeal
+                                  : AppColors.divider,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _bucketLabels[i],
                         maxLines: 1,
                         style: const TextStyle(
                           fontSize: 11,
@@ -889,6 +1383,134 @@ class _TopicList extends StatelessWidget {
           );
         }).toList(),
       ),
+    );
+  }
+}
+
+/// Kişisel rekorlar — `listTests`/`listSessions`/`getStreak`ten türetilir
+/// (backend verisi var olduğu sürece gerçek; yalnız veri yoksa nötr `—`).
+class _PersonalRecords {
+  const _PersonalRecords({
+    required this.bestNetValue,
+    required this.longestStreakDays,
+    required this.longestSessionMinutes,
+    required this.mostStudiedDay,
+    required this.mostStudiedMinutes,
+    required this.mostEfficientSubject,
+    required this.mostEfficientSubjectAvgNet,
+  });
+
+  final double bestNetValue;
+  final int? longestStreakDays;
+  final int longestSessionMinutes;
+  final DateTime? mostStudiedDay;
+  final int mostStudiedMinutes;
+  final String? mostEfficientSubject;
+  final double? mostEfficientSubjectAvgNet;
+}
+
+_PersonalRecords _computeRecords({
+  required List<TestResult> tests,
+  required List<StudySession> sessions,
+  required StudyStreak? streak,
+}) {
+  final double best = bestNet(tests.map((TestResult t) => t.net).toList());
+
+  int longestSession = 0;
+  DateTime? bestDay;
+  int bestDayMinutes = 0;
+  if (sessions.isNotEmpty) {
+    final Map<DateTime, int> byDay = <DateTime, int>{};
+    for (final StudySession s in sessions) {
+      if (s.effectiveMinutes > longestSession) {
+        longestSession = s.effectiveMinutes;
+      }
+      final DateTime d = s.startedAtUtc.toLocal();
+      final DateTime key = DateTime(d.year, d.month, d.day);
+      byDay[key] = (byDay[key] ?? 0) + s.effectiveMinutes;
+    }
+    for (final MapEntry<DateTime, int> e in byDay.entries) {
+      if (e.value > bestDayMinutes) {
+        bestDayMinutes = e.value;
+        bestDay = e.key;
+      }
+    }
+  }
+
+  String? bestSubject;
+  double? bestSubjectAvg;
+  if (tests.isNotEmpty) {
+    final Map<String, List<double>> bySubject = <String, List<double>>{};
+    for (final TestResult t in tests) {
+      bySubject.putIfAbsent(t.subject, () => <double>[]).add(t.net);
+    }
+    for (final MapEntry<String, List<double>> e in bySubject.entries) {
+      final double avg = averageNet(e.value);
+      if (bestSubjectAvg == null || avg > bestSubjectAvg) {
+        bestSubjectAvg = avg;
+        bestSubject = e.key;
+      }
+    }
+  }
+
+  return _PersonalRecords(
+    bestNetValue: best,
+    longestStreakDays: streak?.longestStreakDays,
+    longestSessionMinutes: longestSession,
+    mostStudiedDay: bestDay,
+    mostStudiedMinutes: bestDayMinutes,
+    mostEfficientSubject: bestSubject,
+    mostEfficientSubjectAvgNet: bestSubjectAvg,
+  );
+}
+
+class _RecordsGrid extends StatelessWidget {
+  const _RecordsGrid({required this.records});
+
+  final _PersonalRecords records;
+
+  @override
+  Widget build(BuildContext context) {
+    final DateTime? day = records.mostStudiedDay;
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      childAspectRatio: 1.35,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      children: <Widget>[
+        StudyStatTile(
+          icon: Icons.emoji_events_rounded,
+          color: AppColors.accentGreen,
+          value: StudyFormat.net(records.bestNetValue),
+          label: 'En iyi net',
+        ),
+        StudyStatTile(
+          icon: Icons.local_fire_department_rounded,
+          color: AppColors.accentOrange,
+          value: '${records.longestStreakDays ?? 0}',
+          label: 'En uzun seri (gün)',
+        ),
+        StudyStatTile(
+          icon: Icons.hourglass_bottom_rounded,
+          color: AppColors.accentBlue,
+          value: StudyFormat.minutes(records.longestSessionMinutes),
+          label: 'En uzun tek seans',
+        ),
+        StudyStatTile(
+          icon: Icons.event_available_rounded,
+          color: AppColors.accentTeal,
+          value: day == null ? '—' : '${day.day}.${day.month}',
+          label: 'En çok çalışılan gün',
+        ),
+        StudyStatTile(
+          icon: Icons.trending_up_rounded,
+          color: AppColors.primary,
+          value: records.mostEfficientSubject ?? '—',
+          label: 'En verimli ders',
+        ),
+      ],
     );
   }
 }
