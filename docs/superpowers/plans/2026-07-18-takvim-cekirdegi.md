@@ -1,5 +1,7 @@
 # Takvim Çekirdeği (Dilim A) Implementation Plan
 
+> **✅ DURUM (2026-08-19): TAMAMLANDI ve `main`'e merge edildi.** Tüm görevler kodlandı, dokümanlar güncellendi (`cd5311e`), merge `ac2f606`. İlgili commit'ler: B-10 `e1e1d59` · B-02 `91a7716` · B-09 `004afbc`+`3267841` · B-08 `e507930` · B-01 `e9c6668` · B-03 `25b6d0c`+`55db87b`+`5fd80e3`. Doğrulama: `dotnet test tests/Unit` → 151/151 yeşil. Aşağıdaki checkbox'lar geriye dönük işaretlenmiştir.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Öğretmen takvim çekirdeğinin 6 boşluğunu kapatmak — online link (B-10), erteleme (B-02), iptal nedeni/silme (B-09), oturum ücretlendirme (B-08), tatil bloğu (B-01), tekrar eden ders occurrence yönetimi (B-03).
@@ -63,7 +65,7 @@
 **Interfaces:**
 - Produces: `LessonSchedule` ctor ve `UpdateDetails` sonuna `string? meetingUrl` parametresi eklenir; `LessonSchedule.MeetingUrl` (string?) get. `LessonScheduleResponse`'a `string? MeetingUrl` alanı eklenir (kayıt sonuna). `CreateLessonScheduleCommand`/`UpdateLessonScheduleCommand` ve `CreateLessonScheduleRequest`/`UpdateLessonScheduleRequest` sonuna `string? MeetingUrl`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/LessonScheduleTests.cs`:
 ```csharp
@@ -100,12 +102,12 @@ public sealed class LessonScheduleTests
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: FAIL — derleme hatası: `LessonSchedule` ctor 13 argüman almıyor / `MeetingUrl` yok.
 
-- [ ] **Step 3: Add `MeetingUrl` to domain**
+- [x] **Step 3: Add `MeetingUrl` to domain**
 
 `SchedulingDomainModel.cs` — ctor imzasına `string? locationLabel`'dan **sonra** `string? meetingUrl` ekle; atama ve property ekle; `UpdateDetails` imzasına da aynı konuma ekle.
 
@@ -141,12 +143,12 @@ Property (LocationLabel'ın altına):
 ```
 `UpdateDetails` — `string? locationLabel`'dan sonra `string? meetingUrl` parametresi ve gövdeye `MeetingUrl = meetingUrl;` ekle.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: PASS.
 
-- [ ] **Step 5: Thread `MeetingUrl` through Application + API + config**
+- [x] **Step 5: Thread `MeetingUrl` through Application + API + config**
 
 `LessonScheduleFeatures.cs`:
 - `CreateLessonScheduleCommand` ve `UpdateLessonScheduleCommand` kayıtlarına `string? LocationLabel`'dan sonra `string? MeetingUrl` ekle.
@@ -163,17 +165,17 @@ Expected: PASS.
         builder.Property(entity => entity.MeetingUrl).HasMaxLength(512);
 ```
 
-- [ ] **Step 6: Create migration**
+- [x] **Step 6: Create migration**
 
 Run: `dotnet ef migrations add AddLessonMeetingUrl --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext`
 Expected: `Migrations/<ts>_AddLessonMeetingUrl.cs` üretilir; `AddColumn<string>("MeetingUrl", ...)` içerir.
 
-- [ ] **Step 7: Build + test**
+- [x] **Step 7: Build + test**
 
 Run: `dotnet build EgitimUssu.sln` sonra `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: PASS (derleme + testler).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -198,7 +200,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `LessonSchedule.Reschedule(DateTime newStartAtUtc, DateTime newEndAtUtc, string? note, DateTime updatedOnUtc)` — statüyü `Planned` bırakır, `OriginalStartAtUtc` yalnız ilk çağrıda set eder, `RescheduleNote` günceller, `LessonScheduleRescheduledDomainEvent` yayar. Yeni property: `DateTime? OriginalStartAtUtc`, `string? RescheduleNote`. `RescheduleLessonScheduleCommand(Guid LessonId, DateTime NewStartAtUtc, DateTime NewEndAtUtc, string? Note)`. Endpoint `POST /api/scheduling/lessons/{lessonId}/reschedule`. `LessonScheduleResponse`'a `DateTime? OriginalStartAtUtc` eklenir (sonuna, `MeetingUrl` sonrası uygun konuma).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/LessonScheduleTests.cs` içine ekle:
 ```csharp
@@ -224,12 +226,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
 > Not: `AggregateRoot<Guid>` `DomainEvents` koleksiyonunu expose ediyor (mevcut event testleri bu şekilde okuyor). Erişilemiyorsa aynı dosyadaki diğer domain testlerinin event okuma desenini birebir izle.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: FAIL — `Reschedule` metodu yok.
 
-- [ ] **Step 3: Add `Reschedule` to domain**
+- [x] **Step 3: Add `Reschedule` to domain**
 
 `SchedulingDomainModel.cs` — property'ler ekle (UpdatedOnUtc altına):
 ```csharp
@@ -255,12 +257,12 @@ Metot (`UpdateDetails`'ten sonra):
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: PASS.
 
-- [ ] **Step 5: Add command + handler**
+- [x] **Step 5: Add command + handler**
 
 `LessonScheduleFeatures.cs` — yeni kayıt (CancelLessonScheduleCommand yakınına):
 ```csharp
@@ -321,7 +323,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
 }
 ```
 
-- [ ] **Step 6: Validator + authorizer + config + DI**
+- [x] **Step 6: Validator + authorizer + config + DI**
 
 `LessonSchedulePolicies.cs`:
 - `LessonScheduleCommandAuthorizer` sınıf bildirimine `ICommandAuthorizer<RescheduleLessonScheduleCommand>` ekle ve metodu ekle:
@@ -346,7 +348,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
         services.AddScoped<ICommandAuthorizer<RescheduleLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
 ```
 
-- [ ] **Step 7: Add endpoint**
+- [x] **Step 7: Add endpoint**
 
 `SchedulingModule.cs` — `MapEndpoints` içine (cancel'dan sonra):
 ```csharp
@@ -374,13 +376,13 @@ public sealed record RescheduleLessonScheduleRequest(DateTime NewStartAtUtc, Dat
 ```
 `ToHttpResult` switch'ine (zaten `scheduling.not_editable` ve `scheduling.invalid_range` yoksa) `scheduling.invalid_range` için 400 varsayılan zaten uygun — ek eşleme gerekmez.
 
-- [ ] **Step 8: Migration + build + test**
+- [x] **Step 8: Migration + build + test**
 
 Run: `dotnet ef migrations add AddLessonRescheduleFields --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext`
 Sonra `dotnet build EgitimUssu.sln` ve `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: migration `OriginalStartAtUtc` + `RescheduleNote` kolonlarını ekler; build + test PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -403,7 +405,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `enum CancellationReason { TeacherCancelled = 1, StudentCancelled = 2, Holiday = 3, Other = 4 }`. `LessonSchedule.Cancel` imzası: `Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)`. Yeni property: `CancellationReason? CancellationReason`, `bool IsChargeable`. `CancelLessonScheduleCommand(Guid LessonId, CancellationReason Reason, bool IsChargeable, string? CancellationNote)`. Response'a `string? CancellationReason`, `bool IsChargeable` eklenir.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/LessonScheduleTests.cs`:
 ```csharp
@@ -420,12 +422,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: FAIL — `Cancel` 4 argüman almıyor / `CancellationReason` yok.
 
-- [ ] **Step 3: Update domain**
+- [x] **Step 3: Update domain**
 
 `SchedulingDomainModel.cs`:
 - Enum ekle (dosya sonundaki enum'lar yanına):
@@ -464,12 +466,12 @@ public enum CancellationReason
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: PASS.
 
-- [ ] **Step 5: Update command/handler/response/request**
+- [x] **Step 5: Update command/handler/response/request**
 
 `LessonScheduleFeatures.cs`:
 - `CancelLessonScheduleCommand` kaydını değiştir:
@@ -504,13 +506,13 @@ public sealed record CancelLessonScheduleRequest(CancellationReason Reason, bool
         builder.Property(entity => entity.CancellationReason).HasConversion<string>().HasMaxLength(32);
 ```
 
-- [ ] **Step 6: Migration + build + test**
+- [x] **Step 6: Migration + build + test**
 
 Run: `dotnet ef migrations add AddLessonCancellationReason --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext`
 Sonra `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: migration `CancellationReason` + `IsChargeable` ekler; PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -535,7 +537,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `LessonSchedule.CanBeDeletedAt(DateTime nowUtc)` → `bool` (oluşturmadan sonra ≤24 saat **ve** başlangıç gelecekte). `DeleteLessonScheduleCommand(Guid LessonId)`. `ILessonScheduleRepository.Remove(LessonSchedule lesson)`. Endpoint `DELETE /api/scheduling/lessons/{lessonId}`. Yeni error `scheduling.delete_not_allowed` → 409.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/LessonScheduleTests.cs`:
 ```csharp
@@ -571,12 +573,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: FAIL — `CanBeDeletedAt` yok.
 
-- [ ] **Step 3: Add domain method + event**
+- [x] **Step 3: Add domain method + event**
 
 `SchedulingDomainModel.cs`:
 ```csharp
@@ -585,12 +587,12 @@ Expected: FAIL — `CanBeDeletedAt` yok.
         => nowUtc <= CreatedOnUtc.AddHours(24) && StartAtUtc > nowUtc;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: PASS.
 
-- [ ] **Step 5: Command + handler + repo + DI + endpoint**
+- [x] **Step 5: Command + handler + repo + DI + endpoint**
 
 `LessonScheduleFeatures.cs`:
 ```csharp
@@ -682,12 +684,12 @@ public sealed class DeleteLessonScheduleCommandHandler : ICommandHandler<DeleteL
     }
 ```
 
-- [ ] **Step 6: Build + test (migration gerekmez — şema değişmedi)**
+- [x] **Step 6: Build + test (migration gerekmez — şema değişmedi)**
 
 Run: `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -710,12 +712,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `LessonSession.IsChargeable` (bool). `LessonSession.Complete(...)` imzasının sonuna `bool isChargeable` eklenir. Complete command/request/response'a `bool IsChargeable`.
 
-- [ ] **Step 1: Discover LessonSessions Application/API file names**
+- [x] **Step 1: Discover LessonSessions Application/API file names**
 
 Run: `find src/Modules/LessonSessions -name '*.cs' | grep -v obj`
 Expected: `Application/*Features.cs`, `Application/*Policies.cs`, `API/*Module.cs`, `Infrastructure/*DbContext.cs` isimlerini not al (Scheduling'deki desenin aynısı).
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 `tests/Unit/LessonSessionTests.cs`:
 ```csharp
@@ -745,23 +747,23 @@ public sealed class LessonSessionTests
 }
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonSessionTests`
 Expected: FAIL — `Complete` `isChargeable` almıyor / `IsChargeable` yok.
 
-- [ ] **Step 4: Update domain**
+- [x] **Step 4: Update domain**
 
 `LessonSessionsDomainModel.cs`:
 - Property ekle (CompletedOnUtc altına): `public bool IsChargeable { get; private set; }`
 - `Complete` imzasına `string? teacherNotes` sonrasına `bool isChargeable` ekle; gövdeye `IsChargeable = isChargeable;` ekle.
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonSessionTests`
 Expected: PASS.
 
-- [ ] **Step 6: Thread through Application + API + config**
+- [x] **Step 6: Thread through Application + API + config**
 
 Step 1'de bulunan dosyalarda:
 - Complete command kaydına `bool IsChargeable` ekle; handler'daki `session.Complete(...)` çağrısına `command.IsChargeable` geçir (attendance parametresi sonrası uygun konuma göre `teacherNotes`'tan sonra).
@@ -769,14 +771,14 @@ Step 1'de bulunan dosyalarda:
 - Complete request DTO'suna `bool IsChargeable` ekle; `ToCommand` içine geçir.
 - LessonSessions DbContext config'ine `builder.Property(entity => entity.IsChargeable);` ekle (bool non-null, varsayılan false).
 
-- [ ] **Step 7: Migration + build + test**
+- [x] **Step 7: Migration + build + test**
 
 Run: `dotnet ef migrations add AddLessonSessionIsChargeable --project src/Modules/LessonSessions/Infrastructure --startup-project src/API.Host --context LessonSessionsDbContext`
 Sonra `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: migration `IsChargeable bool NOT NULL DEFAULT false` ekler; PASS.
 > `--context` adını Step 1'de bulunan gerçek DbContext ismiyle değiştir.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -804,7 +806,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 > **Kapsam notu (YAGNI):** Bu task'ta blok tam-gün/aralık tarih penceresiyle modellenir (`StartAtUtc`–`EndAtUtc`). Günlük saat aralığı ("her gün 09–13") ilk sürümde dışta; gerekirse sonraki dilimde eklenir. Çakışma taraması `LessonSchedule` zaman kesişimidir.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/TimeOffBlockTests.cs`:
 ```csharp
@@ -830,12 +832,12 @@ public sealed class TimeOffBlockTests
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~TimeOffBlockTests`
 Expected: FAIL — `TimeOffBlock` yok.
 
-- [ ] **Step 3: Add aggregate + enum**
+- [x] **Step 3: Add aggregate + enum**
 
 `SchedulingDomainModel.cs` sonuna:
 ```csharp
@@ -881,12 +883,12 @@ public enum TimeOffType
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~TimeOffBlockTests`
 Expected: PASS.
 
-- [ ] **Step 5: Application (features + policies)**
+- [x] **Step 5: Application (features + policies)**
 
 `src/Modules/Scheduling/Application/TimeOffFeatures.cs` oluştur — command/query/handler/response/repository arayüzü. `CreateLessonScheduleCommandHandler` desenini birebir izle. İçerik:
 ```csharp
@@ -1075,7 +1077,7 @@ public sealed class TimeOffBlockAuthorizer :
 }
 ```
 
-- [ ] **Step 6: Infrastructure (repository + config + DI)**
+- [x] **Step 6: Infrastructure (repository + config + DI)**
 
 `src/Modules/Scheduling/Infrastructure/TimeOffBlockRepository.cs`:
 ```csharp
@@ -1139,7 +1141,7 @@ internal sealed class TimeOffBlockConfiguration : IEntityTypeConfiguration<TimeO
         services.AddScoped<IQueryAuthorizer<ListTimeOffBlocksForTeacherQuery>, TimeOffBlockAuthorizer>();
 ```
 
-- [ ] **Step 7: API endpoints**
+- [x] **Step 7: API endpoints**
 
 `SchedulingModule.cs` — `MapEndpoints` içine:
 ```csharp
@@ -1194,13 +1196,13 @@ public sealed record CreateTimeOffBlockRequest(
 `ToHttpResult` switch'ine `scheduling.timeoff_not_found` için 404 ekle.
 > Not: `CreateTimeOffBlockRequest` `TimeOffType` kullandığı için dosya başında `using EgitimUssu.Modules.Scheduling.Domain;` zaten mevcut (SchedulingModule.cs bunu import ediyor).
 
-- [ ] **Step 8: Migration + build + test**
+- [x] **Step 8: Migration + build + test**
 
 Run: `dotnet ef migrations add AddTimeOffBlocks --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext`
 Sonra `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: `time_off_blocks` tablosu; PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add -A
@@ -1223,7 +1225,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `enum OccurrenceExceptionAction { Skipped = 1, Cancelled = 2, Rescheduled = 3 }`. `LessonOccurrenceException` entity (`Id, SeriesLessonScheduleId, OriginalStartAtUtc, Action, OverrideStartAtUtc?, OverrideEndAtUtc?, Note?, CreatedOnUtc`). `ILessonScheduleRepository`'ye: `Task AddExceptionAsync(LessonOccurrenceException ex, CancellationToken)`, `Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesId, CancellationToken)`, `Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/LessonScheduleTests.cs`:
 ```csharp
@@ -1242,12 +1244,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: FAIL — `LessonOccurrenceException` yok.
 
-- [ ] **Step 3: Add entity + enum**
+- [x] **Step 3: Add entity + enum**
 
 `SchedulingDomainModel.cs` sonuna:
 ```csharp
@@ -1292,12 +1294,12 @@ public enum OccurrenceExceptionAction
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: PASS.
 
-- [ ] **Step 5: Repository + config**
+- [x] **Step 5: Repository + config**
 
 `ILessonScheduleRepository` (LessonScheduleFeatures.cs) arayüzüne ekle:
 ```csharp
@@ -1343,13 +1345,13 @@ internal sealed class LessonOccurrenceExceptionConfiguration : IEntityTypeConfig
 }
 ```
 
-- [ ] **Step 6: Migration + build + test**
+- [x] **Step 6: Migration + build + test**
 
 Run: `dotnet ef migrations add AddLessonOccurrenceExceptions --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext`
 Sonra `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: `lesson_occurrence_exceptions` tablosu; PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -1370,7 +1372,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Produces: `ScheduleOccurrence`'a `bool IsCancelled` alanı eklenir (varsayılan false). Yeni overload:
   `RecurrenceExpander.Expand(DateTime anchorStartUtc, DateTime anchorEndUtc, string? recurrenceRule, DateTime rangeStartUtc, DateTime rangeEndUtc, IReadOnlyCollection<OccurrenceOverride> exceptions)` — `OccurrenceOverride(DateTime OriginalStartAtUtc, OccurrenceExceptionAction Action, DateTime? OverrideStartAtUtc, DateTime? OverrideEndAtUtc)`. `Skipped` → occurrence atlanır; `Cancelled` → `IsCancelled=true` ile döner; `Rescheduled` → override tarih/saatle döner.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `tests/Unit/RecurrenceExpanderTests.cs` içine:
 ```csharp
@@ -1433,12 +1435,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~RecurrenceExpanderTests`
 Expected: FAIL — 6 argümanlı `Expand` overload'u ve `OccurrenceOverride`/`IsCancelled` yok.
 
-- [ ] **Step 3: Implement overload**
+- [x] **Step 3: Implement overload**
 
 `RecurrenceExpander.cs`:
 - `ScheduleOccurrence`'ı değiştir:
@@ -1495,12 +1497,12 @@ public readonly record struct OccurrenceOverride(
     }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~RecurrenceExpanderTests`
 Expected: PASS (yeni + mevcut testler).
 
-- [ ] **Step 5: Wire exceptions into calendar/list expansion**
+- [x] **Step 5: Wire exceptions into calendar/list expansion**
 
 `StudyScheduleFeatures.cs` içinde `RecurrenceExpander.Expand(lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, ...)` çağrılarını, ilgili serinin istisnalarını geçiren 6-argümanlı overload'a taşı. Her ders için:
 ```csharp
@@ -1517,12 +1519,12 @@ foreach (var occurrence in RecurrenceExpander.Expand(lesson.StartAtUtc, lesson.E
 `allExceptions`, ilgili handler'ın başında `_repository.ListExceptionsForTeacherAsync(teacherUserId, ...)` (öğretmen takvimi) veya öğrenci takviminde ilgili derslerin serilerinden `ListExceptionsForSeriesAsync` ile toplanır. Öğrenci takvimi handler'ında öğretmen id doğrudan yoksa, her benzersiz `lesson.Id` için `ListExceptionsForSeriesAsync` çağır ve birleştir.
 > Bu adım mevcut genişletme çağrılarının **hepsini** kapsamalı (çakışma kontrolü dahil `OverlapsTeacherLesson` iptal edilen/atlanan occurrence'ları saymamalı). `StudyScheduleFeatures.cs`'deki tüm `RecurrenceExpander.Expand(...)` çağrılarını gözden geçir.
 
-- [ ] **Step 6: Build + test**
+- [x] **Step 6: Build + test**
 
 Run: `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -1545,7 +1547,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 > **Kapsam kararı (YAGNI):** `ThisAndFuture` için tam "yeni seri oluştur" davranışı (reschedule'da yeni ayarlarla) karmaşık. Bu task'ta `ThisAndFuture` yalnızca **seriyi hedeften önce sonlandırır** (`RecurrenceRule`'a `UNTIL` ekleyerek). Yeni-seri-ile-değiştir ihtiyacı doğarsa ayrı task açılır. Hedef occurrence tanımı: istek gövdesindeki `OccurrenceStartAtUtc`.
 
-- [ ] **Step 1: Add scope enum + command fields (compile-first)**
+- [x] **Step 1: Add scope enum + command fields (compile-first)**
 
 `LessonScheduleFeatures.cs`:
 ```csharp
@@ -1560,7 +1562,7 @@ public enum OccurrenceScope
 - Cancel: `OccurrenceScope Scope, DateTime? OccurrenceStartAtUtc`
 - Reschedule: `OccurrenceScope Scope, DateTime? OccurrenceStartAtUtc`
 
-- [ ] **Step 2: Write the failing test (single-occurrence cancel writes exception)**
+- [x] **Step 2: Write the failing test (single-occurrence cancel writes exception)**
 
 `tests/Unit/LessonScheduleTests.cs` — hafif bir sahte repository ile handler davranışı. `ILessonScheduleRepository`'yi test içinde minimal implemente et (yalnız gereken metotlar; diğerleri `NotImplementedException`), `IClock` için sabit saat:
 ```csharp
@@ -1594,12 +1596,12 @@ public enum OccurrenceScope
 ```
 `RecordingRepository`, `ILessonScheduleRepository`'yi implemente eder: `GetByIdAsync` seriyi döndürür, `AddExceptionAsync` listeye ekler, `SaveChangesAsync` no-op, diğerleri `throw new NotImplementedException()`. (Sınıfı test dosyasının sonuna ekle.)
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: FAIL — handler henüz scope'u işlemiyor; `AddExceptions` boş.
 
-- [ ] **Step 4: Implement scope in Cancel handler**
+- [x] **Step 4: Implement scope in Cancel handler**
 
 `CancelLessonScheduleCommandHandler.Handle` — ders bulunduktan sonra, `Cancel` çağrısından önce:
 ```csharp
@@ -1637,12 +1639,12 @@ Domain'e `EndSeriesBefore` ekle (`SchedulingDomainModel.cs`, `LessonSchedule`):
     }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter FullyQualifiedName~LessonScheduleTests`
 Expected: PASS.
 
-- [ ] **Step 6: Apply same scope logic to Reschedule handler**
+- [x] **Step 6: Apply same scope logic to Reschedule handler**
 
 `RescheduleLessonScheduleCommandHandler.Handle` — `isRecurring && Scope==Single && OccurrenceStartAtUtc is {} occStart` durumunda, temel satırı değiştirmeden `Rescheduled` istisnası yaz:
 ```csharp
@@ -1660,23 +1662,23 @@ Expected: PASS.
 ```
 > `RescheduleLessonScheduleCommandHandler`'a `IIdGenerator` ekle. `All`/tek-seferlik → mevcut `lesson.Reschedule(...)` yolu.
 
-- [ ] **Step 7: API request DTO'lara scope ekle**
+- [x] **Step 7: API request DTO'lara scope ekle**
 
 `SchedulingModule.cs`:
 - `CancelLessonScheduleRequest`'e `OccurrenceScope Scope = OccurrenceScope.All`, `DateTime? OccurrenceStartAtUtc = null` ekle; `CancelLessonScheduleAsync` dispatch'ine geçir.
 - `RescheduleLessonScheduleRequest`'e `OccurrenceScope Scope = OccurrenceScope.All`, `DateTime? OccurrenceStartAtUtc = null` ekle; dispatch'e geçir.
 > `using EgitimUssu.Modules.Scheduling.Application;` zaten mevcut (OccurrenceScope oradan gelir).
 
-- [ ] **Step 8: DI güncelle (IIdGenerator handler'lara zaten enjekte ediliyor mu doğrula)**
+- [x] **Step 8: DI güncelle (IIdGenerator handler'lara zaten enjekte ediliyor mu doğrula)**
 
 Cancel + Reschedule handler kayıtları değişmez (aynı arayüz), ancak ctor'a `IIdGenerator` eklendiği için DI container zaten `IIdGenerator`'ı çözer (Create handler kullanıyor). Ek kayıt gerekmez.
 
-- [ ] **Step 9: Build + test**
+- [x] **Step 9: Build + test**
 
 Run: `dotnet build EgitimUssu.sln` + `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj`
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add -A
@@ -1699,31 +1701,31 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Interfaces:** Yok (yalnız dokümantasyon).
 
-- [ ] **Step 1: m04_scheduling.md güncelle**
+- [x] **Step 1: m04_scheduling.md güncelle**
 
 Yeni domain alanları/entity'ler (`MeetingUrl`, `OriginalStartAtUtc`, `RescheduleNote`, `CancellationReason`, `IsChargeable`, `TimeOffBlock`, `LessonOccurrenceException`, `OccurrenceScope`) + yeni endpoint'ler (`/lessons/{id}/reschedule`, `DELETE /lessons/{id}`, `/teachers/{id}/time-off` [POST/GET/DELETE]) + iş kuralları (24s silme, scope davranışı, tatil çakışma taraması). "Güncelleme: 2026-07-18".
 
-- [ ] **Step 2: m05_lesson_sessions.md güncelle**
+- [x] **Step 2: m05_lesson_sessions.md güncelle**
 
 `LessonSession.IsChargeable` + complete akışında ücretlendirme kararı. Tarih güncelle.
 
-- [ ] **Step 3: 00_genel_bakis.md endpoint envanteri + durum**
+- [x] **Step 3: 00_genel_bakis.md endpoint envanteri + durum**
 
 §4 Scheduling ve LessonSessions endpoint listelerine yeni satırları ekle. §1 modül tablosunda M04 durumunu `🟡 (link/tatil ⚠️)` → `🟢` yap (link + tatil + erteleme tamam). Alt tarih notunu güncelle.
 
-- [ ] **Step 4: veri_modeli.md ER güncelle**
+- [x] **Step 4: veri_modeli.md ER güncelle**
 
 `TimeOffBlock`, `LessonOccurrenceException` tabloları + `LessonSchedule`/`LessonSession` yeni alanları ER'a ekle.
 
-- [ ] **Step 5: mimari_inceleme.md**
+- [x] **Step 5: mimari_inceleme.md**
 
 Takvim boşluklarıyla (B-01/B-02/B-03/B-08/B-09/B-10) ilgili açık madde varsa "✅ Düzeltildi" işaretle.
 
-- [ ] **Step 6: ogretmen.md §10 durumları**
+- [x] **Step 6: ogretmen.md §10 durumları**
 
 §10.1 tablosunda B-01/B-02/B-03/B-08/B-09/B-10 satırlarını "✅ yapıldı (Dilim A)" olarak işaretle; §10.3 Öncelik 1/2 ilgili maddeleri güncelle. Kabul Kriterleri (§9) ilgili maddeleri `[x]` yap. Tarih güncelle.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
