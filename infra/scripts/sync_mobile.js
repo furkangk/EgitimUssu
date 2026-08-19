@@ -21,6 +21,20 @@ async function run() {
     overwrite: true,
     errorOnExist: false,
     filter: (src) => {
+      // CocoaPods artefaktları (Pods/, .symlinks/, *.lock) göreli pub-cache
+      // yolları içerir; bu yollar YALNIZ üretildikleri konumdan (gerçek
+      // mobile/) çözülür. Daha derin temp workspace'e kopyalanınca kırılır
+      // (ör. flutter_local_notifications ActionEventSink.h "No such file").
+      // Bunları dışla → workspace'te `flutter run` iOS build'i `pod install`i
+      // konumuna göre taze çalıştırır ve doğru yolları üretir.
+      const segments = path.relative(source, src).split(path.sep);
+      if (segments.includes("Pods") || segments.includes(".symlinks")) {
+        return false;
+      }
+      const base = path.basename(src);
+      if (base === "Podfile.lock" || base === "Manifest.lock") {
+        return false;
+      }
       return !src.includes("build") &&
              !src.includes(".dart_tool") &&
              !src.includes(".idea") &&

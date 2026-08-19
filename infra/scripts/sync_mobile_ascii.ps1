@@ -16,12 +16,15 @@ if (-not (Test-Path -LiteralPath $source)) {
 
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 
+# CocoaPods artefaktları (Pods, .symlinks, *.lock) konuma-bağımlı göreli
+# pub-cache yolları içerir; temp workspace'e kopyalanınca iOS/macOS build'i
+# kırar. Dışla ki flutter run `pod install`i konumuna göre taze çalıştırsın.
 $arguments = @(
     $source,
     $target,
     "/MIR",
-    "/XD", "build", ".dart_tool", ".idea",
-    "/XF", "tmp_*.log", "*.iml"
+    "/XD", "build", ".dart_tool", ".idea", "Pods", ".symlinks",
+    "/XF", "tmp_*.log", "*.iml", "Podfile.lock", "Manifest.lock"
 )
 
 & robocopy @arguments | Out-Null
