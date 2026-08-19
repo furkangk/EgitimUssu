@@ -13,7 +13,9 @@ void main() {
   });
 
   test('weakTopics eşik altını artan skorla döndürür', () {
-    final weak = weakTopics({'Türev': 40, 'Limit': 80, 'İntegral': 55});
+    // Ekleme sırası (İntegral, Türev, Limit) ile beklenen sıralı çıktı
+    // (Türev, İntegral) farklı olsun ki `..sort` çalışmazsa test patlasın.
+    final weak = weakTopics({'İntegral': 55, 'Türev': 40, 'Limit': 80});
     expect(weak, ['Türev', 'İntegral']);
   });
 }

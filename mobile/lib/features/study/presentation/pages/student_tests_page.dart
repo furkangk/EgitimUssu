@@ -1048,10 +1048,12 @@ class _MonthlyBars extends StatelessWidget {
 
   final List<StudySession> sessions;
 
+  // Kova index'i → yaş: bucket = 3 - (daysAgo ~/ 7). daysAgo 0-6 → index 3
+  // (Bu hafta), 7-13 → index 2 (1 hafta önce), 14-20 → index 1, 21-27 → index 0.
   static const List<String> _bucketLabels = <String>[
-    '4h önce',
-    '3h önce',
-    '2h önce',
+    '3 hafta önce',
+    '2 hafta önce',
+    '1 hafta önce',
     'Bu hafta',
   ];
 
