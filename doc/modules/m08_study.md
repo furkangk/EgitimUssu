@@ -308,6 +308,7 @@ GET    /api/study/students/{studentId}/dashboard                → 200 birleşi
 
 ### 3.4 Gizlilik (paylaşım kontrolü)
 ```
+GET    /api/study/students/{studentId}/sharing                  → 200 mevcut paylaşım tercihleri
 PUT    /api/study/students/{studentId}/sharing
        body: { shareStudyWithParent, shareTestsWithParent,
                shareStudyWithTeacher, shareTestsWithTeacher }   → 200
@@ -509,7 +510,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-07-19 (Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-08-19 (kod-senkron: API 38 endpoint doğrulandı — seans 13 + test/deneme 7 + hedef/streak/dashboard 5 + paylaşım GET/PUT 2 + katalog 7 + not 4; §3.4'e GET /sharing eklendi). Önceki not — Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
 
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
 <!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + IMembershipDirectory + MembershipGate; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->

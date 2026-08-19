@@ -357,4 +357,4 @@ karşılaştırma tablosu hedeflenir (Tailwind CSS, responsive `sm/md/lg`).
 
 ---
 
-*EğitimÜssü — M12 Eşleştirme ve Keşif Modülü · Detaylı Tasarım | Faz 4 | Durum: 🔴 İskelet | Güncelleme: 2026-06-24*
+*EğitimÜssü — M12 Eşleştirme ve Keşif Modülü · Detaylı Tasarım | Faz 4 | Durum: 🔴 İskelet | Güncelleme: 2026-08-19 (kod-senkron: yalnızca `GET /api/matching/status` placeholder + `MatchingDbContext` + DI kaydı kodda; Domain/Application boş (`AssemblyReference.cs`). Tüm §2/§3 içerik "önerilen", kodda yok — doğrulandı)*
