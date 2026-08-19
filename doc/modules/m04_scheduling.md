@@ -53,10 +53,12 @@
 | Alan | Tip | Açıklama |
 |------|-----|----------|
 | `Id` | `Guid` | Ders planı kimliği |
-| `TeacherUserId` | `Guid` | Dersi planlayan öğretmenin kullanıcı kimliği |
+| `TeacherUserId` | `Guid?` | Dersi planlayan öğretmenin kullanıcı kimliği. **Ç-06:** öğrencinin kendi (self) dersinde `null` |
 | `StudentId` | `Guid` | Hedef öğrenci profil kimliği |
 | `Subject` | `string` | Konu / branş |
-| `LessonFormat` | enum `ScheduledLessonFormat` | `InPerson=1`, `Online=2`, `Hybrid=3` |
+| `LessonFormat` | enum `ScheduledLessonFormat?` | `InPerson=1`, `Online=2`, `Hybrid=3` (nullable — self derste boş olabilir) |
+| `Topic` | `string?` | **Ç-06.** Konu (self ders birleştirmesiyle geldi; mobil formda toplanmaz — rezerve) |
+| `ColorHex` | `string?` | **Ç-06.** Takvim renk kodu (self ders için) |
 | `StartAtUtc` | `DateTime` | Başlangıç (UTC) |
 | `EndAtUtc` | `DateTime` | Bitiş (UTC) |
 | `TimeZone` | `string` | IANA zaman dilimi (gösterim için) |
@@ -155,9 +157,10 @@ Tekrar serisinde tek bir oluşuma uygulanan istisna (iCal `EXDATE`/`RECURRENCE-I
 Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) hedeflerinden türetilmiştir; **kodda yoktur**.
 
 #### A) `LessonSchedule`'a eklenecek alanlar
+> Not: `MeetingUrl` **artık kodda** (B-10, §2.1) — bu tablodan çıkarıldı.
+
 | Alan (öneri) | Tip | Gerekçe |
 |--------------|-----|---------|
-| `MeetingUrl` | `string?` | **Online ders linki.** `LessonFormat = Online/Hybrid` olduğunda öğrenci bu linkle derse katılır (`promp.txt`: "Online için link girer öğrenciler o linkden derse giriş yapar"). |
 | `MeetingProvider` | `string?` | Zoom/Meet/Teams/diğer (görüntüleme/ikon için). |
 | `SeriesId` | `Guid?` | Tekrarlı seriye ait örnek (instance) ise serinin kimliği — açılım için. |
 | `CancelledOnUtc` | `DateTime?` | İptal zamanını ayrı tutmak (şu an yalnızca `UpdatedOnUtc`). |
@@ -181,13 +184,16 @@ Aşağıdakiler `promp.txt` ve [`../roles/ogretmen.md`](../roles/ogretmen.md) he
 > **Tasarım kararı:** Materyalize yaklaşım (örnekleri önceden üret) çakışma kontrolü, hatırlatma ve takvim
 > sorgularını basitleştirir. Alternatif (uçuş anında genişletme) daha az satır ama daha karmaşık sorgu demektir.
 
-### 2.3 🟢 Mevcut (koddan) — `StudyScheduleEntry` (AggregateRoot<Guid>) — 2026-07-08
+### 2.3 ⛔ KALDIRILDI (Ç-06, 2026-07-19) — eski `StudyScheduleEntry` aggregate → birleşik `LessonSchedule`
 
-`src/Modules/Scheduling/Domain/StudyScheduleModel.cs`
+> **Kod gerçeği (2026-08-19 doğrulandı):** `StudyScheduleEntry` aggregate ve `StudyScheduleModel.cs` dosyası **artık yoktur**.
+> `enum StudyScheduleEntryStatus` de kodda kalmadı. Öğrencinin kendi dersi Ç-06 ile birleşik `LessonSchedule`'a taşındı
+> (`TeacherUserId = null` = self; `Topic`/`ColorHex` alanları §2.1'e eklendi). `UnifyLessonSchedule` migration'ı veriyi göç ettirip tabloyu düşürdü.
+> API tarafında yalnızca `/study-entries` **rotaları** (POST/PUT/DELETE) geriye-uyum köprüsü olarak korunur; bunlar self-lesson komutlarına yönlenir (bkz. §3.1).
+> Aşağıdaki tablo **tarihsel** referans içindir; artık koda karşılık gelmez.
 
-Öğrencinin **kendi oluşturduğu** kişisel ders/çalışma programı girdisi. `LessonSchedule`'dan **bağımsızdır**:
-öğrenci bir öğretmeni olmadan da kendi haftalık programını kurabilir (ör. her Pazartesi 15:00–16:00 Matematik).
-Sahiplik `StudentId` üzerindendir; yalnızca sahibi öğrenci (veya admin) yönetir.
+Eski (kaldırılmış) `StudyScheduleEntry`: öğrencinin **kendi oluşturduğu** kişisel ders/çalışma programı girdisi.
+Sahiplik `StudentId` üzerindendi; yalnızca sahibi öğrenci (veya admin) yönetirdi.
 
 | Alan | Tip | Açıklama |
 |------|-----|----------|
@@ -270,7 +276,6 @@ Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda 
 
 | Yetenek | Öneri | Gerekçe |
 |---------|-------|---------|
-| `MeetingUrl` alanı | Domain'e `MeetingUrl` ekle (DB migration) | Online ders linki şu an yalnızca `LocationLabel`'da tutulabiliyor; ayrı alan + create/update request'lerine eklenmeli (mobilde `meetingUrl` mevcut) |
 | Tatil ekle/listele | `POST /api/scheduling/holidays`, `GET /api/scheduling/teachers/{id}/holidays` | `ScheduleException` için |
 | Seri oluştur | `POST /api/scheduling/lessons/series` | `RecurrenceRule` açılımı + `SeriesId` üretimi |
 | Seri iptal | `POST /api/scheduling/lessons/series/{seriesId}/cancel?scope=instance\|all` | Tek örnek / tüm seri |
@@ -409,4 +414,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*

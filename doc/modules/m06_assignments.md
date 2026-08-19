@@ -19,7 +19,7 @@
 |--------|-------|-------|
 | Domain (`Assignment`, `LessonNote`) | ✅ Mevcut | `src/Modules/Assignments/Domain/AssignmentsDomainModel.cs` |
 | Application (follow-up + listeleme) | ✅ Mevcut | `src/Modules/Assignments/Application/AssignmentFeatures.cs` |
-| API (follow-up POST/GET + liste) | ✅ Mevcut (3 endpoint) | `src/Modules/Assignments/API/AssignmentsModule.cs` |
+| API (follow-up POST/GET + liste + tamamla/teslim/indir/onayla/geri gönder) | ✅ Mevcut (8 endpoint) | `src/Modules/Assignments/API/AssignmentsModule.cs` |
 | M05 tamamlama tüketimi | ✅ Mevcut | `Assignments/Infrastructure/LessonSessionCompletedIntegrationEventHandler.cs` |
 | Öğretmen eki (`AttachmentUrl`) | ✅ Mevcut | `Assignment.AttachmentUrl` (öğretmenin paylaştığı dosya linki) |
 | Ödev **tamamlandı** işaretleme | ✅ Endpoint | `Assignment.MarkCompleted()` + `POST /{id}/complete` (öğrenci) |
@@ -279,7 +279,7 @@ POST /assignments/{id}/complete
 - [x] Öğretmen eki (`AttachmentUrl`) paylaşabilir.
 - [x] Öğretmen not görünürlüğünü (`Private`/`Student`/`StudentAndParent`) seçebilir (B-05).
 - [x] Öğretmen ödevi onaylayabilir / geri bildirimle geri gönderebilir (T-06.7/8); geri gönderme için geri bildirim zorunlu.
-- [ ] ⚠️ Ödev "tamamla" endpoint'i (`MarkCompleted` açığa çıkarılmalı).
+- [x] Ödev "tamamla" endpoint'i (`POST /{id}/complete` → `MarkCompleted`) — 2026-07-09 eklendi.
 - [ ] ⚠️ `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü.
 - [ ] ⚠️ `AssignmentSubmission` (öğrenci yükleme) + değerlendirme.
 - [ ] ⚠️ Son teslim uyarısı (öğrenci + veli bildirimi).
@@ -295,7 +295,7 @@ POST /assignments/{id}/complete
 1. **Dosya depolama altyapısı** — Diğer her şeyin ön koşulu (presigned URL / blob); bkz. [`mimari_inceleme.md`](mimari_inceleme.md).
 2. **`AssignmentSubmission` (öğrenci yükleme)** + öğretmen değerlendirme + durum güncelleme.
 3. **`LessonResource` (ders kaynağı)** — aggregate + endpoint + öğrenci görünümü.
-4. **Ödev "tamamla" + güncelle/iptal endpoint'leri** (`MarkCompleted` zaten domainde).
+4. **Ödev güncelle/iptal endpoint'leri** (`PUT/DELETE /{id}`). Ödev "tamamla" (`POST /{id}/complete`) zaten mevcut (2026-07-09).
 5. **Son teslim uyarı otomasyonu** — zamanlanmış iş + m11 + m09 (veliye bildirim).
 6. **Öğrenci görünümü endpoint'leri** (kendi ödev/not/kaynak) + yetkilendirme testleri.
 
@@ -312,4 +312,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
