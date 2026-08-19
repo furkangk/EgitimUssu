@@ -512,6 +512,7 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
       final upcoming = items
           .where((AssignmentItem a) =>
               a.status != 'Completed' &&
+              a.status != 'Cancelled' &&
               (a.dueDateUtc == null || a.dueDateUtc!.isAfter(now)))
           .toList()
         ..sort((AssignmentItem a, AssignmentItem b) {
