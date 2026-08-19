@@ -1,6 +1,6 @@
 # 👪 Veli Rolü — Sayfa Mimarisi (Diyagramlar)
 
-> **Referans:** yalnızca [`doc/veli_rolu_fonksiyonel_dokuman_v1.md`](../../veli_rolu_fonksiyonel_dokuman_v1.md) (v1.0).
+> **Referans:** yalnızca [`doc/_arsiv/veli_rolu_fonksiyonel_dokuman_v1.md`](../../_arsiv/veli_rolu_fonksiyonel_dokuman_v1.md) (v1.0, ⚠️ arşiv 2026-08-19 — güncel otorite `doc/roles/veli.md`).
 > Bu şemalar dokümanın **“olması gereken”** tasarımını yansıtır — **mevcut Flutter uygulamasını değil.**
 > `[YENİ]` etiketli maddeler dokümandaki önerilerdir (onay bekler).
 >

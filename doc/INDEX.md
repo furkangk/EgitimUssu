@@ -94,13 +94,13 @@
 
 ## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
 
-> Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak: `doc/*_rolu_fonksiyonel_dokuman_v1.md`. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).
+> Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak fonksiyonel dokümanlar **arşivlendi** (2026-08-19) → `doc/_arsiv/*_rolu_fonksiyonel_dokuman_v1.md`; güncel otorite `doc/roles/`'tedir. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).
 
-| Rol | Dosya | Kaynak fonksiyonel doküman |
+| Rol | Dosya | Kaynak fonksiyonel doküman (⚠️ arşiv) |
 |-----|-------|----------------------------|
-| 🎓 Öğrenci | [`ogrenci`](diagrams/rol_sayfa_mimarisi/ogrenci.md) | [`ogrenci_rolu_fonksiyonel_dokuman_v1`](ogrenci_rolu_fonksiyonel_dokuman_v1.md) |
-| 👨‍🏫 Öğretmen | [`ogretmen`](diagrams/rol_sayfa_mimarisi/ogretmen.md) | [`ogretmen_rolu_fonksiyonel_dokuman_v1`](ogretmen_rolu_fonksiyonel_dokuman_v1.md) |
-| 👪 Veli | [`veli`](diagrams/rol_sayfa_mimarisi/veli.md) | [`veli_rolu_fonksiyonel_dokuman_v1`](veli_rolu_fonksiyonel_dokuman_v1.md) |
+| 🎓 Öğrenci | [`ogrenci`](diagrams/rol_sayfa_mimarisi/ogrenci.md) | [`_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1`](_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1.md) |
+| 👨‍🏫 Öğretmen | [`ogretmen`](diagrams/rol_sayfa_mimarisi/ogretmen.md) | [`_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1`](_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md) |
+| 👪 Veli | [`veli`](diagrams/rol_sayfa_mimarisi/veli.md) | [`_arsiv/veli_rolu_fonksiyonel_dokuman_v1`](_arsiv/veli_rolu_fonksiyonel_dokuman_v1.md) |
 
 ## 6. Türev / Operasyon Dosyaları
 
@@ -108,6 +108,7 @@
 |-------|--------------|
 | [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) | Jira backlog (Epic/Story/Task). Her görevde `faz-N` etiketi → [`yol_haritasi.md`](yol_haritasi.md) ile hizalı. Modül docs değişince güncellenmeli |
 | [`denetim/2026-06-30_kapsamli_kod_denetimi.md`](denetim/2026-06-30_kapsamli_kod_denetimi.md) | **Kapsamlı kod denetimi (2026-06-30)**: mimari/güvenlik/DDD/persistence/mobil/operasyon bulguları, skor tablosu, önceliklendirilmiş yol haritası. Anlık denetim artefaktı |
+| [`_arsiv/`](_arsiv/) | **Arşiv (⚠️ tarihî):** PRD v2.0'dan türetilen eski fonksiyonel/iş-akışı dokümanları (`*_rolu_fonksiyonel_dokuman_v1.md`, `is_akislari.md`). Geçmiş referans; güncel otorite `doc/roles/` + `doc/modules/`. 2026-08-19'da birleştirilip arşivlendi |
 
 ---
 

@@ -1,5 +1,7 @@
 # Veli Rolü — Fonksiyonel Yetenek ve Kullanım Akışı Dokümanı
 
+> ⚠️ **ARŞİV (2026-08-19):** Bu doküman tarihîdir. Geçerli otorite `doc/roles/` + `doc/modules/`'tedir. Buradaki bilgi yalnızca geçmiş referans içindir; çelişkide roles/modules esastır.
+
 **Ürün:** Özel Ders Yönetim ve Eşleştirme Platformu
 **Kaynak:** `ozel_ders_platformu_PRD_v2.docx` (v2.0, Nisan 2025)
 **Bu doküman:** v1.0 — Veli rolü detaylandırması

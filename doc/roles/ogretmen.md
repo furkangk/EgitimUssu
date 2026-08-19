@@ -5,8 +5,8 @@
 > **Amaç:** Öğretmenin uygulamayı **her gün** kullandığı bir günlük operasyon aracı olmak — öğrencilerini,
 > derslerini, ödevlerini, notlarını/kaynaklarını, tatillerini ve ödemelerini **tek takvim** etrafında yönetir.
 >
-> İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`veli.md`](veli.md) · modül indeksi [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) · fonksiyonel doküman [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyonel_dokuman_v1.md)
-> **Güncelleme:** 2026-07-18
+> İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`veli.md`](veli.md) · modül indeksi [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) · fonksiyonel doküman (arşiv) [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md)
+> **Güncelleme:** 2026-08-19
 
 ---
 
@@ -78,6 +78,26 @@ Kayıt (Teacher) → Profil doldur (branş, şehir, ücret, uygunluk saatleri)
 8. **Doğrulama rozeti:** Öğretmen kendini "doğrulanmış" yapamaz; yalnızca admin (güvenlik — bkz. [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) Y1).
 9. **Sahiplik:** Öğretmen yalnızca **kendi** eklediği/kendisine bağlı öğrencileri görebilir.
 
+### 5.1 Yetki Sınırları — Öğretmen Neyi Yapamaz
+
+Rol, sınırlarıyla birlikte anlamlıdır. Aşağıdaki kısıtlar iş kuralı olarak zorlanır (arşivlenen fonksiyonel dokümandan taşındı, kanonik gerçeklere göre düzeltildi):
+
+| # | Öğretmen ŞUNU YAPAMAZ | Neden |
+|---|---|---|
+| 1 | Öğrencinin bireysel çalışma sayacını başlatamaz/durduramaz | Veri öğrenciye ait (M08) |
+| 2 | Öğrencinin gizlediği/paylaşmadığı çalışma verisini göremez | Paylaşım kontrolü (M15 `ShareStudyDataWith*`) |
+| 3 | Öğrencinin test/deneme kayıtlarını değiştiremez | Öğrenci verisi (M08) |
+| 4 | Aldığı olumsuz yorumu silemez/gizleyemez — yalnızca yanıtlar | M13 |
+| 5 | Puanını değiştiremez, yorum yapacak öğrenciyi seçemez | M13 (yalnız ders alan öğrenci yorumlar) |
+| 6 | Platform üzerinden para tahsil edemez | M07 (yalnız manuel kayıt/mutabakat) |
+| 7 | Başka öğretmenin öğrencisini göremez | Sahiplik/rol izolasyonu (M03) |
+| 8 | Kendini "doğrulanmış" yapamaz | Yalnız admin (mimari_inceleme Y1) |
+| 9 | Free planda 5 aktif bağ üstünde öğrenci ekleyemez | `StudentLimits.FreeStudentLimit=5` (M03/M17) |
+| 10 | Rolünü değiştiremez | Identity |
+| 11 | Öğrencinin hesabını silemez — yalnız bağlantıyı arşivler/keser | M03 (`TeacherStudentLink`) |
+| 12 | Tamamlanmış dersin tarih/saatini değiştiremez — yalnız not/konu düzeltir | M05 |
+| 13 | Admin işlemleri (moderasyon, doğrulama vb.) yapamaz | M01 |
+
 ---
 
 ## 6. Mobil Ekranlar
@@ -112,7 +132,7 @@ Premium öğretmen: reklamsız, **sınırsız öğrenci**, gelir analizi, PDF ö
 
 ## 10. Denetim — Kod Gerçeği vs. Fonksiyonel Doküman (2026-07-18)
 
-Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyonel_dokuman_v1.md) §15 boşluk listesi, gerçek koda (domain modeli + endpoint envanteri) karşı denetlendi. Faz 1 çekirdeği (M02–M07) domain+API+mobil olarak **çalışıyor**; ancak fonksiyonel dokümanın **[YENİ]** işaretli iş kurallarının çoğu koda henüz girmemiştir.
+Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md) (arşiv) §15 boşluk listesi, gerçek koda (domain modeli + endpoint envanteri) karşı denetlendi. Faz 1 çekirdeği (M02–M07) domain+API+mobil olarak **çalışıyor**; ancak fonksiyonel dokümanın **[YENİ]** işaretli iş kurallarının çoğu koda henüz girmemiştir.
 
 ### 10.1 Kritik/Yüksek boşluklar (Faz 1)
 
@@ -158,4 +178,4 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-08-19 (doküman temizliği: §5.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı; fonksiyonel doküman `_arsiv/`'e taşındı, linkler güncellendi) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*

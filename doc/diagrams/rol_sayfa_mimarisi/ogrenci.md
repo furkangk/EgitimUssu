@@ -1,6 +1,6 @@
 # 🎓 Öğrenci Rolü — Sayfa Mimarisi (Diyagramlar)
 
-> **Referans:** yalnızca [`doc/ogrenci_rolu_fonksiyonel_dokuman_v1.md`](../../ogrenci_rolu_fonksiyonel_dokuman_v1.md) (v1.0) + **Ç-06 kararı** (bkz. §1.2).
+> **Referans:** yalnızca [`doc/_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1.md`](../../_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1.md) (v1.0, ⚠️ arşiv 2026-08-19 — güncel otorite `doc/roles/ogrenci.md`) + **Ç-06 kararı** (bkz. §1.2).
 > Bu şemalar dokümanın **“olması gereken”** tasarımını yansıtır — **mevcut Flutter uygulamasını değil.**
 > `[YENİ]` etiketli maddeler dokümandaki önerilerdir (onay bekler).
 >
