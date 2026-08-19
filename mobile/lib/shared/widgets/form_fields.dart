@@ -144,12 +144,20 @@ class AppDateTimeField extends StatelessWidget {
     required this.labelText,
     required this.validator,
     this.hintText,
+    this.onTap,
+    this.readOnly = false,
   });
 
   final TextEditingController controller;
   final String labelText;
   final String? hintText;
   final FormFieldValidator<String> validator;
+
+  /// Verildiğinde alan dokunulunca tetiklenir (ör. tarih seçici açmak için).
+  final VoidCallback? onTap;
+
+  /// `true` ise klavye yerine yalnızca [onTap] ile değer değiştirilir.
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -160,6 +168,8 @@ class AppDateTimeField extends StatelessWidget {
       validator: validator,
       keyboardType: TextInputType.datetime,
       suffixIcon: const Icon(Icons.event_outlined),
+      onTap: onTap,
+      readOnly: readOnly,
     );
   }
 }
