@@ -153,7 +153,11 @@ class _StatGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      childAspectRatio: 1.35,
+      // Bugünkü çalışma kutusu (ilerleme çubuğu + hedef etiketi) diğerlerinden
+      // ~30px daha uzun; uniform ızgara en zengin kutuya sığmalı, yoksa
+      // RenderFlex taşması olur. 1.28 kutu iç yüksekliğini ~113px içeriğe
+      // pay bırakacak şekilde ayarlar.
+      childAspectRatio: 1.28,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
       children: <Widget>[
