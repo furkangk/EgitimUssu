@@ -6,8 +6,10 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/scheduling_format.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/study_entry_form_sheet.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/lessons/lesson_ownership.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/student_bottom_nav.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +31,19 @@ class StudentCalendarPage extends StatefulWidget {
 
 enum _CalendarView { day, week, month }
 
+/// Derslerim üst segmenti: Takvim (mevcut `SfCalendar` akışı, değişmez) / Liste
+/// (kronolojik + kendi/öğretmen gruplaması, Task 6).
+enum _ViewMode { calendar, list }
+
+/// `CalendarOccurrence`'ta gerçek bir `teacherUserId` alanı yok (yalnızca `source`:
+/// 'Teacher'/'Self', bkz. `scheduling_contracts.dart`). `lesson_ownership.dart`'ın
+/// `isOwnLesson`/`filterLessons`/`partitionLessons` saf fonksiyonları jenerik `teacherOf`
+/// çıkarıcı ile çalıştığından burada `isTeacher` bilgisini `isOwnLesson`in beklediği
+/// "boş dize = kendi" sözleşimine uyan sentetik bir dizeye çeviriyoruz (gerçek bir
+/// öğretmen kimliği değildir, yalnızca boş/boş-değil ayrımı için).
+String _occurrenceTeacherId(CalendarOccurrence occ) =>
+    occ.isTeacher ? 'teacher' : '';
+
 class _StudentCalendarPageState extends State<StudentCalendarPage> {
   String? _studentId;
   List<CalendarOccurrence> _occurrences = const <CalendarOccurrence>[];
@@ -36,6 +51,8 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
   String? _error;
 
   _CalendarView _view = _CalendarView.month;
+  _ViewMode _mode = _ViewMode.calendar;
+  LessonFilter _filter = LessonFilter.all;
   late DateTime _visibleDate;
   int? _loadedMonthKey;
 
@@ -99,13 +116,27 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// Filtre çipleri (Tümü/Kendi/Öğretmen) hem Takvim hem Liste modunda geçerlidir;
+  /// tek bir süzülmüş kaynak her ikisini besler.
+  List<CalendarOccurrence> get _filteredOccurrences =>
+      filterLessons(_occurrences, _filter, _occurrenceTeacherId);
+
   List<CalendarOccurrence> get _dayOccurrences {
     final list =
-        _occurrences
+        _filteredOccurrences
             .where((o) => _isSameDay(o.startAtUtc.toLocal(), _visibleDate))
             .toList()
           ..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
     return list;
+  }
+
+  /// Ç-06: `CalendarOccurrence.entryId` = birleşik `LessonSchedule.Id` (hem Teacher hem
+  /// Self kaynaklı occurrence'lar için), bkz. backend `GetStudentCalendarQueryHandler`
+  /// (`lesson.Id` iki kaynak için de aynı alana yazılır). Bu yüzden Ders Detayı rotasında
+  /// doğrudan kullanılabilir.
+  void _openLessonDetail(CalendarOccurrence occ) {
+    if (occ.entryId.isEmpty) return;
+    context.push('/student/lessons/${occ.entryId}');
   }
 
   /// Görünen tarih değiştiğinde gerekirse (ay değişmişse) veriyi tazeler.
@@ -260,6 +291,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
 
   Widget _content() {
     final dayItems = _dayOccurrences;
+    final bool isListMode = _mode == _ViewMode.list;
 
     return RefreshIndicator(
       color: AppColors.primary,
@@ -272,81 +304,99 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             subtitle: 'Program, kendi derslerin ve ders araçların.',
           ),
           const SizedBox(height: 12),
-          _ViewSwitcher(
-            value: _view,
-            onChanged: (value) => setState(() => _view = value),
+          _ModeSwitcher(
+            value: _mode,
+            onChanged: (value) => setState(() => _mode = value),
+          ),
+          const SizedBox(height: 12),
+          _FilterChips(
+            value: _filter,
+            onChanged: (value) => setState(() => _filter = value),
           ),
           const SizedBox(height: 14),
-          _DateNavigator(
-            label: _navTitle,
-            onPrevious: () => _moveVisibleDate(-1),
-            onToday: () {
-              final now = DateTime.now();
-              _setVisibleDate(DateTime(now.year, now.month, now.day));
-            },
-            onNext: () => _moveVisibleDate(1),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: _calendarHeight(context),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.border),
-              boxShadow: AppShadows.soft,
+          if (isListMode) ...<Widget>[
+            _LessonListView(
+              occurrences: _filteredOccurrences,
+              onTap: _openLessonDetail,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: SfCalendar(
-              key: ValueKey<String>(
-                'student-calendar-${_view.name}-${_visibleDate.year}-${_visibleDate.month}',
-              ),
-              view: _syncfusionView,
-              dataSource: _OccurrenceDataSource(_occurrences),
-              initialDisplayDate: _visibleDate,
-              initialSelectedDate: _visibleDate,
-              todayHighlightColor: AppColors.primary,
-              headerHeight: 0,
-              backgroundColor: Colors.white,
-              cellBorderColor: AppColors.border,
-              firstDayOfWeek: 1,
-              showCurrentTimeIndicator: true,
-              selectionDecoration: BoxDecoration(
-                color: Colors.transparent,
-                border: Border.all(color: AppColors.primary, width: 1.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              monthViewSettings: const MonthViewSettings(
-                appointmentDisplayMode: MonthAppointmentDisplayMode.appointment,
-                showAgenda: false,
-              ),
-              timeSlotViewSettings: const TimeSlotViewSettings(
-                startHour: 8,
-                endHour: 22,
-                timeIntervalHeight: 62,
-                timeFormat: 'HH:mm',
-                dayFormat: 'EEE',
-                dateFormat: 'dd',
-              ),
-              appointmentTextStyle:
-                  Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ) ??
-                  const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-              onTap: _onCalendarTap,
-              onViewChanged: _onViewChanged,
+          ] else ...<Widget>[
+            _ViewSwitcher(
+              value: _view,
+              onChanged: (value) => setState(() => _view = value),
             ),
-          ),
-          const SizedBox(height: 16),
-          _SelectedDayPanel(
-            date: _visibleDate,
-            items: dayItems,
-            onEdit: _editEntry,
-            onDelete: _deleteEntry,
-          ),
+            const SizedBox(height: 14),
+            _DateNavigator(
+              label: _navTitle,
+              onPrevious: () => _moveVisibleDate(-1),
+              onToday: () {
+                final now = DateTime.now();
+                _setVisibleDate(DateTime(now.year, now.month, now.day));
+              },
+              onNext: () => _moveVisibleDate(1),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: _calendarHeight(context),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border),
+                boxShadow: AppShadows.soft,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SfCalendar(
+                key: ValueKey<String>(
+                  'student-calendar-${_view.name}-${_visibleDate.year}-${_visibleDate.month}',
+                ),
+                view: _syncfusionView,
+                dataSource: _OccurrenceDataSource(_filteredOccurrences),
+                initialDisplayDate: _visibleDate,
+                initialSelectedDate: _visibleDate,
+                todayHighlightColor: AppColors.primary,
+                headerHeight: 0,
+                backgroundColor: Colors.white,
+                cellBorderColor: AppColors.border,
+                firstDayOfWeek: 1,
+                showCurrentTimeIndicator: true,
+                selectionDecoration: BoxDecoration(
+                  color: Colors.transparent,
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                monthViewSettings: const MonthViewSettings(
+                  appointmentDisplayMode:
+                      MonthAppointmentDisplayMode.appointment,
+                  showAgenda: false,
+                ),
+                timeSlotViewSettings: const TimeSlotViewSettings(
+                  startHour: 8,
+                  endHour: 22,
+                  timeIntervalHeight: 62,
+                  timeFormat: 'HH:mm',
+                  dayFormat: 'EEE',
+                  dateFormat: 'dd',
+                ),
+                appointmentTextStyle:
+                    Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ) ??
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                onTap: _onCalendarTap,
+                onViewChanged: _onViewChanged,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SelectedDayPanel(
+              date: _visibleDate,
+              items: dayItems,
+              onEdit: _editEntry,
+              onDelete: _deleteEntry,
+            ),
+          ],
           const SizedBox(height: 20),
           const Text(
             'Ders araçları',
@@ -373,23 +423,6 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             title: 'Ödevlerim',
             subtitle: 'Öğretmen ödevlerini yükle ve tamamla',
             onTap: () => context.push('/student/assignments'),
-          ),
-          _LessonToolTile(
-            icon: Icons.school_rounded,
-            color: AppColors.primary,
-            title: 'Öğretmenlerim',
-            subtitle: 'Bağlı öğretmenlerin ve bilgileri',
-            onTap: () => context.push('/student/teacher'),
-          ),
-          _LessonToolTile(
-            icon: Icons.sticky_note_2_rounded,
-            color: AppColors.accentOrange,
-            title: 'Notlarım',
-            subtitle: 'Kendi ders notlarını ekle ve düzenle',
-            onTap: () {
-              final id = _studentId ?? '';
-              if (id.isNotEmpty) context.push('/study/notes?studentId=$id');
-            },
           ),
         ],
       ),
@@ -494,6 +527,307 @@ class _ViewSwitcher extends StatelessWidget {
                 ),
               );
             }).toList(),
+      ),
+    );
+  }
+}
+
+/// Derslerim üst segmenti — Takvim/Liste geçişi (Task 6).
+class _ModeSwitcher extends StatelessWidget {
+  const _ModeSwitcher({required this.value, required this.onChanged});
+
+  final _ViewMode value;
+  final ValueChanged<_ViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: const <_ViewMode>[_ViewMode.calendar, _ViewMode.list].map((
+          mode,
+        ) {
+          final selected = mode == value;
+          final label = mode == _ViewMode.calendar ? 'Takvim' : 'Liste';
+          final icon = mode == _ViewMode.calendar
+              ? Icons.calendar_month_rounded
+              : Icons.view_list_rounded;
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => onChanged(mode),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.primary : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(
+                      icon,
+                      size: 16,
+                      color: selected ? Colors.white : AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: selected
+                            ? Colors.white
+                            : AppColors.textSecondary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+/// Ç-06 / Task 6: Tümü/Kendi/Öğretmen filtre çipleri — hem Takvim hem Liste modunda
+/// aynı `_filteredOccurrences` kaynağını süzer.
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({required this.value, required this.onChanged});
+
+  final LessonFilter value;
+  final ValueChanged<LessonFilter> onChanged;
+
+  String _label(LessonFilter f) => switch (f) {
+    LessonFilter.all => 'Tümü',
+    LessonFilter.own => 'Kendi',
+    LessonFilter.teacher => 'Öğretmen',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: LessonFilter.values.map((f) {
+        final selected = f == value;
+        return ChoiceChip(
+          label: Text(_label(f)),
+          selected: selected,
+          onSelected: (_) => onChanged(f),
+          showCheckmark: false,
+          selectedColor: AppColors.primary,
+          backgroundColor: Colors.white,
+          labelStyle: TextStyle(
+            color: selected ? Colors.white : AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12.5,
+          ),
+          side: BorderSide(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// Liste modu — kronolojik "Kendi derslerim" / "Öğretmen dersleri" gruplaması
+/// (Task 6, `partitionLessons`). Boş grup gizlenir; hiçbir ders yoksa boş durum kartı.
+class _LessonListView extends StatelessWidget {
+  const _LessonListView({required this.occurrences, required this.onTap});
+
+  final List<CalendarOccurrence> occurrences;
+  final ValueChanged<CalendarOccurrence> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final partitioned = partitionLessons(occurrences, _occurrenceTeacherId);
+    final own = List<CalendarOccurrence>.from(partitioned.own)
+      ..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
+    final teacher = List<CalendarOccurrence>.from(partitioned.teacher)
+      ..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
+
+    if (own.isEmpty && teacher.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'Bu aralıkta ders yok.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (own.isNotEmpty)
+          _LessonGroup(title: 'Kendi derslerim', items: own, onTap: onTap),
+        if (own.isNotEmpty && teacher.isNotEmpty) const SizedBox(height: 20),
+        if (teacher.isNotEmpty)
+          _LessonGroup(
+            title: 'Öğretmen dersleri',
+            items: teacher,
+            onTap: onTap,
+          ),
+      ],
+    );
+  }
+}
+
+class _LessonGroup extends StatelessWidget {
+  const _LessonGroup({
+    required this.title,
+    required this.items,
+    required this.onTap,
+  });
+
+  final String title;
+  final List<CalendarOccurrence> items;
+  final ValueChanged<CalendarOccurrence> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...items.map(
+          (occ) => _LessonListTile(occ: occ, onTap: () => onTap(occ)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Liste modu ders kartı — sahiplik rozeti ([StudyOwnershipBadge]) + tarih/saat +
+/// ders adı + bilgi satırı (tekrar/konum). `CalendarOccurrence`'ta öğretmen adı alanı
+/// yok (bkz. `_occurrenceTeacherId` dokümantasyonu), bu yüzden bilgi satırı Takvim
+/// modundaki `_DayEventTile` ile aynı desenle konum/tekrar bilgisini gösterir.
+class _LessonListTile extends StatelessWidget {
+  const _LessonListTile({required this.occ, required this.onTap});
+
+  final CalendarOccurrence occ;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isOwn = isOwnLesson(_occurrenceTeacherId(occ));
+    final Color color = occ.isTeacher
+        ? AppColors.primary
+        : SchedulingFormat.colorFromHex(occ.colorHex);
+    final String title = occ.topic == null || occ.topic!.isEmpty
+        ? occ.subject
+        : '${occ.subject} · ${occ.topic}';
+    final String infoLine =
+        occ.isTeacher && (occ.locationLabel ?? '').isNotEmpty
+        ? '${SchedulingFormat.recurrenceSummary(occ.recurrenceRule)} · ${occ.locationLabel}'
+        : SchedulingFormat.recurrenceSummary(occ.recurrenceRule);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 4,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        StudyOwnershipBadge(isOwn: isOwn),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${SchedulingFormat.dayHeader(occ.startAtUtc.toLocal())} · '
+                            '${SchedulingFormat.timeRange(occ.startAtUtc, occ.endAtUtc)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      infoLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
