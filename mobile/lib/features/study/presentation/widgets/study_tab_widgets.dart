@@ -261,3 +261,185 @@ class StudySessionTile extends StatelessWidget {
     );
   }
 }
+
+/// Backend'i olmayan veri/eylemler için dürüst "demo" rozeti.
+class StudyDemoBadge extends StatelessWidget {
+  const StudyDemoBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.warningSurfaceStrong,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Text('Demo',
+          style: TextStyle(
+              color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+/// Gradient ikon madalyonu (kart başlıkları / hızlı erişim).
+class StudyIconChip extends StatelessWidget {
+  const StudyIconChip(
+      {super.key, required this.icon, required this.color, this.size = 44});
+
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.08)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(icon, color: color, size: size * 0.5),
+    );
+  }
+}
+
+/// Basılınca hafifçe küçülen dokunma sarmalayıcısı.
+class StudyPressable extends StatefulWidget {
+  const StudyPressable({super.key, required this.child, required this.onTap});
+
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  State<StudyPressable> createState() => _StudyPressableState();
+}
+
+class _StudyPressableState extends State<StudyPressable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Dashboard hızlı erişim kartı (ikon + etiket).
+class StudyQuickAccessCard extends StatelessWidget {
+  const StudyQuickAccessCard(
+      {super.key,
+      required this.icon,
+      required this.color,
+      required this.label,
+      required this.onTap});
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return StudyPressable(
+      onTap: onTap,
+      child: StudyCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            StudyIconChip(icon: icon, color: color),
+            const SizedBox(height: 10),
+            Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Hedef ilerleme barı (value 0..1, 1 üzerini kırpar).
+class StudyProgressBar extends StatelessWidget {
+  const StudyProgressBar(
+      {super.key, required this.value, this.color, this.trailingLabel});
+
+  final double value;
+  final Color? color;
+  final String? trailingLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = value.clamp(0.0, 1.0);
+    final barColor = color ?? AppColors.accentTeal;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            height: 8,
+            color: AppColors.tabBackground,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: clamped,
+                child: Container(color: barColor),
+              ),
+            ),
+          ),
+        ),
+        if (trailingLabel != null) ...<Widget>[
+          const SizedBox(height: 4),
+          Text(trailingLabel!,
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Kendi (öğrenci) / öğretmen dersi ayrım rozeti.
+class StudyOwnershipBadge extends StatelessWidget {
+  const StudyOwnershipBadge({super.key, required this.isOwn});
+
+  final bool isOwn;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isOwn ? AppColors.accentTeal : AppColors.accentBlue;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(isOwn ? Icons.person_rounded : Icons.school_rounded,
+              size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(isOwn ? 'Kendi' : 'Öğretmen',
+              style: TextStyle(
+                  color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
