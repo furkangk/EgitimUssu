@@ -8,12 +8,12 @@ import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_timer_cubit.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_timer_state.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/timer/manual_session_store.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/timer/timer_accumulator.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 class StudyTimerPage extends StatelessWidget {
   const StudyTimerPage({
@@ -95,10 +95,6 @@ class _StudyTimerViewState extends State<_StudyTimerView> {
 
   /// "Son çalıştıkların" hızlı seçim satırı için — `listSessions`'tan türetilir.
   List<StudySession> _recentSessions = const <StudySession>[];
-
-  /// Sayfa ömrü boyunca tek örnek: sheet kapanıp açılsa da eklenen manuel
-  /// kayıtlar kaybolmaz (backend'e gitmeyen yerel/demo depo).
-  final ManualSessionStore _manualStore = ManualSessionStore();
 
   @override
   void initState() {
@@ -211,18 +207,10 @@ class _StudyTimerViewState extends State<_StudyTimerView> {
     super.dispose();
   }
 
-  /// "Süre ekle / geçmiş" — demo/yerel manuel seans ekleme + geçmiş sheet'i.
-  void _openManualSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ManualSessionSheet(
-        store: _manualStore,
-        scheduledSubjects: _scheduledSubjects,
-        catalog: _catalog,
-      ),
-    );
+  /// "Süre ekle / geçmiş" — geçmişe dönük manuel seans ekleme + seans/deneme
+  /// geçmişi gerçek (backend'e yazan) `/study/history` ekranında yaşar.
+  void _openHistory(BuildContext context) {
+    context.push('/study/history?studentId=${widget.studentId}');
   }
 
   @override
@@ -293,7 +281,7 @@ class _StudyTimerViewState extends State<_StudyTimerView> {
               targetMinutes: _targetMinutes,
               onPickTarget: (minutes) =>
                   setState(() => _targetMinutes = minutes),
-              onOpenManualSheet: () => _openManualSheet(context),
+              onOpenHistory: () => _openHistory(context),
               onStart: () {
                 // Ders seçmeden başlatılırsa serbest çalışma olarak kaydedilir.
                 final raw = _subjectController.text.trim();
@@ -346,7 +334,7 @@ class _StartForm extends StatelessWidget {
     required this.onPickRecent,
     required this.targetMinutes,
     required this.onPickTarget,
-    required this.onOpenManualSheet,
+    required this.onOpenHistory,
     required this.onStart,
   });
 
@@ -373,7 +361,9 @@ class _StartForm extends StatelessWidget {
   final int? targetMinutes;
   final ValueChanged<int?> onPickTarget;
 
-  final VoidCallback onOpenManualSheet;
+  /// "Süre ekle / geçmiş" — gerçek `/study/history` ekranını açar (backend'e
+  /// yazan manuel seans ekleme + seans/deneme geçmişi orada yaşar).
+  final VoidCallback onOpenHistory;
   final VoidCallback onStart;
 
   @override
@@ -567,7 +557,7 @@ class _StartForm extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         TextButton.icon(
-          onPressed: onOpenManualSheet,
+          onPressed: onOpenHistory,
           icon: const Icon(Icons.history_edu_outlined, size: 18),
           label: const Text('Süre ekle / geçmiş'),
         ),
@@ -1533,283 +1523,4 @@ class _RingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RingPainter old) =>
       old.progress != progress || old.accent != accent;
-}
-
-/// "Süre ekle / geçmiş" — kronometreyi açmadan geçmişe dönük ("unutulan")
-/// bir çalışmayı elle eklemeyi ve önceki manuel kayıtları görmeyi sağlayan
-/// demo/yerel sheet. [ManualSessionStore] backend'e gitmez — rozet bunu belirtir.
-class _ManualSessionSheet extends StatefulWidget {
-  const _ManualSessionSheet({
-    required this.store,
-    required this.scheduledSubjects,
-    required this.catalog,
-  });
-
-  final ManualSessionStore store;
-  final List<String> scheduledSubjects;
-  final List<SubjectCatalog> catalog;
-
-  @override
-  State<_ManualSessionSheet> createState() => _ManualSessionSheetState();
-}
-
-class _ManualSessionSheetState extends State<_ManualSessionSheet> {
-  final _subjectController = TextEditingController();
-  final _topicController = TextEditingController();
-  final _minutesController = TextEditingController();
-  late final _dateController = TextEditingController(
-    text: StudyFormat.date(DateTime.now().toUtc()).split(' ').first,
-  );
-  DateTime _day = DateTime.now();
-
-  List<String> get _subjectOptions {
-    final seen = <String>{};
-    final merged = <String>[];
-    for (final s in [
-      ...widget.scheduledSubjects,
-      ...widget.catalog.map((c) => c.name),
-    ]) {
-      final name = s.trim();
-      if (name.isNotEmpty && seen.add(name.toLowerCase())) merged.add(name);
-    }
-    return merged;
-  }
-
-  @override
-  void dispose() {
-    _subjectController.dispose();
-    _topicController.dispose();
-    _minutesController.dispose();
-    _dateController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _day,
-      firstDate: now.subtract(const Duration(days: 365)),
-      lastDate: now,
-    );
-    if (picked == null) return;
-    setState(() {
-      _day = picked;
-      _dateController.text =
-          '${picked.day.toString().padLeft(2, '0')}.${picked.month.toString().padLeft(2, '0')}.${picked.year}';
-    });
-  }
-
-  void _submit() {
-    final subject = _subjectController.text.trim();
-    final minutes = int.tryParse(_minutesController.text.trim()) ?? 0;
-    if (subject.isEmpty || minutes <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ders ve geçerli bir süre (dk) gerekli.')),
-      );
-      return;
-    }
-    widget.store.add(
-      ManualSession(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        subject: subject,
-        topic: _topicController.text.trim().isEmpty
-            ? null
-            : _topicController.text.trim(),
-        dayUtc: DateTime.utc(_day.year, _day.month, _day.day),
-        minutes: minutes,
-      ),
-    );
-    _subjectController.clear();
-    _topicController.clear();
-    _minutesController.clear();
-    FocusScope.of(context).unfocus();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Süre ekle / geçmiş',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const StudyDemoBadge(),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Kronometreyi açmadan, geçmişte yaptığın bir çalışmayı buradan ekleyebilirsin. '
-                  'Bu ekleme yerel/demo\'dur — sunucuya kaydedilmez.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: AppShadows.soft,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Süre ekle',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_subjectOptions.isNotEmpty) ...[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final subject in _subjectOptions)
-                              _SubjectChoiceChip(
-                                label: subject,
-                                selected:
-                                    _subjectController.text
-                                        .trim()
-                                        .toLowerCase() ==
-                                    subject.toLowerCase(),
-                                onTap: () => setState(
-                                  () => _subjectController.text = subject,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      AppTextField(
-                        controller: _subjectController,
-                        labelText: 'Ders *',
-                        hintText: 'Örn. Matematik',
-                        textCapitalization: TextCapitalization.sentences,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: _topicController,
-                        labelText: 'Konu (opsiyonel)',
-                        hintText: 'Örn. Türev',
-                        textCapitalization: TextCapitalization.sentences,
-                      ),
-                      const SizedBox(height: 12),
-                      AppDateTimeField(
-                        controller: _dateController,
-                        labelText: 'Tarih',
-                        readOnly: true,
-                        onTap: _pickDate,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Tarih gerekli.'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: _minutesController,
-                        labelText: 'Süre (dk) *',
-                        hintText: 'Örn. 45',
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 16),
-                      AppPrimaryButton(label: 'Ekle', onPressed: _submit),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Geçmiş (manuel eklenenler)',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                AnimatedBuilder(
-                  animation: widget.store.listenable,
-                  builder: (context, _) {
-                    final sessions = widget.store.sessions;
-                    if (sessions.isEmpty) {
-                      return const Text(
-                        'Henüz manuel eklenen bir kayıt yok.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: [
-                        for (final session in sessions.reversed)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: StudySessionTile(
-                                  subject: session.subject,
-                                  topic: session.topic,
-                                  minutes: session.minutes,
-                                  endedAtUtc: session.dayUtc,
-                                  isManual: true,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () =>
-                                    widget.store.remove(session.id),
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: AppColors.error,
-                                ),
-                                tooltip: 'Sil',
-                              ),
-                            ],
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
