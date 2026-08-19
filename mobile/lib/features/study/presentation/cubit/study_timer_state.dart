@@ -10,6 +10,7 @@ class StudyTimerState extends Equatable {
     this.isBusy = false,
     this.completedSummary,
     this.errorMessage,
+    this.targetMinutes,
   });
 
   final StudySession? session;
@@ -29,6 +30,14 @@ class StudyTimerState extends Equatable {
   final StudySession? completedSummary;
   final String? errorMessage;
 
+  /// Başlangıç formunda seçilen hedef süre (dk) — YALNIZCA görsel; net/mola
+  /// süre muhasebesini etkilemez. Seans başlatılırken taşınır, seans
+  /// kapanınca (tamamlanınca/iptal edilince) sıfırlanır. Uygulama yeniden
+  /// açılıp devam eden bir seans geri yüklendiğinde (bkz. `restore`) hedef
+  /// sunucuda tutulmadığı için `null` kalır — bu durumda UI hiçbir şey
+  /// göstermez (onaylı davranış).
+  final int? targetMinutes;
+
   bool get hasActive => session?.isActive ?? false;
   bool get isRunning => session?.isRunning ?? false;
 
@@ -43,6 +52,8 @@ class StudyTimerState extends Equatable {
     bool clearSummary = false,
     String? errorMessage,
     bool clearError = false,
+    int? targetMinutes,
+    bool clearTargetMinutes = false,
   }) {
     return StudyTimerState(
       session: clearSession ? null : session ?? this.session,
@@ -53,6 +64,9 @@ class StudyTimerState extends Equatable {
       completedSummary:
           clearSummary ? null : completedSummary ?? this.completedSummary,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      targetMinutes: clearTargetMinutes
+          ? null
+          : targetMinutes ?? this.targetMinutes,
     );
   }
 
@@ -65,5 +79,6 @@ class StudyTimerState extends Equatable {
         isBusy,
         completedSummary,
         errorMessage,
+        targetMinutes,
       ];
 }

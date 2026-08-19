@@ -9,6 +9,7 @@ import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_timer
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_timer_state.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/timer/timer_accumulator.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:flutter/material.dart';
@@ -308,6 +309,7 @@ class _StudyTimerViewState extends State<_StudyTimerView> {
                   lessonId: _lessonId,
                   subjectId: ids.subjectId,
                   topicId: ids.topicId,
+                  targetMinutes: _targetMinutes,
                 );
               },
             );
@@ -605,7 +607,7 @@ class _StartForm extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ).whenComplete(controller.dispose);
   }
 }
 
@@ -1077,6 +1079,13 @@ class _ActiveTimer extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (state.targetMinutes != null) ...[
+                          _TargetGoalCard(
+                            elapsedSeconds: state.elapsedSeconds,
+                            targetMinutes: state.targetMinutes!,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         _StatsRow(
                           netSeconds: state.elapsedSeconds,
                           breakSeconds: state.breakSeconds,
@@ -1295,6 +1304,66 @@ class _StatusBadge extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: color,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Başlangıç formunda seçilen hedef süreyi aktif kronometreye taşıyan,
+/// YALNIZCA görsel ilerleme kartı — net/mola süre muhasebesini etkilemez
+/// (bkz. [StudyTimerState.targetMinutes]). Hedef seçilmemişse hiç gösterilmez.
+class _TargetGoalCard extends StatelessWidget {
+  const _TargetGoalCard({
+    required this.elapsedSeconds,
+    required this.targetMinutes,
+  });
+
+  final int elapsedSeconds;
+  final int targetMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final targetSeconds = targetMinutes * 60;
+    final progress = targetSeconds <= 0 ? 0.0 : elapsedSeconds / targetSeconds;
+    final remainingMinutes = ((targetSeconds - elapsedSeconds) / 60).ceil();
+    final trailingLabel = remainingMinutes > 0
+        ? '$remainingMinutes dk kaldı'
+        : 'Hedefe ulaştın! 🎉';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.flag_rounded,
+                size: 15,
+                color: AppColors.accentTeal,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Hedef: $targetMinutes dk',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          StudyProgressBar(
+            value: progress,
+            color: AppColors.accentTeal,
+            trailingLabel: trailingLabel,
           ),
         ],
       ),

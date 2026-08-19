@@ -213,10 +213,20 @@ class _TodayMinutesTile extends StatelessWidget {
               style:
                   const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
           const SizedBox(height: 6),
-          StudyProgressBar(
-            value: progress,
-            trailingLabel: 'Hedef $goal dk',
-          ),
+          if (goal == 0)
+            const Text(
+              'Günlük hedef belirle',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600),
+            )
+          else
+            StudyProgressBar(
+              value: progress,
+              trailingLabel: 'Hedef $goal dk',
+            ),
         ],
       ),
     );
@@ -498,6 +508,12 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
   List<AssignmentItem> _upcoming = const <AssignmentItem>[];
   bool _loaded = false;
 
+  /// `listByStudent` başarısız olduysa true — bu durumda "gerçekten yaklaşan
+  /// ödev yok" ile "veri alınamadı" karışmasın diye ayrı bir dal gösterilir
+  /// (yalnız gerçek hata/backend yokluğunda Demo rozeti taşıyan "yakında"
+  /// kartı; başarılı ama boş sonuçta dürüst boş durum).
+  bool _loadFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -530,14 +546,19 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
       });
     } on Object {
       if (!mounted) return;
-      setState(() => _loaded = true);
+      setState(() {
+        _loaded = true;
+        _loadFailed = true;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const SizedBox.shrink();
-    if (_upcoming.isEmpty) {
+    if (_upcoming.isEmpty && _loadFailed) {
+      // Veri gerçekten alınamadı (ör. backend yok/ağ hatası) — bunu "yaklaşan
+      // ödev yok"tan ayırmak için Demo rozetli "yakında" kartı gösterilir.
       return Column(
         children: <Widget>[
           const SizedBox(height: 24),
@@ -553,6 +574,21 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
             icon: Icons.assignment_late_rounded,
             title: 'Ödev takibi',
             message: 'Teslim tarihi yaklaşan ödevlerin burada listelenecek.',
+          ),
+        ],
+      );
+    }
+    if (_upcoming.isEmpty) {
+      // Yükleme başarılı, gerçekten yaklaşan ödev yok — dürüst boş durum,
+      // Demo rozeti YOK.
+      return const Column(
+        children: <Widget>[
+          SizedBox(height: 24),
+          StudySectionHeader(title: 'Yaklaşan ödevler'),
+          SizedBox(height: 12),
+          EmptyStateView(
+            title: 'Yaklaşan ödev yok',
+            subtitle: 'Teslim tarihi yaklaşan bir ödevin bulunmuyor.',
           ),
         ],
       );

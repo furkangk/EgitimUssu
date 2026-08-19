@@ -46,6 +46,7 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
     String? lessonId,
     String? subjectId,
     String? topicId,
+    int? targetMinutes,
   }) async {
     if (state.isBusy) return;
     emit(state.copyWith(isBusy: true, clearError: true, clearSummary: true));
@@ -64,6 +65,8 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
         elapsedSeconds: 0,
         breakSeconds: 0,
         breakCount: 0,
+        targetMinutes: targetMinutes,
+        clearTargetMinutes: targetMinutes == null,
       ));
       _startTicker();
     } on ApiException catch (e) {
@@ -139,6 +142,7 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
         elapsedSeconds: 0,
         breakSeconds: 0,
         breakCount: 0,
+        clearTargetMinutes: true,
       ));
     } on ApiException catch (e) {
       emit(state.copyWith(isBusy: false, errorMessage: e.message));
@@ -150,6 +154,7 @@ class StudyTimerCubit extends Cubit<StudyTimerState> {
         elapsedSeconds: 0,
         breakSeconds: 0,
         breakCount: 0,
+        clearTargetMinutes: true,
       ));
 
   void _startTicker() {

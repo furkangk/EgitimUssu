@@ -40,6 +40,11 @@ class StudentLessonDetailPage extends StatefulWidget {
 class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
   String? _studentId;
   LessonSchedule? _lesson;
+
+  /// `lesson.teacherUserId.trim().isEmpty` — bir kez `_load`'da hesaplanır,
+  /// `_content`'te tekrar hesaplanmaz (tek doğruluk kaynağı, bkz. sınıf
+  /// dokümantasyonu üstte).
+  bool _isOwn = false;
   TeacherProfile? _teacher;
   List<AssignmentItem> _assignments = const <AssignmentItem>[];
   List<TestResult> _tests = const <TestResult>[];
@@ -95,6 +100,7 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
       setState(() {
         _studentId = studentId;
         _lesson = lesson;
+        _isOwn = isOwn;
         _teacher = teacher;
         _assignments = assignments;
         _tests = tests;
@@ -133,7 +139,7 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
     if (lesson == null) {
       return const ErrorStateView(message: 'Ders bulunamadı.');
     }
-    final bool isOwn = lesson.teacherUserId.trim().isEmpty;
+    final bool isOwn = _isOwn;
     final perms = LessonDetailPermissions.forOwnership(isOwn);
     final studentId = _studentId ?? '';
 
@@ -148,10 +154,12 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
             const SizedBox(height: 14),
             _TeacherCard(teacher: _teacher),
           ],
-          const SizedBox(height: 20),
-          const StudySectionHeader(title: 'Hızlı erişim'),
-          const SizedBox(height: 12),
-          _QuickAccessGrid(lesson: lesson, perms: perms, studentId: studentId),
+          if (studentId.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 20),
+            const StudySectionHeader(title: 'Hızlı erişim'),
+            const SizedBox(height: 12),
+            _QuickAccessGrid(lesson: lesson, perms: perms, studentId: studentId),
+          ],
           const SizedBox(height: 24),
           _AssignmentsSection(items: _assignments),
           const SizedBox(height: 24),
