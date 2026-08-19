@@ -1,82 +1,30 @@
-import 'dart:math' as math;
-
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
+import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_home_cubit.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_home_state.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/home/dashboard_stats.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/student_bottom_nav.dart';
+import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-// ── Premium ortak stil yardımcıları ────────────────────────────────────────
-// Kart yüzeyi düz beyaz yerine hafif dikey cam gradyanı + katmanlı gölge
-// (yakın "key" + geniş "ambient") ile derinlik kazanır; ikonlar dolu gradient
-// madalyonlar olarak renkli ışıma gölgesiyle çizilir. Tümü token tabanlıdır.
-
-/// Premium kart dekorasyonu — cam gradyanlı beyaz yüzey + iki katmanlı yumuşak gölge.
-BoxDecoration _softCard({double radius = 22}) => BoxDecoration(
-      gradient: const LinearGradient(
-        colors: <Color>[Colors.white, Color(0xFFF8FAFE)],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ),
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: const Color(0xFFEDF1F7)),
-      boxShadow: const <BoxShadow>[
-        BoxShadow(color: Color(0x0D101828), blurRadius: 2, offset: Offset(0, 1)),
-        BoxShadow(color: Color(0x14082B4F), blurRadius: 24, offset: Offset(0, 14)),
-      ],
-    );
-
-/// Dolu gradient ikon madalyonu — renk tonundan koyuya degrade + renkli ışıma
-/// gölgesi. Soluk tonlu düz kutulara göre çok daha premium okunur.
-class _IconChip extends StatelessWidget {
-  const _IconChip({
-    required this.icon,
-    required this.color,
-    this.size = 46,
-    this.iconSize = 22,
-  });
-
-  final IconData icon;
-  final Color color;
-  final double size;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
+/// Dekoratif ışıma dairesi — birincil CTA'nın gradient zemininde derinlik katar.
+Widget _glowCircle(double size, double alpha) => Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            color,
-            Color.lerp(color, const Color(0xFF000000), 0.20) ?? color,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.31),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: alpha),
       ),
-      child: Icon(icon, color: Colors.white, size: iconSize),
     );
-  }
-}
 
 class StudentHomePage extends StatelessWidget {
   const StudentHomePage({super.key});
@@ -153,7 +101,17 @@ class _StudentHomeView extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
                 children: <Widget>[
-                  // 0) Birincil eylem: büyük sayaç/başlat kartı en üstte (0 tık ilkesi).
+                  // 1) Karşılama — pozitif, güne özel motivasyon (ux §5)
+                  AppPageHeader(
+                    title: greeting,
+                    subtitle: _motivationSubtitle(d),
+                  ),
+                  const SizedBox(height: 18),
+                  // 2) İstatistik ızgarası — seri + bugünkü çalışma + haftalık demo
+                  // ödev/ders özetleri (ux §3 hiyerarşi).
+                  _StatGrid(dashboard: d),
+                  const SizedBox(height: 18),
+                  // 3) Birincil eylem: sayacı başlat (0 tık ilkesi).
                   _PrimaryActionCard(
                     icon: Icons.timer_rounded,
                     label: 'Çalışmaya Başla',
@@ -161,79 +119,14 @@ class _StudentHomeView extends StatelessWidget {
                     onTap: () =>
                         context.push('/study/timer?studentId=$studentId'),
                   ),
-                  const SizedBox(height: 18),
-                  // 1) Karşılama — pozitif, güne özel motivasyon (ux §5)
-                  AppPageHeader(
-                    title: greeting,
-                    subtitle: _motivationSubtitle(d),
-                  ),
-                  const SizedBox(height: 18),
-                  // 2+3) Premium hero: bugünkü hedef halkası + günlük seri rozeti
-                  // tek şık gradient blokta (ux §3 hiyerarşi + §5/§12 motivasyon).
-                  _HeroSummary(
-                    todayMinutes: d.todayEffectiveMinutes,
-                    goalMinutes: d.todayGoalMinutes,
-                    met: d.todayGoalMet,
-                    currentStreakDays: d.currentStreakDays,
-                    studiedToday: d.todayEffectiveMinutes > 0,
-                  ),
                   const SizedBox(height: 24),
-                  // Ç-06) Bugünün planı — bugünkü occurrence'lar; dokununca sayaç derse bağlı başlar.
-                  _TodayPlanCard(studentId: studentId),
-                  // 4) Hızlı işlemler — özet kartlarının hemen altında (ux §14)
-                  const _SectionHeader(title: 'Hızlı işlemler'),
+                  // 4) Hızlı erişim — Derslerim/Ödevlerim/Hedeflerim/Performansım.
+                  const StudySectionHeader(title: 'Hızlı erişim'),
                   const SizedBox(height: 12),
-                  _ActionGrid(studentId: studentId),
-                  // Yaklaşan Ders — varsa (ux §5); ders yoksa kendini gizler
+                  _QuickAccessGrid(studentId: studentId),
+                  // 5) Yaklaşanlar — dersler + ödevler.
                   _UpcomingLessonCard(studentId: studentId),
-                  const SizedBox(height: 24),
-                  // 6) İlerleme (ux §3)
-                  const _SectionHeader(title: 'İlerlemen'),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _StatTile(
-                          icon: Icons.timelapse_rounded,
-                          color: AppColors.accentTeal,
-                          value: StudyFormat.minutes(d.weekEffectiveMinutes),
-                          label: 'Bu hafta',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _StatTile(
-                          icon: Icons.emoji_events_rounded,
-                          color: AppColors.accentGreen,
-                          value: '${d.longestStreakDays} gün',
-                          label: 'Rekor seri',
-                        ),
-                      ),
-                    ],
-                  ),
-                  // 7) Geçmiş — hiçbir zaman ilk odakta olmaz (ux §3)
-                  if (d.lastTest != null) ...<Widget>[
-                    const SizedBox(height: 24),
-                    const _SectionHeader(title: 'Son deneme'),
-                    const SizedBox(height: 12),
-                    _LastTestCard(
-                      subject: d.lastTest!.subject,
-                      net: d.lastTest!.net,
-                      testName: d.lastTest!.testName,
-                    ),
-                  ],
-                  if (d.recentSessions.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 24),
-                    const _SectionHeader(title: 'Son çalışmalar'),
-                    const SizedBox(height: 12),
-                    ...d.recentSessions.take(5).map(
-                          (s) => _SessionTile(
-                            subject: s.subject,
-                            topic: s.topic,
-                            minutes: s.effectiveMinutes,
-                          ),
-                        ),
-                  ],
+                  _UpcomingAssignmentsCard(studentId: studentId),
                 ],
               ),
             );
@@ -245,243 +138,84 @@ class _StudentHomeView extends StatelessWidget {
   }
 }
 
-/// Basılıyken hafifçe küçülen (scale 0.97) dokunma geri bildirimi — premium
-/// his için birincil CTA, plan satırları ve hızlı işlem kutularında kullanılır
-/// (`animations.md` §4 mikro-etkileşim standardı).
-class _Pressable extends StatefulWidget {
-  const _Pressable({required this.child, required this.onTap});
+/// 2×2 istatistik ızgarası: seri, bugünkü çalışma (+ hedef ilerleme çubuğu) ve
+/// backend'i henüz olmayan haftalık ödev/ders özetleri (demo rozetli).
+class _StatGrid extends StatelessWidget {
+  const _StatGrid({required this.dashboard});
 
-  final Widget child;
-  final VoidCallback? onTap;
-
-  @override
-  State<_Pressable> createState() => _PressableState();
-}
-
-class _PressableState extends State<_Pressable> {
-  bool _down = false;
+  final StudyDashboard dashboard;
 
   @override
   Widget build(BuildContext context) {
-    final bool enabled = widget.onTap != null;
-    return GestureDetector(
-      onTapDown: enabled ? (_) => setState(() => _down = true) : null,
-      onTapUp: enabled ? (_) => setState(() => _down = false) : null,
-      onTapCancel: enabled ? () => setState(() => _down = false) : null,
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _down ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+    final hw = DashboardStats.demoWeeklyHomework();
+    final ls = DashboardStats.demoWeeklyLessons();
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      childAspectRatio: 1.35,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
       children: <Widget>[
-        // İnce vurgu çubuğu — bölüm başlıklarına premium ritim katar.
-        Container(
-          width: 4,
-          height: 18,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: <Color>[AppColors.primary, AppColors.secondary],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(999),
-          ),
+        StudyStatTile(
+          icon: Icons.local_fire_department_rounded,
+          color: AppColors.accentOrange,
+          value: '${dashboard.currentStreakDays}',
+          label: 'Gün seri',
         ),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
+        _TodayMinutesTile(dashboard: dashboard),
+        _DemoStatTile(
+          icon: Icons.assignment_turned_in_rounded,
+          color: AppColors.accentBlue,
+          value: '${hw.done}/${hw.given}',
+          label: 'Ödev (hafta)',
+        ),
+        _DemoStatTile(
+          icon: Icons.menu_book_rounded,
+          color: AppColors.accentTeal,
+          value: '${ls.done}/${ls.given}',
+          label: 'Ders (hafta)',
         ),
       ],
     );
   }
 }
 
-/// Ana sayfanın premium açılış bloğu: sol tarafta bugünkü hedefi gösteren dairesel
-/// ilerleme halkası (ortada bugünkü süre), sağda başlık/ipucu ve buzlu cam seri
-/// rozeti. Arka planda yumuşak ışıma daireleriyle derinlik kazanır. İki ayrı düz
-/// kartın yerini alır; veri ve davranış aynıdır.
-class _HeroSummary extends StatelessWidget {
-  const _HeroSummary({
-    required this.todayMinutes,
-    required this.goalMinutes,
-    required this.met,
-    required this.currentStreakDays,
-    required this.studiedToday,
-  });
+/// Bugünkü çalışma süresi + günlük hedefe göre ilerleme çubuğu.
+class _TodayMinutesTile extends StatelessWidget {
+  const _TodayMinutesTile({required this.dashboard});
 
-  final int todayMinutes;
-  final int goalMinutes;
-  final bool met;
-  final int currentStreakDays;
-  final bool studiedToday;
+  final StudyDashboard dashboard;
 
   @override
   Widget build(BuildContext context) {
-    final bool hasGoal = goalMinutes > 0;
-    final double progress =
-        hasGoal ? (todayMinutes / goalMinutes).clamp(0.0, 1.0) : 0.0;
-    final int percent = (progress * 100).round();
-    final String hint;
-    if (!hasGoal) {
-      hint = 'Günlük hedef belirle';
-    } else if (met) {
-      hint = 'Günlük hedef tamam 🎉';
-    } else {
-      hint = '%$percent tamam · Hedef ${StudyFormat.minutes(goalMinutes)}';
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: <Color>[AppColors.primary, Color(0xFF0E4A86), AppColors.secondary],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x3D082B4F),
-              blurRadius: 30,
-              offset: Offset(0, 16),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: <Widget>[
-            // Dekoratif ışıma daireleri — cam/derinlik hissi.
-            Positioned(
-              top: -34,
-              right: -18,
-              child: _glowCircle(130, 0.10),
-            ),
-            Positioned(
-              bottom: -46,
-              right: 60,
-              child: _glowCircle(96, 0.06),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: <Widget>[
-                  _ProgressRing(
-                    progress: progress,
-                    centerValue: StudyFormat.minutes(todayMinutes),
-                    centerLabel: 'bugün',
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        const Text(
-                          'Bugünkü çalışma',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          hint,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12.5,
-                            height: 1.25,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        _StreakPill(
-                          currentStreakDays: currentStreakDays,
-                          studiedToday: studiedToday,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static Widget _glowCircle(double size, double alpha) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: alpha),
-        ),
-      );
-}
-
-/// Hero içindeki buzlu cam seri rozeti — 🔥 ikon + gün sayısı + kısa durum.
-class _StreakPill extends StatelessWidget {
-  const _StreakPill({
-    required this.currentStreakDays,
-    required this.studiedToday,
-  });
-
-  final int currentStreakDays;
-  final bool studiedToday;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool hasStreak = currentStreakDays > 0;
-    final String text = hasStreak
-        ? '$currentStreakDays gün seri · '
-            '${studiedToday ? 'bugün de tamam' : 'bugün çalış, bozma'}'
-        : 'Seriye bugün başla';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Row(
+    final int goal = dashboard.todayGoalMinutes;
+    final int today = dashboard.todayEffectiveMinutes;
+    final double progress = goal == 0 ? 0.0 : today / goal;
+    return StudyCard(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          const Icon(Icons.local_fire_department_rounded,
-              color: AppColors.amber, size: 18),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          StudyIconChip(
+              icon: Icons.timer_rounded, color: AppColors.primary, size: 32),
+          const SizedBox(height: 4),
+          Text(StudyFormat.minutes(today),
+              textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                  fontSize: 15)),
+          const SizedBox(height: 1),
+          Text('Bugün',
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          const SizedBox(height: 6),
+          StudyProgressBar(
+            value: progress,
+            trailingLabel: 'Hedef $goal dk',
           ),
         ],
       ),
@@ -489,410 +223,9 @@ class _StreakPill extends StatelessWidget {
   }
 }
 
-/// Bugünkü hedef ilerlemesini gösteren dairesel halka; ortasında bugünkü süre.
-class _ProgressRing extends StatelessWidget {
-  const _ProgressRing({
-    required this.progress,
-    required this.centerValue,
-    required this.centerLabel,
-  });
-
-  final double progress;
-  final String centerValue;
-  final String centerLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 96,
-      height: 96,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          // Halka merkezinde yumuşak iç ışıma — metrik parlıyormuş hissi.
-          Container(
-            width: 66,
-            height: 66,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
-          CustomPaint(
-            size: const Size(96, 96),
-            painter: _RingPainter(
-              progress: progress,
-              track: Colors.white.withValues(alpha: 0.20),
-              fill: Colors.white,
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    centerValue,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                centerLabel,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RingPainter extends CustomPainter {
-  _RingPainter({
-    required this.progress,
-    required this.track,
-    required this.fill,
-  });
-
-  final double progress;
-  final Color track;
-  final Color fill;
-  static const double stroke = 9;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = size.center(Offset.zero);
-    final double radius = (math.min(size.width, size.height) - stroke) / 2;
-    final Paint trackPaint = Paint()
-      ..color = track
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    final Paint fillPaint = Paint()
-      ..color = fill
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, radius, trackPaint);
-    final double sweep = 2 * math.pi * progress.clamp(0.0, 1.0);
-    if (sweep > 0) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2,
-        sweep,
-        false,
-        fillPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.fill != fill ||
-      oldDelegate.track != track;
-}
-
-/// Öğrencinin bir sonraki dersini gösterir. Güvenli öğrenci-kapsamlı endpoint'ten
-/// (IStudentDirectory ile IDOR korumalı) çeker; ders yoksa veya hata olursa
-/// kendini gizler (ana sayfa akışını bozmaz).
-class _UpcomingLessonCard extends StatefulWidget {
-  const _UpcomingLessonCard({required this.studentId});
-
-  final String studentId;
-
-  @override
-  State<_UpcomingLessonCard> createState() => _UpcomingLessonCardState();
-}
-
-class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
-  LessonSchedule? _next;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final lessons = await injector<SchedulingRepository>()
-          .listStudentLessons(studentId: widget.studentId);
-      final now = DateTime.now().toUtc();
-      final upcoming = lessons
-          .where((LessonSchedule l) =>
-              l.status != 'Cancelled' && l.startAtUtc.isAfter(now))
-          .toList()
-        ..sort((LessonSchedule a, LessonSchedule b) =>
-            a.startAtUtc.compareTo(b.startAtUtc));
-      if (!mounted) return;
-      setState(() => _next = upcoming.isEmpty ? null : upcoming.first);
-    } on Object {
-      // Sessizce gizle — yaklaşan ders ana sayfa için opsiyonel bir bölüm.
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final LessonSchedule? lesson = _next;
-    if (lesson == null) return const SizedBox.shrink();
-    final bool isOnline = lesson.lessonFormat == 'Online';
-    return Column(
-      children: <Widget>[
-        const SizedBox(height: 24),
-        const _SectionHeader(title: 'Yaklaşan ders'),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: _softCard(),
-          child: Row(
-            children: <Widget>[
-              _IconChip(
-                icon: isOnline
-                    ? Icons.videocam_rounded
-                    : Icons.location_on_rounded,
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(lesson.subject,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                    const SizedBox(height: 2),
-                    Text(StudyFormat.date(lesson.startAtUtc),
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 12)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Ç-06: "Bugünün planı" — bugünkü takvim occurrence'ları. Her satıra dokununca çalışma sayacı
-/// o derse bağlı (lessonId) başlar; çalışılmış occurrence ✓ ile işaretlenir. Plan yoksa gizlenir.
-class _TodayPlanCard extends StatefulWidget {
-  const _TodayPlanCard({required this.studentId});
-
-  final String studentId;
-
-  @override
-  State<_TodayPlanCard> createState() => _TodayPlanCardState();
-}
-
-class _TodayPlanCardState extends State<_TodayPlanCard> {
-  List<CalendarOccurrence> _today = const <CalendarOccurrence>[];
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final now = DateTime.now();
-      final startUtc = DateTime.utc(now.year, now.month, now.day);
-      final endUtc = startUtc.add(const Duration(days: 1));
-      final occ = await injector<SchedulingRepository>().getStudentCalendar(
-        studentId: widget.studentId,
-        startAtUtc: startUtc,
-        endAtUtc: endUtc,
-      );
-      final sorted = <CalendarOccurrence>[...occ]
-        ..sort((a, b) => a.startAtUtc.compareTo(b.startAtUtc));
-      if (!mounted) return;
-      setState(() {
-        _today = sorted;
-        _loaded = true;
-      });
-    } on Object {
-      if (!mounted) return;
-      setState(() => _loaded = true);
-    }
-  }
-
-  void _startFromPlan(CalendarOccurrence occ) {
-    final params = <String, String>{
-      'studentId': widget.studentId,
-      'lessonId': occ.entryId,
-      'subject': occ.subject,
-      if ((occ.topic ?? '').isNotEmpty) 'topic': occ.topic!,
-    };
-    final query = params.entries
-        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-        .join('&');
-    context.push('/study/timer?$query');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_loaded || _today.isEmpty) return const SizedBox.shrink();
-    final int doneCount = _today.where((o) => o.completed).length;
-    return Column(
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            const _SectionHeader(title: 'Bugünün planı'),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '$doneCount/${_today.length}',
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: _softCard(),
-          child: Column(
-            children: <Widget>[
-              for (var i = 0; i < _today.length; i++) ...<Widget>[
-                if (i > 0)
-                  const Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: Color(0xFFEDF1F7)),
-                _TodayPlanRow(
-                  occ: _today[i],
-                  onTap: () => _startFromPlan(_today[i]),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-}
-
-class _TodayPlanRow extends StatelessWidget {
-  const _TodayPlanRow({required this.occ, required this.onTap});
-
-  final CalendarOccurrence occ;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final String title = (occ.topic ?? '').isEmpty
-        ? occ.subject
-        : '${occ.subject} · ${occ.topic}';
-    final DateTime local = occ.startAtUtc.toLocal();
-    final String hhmm =
-        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-    final bool done = occ.completed;
-    return _Pressable(
-      onTap: done ? null : onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: <Widget>[
-            // Saat çipi — okunabilir, premium küçük kapsül.
-            Container(
-              width: 54,
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              decoration: BoxDecoration(
-                color: done
-                    ? AppColors.successSurface
-                    : AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                hhmm,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: done ? AppColors.accentGreen : AppColors.primary,
-                  fontSize: 12.5,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color:
-                      done ? AppColors.textMuted : AppColors.textPrimary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (done)
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.accentGreen, size: 26)
-            else
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: <Color>[AppColors.primary, AppColors.secondary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.32),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.play_arrow_rounded,
-                    color: Colors.white, size: 22),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
+/// Backend'i henüz olmayan haftalık istatistik kutusu — sağ üstte "Demo" rozeti.
+class _DemoStatTile extends StatelessWidget {
+  const _DemoStatTile({
     required this.icon,
     required this.color,
     required this.value,
@@ -906,81 +239,63 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
-      decoration: _softCard(),
-      child: Row(
-        children: <Widget>[
-          _IconChip(icon: icon, color: color, size: 44, iconSize: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
-                        fontSize: 16)),
-                const SizedBox(height: 2),
-                Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 11.5)),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return Stack(
+      children: <Widget>[
+        StudyStatTile(icon: icon, color: color, value: value, label: label),
+        const Positioned(top: 8, right: 8, child: StudyDemoBadge()),
+      ],
     );
   }
 }
 
-class _ActionGrid extends StatelessWidget {
-  const _ActionGrid({required this.studentId});
+/// Hızlı erişim ızgarası: Derslerim · Ödevlerim · Hedeflerim · Performansım.
+class _QuickAccessGrid extends StatelessWidget {
+  const _QuickAccessGrid({required this.studentId});
 
   final String studentId;
 
-  void _go(BuildContext context, String route) =>
-      context.push('$route?studentId=$studentId');
-
   @override
   Widget build(BuildContext context) {
-    // Çalış sekmesi kısayolları (IA: Hedefler · Rozetler · Manuel seans ekle).
-    // Birincil sayaç CTA'sı sayfanın en üstündedir.
-    final secondary = <_ActionItem>[
-      _ActionItem('Hedefler', Icons.flag_rounded, AppColors.accentGreen,
-          '/study/goals'),
-      _ActionItem('Rozetler', Icons.emoji_events_rounded,
-          AppColors.accentOrange, '/study/achievements'),
-      _ActionItem('Manuel Ekle', Icons.add_circle_rounded,
-          AppColors.accentBlue, '/study/history'),
-    ];
-    final halfWidth = (MediaQuery.of(context).size.width - 44) / 2;
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      childAspectRatio: 1.6,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
       children: <Widget>[
-        for (final a in secondary)
-          SizedBox(
-            width: halfWidth,
-            child: _ActionTile(
-              action: a,
-              onTap: () => _go(context, a.route),
-            ),
-          ),
+        StudyQuickAccessCard(
+          icon: Icons.menu_book_rounded,
+          color: AppColors.primary,
+          label: 'Derslerim',
+          onTap: () => context.go('/student/lessons'),
+        ),
+        StudyQuickAccessCard(
+          icon: Icons.assignment_rounded,
+          color: AppColors.accentBlue,
+          label: 'Ödevlerim',
+          onTap: () => context.push('/student/assignments?studentId=$studentId'),
+        ),
+        StudyQuickAccessCard(
+          icon: Icons.flag_rounded,
+          color: AppColors.accentGreen,
+          label: 'Hedeflerim',
+          onTap: () =>
+              context.push('/student/goals-overview?studentId=$studentId'),
+        ),
+        StudyQuickAccessCard(
+          icon: Icons.insights_rounded,
+          color: AppColors.accentOrange,
+          label: 'Performansım',
+          onTap: () => context.go('/student/performance'),
+        ),
       ],
     );
   }
 }
 
 /// Hızlı işlemler bölümünün birincil CTA'sı: tam genişlik, gradient primary zemin,
-/// hafif ışıltılı gölge. "Kaldığın yerden devam et" kartıyla ikiz görünmemesi için
-/// ayrı ikon (timer) ve metin kullanır.
+/// hafif ışıltılı gölge.
 class _PrimaryActionCard extends StatelessWidget {
   const _PrimaryActionCard({
     required this.icon,
@@ -996,7 +311,7 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Pressable(
+    return StudyPressable(
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -1021,7 +336,7 @@ class _PrimaryActionCard extends StatelessWidget {
               Positioned(
                 top: -30,
                 right: -10,
-                child: _HeroSummary._glowCircle(90, 0.10),
+                child: _glowCircle(90, 0.10),
               ),
               Row(
                 children: <Widget>[
@@ -1080,136 +395,226 @@ class _PrimaryActionCard extends StatelessWidget {
   }
 }
 
-/// Öğretmen panosundaki hızlı işlem kartlarıyla aynı düzen: yatay satır,
-/// solda gradient ikon madalyonu, yanında etiket (2 sütunlu Wrap).
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({required this.action, required this.onTap});
+/// Öğrencinin bir sonraki dersini gösterir. Güvenli öğrenci-kapsamlı endpoint'ten
+/// (IStudentDirectory ile IDOR korumalı) çeker; ders yoksa veya hata olursa
+/// kendini gizler (ana sayfa akışını bozmaz).
+class _UpcomingLessonCard extends StatefulWidget {
+  const _UpcomingLessonCard({required this.studentId});
 
-  final _ActionItem action;
-  final VoidCallback onTap;
+  final String studentId;
+
+  @override
+  State<_UpcomingLessonCard> createState() => _UpcomingLessonCardState();
+}
+
+class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
+  LessonSchedule? _next;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final lessons = await injector<SchedulingRepository>()
+          .listStudentLessons(studentId: widget.studentId);
+      final now = DateTime.now().toUtc();
+      final upcoming = lessons
+          .where((LessonSchedule l) =>
+              l.status != 'Cancelled' && l.startAtUtc.isAfter(now))
+          .toList()
+        ..sort((LessonSchedule a, LessonSchedule b) =>
+            a.startAtUtc.compareTo(b.startAtUtc));
+      if (!mounted) return;
+      setState(() => _next = upcoming.isEmpty ? null : upcoming.first);
+    } on Object {
+      // Sessizce gizle — yaklaşan ders ana sayfa için opsiyonel bir bölüm.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return _Pressable(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: _softCard(radius: 20),
-        child: Row(
-          children: <Widget>[
-            _IconChip(icon: action.icon, color: action.color, size: 44),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                action.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+    final LessonSchedule? lesson = _next;
+    if (lesson == null) return const SizedBox.shrink();
+    final bool isOnline = lesson.lessonFormat == 'Online';
+    return Column(
+      children: <Widget>[
+        const SizedBox(height: 24),
+        const StudySectionHeader(title: 'Yaklaşan dersler'),
+        const SizedBox(height: 12),
+        StudyCard(
+          child: Row(
+            children: <Widget>[
+              StudyIconChip(
+                icon: isOnline
+                    ? Icons.videocam_rounded
+                    : Icons.location_on_rounded,
+                color: AppColors.primary,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(lesson.subject,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(StudyFormat.date(lesson.startAtUtc),
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _ActionItem {
-  const _ActionItem(this.label, this.icon, this.color, this.route);
-  final String label;
-  final IconData icon;
-  final Color color;
-  final String route;
+/// Teslim tarihi yaklaşan ödevleri gösterir (`AssignmentRepository.listByStudent`).
+/// Veri yoksa veya çekilemezse "yakında" kartı + Demo rozeti gösterilir; bu
+/// bölümün özel bir "yaklaşan ödev" sorgusu henüz backend'de yoktur.
+class _UpcomingAssignmentsCard extends StatefulWidget {
+  const _UpcomingAssignmentsCard({required this.studentId});
+
+  final String studentId;
+
+  @override
+  State<_UpcomingAssignmentsCard> createState() =>
+      _UpcomingAssignmentsCardState();
 }
 
-class _LastTestCard extends StatelessWidget {
-  const _LastTestCard({required this.subject, required this.net, this.testName});
+class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
+  List<AssignmentItem> _upcoming = const <AssignmentItem>[];
+  bool _loaded = false;
 
-  final String subject;
-  final double net;
-  final String? testName;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final items =
+          await injector<AssignmentRepository>().listByStudent(widget.studentId);
+      final now = DateTime.now().toUtc();
+      final upcoming = items
+          .where((AssignmentItem a) =>
+              a.status != 'Completed' &&
+              (a.dueDateUtc == null || a.dueDateUtc!.isAfter(now)))
+          .toList()
+        ..sort((AssignmentItem a, AssignmentItem b) {
+          final ad = a.dueDateUtc;
+          final bd = b.dueDateUtc;
+          if (ad == null && bd == null) return 0;
+          if (ad == null) return 1;
+          if (bd == null) return -1;
+          return ad.compareTo(bd);
+        });
+      if (!mounted) return;
+      setState(() {
+        _upcoming = upcoming.take(3).toList();
+        _loaded = true;
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() => _loaded = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _softCard(),
-      child: Row(
-        children: [
-          _IconChip(icon: Icons.quiz_rounded, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(testName ?? subject,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary)),
-                const SizedBox(height: 2),
-                Text(subject,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
-              ],
-            ),
+    if (!_loaded) return const SizedBox.shrink();
+    if (_upcoming.isEmpty) {
+      return Column(
+        children: <Widget>[
+          const SizedBox(height: 24),
+          Row(
+            children: <Widget>[
+              const Expanded(
+                  child: StudySectionHeader(title: 'Yaklaşan ödevler')),
+              const StudyDemoBadge(),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text('${StudyFormat.net(net)} net',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primary,
-                    fontSize: 13)),
+          const SizedBox(height: 12),
+          const StudyComingSoonCard(
+            icon: Icons.assignment_late_rounded,
+            title: 'Ödev takibi',
+            message: 'Teslim tarihi yaklaşan ödevlerin burada listelenecek.',
           ),
         ],
-      ),
+      );
+    }
+    return Column(
+      children: <Widget>[
+        const SizedBox(height: 24),
+        const StudySectionHeader(title: 'Yaklaşan ödevler'),
+        const SizedBox(height: 12),
+        StudyCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: <Widget>[
+              for (var i = 0; i < _upcoming.length; i++) ...<Widget>[
+                if (i > 0)
+                  const Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: Color(0xFFEDF1F7)),
+                _AssignmentRow(item: _upcoming[i]),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _SessionTile extends StatelessWidget {
-  const _SessionTile({required this.subject, required this.minutes, this.topic});
+class _AssignmentRow extends StatelessWidget {
+  const _AssignmentRow({required this.item});
 
-  final String subject;
-  final String? topic;
-  final int minutes;
+  final AssignmentItem item;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: _softCard(radius: 16),
+    final due = item.dueDateUtc;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
-        children: [
-          _IconChip(
-              icon: Icons.menu_book_rounded,
-              color: AppColors.accentTeal,
-              size: 38,
-              iconSize: 19),
+        children: <Widget>[
+          StudyIconChip(
+              icon: Icons.assignment_rounded,
+              color: AppColors.accentBlue,
+              size: 38),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(topic == null ? subject : '$subject · $topic',
+            child: Text(item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
           ),
           const SizedBox(width: 8),
-          Text(StudyFormat.minutes(minutes),
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+          Text(
+            due == null ? 'Süresiz' : StudyFormat.date(due),
+            style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
