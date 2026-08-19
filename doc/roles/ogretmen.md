@@ -126,8 +126,8 @@ Kaynak: [`../ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../ogretmen_rolu_fonksiyo
 | B-07 | **Öğrenci bazlı ücret** override | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.AgreedRateAmount`/`Currency` + `PUT /teachers/{id}/students/{sid}/rate`; ücret öğrenci-öğretmen ikilisine özel | — |
 | B-08 | **Gelmedi + ücretlendirme kararı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonSession.IsChargeable` + complete akışı (otomatik ödeme yok; audit/rapor için) | — |
 | B-09 | **İptal nedeni + ücretlendirme + Sil ayrımı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `Cancel(reason, isChargeable, …)` + `CancellationReason` enum + `DELETE /lessons/{id}` (24s+gelecek kuralı) | — |
-| B-04 | **Öğrenci arşivleme + Free limit** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.IsArchived` + `POST .../archive|unarchive` + liste `?includeArchived=`; Free limit=5 (`students.free_limit_reached`), arşivli link limite dâhil, premium bypass yok (`// TODO(M17)`) | — |
-| B-06 | **Öğrenci-öğretmen davet/bağlanma** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `Invite` → `Accept`/`Reject` (`POST .../invite`, `POST /links/{linkId}/accept|reject`); kabul eden `currentUser` profile `LinkUser` ile bağlanır. Identity'de e-posta araması yapılmaz (StudentId deseni) | — |
+| B-04 | **Öğrenci arşivleme + Free limit** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.IsArchived` + `POST .../archive\|unarchive` + liste `?includeArchived=`; Free limit=5 (`students.free_limit_reached`), arşivli link limite dâhil, premium bypass yok (`// TODO(M17)`) | — |
+| B-06 | **Öğrenci-öğretmen davet/bağlanma** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `Invite` → `Accept`/`Reject` (`POST .../invite`, `POST /links/{linkId}/accept\|reject`); kabul eden `currentUser` profile `LinkUser` ile bağlanır. Identity'de e-posta araması yapılmaz (StudentId deseni) | — |
 | B-10 | **Online link semantiği** | ✅ **yapıldı (Dilim A, 2026-07-18)** — ayrı `MeetingUrl` alanı; `LocationLabel` yüz yüze adresi için | — |
 
 ### 10.2 Yanlış yapılandırma (sadece eksik değil — düzeltme gerekir)

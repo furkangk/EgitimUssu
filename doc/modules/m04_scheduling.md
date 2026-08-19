@@ -273,7 +273,7 @@ Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda 
 | `MeetingUrl` alanı | Domain'e `MeetingUrl` ekle (DB migration) | Online ders linki şu an yalnızca `LocationLabel`'da tutulabiliyor; ayrı alan + create/update request'lerine eklenmeli (mobilde `meetingUrl` mevcut) |
 | Tatil ekle/listele | `POST /api/scheduling/holidays`, `GET /api/scheduling/teachers/{id}/holidays` | `ScheduleException` için |
 | Seri oluştur | `POST /api/scheduling/lessons/series` | `RecurrenceRule` açılımı + `SeriesId` üretimi |
-| Seri iptal | `POST /api/scheduling/lessons/series/{seriesId}/cancel?scope=instance|all` | Tek örnek / tüm seri |
+| Seri iptal | `POST /api/scheduling/lessons/series/{seriesId}/cancel?scope=instance\|all` | Tek örnek / tüm seri |
 
 ---
 
