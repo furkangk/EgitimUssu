@@ -3,31 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('StudentNavTab 5 görünür sekme; sıra ve rotalar IA ile uyumlu', () {
+  test('StudentNavTab 4 görünür sekme; sıra ve rotalar 4-sekme IA ile uyumlu', () {
     const expected = <(StudentNavTab, String, String)>[
-      (StudentNavTab.work, 'Çalış', '/student-home'),
-      (StudentNavTab.performance, 'Performans', '/student/performance'),
+      (StudentNavTab.work, 'Çalışma', '/student-home'),
       (StudentNavTab.lessons, 'Derslerim', '/student/lessons'),
-      (StudentNavTab.discover, 'Keşfet', '/student/discover'),
+      (StudentNavTab.performance, 'Performans', '/student/performance'),
       (StudentNavTab.profile, 'Profil', '/student/profile'),
     ];
     for (final (tab, label, route) in expected) {
       expect(tab.label, label);
       expect(tab.route, route);
     }
-    // Eski üyeler kaldırıldı: home/studies/tests/calendar/more artık yok.
-    expect(StudentNavTab.values.map((t) => t.name), isNot(contains('studies')));
-    expect(StudentNavTab.values.map((t) => t.name), isNot(contains('more')));
+    expect(StudentNavTab.values.map((t) => t.name), isNot(contains('discover')));
   });
 
-  testWidgets('StudentBottomNav 5 sekme etiketini çizer', (tester) async {
+  testWidgets('StudentBottomNav 4 sekme etiketi çizer, Keşfet yok', (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(
         bottomNavigationBar: StudentBottomNav(current: StudentNavTab.work),
       ),
     ));
-    for (final label in ['Çalış', 'Performans', 'Derslerim', 'Keşfet', 'Profil']) {
+    for (final label in ['Çalışma', 'Derslerim', 'Performans', 'Profil']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('Keşfet'), findsNothing);
   });
 }

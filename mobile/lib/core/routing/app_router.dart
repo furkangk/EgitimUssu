@@ -31,7 +31,6 @@ import 'package:egitim_ussu_mobile/features/students/presentation/pages/student_
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/students_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/achievements_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_calendar_page.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_discover_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_goals_overview_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_home_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/student_profile_page.dart';
@@ -130,7 +129,7 @@ class AppRouter {
           path: '/student-home',
           builder: (context, state) => const StudentHomePage(),
         ),
-        // Öğrenci alt navigasyon sekmeleri — 5-sekme IA (study_student.md §Navigasyon).
+        // Öğrenci alt navigasyon sekmeleri — 4-sekme IA (study_student.md §Navigasyon).
         GoRoute(
           path: '/student/studies',
           redirect: (context, state) => '/student-home',
@@ -145,7 +144,7 @@ class AppRouter {
         ),
         GoRoute(
           path: '/student/discover',
-          builder: (context, state) => const StudentDiscoverPage(),
+          redirect: (context, state) => '/student/lessons',
         ),
         // Eski rota → yeni rota geri-uyum redirect'leri.
         GoRoute(

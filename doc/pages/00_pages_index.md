@@ -3,7 +3,7 @@
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-07-21 (Task 6)
+> **Son güncelleme:** 2026-08-19 (Task 1 — öğrenci 4-sekme nav)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -30,10 +30,9 @@
 ## Study (Öğrenci — Bireysel Çalışma, M08)
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Çalış (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
-| Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir; Task 3: Çalışmalarım'ın haftalık/ders-konu analizi absorbe edildi — `/student/studies` sayfası silindi, rota `/student-home`'a redirect) |
+| Çalışma (sekme) | `/student-home` | [study_student](study_student.md) | 🟢 |
 | Derslerim (sekme) | `/student/lessons` | [study_student](study_student.md) | 🟢 (eski `/student/calendar` redirect'lenir; 2026-07-08: birleşik ders programı — öğretmen dersleri + kendi programı) |
-| Keşfet (sekme) | `/student/discover` | [study_student](study_student.md) | 🔴 Faz 4 yer tutucu |
+| Performans (sekme) | `/student/performance` | [study_student](study_student.md) | 🟢 (eski `/student/tests` redirect'lenir; Task 3: Çalışmalarım'ın haftalık/ders-konu analizi absorbe edildi — `/student/studies` sayfası silindi, rota `/student-home`'a redirect) |
 | Profil (sekme) / İstatistik + Ayarlar | `/student/profile` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: Ayarlar menüsü + Çıkış eklendi, AppBar → sayfa içi başlık) |
 | Hedefler (Çalış sekmesi kısayolu) | `/student/goals-overview` | [study_student](study_student.md) | 🟢 (Task 6, 2026-07-21: erişim yolu Diğer yerine Çalış kısayolları) |
 | Öğretmenlerim (Derslerim → Ders araçları) | `/student/teacher` | [study_student](study_student.md) | 🟡 Yalnızca bağlı öğretmen bilgi kartı 🟢 (dersler Derslerim'de), ödev/not/mesaj yakında |

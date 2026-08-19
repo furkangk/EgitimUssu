@@ -7,7 +7,7 @@
 > teknik detay → [`ogrenci.md`](ogrenci.md), ekran envanteri → [`../pages/00_pages_index.md`](../pages/00_pages_index.md).
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`../architecture/design_system.md`](../architecture/design_system.md) · [`../architecture/ux_rules.md`](../architecture/ux_rules.md)
-> **Güncelleme:** 2026-07-21
+> **Güncelleme:** 2026-08-19
 
 ---
 
@@ -92,15 +92,17 @@ Geçmiş bilgiler hiçbir zaman ilk odakta olmamalıdır.
 
 ## 4. Öğrenci Navigasyonu
 
-Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
+Bottom Navigation kullanılacaktır — **maksimum 4 sekme**:
 
 ```
-⏱️ Çalış   ·   📊 Performans   ·   📚 Derslerim   ·   🔍 Keşfet   ·   👤 Profil
+🏠 Çalışma   ·   📚 Derslerim   ·   📊 Performans   ·   👤 Profil
 ```
 
-> **Not (kod gerçeği, 2026-07-21 — Ç-06/Task 1-6, 5-sekme IA yeniden yapılandırması TAMAMLANDI):** `StudentBottomNav`
-> (`StudentNavTab`) **5 sekme** ile uygulandı: **Çalış** (`/student-home`) · **Performans** (`/student/performance`)
-> · **Derslerim** (`/student/lessons`) · **Keşfet** (`/student/discover`, Faz 4 yer tutucu) · **Profil** (`/student/profile`).
+> **Not (kod gerçeği, 2026-08-19 — Task 1, 4-sekme IA'ya indirgeme TAMAMLANDI):** `StudentBottomNav`
+> (`StudentNavTab`) **4 sekme** ile uygulandı: **Çalışma** (`/student-home`) · **Derslerim** (`/student/lessons`)
+> · **Performans** (`/student/performance`) · **Profil** (`/student/profile`). **Keşfet sekmesi kaldırıldı**
+> (`student_discover_page.dart` silindi); `/student/discover` rotası artık `/student/lessons`'a redirect'lenir —
+> keşif/arama işlevi Faz 4'te farklı bir giriş noktasıyla ele alınacak.
 > Eski rotalar geri-uyum için redirect'lenir: `/student/tests`→`/student/performance`, `/student/calendar`→`/student/lessons`,
 > `/student/studies`→`/student-home` (Task 3, sayfa silindi), `/student/more`→`/student/profile` (Task 6, sayfa silindi).
 > **Derslerim** sayfasının içeriği hâlâ eski Takvim ekranı (`student_calendar_page.dart`), artık liste sonunda
@@ -121,7 +123,6 @@ Bottom Navigation kullanılacaktır — **maksimum 5 sekme**:
 >   rozeti, öncelikli) + öğrencinin kendi oluşturduğu dersler (renkli, düzenle/sil). Ay takvimi (`SfCalendar`) → seçili gün
 >   listesi. "Ders ekle" ile tek/tekrarlı (günlük/haftalık/aylık) kişisel ders eklenir; öğretmen dersinin saatine kendi dersi
 >   eklenemez (çakışma reddi). Bkz. m04 §2.3.
-> - **Keşfet** 🔴 Faz 4 yer tutucu: işlevsel arama yok, "yakında" mesajı (`student_discover_page.dart`).
 > - **Öğretmenlerim** (artık Derslerim → "Ders araçları"nden açılır) 🟡: **yalnızca bağlı öğretmen(ler)i** gösterir. **Öğretmen(ler)im 🟢** gerçek — bağlı öğretmen(ler)
 >   güvenli öğrenci-kapsamlı derslerin (`GET /scheduling/students/{id}/lessons`, sahiplik `IStudentDirectory` ile doğrulanır, IDOR koruması)
 >   `teacherUserId` kümesinden türetilir, profilleri `GET /api/teachers/profiles/{userId}` ile getirilip bilgi kartı olarak gösterilir
@@ -409,4 +410,4 @@ AI yeni ekran tasarlarken aşağıdaki kurallara uymalıdır:
 
 ---
 
-*Öğrenci Deneyimi (Student UX) — Vizyon & Tasarım Hedefi | Güncelleme: 2026-07-21*
+*Öğrenci Deneyimi (Student UX) — Vizyon & Tasarım Hedefi | Güncelleme: 2026-08-19*
