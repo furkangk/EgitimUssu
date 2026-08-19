@@ -55,6 +55,21 @@
 | ProfileMenuTile | _(yok)_ | `icon, label, onTap, isDanger?` | Profil menü satırı; danger=kırmızı (Çıkış) | 🔴 |
 | SectionHeader | _(yok)_ | `title, actionText?, onActionTap?` | Bölüm başlığı + opsiyonel aksiyon (örnek: [`mobile_flutter.md`](mobile_flutter.md) §17) | 🔴 |
 
+## 2b. Öğrenci Çalışma Sekmesi Ortak Bileşenleri (`study_tab_widgets.dart`)
+
+> Konum: `mobile/lib/features/study/presentation/widgets/study_tab_widgets.dart` (öğrenci 4 sekme — Çalışma/Kronometre/
+> Ders Detayı/Derslerim/Performans/Profil — bunlara dayanır). `StudyCard`/`StudySectionHeader`/`StudyStatTile`/
+> `StudyComingSoonCard`/`StudySessionTile` zaten burada tanımlıydı; aşağıdakiler Task 2 ile eklendi.
+
+| Katalog | Kod (sınıf @ dosya) | API (özet) | Kural / Varyant | Durum |
+|---------|---------------------|------------|-----------------|-------|
+| StudyDemoBadge | `StudyDemoBadge` @ `study_tab_widgets.dart` | _(argümansız)_ | Backend'i olmayan veri/eylemler için dürüst "Demo" pill'i (10px, `AppColors.warning` üstünde `warningSurfaceStrong` zemin) | 🟢 |
+| StudyIconChip | `StudyIconChip` @ `study_tab_widgets.dart` | `icon, color, size=44` | Gradient ikon madalyonu (kart başlıkları / hızlı erişim); renk `AppColors` token'ından gelir | 🟢 |
+| StudyPressable | `StudyPressable` @ `study_tab_widgets.dart` | `child, onTap` | Basılınca `AnimatedScale` ile 0.97'ye küçülen dokunma sarmalayıcısı (90ms) | 🟢 |
+| StudyQuickAccessCard | `StudyQuickAccessCard` @ `study_tab_widgets.dart` | `icon, color, label, onTap` | Dashboard hızlı erişim kartı: `StudyPressable` + `StudyCard` + `StudyIconChip` + etiket | 🟢 |
+| StudyProgressBar | `StudyProgressBar` @ `study_tab_widgets.dart` | `value (0..1), color?, trailingLabel?` | Hedef ilerleme barı; `value` `0..1` aralığına kırpılır, varsayılan renk `accentTeal`, zemin `tabBackground` | 🟢 |
+| StudyOwnershipBadge | `StudyOwnershipBadge` @ `study_tab_widgets.dart` | `isOwn` | Kendi (öğrenci) / öğretmen dersi ayrım rozeti: `👤 Kendi` (teal) / `👨‍🏫 Öğretmen` (accentBlue) | 🟢 |
+
 ## 3. Durum Görünümleri
 
 | Katalog | Kod (sınıf @ dosya) | API | Kural | Durum |
@@ -88,4 +103,4 @@ ProfileMenuTile → SectionHeader**. (AppHeader ve AppBottomNav 🟢 tamamlandı
 > İlgili: token'lar → [`design_system.md`](design_system.md) · mobil mimari/ekranlar → [`mobile_flutter.md`](mobile_flutter.md) ·
 > tab detay → [`../tab_widget.md`](../tab_widget.md) · sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md)
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-07-07*
+*Ortak Widget Kataloğu | Güncelleme: 2026-08-19*
