@@ -24,6 +24,6 @@ updated: 2026-08-20
 ## Karar (decision)
 | Makale | Özet | Kaynak |
 |--------|------|--------|
-| _(henüz yok)_ | | |
+| [Proje Vizyonu (promp)](proje-vizyonu-promp.md) | Kullanıcının özgün vizyon metninin damıtımı; PRD'nin kaynağı | [promp.txt](../promp.txt) |
 
 *Güncelleme: 2026-08-20*
