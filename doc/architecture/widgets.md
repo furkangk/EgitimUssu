@@ -5,7 +5,7 @@ tags: [mimari, widget, flutter]
 authority: code
 code_refs:
   - mobile/lib/shared/widgets/**
-updated: 2026-08-19
+updated: 2026-08-20
 ---
 
 # 🧩 Ortak Widget Kataloğu (Shared Widgets)
@@ -17,7 +17,7 @@ updated: 2026-08-19
 > **Otorite:** Bir widget kodda varsa **kod doğruluk kaynağıdır** (sınıf adı, parametreler buradan alınır). Token
 > değerleri → [`design_system.md`](design_system.md). Karmaşık widget'ın derin tasarımı kendi dosyasındadır (ör. tab → [`../tab_widget.md`](../tab_widget.md)).
 >
-> **Güncelleme:** 2026-07-07
+> **Güncelleme:** 2026-08-20 (kod-drift düzeltmesi: StudentBottomNav girişi gerçek 4-sekmeye/rotaya güncellendi (🟢), `StudentPlaceholderPage` yok; AppTextField API'sine `textCapitalization` eklendi)
 
 ---
 
@@ -40,14 +40,14 @@ updated: 2026-08-19
 | Katalog | Kod (sınıf @ dosya) | API (özet) | Kural / Varyant | Durum |
 |---------|---------------------|------------|-----------------|-------|
 | AppButton | `AppPrimaryButton` @ `app_primary_button.dart` | `label, onPressed, isLoading` | Tam genişlik `FilledButton`; loading'de spinner. **Sadece primary var**; outline/danger/icon/small **yok** | 🟡 |
-| AppTextField | `AppTextField` @ `form_fields.dart` | `controller, labelText, hintText?, validator?, keyboardType?, minLines/maxLines, maxLength?, readOnly, onTap?, suffixIcon?` | Üstte `AppFieldLabel` + `TextFormField`; radius 18 (`appInputDecoration`) | 🟢 |
+| AppTextField | `AppTextField` @ `form_fields.dart` | `controller, labelText, hintText?, validator?, keyboardType?, textCapitalization?, minLines/maxLines, maxLength?, readOnly, onTap?, suffixIcon?` | Üstte `AppFieldLabel` + `TextFormField`; radius 18 (`appInputDecoration`) | 🟢 |
 | AppDropdownField | `AppDropdownField<T>` @ `form_fields.dart` | `value, labelText, items, onChanged` | Label + `DropdownButtonFormField` | 🟢 |
 | AppDateTimeField | `AppDateTimeField` @ `form_fields.dart` | `controller, labelText, validator, hintText?` | `AppTextField` + takvim ikonu | 🟢 |
 | AppFieldLabel | `AppFieldLabel` @ `form_fields.dart` | `text` | Form alanı etiketi (w700) | 🟢 |
 | AppCard | _(yok)_ | `child, padding?` | Beyaz zemin + `border` + `softShadow`, radius 16, padding 14-16 | 🔴 |
 | AppHeader | `AppPageHeader` @ `app_page_header.dart` | `title, subtitle?, trailing?` | Tüm ana ekranların ortak başlığı: sol başlık (+alt başlık), sağda bildirim zili. Zil her zaman `/notifications`'a gider; rozet global `NotificationsCubit.state.unreadCount`'tan gelir (`context.select`). Renkler `AppColors` token'larından (sabit kodlu **değil**). Tek tanım → tüm sayfalara yansır. Geri/menü varyantı henüz yok | 🟡 |
 | AppBottomNav | `AppBottomNav` @ `app_bottom_nav.dart` | `current` (`AppNavTab`) | Tüm ana ekranların ortak alt navigasyon menüsü (master page): 6 sabit sekme (Ana sayfa/Dersler/Öğrenciler/Takvim/Finans/Diğer), ikonlar + etiketler + hedef rotalar tek yerde. Sayfa yalnızca aktif sekmeyi (`AppNavTab`) bildirir; widget `context.go` ile yönlendirir. Aktif primary, pasif gri (`AppColors`). Ana sekmeye uymayan alt sayfalar `AppNavTab.none`. Tek tanım → tüm sayfalara yansır | 🟢 |
-| StudentBottomNav | `StudentBottomNav` @ `features/study/presentation/widgets/student_bottom_nav.dart` | `current` (`StudentNavTab`) | Öğrenci paneline özgü alt navigasyon (öğretmen `AppBottomNav` / veli `ParentBottomNav`'dan ayrı): 4 sekme (Ana Sayfa/Ders Programı/İstatistik/Diğer). Görsel dil `AppBottomNav` ile aynı (aktif primary, pasif gri, `context.go`). **Ders Programı/İstatistik/Diğer henüz tasarlanmadı** → `StudentPlaceholderPage` ("yakında")'a gider; gerçek ekranlar sonra bağlanacak | 🟡 |
+| StudentBottomNav | `StudentBottomNav` @ `features/study/presentation/widgets/student_bottom_nav.dart` | `current` (`StudentNavTab`) | Öğrenci paneline özgü alt navigasyon (öğretmen `AppBottomNav` / veli `ParentBottomNav`'dan ayrı): 4 sekme — 🏠 Çalışma (`/student-home`) · 📚 Derslerim (`/student/lessons`) · 📊 Performans (`/student/performance`) · 👤 Profil (`/student/profile`). Görsel dil `AppBottomNav` ile aynı (aktif primary, pasif gri, `context.go`). Dördü de **gerçek ekranlara** gider; `StudentPlaceholderPage` kodda **yok** | 🟢 |
 | AppAvatar | _(yok)_ | `imageUrl?, size, initials?` | Dairesel; görsel yoksa baş harf | 🔴 |
 | AppBadge | _(yok)_ | `text/count, color` | Durum/sayaç rozeti (10-12px) | 🔴 |
 | AppSegmentedTab | `EgitimUssuTabBar` (tasarım) @ _(yok)_ | `tabs, selectedIndex, onChanged` | 2-4 sekme; aktif lacivert+beyaz, pasif şeffaf+gri. **Derin tasarım →** [`../tab_widget.md`](../tab_widget.md) | 🔴 |
@@ -113,4 +113,4 @@ ProfileMenuTile → SectionHeader**. (AppHeader ve AppBottomNav 🟢 tamamlandı
 > İlgili: token'lar → [`design_system.md`](design_system.md) · mobil mimari/ekranlar → [`mobile_flutter.md`](mobile_flutter.md) ·
 > tab detay → [`../tab_widget.md`](../tab_widget.md) · sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md)
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-08-19*
+*Ortak Widget Kataloğu | Güncelleme: 2026-08-20*
