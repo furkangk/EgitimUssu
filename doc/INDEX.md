@@ -1,3 +1,11 @@
+---
+title: "Doküman Haritası (INDEX)"
+summary: "doc/ altındaki tüm dokümanların tek listesi ve kanonik gerçekler; hangi konuda hangi dokümana bakılacağını gösterir"
+tags: [index, harita, kanonik]
+authority: derived
+updated: 2026-08-19
+---
+
 # 📚 EğitimÜssü — Doküman Haritası (INDEX)
 
 > **Bu dosyanın amacı:** Projedeki tüm dokümanların **tek listesi**. Yapay zekâya tüm md'leri tek tek vermek yerine

@@ -1,3 +1,11 @@
+---
+title: "Roller — Genel Bakış"
+summary: "Roller klasörü indeksi: rol×yetenek matrisi ve roller-arası kurallar (mesajlaşma çiftleri, veli gerçek kişi, üyelik, yetkilendirme mimarisi)"
+tags: [rol, genel-bakis, roller-arasi]
+authority: derived
+updated: 2026-08-19
+---
+
 # 👥 Roller — Genel Bakış ve Roller-Arası Kurallar
 
 > Bu klasör (`doc/roles/`), platformu **kullanıcı rolü** perspektifinden anlatır: her rolün yetenekleri,

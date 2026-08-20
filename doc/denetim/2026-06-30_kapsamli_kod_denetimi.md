@@ -1,3 +1,11 @@
+---
+title: "Kapsamlı Mimari & Kod Kalitesi Denetimi (2026-06-30)"
+summary: "6 paralel uzman denetim (mimari/güvenlik/DDD/persistence/mobil/operasyon) bulguları, olgunluk skor tablosu ve önceliklendirilmiş düzeltme yol haritası"
+tags: [denetim, kod-kalitesi, guvenlik]
+authority: derived
+updated: 2026-06-30
+---
+
 # EğitimÜssü — Kapsamlı Mimari & Kod Kalitesi Denetimi
 
 > **Tarih:** 2026-06-30

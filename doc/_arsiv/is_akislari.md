@@ -1,3 +1,11 @@
+---
+title: "İş Akışları (ARŞİV)"
+summary: "ARŞİV (tarihî): PRD v2.0 türevi iş akışları; güncel otorite roles/ + modules/"
+tags: [arsiv, is-akislari]
+authority: archive
+updated: 2026-08-19
+---
+
 # 🔄 İş Akışları — Öğretmen · Öğrenci · Veli (A'dan Z'ye)
 
 > ⚠️ **ARŞİV (2026-08-19):** Bu doküman tarihîdir. Geçerli otorite `doc/roles/` + `doc/modules/`'tedir. Buradaki bilgi yalnızca geçmiş referans içindir; çelişkide roles/modules esastır. Bu dokümandaki akış-boşluğu listeleri güncel değildir; teknik açık/durum için [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) esastır.

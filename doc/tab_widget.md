@@ -1,3 +1,11 @@
+---
+title: "Tab Widget Tasarım Dokümanı"
+summary: "Tab/Segment Control widget'ının (AppSegmentedTab) detaylı tasarım, renk/boyut kuralları ve Flutter implementasyonu"
+tags: [widget, tab, tasarim]
+authority: derived
+updated: 2026-08-19
+---
+
 # EğitimÜssü Tab Widget Tasarım Dokümanı
 
 > Bu doküman, ortak widget kataloğundaki ([`architecture/widgets.md`](architecture/widgets.md) → `AppSegmentedTab`) **Tab / Segment

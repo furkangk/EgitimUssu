@@ -1,3 +1,12 @@
+---
+title: "Admin Rolü"
+summary: "Platform yöneticisi; doğrulama/moderasyon/destek — adanmış panel yok, yetenekler planlanan"
+tags: [rol, admin, moderasyon, planlanan]
+status: "🔴"
+authority: derived
+updated: 2026-08-19
+---
+
 # 🛡️ Admin Rolü — Detaylı Tasarım Dokümanı
 
 > **Rol:** `UserRole.Admin = 1` · **Faz: 1+** · **Durum: 🔴 Planlanan (özel admin arayüzü yok)**

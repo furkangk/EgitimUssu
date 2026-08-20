@@ -1,3 +1,11 @@
+---
+title: "Öğrenci Rolü — Sayfa Mimarisi (Diyagramlar)"
+summary: "Öğrenci sayfa yapısı/IA, içerik blokları ve veri akışı diyagramları; arşivlenen fonksiyonel dokümandan türetilmiş tasarım hedefi"
+tags: [diyagram, rol-sayfa-mimarisi, ogrenci]
+authority: derived
+updated: 2026-07-19
+---
+
 # 🎓 Öğrenci Rolü — Sayfa Mimarisi (Diyagramlar)
 
 > **Referans:** yalnızca [`doc/_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1.md`](../../_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1.md) (v1.0, ⚠️ arşiv 2026-08-19 — güncel otorite `doc/roles/ogrenci.md`) + **Ç-06 kararı** (bkz. §1.2).

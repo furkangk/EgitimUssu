@@ -1,3 +1,11 @@
+---
+title: "Veli Rolü — Fonksiyonel Doküman (ARŞİV)"
+summary: "ARŞİV (tarihî): güncel otorite roles/+modules/ — PRD v2.0 veli rolü fonksiyonel yetenek ve kullanım akışı detaylandırması v1.0"
+tags: [arsiv, veli, fonksiyonel-dokuman]
+authority: archive
+updated: 2026-08-19
+---
+
 # Veli Rolü — Fonksiyonel Yetenek ve Kullanım Akışı Dokümanı
 
 > ⚠️ **ARŞİV (2026-08-19):** Bu doküman tarihîdir. Geçerli otorite `doc/roles/` + `doc/modules/`'tedir. Buradaki bilgi yalnızca geçmiş referans içindir; çelişkide roles/modules esastır.

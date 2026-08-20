@@ -1,3 +1,11 @@
+---
+title: "Öğretmen Rolü — Sayfa Mimarisi (Diyagramlar)"
+summary: "Öğretmen sayfa yapısı/IA, içerik blokları ve veri akışı diyagramları; arşivlenen fonksiyonel dokümandan türetilmiş tasarım hedefi"
+tags: [diyagram, rol-sayfa-mimarisi, ogretmen]
+authority: derived
+updated: 2026-07-19
+---
+
 # 👨‍🏫 Öğretmen Rolü — Sayfa Mimarisi (Diyagramlar)
 
 > **Referans:** yalnızca [`doc/_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md) (v1.0, ⚠️ arşiv 2026-08-19 — güncel otorite `doc/roles/ogretmen.md`).

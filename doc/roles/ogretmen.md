@@ -1,3 +1,12 @@
+---
+title: "Öğretmen Rolü"
+summary: "Öğretmenin günlük operasyon aracı — öğrenci/takvim/ders/ödev/ödeme tek uygulamada yönetilir"
+tags: [rol, ogretmen, gunluk-operasyon]
+status: "🟢"
+authority: derived
+updated: 2026-08-19
+---
+
 # 👨‍🏫 Öğretmen Rolü — Detaylı Tasarım Dokümanı
 
 > **Öncelik: 1️⃣ (ilk geliştirilen rol)** · **Faz 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Büyük ölçüde yazıldı**

@@ -1,3 +1,12 @@
+---
+title: "Öğrenci Deneyimi (Student UX)"
+summary: "Öğrenci ekranlarının UX/UI vizyonu — günlük kullanım, hız, motivasyon ve bilgi hiyerarşisi tasarım ilkeleri"
+tags: [rol, ogrenci, ux, tasarim]
+status: "🟡"
+authority: derived
+updated: 2026-08-19
+---
+
 # 🎓 Öğrenci Deneyimi (Student UX) — EğitimÜssü
 
 > **Öncelik: 2️⃣** · **Faz 2 — Öğrenci Bireysel Çalışma** · **Durum: 🟡 Vizyon / tasarım hedefi (kısmen uygulandı)**

@@ -1,3 +1,11 @@
+---
+title: "Öğrenci Rolü — Fonksiyonel Doküman (ARŞİV)"
+summary: "ARŞİV (tarihî): güncel otorite roles/+modules/ — PRD v2.0 öğrenci rolü fonksiyonel yetenek ve kullanım akışı detaylandırması v1.0"
+tags: [arsiv, ogrenci, fonksiyonel-dokuman]
+authority: archive
+updated: 2026-08-19
+---
+
 # Öğrenci Rolü — Fonksiyonel Yetenek ve Kullanım Akışı Dokümanı
 
 > ⚠️ **ARŞİV (2026-08-19):** Bu doküman tarihîdir. Geçerli otorite `doc/roles/` + `doc/modules/`'tedir. Buradaki bilgi yalnızca geçmiş referans içindir; çelişkide roles/modules esastır.

@@ -1,3 +1,11 @@
+---
+title: "İş Akışları Diyagramları — SVG İndeksi"
+summary: "Arşivlenen is_akislari.md içindeki 23 Mermaid diyagramının SVG çıktı indeksi ve yeniden üretme komutu"
+tags: [diyagram, is-akislari, svg]
+authority: derived
+updated: 2026-08-19
+---
+
 # `is_akislari.md` diyagramları — SVG
 
 [`../../_arsiv/is_akislari.md`](../../_arsiv/is_akislari.md) (⚠️ arşiv, 2026-08-19) içindeki 23 Mermaid diyagramının SVG çıktısı.

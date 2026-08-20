@@ -1,3 +1,12 @@
+---
+title: "Öğrenci Rolü"
+summary: "Öğretmenden bağımsız bireysel çalışma (kronometre/test/hedef/streak) + öğretmenle eşleşince ödev/ders akışı"
+tags: [rol, ogrenci, bireysel-calisma]
+status: "🟢"
+authority: derived
+updated: 2026-08-19
+---
+
 # 🎓 Öğrenci Rolü — Detaylı Tasarım Dokümanı
 
 > **Öncelik: 2️⃣** · **Faz 2 — Öğrenci Bireysel Çalışma** · **Durum: 🟢 Bireysel çalışma uçtan uca (M08: kronometre/test/hedef/streak/rozet + mobil `study` feature + self-register)**

@@ -1,3 +1,12 @@
+---
+title: "Veli Rolü"
+summary: "Veli, çocuğun gelişimini ve öğretmen etkileşimlerini şeffaf grafik/rapor ağırlıklı biçimde izleyen read-model rol"
+tags: [rol, veli, read-model]
+status: "🟡"
+authority: derived
+updated: 2026-08-19
+---
+
 # 👪 Veli Rolü — Detaylı Tasarım Dokümanı
 
 > **Öncelik: 3️⃣** · **Faz 2-3 — Veli Paneli** · **Durum: 🟡 Kısmi (Faz 2 uygulandı)**

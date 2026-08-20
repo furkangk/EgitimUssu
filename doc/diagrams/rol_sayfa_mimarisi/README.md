@@ -1,3 +1,11 @@
+---
+title: "Rol Sayfa Mimarisi — Diyagramlar İndeksi"
+summary: "Üç rol için sayfa yapısı/IA, içerik ve veri akışı diyagramları indeksi; fonksiyonel dokümandan türetilmiştir, kod gerçeğini yansıtmaz"
+tags: [diyagram, rol-sayfa-mimarisi, ia]
+authority: derived
+updated: 2026-07-19
+---
+
 # 🗺️ Rol Sayfa Mimarisi — Diyagramlar
 
 Her rol için **sayfa yapısı (IA)**, **sayfa içerikleri** ve **sayfalar arası ilişki + veri akışı** diyagramları.
