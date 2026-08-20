@@ -1,3 +1,11 @@
+---
+title: "UX Kuralları"
+summary: "Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları; rol bazlı öncelikler"
+tags: [mimari, ux, navigasyon]
+authority: derived
+updated: 2026-06-27
+---
+
 # 📐 UX Kuralları — EğitimÜssü
 
 > **Kapsam:** Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları.

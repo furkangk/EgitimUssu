@@ -1,3 +1,13 @@
+---
+title: "Ortak Widget Kataloğu (Shared Widgets)"
+summary: "Tüm ekranlarda aynı kuralla kullanılması gereken paylaşılan Flutter bileşenlerinin tek listesi: amaç, API, varyant, kullanım kuralı ve durum"
+tags: [mimari, widget, flutter]
+authority: code
+code_refs:
+  - mobile/lib/shared/widgets/**
+updated: 2026-08-19
+---
+
 # 🧩 Ortak Widget Kataloğu (Shared Widgets)
 
 > **Kapsam:** Tüm ekranlarda **aynı kuralla** kullanılması gereken paylaşılan Flutter bileşenlerinin tek listesi:

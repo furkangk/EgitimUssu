@@ -1,3 +1,11 @@
+---
+title: "Figma Referansları"
+summary: "Figma tasarım dosyalarına referanslar, ekran-component eşlemeleri ve tasarım-kod uyum kuralları (Figma dosyası henüz oluşturulmadı)"
+tags: [mimari, figma, tasarim]
+authority: derived
+updated: 2026-06-27
+---
+
 # 🎨 Figma Referansları — EğitimÜssü
 
 > **Kapsam:** Figma tasarım dosyalarına referanslar, ekran–component eşlemeleri ve tasarım–kod uyum kuralları.

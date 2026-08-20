@@ -1,3 +1,13 @@
+---
+title: "Mobil Mimari & UI — Flutter"
+summary: "Flutter uygulamasının mimarisi (katmanlar, state, DI, routing, ağ) ve görsel UI rehberi (20 ekran); öğretmen/öğrenci/veli rollerini kapsar"
+tags: [mimari, mobile, flutter]
+authority: code
+code_refs:
+  - mobile/lib/**
+updated: 2026-08-19
+---
+
 # 📱 Mobil Mimari & UI — Flutter
 
 > **Kapsam:** Flutter uygulamasının (`mobile/`) hem **mimarisi** (katmanlar, state yönetimi, DI, routing, ağ) hem

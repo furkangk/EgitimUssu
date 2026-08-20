@@ -1,3 +1,11 @@
+---
+title: "Mimari — Genel Bakış"
+summary: "doc/architecture/ klasörünün indeks sayfası: sistem tipi, platformlar, aktörler, katmanlar, veri akışı, ölçeklenebilirlik ve faz hizalaması"
+tags: [mimari, genel-bakis, indeks]
+authority: derived
+updated: 2026-06-24
+---
+
 # 🏗️ Mimari — Genel Bakış (Architecture Overview)
 
 > **Bu klasör (`doc/architecture/`), sistemin mimari dokümantasyonudur** — platforma göre bölünmüştür ve

@@ -1,3 +1,11 @@
+---
+title: "Animasyon Kuralları — Flutter"
+summary: "Geçiş animasyonları, mikro-etkileşimler ve animasyon performans kuralları; amaçlı, hızlı, tutarlı ve iptal edilebilir animasyon ilkeleri"
+tags: [mimari, animasyon, flutter]
+authority: derived
+updated: 2026-06-27
+---
+
 # 🎬 Animasyon Kuralları — EğitimÜssü Flutter
 
 > **Kapsam:** Geçiş animasyonları, mikro-etkileşimler ve animasyon performans kuralları.

@@ -1,3 +1,11 @@
+---
+title: "Tasarım Sistemi (Design System) — Platformlar Arası"
+summary: "Mobil ve web için ortak görsel dil: renk, tipografi, spacing, radius, gölge token'ları + Atomic/Bileşen Tabanlı Design ilkeleri"
+tags: [mimari, tasarim-sistemi, design-tokens]
+authority: derived
+updated: 2026-06-28
+---
+
 # 🎨 Tasarım Sistemi (Design System) — Platformlar Arası
 
 > **Kapsam:** Mobil (Flutter) ve web (Angular) için **ortak görsel dil**: renk, tipografi, spacing, radius, gölge
