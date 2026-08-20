@@ -25,9 +25,10 @@ Faz 1 temizliği (2 gün önce, elle) sonrası deterministik taban temiz. `--dee
 
 - Kırık link: **0** · Kapanmamış fence: **0** · Kanonik ihlal (ad-yazımı çift-t / .NET sürüm / ana renk): **0**
 - Frontmatter şema (74 dosya): **0 eksik** · code_refs çözünürlük: **0 kırık** · Gövde↔frontmatter tarih: **0 çelişki**
-- 🔵 **25 BLUE ORPHAN** — root `INDEX.md`'de doğrudan linki olmayan dosyalar. **Yanlış-pozitif:** bunların
+- 🔵 **24 BLUE ORPHAN** — root `INDEX.md`'de doğrudan linki olmayan dosyalar. **Yanlış-pozitif:** bunların
   tamamı bir **section-index**'te linklidir (`pages/00_pages_index.md` tüm sayfa md'lerini, `architecture/00_genel_bakis.md`
   rehber dokümanları listeler). Kök INDEX bilinçli olarak leaf'lere değil section-index'lere işaret eder.
+  (Not: `00_kb_konvansiyon.md` başta gerçek orphan'dı — final review'de INDEX §6.1'e eklenerek çözüldü, sayı 25→24.)
   → **Öneri (küçük follow-up):** `kb_healthcheck.sh` check-7'yi, dosyayı herhangi bir index (`INDEX.md` **veya**
   `**/00_*.md` / `**/README.md`) linkliyorsa öksüz saymayacak şekilde genişlet; o zaman baz çizgisi 0 bulguya iner.
 

@@ -3,7 +3,7 @@ title: "Doküman Haritası (INDEX)"
 summary: "doc/ altındaki tüm dokümanların tek listesi ve kanonik gerçekler; hangi konuda hangi dokümana bakılacağını gösterir"
 tags: [index, harita, kanonik]
 authority: derived
-updated: 2026-08-19
+updated: 2026-08-20
 ---
 
 # 📚 EğitimÜssü — Doküman Haritası (INDEX)
@@ -13,7 +13,7 @@ updated: 2026-08-19
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-08-19 (doküman temizliği Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
+> **Son güncelleme:** 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -117,6 +117,16 @@ updated: 2026-08-19
 | [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) | Jira backlog (Epic/Story/Task). Her görevde `faz-N` etiketi → [`yol_haritasi.md`](yol_haritasi.md) ile hizalı. Modül docs değişince güncellenmeli |
 | [`denetim/2026-06-30_kapsamli_kod_denetimi.md`](denetim/2026-06-30_kapsamli_kod_denetimi.md) | **Kapsamlı kod denetimi (2026-06-30)**: mimari/güvenlik/DDD/persistence/mobil/operasyon bulguları, skor tablosu, önceliklendirilmiş yol haritası. Anlık denetim artefaktı |
 | [`_arsiv/`](_arsiv/) | **Arşiv (⚠️ tarihî):** PRD v2.0'dan türetilen eski fonksiyonel/iş-akışı dokümanları (`*_rolu_fonksiyonel_dokuman_v1.md`, `is_akislari.md`). Geçmiş referans; güncel otorite `doc/roles/` + `doc/modules/`. 2026-08-19'da birleştirilip arşivlendi |
+
+## 6.1 Bilgi Tabanı Makinesi (Dilim A)
+
+> Dokümanları koddan doğrulanmış, gezilebilir tutan health-check makinesi. Her `doc/**/*.md` başında makine-okunur frontmatter bulunur. Tasarım/plan: `docs/superpowers/specs|plans/2026-08-20-bilgi-tabani-dilim-a*`.
+
+| Dosya | Ne işe yarar |
+|-------|--------------|
+| [`00_kb_konvansiyon.md`](00_kb_konvansiyon.md) | **Frontmatter konvansiyonu**: şema (summary/tags/status/authority/code_refs/updated) + authority kuralları + code_refs aile kalıpları. Tüm doc/ bunu izler |
+| `_tools/kb_healthcheck.sh` | Deterministik health-check (saf bash): kırık link/fence/kanonik/frontmatter/code_refs/tarih/öksüz. `/kb-healthcheck` slash-komutu bunu sarar (+ `--deep` LLM kod-drift) |
+| [`_health/`](_health/) | Health-check rapor çıktıları (`YYYY-MM-DD-healthcheck.md`) — pass/fail, severity'li bulgular, tespit edilen kod-drift |
 
 ---
 
