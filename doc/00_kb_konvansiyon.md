@@ -20,8 +20,10 @@ updated: 2026-08-20
 | `summary` | evet | Tek satır özet (INDEX/Obsidian/ingest kullanır) |
 | `tags` | evet (≥1) | kebab-case; Obsidian graph + filtreleme |
 | `status` | koşullu | Modül/ekran/rol dokümanlarında 🟢/🟡/🔴 |
-| `authority` | evet | `code` \| `product` \| `derived` \| `archive` |
+| `authority` | evet | `code` \| `product` \| `derived` \| `archive` \| `reference` |
 | `code_refs` | koşullu | `authority: code` ise ≥1 glob; diğerlerinde boş/atlanır |
+| `source` | koşullu | `authority: reference` ise zorunlu: `raw/<dosya>`, repo dosyası veya URL |
+| `subtype` | koşullu | `authority: reference` ise: `research` \| `design` \| `decision` |
 | `updated` | evet | ISO tarih; kaynak: gövde Güncelleme:/Son güncelleme: → yoksa Tarih:/sürüm tarihi → yoksa migrasyon tarihi |
 
 ## authority değerleri
@@ -30,6 +32,7 @@ updated: 2026-08-20
 - **product** — Ürün niyeti/plan; kod karşılığı yok, drift denetlenmez (PRD, yol haritası, planlanan modüller m16–m18).
 - **derived** — Başka dokümandan türer; dolaylı tutarlılık (roller, index, denetim, rehber dokümanlar).
 - **archive** — `doc/_arsiv/*`; drift/lint atlanır (yalnız kırık link + fence).
+- **reference** — Dış/ham kaynaktan damıtılmış, kaynaklı makale (`doc/kaynaklar/`). `source` + `subtype` zorunlu; kod-drift'e tabi değil; kanonik gerçeği ezmez. Orijinal `doc/raw/`'da (verbatim, health-check muaf).
 
 ## code_refs aile kalıpları
 

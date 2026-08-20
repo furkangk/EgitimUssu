@@ -24,7 +24,7 @@ md_files() {
   find "$TARGET" -name '*.md' | while IFS= read -r f; do
     rel="${f#$TARGET/}"
     case "$rel" in
-      _tools/*|*/_tools/*) continue ;;
+      _tools/*|*/_tools/*|raw/*|*/raw/*) continue ;;
     esac
     printf '%s\n' "$f"
   done | sort
@@ -79,8 +79,15 @@ check_frontmatter() {
       echo "$fm" | grep -qE "^$field:" || emit YELLOW FRONTMATTER "$f:1" "eksik alan: $field"
     done
     auth=$(echo "$fm" | grep -E '^authority:' | sed -E 's/^authority:[[:space:]]*//')
+    case "$auth" in
+      code|product|derived|archive|reference|"") : ;;
+      *) emit YELLOW FRONTMATTER "$f:1" "geçersiz authority: $auth" ;;
+    esac
     if [ "$auth" = "code" ]; then
       echo "$fm" | grep -qE '^code_refs:' || emit YELLOW FRONTMATTER "$f:1" "authority: code ama code_refs yok"
+    fi
+    if [ "$auth" = "reference" ]; then
+      echo "$fm" | grep -qE '^source:' || emit YELLOW FRONTMATTER "$f:1" "authority: reference ama source yok"
     fi
   done < <(md_files)
   return 0
@@ -98,6 +105,17 @@ check_code_refs() {
       fi
     done < <(awk '/^code_refs:/{flag=1;next} /^[a-zA-Z_]+:/{flag=0} flag && /^[[:space:]]*-/{print}' "$f" \
       | sed -E 's/^[[:space:]]*-[[:space:]]*//')
+  done < <(md_files)
+  return 0
+}
+
+# 5b) reference source (raw/ yolu veya repo dosyası) var mı — URL ise atla
+check_source() {
+  while IFS= read -r f; do
+    src=$(awk 'NR>1 && /^---$/{exit} /^source:/{print}' "$f" | sed -E 's/^source:[[:space:]]*//' | head -1)
+    [ -z "$src" ] && continue
+    case "$src" in http://*|https://*) continue ;; esac
+    [ -f "$TARGET/$src" ] || emit YELLOW SOURCE "$f:1" "source çözülmüyor: $src"
   done < <(md_files)
   return 0
 }
@@ -145,6 +163,7 @@ check_fences
 check_canonical
 check_frontmatter
 check_code_refs
+check_source
 check_dates
 check_orphans
 check_status_index
