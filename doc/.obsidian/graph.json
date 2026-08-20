@@ -1,0 +1,11 @@
+{
+  "colorGroups": [
+    { "query": "[authority:code]", "color": { "a": 1, "rgb": 3900150 } },
+    { "query": "[authority:product]", "color": { "a": 1, "rgb": 10265519 } },
+    { "query": "[authority:derived]", "color": { "a": 1, "rgb": 2278750 } },
+    { "query": "[authority:archive]", "color": { "a": 1, "rgb": 13158084 } }
+  ],
+  "showTags": true,
+  "showAttachments": false,
+  "showOrphans": true
+}

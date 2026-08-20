@@ -67,3 +67,10 @@ mobile/artifacts/
 
 # Kişisel/yerel Claude skill'leri (bu PC'ye özel — main'e commit edilmez)
 .claude/skills/
+
+# Obsidian — kişisel/oturum durumu (paylaşılabilir config commit'lenir)
+doc/.obsidian/workspace.json
+doc/.obsidian/workspace-mobile.json
+doc/.obsidian/plugins/
+doc/.obsidian/themes/
+doc/.obsidian/snippets/
