@@ -13,7 +13,7 @@ updated: 2026-08-20
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
+> **Son güncelleme:** 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -118,7 +118,7 @@ updated: 2026-08-20
 | [`denetim/2026-06-30_kapsamli_kod_denetimi.md`](denetim/2026-06-30_kapsamli_kod_denetimi.md) | **Kapsamlı kod denetimi (2026-06-30)**: mimari/güvenlik/DDD/persistence/mobil/operasyon bulguları, skor tablosu, önceliklendirilmiş yol haritası. Anlık denetim artefaktı |
 | [`_arsiv/`](_arsiv/) | **Arşiv (⚠️ tarihî):** PRD v2.0'dan türetilen eski fonksiyonel/iş-akışı dokümanları (`*_rolu_fonksiyonel_dokuman_v1.md`, `is_akislari.md`). Geçmiş referans; güncel otorite `doc/roles/` + `doc/modules/`. 2026-08-19'da birleştirilip arşivlendi |
 
-## 6.1 Bilgi Tabanı Makinesi (Dilim A + B + C)
+## 6.1 Bilgi Tabanı Makinesi (Dilim A + B + C + D)
 
 > Dokümanları koddan doğrulanmış, gezilebilir tutan health-check makinesi. Her `doc/**/*.md` başında makine-okunur frontmatter bulunur. Tasarım/plan: `docs/superpowers/specs|plans/2026-08-20-bilgi-tabani-dilim-a*`.
 
@@ -132,6 +132,7 @@ updated: 2026-08-20
 | `.obsidian/`, `_assets/` | Obsidian vault config (authority-renkli graph, ek klasörü) + görsel/ek klasörü. Kişisel dosyalar `.gitignore`'da |
 | [`kaynaklar/`](kaynaklar/00_kaynaklar_index.md) | **Ingest** (Dilim C): `/kb-ingest` ile dış/ham kaynaklardan damıtılmış `reference` makaleleri (research/design/decision) + backlink. İndeks: `00_kaynaklar_index.md` |
 | `raw/` | Ham kaynaklar (verbatim: kırpılmış makale/PDF/görsel/döküm). Health-check **muaf**; orijinal `source` referansı buraya bakar |
+| [`_cevaplar/`](_cevaplar/00_cevaplar_index.md) | **Q&A** (Dilim D): `/kb-ask` ile wiki'ye sorulan soruların cevapları (md/Marp/mermaid/grafik) + kaynak backlink. İndeks: `00_cevaplar_index.md` |
 
 ---
 
