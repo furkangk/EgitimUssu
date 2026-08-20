@@ -3,7 +3,7 @@ title: "İş Akışları (ARŞİV)"
 summary: "ARŞİV (tarihî): PRD v2.0 türevi iş akışları; güncel otorite roles/ + modules/"
 tags: [arsiv, is-akislari]
 authority: archive
-updated: 2026-08-19
+updated: 2026-07-18
 ---
 
 # 🔄 İş Akışları — Öğretmen · Öğrenci · Veli (A'dan Z'ye)

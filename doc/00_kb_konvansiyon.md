@@ -22,7 +22,7 @@ updated: 2026-08-20
 | `status` | koşullu | Modül/ekran/rol dokümanlarında 🟢/🟡/🔴 |
 | `authority` | evet | `code` \| `product` \| `derived` \| `archive` |
 | `code_refs` | koşullu | `authority: code` ise ≥1 glob; diğerlerinde boş/atlanır |
-| `updated` | evet | ISO tarih (YYYY-MM-DD) |
+| `updated` | evet | ISO tarih; kaynak: gövde Güncelleme:/Son güncelleme: → yoksa Tarih:/sürüm tarihi → yoksa migrasyon tarihi |
 
 ## authority değerleri
 
