@@ -47,4 +47,18 @@ fi
 
 assert_clean
 
+# check-7 orphan: section-index taraması (izole alt-ağaç, kendi INDEX'i var)
+# Gerçek öksüz (hiçbir indekste yok) → ORPHAN üretmeli.
+if bash "$SCRIPT" "$FIX/orphan_case" | grep "truly_orphan.md" | grep -q "ORPHAN"; then
+  echo "PASS: gerçek öksüz ORPHAN üretti"
+else
+  echo "FAIL: truly_orphan.md için ORPHAN bulgusu yok"; fail=1
+fi
+# Yalnız section-index'ten (sub/00_index.md) linkli çocuk → öksüz OLMAMALI.
+if bash "$SCRIPT" "$FIX/orphan_case" | grep "section_child.md" | grep -q "ORPHAN"; then
+  echo "FAIL: section_child.md yanlış-pozitif ORPHAN (section-index taranmıyor)"; fail=1
+else
+  echo "PASS: section-index'ten linkli dosya öksüz sayılmadı"
+fi
+
 exit $fail

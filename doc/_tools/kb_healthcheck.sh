@@ -134,14 +134,23 @@ check_dates() {
   return 0
 }
 
-# 7) Öksüz doküman (INDEX.md'de linki yok) — yalnız INDEX varsa
+# 7) Öksüz doküman — kök INDEX.md VEYA herhangi bir section-index'te (00_*.md / README.md)
+# linki yoksa. Yalnız kök INDEX varsa çalışır. (Section-index taraması: bir dosya
+# section-index'inden linkliyse öksüz DEĞİLDİR — kök INDEX her dosyayı tekrar linklemez.)
 check_orphans() {
   [ -f "$TARGET/INDEX.md" ] || return 0
+  # Öksüz-değil sayan indeks kümesi: kök INDEX + tüm section-index'ler (_tools/raw hariç).
+  local -a indexes=()
+  while IFS= read -r idx; do
+    irel="${idx#$TARGET/}"
+    case "$irel" in _tools/*|*/_tools/*|raw/*|*/raw/*) continue;; esac
+    indexes+=("$idx")
+  done < <(find "$TARGET" -type f \( -name 'INDEX.md' -o -name '00_*.md' -o -name 'README.md' \))
   while IFS= read -r f; do
     rel="${f#$TARGET/}"
     case "$rel" in INDEX.md|_health/*|_arsiv/*) continue;; esac
     stem="$(basename "$rel" .md)"
-    grep -q "$stem" "$TARGET/INDEX.md" || emit BLUE ORPHAN "$f" "INDEX.md'de referans yok"
+    grep -qF "$stem" "${indexes[@]}" || emit BLUE ORPHAN "$f" "hiçbir INDEX/section-index'te referans yok"
   done < <(md_files)
   return 0
 }
