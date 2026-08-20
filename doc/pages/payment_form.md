@@ -7,7 +7,7 @@ authority: code
 code_refs:
   - mobile/lib/features/payments/presentation/pages/payment_form_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-08-19
+updated: 2026-07-06
 ---
 
 # Ödeme Ekle/Düzenle (`/payments/new`, `/payments/edit`)
