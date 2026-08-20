@@ -111,11 +111,14 @@ check_code_refs() {
 
 # 5b) reference source (raw/ yolu veya repo dosyası) var mı — URL ise atla
 check_source() {
+  ROOT="$(cd "$TARGET/.." && pwd)"
   while IFS= read -r f; do
     src=$(awk 'NR>1 && /^---$/{exit} /^source:/{print}' "$f" | sed -E 's/^source:[[:space:]]*//' | head -1)
     [ -z "$src" ] && continue
     case "$src" in http://*|https://*) continue ;; esac
-    [ -f "$TARGET/$src" ] || emit YELLOW SOURCE "$f:1" "source çözülmüyor: $src"
+    if [ ! -f "$TARGET/$src" ] && [ ! -f "$ROOT/$src" ]; then
+      emit YELLOW SOURCE "$f:1" "source çözülmüyor: $src"
+    fi
   done < <(md_files)
   return 0
 }

@@ -29,6 +29,7 @@ assert_finds "FRONTMATTER" "bad_frontmatter.md" "eksik frontmatter yakalandı"
 assert_finds "DATE"        "date_conflict.md" "tarih çelişkisi yakalandı"
 
 assert_finds "FRONTMATTER" "bad_reference_nosource.md" "reference source eksikliği yakalandı"
+assert_finds "SOURCE" "bad_source_missing.md" "çözülmeyen source yakalandı"
 
 # raw/ muafiyeti: raw altındaki dosya HİÇBİR bulguda görünmemeli
 if bash "$SCRIPT" "$FIX" | grep -q "raw/verbatim"; then
