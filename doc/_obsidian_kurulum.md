@@ -32,8 +32,9 @@ diyagram SVG'leri `doc/diagrams/`'da, mermaid blokları inline (Obsidian natif r
 Yalnızca paylaşılabilir config (`app/core-plugins/graph/community-plugins/appearance.json`) izlenir;
 kişisel oturum durumu (`workspace.json`, plugin verisi, temalar) `.gitignore`'dadır — her cihazda kendi düzenin.
 
-## 6. Sırada ne var
-**Marp (slayt önizleme/export)** ve **`/kb-ask` Q&A + çıktı render** **Dilim D**'de gelecek.
-Dış kaynak ingest'i (`raw/` + `/kb-ingest`) **Dilim C**'de.
+## 6. Slaytlar (Marp) ve Q&A
+**Marp** artık aktif: **Settings → Community plugins → "Marp"** kur+etkinleştir → `marp: true` frontmatter'lı dosyalar slayt olarak önizlenir/export edilir. `/kb-ask format=marp` bu formatta çıktı üretir.
+**`/kb-ask`** (Dilim D): wiki'ye soru sor → Claude ilgili dokümanları okuyup cevabı `doc/_cevaplar/`'a md/Marp/mermaid/grafik olarak dosyalar.
+Dış kaynak eklemek için `/kb-ingest` (Dilim C).
 
 *Güncelleme: 2026-08-20*
