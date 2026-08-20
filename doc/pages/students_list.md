@@ -1,3 +1,15 @@
+---
+title: "Öğrenci Listesi Ekranı"
+summary: "Öğretmenin öğrencilerini arama/filtreyle listelediği ekran; StudentsCubit üzerinden gerçek /api/students backend'ine bağlı"
+tags: [sayfa, students, ogretmen]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/students/presentation/pages/students_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Öğrenci Listesi (`/students`)
 
 > **Feature:** `students` · **Dosya:** `mobile/lib/features/students/presentation/pages/students_page.dart`

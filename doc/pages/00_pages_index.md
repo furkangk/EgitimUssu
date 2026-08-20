@@ -1,3 +1,11 @@
+---
+title: "Sayfa (Ekran) Dokümanları — İndeks"
+summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/More/Notifications/Parent)"
+tags: [sayfa-index, indeks, mobil]
+authority: derived
+updated: 2026-08-19
+---
+
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
 
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).

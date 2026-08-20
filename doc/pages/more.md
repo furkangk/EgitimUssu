@@ -1,3 +1,15 @@
+---
+title: "Diğer / Ayarlar Merkezi Ekranı"
+summary: "Ayar/profil merkezi; profil özeti TeacherProfileCubit ile gerçek API'ye bağlı, ayar toggle'ları yerel/demo"
+tags: [sayfa, more, ogretmen]
+status: "🟡"
+authority: code
+code_refs:
+  - mobile/lib/features/more/presentation/pages/more_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Diğer / Ayarlar Merkezi (`/more`)
 
 > **Feature:** `more` · **Dosya:** `mobile/lib/features/more/presentation/pages/more_page.dart`

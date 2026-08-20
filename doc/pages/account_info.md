@@ -1,3 +1,15 @@
+---
+title: "Hesap Bilgileri Ekranı"
+summary: "Hesap güvenliği ve yönetim ekranı (durum/2FA/oturumlar/hesap kapatma); tamamen demo AccountData, backend bağlantısı yok"
+tags: [sayfa, more, account, demo]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/more/presentation/pages/account_info_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Hesap Bilgileri (`/account-info`, `/account-info-preview`)
 
 > **Feature:** `more` · **Dosya:** `mobile/lib/features/more/presentation/pages/account_info_page.dart`

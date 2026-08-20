@@ -1,3 +1,15 @@
+---
+title: "Ödeme Takibi Ekranı"
+summary: "Öğretmenin tüm ödeme kayıtlarını görüntülediği, sunucu taraflı sayfalama/filtre ve tahsilat formuyla PaymentsCubit'e bağlı ekran"
+tags: [sayfa, payments, ogretmen]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/payments/presentation/pages/payments_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-07-06
+---
+
 # Ödeme Takibi (`/payments`)
 
 > **Feature:** `payments` · **Dosya:** `mobile/lib/features/payments/presentation/pages/payments_page.dart`

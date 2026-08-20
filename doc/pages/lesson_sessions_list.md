@@ -1,3 +1,15 @@
+---
+title: "Dersler / Ders Oturumları Listesi Ekranı"
+summary: "Ders listesi (Yaklaşan/Geçmiş/İptal); durum takibi ve hızlı tamamlama SchedulingCubit üzerinden gerçek API'ye bağlı, bazı alanlar demo"
+tags: [sayfa, lesson-sessions, ogretmen]
+status: "🟡"
+authority: code
+code_refs:
+  - mobile/lib/features/lesson_sessions/presentation/pages/lesson_sessions_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Dersler / Ders Oturumları (`/lesson-sessions`)
 
 > **Feature:** `lesson_sessions` · **Dosya:** `mobile/lib/features/lesson_sessions/presentation/pages/lesson_sessions_page.dart`

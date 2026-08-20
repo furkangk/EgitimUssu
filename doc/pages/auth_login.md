@@ -1,3 +1,15 @@
+---
+title: "Giriş / Login Ekranı"
+summary: "E-posta/şifre ile giriş ekranı; AuthCubit üzerinden gerçek /api/identity/login backend'ine bağlı"
+tags: [sayfa, auth, login]
+status: "🟢"
+authority: code
+code_refs:
+  - mobile/lib/features/auth/presentation/pages/login_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Giriş / Login (`/login?role={role}`)
 
 > **Feature:** `auth` · **Dosya:** `mobile/lib/features/auth/presentation/pages/login_page.dart`
