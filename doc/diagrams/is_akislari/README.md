@@ -1,7 +1,15 @@
+---
+title: "İş Akışları Diyagramları — SVG İndeksi"
+summary: "Arşivlenen is_akislari.md içindeki 23 Mermaid diyagramının SVG çıktı indeksi ve yeniden üretme komutu"
+tags: [diyagram, is-akislari, svg]
+authority: derived
+updated: 2026-08-19
+---
+
 # `is_akislari.md` diyagramları — SVG
 
-[`../../is_akislari.md`](../../is_akislari.md) içindeki 23 Mermaid diyagramının SVG çıktısı.
-mermaid-cli ile üretilmiştir; sıra dokümandaki görünüm sırasıyla aynıdır.
+[`../../_arsiv/is_akislari.md`](../../_arsiv/is_akislari.md) (⚠️ arşiv, 2026-08-19) içindeki 23 Mermaid diyagramının SVG çıktısı.
+mermaid-cli ile üretilmiştir; sıra dokümandaki görünüm sırasıyla aynıdır. Kaynak doküman arşivlendi; güncel otorite `doc/roles/` + `doc/modules/`'tedir.
 
 | SVG | Tür | Diyagram | Bölüm |
 |-----|-----|----------|:-----:|
@@ -41,4 +49,4 @@ npx -y @mermaid-js/mermaid-cli@latest -i is_akislari.md -o out.svg -t default -b
 > `PAR` alias'ı `par` anahtar kelimesiyle çakışıyordu → `PRT` (§6.2, §7);
 > §5.4'te mesaj metnindeki `;` ifade ayırıcı olarak yorumlanıyordu → `,`.
 
-**Güncelleme: 2026-07-18**
+**Güncelleme: 2026-08-19** (kaynak `is_akislari.md` → `_arsiv/`'e taşındı)

@@ -1,3 +1,15 @@
+---
+title: "Ödeme Ekle Ekranı"
+summary: "Öğretmenin ödeme kaydı oluşturduğu form ekranı; gerçek /api/payments backend'ine bağlı"
+tags: [sayfa, payments, form, ogretmen]
+status: "🟢"
+authority: code
+code_refs:
+  - mobile/lib/features/payments/presentation/pages/payment_form_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-07-06
+---
+
 # Ödeme Ekle/Düzenle (`/payments/new`, `/payments/edit`)
 
 > **Feature:** `payments` · **Dosya:** `mobile/lib/features/payments/presentation/pages/payment_form_page.dart`

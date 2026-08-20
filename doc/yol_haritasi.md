@@ -1,3 +1,11 @@
+---
+title: "Geliştirme Yol Haritası"
+summary: "Faz 0-5 geliştirme yol haritası: epic→faz eşlemesi, bağımlılıklar, milestone'lar"
+tags: [yol-haritasi, planlama, faz]
+authority: product
+updated: 2026-06-24
+---
+
 # 🗺️ EğitimÜssü — Geliştirme Yol Haritası
 
 > Bu yol haritası; [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD_v2.md) (v2.1) fazları,

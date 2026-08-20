@@ -1,3 +1,11 @@
+---
+title: "Mimari — Genel Bakış"
+summary: "doc/architecture/ klasörünün indeks sayfası: sistem tipi, platformlar, aktörler, katmanlar, veri akışı, ölçeklenebilirlik ve faz hizalaması"
+tags: [mimari, genel-bakis, indeks]
+authority: derived
+updated: 2026-08-20
+---
+
 # 🏗️ Mimari — Genel Bakış (Architecture Overview)
 
 > **Bu klasör (`doc/architecture/`), sistemin mimari dokümantasyonudur** — platforma göre bölünmüştür ve
@@ -7,7 +15,7 @@
 > **Çelişki halinde otorite:** Modül/endpoint gerçeği için [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md);
 > kanonik değerler (ad, .NET sürümü, ana renk) için [`../INDEX.md`](../INDEX.md) §0.
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-08-20
 
 ---
 
@@ -21,6 +29,11 @@
 | [`web_angular.md`](web_angular.md) | Angular web (planlanan — Faz 4-5) | Web planlaması |
 | [`design_system.md`](design_system.md) | Platformlar-arası ortak görsel sistem: renk/tipografi/spacing token'ları + Atomic/CBD ilkeleri | UI token kararı |
 | [`widgets.md`](widgets.md) | Ortak widget kataloğu: her paylaşılan bileşenin API + kural + durumu (🟢/🟡/🔴) | Ekran/widget yaparken |
+| [`ux_rules.md`](ux_rules.md) | UX kuralları: navigasyon, form davranışı, boş/yükleniyor/hata durumları, geri bildirim | UX/navigasyon kararı |
+| [`animations.md`](animations.md) | Animasyon desenleri: süre/eğri token'ları, geçiş/hero kuralları, performans | Animasyon eklerken |
+| [`accessibility.md`](accessibility.md) | Erişilebilirlik: kontrast, dokunma hedefi, semantik/etiket, ölçeklenebilir tipografi | A11y kararı |
+| [`anti_patterns.md`](anti_patterns.md) | Kaçınılacak desenler: mimari/UI/state kokuları ve doğru alternatifleri | Refactor/review'da |
+| [`figma_references.md`](figma_references.md) | Figma referansları: tasarım kaynakları ↔ ekran/komponent eşlemesi | Tasarım eşlerken |
 
 ---
 
@@ -146,4 +159,4 @@ Yeni özellik/koda başlarken:
 
 ---
 
-*Mimari Genel Bakış | Güncelleme: 2026-06-24*
+*Mimari Genel Bakış | Güncelleme: 2026-08-20*

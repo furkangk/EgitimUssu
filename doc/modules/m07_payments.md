@@ -1,3 +1,14 @@
+---
+title: "M07 — Ödeme Takibi (Payments)"
+summary: "Öğretmenin manuel ödeme takibi + veli 'ödedim' beyan akışı çalışır; vade hatırlatma bildirimi ve Overdue kalıcı otomasyonu eksik"
+tags: [modul, payments, odeme, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Payments/**
+updated: 2026-08-19
+---
+
 # 💰 Ödeme Takibi (M07) — Detaylı Tasarım Dokümanı
 
 > **PRD: M07 Ödeme Takibi** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (manuel takip), ⚠️ veli paylaşımı + otomasyon bekliyor**
@@ -19,7 +30,7 @@
 |--------|-------|-------|
 | Domain (`PaymentRecord`) | ✅ Mevcut | `src/Modules/Payments/Domain/PaymentsDomainModel.cs` |
 | Application (CQRS + handler) | ✅ Mevcut | `src/Modules/Payments/Application/PaymentFeatures.cs` |
-| API (oluştur/güncelle/getir/listele/özet/filtre/**arama+sayfalama**) | ✅ Mevcut (7 endpoint) | `src/Modules/Payments/API/PaymentsModule.cs` |
+| API (oluştur/güncelle/getir/listele/özet/filtre/**arama+sayfalama** + veli beyan 4 endpoint) | ✅ Mevcut (**11 endpoint**) | `src/Modules/Payments/API/PaymentsModule.cs` |
 | Hesaplanan alanlar (kalan/gecikme/gösterim durumu) | ✅ Mevcut | `PaymentRecordMappings` (`GetOutstandingAmount`, `IsOverdue`, `GetDisplayStatus`) |
 | Para birimi bazında özet | ✅ Mevcut | `GetTeacherPaymentSummaryQuery` |
 | Veli ile paylaşım (`IsSharedWithParent`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
@@ -270,4 +281,4 @@ PUT /records/{id}
 
 ---
 
-*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
+*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*

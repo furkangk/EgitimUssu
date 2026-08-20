@@ -1,3 +1,15 @@
+---
+title: "Ödev / Ders Sonrası Takip Ekranı"
+summary: "Ödev oluşturma/takip formu; öğrenci/ders seçimi + son tarih + dosya eki, gerçek /api/assignments backend'ine bağlı"
+tags: [sayfa, assignments, form, ogretmen]
+status: "🟢"
+authority: code
+code_refs:
+  - mobile/lib/features/assignments/presentation/pages/assignment_follow_up_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Ödev / Ders Sonrası Takip (`/assignments/new`, `/assignments/:lessonSessionId`)
 
 > **Feature:** `assignments` · **Dosya:** `mobile/lib/features/assignments/presentation/pages/assignment_follow_up_page.dart`

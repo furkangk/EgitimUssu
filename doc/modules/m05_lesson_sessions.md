@@ -1,3 +1,14 @@
+---
+title: "M05 — Ders Oturumları (LessonSessions)"
+summary: "Planlanan dersin fiilen işlendiği kaydı; tamamlama + süre hesabı çalışır, InProgress/Cancel davranışları ve otomatik oturum türetme eksik"
+tags: [modul, lesson-sessions, ders-oturumu, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/LessonSessions/**
+updated: 2026-07-19
+---
+
 # 📖 Ders Oturumları (M05) — Detaylı Tasarım Dokümanı
 
 > **PRD: M05 Ders Oturumu** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (çekirdek), ⚠️ yaşam döngüsü genişletme bekliyor**

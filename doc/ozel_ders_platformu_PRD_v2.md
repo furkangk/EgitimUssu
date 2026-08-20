@@ -1,3 +1,11 @@
+---
+title: "Özel Ders Platformu — PRD v2.1"
+summary: "Ürün gereksinim dokümanı: vizyon, kullanıcı tipleri, M01-M18 modül listesi, 6 fazlı yol haritası, iş modeli, free/premium"
+tags: [prd, urun, vizyon]
+authority: product
+updated: 2026-06-24
+---
+
 # EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu
 ## Ürün Gereksinim Dokümanı (PRD) v2.1
 > İlk sürüm Nisan 2025 · **v2.1 güncellemesi: 2026-06-24** (`doc/promp.txt` vizyonu işlendi: mesajlaşma, üyelik+reklam+kampanya, iki taraflı ilan, online ders linki, takvim tatilleri, ders kaynağı, öğrenci ödev yükleme→veli bildirimi, çakışma önceliği, başarım/seri/kronometre, konu bazlı gelişim). Uygulama adı: **EğitimÜssü** (kod adı: `EgitimUssu`).

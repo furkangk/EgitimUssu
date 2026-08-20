@@ -1,3 +1,11 @@
+---
+title: "Anti-Pattern'lar — Flutter"
+summary: "Projede yapılmaması gereken UI/UX ve kod kalıpları; her madde neden yanlış olduğu ve doğrusu açıklamasıyla gelir"
+tags: [mimari, anti-pattern, flutter]
+authority: derived
+updated: 2026-06-27
+---
+
 # 🚫 Anti-Pattern'lar — EğitimÜssü Flutter
 
 > **Kapsam:** Bu projede **yapılmaması gereken** UI/UX ve kod kalıpları. Her madde "neden yanlış" ve "doğrusu nedir" açıklamasıyla gelir.

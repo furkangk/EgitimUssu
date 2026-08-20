@@ -1,3 +1,26 @@
+---
+title: "Öğrenci — Bireysel Çalışma Ekranları (M08)"
+summary: "Öğrenci study feature'ının tüm ekranları (Çalışma/Derslerim/Performans/Profil sekmeleri + kronometre/test/hedef/geçmiş/rozet alt ekranları); gerçek /api/study backend'ine bağlı"
+tags: [sayfa, study, ogrenci]
+status: "🟢"
+authority: code
+code_refs:
+  - mobile/lib/features/study/presentation/pages/student_home_page.dart
+  - mobile/lib/features/study/presentation/pages/student_tests_page.dart
+  - mobile/lib/features/study/presentation/pages/student_calendar_page.dart
+  - mobile/lib/features/study/presentation/pages/student_lesson_detail_page.dart
+  - mobile/lib/features/study/presentation/pages/student_goals_overview_page.dart
+  - mobile/lib/features/study/presentation/pages/student_profile_page.dart
+  - mobile/lib/features/study/presentation/pages/student_teacher_page.dart
+  - mobile/lib/features/study/presentation/pages/study_timer_page.dart
+  - mobile/lib/features/study/presentation/pages/test_entry_page.dart
+  - mobile/lib/features/study/presentation/pages/study_goals_page.dart
+  - mobile/lib/features/study/presentation/pages/study_history_page.dart
+  - mobile/lib/features/study/presentation/pages/achievements_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-08-19
+---
+
 # 📱 Öğrenci — Bireysel Çalışma Ekranları (M08 `study` feature)
 
 > **Feature:** `mobile/lib/features/study/` (`data` / `domain` / `presentation`) · **Backend:** `/api/study` (bkz. [`../modules/m08_study.md`](../modules/m08_study.md))

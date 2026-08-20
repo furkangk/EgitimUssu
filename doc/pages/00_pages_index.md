@@ -1,9 +1,17 @@
+---
+title: "Sayfa (Ekran) Dokümanları — İndeks"
+summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/More/Notifications/Parent)"
+tags: [sayfa-index, indeks, mobil]
+authority: derived
+updated: 2026-08-20
+---
+
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
 
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-08-19 (Task 1 — öğrenci 4-sekme nav)
+> **Son güncelleme:** 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -24,7 +32,7 @@
 ## Students
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Öğrenci listesi | `/students` | [students_list](students_list.md) | 🔴 |
+| Öğrenci listesi | `/students` | [students_list](students_list.md) | 🟡 |
 | Öğrenci detayı | `/students/:studentId` | [students_detail](students_detail.md) | 🔴 |
 
 ## Study (Öğrenci — Bireysel Çalışma, M08)
@@ -62,7 +70,7 @@
 ## Payments
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Ödeme takibi | `/payments` | [payments_list](payments_list.md) | 🔴 |
+| Ödeme takibi | `/payments` | [payments_list](payments_list.md) | 🟡 |
 | Ödeme ekle | `/payments/new` | [payment_form](payment_form.md) | 🟢 |
 
 ## Assignments
@@ -80,7 +88,12 @@
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
 | Diğer/Ayarlar | `/more` | [more](more.md) | 🟡 |
-| Hesap bilgileri | `/account-info` | [account_info](account_info.md) | 🔴 |
+| Hesap bilgileri | `/account-info` (+ `/account-info-preview` alias) | [account_info](account_info.md) | 🔴 |
+
+## Notifications
+| Ekran | Route | md | Veri |
+|-------|-------|-----|------|
+| Bildirimler | `/notifications` | — | 🟡 (`NotificationsPage` + `NotificationsCubit`; gerçek `/api/notifications/teachers/{id}/lesson-reminders` + mock fallback) |
 
 ## Parent (Veli)
 > `mobile/lib/features/parent/` · `ParentCubit` · `ParentRepository` (mock fallback) · `ParentBottomNav` · rol bazlı `/parent` yönlendirme (`app_router.dart`).

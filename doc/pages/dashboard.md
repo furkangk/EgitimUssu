@@ -1,3 +1,15 @@
+---
+title: "Öğretmen Paneli / Dashboard Ekranı"
+summary: "Öğretmenin günlük operasyon ana ekranı; günlük özet/yaklaşan dersler/son aktiviteler gerçek veriye bağlı, bekleyen ödev sayısı henüz placeholder"
+tags: [sayfa, dashboard, ogretmen]
+status: "🟡"
+authority: code
+code_refs:
+  - mobile/lib/features/dashboard/presentation/pages/dashboard_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Öğretmen Paneli / Dashboard (`/dashboard`)
 
 > **Feature:** `dashboard` · **Dosya:** `mobile/lib/features/dashboard/presentation/pages/dashboard_page.dart`

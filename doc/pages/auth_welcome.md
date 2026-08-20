@@ -1,3 +1,15 @@
+---
+title: "Karşılama / Welcome Ekranı"
+summary: "Uygulama giriş/karşılama ekranı; marka bloğu + Giriş Yap/Kayıt Ol yönlendirmesi, backend verisi yok"
+tags: [sayfa, auth, welcome]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/auth/presentation/pages/welcome_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Karşılama / Welcome (`/`)
 
 > **Feature:** `auth` · **Dosya:** `mobile/lib/features/auth/presentation/pages/welcome_page.dart`

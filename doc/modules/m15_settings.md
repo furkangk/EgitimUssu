@@ -1,7 +1,18 @@
+---
+title: "M15 — Ayarlar & Güvenlik"
+summary: "Kullanıcı bildirim/gizlilik/güvenlik ayarları; study-sharing endpoint + CQRS + sahiplik authorizer mevcut, tam CRUD eksik"
+tags: [modul, settings, gizlilik, bildirim, faz-0]
+status: "🟡"
+authority: code
+code_refs:
+  - src/Modules/Settings/**
+updated: 2026-08-19
+---
+
 # ⚙️ Ayarlar ve Güvenlik Modülü (M15) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M15 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Settings`) + Flutter mobil
-> **PRD:** M15 · **Faz:** 0+ · **Durum:** 🟡 Domain var, CRUD endpoint ve CQRS feature **YOK** (yalnızca `GET /api/settings/status` placeholder)
+> **PRD:** M15 · **Faz:** 0+ · **Durum:** 🟡 Domain var; **çalışma-verisi paylaşımı** ucu + CQRS feature (`SetStudySharing`) + sahiplik authorizer'ı **kodda mevcut**; tam CRUD (get/bildirim/güvenlik/profil) hâlâ eksik
 > **Mimari:** CQRS + Outbox; PostgreSQL (`settings` şeması), `UserId` UNIQUE (kullanıcı başına tek ayar kaydı)
 > **Marka rengi (mobil):** `0xFF082B4F`
 
@@ -15,21 +26,24 @@
 
 | Bileşen | Konum | Açıklama |
 |---------|-------|----------|
-| Domain aggregate | `src/Modules/Settings/Domain/SettingsDomainModel.cs` | `UserSetting : AggregateRoot<Guid>` |
+| Domain aggregate | `src/Modules/Settings/Domain/SettingsDomainModel.cs` | `UserSetting : AggregateRoot<Guid>` + `SetStudySharing(...)` güncelleme metodu |
 | DbContext | `src/Modules/Settings/Infrastructure/SettingsDbContext.cs` | `DbSet<UserSetting>`, şema `settings`, tablo `user_settings` |
-| Migration | `src/Modules/Settings/Infrastructure/Migrations/20260504210120_InitialCreate.cs` | `user_settings` tablosu oluşturuldu |
-| Module tanımı | `src/Modules/Settings/API/SettingsModule.cs` | Yalnızca `GET /api/settings/status` (`state="placeholder"`) |
+| Migration | `.../Migrations/20260504210120_InitialCreate.cs`, `.../20260701181041_AddOutboxRetryFields.cs` | `user_settings` tablosu + Outbox retry alanları |
+| CQRS feature | `src/Modules/Settings/Application/SettingsFeatures.cs` | `SetStudySharingCommand` + `SetStudySharingCommandValidator` + `SetStudySharingCommandHandler` + `SetStudySharingRequest/Response` |
+| Sahiplik authorizer | `SettingsFeatures.cs` → `SettingsAuthorizer : ICommandAuthorizer<SetStudySharingCommand>` | Yalnızca kendi kullanıcısı (veya `Admin`) → aksi halde `shared.forbidden` (K3 uygulanmış) |
+| Repository | `src/Modules/Settings/Infrastructure/UserSettingRepository.cs` | `IUserSettingRepository` (GetByUserId / Add / SaveChanges) |
+| Read-contract | `src/Modules/Settings/Infrastructure/StudentPrivacyDirectory.cs` | `IStudentPrivacyDirectory` (`Shared/Contracts`) — diğer modüllere `ShareStudyDataWith*` bayraklarını okutur (kayıt yoksa ikisi de açık varsayılır) |
+| Module tanımı | `src/Modules/Settings/API/SettingsModule.cs` | `GET /api/settings/status` (placeholder) + `PUT /api/settings/users/{userId:guid}/study-sharing` (`RequireAuthorization("AuthenticatedUser")`) |
 
 ### 🔴 Eksik olan
 
-- **CRUD endpoint YOK:** Tercihleri okuyan/yazan gerçek endpoint, **CQRS feature (query/command/handler), validator, authorizer yok.** Yalnızca placeholder `status`.
-- **Sahiplik authorizer'ı yok** — kullanıcının yalnızca **kendi** ayarına erişmesini sağlayan guard yok (varsayılan reddet — [`mimari_inceleme.md`](mimari_inceleme.md) **K3**).
-- **Domain event yok** — `UserSetting` davranış/event içermez; tüm property'ler `private set`, yalnızca constructor ile dolar (güncelleme metodu bile yok).
+- **Tam CRUD YOK:** Yalnızca **çalışma-verisi paylaşımı** (`study-sharing`) ucu var. `GET` (ayarları oku), bildirim / güvenlik / rol-bazlı profil `PUT` uçları ve bunların CQRS feature'ları **yok**.
+- **Domain event yok** — `UserSetting` yalnızca `SetStudySharing()` içerir; bildirim/güvenlik güncelleme metodu ve `UserSettingsUpdatedDomainEvent` **yok** (tüm property'ler `private set`).
 - **Notifications (M11) entegrasyonu yok** — bildirim üretilirken tercih bayraklarına bakılmıyor ([`m11_notifications.md`](m11_notifications.md)).
 - **Rol bazlı profil düzenleme yok** — öğretmen/öğrenci/veli profilleri ve bildirim izinlerinin tek yerden yönetimi henüz yok.
-- **Mobil bağlama yok** — mobil `more` feature'ı (Ayarlar/hesap) var ama bu modülün backend'ine bağlı değil.
+- **Mobil bağlama kısmî** — mobil `more` feature'ı (Ayarlar/hesap) var; yalnızca çalışma-verisi paylaşımı backend'e bağlanabilir, bildirim/güvenlik ekranlarının backend'i yok.
 
-> Not: `GET /api/settings/status` dışındaki grup bile `RequireAuthorization` ile sarmalanmamış durumda (placeholder).
+> Not: `study-sharing` ucu sahiplik authorizer'ı + `AuthenticatedUser` politikasıyla korunur; `SetStudySharingCommandHandler` kayıt yoksa **varsayılanlarla upsert** eder (tüm bildirimler açık, `Standard`, `KeepLatest`).
 
 ---
 
@@ -59,7 +73,7 @@ Kaynak: `src/Modules/Settings/Domain/SettingsDomainModel.cs` (alanlar/enum'lar b
 - `PrivacyLevel { Standard = 1, Limited = 2, Hidden = 3 }`
 - `SessionTerminationPolicy { KeepLatest = 1, TerminateOtherSessions = 2 }`
 
-**Davranış:** Sadece constructor var; **güncelleme metodu ve domain event yok** (tüm setter'lar `private`).
+**Davranış:** Constructor + `SetStudySharing(shareWithTeacher, shareWithParent, updatedOnUtc)` metodu (`ShareStudyDataWith*` + `LastUpdatedOnUtc` günceller). Diğer kategoriler için güncelleme metodu **ve domain event henüz yok** (tüm setter'lar `private`).
 
 **Kalıcılık (DB):** şema `settings`, tablo `user_settings`.
 - `PrivacyLevel` ve `SessionTerminationPolicy` `string` enum dönüşümü (maks. 32), zorunlu; `LastUpdatedOnUtc` zorunlu.
@@ -83,13 +97,16 @@ Kaynak: `src/Modules/Settings/Domain/SettingsDomainModel.cs` (alanlar/enum'lar b
 | Yetenek | Method + Route | Yetki |
 |---------|----------------|-------|
 | Sağlık/placeholder | `GET /api/settings/status` | — (placeholder) |
+| Çalışma-verisi paylaşımı (upsert) | `PUT /api/settings/users/{userId:guid}/study-sharing` | `AuthenticatedUser` + sahiplik authorizer (self/Admin) |
+
+> **Gövde:** `SetStudySharingRequest(bool ShareWithTeacher, bool ShareWithParent)` → `SetStudySharingCommand`. Kayıt yoksa varsayılanlarla oluşturulur, varsa `SetStudySharing` ile güncellenir. Yetkisizde `shared.forbidden` (403), doğrulama hatası `settings.invalid_request` (400). Bu uç, Veli **V-B gizlilik filtresi** akışını besler ([`m09_parents.md`](m09_parents.md)).
 
 ### Eksik / Önerilen ⚠️
 
 ```
 GET  /api/settings/users/{userId}                  → kullanıcının ayarları (yoksa varsayılan döner)
 PUT  /api/settings/users/{userId}/notifications     → bildirim tercihlerini güncelle (push/email/tür bayrakları)
-PUT  /api/settings/users/{userId}/privacy           → gizlilik + veri paylaşımı (ShareStudyDataWith*, PrivacyLevel)
+PUT  /api/settings/users/{userId}/privacy           → PrivacyLevel (study-sharing ayrı uçta mevcut)
 PUT  /api/settings/users/{userId}/security          → oturum sonlandırma politikası (SessionTerminationPolicy)
 PUT  /api/settings/users/{userId}/profile           → rol bazlı profil alanları (öğretmen/öğrenci/veli)
 ```
@@ -157,15 +174,14 @@ Güvenlik (Identity):
 
 ## 8. Eksikler ve Yapılacaklar (Öncelik Sırasıyla)
 
-1. **CRUD endpoint'leri + CQRS feature** (get/update query+command+handler+validator) — domain hazır, üst katmanlar yok.
-2. **Sahiplik authorizer'ı (K3)** — kendi ayarı dışına erişim engeli + varsayılan reddet.
-3. **Domain güncelleme metotları + event'ler** — şu an yalnızca constructor var; `Update*` + `UserSettingsUpdatedDomainEvent`.
-4. **Notifications (M11) entegrasyonu** — tercihlere göre filtreleme/kanal seçimi.
-5. **Rol bazlı profil düzenleme** — öğretmen/öğrenci/veli profilleri + bildirim izinleri tek ekrandan.
-6. **Mobil ayarlar ekranı** — `more` feature'ını gerçek backend'e bağla.
-7. **Gizlilik bayraklarının Study/Veli/Rapor akışına bağlanması** (M08/M09/M14).
-8. **Oturum sonlandırma politikasının Identity login akışına bağlanması.**
-9. **Üyelik (M17) ile reklam/limit tercihleri ilişkisi.**
+1. **Kalan CRUD endpoint'leri + CQRS feature** (get + bildirim/güvenlik/profil update) — `study-sharing` ucu ve sahiplik authorizer'ı ✅ mevcut; diğer kategoriler eksik.
+2. **Domain güncelleme metotları + event'ler** — `SetStudySharing` ✅ var; `UpdateNotifications/Privacy/Security` + `UserSettingsUpdatedDomainEvent` eksik.
+3. **Notifications (M11) entegrasyonu** — tercihlere göre filtreleme/kanal seçimi.
+4. **Rol bazlı profil düzenleme** — öğretmen/öğrenci/veli profilleri + bildirim izinleri tek ekrandan.
+5. **Mobil ayarlar ekranı** — `more` feature'ını gerçek backend'e bağla (şu an yalnızca `study-sharing` bağlanabilir).
+6. **`PrivacyLevel`'in Study/Rapor akışına bağlanması** — `ShareStudyDataWith*` ✅ `IStudentPrivacyDirectory` read-contract'ı ile diğer modüllere açık (M08/M09/M14); `PrivacyLevel` kademesi henüz uygulanmıyor.
+7. **Oturum sonlandırma politikasının Identity login akışına bağlanması.**
+8. **Üyelik (M17) ile reklam/limit tercihleri ilişkisi.**
 
 ---
 
@@ -183,4 +199,4 @@ Güvenlik (Identity):
 
 ---
 
-*Ayarlar ve Güvenlik Modülü (M15) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Ayarlar ve Güvenlik Modülü (M15) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-08-19*

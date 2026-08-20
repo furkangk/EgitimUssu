@@ -1,12 +1,22 @@
+---
+title: "İş Akışları (ARŞİV)"
+summary: "ARŞİV (tarihî): PRD v2.0 türevi iş akışları; güncel otorite roles/ + modules/"
+tags: [arsiv, is-akislari]
+authority: archive
+updated: 2026-07-18
+---
+
 # 🔄 İş Akışları — Öğretmen · Öğrenci · Veli (A'dan Z'ye)
+
+> ⚠️ **ARŞİV (2026-08-19):** Bu doküman tarihîdir. Geçerli otorite `doc/roles/` + `doc/modules/`'tedir. Buradaki bilgi yalnızca geçmiş referans içindir; çelişkide roles/modules esastır. Bu dokümandaki akış-boşluğu listeleri güncel değildir; teknik açık/durum için [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) esastır.
 
 > **Bu dokümanın amacı:** Platformdaki her rolün **uçtan uca iş akışını** adım adım, diyagramlarla ve
 > **koddan doğrulanmış** olarak anlatmak. "Hangi rol ne yapıyor, hangi ekrandan, hangi endpoint'e, hangi kuralla,
 > sonrasında hangi event tetikleniyor" sorusunun tek adresi.
 >
 > **Diğer dokümanlardan farkı:**
-> - [`roles/`](roles/00_roller_genel_bakis.md) → rolün **yetenek listesi ve ürün perspektifi** (ne yapabilir).
-> - [`modules/`](modules/00_genel_bakis.md) → modülün **teknik iç yapısı** (domain, API, kural).
+> - [`roles/`](../roles/00_roller_genel_bakis.md) → rolün **yetenek listesi ve ürün perspektifi** (ne yapabilir).
+> - [`modules/`](../modules/00_genel_bakis.md) → modülün **teknik iç yapısı** (domain, API, kural).
 > - **Bu doküman** → ikisini birleştiren **akış (workflow) perspektifi**: adım sırası, durum geçişleri, modüller arası zincir.
 >
 > **Doğruluk kaynağı = KOD.** Aşağıdaki her akış `src/` ve `mobile/lib/` içinden doğrulanmıştır. PRD'de vaat edilen
@@ -1151,7 +1161,7 @@ graph LR
 ## 10. Akış boşlukları — öncelikli düzeltme listesi
 
 Aşağıdaki tablo, akış perspektifinden **kullanıcıya doğrudan yansıyan** boşlukları etkiye göre sıralar.
-Teknik/mimari açıkların tam listesi → [`modules/mimari_inceleme.md`](modules/mimari_inceleme.md).
+Teknik/mimari açıkların tam listesi → [`modules/mimari_inceleme.md`](../modules/mimari_inceleme.md).
 
 | # | Boşluk | Etkilenen rol | Etki | Kanıt |
 |:-:|--------|:------------:|------|-------|
@@ -1182,13 +1192,13 @@ Teknik/mimari açıkların tam listesi → [`modules/mimari_inceleme.md`](module
 
 | Soru | Doküman |
 |------|---------|
-| Bu rol **ne yapabilir** (ürün perspektifi)? | [`roles/`](roles/00_roller_genel_bakis.md) |
-| Bu modülün **domain/API detayı** nedir? | [`modules/mNN_*.md`](modules/00_genel_bakis.md) |
-| Tablolar nasıl **ilişkili**? | [`modules/veri_modeli.md`](modules/veri_modeli.md) |
-| Hangi **açıkları** düzeltmeliyim (teknik)? | [`modules/mimari_inceleme.md`](modules/mimari_inceleme.md) |
-| **Sistem mimarisi / katmanlar**? | [`architecture/00_genel_bakis.md`](architecture/00_genel_bakis.md) |
-| Bu **ekran** ne yapıyor? | [`pages/`](pages/00_pages_index.md) |
-| Hangi **sırayla** geliştireyim? | [`yol_haritasi.md`](yol_haritasi.md) |
+| Bu rol **ne yapabilir** (ürün perspektifi)? | [`roles/`](../roles/00_roller_genel_bakis.md) |
+| Bu modülün **domain/API detayı** nedir? | [`modules/mNN_*.md`](../modules/00_genel_bakis.md) |
+| Tablolar nasıl **ilişkili**? | [`modules/veri_modeli.md`](../modules/veri_modeli.md) |
+| Hangi **açıkları** düzeltmeliyim (teknik)? | [`modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) |
+| **Sistem mimarisi / katmanlar**? | [`architecture/00_genel_bakis.md`](../architecture/00_genel_bakis.md) |
+| Bu **ekran** ne yapıyor? | [`pages/`](../pages/00_pages_index.md) |
+| Hangi **sırayla** geliştireyim? | [`yol_haritasi.md`](../yol_haritasi.md) |
 
 ---
 

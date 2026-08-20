@@ -1,3 +1,15 @@
+---
+title: "Takvim / Scheduling Ekranı"
+summary: "Ders takvimi (gün/hafta/ay); SchedulingCubit gerçek API'ye bağlı, initState'te demo seed ile karışık"
+tags: [sayfa, scheduling, ogretmen]
+status: "🟡"
+authority: code
+code_refs:
+  - mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Takvim / Scheduling (`/scheduling`)
 
 > **Feature:** `scheduling` · **Dosya:** `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart`

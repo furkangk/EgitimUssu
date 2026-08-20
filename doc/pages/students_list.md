@@ -1,7 +1,19 @@
+---
+title: "Öğrenci Listesi Ekranı"
+summary: "Öğretmenin öğrencilerini arama/filtreyle listelediği ekran; StudentsCubit üzerinden gerçek /api/students backend'ine bağlı"
+tags: [sayfa, students, ogretmen]
+status: "🟡"
+authority: code
+code_refs:
+  - mobile/lib/features/students/presentation/pages/students_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-08-20
+---
+
 # Öğrenci Listesi (`/students`)
 
 > **Feature:** `students` · **Dosya:** `mobile/lib/features/students/presentation/pages/students_page.dart`
-> **State:** `StudentsCubit` (BlocProvider.value) · **Veri:** ✅ Gerçek API · **Güncelleme:** 2026-06-28
+> **State:** `StudentsCubit` (BlocProvider.value) · **Veri:** 🟡 Gerçek API + demo fallback · **Güncelleme:** 2026-08-20
 
 ## Amaç
 Öğretmenin öğrencilerini arama/filtreyle listelemesi; ad, sınıf, aktif durumu.
@@ -10,7 +22,7 @@
 - `StudentsCubit.load(teacherUserId)` → `GET /api/students/profiles/by-teacher/{teacherUserId}`
 - `StudentsCubit.addStudent(profile)` → `POST /api/students/profiles`
 - Teacher userId ve fullName: `AuthCubit.state.session` üzerinden
-- Offline fallback: lokal cache → demo veri (`AppConfig.isMockFallbackEnabled`)
+- 🟡 Gerçek API (yukarıdaki uçlar) çağrılır; erişilemezse offline fallback: lokal cache → demo veri (`AppConfig.isMockFallbackEnabled`)
 
 ## State akışı
 - `isLoading=true` → shimmer iskelet (5 kart)

@@ -1,3 +1,11 @@
+---
+title: "Web Mimari — Angular + Tailwind CSS"
+summary: "Planlanan (Faz 4-5) Angular web mimarisi: rol, kapsam ve izlenecek mimari yön; henüz kod yok"
+tags: [mimari, web, angular]
+authority: product
+updated: 2026-06-24
+---
+
 # 🌐 Web Mimari — Angular + Tailwind CSS
 
 > **Durum: 🔴 PLANLANAN (Faz 4-5).** Henüz kod yoktur (`web/` klasörü mevcut değil). Bu doküman, web başladığında

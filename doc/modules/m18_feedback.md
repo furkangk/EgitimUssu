@@ -1,3 +1,12 @@
+---
+title: "M18 — Geri Bildirim ve Şikayet"
+summary: "Planlanan geri bildirim (bug/öneri) + şikayet/moderasyon modülü; backend klasörü kodda tamamen yok"
+tags: [modul, feedback, sikayet, planlanan, faz-1, faz-4]
+status: "🔴"
+authority: product
+updated: 2026-08-19
+---
+
 # 🛡️ Geri Bildirim ve Şikayet Modülü (M18) — Detaylı Tasarım Dokümanı
 
 > **PRD: M18 (YENİ)** · **Faz 1+ (geliştirme bug geri bildirimi) → Faz 4 (kötüye kullanım şikayeti & moderasyon)** · **Durum: 🔴 YENİ — kodda HİÇ YOK (tüm domain ⚠️ Önerilen, planlanan)**
@@ -228,4 +237,4 @@ Admin → POST /admin/reports/{id}/resolve (action)
 
 ---
 
-*Geri Bildirim ve Şikayet Modülü (M18) — Detaylı Tasarım | Faz 1+ / Faz 4 | Güncelleme: 2026-06-24*
+*Geri Bildirim ve Şikayet Modülü (M18) — Detaylı Tasarım | Faz 1+ / Faz 4 | Güncelleme: 2026-08-19*

@@ -1,3 +1,15 @@
+---
+title: "Ders Notu Formu Ekranı"
+summary: "Yeni ders notu oluşturma formu; öğrenci/ders seçimi, başlık, içerik, dosya eki — backend bağlantısı yok, tamamen demo/UI"
+tags: [sayfa, lesson-sessions, note, demo]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Ders Notu Formu (`/lesson-notes/new`)
 
 > **Feature:** `lesson_sessions` · **Dosya:** `mobile/lib/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart`

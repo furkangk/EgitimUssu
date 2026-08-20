@@ -1,3 +1,13 @@
+---
+title: "Modüller — Genel Bakış ve Durum (İndeks)"
+summary: "doc/modules/ klasörünün indeks dokümanı: M01–M18 modül listesi, backend eşlemesi ve durum tablosu"
+tags: [modul, indeks, genel-bakis]
+authority: code
+code_refs:
+  - src/Modules/*/API/*Module.cs
+updated: 2026-08-19
+---
+
 # 🗂️ Modüller — Genel Bakış ve Durum (Modül İndeksi)
 
 > Bu klasör (`doc/modules/`), her **backend modülünün** saf teknik tasarım dokümanını içerir
@@ -158,7 +168,7 @@ POST /{assignmentId}/return          (öğretmen geri gönderir + geri bildirim 
 ### Payments — `/api/payments`
 ```
 POST /records   PUT /records/{paymentRecordId}   GET /records/{paymentRecordId}
-GET /teachers/{teacherUserId}/records   /summary   /records/filter
+GET /teachers/{teacherUserId}/records   /summary   /records/filter   /records/search   (search: metin+durum+öğrenci+tarih, sayfalı)
 POST /records/{paymentRecordId}/declare-paid   (veli "ödedim" beyanı, Veli V-G 2026-07-19)
 GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-declarations/{id}/confirm|reject   (öğretmen teyit/red)
 [expose] IParentAccessDirectory (Shared.Contracts) — Parents uygular; veli-öğrenci onaylı bağ doğrulaması
@@ -201,6 +211,7 @@ PUT  /notes/{noteId}   DELETE /notes/{noteId}
 ```
 ### ProgressTracking — `/api/progress-tracking`  (🟡 çalışır çekirdek)
 ```
+GET  /status   (açık uç — modül durumu)
 GET  /students/{studentId}/mastery?subject=   /weak-spots   /strengths   /overview
 GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topic-goals
 POST /topic-goals/{goalId}/cancel
@@ -228,4 +239,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*

@@ -1,3 +1,15 @@
+---
+title: "Öğrenci Detayı Ekranı"
+summary: "Öğrenci profili + sekmeli görünüm (Genel/Dersler/Performans/Ödemeler); demo veriye düşebilen kısmi gerçek bağlantı"
+tags: [sayfa, students, ogretmen]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/students/presentation/pages/student_detail_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Öğrenci Detayı (`/students/:studentId`)
 
 > **Feature:** `students` · **Dosya:** `mobile/lib/features/students/presentation/pages/student_detail_page.dart`

@@ -1,3 +1,11 @@
+---
+title: "Erişilebilirlik (Accessibility) — Flutter"
+summary: "Tüm ekranlarda uygulanacak erişilebilirlik kuralları: ekran okuyucu, renk kontrastı, dokunma hedefleri, yazı boyutu ölçekleme"
+tags: [mimari, erisilebilirlik, flutter]
+authority: derived
+updated: 2026-06-27
+---
+
 # ♿ Erişilebilirlik (Accessibility) — EğitimÜssü Flutter
 
 > **Kapsam:** Tüm ekranlarda uygulanacak erişilebilirlik kuralları — ekran okuyucu, renk kontrastı,

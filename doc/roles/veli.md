@@ -1,3 +1,12 @@
+---
+title: "Veli Rolü"
+summary: "Veli, çocuğun gelişimini ve öğretmen etkileşimlerini şeffaf grafik/rapor ağırlıklı biçimde izleyen read-model rol"
+tags: [rol, veli, read-model]
+status: "🟡"
+authority: derived
+updated: 2026-08-19
+---
+
 # 👪 Veli Rolü — Detaylı Tasarım Dokümanı
 
 > **Öncelik: 3️⃣** · **Faz 2-3 — Veli Paneli** · **Durum: 🟡 Kısmi (Faz 2 uygulandı)**
@@ -6,7 +15,7 @@
 > ödemeleri ve öğretmen etkileşimlerini izlesin.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`ogretmen.md`](ogretmen.md) · [`../modules/m09_parents.md`](../modules/m09_parents.md)
-> **Güncelleme:** 2026-07-19
+> **Güncelleme:** 2026-08-19
 
 ---
 
@@ -79,6 +88,26 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 10. **Bildirimler Premium (Veli V-E, 2026-07-19 — uygulandı):** Veli bildirimleri (yeni ödev, ders tamamlandı, ödeme güncellemesi, bağlantı bildirimi + haftalık özet) yalnız **Premium** veliye gider (`ParentProfile.MembershipTier`; PRD 9.3) ve velinin tercih anahtarlarına saygılıdır. Bağlantı bildirimi güvenlik gereği koşulsuz (yine de Premium). Satın alma altyapısı olmadığından başlangıçta tüm veliler Free — Premium yalnız Admin `PUT /membership-tier` ile verilir. Liste: `GET /api/notifications/parents/{parentUserId}/notifications`.
 11. **Zenginleştirilmiş panel (Veli V-F, 2026-07-19 — uygulandı):** Veli paneli artık canlı digest'lerle beslenir: çalışma süresi + **ders bazlı dağılım** (panelde "hep 0" bug'ı düzeltildi), yaklaşan dersler, son ders özeti (konu), **veli-görünür öğretmen notları** (yalnız Student/StudentAndParent; Private asla), ödeme kalem listesi. Çalışma verisi gizlilik kapalıysa maskeli döner (V-B); kişisel seans notu hiçbir koşulda görünmez.
 
+### 6.1 Yetki Sınırları — Veli Neyi Yapamaz
+
+Veli rolü **yapamadıklarıyla** tanımlanır — read-model rolüdür. Arşivlenen fonksiyonel dokümandan taşındı (18 yaş altı maddesi ertelendiği için çıkarıldı; velinin eşleştirmede olmaması bir hata değil, kanonik kuraldır — bkz. `00_roller_genel_bakis.md` §3):
+
+| # | Veli ŞUNU YAPAMAZ | Neden |
+|---|---|---|
+| 1 | Ders ekleyemez/değiştiremez/iptal edemez | M04 öğretmene ait |
+| 2 | Ödev veremez / ödevi kapatamaz | M06 öğretmene ait |
+| 3 | Çocuğunun sayacını başlatamaz/durduramaz | M08 öğrenciye ait |
+| 4 | Çocuğunun test/deneme kaydını değiştiremez | M08 öğrenciye ait |
+| 5 | Çocuğunun **kişisel seans notlarını** göremez | Mahremiyet çekirdeği — değişmez kural |
+| 6 | Çocuğunun gizlediği/paylaşmadığı veriyi göremez | M15 gizlilik (V-B) |
+| 7 | Ödemeyi "tahsil edildi" işaretleyemez — yalnız "ödedim" **beyan** eder, teyit öğretmende | M07 (V-G) |
+| 8 | Platform üzerinden ödeme yapamaz | M07 (yalnız mutabakat kaydı) |
+| 9 | Öğretmene yorum/puan yapamaz | M13 (yalnız ders alan öğrenci) |
+| 10 | Öğretmenin özel (Private) notunu göremez | M06 not görünürlüğü |
+| 11 | Öğretmenin diğer öğrencilerini / başka velinin çocuğunu göremez | Rol izolasyonu |
+| 12 | Çocuğunun hesabını silemez | — |
+| 13 | Öğretmen arama / ilan / eşleştirme (M12) yapamaz | Velinin eşleştirme yetkisi yok |
+
 ---
 
 ## 7. Mobil Ekranlar
@@ -117,4 +146,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-08-19 (doküman temizliği: §6.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı) · 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*

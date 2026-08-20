@@ -1,3 +1,14 @@
+---
+title: "M10 — Gelişim Takibi (ProgressTracking)"
+summary: "Konu bazlı hâkimiyet skoru + hedef + mobil 'Gelişimim' ekranı çalışır çekirdek; ProgressSnapshot zaman serisi ve öğretmen/veli görünümü henüz yok"
+tags: [modul, progress-tracking, gelisim, faz-3]
+status: "🟡"
+authority: code
+code_refs:
+  - src/Modules/ProgressTracking/**
+updated: 2026-08-19
+---
+
 # 📈 M10 — Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım Dokümanı
 
 > **Kod Modülü:** `src/Modules/ProgressTracking` · **Route Prefix:** `/api/progress-tracking` · **Şema:** `progress_tracking`
@@ -142,35 +153,37 @@ public enum SnapshotPeriod { Daily = 1, Weekly = 2, Monthly = 3 }
 
 ---
 
-## 3. API Sözleşmesi (⚠️ Önerilen) — `/api/progress-tracking`
+## 3. API Sözleşmesi — `/api/progress-tracking`
 
-> Auth gerektirir. Erişim: öğrenci kendi verisi; **öğretmen** bağlı öğrencisi; **veli** onaylı+paylaşıma açık çocuğu
-> (gizlilik bayrakları M08/M09 ile, bkz. İş Kuralları 4.5).
+> Auth gerektirir (`status` hariç). Erişim: öğrenci kendi verisi; **öğretmen** bağlı öğrencisi; **veli** onaylı+paylaşıma açık çocuğu
+> (gizlilik bayrakları M08/M09 ile, bkz. İş Kuralları 4.5). Sahiplik `IStudentDirectory` ile çözülür.
+> **Koddan doğrulanmış (2026-08-19):** 8 endpoint — `status` (açık) + 7 korumalı (`mastery`, `weak-spots`, `strengths`, `overview`, `topic-goals` liste/oluştur/iptal).
 
-### 3.1 Konu hâkimiyeti
+### 3.1 Konu hâkimiyeti (🟢 Kodda)
 ```
+GET /api/progress-tracking/status                                          → 200 modül durumu (açık uç)
 GET /api/progress-tracking/students/{studentId}/mastery?subject=
     → 200 konu listesi { subject, topic, masteryLevel, score, trend, isWeakSpot, isStrength }
 GET /api/progress-tracking/students/{studentId}/weak-spots                 → 200 eksik konular (öncelikli)
 GET /api/progress-tracking/students/{studentId}/strengths                  → 200 güçlü konular
-GET /api/progress-tracking/students/{studentId}/mastery/{subject}/{topic}  → 200 konu detayı + geçmiş
+GET /api/progress-tracking/students/{studentId}/overview                   → 200 birleşik gelişim genel bakışı
 ```
+> **⚠️ Önerilen (kodda yok):** `GET .../mastery/{subject}/{topic}` (konu detayı + geçmiş).
 
-### 3.2 Konu hedefleri
+### 3.2 Konu hedefleri (🟢 Kodda)
 ```
 POST /api/progress-tracking/students/{studentId}/topic-goals
      body: { subject, topic, targetMasteryLevel, targetNetRatio?, targetDate? }   → 201
 GET  /api/progress-tracking/students/{studentId}/topic-goals?status=Active        → 200
-POST /api/progress-tracking/topic-goals/{id}/cancel                               → 200
+POST /api/progress-tracking/topic-goals/{goalId}/cancel                           → 200
 ```
 
-### 3.3 Zaman serisi / gelişim
+### 3.3 Zaman serisi / gelişim (⚠️ Önerilen — kodda yok)
 ```
 GET /api/progress-tracking/students/{studentId}/snapshots?period=Weekly&from=&to=
-    → 200 zaman serisi (grafik için)
-GET /api/progress-tracking/students/{studentId}/progress-overview
-    → 200 birleşik özet: hâkimiyet dağılımı, eksik/güçlü, hedef ilerleme, son trend
+    → 200 zaman serisi (grafik için) — ProgressSnapshot henüz kodda yok
 ```
+> Not: birleşik özet **`overview`** uç adıyla §3.1'de **kodda mevcuttur** (önceki dokümandaki `progress-overview` yanlıştı).
 
 ### 3.4 İç besleme (event consumer — endpoint değil)
 ```
@@ -308,4 +321,4 @@ M08 TestResultRecordedDomainEvent     ──┘
 
 ---
 
-*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+besleme+API+mobil) | Güncelleme: 2026-07-09*
+*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+besleme+API+mobil) | Güncelleme: 2026-08-19 (kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*

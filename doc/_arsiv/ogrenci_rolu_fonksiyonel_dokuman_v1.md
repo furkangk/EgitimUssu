@@ -1,4 +1,14 @@
+---
+title: "Öğrenci Rolü — Fonksiyonel Doküman (ARŞİV)"
+summary: "ARŞİV (tarihî): güncel otorite roles/+modules/ — PRD v2.0 öğrenci rolü fonksiyonel yetenek ve kullanım akışı detaylandırması v1.0"
+tags: [arsiv, ogrenci, fonksiyonel-dokuman]
+authority: archive
+updated: 2026-07-17
+---
+
 # Öğrenci Rolü — Fonksiyonel Yetenek ve Kullanım Akışı Dokümanı
+
+> ⚠️ **ARŞİV (2026-08-19):** Bu doküman tarihîdir. Geçerli otorite `doc/roles/` + `doc/modules/`'tedir. Buradaki bilgi yalnızca geçmiş referans içindir; çelişkide roles/modules esastır.
 
 **Ürün:** Özel Ders Yönetim ve Eşleştirme Platformu
 **Kaynak:** `ozel_ders_platformu_PRD_v2.docx` (v2.0, Nisan 2025)
@@ -486,7 +496,7 @@ Modüller arası okuma `IStudyPlanCompletionReader` sözleşmesiyle yapılır (S
 
 **Faz:** Kendi ders/plan **Faz 2** (öğrenci ürünüyle birlikte). Faz 1'de Derslerim yalnız öğretmen dersleridir.
 
-**Diyagramlar:** [`diagrams/rol_sayfa_mimarisi/ogrenci.md`](diagrams/rol_sayfa_mimarisi/ogrenci.md) §1.2 (kavramsal model) + §3b (öğretmensiz döngü) + SVG'ler.
+**Diyagramlar:** [`diagrams/rol_sayfa_mimarisi/ogrenci.md`](../diagrams/rol_sayfa_mimarisi/ogrenci.md) §1.2 (kavramsal model) + §3b (öğretmensiz döngü) + SVG'ler.
 
 ---
 

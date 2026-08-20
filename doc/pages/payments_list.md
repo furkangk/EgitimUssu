@@ -1,7 +1,19 @@
+---
+title: "Ödeme Takibi Ekranı"
+summary: "Öğretmenin tüm ödeme kayıtlarını görüntülediği, sunucu taraflı sayfalama/filtre ve tahsilat formuyla PaymentsCubit'e bağlı ekran"
+tags: [sayfa, payments, ogretmen]
+status: "🟡"
+authority: code
+code_refs:
+  - mobile/lib/features/payments/presentation/pages/payments_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-08-20
+---
+
 # Ödeme Takibi (`/payments`)
 
 > **Feature:** `payments` · **Dosya:** `mobile/lib/features/payments/presentation/pages/payments_page.dart`
-> **State:** `PaymentsCubit` (BlocProvider.value) · **Veri:** ✅ Gerçek API · **Güncelleme:** 2026-07-06
+> **State:** `PaymentsCubit` (BlocProvider.value) · **Veri:** 🟡 Gerçek API + demo fallback · **Güncelleme:** 2026-08-20
 
 ## Amaç
 Öğretmenin tüm ödeme kayıtlarını görüntüleme: açıklama, vade, tutar, durum (Ödendi/Bekleyen/Kısmi/Geciken/İptal) + **tam veya kısmi tahsilat** girişi (tahsilat formu).
@@ -23,7 +35,7 @@
 - `PaymentsCubit.create(record)` → `POST /api/payments/records` (PaymentFormPage'den dönüşte `load` yeniden çağrılır)
 - **Kart → düzenleme (2026-07-06):** Ödeme kartına dokununca (`_PaymentTile` `InkWell` ile tıklanabilir + sağda `chevron_right` ok → `_onEdit`) `context.push('/payments/edit', extra: record)` ile `PaymentFormPage` **düzenleme modunda** açılır; dönüşte liste yeniden yüklenir. Kaydet `PaymentsCubit.update(record)` → `PUT /api/payments/records/{id}`.
 - **İptal (2026-07-06):** Düzenleme formundaki iptal ikonu → **onay dialogu** → `PaymentsCubit.cancel(record)` → `PUT /api/payments/records/{id}` (`Status=Cancelled`). Kayıt **silinmez**; listede "İptal" olarak kalır. Başarıda listeye döner. (Hard delete yok.)
-- Offline fallback: lokal cache → demo veri (`AppConfig.isMockFallbackEnabled`)
+- 🟡 Gerçek API (yukarıdaki uçlar) çağrılır; erişilemezse offline fallback: lokal cache → demo veri (`AppConfig.isMockFallbackEnabled`)
 
 ## Status string → UI mapping
 | Backend string | Etiket    | Renk         |

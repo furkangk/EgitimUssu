@@ -1,3 +1,11 @@
+---
+title: "Roller — Genel Bakış"
+summary: "Roller klasörü indeksi: rol×yetenek matrisi ve roller-arası kurallar (mesajlaşma çiftleri, veli gerçek kişi, üyelik, yetkilendirme mimarisi)"
+tags: [rol, genel-bakis, roller-arasi]
+authority: derived
+updated: 2026-08-19
+---
+
 # 👥 Roller — Genel Bakış ve Roller-Arası Kurallar
 
 > Bu klasör (`doc/roles/`), platformu **kullanıcı rolü** perspektifinden anlatır: her rolün yetenekleri,
@@ -6,7 +14,7 @@
 >
 > İlgili: [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) (ürün) · [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) (modül indeksi) · [`../INDEX.md`](../INDEX.md)
 >
-> **Güncelleme:** 2026-07-18
+> **Güncelleme:** 2026-08-19
 
 ---
 
@@ -89,6 +97,12 @@ Her rol için ücretsiz ve ücretli üyelik vardır. Ücretsiz kullanıcılar **
 ### 4.7 Gizlilik / veri paylaşımı
 Öğrenci, bireysel çalışma verisini veli/öğretmenle paylaşıp paylaşmayacağını kontrol eder; ödeme bilgisi veliyle ayrı bir bayrakla paylaşılır (M15 `ShareStudyDataWith*`, M07 `IsSharedWithParent`). KVKK: reşit olmayan öğrencilerde veli erişimi varsayılan.
 
+### 4.8 Roller-arası akışta 3 mimari gerçek
+Rol yetkileri kodda nasıl zorlanır (arşivlenen `is_akislari.md`'den taşındı; teknik detay → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md), [`../architecture/backend.md`](../architecture/backend.md)):
+1. **HTTP katmanında rol kontrolü yoktur.** Tüm endpoint'ler yalnızca `RequireAuthorization("AuthenticatedUser")` der; rol/sahiplik kararı Application katmanındaki `ICommandAuthorizer`/`IQueryAuthorizer` sınıflarında verilir. Bu belgelerdeki "hangi rol ne yapar" ifadeleri bu authorizer'lardan okunur, endpoint attribute'undan değil.
+2. **Varsayılan-deny zorunludur.** Authorizer'ı olmayan bir handler uygulamayı başlangıçta çökertir (`AuthorizationCoverageValidator`) — "yetki kontrolü unutuldu" durumu mimari olarak imkânsızdır (mimari_inceleme K3).
+3. **Her domain event otomatik integration event olur.** `SaveChanges` anında aynı transaction içinde outbox'a yazılır; modüller birbirini **string event adıyla** dinler, proje referansıyla değil. Roller-arası veri akışı (ör. öğretmenin ders tamamlaması → veli panosu) bu gevşek olay zinciriyle yürür.
+
 ---
 
 ## 5. Giriş Yolları (Onboarding)
@@ -111,4 +125,4 @@ Welcome → Rol seçimi
 
 ---
 
-*Roller Genel Bakış | Güncelleme: 2026-07-18 (Dilim C: bir öğrenci birden fazla öğretmene bağlanabilir — `TeacherStudentLink`, free limit=5, davet/kabul — §4.4)*
+*Roller Genel Bakış | Güncelleme: 2026-08-19 (doküman temizliği: §4.8 roller-arası 3 mimari gerçek arşivlenen `is_akislari.md`'den taşındı) · 2026-07-18 (Dilim C: bir öğrenci birden fazla öğretmene bağlanabilir — `TeacherStudentLink`, free limit=5, davet/kabul — §4.4)*

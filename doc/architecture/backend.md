@@ -1,3 +1,13 @@
+---
+title: "Backend Mimari (.NET 9 modüler monolit)"
+summary: "Çözüm yapısı, modül anatomisi, Shared/Kernel, CQRS, Outbox, persistence, JWT — 15 gerçek modül"
+tags: [mimari, backend, dotnet, cqrs, outbox]
+authority: code
+code_refs:
+  - src/**
+updated: 2026-06-24
+---
+
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
 
 > **Kapsam:** Backend'in (`src/`) mimari yapısı: çözüm düzeni, modül anatomisi, Shared katmanı, CQRS, persistence,

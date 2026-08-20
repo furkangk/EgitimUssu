@@ -1,3 +1,11 @@
+---
+title: "Doküman Haritası (INDEX)"
+summary: "doc/ altındaki tüm dokümanların tek listesi ve kanonik gerçekler; hangi konuda hangi dokümana bakılacağını gösterir"
+tags: [index, harita, kanonik]
+authority: derived
+updated: 2026-08-20
+---
+
 # 📚 EğitimÜssü — Doküman Haritası (INDEX)
 
 > **Bu dosyanın amacı:** Projedeki tüm dokümanların **tek listesi**. Yapay zekâya tüm md'leri tek tek vermek yerine
@@ -5,7 +13,7 @@
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-07-19
+> **Son güncelleme:** 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -90,17 +98,17 @@
 
 ## 5. Sayfa (Ekran) Dokümanları (`doc/pages/`)
 
-> Kodda **var olan** her Flutter ekranı için birer md. İndeks → [`pages/00_pages_index.md`](pages/00_pages_index.md). Öğrenci/veli ve yeni özellik (mesajlaşma/ilan/üyelik) ekranları **planlanandır**.
+> Kodda **var olan** her Flutter ekranı için birer md. İndeks → [`pages/00_pages_index.md`](pages/00_pages_index.md). Öğretmen, **öğrenci** (4-sekme çalışma paneli) ve **veli** (parent paneli) ekranları kodda mevcuttur; yalnızca yeni özellik (mesajlaşma/ilan/üyelik/paywall) ekranları **planlanandır**.
 
 ## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
 
-> Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak: `doc/*_rolu_fonksiyonel_dokuman_v1.md`. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).
+> Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak fonksiyonel dokümanlar **arşivlendi** (2026-08-19) → `doc/_arsiv/*_rolu_fonksiyonel_dokuman_v1.md`; güncel otorite `doc/roles/`'tedir. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).
 
-| Rol | Dosya | Kaynak fonksiyonel doküman |
+| Rol | Dosya | Kaynak fonksiyonel doküman (⚠️ arşiv) |
 |-----|-------|----------------------------|
-| 🎓 Öğrenci | [`ogrenci`](diagrams/rol_sayfa_mimarisi/ogrenci.md) | [`ogrenci_rolu_fonksiyonel_dokuman_v1`](ogrenci_rolu_fonksiyonel_dokuman_v1.md) |
-| 👨‍🏫 Öğretmen | [`ogretmen`](diagrams/rol_sayfa_mimarisi/ogretmen.md) | [`ogretmen_rolu_fonksiyonel_dokuman_v1`](ogretmen_rolu_fonksiyonel_dokuman_v1.md) |
-| 👪 Veli | [`veli`](diagrams/rol_sayfa_mimarisi/veli.md) | [`veli_rolu_fonksiyonel_dokuman_v1`](veli_rolu_fonksiyonel_dokuman_v1.md) |
+| 🎓 Öğrenci | [`ogrenci`](diagrams/rol_sayfa_mimarisi/ogrenci.md) | [`_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1`](_arsiv/ogrenci_rolu_fonksiyonel_dokuman_v1.md) |
+| 👨‍🏫 Öğretmen | [`ogretmen`](diagrams/rol_sayfa_mimarisi/ogretmen.md) | [`_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1`](_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md) |
+| 👪 Veli | [`veli`](diagrams/rol_sayfa_mimarisi/veli.md) | [`_arsiv/veli_rolu_fonksiyonel_dokuman_v1`](_arsiv/veli_rolu_fonksiyonel_dokuman_v1.md) |
 
 ## 6. Türev / Operasyon Dosyaları
 
@@ -108,6 +116,23 @@
 |-------|--------------|
 | [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) | Jira backlog (Epic/Story/Task). Her görevde `faz-N` etiketi → [`yol_haritasi.md`](yol_haritasi.md) ile hizalı. Modül docs değişince güncellenmeli |
 | [`denetim/2026-06-30_kapsamli_kod_denetimi.md`](denetim/2026-06-30_kapsamli_kod_denetimi.md) | **Kapsamlı kod denetimi (2026-06-30)**: mimari/güvenlik/DDD/persistence/mobil/operasyon bulguları, skor tablosu, önceliklendirilmiş yol haritası. Anlık denetim artefaktı |
+| [`_arsiv/`](_arsiv/) | **Arşiv (⚠️ tarihî):** PRD v2.0'dan türetilen eski fonksiyonel/iş-akışı dokümanları (`*_rolu_fonksiyonel_dokuman_v1.md`, `is_akislari.md`). Geçmiş referans; güncel otorite `doc/roles/` + `doc/modules/`. 2026-08-19'da birleştirilip arşivlendi |
+
+## 6.1 Bilgi Tabanı Makinesi (Dilim A + B + C + D)
+
+> Dokümanları koddan doğrulanmış, gezilebilir tutan health-check makinesi. Her `doc/**/*.md` başında makine-okunur frontmatter bulunur. Tasarım/plan: `docs/superpowers/specs|plans/2026-08-20-bilgi-tabani-dilim-a*`.
+
+| Dosya | Ne işe yarar |
+|-------|--------------|
+| [`00_kb_konvansiyon.md`](00_kb_konvansiyon.md) | **Frontmatter konvansiyonu**: şema (summary/tags/status/authority/code_refs/updated) + authority kuralları + code_refs aile kalıpları. Tüm doc/ bunu izler |
+| `_tools/kb_healthcheck.sh` | Deterministik health-check (saf bash): kırık link/fence/kanonik/frontmatter/code_refs/tarih/öksüz. `/kb-healthcheck` slash-komutu bunu sarar (+ `--deep` LLM kod-drift) |
+| [`_health/`](_health/) | Health-check + **kb-lint** rapor çıktıları (`YYYY-MM-DD-healthcheck.md` / `YYYY-MM-DD-kb-lint.md`) — pass/fail + severity'li bulgular + kod-drift; `/kb-lint` üretken öneriler (tutarsızlık/eksik/aday/soru) |
+| [`_obsidian_kurulum.md`](_obsidian_kurulum.md) | **Obsidian görünümü** (Dilim B): vault'u açma, Dataview kurulumu, graph renk anlamları, `_assets` görsel konvansiyonu |
+| [`_dashboards/`](_dashboards/) | Dataview panoları (frontmatter'dan canlı): `modul_durum_panosu.md` (INDEX §3'ün oto-üretilen hali) + `kod_dokuman_envanteri.md` (drift riski) |
+| `.obsidian/`, `_assets/` | Obsidian vault config (authority-renkli graph, ek klasörü) + görsel/ek klasörü. Kişisel dosyalar `.gitignore`'da |
+| [`kaynaklar/`](kaynaklar/00_kaynaklar_index.md) | **Ingest** (Dilim C): `/kb-ingest` ile dış/ham kaynaklardan damıtılmış `reference` makaleleri (research/design/decision) + backlink. İndeks: `00_kaynaklar_index.md` |
+| `raw/` | Ham kaynaklar (verbatim: kırpılmış makale/PDF/görsel/döküm). Health-check **muaf**; orijinal `source` referansı buraya bakar |
+| [`_cevaplar/`](_cevaplar/00_cevaplar_index.md) | **Q&A** (Dilim D): `/kb-ask` ile wiki'ye sorulan soruların cevapları (md/Marp/mermaid/grafik) + kaynak backlink. İndeks: `00_cevaplar_index.md` |
 
 ---
 

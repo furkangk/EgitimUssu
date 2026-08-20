@@ -1,3 +1,15 @@
+---
+title: "Kayıt / Register Ekranı"
+summary: "Öğretmen kayıt formu; AuthCubit üzerinden gerçek /api/identity/register backend'ine bağlı"
+tags: [sayfa, auth, register]
+status: "🟢"
+authority: code
+code_refs:
+  - mobile/lib/features/auth/presentation/pages/register_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Kayıt / Register (`/register`)
 
 > **Feature:** `auth` · **Dosya:** `mobile/lib/features/auth/presentation/pages/register_page.dart`

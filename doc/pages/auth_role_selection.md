@@ -1,3 +1,15 @@
+---
+title: "Hesap Türü Seçimi Ekranı"
+summary: "Öğretmen/Öğrenci/Veli rol seçim ekranı; yalnızca Öğretmen akışı uygulanmış, diğerleri snackbar ile engelli"
+tags: [sayfa, auth, role-selection]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/auth/presentation/pages/role_selection_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-23
+---
+
 # Hesap Türü Seçimi (`/role-selection`)
 
 > **Feature:** `auth` · **Dosya:** `mobile/lib/features/auth/presentation/pages/role_selection_page.dart`

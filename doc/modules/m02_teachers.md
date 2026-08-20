@@ -1,6 +1,17 @@
+---
+title: "M02 — Öğretmen Profili (Teachers)"
+summary: "Öğretmen profili CRUD + haftalık uygunluk + çoklu branş/sertifika çalışır durumda; profil fotoğrafı depolama ve öğretmen arama/listeleme eksik"
+tags: [modul, teachers, profil, uygunluk, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Teachers/**
+updated: 2026-08-19
+---
+
 # 👨‍🏫 Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım Dokümanı
 
-> **PRD: M02 Öğretmen Profili** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (CRUD + uygunluk çalışıyor; GET yetkilendirmesi açık)**
+> **PRD: M02 Öğretmen Profili** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (CRUD + uygunluk + çoklu branş/sertifika çalışıyor; GET yetkilendirmesi de eklendi — K3 kapandı)**
 >
 > **Amaç:** Öğretmenin kendini platformda **tanıttığı, ücretlendirdiği ve haftalık uygunluğunu** ortaya koyduğu
 > profil katmanını yönetmek. Bu profil; takvimde ders planlama (M04), eşleştirme (M12) ve öğrenciye görünürlük için
@@ -35,7 +46,7 @@
 | Öğretmen listeleme / arama (şehir/branş filtresi) | 🔴 eksik | Yalnızca tekil `GET by userId` var (eşleştirme M12'de) |
 | Tatil/izin istisnaları (ScheduleException) | 🔴 eksik | Modellenmedi → **M04 Scheduling**'de ele alınacak |
 
-> **Özet:** Profil CRUD + haftalık uygunluk **çalışır durumdadır**. Y1 kapatıldı: `IsVerified` artık update akışından çıkarıldı. Kalan açık: profil okuma ucunun yetkilendirici taşımaması (**K3**).
+> **Özet:** Profil CRUD + haftalık uygunluk **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Kalan açık noktalar profil fotoğrafı depolama + listeleme/arama gibi genişletmelerdir.
 
 ---
 
@@ -142,7 +153,7 @@ Tüm uçlar `RoutePrefix = /api/teachers` altında ve grup **`RequireAuthorizati
 |---------|----------------|----------------|-------|-------|
 | Profil oluştur | `POST /profiles` | `TeacherProfileCommandAuthorizer` (create) | `UpsertTeacherProfileRequest` | `TeacherProfileResponse` |
 | Profil güncelle | `PUT /profiles/{userId:guid}` | `TeacherProfileCommandAuthorizer` (update) | `UpsertTeacherProfileRequest` | `TeacherProfileResponse` |
-| Profil getir | `GET /profiles/{userId:guid}` | **🔴 authorizer yok (K3)** | — | `TeacherProfileResponse` |
+| Profil getir | `GET /profiles/{userId:guid}` | `TeacherProfileQueryAuthorizer` (K3 kapandı) | — | `TeacherProfileResponse` |
 
 **İstek/yanıt sözleşmeleri (koddan):**
 
@@ -186,7 +197,7 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
 
 ### 3.3 Eksik / Önerilen Endpoint'ler ⚠️
 
-- [ ] **`GET /profiles/{userId}` için authorizer** — en azından `IsVerified` gibi alanları yetkisiz okumadan korumak/gizlilik (**K3**). (Profilin herkese açık kısmı için ayrı "public" projeksiyon düşünülebilir.)
+- [x] **`GET /profiles/{userId}` için authorizer** — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı); kimlik doğrulanmış tüm roller okuyabilir. (Profilin herkese açık kısmı için ayrı "public" projeksiyon hâlâ düşünülebilir.)
 - [ ] **`PUT /profiles/{userId}/verification`** — yalnız **admin**; `IsVerified`'i set edecek ayrı endpoint + `TeacherVerifiedDomainEvent` (Y1 kısmen kapatıldı — upsert'ten çıkarıldı; admin endpoint henüz yok).
 - [ ] **`POST /profiles/{userId}/photo`** — dosya yükleme + güvenli depolama; `ProfilePhotoUrl` sunucuda set edilir.
 - [ ] **`GET /profiles` (arama/listeleme)** — şehir/ilçe/branş/format/ücret aralığı filtreleri (eşleştirme M12 ile koordineli).
@@ -258,7 +269,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 ## 8. Eksikler ve Yapılacaklar (öncelik sırasıyla)
 
 1. ✅ ~~**`IsVerified` yazma yolunu kısıtla (Y1)**~~ — upsert'ten çıkarıldı. Kalan: admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent`.
-2. **`GET /profiles/{userId}` yetkilendirmesi (K3)** — authorizer ekle ve/veya public projeksiyon ayır.
+2. ✅ ~~**`GET /profiles/{userId}` yetkilendirmesi (K3)**~~ — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı). Kalan: herkese açık "public" projeksiyon ayrımı (opsiyonel).
 3. **Profil fotoğrafı dosya-depolama altyapısı** — yükleme ucu + güvenli saklama + format/boyut doğrulama.
 4. ✅ ~~**Çoklu branş** — `TeacherSubject` koleksiyonu~~ — **yapıldı (Dilim D)**; birincil `Subject` korunur. Kalan: branş bazlı seviye (`Level`).
 5. **Tatil/izin istisnaları (ScheduleException)** — **M04 Scheduling** ile koordineli modelleme.
@@ -283,5 +294,5 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

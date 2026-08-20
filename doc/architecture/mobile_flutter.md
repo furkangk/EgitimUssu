@@ -1,3 +1,13 @@
+---
+title: "Mobil Mimari & UI — Flutter"
+summary: "Flutter uygulamasının mimarisi (katmanlar, state, DI, routing, ağ) ve görsel UI rehberi (20 ekran); öğretmen/öğrenci/veli rollerini kapsar"
+tags: [mimari, mobile, flutter]
+authority: code
+code_refs:
+  - mobile/lib/**
+updated: 2026-08-20
+---
+
 # 📱 Mobil Mimari & UI — Flutter
 
 > **Kapsam:** Flutter uygulamasının (`mobile/`) hem **mimarisi** (katmanlar, state yönetimi, DI, routing, ağ) hem
@@ -8,7 +18,7 @@
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-07-06
+> **Güncelleme:** 2026-08-20 (kod-drift düzeltmesi: `study`/`progress` §8 tablosunda ve §9 feature listesinde "Planlanan"dan gerçek/uygulandı'ya taşındı — ikisi de tam kodlu; "Mevcut feature'lar" listesine eksik `notifications`/`progress`/`study`/`parent` eklendi)
 
 ---
 
@@ -53,7 +63,7 @@ mobile/lib/
     └── presentation/          # cubit/ (state), pages/ (ekran), widgets/
 ```
 
-Mevcut feature'lar: `auth, teacher_profile, students, scheduling, lesson_sessions, assignments, payments, more, dashboard`.
+Mevcut feature'lar: `auth, teacher_profile, students, scheduling, lesson_sessions, assignments, payments, more, dashboard, notifications, study, progress, parent`.
 
 ## 3. Katmanlar
 
@@ -186,7 +196,8 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 | `more` | Settings (M15) | ayarlar/hesap |
 | `dashboard` | (çapraz) | öğretmen ana ekranı |
 | `study` | Study (M08) | öğrenci bireysel çalışma: `student-home`, `study/timer`, `study/test`, `study/goals`, `study/history`, `study/achievements` |
-| _(planlanan)_ | ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | yeni özellik ekranları |
+| `progress` | ProgressTracking (M10) | öğrenci gelişim analizi: `student/progress` (`ProgressOverviewPage`, `ProgressRepository` DI kayıtlı) |
+| _(planlanan)_ | Matching/Reviews/Reporting/Messaging/Membership/Feedback | yeni özellik ekranları |
 
 ## 9. Rol Bazlı Navigasyon
 
@@ -196,7 +207,7 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 - **Veli:** Ana Sayfa · Çocuklar · Bildirim · Profil — kodda **uygulandı**: `ParentBottomNav` + `/parent` rota grubu (`parent_home`/`children`/`child_detail`/`notifications`/`profile`). Redirect: `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir; veli öğretmen ekranlarına ya da öğretmen veli ekranlarına düşerse geri alınır. `role_selection_page` 'Veli' kartı `/register?role=veli`'ye gider.
 - **Öğrenci:** kodda **uygulandı** — dedike alt navigasyon `StudentBottomNav` (`lib/features/study/presentation/widgets/student_bottom_nav.dart`, `study` feature). **4 sekme** (`StudentNavTab`): 🏠 Çalışma (`/student-home`) · 📚 Derslerim (`/student/lessons`) · 📊 Performans (`/student/performance`) · 👤 Profil (`/student/profile`). Sekme dışı push sayfalar: ⏱️ Kronometre (`/study/timer`, Çalışmaya Başla girişinden açılır) · 📖 Ders Detayı (`/student/lessons/:id`, ders kartından açılır). Eski **Keşfet** sekmesi kaldırıldı — `/student/discover` artık `/student/lessons`'a redirect eder; **Öğretmenlerim** (`/student/teacher`) artık sekme değil, Profil'in Ayarlar menüsünden erişilir. Redirect: `session.roles` içinde `'Student'` (ve `'Teacher'` yok) ise `/student-home`'a yönlendirir; öğrenci öğretmene özel ekranlara (`/dashboard`, `/students`, `/scheduling`, `/lesson-sessions`, `/assignments`, `/payments`, `/teacher-profile`) düşerse geri alınır. Öğrenci StudentId'si M03 `by-user` ile çözülür; profil yoksa `SelfRegistered` olarak otomatik oluşturulur.
 
-Feature klasörü **uygulandı:** `parent` (M09). Planlanan: `study` (M08), `progress` (M10), `messaging` (M16),
+Feature klasörü **uygulandı:** `parent` (M09), `study` (M08), `progress` (M10). Planlanan: `messaging` (M16),
 `listings` (M12), `reviews` (M13), `membership` (M17 — paywall + reklam yerleşimi), `feedback` (M18).
 Detay: [`../roles/`](../roles/00_roller_genel_bakis.md).
 
@@ -454,4 +465,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

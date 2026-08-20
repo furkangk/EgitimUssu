@@ -1,3 +1,15 @@
+---
+title: "Öğretmen Profili Ekranı"
+summary: "Öğretmen profil düzenleyici (kişisel/mesleki bilgiler, uzmanlık, uygunluk slotları); gerçek /api/teachers/profiles backend'ine bağlı"
+tags: [sayfa, teacher-profile, ogretmen]
+status: "🟢"
+authority: code
+code_refs:
+  - mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-26
+---
+
 # Öğretmen Profili (`/teacher-profile`)
 
 > **Feature:** `teacher_profile` · **Dosya:** `mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart`

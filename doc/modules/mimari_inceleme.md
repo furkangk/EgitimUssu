@@ -1,3 +1,11 @@
+---
+title: "Mimari İnceleme — Hatalar ve Eksikler"
+summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
+tags: [modul, mimari-inceleme, denetim, guvenlik]
+authority: derived
+updated: 2026-07-18
+---
+
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
 
 > **İlk inceleme:** 2026-06-21 · **Güncelleme:** 2026-07-01 · **Kapsam:** Backend (.NET 9 modüler monolit) + Flutter mobil

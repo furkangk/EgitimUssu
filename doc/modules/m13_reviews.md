@@ -1,3 +1,14 @@
+---
+title: "M13 — Öğretmen Puanlama ve Yorum (Reviews)"
+summary: "Yıldız puanı ve yorum güven altyapısı iskelet seviyesinde; kodda yalnızca placeholder status endpoint'i var"
+tags: [modul, reviews, puanlama, yorum, iskelet, faz-4]
+status: "🔴"
+authority: code
+code_refs:
+  - src/Modules/Reviews/**
+updated: 2026-08-19
+---
+
 # ⭐ M13 — Öğretmen Puanlama ve Yorum Modülü (Reviews)
 
 > **PRD Modülü:** M13 Puanlama & Yorum · **Backend Modülü:** `Reviews` · **Route Prefix:** `/api/reviews`
@@ -290,4 +301,4 @@ Admin moderasyon paneli web tarafında (Angular `features/admin`): flag kuyruğu
 
 ---
 
-*EğitimÜssü — M13 Öğretmen Puanlama ve Yorum Modülü · Detaylı Tasarım | Faz 4 | Durum: 🔴 İskelet | Güncelleme: 2026-06-24*
+*EğitimÜssü — M13 Öğretmen Puanlama ve Yorum Modülü · Detaylı Tasarım | Faz 4 | Durum: 🔴 İskelet | Güncelleme: 2026-08-19*

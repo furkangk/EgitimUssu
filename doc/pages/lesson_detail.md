@@ -1,3 +1,15 @@
+---
+title: "Ders Detayı Ekranı"
+summary: "Tek dersin detayı (Ders Notu/Ödevler/Ödeme sekmeleri); tamamlama ve düzenleme gerçek backend'e bağlı, diğer sekmeler demo/UI"
+tags: [sayfa, lesson-sessions, ogretmen]
+status: "🔴"
+authority: code
+code_refs:
+  - mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart
+  - mobile/lib/core/routing/app_router.dart
+updated: 2026-06-28
+---
+
 # Ders Detayı (`/lesson-sessions/detail`)
 
 > **Feature:** `lesson_sessions` · **Dosya:** `mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart`
