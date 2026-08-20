@@ -14,6 +14,6 @@ updated: 2026-08-20
 
 | Soru | Tarih | Cevap |
 |------|-------|-------|
-| _(henüz yok)_ | | |
+| Üyelik/premium hangi modülleri ve rolleri etkiliyor? | 2026-08-20 | [uyelik-premium-etkisi](uyelik-premium-etkisi.md) |
 
 *Güncelleme: 2026-08-20*
