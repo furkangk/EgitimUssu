@@ -1,3 +1,13 @@
+---
+title: "Veri Modeli & ER Şeması"
+summary: "src/Modules/ domain aggregate root'larının kimlik ve modüller-arası mantıksal referans envanteri (ER şeması), koddan doğrulanmış"
+tags: [modul, veri-modeli, er-semasi]
+authority: code
+code_refs:
+  - src/Modules/*/Domain/**
+updated: 2026-08-19
+---
+
 # 🗃️ Veri Modeli ve Modüller Arası İlişkiler (ER Şeması)
 
 > **Kapsam:** Tüm `src/Modules/` domain aggregate root'larının kimlik (Guid) ve modüller arası referans alanları.

@@ -1,3 +1,14 @@
+---
+title: "M04 — Takvim & Planlama (Scheduling)"
+summary: "Öğretmenin merkezi takvim aracı: planlama/erteleme/iptal/tatil/occurrence istisnaları + birleşik öğrenci takvimi kodda çalışır durumda"
+tags: [modul, scheduling, takvim, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Scheduling/**
+updated: 2026-08-19
+---
+
 # 📅 Takvim & Planlama (M04) — Detaylı Tasarım Dokümanı
 
 > **PRD: M04 Takvim & Planlama** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (çekirdek), ⚠️ genişletme bekliyor**

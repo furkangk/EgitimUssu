@@ -1,3 +1,12 @@
+---
+title: "M16 — Mesajlaşma"
+summary: "Planlanan mesajlaşma modülü; backend klasörü henüz yok (Faz 2-3, tüm domain önerilen)"
+tags: [modul, messaging, planlanan, faz-2, faz-3]
+status: "🔴"
+authority: product
+updated: 2026-08-19
+---
+
 # 💬 Mesajlaşma Modülü (M16) — Detaylı Tasarım Dokümanı
 
 > **PRD: M16 (YENİ)** · **Faz 2-3** · **Durum: 🔴 YENİ — kodda HİÇ YOK (tüm domain ⚠️ Önerilen, planlanan)**

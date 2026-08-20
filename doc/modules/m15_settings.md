@@ -1,3 +1,14 @@
+---
+title: "M15 — Ayarlar & Güvenlik"
+summary: "Kullanıcı bildirim/gizlilik/güvenlik ayarları; study-sharing endpoint + CQRS + sahiplik authorizer mevcut, tam CRUD eksik"
+tags: [modul, settings, gizlilik, bildirim, faz-0]
+status: "🟡"
+authority: code
+code_refs:
+  - src/Modules/Settings/**
+updated: 2026-08-19
+---
+
 # ⚙️ Ayarlar ve Güvenlik Modülü (M15) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M15 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Settings`) + Flutter mobil

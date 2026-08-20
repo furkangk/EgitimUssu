@@ -1,3 +1,14 @@
+---
+title: "M03 — Öğrenci Profili (Students)"
+summary: "Öğretmenin manuel öğrenci eklemesi uçtan uca çalışır; çoklu öğretmen bağı + free limit + arşivleme + davet/claim var, öğrenci self-register mobil akışı tamamlanmadı"
+tags: [modul, students, profil, veli-bagi, faz-1]
+status: "🟢/🟡"
+authority: code
+code_refs:
+  - src/Modules/Students/**
+updated: 2026-07-19
+---
+
 # 🎓 Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım Dokümanı
 
 > **PRD: M03 Öğrenci Profili** · **Faz: 1 (öğretmen tarafı 🟢) / öğrenci self-register 🟡** · **Durum: Öğretmenin manuel öğrenci eklemesi uçtan uca çalışır; çoklu öğretmen bağlantısı (`TeacherStudentLink`), free limit=5, arşivleme, öğrenci bazlı ücret ve davet/kabul akışı eklendi (Dilim C, 2026-07-18); öğrencinin kendi kaydı domain'de var, mobil akışı tamamlanmadı**

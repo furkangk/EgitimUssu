@@ -1,3 +1,14 @@
+---
+title: "M07 — Ödeme Takibi (Payments)"
+summary: "Öğretmenin manuel ödeme takibi + veli 'ödedim' beyan akışı çalışır; vade hatırlatma bildirimi ve Overdue kalıcı otomasyonu eksik"
+tags: [modul, payments, odeme, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Payments/**
+updated: 2026-08-19
+---
+
 # 💰 Ödeme Takibi (M07) — Detaylı Tasarım Dokümanı
 
 > **PRD: M07 Ödeme Takibi** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (manuel takip), ⚠️ veli paylaşımı + otomasyon bekliyor**

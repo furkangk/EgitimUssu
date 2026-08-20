@@ -1,3 +1,14 @@
+---
+title: "M14 — Raporlama ve Analiz (Reporting)"
+summary: "Diğer modüllerin verisini birleştiren read-model raporlama modülü iskelet seviyesinde; hiçbir DbSet yok, yalnızca placeholder endpoint var"
+tags: [modul, reporting, raporlama, read-model, iskelet, faz-5]
+status: "🔴"
+authority: code
+code_refs:
+  - src/Modules/Reporting/**
+updated: 2026-08-19
+---
+
 # 📊 Raporlama ve Analiz Modülü (M14) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M14 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Reporting`) + Flutter mobil

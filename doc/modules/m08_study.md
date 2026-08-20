@@ -1,3 +1,14 @@
+---
+title: "M08 — Bireysel Çalışma (Study)"
+summary: "Öğrencinin öğretmensiz bireysel çalışması (kronometre/test/hedef/streak/rozet) uçtan uca çalışır; platformun büyüme motoru"
+tags: [modul, study, bireysel-calisma, streak, faz-2]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Study/**
+updated: 2026-08-19
+---
+
 # 📚 M08 — Bireysel Çalışma (Study) Modülü — Detaylı Tasarım Dokümanı
 
 > **Kod Modülü:** `src/Modules/Study` · **Route Prefix:** `/api/study` · **Şema:** `study`

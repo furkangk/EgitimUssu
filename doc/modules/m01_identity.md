@@ -1,3 +1,14 @@
+---
+title: "M01 — Kimlik ve Erişim (Identity)"
+summary: "Kullanıcı kimlik/oturum çekirdeği (kayıt/giriş/JWT/refresh/parola) uçtan uca çalışır; mobil sessiz refresh ve anahtar yönetimi açık"
+tags: [modul, identity, kimlik, jwt, faz-0]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Identity/**
+updated: 2026-07-01
+---
+
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
 
 > **PRD: M01 Kullanıcı & Rol** · **Faz: 0 — Temel Altyapı** · **Durum: 🟢 Yazıldı (kimlik çekirdeği uçtan uca çalışıyor; mobil refresh akışı ve anahtar yönetimi açık)**

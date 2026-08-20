@@ -1,3 +1,13 @@
+---
+title: "Modüller — Genel Bakış ve Durum (İndeks)"
+summary: "doc/modules/ klasörünün indeks dokümanı: M01–M18 modül listesi, backend eşlemesi ve durum tablosu"
+tags: [modul, indeks, genel-bakis]
+authority: code
+code_refs:
+  - src/Modules/*/API/*Module.cs
+updated: 2026-08-19
+---
+
 # 🗂️ Modüller — Genel Bakış ve Durum (Modül İndeksi)
 
 > Bu klasör (`doc/modules/`), her **backend modülünün** saf teknik tasarım dokümanını içerir

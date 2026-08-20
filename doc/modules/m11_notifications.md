@@ -1,3 +1,14 @@
+---
+title: "M11 — Bildirim (Notifications)"
+summary: "Domain + zamanlayıcı + ders/veli hatırlatması olay-tüketici modülü olarak kodda var; gerçek push teslimatı yok"
+tags: [modul, notifications, bildirim, hatirlatma, faz-3]
+status: "🟡"
+authority: code
+code_refs:
+  - src/Modules/Notifications/**
+updated: 2026-08-19
+---
+
 # 🔔 Bildirim Modülü (M11) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M11 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Notifications`) + Flutter mobil

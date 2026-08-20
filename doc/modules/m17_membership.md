@@ -1,3 +1,12 @@
+---
+title: "M17 — Üyelik ve Para Kazanma"
+summary: "Planlanan üyelik/gelir modülü; backend klasörü kodda yok, Study'de geçici hafif Free/Premium çekirdeği (MembershipTier) var"
+tags: [modul, membership, uyelik, planlanan, faz-5]
+status: "🔴"
+authority: product
+updated: 2026-08-19
+---
+
 # 💳 Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım Dokümanı
 
 > **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🔴 YENİ — kodda HİÇ YOK (tüm domain ⚠️ Önerilen, planlanan)**

@@ -1,3 +1,14 @@
+---
+title: "M10 — Gelişim Takibi (ProgressTracking)"
+summary: "Konu bazlı hâkimiyet skoru + hedef + mobil 'Gelişimim' ekranı çalışır çekirdek; ProgressSnapshot zaman serisi ve öğretmen/veli görünümü henüz yok"
+tags: [modul, progress-tracking, gelisim, faz-3]
+status: "🟡"
+authority: code
+code_refs:
+  - src/Modules/ProgressTracking/**
+updated: 2026-08-19
+---
+
 # 📈 M10 — Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım Dokümanı
 
 > **Kod Modülü:** `src/Modules/ProgressTracking` · **Route Prefix:** `/api/progress-tracking` · **Şema:** `progress_tracking`

@@ -1,3 +1,14 @@
+---
+title: "M09 — Veli Paneli (Parents)"
+summary: "Veli paneli read-model modülü olarak uygulanmış; çocuğun bireysel çalışma + ders/ödev/ödeme verisini birleştirir, M08 haftalık dk/streak beslemesi henüz bağlanmadı"
+tags: [modul, parents, veli-paneli, read-model, faz-2, faz-3]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Parents/**
+updated: 2026-08-19
+---
+
 # 👪 M09 — Veli (Parents) Modülü — Detaylı Tasarım Dokümanı
 
 > **Kod Modülü:** `src/Modules/Parents` · **Route Prefix:** `/api/parents` · **Şema:** `parents`

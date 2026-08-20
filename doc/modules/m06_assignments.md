@@ -1,3 +1,14 @@
+---
+title: "M06 — Ödev, Not & Kaynak (Assignments)"
+summary: "Ders sonrası not/ödev akışı; öğretmen tarafı + öğrenci teslim/tamamlama/onay-geri gönder çalışır, ders kaynağı (LessonResource) ve dosya depolama altyapısı eksik"
+tags: [modul, assignments, odev, not, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Assignments/**
+updated: 2026-08-19
+---
+
 # 📝 Ödev, Not & Kaynak (M06) — Detaylı Tasarım Dokümanı
 
 > **PRD: M06 Not & Ödev** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (öğretmen tarafı), ⚠️ öğrenci yükleme + kaynak genişletme bekliyor**

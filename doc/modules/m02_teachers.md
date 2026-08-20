@@ -1,3 +1,14 @@
+---
+title: "M02 — Öğretmen Profili (Teachers)"
+summary: "Öğretmen profili CRUD + haftalık uygunluk + çoklu branş/sertifika çalışır durumda; profil fotoğrafı depolama ve öğretmen arama/listeleme eksik"
+tags: [modul, teachers, profil, uygunluk, faz-1]
+status: "🟢"
+authority: code
+code_refs:
+  - src/Modules/Teachers/**
+updated: 2026-08-19
+---
+
 # 👨‍🏫 Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım Dokümanı
 
 > **PRD: M02 Öğretmen Profili** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (CRUD + uygunluk + çoklu branş/sertifika çalışıyor; GET yetkilendirmesi de eklendi — K3 kapandı)**
