@@ -5,7 +5,7 @@
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-07-19
+> **Son güncelleme:** 2026-08-19 (doküman temizliği Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -90,7 +90,7 @@
 
 ## 5. Sayfa (Ekran) Dokümanları (`doc/pages/`)
 
-> Kodda **var olan** her Flutter ekranı için birer md. İndeks → [`pages/00_pages_index.md`](pages/00_pages_index.md). Öğrenci/veli ve yeni özellik (mesajlaşma/ilan/üyelik) ekranları **planlanandır**.
+> Kodda **var olan** her Flutter ekranı için birer md. İndeks → [`pages/00_pages_index.md`](pages/00_pages_index.md). Öğretmen, **öğrenci** (4-sekme çalışma paneli) ve **veli** (parent paneli) ekranları kodda mevcuttur; yalnızca yeni özellik (mesajlaşma/ilan/üyelik/paywall) ekranları **planlanandır**.
 
 ## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
 
