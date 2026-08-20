@@ -5,12 +5,12 @@
 > **Amaç:** Platform güvenini ve sağlığını korumak — öğretmen doğrulama, içerik/yorum/şikayet moderasyonu, destek.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`../modules/m13_reviews.md`](../modules/m13_reviews.md) · [`../modules/m18_feedback.md`](../modules/m18_feedback.md)
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-08-19
 
 ---
 
 ## 1. Rol Özeti
-Admin, son kullanıcı değil **platform yöneticisidir**. Kod tarafında `UserRole.Admin = 1` mevcuttur ([`../modules/m01_identity.md`](../modules/m01_identity.md)) ancak henüz **adanmış bir admin arayüzü/paneli yoktur**. Yetkilendirmede admin genelde "her şeye erişebilen" üst roldür (örn. öğretmen profili okuma authorizer'ında "Admin VEYA sahibi" deseni).
+Admin, son kullanıcı değil **platform yöneticisidir**. Kod tarafında `UserRole.Admin = 1` mevcuttur ([`../modules/m01_identity.md`](../modules/m01_identity.md)) ancak henüz **adanmış bir admin arayüzü/paneli yoktur**. Yetkilendirmede admin genelde "her şeye erişebilen" üst roldür ("Admin VEYA sahibi" deseni): öğretmen profili okuma authorizer'ında ve M15 `SettingsAuthorizer`'da (`_currentUser.Roles.Contains("Admin")`) kodda uygulanmıştır.
 
 ## 2. Yetenekler
 | Yetenek | İlgili modül | Durum |
@@ -38,4 +38,4 @@ Admin, son kullanıcı değil **platform yöneticisidir**. Kod tarafında `UserR
 
 ---
 
-*Admin Rolü — Detaylı Tasarım | Güncelleme: 2026-06-24*
+*Admin Rolü — Detaylı Tasarım | Güncelleme: 2026-08-19 (doküman temizliği: modül gerçeğiyle uzlaştırma — admin paneli/backend yok teyidi, M15 SettingsAuthorizer "Admin VEYA sahibi" deseni eklendi)*
