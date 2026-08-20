@@ -13,7 +13,7 @@ updated: 2026-08-20
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
+> **Son güncelleme:** 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -126,7 +126,7 @@ updated: 2026-08-20
 |-------|--------------|
 | [`00_kb_konvansiyon.md`](00_kb_konvansiyon.md) | **Frontmatter konvansiyonu**: şema (summary/tags/status/authority/code_refs/updated) + authority kuralları + code_refs aile kalıpları. Tüm doc/ bunu izler |
 | `_tools/kb_healthcheck.sh` | Deterministik health-check (saf bash): kırık link/fence/kanonik/frontmatter/code_refs/tarih/öksüz. `/kb-healthcheck` slash-komutu bunu sarar (+ `--deep` LLM kod-drift) |
-| [`_health/`](_health/) | Health-check rapor çıktıları (`YYYY-MM-DD-healthcheck.md`) — pass/fail, severity'li bulgular, tespit edilen kod-drift |
+| [`_health/`](_health/) | Health-check + **kb-lint** rapor çıktıları (`YYYY-MM-DD-healthcheck.md` / `YYYY-MM-DD-kb-lint.md`) — pass/fail + severity'li bulgular + kod-drift; `/kb-lint` üretken öneriler (tutarsızlık/eksik/aday/soru) |
 | [`_obsidian_kurulum.md`](_obsidian_kurulum.md) | **Obsidian görünümü** (Dilim B): vault'u açma, Dataview kurulumu, graph renk anlamları, `_assets` görsel konvansiyonu |
 | [`_dashboards/`](_dashboards/) | Dataview panoları (frontmatter'dan canlı): `modul_durum_panosu.md` (INDEX §3'ün oto-üretilen hali) + `kod_dokuman_envanteri.md` (drift riski) |
 | `.obsidian/`, `_assets/` | Obsidian vault config (authority-renkli graph, ek klasörü) + görsel/ek klasörü. Kişisel dosyalar `.gitignore`'da |
