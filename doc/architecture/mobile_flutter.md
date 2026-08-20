@@ -8,7 +8,7 @@
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-07-06
+> **Güncelleme:** 2026-08-19
 
 ---
 

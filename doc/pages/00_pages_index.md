@@ -3,7 +3,7 @@
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-08-19 (Task 1 — öğrenci 4-sekme nav)
+> **Son güncelleme:** 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -80,7 +80,12 @@
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
 | Diğer/Ayarlar | `/more` | [more](more.md) | 🟡 |
-| Hesap bilgileri | `/account-info` | [account_info](account_info.md) | 🔴 |
+| Hesap bilgileri | `/account-info` (+ `/account-info-preview` alias) | [account_info](account_info.md) | 🔴 |
+
+## Notifications
+| Ekran | Route | md | Veri |
+|-------|-------|-----|------|
+| Bildirimler | `/notifications` | — | 🟡 (`NotificationsPage` + `NotificationsCubit`; gerçek `/api/notifications/teachers/{id}/lesson-reminders` + mock fallback) |
 
 ## Parent (Veli)
 > `mobile/lib/features/parent/` · `ParentCubit` · `ParentRepository` (mock fallback) · `ParentBottomNav` · rol bazlı `/parent` yönlendirme (`app_router.dart`).
