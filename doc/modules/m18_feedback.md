@@ -228,4 +228,4 @@ Admin → POST /admin/reports/{id}/resolve (action)
 
 ---
 
-*Geri Bildirim ve Şikayet Modülü (M18) — Detaylı Tasarım | Faz 1+ / Faz 4 | Güncelleme: 2026-06-24*
+*Geri Bildirim ve Şikayet Modülü (M18) — Detaylı Tasarım | Faz 1+ / Faz 4 | Güncelleme: 2026-08-19*

@@ -290,4 +290,4 @@ Admin moderasyon paneli web tarafında (Angular `features/admin`): flag kuyruğu
 
 ---
 
-*EğitimÜssü — M13 Öğretmen Puanlama ve Yorum Modülü · Detaylı Tasarım | Faz 4 | Durum: 🔴 İskelet | Güncelleme: 2026-06-24*
+*EğitimÜssü — M13 Öğretmen Puanlama ve Yorum Modülü · Detaylı Tasarım | Faz 4 | Durum: 🔴 İskelet | Güncelleme: 2026-08-19*
