@@ -3,7 +3,7 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-07-18
+updated: 2026-08-25
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
@@ -53,7 +53,7 @@ updated: 2026-07-18
 
 ## 🔴 KRİTİK
 
-### K1 — Outbox varsayılan olarak KAPALI → integration event'ler hiç yayınlanmıyor
+### ✅ K1 — Outbox varsayılan olarak KAPALI → integration event'ler hiç yayınlanmıyor — **Düzeltildi 2026-08-25**
 `src/API.Host/appsettings.json` **ve** `appsettings.Development.json`:
 ```json
 "Outbox": { "DispatchEnabled": false }
@@ -66,6 +66,8 @@ updated: 2026-07-18
 Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/dev dahil her ortamda kapalı.
 
 **Öneri:** En azından Development'ta `true` yap; prod için bilinçli bir karar + izleme ekle. Açık unutulmasın diye startup'ta bir uyarı log'u bas.
+
+✅ _Çözüm (2026-08-25):_ `DispatchEnabled` her iki appsettings'te (`appsettings.json` + `appsettings.Development.json`) `true` yapıldı → dispatcher artık poll döngüsünü çalıştırıp bekleyen mesajları event bus'a yayınlıyor. `OutboxDispatcher.ExecuteAsync` startup gözlemlenebilirliği için düzeltildi: **kapalıyken `LogWarning`** ("Integration events will accumulate … never be published" — açık unutulmasın diye Information değil Warning), **açıkken `LogInformation`** (poll aralığı + batch boyutu). Doğrulama: Development'ta uygulama başlatıldı → `"Outbox dispatcher enabled; polling every 15s (batch size 20)."` log'u çıktı, `outbox_messages` poll sorgusu koştu, `Now listening on: http://localhost:5296` + hatasız (`Outbox dispatch cycle failed` yok).
 
 ---
 
@@ -194,4 +196,4 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

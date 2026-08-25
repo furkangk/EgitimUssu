@@ -14,9 +14,18 @@ public sealed class OutboxDispatcher(
     {
         if (!options.Value.DispatchEnabled)
         {
-            logger.LogInformation("Outbox dispatcher disabled via configuration.");
+            // K1: Kapalıyken uyarı seviyesinde logla — modüller-arası tüm event akışı ölü demektir,
+            // bu durumun startup'ta fark edilmeden geçmemesi için (Information değil Warning).
+            logger.LogWarning(
+                "Outbox dispatcher DISABLED via configuration (Outbox:DispatchEnabled=false). " +
+                "Integration events will accumulate in outbox_messages and never be published.");
             return;
         }
+
+        logger.LogInformation(
+            "Outbox dispatcher enabled; polling every {PollIntervalSeconds}s (batch size {BatchSize}).",
+            options.Value.PollIntervalSeconds,
+            options.Value.BatchSize);
 
         while (!stoppingToken.IsCancellationRequested)
         {
