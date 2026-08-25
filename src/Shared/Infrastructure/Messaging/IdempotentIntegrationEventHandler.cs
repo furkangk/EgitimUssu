@@ -50,6 +50,10 @@ public abstract class IdempotentIntegrationEventHandler : IIntegrationEventHandl
         var applied = await ApplyAsync(envelope, cancellationToken);
         if (!applied)
         {
+            // Reddeden handler paylaşılan (scoped) DbContext'e iş-yazımı STAGE etmiş olabilir.
+            // Transaction'ı açmamak/rollback ChangeTracker'ı sıfırlamaz — o yalnız DB etkisidir.
+            // Temizlemezsek kardeş handler'ın SaveChanges'i bu terk edilmiş yazımları sessizce flush eder.
+            DbContext.ChangeTracker.Clear();
             return;
         }
 

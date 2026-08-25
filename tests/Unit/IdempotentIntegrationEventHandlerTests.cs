@@ -94,6 +94,49 @@ public sealed class IdempotentIntegrationEventHandlerTests
         Assert.Equal(0, await db.Set<InboxMessage>().CountAsync());
     }
 
+    [Fact]
+    public async Task Declining_handler_stages_leak_nothing_into_sibling_save()
+    {
+        await using var db = NewContext();
+        var e = Event(Guid.NewGuid());
+        // Aynı DbContext örneği (DispatchingEventBus tek scope → paylaşılan scoped DbContext).
+        var decline = new StageThenDeclineHandler(db, new FixedClock(), "A");
+        var accept = new StageAndAcceptHandler(db, new FixedClock(), "B");
+
+        await decline.HandleAsync(e);
+        await accept.HandleAsync(e);
+
+        // A'nın staged widget'ı B'nin SaveChanges'inde sızmamalı.
+        Assert.Equal(0, await db.Widgets.CountAsync());
+        // Yalnız B'nin inbox satırı yazılmalı.
+        var rows = await db.Set<InboxMessage>().ToListAsync();
+        Assert.Single(rows);
+        Assert.Equal("B", rows[0].Handler);
+    }
+
+    private sealed class StageThenDeclineHandler : IdempotentIntegrationEventHandler
+    {
+        public StageThenDeclineHandler(ModuleDbContext db, IClock clock, string name) : base(db, clock) => _name = name;
+        private readonly string _name;
+        protected override string HandlerName => _name;
+        public override bool CanHandle(IIntegrationEvent e) => true;
+        protected override Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken ct)
+        {
+            DbContext.Set<Widget>().Add(new Widget { Id = Guid.NewGuid() });
+            return Task.FromResult(false);
+        }
+    }
+
+    private sealed class StageAndAcceptHandler : IdempotentIntegrationEventHandler
+    {
+        public StageAndAcceptHandler(ModuleDbContext db, IClock clock, string name) : base(db, clock) => _name = name;
+        private readonly string _name;
+        protected override string HandlerName => _name;
+        public override bool CanHandle(IIntegrationEvent e) => true;
+        protected override Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken ct)
+            => Task.FromResult(true);
+    }
+
     private sealed class NamedHandler : IdempotentIntegrationEventHandler
     {
         public NamedHandler(ModuleDbContext db, IClock clock, string name) : base(db, clock) => _name = name;
