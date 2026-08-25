@@ -157,25 +157,3 @@ public sealed class KnownStudent : Entity<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 }
-
-/// <summary>
-/// İşlenmiş integration event kaydı. Outbox en-az-bir-kez teslim ettiğinden, sayaç güncelleyen
-/// read-model handler'larının çift-sayımını önlemek için idempotency anahtarı olarak kullanılır.
-/// </summary>
-public sealed class ProcessedIntegrationEvent : Entity<Guid>
-{
-    private ProcessedIntegrationEvent()
-    {
-    }
-
-    public ProcessedIntegrationEvent(Guid eventId, string eventName, DateTime processedOnUtc)
-    {
-        Id = eventId;
-        EventName = eventName;
-        ProcessedOnUtc = processedOnUtc;
-    }
-
-    public string EventName { get; private set; } = string.Empty;
-
-    public DateTime ProcessedOnUtc { get; private set; }
-}
