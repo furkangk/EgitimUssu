@@ -40,6 +40,10 @@ public abstract class IdempotentIntegrationEventHandler : IIntegrationEventHandl
             : null;
 
         var handlerName = HandlerName;
+        // Bu guard "önce oku, sonra ekle" şeklindedir; bugün outbox dispatch tek-thread'li olduğu için güvenlidir.
+        // İleride eşzamanlı bir dispatcher gelirse aynı (EventId, Handler) için iki dispatch bu guard'ı aynı anda
+        // geçebilir — ikincisi commit'te composite-PK unique ihlaline çarpar; bu kendi kendini onarır (mesaj
+        // tekrar dener, guard o zaman yakalar), o yüzden oradaki bir `DbUpdateException` FATAL sayılmamalı.
         var alreadyProcessed = await DbContext.Set<InboxMessage>()
             .AnyAsync(item => item.EventId == envelope.EventId && item.Handler == handlerName, cancellationToken);
         if (alreadyProcessed)

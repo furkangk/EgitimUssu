@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Parents/**
-updated: 2026-08-19
+updated: 2026-08-26
 ---
 
 # 👪 M09 — Veli (Parents) Modülü — Detaylı Tasarım Dokümanı
@@ -39,8 +39,10 @@ updated: 2026-08-19
   integration event handler'ları (LessonSessions/Assignments/Payments/Students tüketimi) ve `AddParentsModule(...)` DI kaydı tamam.
 - **Read-model tabloları** (`parents` şeması, integration event ile beslenir): `ChildProgressSnapshot` (öğrenci başına
   tamamlanan/planlanan ders + son ders tarihi, toplam/açık/tamamlanan ödev, beklenen/tahsil/kalan ödeme + para birimi,
-  haftalık çalışma dk + streak [M08 gelince]), `KnownStudent` (StudentId→UserId eşlemesi, bağ onay yetkisi için),
-  `ProcessedIntegrationEvent` (idempotency / çift-sayım koruması).
+  haftalık çalışma dk + streak [M08 gelince]), `KnownStudent` (StudentId→UserId eşlemesi, bağ onay yetkisi için).
+  Projeksiyon idempotency'si artık modüle özel bir tablo yerine paylaşılan `IdempotentIntegrationEventHandler`
+  tabanı + `inbox_messages` tablosu (composite PK `(EventId, Handler)`) ile sağlanır; eski `ProcessedIntegrationEvent`
+  entity'si ve `processed_integration_events` tablosu **kaldırıldı** (2026-08-26, bkz. `mimari_inceleme.md` Y4).
 - **Mobil veli feature** (`mobile/lib/features/parent/`) ve `Parent` rolü için **rol bazlı navigasyon** kodda (bkz. Bölüm 6).
 
 ### 🟢 Bağ noktaları (başka modüllerde)
@@ -124,7 +126,12 @@ Veli paneli, kaynak modüllerin verisini **doğrudan cross-module DB erişimiyle
 |-------|--------|
 | `ChildProgressSnapshot` | Öğrenci başına: tamamlanan/planlanan ders sayısı + son ders tarihi; toplam/açık/tamamlanan ödev; beklenen/tahsil/kalan ödeme + para birimi; haftalık çalışma dk + streak (**M08 gelince**) |
 | `KnownStudent` | `StudentId → UserId` eşlemesi (Students `StudentProfileCreated` ile beslenir); bağ onay yetkisi kontrolü için |
-| `ProcessedIntegrationEvent` | İşlenmiş event kimlikleri — idempotency / çift-sayım koruması |
+
+> Projeksiyon idempotency'si artık paylaşılan `IdempotentIntegrationEventHandler` tabanı + `inbox_messages` tablosu
+> (composite PK `(EventId, Handler)`) ile sağlanır; eski `ProcessedIntegrationEvent` entity'si ve
+> `processed_integration_events` tablosu **kaldırıldı** (2026-08-26). (Not: Notifications modülünün kendi
+> `processed_integration_events` tablosu — yalnızca haftalık özet dedup'ı için — ayrı bir mekanizmadır ve korunmuştur;
+> Parents bunu paylaşmaz.)
 
 **Integration event handler'ları (Parents tüketir):** LessonSessions (`LessonSessionCreated`/`Completed`),
 Assignments (`AssignmentCreated`/`Completed`), Payments (`PaymentRecordCreated`/`Updated`), Students (`StudentProfileCreated`).
@@ -348,4 +355,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi). Önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
