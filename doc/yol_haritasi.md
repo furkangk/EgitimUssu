@@ -8,7 +8,7 @@ updated: 2026-06-24
 
 # 🗺️ EğitimÜssü — Geliştirme Yol Haritası
 
-> Bu yol haritası; [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD_v2.md) (v2.1) fazları,
+> Bu yol haritası; [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD.md) (v2.1) fazları,
 > [`modules/00_genel_bakis.md`](modules/00_genel_bakis.md) modül durumları ve
 > [`modules/mimari_inceleme.md`](modules/mimari_inceleme.md) öncelikleri birleştirilerek hazırlanmıştır.
 > Jira karşılığı: [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv) (her görevde `faz-N` etiketi).
@@ -139,7 +139,7 @@ Faz 0 (sertleştirme + dosya depolama + read-model + push)
 ```
 
 ## İlişkili Dokümanlar
-- Ürün: [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD_v2.md) · Roller: [`roles/`](roles/00_roller_genel_bakis.md) · Modüller: [`modules/00_genel_bakis.md`](modules/00_genel_bakis.md)
+- Ürün: [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD.md) · Roller: [`roles/`](roles/00_roller_genel_bakis.md) · Modüller: [`modules/00_genel_bakis.md`](modules/00_genel_bakis.md)
 - Mimari öncelikler: [`modules/mimari_inceleme.md`](modules/mimari_inceleme.md) · Backlog: [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv)
 
 ---

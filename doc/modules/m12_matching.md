@@ -364,7 +364,7 @@ karşılaştırma tablosu hedeflenir (Tailwind CSS, responsive `sm/md/lg`).
 - **Şikayet / kötüye kullanım moderasyonu:** [`m18_feedback.md`](m18_feedback.md)
 - **Veri modeli (ER + modüller arası referans):** [`veri_modeli.md`](veri_modeli.md)
 - **Genel durum & eşleme tablosu:** [`00_genel_bakis.md`](00_genel_bakis.md)
-- **Ürün gereksinimleri:** [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- **Ürün gereksinimleri:** [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 

@@ -21,7 +21,7 @@ updated: 2026-07-19
 > **🔑 Ürün kuralı (kanonik):** Öğrenci **manuel** (kayıtlı kullanıcısı olmayan) olabilir; ancak **veli yalnızca gerçek,
 > kayıtlı bir kullanıcı** olabilir. `ParentUserId`, daima Identity'deki bir `UserAccount`'a (M01) işaret eder — bkz. [`m09_parents.md`](m09_parents.md).
 >
-> İlgili: [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md) · [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`m01_identity.md`](m01_identity.md) · [`m02_teachers.md`](m02_teachers.md) · [`m04_scheduling.md`](m04_scheduling.md) · [`m08_study.md`](m08_study.md) · [`m09_parents.md`](m09_parents.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+> İlgili: [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md) · [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`m01_identity.md`](m01_identity.md) · [`m02_teachers.md`](m02_teachers.md) · [`m04_scheduling.md`](m04_scheduling.md) · [`m08_study.md`](m08_study.md) · [`m09_parents.md`](m09_parents.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 
@@ -372,7 +372,7 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 - Aggregate ER şeması ve modüller arası referanslar → [`veri_modeli.md`](veri_modeli.md)
 - Mimari/güvenlik inceleme → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Genel durum ve endpoint envanteri → [`00_genel_bakis.md`](00_genel_bakis.md)
-- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 

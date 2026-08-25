@@ -7,12 +7,11 @@ updated: 2026-06-24
 ---
 
 # EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu
-## Ürün Gereksinim Dokümanı (PRD) v2.1
-> İlk sürüm Nisan 2025 · **v2.1 güncellemesi: 2026-06-24** (`doc/promp.txt` vizyonu işlendi: mesajlaşma, üyelik+reklam+kampanya, iki taraflı ilan, online ders linki, takvim tatilleri, ders kaynağı, öğrenci ödev yükleme→veli bildirimi, çakışma önceliği, başarım/seri/kronometre, konu bazlı gelişim). Uygulama adı: **EğitimÜssü** (kod adı: `EgitimUssu`).
+## Ürün Gereksinim Dokümanı (PRD) 
+> Uygulama adı: **EğitimÜssü** (kod adı: `EgitimUssu`).
 
 > **📱 Mobil Öncelikli** — Web desteği sonraki aşamada  
 > **👥 3 Kullanıcı Tipi** — Öğretmen · Öğrenci · Veli  
-> **🚀 6 Fazlı Yol Haritası** — MVP'den premium gelire
 
 ---
 
@@ -46,12 +45,12 @@ Temel yaklaşım iki parçadan oluşur:
 
 Platform mobil öncelikli olarak geliştirilecek, web desteği sonraki fazda eklenecektir.
 
-| Katman | Açıklama | Öncelik |
-|--------|----------|---------|
-| Mobil Uygulama | iOS ve Android — birincil kullanıcı arayüzü | Faz 0–5 |
-| Web Uygulaması | Tarayıcı erişimi — ikincil arayüz | Sonraki aşama |
-| API Katmanı | Mobil ve web'i besleyen ortak backend | Faz 0 |
-| Admin Paneli | İçerik ve kullanıcı yönetimi | Faz 1+ |
+| Katman         | Açıklama                                    | Öncelik       |
+| -------------- | ------------------------------------------- | ------------- |
+| Mobil Uygulama | iOS ve Android — birincil kullanıcı arayüzü | Faz 0–5       |
+| Web Uygulaması | Tarayıcı erişimi — ikincil arayüz           | Sonraki aşama |
+| API Katmanı    | Mobil ve web'i besleyen ortak backend       | Faz 0         |
+| Admin Paneli   | İçerik ve kullanıcı yönetimi                | Faz 1+        |
 
 ---
 
@@ -111,14 +110,14 @@ Beklentileri:
 
 Ödeme sistemi üzerinden para tahsilatı yapılmaz. Gelir modeli şu şekilde planlanmıştır:
 
-| Gelir Kalemi | Hedef Kullanıcı | Faz |
-|-------------|----------------|-----|
-| Öğretmen aboneliği | Öğretmen | Faz 5 |
-| Premium özellik paketi | Öğretmen / Öğrenci | Faz 5 |
-| Öğrenci bulma kredisi | Öğretmen | Faz 4+ |
-| Gelişmiş raporlama paketi | Öğretmen | Faz 5 |
-| Veli paneli premium | Veli | Faz 5 |
-| Öğrenci premium paketi | Öğrenci | Faz 5 |
+| Gelir Kalemi              | Hedef Kullanıcı    | Faz    |
+| ------------------------- | ------------------ | ------ |
+| Öğretmen aboneliği        | Öğretmen           | Faz 5  |
+| Premium özellik paketi    | Öğretmen / Öğrenci | Faz 5  |
+| Öğrenci bulma kredisi     | Öğretmen           | Faz 4+ |
+| Gelişmiş raporlama paketi | Öğretmen           | Faz 5  |
+| Veli paneli premium       | Veli               | Faz 5  |
+| Öğrenci premium paketi    | Öğrenci            | Faz 5  |
 
 > **Başlangıçta en önemli amaç**, öğretmeni ve öğrenciyi platformda uzun süre tutacak çekirdek kullanım değerini oluşturmaktır. Gelir ikincil önceliktir.
 
@@ -132,26 +131,26 @@ Beklentileri:
 
 ## 6. Modül Listesi
 
-| # | Modül Adı | Birincil Kullanıcı | Faz |
-|---|-----------|-------------------|-----|
-| M01 | Kullanıcı ve Rol Yönetimi | Tümü | Faz 0 |
-| M02 | Öğretmen Profili | Öğretmen | Faz 1 |
-| M03 | Öğrenci Profili | Öğretmen / Öğrenci | Faz 1 |
-| M04 | Takvim ve Ders Planlama | Öğretmen | Faz 1 |
-| M05 | Ders Oturumu Yönetimi | Öğretmen | Faz 1 |
-| M06 | Not ve Ödev Yönetimi | Öğretmen / Öğrenci | Faz 1 |
-| M07 | Manuel Ödeme Takibi | Öğretmen | Faz 1 |
-| M08 | Öğrenci Bireysel Çalışma | Öğrenci | Faz 2 |
-| M09 | Veli Paneli | Veli | Faz 2 |
-| M10 | Öğrenci Gelişim Takibi | Öğretmen / Veli | Faz 3 |
-| M11 | Bildirim ve Hatırlatma | Tümü | Faz 3 |
-| M12 | Eşleştirme, İlan ve Keşif (iki taraflı: öğretmen **sunduğu** ders ilanı / öğrenci **aradığı** ders ilanı; konum + yıldız + ücretli öne çıkarma) | Öğrenci / Öğretmen | Faz 4 |
-| M13 | Puanlama ve Yorum | Öğrenci | Faz 4 |
-| M14 | Raporlama ve Analiz | Öğretmen | Faz 5 |
-| M15 | Ayarlar ve Güvenlik | Tümü | Faz 0+ |
-| M16 | Mesajlaşma (öğretmen↔öğrenci, öğretmen↔veli) | Öğretmen / Öğrenci / Veli | Faz 2-3 |
-| M17 | Üyelik & Para Kazanma (abonelik + reklam + kampanya/referans) | Tümü | Faz 5 (temel: Faz 0+) |
-| M18 | Geri Bildirim & Şikayet (hata bildirimi + kötüye kullanım/şikayet + moderasyon) | Tümü | Faz 1+ (şikayet: Faz 4) |
+| #   | Modül Adı                                                                                                                                       | Birincil Kullanıcı        | Faz                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------- |
+| M01 | Kullanıcı ve Rol Yönetimi                                                                                                                       | Tümü                      | Faz 0                   |
+| M02 | Öğretmen Profili                                                                                                                                | Öğretmen                  | Faz 1                   |
+| M03 | Öğrenci Profili                                                                                                                                 | Öğretmen / Öğrenci        | Faz 1                   |
+| M04 | Takvim ve Ders Planlama                                                                                                                         | Öğretmen                  | Faz 1                   |
+| M05 | Ders Oturumu Yönetimi                                                                                                                           | Öğretmen                  | Faz 1                   |
+| M06 | Not ve Ödev Yönetimi                                                                                                                            | Öğretmen / Öğrenci        | Faz 1                   |
+| M07 | Manuel Ödeme Takibi                                                                                                                             | Öğretmen                  | Faz 1                   |
+| M08 | Öğrenci Bireysel Çalışma                                                                                                                        | Öğrenci                   | Faz 2                   |
+| M09 | Veli Paneli                                                                                                                                     | Veli                      | Faz 2                   |
+| M10 | Öğrenci Gelişim Takibi                                                                                                                          | Öğretmen / Veli           | Faz 3                   |
+| M11 | Bildirim ve Hatırlatma                                                                                                                          | Tümü                      | Faz 3                   |
+| M12 | Eşleştirme, İlan ve Keşif (iki taraflı: öğretmen **sunduğu** ders ilanı / öğrenci **aradığı** ders ilanı; konum + yıldız + ücretli öne çıkarma) | Öğrenci / Öğretmen        | Faz 4                   |
+| M13 | Puanlama ve Yorum                                                                                                                               | Öğrenci                   | Faz 4                   |
+| M14 | Raporlama ve Analiz                                                                                                                             | Öğretmen                  | Faz 5                   |
+| M15 | Ayarlar ve Güvenlik                                                                                                                             | Tümü                      | Faz 0+                  |
+| M16 | Mesajlaşma (öğretmen↔öğrenci, öğretmen↔veli)                                                                                                    | Öğretmen / Öğrenci / Veli | Faz 2-3                 |
+| M17 | Üyelik & Para Kazanma (abonelik + reklam + kampanya/referans)                                                                                   | Tümü                      | Faz 5 (temel: Faz 0+)   |
+| M18 | Geri Bildirim & Şikayet (hata bildirimi + kötüye kullanım/şikayet + moderasyon)                                                                 | Tümü                      | Faz 1+ (şikayet: Faz 4) |
 
 ---
 

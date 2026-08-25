@@ -18,7 +18,7 @@ updated: 2026-07-01
 > (Teachers, Students, Scheduling, Payments…) üzerine inşa edildiği **güven temelidir**: her korunan endpoint,
 > bu modülün ürettiği JWT erişim token'ıyla `RequireAuthorization("AuthenticatedUser")` üzerinden doğrulanır.
 >
-> İlgili: [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md) · [`m02_teachers.md`](m02_teachers.md) · [`m03_students.md`](m03_students.md) · [`m09_parents.md`](m09_parents.md) · [`m15_settings.md`](m15_settings.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+> İlgili: [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md) · [`m02_teachers.md`](m02_teachers.md) · [`m03_students.md`](m03_students.md) · [`m09_parents.md`](m09_parents.md) · [`m15_settings.md`](m15_settings.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 
@@ -317,7 +317,7 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 - Güvenlik açıkları ve öncelikli düzeltmeler (Y2, Y3) → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Aggregate ER şeması ve modüller arası referanslar → [`veri_modeli.md`](veri_modeli.md)
 - Genel durum ve endpoint envanteri → [`00_genel_bakis.md`](00_genel_bakis.md)
-- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 

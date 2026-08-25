@@ -290,7 +290,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 - Premium kanallar (WhatsApp/SMS) → [`m17_membership.md`](m17_membership.md)
 - Mimari açıklar (K1 Outbox kapalı, Y5 push, K3 yetki) → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Veri modeli / şema → [`veri_modeli.md`](veri_modeli.md)
-- Genel bakış → [`00_genel_bakis.md`](00_genel_bakis.md) · PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Genel bakış → [`00_genel_bakis.md`](00_genel_bakis.md) · PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 - Roller → [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md) · [`../roles/admin.md`](../roles/admin.md)
 
 ---

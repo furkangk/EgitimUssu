@@ -15,7 +15,7 @@ updated: 2026-08-19
 > 1. **Geri bildirim:** Kullanıcılar geliştirme sürecinde **bug** ve **öneri** bildirebilsin (erken fazda kalite için kritik).
 > 2. **Şikayet (kötüye kullanım):** Kullanıcı, yorum, mesaj veya ilan **şikayet edilebilsin** ve admin moderasyonuyla işlensin.
 >
-> Bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) ("bildirme ve şikayet", "geliştirme buglarını geri bildirim").
+> Bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) ("bildirme ve şikayet", "geliştirme buglarını geri bildirim").
 
 > İlgili: yorum şikayeti / `ReviewFlag` → [`m13_reviews.md`](m13_reviews.md) · mesaj şikayeti → [`m16_messaging.md`](m16_messaging.md) · admin moderasyon → [`../roles/admin.md`](../roles/admin.md).
 
@@ -232,7 +232,7 @@ Admin → POST /admin/reports/{id}/resolve (action)
 - Yetki guard'ı → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Veri modeli bağlamı → [`veri_modeli.md`](veri_modeli.md)
 - Rol perspektifleri → [`../roles/ogretmen.md`](../roles/ogretmen.md), [`../roles/ogrenci.md`](../roles/ogrenci.md), [`../roles/veli.md`](../roles/veli.md), [`../roles/admin.md`](../roles/admin.md), [`../roles/00_roller_genel_bakis.md`](../roles/00_roller_genel_bakis.md)
-- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 - Genel durum & strateji → [`00_genel_bakis.md`](00_genel_bakis.md)
 
 ---

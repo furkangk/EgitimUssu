@@ -39,7 +39,7 @@ updated: 2026-08-20
 | Doküman | Ne işe yarar | Otorite |
 |---------|--------------|---------|
 | [`promp.txt`](promp.txt) | Kullanıcının kendi sözleriyle proje vizyonu (kaynak girdi) | Vizyon kaynağı |
-| [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD_v2.md) | **PRD v2.1**: vizyon, kullanıcılar, M01–M18 modül listesi, 6 fazlı yol haritası, iş modeli, free/premium, reklam/kampanya | Ürün için **esas** |
+| [`ozel_ders_platformu_PRD_v2.md`](ozel_ders_platformu_PRD.md) | **PRD v2.1**: vizyon, kullanıcılar, M01–M18 modül listesi, 6 fazlı yol haritası, iş modeli, free/premium, reklam/kampanya | Ürün için **esas** |
 | [`yol_haritasi.md`](yol_haritasi.md) | **Geliştirme yol haritası**: Faz 0–5, epic→faz eşlemesi, bağımlılıklar, milestone'lar | Planlama |
 | [`architecture/00_genel_bakis.md`](architecture/00_genel_bakis.md) | **Mimari genel bakış**: platformlar, aktörler, katmanlar, veri akışı, event/Outbox, ölçeklenebilirlik, fazlar | Mimari için **buradan başla** |
 
@@ -138,7 +138,7 @@ updated: 2026-08-20
 
 ## 7. Hangi Soru → Hangi Doküman?
 
-- **"Ürün ne yapıyor, hangi modül hangi fazda?"** → [`PRD v2.1`](ozel_ders_platformu_PRD_v2.md) §6 + [`modules/00_genel_bakis`](modules/00_genel_bakis.md)
+- **"Ürün ne yapıyor, hangi modül hangi fazda?"** → [`PRD v2.1`](ozel_ders_platformu_PRD.md) §6 + [`modules/00_genel_bakis`](modules/00_genel_bakis.md)
 - **"Bu rol neler yapabilir / akışı nedir?"** → [`roles/`](roles/00_roller_genel_bakis.md)
 - **"Gerçekte hangi endpoint/domain var?"** → [`modules/00_genel_bakis`](modules/00_genel_bakis.md) §4 + ilgili `mNN_*`
 - **"Tablolar nasıl ilişkili?"** → [`modules/veri_modeli`](modules/veri_modeli.md)

@@ -136,7 +136,7 @@ Detaylar: [`mobile_flutter.md`](mobile_flutter.md) · [`backend.md`](backend.md)
 ## 8. Faz Hizalaması
 
 Mimari, ürünün 6 fazlı yol haritasıyla ilerler. Tam plan ve bağımlılıklar → [`../yol_haritasi.md`](../yol_haritasi.md),
-ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) §6.
+ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) §6.
 
 | Faz | Odak | Mimari etkisi |
 |-----|------|---------------|

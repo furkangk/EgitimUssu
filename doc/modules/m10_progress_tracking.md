@@ -317,7 +317,7 @@ M08 TestResultRecordedDomainEvent     ──┘
 - Skor formülü / seviye bantları / konu sözlüğü → [`m15_settings.md`](m15_settings.md)
 - Veri modeli → [`veri_modeli.md`](veri_modeli.md)
 - Genel durum tablosu → [`00_genel_bakis.md`](00_genel_bakis.md)
-- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 

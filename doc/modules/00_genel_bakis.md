@@ -16,7 +16,7 @@ updated: 2026-08-19
 >
 > İlgili üst dokümanlar:
 > - [`../INDEX.md`](../INDEX.md) — tüm doküman haritası (buradan başla)
-> - [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) — Ürün gereksinimleri (v2.1)
+> - [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) — Ürün gereksinimleri (v2.1)
 > - [`../roles/00_roller_genel_bakis.md`](../roles/00_roller_genel_bakis.md) — Roller
 > - [`../architecture/00_genel_bakis.md`](../architecture/00_genel_bakis.md) — Mimari (backend/mobil/web + genel bakış)
 > - [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md)

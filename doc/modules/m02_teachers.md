@@ -17,7 +17,7 @@ updated: 2026-08-19
 > profil katmanını yönetmek. Bu profil; takvimde ders planlama (M04), eşleştirme (M12) ve öğrenciye görünürlük için
 > temel veri kaynağıdır. Öğretmenin "günlük çalışma aracı" yolculuğunun ilk adımıdır.
 >
-> İlgili: [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`m01_identity.md`](m01_identity.md) · [`m03_students.md`](m03_students.md) · [`m04_scheduling.md`](m04_scheduling.md) · [`m05_lesson_sessions.md`](m05_lesson_sessions.md) · [`m07_payments.md`](m07_payments.md) · [`m15_settings.md`](m15_settings.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+> İlgili: [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`m01_identity.md`](m01_identity.md) · [`m03_students.md`](m03_students.md) · [`m04_scheduling.md`](m04_scheduling.md) · [`m05_lesson_sessions.md`](m05_lesson_sessions.md) · [`m07_payments.md`](m07_payments.md) · [`m15_settings.md`](m15_settings.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 
@@ -290,7 +290,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 - Güvenlik açıkları (Y1, K3) → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Aggregate ER şeması → [`veri_modeli.md`](veri_modeli.md)
 - Genel durum ve endpoint envanteri → [`00_genel_bakis.md`](00_genel_bakis.md)
-- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 

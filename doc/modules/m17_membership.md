@@ -14,7 +14,7 @@ updated: 2026-08-19
 > **Amaç:** Platformun gelir modelini taşımak. PRD: **ücretsiz ve ücretli (premium) üyelik** vardır; gelir
 > **reklam + üyelik** ikilisinden gelir. **Ücretli üyeler reklam görmez, kısıtlamalara takılmaz ve ekstra
 > özelliklere erişir.** Kullanıcı çekmek için **ilk ay ücretsiz** ve **arkadaşını getir → 1 ay ücretsiz (referans)**
-> kampanyaları planlanır (bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) §9 ve Faz 5).
+> kampanyaları planlanır (bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) §9 ve Faz 5).
 
 > Rol bazlı premium özellik setleri PRD §9 (Free vs. Premium karşılaştırması) ile birebir uyumludur:
 > öğretmen (gelir analizi, PDF rapor, profil öne çıkarma), öğrenci (geçmiş, haftalık/aylık analiz, streak,
@@ -307,7 +307,7 @@ POST /webhooks/payment (imza doğrulanır)
 - Yetki guard'ı → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Veri modeli bağlamı → [`veri_modeli.md`](veri_modeli.md)
 - Rol perspektifleri → [`../roles/ogretmen.md`](../roles/ogretmen.md), [`../roles/ogrenci.md`](../roles/ogrenci.md), [`../roles/veli.md`](../roles/veli.md), [`../roles/admin.md`](../roles/admin.md), [`../roles/00_roller_genel_bakis.md`](../roles/00_roller_genel_bakis.md)
-- Ürün gereksinimleri (Free vs. Premium §9, Faz 5) → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri (Free vs. Premium §9, Faz 5) → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 - Genel durum & strateji → [`00_genel_bakis.md`](00_genel_bakis.md)
 
 ---

@@ -12,7 +12,7 @@ updated: 2026-08-19
 > kullanıcı yolculuğu (golden path), ekranları ve rol-özel iş kuralları. **Teknik domain/API detayları**
 > ise modül dokümanlarındadır (`doc/modules/mNN_*.md`). Bir rol birden çok modülü kullanır; bir modül birden çok role hizmet eder.
 >
-> İlgili: [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) (ürün) · [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) (modül indeksi) · [`../INDEX.md`](../INDEX.md)
+> İlgili: [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) (ürün) · [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) (modül indeksi) · [`../INDEX.md`](../INDEX.md)
 >
 > **Güncelleme:** 2026-08-19
 
@@ -121,7 +121,7 @@ Welcome → Rol seçimi
 ## 6. İlişkili Dokümanlar
 - Detaylı rol docs: [`ogretmen.md`](ogretmen.md) · [`ogrenci.md`](ogrenci.md) · [`veli.md`](veli.md) · [`admin.md`](admin.md)
 - Modül indeksi ve teknik detay: [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
-- Ürün gereksinimleri: [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri: [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
 

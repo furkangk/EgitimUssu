@@ -13,7 +13,7 @@ updated: 2026-08-19
 >
 > **Amaç:** Öğretmen ile öğrenci/veli arasında, ders bağlamına bağlı, güvenli ve denetlenebilir
 > uygulama içi mesajlaşma. Bugün bu iletişim telefon/WhatsApp üzerinden, sistem dışında yürüyor
-> (bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)); amaç bu trafiği platforma taşımaktır.
+> (bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)); amaç bu trafiği platforma taşımaktır.
 
 > **KESİN KURAL (PRD — kapsam):** Mesajlaşma **yalnızca** iki çift arasında kurulur:
 > **öğretmen ↔ öğrenci** ve **öğretmen ↔ veli**.
@@ -255,7 +255,7 @@ Students/Parents/Matching modüllerinden:
 - Yetki guard'ı → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Veri modeli bağlamı → [`veri_modeli.md`](veri_modeli.md)
 - Rol perspektifleri → [`../roles/ogretmen.md`](../roles/ogretmen.md), [`../roles/ogrenci.md`](../roles/ogrenci.md), [`../roles/veli.md`](../roles/veli.md), [`../roles/admin.md`](../roles/admin.md), [`../roles/00_roller_genel_bakis.md`](../roles/00_roller_genel_bakis.md)
-- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Ürün gereksinimleri → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 - Genel durum & strateji → [`00_genel_bakis.md`](00_genel_bakis.md)
 
 ---

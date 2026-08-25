@@ -194,7 +194,7 @@ Güvenlik (Identity):
 - Üyelik / reklam-limit tercihleri → [`m17_membership.md`](m17_membership.md)
 - Yetki guard'ı (K3), Outbox (K1) → [`mimari_inceleme.md`](mimari_inceleme.md)
 - Veri modeli / şema → [`veri_modeli.md`](veri_modeli.md)
-- Genel bakış → [`00_genel_bakis.md`](00_genel_bakis.md) · PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md)
+- Genel bakış → [`00_genel_bakis.md`](00_genel_bakis.md) · PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 - Roller (profil düzenleme) → [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md) · [`../roles/veli.md`](../roles/veli.md) · [`../roles/admin.md`](../roles/admin.md)
 
 ---

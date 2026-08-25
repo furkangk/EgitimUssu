@@ -277,7 +277,7 @@ PUT /records/{id}
 - İlişkili ders/oturum → [`m05_lesson_sessions.md`](m05_lesson_sessions.md) · Takvimde ödeme → [`m04_scheduling.md`](m04_scheduling.md)
 - Roller → [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`../roles/veli.md`](../roles/veli.md) · [`../roles/ogrenci.md`](../roles/ogrenci.md)
 - Veri modeli → [`veri_modeli.md`](veri_modeli.md) · Mimari → [`mimari_inceleme.md`](mimari_inceleme.md) · Genel → [`00_genel_bakis.md`](00_genel_bakis.md)
-- PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD_v2.md) · UI → [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)
+- PRD → [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) · UI → [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md)
 
 ---
 

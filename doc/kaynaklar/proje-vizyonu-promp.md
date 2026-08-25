@@ -47,7 +47,7 @@ aşama olarak planlanmalıdır. Bu makale, promp.txt'nin damıtılmış özetidi
 
 ## İlgili
 
-- [PRD](../ozel_ders_platformu_PRD_v2.md)
+- [PRD](../ozel_ders_platformu_PRD.md)
 - [modüller](../modules/00_genel_bakis.md)
 - [roller](../roles/00_roller_genel_bakis.md)
 
