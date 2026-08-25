@@ -53,12 +53,6 @@ internal sealed class ProgressRepository : IProgressRepository
     public Task AddGoalAsync(TopicGoal goal, CancellationToken cancellationToken) =>
         _dbContext.TopicGoals.AddAsync(goal, cancellationToken).AsTask();
 
-    public Task<bool> HasProcessedAsync(Guid eventId, CancellationToken cancellationToken) =>
-        _dbContext.ProcessedEvents.AnyAsync(x => x.Id == eventId, cancellationToken);
-
-    public Task AddProcessedAsync(ProcessedEvent processed, CancellationToken cancellationToken) =>
-        _dbContext.ProcessedEvents.AddAsync(processed, cancellationToken).AsTask();
-
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         _dbContext.SaveChangesAsync(cancellationToken);
 }
