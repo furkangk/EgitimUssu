@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.LessonSessions.Infrastructure;
@@ -8,31 +9,32 @@ namespace EgitimUssu.Modules.LessonSessions.Infrastructure;
 /// <summary>
 /// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge), LessonSessions modülünün kaynak öğrenciye ait
 /// ders seanslarını kanonik öğrenciye yeniden atar. Doğrudan cross-module DB erişimi yok — yalnızca integration event.
+/// Replay koruması ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>, EventId+Handler).
 /// </summary>
-internal sealed class LessonSessionsStudentMergedHandler : IIntegrationEventHandler
+internal sealed class LessonSessionsStudentMergedHandler : IdempotentIntegrationEventHandler
 {
-    private readonly LessonSessionsDbContext _db;
+    public LessonSessionsStudentMergedHandler(LessonSessionsDbContext dbContext, IClock clock)
+        : base(dbContext, clock)
+    {
+    }
 
-    public LessonSessionsStudentMergedHandler(LessonSessionsDbContext db) => _db = db;
+    private LessonSessionsDbContext LessonSessionsDb => (LessonSessionsDbContext)DbContext;
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent.SourceModule == "Students"
             && integrationEvent.Name == "StudentProfilesMergedDomainEvent";
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent envelope)
-        {
-            return;
-        }
-
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
-        await _db.LessonSessions.Where(x => x.StudentId == payload.FromStudentId)
+        await LessonSessionsDb.LessonSessions.Where(x => x.StudentId == payload.FromStudentId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, payload.ToStudentId), cancellationToken);
+
+        return true;
     }
 }

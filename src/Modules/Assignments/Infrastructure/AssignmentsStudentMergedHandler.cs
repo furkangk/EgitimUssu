@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Assignments.Infrastructure;
@@ -8,33 +9,34 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure;
 /// <summary>
 /// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge), Assignments modülünün kaynak öğrenciye ait
 /// ödev ve ders notlarını kanonik öğrenciye yeniden atar. Doğrudan cross-module DB erişimi yok — yalnızca integration event.
+/// Replay koruması ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>, EventId+Handler).
 /// </summary>
-internal sealed class AssignmentsStudentMergedHandler : IIntegrationEventHandler
+internal sealed class AssignmentsStudentMergedHandler : IdempotentIntegrationEventHandler
 {
-    private readonly AssignmentsDbContext _db;
+    public AssignmentsStudentMergedHandler(AssignmentsDbContext dbContext, IClock clock)
+        : base(dbContext, clock)
+    {
+    }
 
-    public AssignmentsStudentMergedHandler(AssignmentsDbContext db) => _db = db;
+    private AssignmentsDbContext AssignmentsDb => (AssignmentsDbContext)DbContext;
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent.SourceModule == "Students"
             && integrationEvent.Name == "StudentProfilesMergedDomainEvent";
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent envelope)
-        {
-            return;
-        }
-
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
-        await _db.Assignments.Where(x => x.StudentId == payload.FromStudentId)
+        await AssignmentsDb.Assignments.Where(x => x.StudentId == payload.FromStudentId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, payload.ToStudentId), cancellationToken);
-        await _db.LessonNotes.Where(x => x.StudentId == payload.FromStudentId)
+        await AssignmentsDb.LessonNotes.Where(x => x.StudentId == payload.FromStudentId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, payload.ToStudentId), cancellationToken);
+
+        return true;
     }
 }

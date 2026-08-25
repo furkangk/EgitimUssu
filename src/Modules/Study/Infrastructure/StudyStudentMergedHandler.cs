@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Study.Infrastructure;
@@ -10,56 +11,57 @@ namespace EgitimUssu.Modules.Study.Infrastructure;
 /// çalışma verisini kanonik öğrenciye yeniden atar. <c>StudyStudent</c> birincil anahtarı (Id)
 /// doğrudan öğrenci kimliği olduğundan yeniden atama PK çakışmasına yol açar; kanonik profil kendi
 /// tercihlerini koruduğundan kaynak satır silinir. Doğrudan cross-module DB erişimi yok — yalnızca integration event.
+/// Replay koruması ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>, EventId+Handler).
 /// </summary>
-internal sealed class StudyStudentMergedHandler : IIntegrationEventHandler
+internal sealed class StudyStudentMergedHandler : IdempotentIntegrationEventHandler
 {
-    private readonly StudyDbContext _db;
+    public StudyStudentMergedHandler(StudyDbContext dbContext, IClock clock)
+        : base(dbContext, clock)
+    {
+    }
 
-    public StudyStudentMergedHandler(StudyDbContext db) => _db = db;
+    private StudyDbContext StudyDb => (StudyDbContext)DbContext;
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent.SourceModule == "Students"
             && integrationEvent.Name == "StudentProfilesMergedDomainEvent";
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent envelope)
-        {
-            return;
-        }
-
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
         var from = payload.FromStudentId;
         var to = payload.ToStudentId;
 
-        await _db.StudySessions.Where(x => x.StudentId == from)
+        await StudyDb.StudySessions.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.TestResults.Where(x => x.StudentId == from)
+        await StudyDb.TestResults.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.MockExams.Where(x => x.StudentId == from)
+        await StudyDb.MockExams.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudyGoals.Where(x => x.StudentId == from)
+        await StudyDb.StudyGoals.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudyStreaks.Where(x => x.StudentId == from)
+        await StudyDb.StudyStreaks.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudentAchievements.Where(x => x.StudentId == from)
+        await StudyDb.StudentAchievements.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudyTopics.Where(x => x.StudentId == from)
+        await StudyDb.StudyTopics.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudentSubjectCatalogs.Where(x => x.StudentId == from)
+        await StudyDb.StudentSubjectCatalogs.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudentTopicCatalogs.Where(x => x.StudentId == from)
+        await StudyDb.StudentTopicCatalogs.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
-        await _db.StudyNotes.Where(x => x.StudentId == from)
+        await StudyDb.StudyNotes.Where(x => x.StudentId == from)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, to), cancellationToken);
 
         // StudyStudent birincil anahtarı öğrenci kimliğidir; kanonik profil kendi tercih satırını korur.
-        await _db.StudyStudents.Where(x => x.Id == from)
+        await StudyDb.StudyStudents.Where(x => x.Id == from)
             .ExecuteDeleteAsync(cancellationToken);
+
+        return true;
     }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Scheduling.Infrastructure;
@@ -8,32 +9,33 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure;
 /// <summary>
 /// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge), Scheduling modülünün kaynak öğrenciye ait
 /// kayıtlarını kanonik öğrenciye yeniden atar. Doğrudan cross-module DB erişimi yok — yalnızca integration event.
+/// Replay koruması ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>, EventId+Handler).
 /// </summary>
-internal sealed class SchedulingStudentMergedHandler : IIntegrationEventHandler
+internal sealed class SchedulingStudentMergedHandler : IdempotentIntegrationEventHandler
 {
-    private readonly SchedulingDbContext _db;
+    public SchedulingStudentMergedHandler(SchedulingDbContext dbContext, IClock clock)
+        : base(dbContext, clock)
+    {
+    }
 
-    public SchedulingStudentMergedHandler(SchedulingDbContext db) => _db = db;
+    private SchedulingDbContext SchedulingDb => (SchedulingDbContext)DbContext;
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent.SourceModule == "Students"
             && integrationEvent.Name == "StudentProfilesMergedDomainEvent";
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent envelope)
-        {
-            return;
-        }
-
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
         // Ç-06: öğretmen dersleri + öğrencinin kendi dersleri (self) tek tabloda (lesson_schedules) tutulur.
-        await _db.LessonSchedules.Where(x => x.StudentId == payload.FromStudentId)
+        await SchedulingDb.LessonSchedules.Where(x => x.StudentId == payload.FromStudentId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.StudentId, payload.ToStudentId), cancellationToken);
+
+        return true;
     }
 }
