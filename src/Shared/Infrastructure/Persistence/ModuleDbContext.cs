@@ -24,6 +24,8 @@ public abstract class ModuleDbContext : DbContext
 
     public DbSet<ModuleState> ModuleStates => Set<ModuleState>();
 
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -43,6 +45,14 @@ public abstract class ModuleDbContext : DbContext
         {
             builder.ToTable("module_states");
             builder.HasKey(item => item.Id);
+        });
+
+        modelBuilder.Entity<InboxMessage>(builder =>
+        {
+            builder.ToTable("inbox_messages");
+            builder.HasKey(item => new { item.EventId, item.Handler });
+            builder.Property(item => item.Handler).HasMaxLength(256).IsRequired();
+            builder.Property(item => item.EventName).HasMaxLength(256).IsRequired();
         });
 
         base.OnModelCreating(modelBuilder);

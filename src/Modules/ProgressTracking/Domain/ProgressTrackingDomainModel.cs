@@ -212,19 +212,3 @@ public sealed record TopicGoalAchievedDomainEvent(
     string Subject,
     string Topic,
     DateTime AchievedOnUtc) : DomainEvent;
-
-/// <summary>Tüketilen entegrasyon olaylarının idempotency kaydı (aynı olay iki kez işlenmesin).</summary>
-public sealed class ProcessedEvent : Entity<Guid>
-{
-    private ProcessedEvent()
-    {
-    }
-
-    public ProcessedEvent(Guid eventId, DateTime processedOnUtc)
-    {
-        Id = eventId;
-        ProcessedOnUtc = processedOnUtc;
-    }
-
-    public DateTime ProcessedOnUtc { get; private set; }
-}

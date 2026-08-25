@@ -66,9 +66,5 @@ public interface IProgressRepository
 
     Task AddGoalAsync(TopicGoal goal, CancellationToken cancellationToken);
 
-    Task<bool> HasProcessedAsync(Guid eventId, CancellationToken cancellationToken);
-
-    Task AddProcessedAsync(ProcessedEvent processed, CancellationToken cancellationToken);
-
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

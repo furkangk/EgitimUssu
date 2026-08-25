@@ -4,12 +4,23 @@ using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Modules.Notifications.Infrastructure;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Tests.Unit.TestDoubles;
+using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Tests.Unit;
 
 public sealed class ParentNotificationTests
 {
     private static readonly DateTime Now = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
+
+    // Handler artık ortak inbox (IdempotentIntegrationEventHandler) tabanlı olduğundan replay-koruması
+    // için gerçek bir NotificationsDbContext (InMemory) gerekir; iş-yazımı hâlâ FakeRepo üzerinden izlenir.
+    private static NotificationsDbContext NewDbContext() =>
+        new(
+            new DbContextOptionsBuilder<NotificationsDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options,
+            new NoOpDomainEventMapper());
 
     [Fact]
     public void Ctor_StoresFields()
@@ -36,7 +47,8 @@ public sealed class ParentNotificationTests
             new ParentNotificationTarget(parentUserId, MembershipTier.Premium, AllOn())
         });
         var repo = new FakeRepo();
-        var handler = new ParentEventNotificationHandler(directory, repo, new SeqIdGen(), new FixedClock(Now));
+        await using var db = NewDbContext();
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
 
         await handler.HandleAsync(AssignmentCreatedEnvelope(studentId), default);
 
@@ -54,7 +66,8 @@ public sealed class ParentNotificationTests
             new ParentNotificationTarget(Guid.NewGuid(), MembershipTier.Free, AllOn())
         });
         var repo = new FakeRepo();
-        var handler = new ParentEventNotificationHandler(directory, repo, new SeqIdGen(), new FixedClock(Now));
+        await using var db = NewDbContext();
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
 
         await handler.HandleAsync(AssignmentCreatedEnvelope(studentId), default);
 
@@ -71,7 +84,8 @@ public sealed class ParentNotificationTests
             new ParentNotificationTarget(Guid.NewGuid(), MembershipTier.Premium, prefs)
         });
         var repo = new FakeRepo();
-        var handler = new ParentEventNotificationHandler(directory, repo, new SeqIdGen(), new FixedClock(Now));
+        await using var db = NewDbContext();
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
 
         await handler.HandleAsync(AssignmentCreatedEnvelope(studentId), default);
 
@@ -87,7 +101,8 @@ public sealed class ParentNotificationTests
             new ParentNotificationTarget(Guid.NewGuid(), MembershipTier.Premium, AllOn())
         });
         var repo = new FakeRepo();
-        var handler = new ParentEventNotificationHandler(directory, repo, new SeqIdGen(), new FixedClock(Now));
+        await using var db = NewDbContext();
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
         var envelope = AssignmentCreatedEnvelope(studentId);
 
         await handler.HandleAsync(envelope, default);

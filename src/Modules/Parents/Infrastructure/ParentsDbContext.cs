@@ -25,8 +25,6 @@ public sealed class ParentsDbContext : ModuleDbContext
 
     public DbSet<KnownStudent> KnownStudents => Set<KnownStudent>();
 
-    public DbSet<ProcessedIntegrationEvent> ProcessedIntegrationEvents => Set<ProcessedIntegrationEvent>();
-
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Parents";
@@ -89,15 +87,5 @@ internal sealed class KnownStudentConfiguration : IEntityTypeConfiguration<Known
         builder.ToTable("known_students");
         builder.HasKey(entity => entity.Id);
         builder.HasIndex(entity => entity.StudentId).IsUnique();
-    }
-}
-
-internal sealed class ProcessedIntegrationEventConfiguration : IEntityTypeConfiguration<ProcessedIntegrationEvent>
-{
-    public void Configure(EntityTypeBuilder<ProcessedIntegrationEvent> builder)
-    {
-        builder.ToTable("processed_integration_events");
-        builder.HasKey(entity => entity.Id);
-        builder.Property(entity => entity.EventName).HasMaxLength(256).IsRequired();
     }
 }

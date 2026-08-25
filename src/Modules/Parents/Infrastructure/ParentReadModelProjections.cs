@@ -8,64 +8,30 @@ using Microsoft.EntityFrameworkCore;
 namespace EgitimUssu.Modules.Parents.Infrastructure;
 
 /// <summary>
-/// Veli read-model projeksiyon handler'ları için ortak taban. Idempotency (çift-sayım koruması),
-/// snapshot upsert ve JSON çözümleme yardımcılarını sağlar. Outbox en-az-bir-kez teslim eder;
-/// bu yüzden her event <see cref="ProcessedIntegrationEvent"/> ile bir kez işlenir.
+/// Veli read-model projeksiyon handler'ları için ortak taban. Snapshot upsert ve JSON çözümleme
+/// yardımcılarını sağlar. Idempotency (çift-sayım koruması) artık ortak inbox üzerinden
+/// <see cref="IdempotentIntegrationEventHandler"/> tabanında sağlanır.
 /// </summary>
-internal abstract class ParentReadModelProjectionHandler : IIntegrationEventHandler
+internal abstract class ParentReadModelProjectionHandler : IdempotentIntegrationEventHandler
 {
     protected static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     protected ParentReadModelProjectionHandler(ParentsDbContext dbContext, IIdGenerator idGenerator, IClock clock)
-    {
-        DbContext = dbContext;
-        IdGenerator = idGenerator;
-        Clock = clock;
-    }
-
-    protected ParentsDbContext DbContext { get; }
+        : base(dbContext, clock)
+        => IdGenerator = idGenerator;
 
     protected IIdGenerator IdGenerator { get; }
 
-    protected IClock Clock { get; }
-
-    public abstract bool CanHandle(IIntegrationEvent integrationEvent);
-
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
-    {
-        if (integrationEvent is not IntegrationEvent envelope)
-        {
-            return;
-        }
-
-        var alreadyProcessed = await DbContext.ProcessedIntegrationEvents
-            .AnyAsync(processed => processed.Id == envelope.EventId, cancellationToken);
-        if (alreadyProcessed)
-        {
-            return;
-        }
-
-        var applied = await ApplyAsync(envelope, cancellationToken);
-        if (!applied)
-        {
-            return;
-        }
-
-        DbContext.ProcessedIntegrationEvents.Add(new ProcessedIntegrationEvent(envelope.EventId, envelope.Name, Clock.UtcNow));
-        await DbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    /// <summary>Event'i projekte eder. İşlenmesi gerekmiyorsa false döner (dedup kaydı da yazılmaz).</summary>
-    protected abstract Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken);
+    protected ParentsDbContext ParentsDb => (ParentsDbContext)DbContext;
 
     protected async Task<ChildProgressSnapshot> GetOrCreateSnapshotAsync(Guid studentId, CancellationToken cancellationToken)
     {
-        var snapshot = await DbContext.ChildProgressSnapshots
+        var snapshot = await ParentsDb.ChildProgressSnapshots
             .FirstOrDefaultAsync(item => item.StudentId == studentId, cancellationToken);
         if (snapshot is null)
         {
             snapshot = new ChildProgressSnapshot(IdGenerator.New(), studentId, Clock.UtcNow);
-            DbContext.ChildProgressSnapshots.Add(snapshot);
+            ParentsDb.ChildProgressSnapshots.Add(snapshot);
         }
 
         return snapshot;
@@ -231,11 +197,11 @@ internal sealed class ParentStudentDirectoryProjectionHandler : ParentReadModelP
             return false;
         }
 
-        var existing = await DbContext.KnownStudents
+        var existing = await ParentsDb.KnownStudents
             .FirstOrDefaultAsync(student => student.StudentId == payload.StudentProfileId, cancellationToken);
         if (existing is null)
         {
-            DbContext.KnownStudents.Add(new KnownStudent(IdGenerator.New(), payload.StudentProfileId, payload.UserId, Clock.UtcNow));
+            ParentsDb.KnownStudents.Add(new KnownStudent(IdGenerator.New(), payload.StudentProfileId, payload.UserId, Clock.UtcNow));
         }
         else
         {

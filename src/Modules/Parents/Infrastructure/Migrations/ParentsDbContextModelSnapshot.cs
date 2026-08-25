@@ -229,11 +229,14 @@ namespace EgitimUssu.Modules.Parents.Infrastructure.Migrations
                     b.ToTable("parent_profiles", "parents");
                 });
 
-            modelBuilder.Entity("EgitimUssu.Modules.Parents.Domain.ProcessedIntegrationEvent", b =>
+            modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<Guid>("EventId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Handler")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("EventName")
                         .IsRequired()
@@ -243,9 +246,9 @@ namespace EgitimUssu.Modules.Parents.Infrastructure.Migrations
                     b.Property<DateTime>("ProcessedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("Id");
+                    b.HasKey("EventId", "Handler");
 
-                    b.ToTable("processed_integration_events", "parents");
+                    b.ToTable("inbox_messages", "parents");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>

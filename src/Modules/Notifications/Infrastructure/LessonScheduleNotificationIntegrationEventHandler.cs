@@ -1,67 +1,63 @@
 using System.Text.Json;
-using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
+using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Notifications.Infrastructure;
 
-internal sealed class LessonScheduleNotificationIntegrationEventHandler : IIntegrationEventHandler
+/// <summary>
+/// Scheduling → ders hatırlatması üretici/iptal edici. Replay koruması artık ortak inbox üzerinden
+/// (<see cref="IdempotentIntegrationEventHandler"/>, EventId+Handler); LessonScheduleId başına TEK
+/// hatırlatma kuralı (unique index, <c>lesson_reminders</c>) gerçek bir iş kuralı olduğundan burada
+/// korunur — mevcut davranış: reschedule (aynı LessonScheduleId için ikinci LessonScheduledDomainEvent)
+/// güncelleme YAPMAZ, yalnız atlanır (önceki davranışla birebir).
+/// </summary>
+internal sealed class LessonScheduleNotificationIntegrationEventHandler : IdempotentIntegrationEventHandler
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly ILessonReminderRepository _repository;
     private readonly IIdGenerator _idGenerator;
-    private readonly IClock _clock;
 
     public LessonScheduleNotificationIntegrationEventHandler(
-        ILessonReminderRepository repository,
+        NotificationsDbContext dbContext,
         IIdGenerator idGenerator,
         IClock clock)
+        : base(dbContext, clock)
     {
-        _repository = repository;
         _idGenerator = idGenerator;
-        _clock = clock;
     }
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    private NotificationsDbContext NotificationsDb => (NotificationsDbContext)DbContext;
+
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
     {
         return integrationEvent.SourceModule == "Scheduling"
             && (integrationEvent.Name == "LessonScheduledDomainEvent"
                 || integrationEvent.Name == "LessonScheduleCancelledDomainEvent");
     }
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent eventEnvelope)
-        {
-            return;
-        }
-
-        if (eventEnvelope.Name == "LessonScheduledDomainEvent")
-        {
-            await HandleScheduledAsync(eventEnvelope, cancellationToken);
-            return;
-        }
-
-        if (eventEnvelope.Name == "LessonScheduleCancelledDomainEvent")
-        {
-            await HandleCancelledAsync(eventEnvelope, cancellationToken);
-        }
+        return envelope.Name == "LessonScheduledDomainEvent"
+            ? ApplyScheduledAsync(envelope, cancellationToken)
+            : ApplyCancelledAsync(envelope, cancellationToken);
     }
 
-    private async Task HandleScheduledAsync(IntegrationEvent eventEnvelope, CancellationToken cancellationToken)
+    private async Task<bool> ApplyScheduledAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var payload = JsonSerializer.Deserialize<LessonScheduledEventPayload>(eventEnvelope.Payload, JsonOptions);
+        var payload = JsonSerializer.Deserialize<LessonScheduledEventPayload>(envelope.Payload, JsonOptions);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
-        var existingReminder = await _repository.GetByLessonScheduleIdAsync(payload.LessonScheduleId, cancellationToken);
-        if (existingReminder is not null)
+        // İş kuralı (unique index): LessonScheduleId başına tek hatırlatma. Zaten varsa yeniden üretilmez.
+        var exists = await NotificationsDb.LessonReminders
+            .AnyAsync(reminder => reminder.LessonScheduleId == payload.LessonScheduleId, cancellationToken);
+        if (exists)
         {
-            return;
+            return false;
         }
 
         var reminder = new LessonReminder(
@@ -75,28 +71,29 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : IInteg
             payload.StartAtUtc.AddMinutes(-Math.Max(payload.ReminderOffsetMinutes, 0)),
             NotificationChannel.InApp,
             ReminderStatus.Pending,
-            _clock.UtcNow);
+            Clock.UtcNow);
 
-        await _repository.AddAsync(reminder, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        NotificationsDb.LessonReminders.Add(reminder);
+        return true;
     }
 
-    private async Task HandleCancelledAsync(IntegrationEvent eventEnvelope, CancellationToken cancellationToken)
+    private async Task<bool> ApplyCancelledAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var payload = JsonSerializer.Deserialize<LessonScheduleCancelledEventPayload>(eventEnvelope.Payload, JsonOptions);
+        var payload = JsonSerializer.Deserialize<LessonScheduleCancelledEventPayload>(envelope.Payload, JsonOptions);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
-        var reminder = await _repository.GetByLessonScheduleIdAsync(payload.LessonScheduleId, cancellationToken);
+        var reminder = await NotificationsDb.LessonReminders
+            .FirstOrDefaultAsync(r => r.LessonScheduleId == payload.LessonScheduleId, cancellationToken);
         if (reminder is null)
         {
-            return;
+            return false;
         }
 
-        reminder.Cancel(_clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
+        reminder.Cancel(Clock.UtcNow);
+        return true;
     }
 
     private sealed record LessonScheduledEventPayload(

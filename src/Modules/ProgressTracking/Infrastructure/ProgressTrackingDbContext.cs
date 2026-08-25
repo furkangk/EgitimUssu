@@ -21,8 +21,6 @@ public sealed class ProgressTrackingDbContext : ModuleDbContext
 
     public DbSet<TopicGoal> TopicGoals => Set<TopicGoal>();
 
-    public DbSet<ProcessedEvent> ProcessedEvents => Set<ProcessedEvent>();
-
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "ProgressTracking";
@@ -68,15 +66,5 @@ internal sealed class TopicGoalConfiguration : IEntityTypeConfiguration<TopicGoa
         builder.Property(e => e.SetByRole).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(e => e.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.HasIndex(e => new { e.StudentId, e.Status });
-    }
-}
-
-internal sealed class ProcessedEventConfiguration : IEntityTypeConfiguration<ProcessedEvent>
-{
-    public void Configure(EntityTypeBuilder<ProcessedEvent> builder)
-    {
-        builder.ToTable("processed_events");
-        builder.HasKey(e => e.Id);
-        builder.Property(e => e.Id).ValueGeneratedNever();
     }
 }

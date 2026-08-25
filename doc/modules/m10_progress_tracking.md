@@ -6,7 +6,7 @@ status: "🟡"
 authority: code
 code_refs:
   - src/Modules/ProgressTracking/**
-updated: 2026-08-19
+updated: 2026-08-26
 ---
 
 # 📈 M10 — Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım Dokümanı
@@ -33,16 +33,19 @@ updated: 2026-08-19
 ### ✅ Uygulanan (çalışır çekirdek)
 - **Domain** (`src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs`): `TopicMastery`
   (`RegisterStudy`/`RegisterTest` → skor/seviye/trend/eksik-güçlü yeniden hesaplama), `TopicGoal`
-  (`MarkAchieved`/`Cancel`), `ProcessedEvent` (idempotency). Enum'lar: `MasteryLevel`, `ProgressTrend`,
+  (`MarkAchieved`/`Cancel`). Enum'lar: `MasteryLevel`, `ProgressTrend`,
   `MasterySource`, `TopicGoalStatus`, `TopicGoalSetterRole`. Olaylar: `TopicMasteryChanged`, `TopicGoalAchieved`.
 - **Besleme (idempotent consumer'lar)** (`Infrastructure/StudyProgressIntegrationEventHandlers.cs`):
-  M08 `StudySessionCompletedDomainEvent` → süre; `TestResultRecordedDomainEvent` → net oranı. `ProcessedEvent` ile tekrar-koruma.
+  M08 `StudySessionCompletedDomainEvent` → süre; `TestResultRecordedDomainEvent` → net oranı. Tekrar-koruma artık
+  modüle özel bir tablo yerine paylaşılan `IdempotentIntegrationEventHandler` tabanı + `inbox_messages` tablosu
+  (composite PK `(EventId, Handler)`) ile sağlanır; eski `ProcessedEvent` entity'si ve `processed_events` tablosu
+  **kaldırıldı** (2026-08-26, bkz. `mimari_inceleme.md` Y4).
   (M08 `TestResultRecordedDomainEvent` bu iş kapsamında `Topic`/`TotalQuestions`/D-Y-B alanlarıyla zenginleştirildi.)
 - **Skor motoru** (`TopicMastery.Recalculate`): çalışma bileşeni (maks 30, 3 saatte doyar) + test net oranı (maks 70);
   seviye bantları 0–20 Weak / 20–45 Developing / 45–75 Proficient / 75–100 Mastered; veri yoksa NotStarted.
   Trend son iki net oranından; `IsWeakSpot`/`IsStrength` §4.2'ye göre.
 - **API** (`API/ProgressTrackingModule.cs`): mastery / weak-spots / strengths / overview + topic-goals (liste/oluştur/iptal). Sahiplik `IStudentDirectory` ile.
-- **Persistence**: `ProgressTrackingDbContext` (TopicMastery/TopicGoal/ProcessedEvent) + `progress_tracking` şeması migration'ı.
+- **Persistence**: `ProgressTrackingDbContext` (TopicMastery/TopicGoal + paylaşılan `InboxMessage`) + `progress_tracking` şeması migration'ı.
 - **Mobil**: `mobile/lib/features/progress/` — "Gelişimim" ekranı (dağılım + eksik/güçlü + tüm konular).
 
 ### 🟢 Hazır besleme kaynakları (henüz tüketilmeyen)
@@ -321,4 +324,4 @@ M08 TestResultRecordedDomainEvent     ──┘
 
 ---
 
-*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+besleme+API+mobil) | Güncelleme: 2026-08-19 (kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*
+*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+besleme+API+mobil) | Güncelleme: 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedEvent`/`processed_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; önceki not — 2026-08-19 kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*

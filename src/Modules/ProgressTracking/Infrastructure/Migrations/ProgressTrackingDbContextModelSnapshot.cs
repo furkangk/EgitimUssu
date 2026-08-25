@@ -23,19 +23,6 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("EgitimUssu.Modules.ProgressTracking.Domain.ProcessedEvent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("ProcessedOnUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("processed_events", "progress_tracking");
-                });
-
             modelBuilder.Entity("EgitimUssu.Modules.ProgressTracking.Domain.TopicGoal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -170,6 +157,28 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("topic_masteries", "progress_tracking");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Handler")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("EventName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("ProcessedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("EventId", "Handler");
+
+                    b.ToTable("inbox_messages", "progress_tracking");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>

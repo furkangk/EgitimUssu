@@ -5,7 +5,7 @@ tags: [modul, indeks, genel-bakis]
 authority: code
 code_refs:
   - src/Modules/*/API/*Module.cs
-updated: 2026-08-19
+updated: 2026-08-26
 ---
 
 # 🗂️ Modüller — Genel Bakış ve Durum (Modül İndeksi)
@@ -108,6 +108,11 @@ mobile/lib/features/<ozellik>/
 
 ## 4. Mevcut API Endpoint Envanteri (Koddan Çıkarıldı)
 
+> **Tüketici idempotency'si (2026-08-26):** Aşağıdaki tüm `[consume]` handler'ları ortak `IdempotentIntegrationEventHandler`
+> taban sınıfını (`Shared/Infrastructure`) ve modül şemasındaki `inbox_messages` tablosunu kullanır — `(EventId, Handler)`
+> anahtarıyla tekrar-işleme atlanır, iş yazımı + inbox-işaretleme tek transaction'da atomik commit edilir. Detay:
+> [`mimari_inceleme.md`](mimari_inceleme.md) (Y4), [`veri_modeli.md`](veri_modeli.md).
+
 ### Identity — `/api/identity`
 ```
 POST /register   POST /login   POST /refresh
@@ -177,7 +182,7 @@ GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-
 ```
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
 GET /parents/{parentUserId}/notifications   (veli bildirim listesi, Premium; Veli V-E 2026-07-19)
-[consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification (Premium + tercih kapılı, idempotent)
+[consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification (Premium + tercih kapılı, idempotent (ortak inbox_messages))
 [hosted] ParentWeeklySummaryService (haftalık özet, Premium)
 ```
 ### Parents — `/api/parents`  (tümü auth "AuthenticatedUser")
@@ -187,6 +192,7 @@ POST /children/link   POST /children/{linkId}/approve   /reject   /revoke   (ona
 POST /children/claim-invite   (öğretmen davet kodunu girerek çocuğa bağlan → Approved, Veli V-D 2026-07-19)
 PUT /{parentUserId}/membership-tier   (Admin: veli Free/Premium, Veli V-E 2026-07-19)
 [expose] IParentNotificationDirectory (Shared.Contracts) — Notifications veli bildirim motoru bunu tüketir
+[consume] LessonSessions.LessonSessionCreated|Completed / Assignments.AssignmentCreated|Completed / Payments.PaymentRecordCreated|Updated / Students.StudentProfileCreated → 4 read-model projeksiyonu (dashboard özeti, idempotent (ortak inbox_messages))
 GET  /{parentUserId}/children
 GET  /{parentUserId}/children/{studentId}/dashboard   (yalnız Approved bağda; değilse 403; study alanları gizlilik filtreli — Veli V-B)
 ```
@@ -215,7 +221,7 @@ GET  /status   (açık uç — modül durumu)
 GET  /students/{studentId}/mastery?subject=   /weak-spots   /strengths   /overview
 GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topic-goals
 POST /topic-goals/{goalId}/cancel
-[consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent)
+[consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent (ortak inbox_messages))
 ```
 ### Settings (M15 — kısmi: gizlilik paylaşımı)
 ```
@@ -239,4 +245,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-08-26 (Y4 kapatıldı: tüm `[consume]` handler notları "idempotent (ortak inbox_messages)" olarak birleştirildi; Parents'ın 4 read-model projeksiyonu için `[consume]` satırı eklendi; §4 başına ortak `IdempotentIntegrationEventHandler` notu). Önceki not — 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
