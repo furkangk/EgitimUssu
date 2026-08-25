@@ -1,61 +1,62 @@
 using System.Text.Json;
-using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Modules.Assignments.Domain;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
+using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Assignments.Infrastructure;
 
-internal sealed class LessonSessionCompletedIntegrationEventHandler : IIntegrationEventHandler
+/// <summary>
+/// LessonSessions → tamamlanan derse otomatik ders notu (follow-up) üretici. Replay koruması artık
+/// ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>, EventId+Handler);
+/// LessonSessionId başına TEK ders notu kuralı (unique index, <c>lesson_notes</c>) gerçek bir iş
+/// kuralı olduğundan burada korunur — zaten not varsa yeniden üretilmez.
+/// </summary>
+internal sealed class LessonSessionCompletedIntegrationEventHandler : IdempotentIntegrationEventHandler
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly IAssignmentRepository _repository;
     private readonly ILessonSessionAccessService _lessonSessionAccessService;
     private readonly IIdGenerator _idGenerator;
-    private readonly IClock _clock;
 
     public LessonSessionCompletedIntegrationEventHandler(
-        IAssignmentRepository repository,
+        AssignmentsDbContext dbContext,
         ILessonSessionAccessService lessonSessionAccessService,
         IIdGenerator idGenerator,
         IClock clock)
+        : base(dbContext, clock)
     {
-        _repository = repository;
         _lessonSessionAccessService = lessonSessionAccessService;
         _idGenerator = idGenerator;
-        _clock = clock;
     }
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    private AssignmentsDbContext AssignmentsDb => (AssignmentsDbContext)DbContext;
+
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
     {
         return integrationEvent.SourceModule == "LessonSessions"
             && integrationEvent.Name == "LessonSessionCompletedDomainEvent";
     }
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent eventEnvelope)
-        {
-            return;
-        }
-
-        var payload = JsonSerializer.Deserialize<LessonSessionCompletedEventPayload>(eventEnvelope.Payload, JsonOptions);
+        var payload = JsonSerializer.Deserialize<LessonSessionCompletedEventPayload>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return;
+            return false;
         }
 
-        var existingNote = await _repository.GetLessonNoteByLessonSessionIdAsync(payload.LessonSessionId, cancellationToken);
-        if (existingNote is not null)
+        // İş kuralı (unique index): LessonSessionId başına tek ders notu. Zaten varsa yeniden üretilmez.
+        var existingNote = await AssignmentsDb.LessonNotes
+            .AnyAsync(note => note.LessonSessionId == payload.LessonSessionId, cancellationToken);
+        if (existingNote)
         {
-            return;
+            return false;
         }
 
         var lessonSession = await _lessonSessionAccessService.GetByIdAsync(payload.LessonSessionId, cancellationToken);
         if (lessonSession is null || !lessonSession.IsCompleted)
         {
-            return;
+            return false;
         }
 
         var summary = BuildSummary(lessonSession);
@@ -68,10 +69,10 @@ internal sealed class LessonSessionCompletedIntegrationEventHandler : IIntegrati
             lessonSession.CoveredContent,
             lessonSession.TeacherNotes,
             LessonNoteVisibility.Private,
-            _clock.UtcNow);
+            Clock.UtcNow);
 
-        await _repository.AddLessonNoteAsync(note, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        AssignmentsDb.LessonNotes.Add(note);
+        return true;
     }
 
     private static string BuildSummary(LessonSessionDetails lessonSession)
