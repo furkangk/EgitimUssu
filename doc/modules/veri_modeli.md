@@ -5,7 +5,7 @@ tags: [modul, veri-modeli, er-semasi]
 authority: code
 code_refs:
   - src/Modules/*/Domain/**
-updated: 2026-08-20
+updated: 2026-08-26
 ---
 
 # 🗃️ Veri Modeli ve Modüller Arası İlişkiler (ER Şeması)
@@ -13,7 +13,7 @@ updated: 2026-08-20
 > **Kapsam:** Tüm `src/Modules/` domain aggregate root'larının kimlik (Guid) ve modüller arası referans alanları.
 > **Yöntem:** Mevcut varlıklar koddan doğrulanmıştır (`<Module>/Domain/<Module>DomainModel.cs`); promp.txt vizyonuyla gelen
 > yeni varlıklar **⚠️ Önerilen (henüz kodda yok)** olarak işaretlidir.
-> **Güncelleme:** 2026-08-20 (kod-drift düzeltmesi: Parents enum adı `ParentNotificationChannel` — `NotificationChannel` değil; Notifications'ın `NotificationChannel`'ından farklı tip/isim olduğu açıklığa kavuşturuldu) · 2026-08-19 (m01–m06 kod-senkron: `StudyScheduleEntryStatus` enum kaldırıldı — kodda yok; `LessonSchedule` `TeacherUserId?`/`Topic`/`ColorHex` Ç-06 alanları)
+> **Güncelleme:** 2026-08-26 (Y4 kapatıldı: ortak `InboxMessage`/`inbox_messages` — 12 modül şemasında `(EventId,Handler)` composite PK — eklendi; ProgressTracking'in `processed_events`'i ve Parents'ın `processed_integration_events`'i kaldırıldı; Notifications'ın `processed_integration_events`'i yalnız haftalık-özet dedup'a daraltıldı) · 2026-08-20 (kod-drift düzeltmesi: Parents enum adı `ParentNotificationChannel` — `NotificationChannel` değil; Notifications'ın `NotificationChannel`'ından farklı tip/isim olduğu açıklığa kavuşturuldu) · 2026-08-19 (m01–m06 kod-senkron: `StudyScheduleEntryStatus` enum kaldırıldı — kodda yok; `LessonSchedule` `TeacherUserId?`/`Topic`/`ColorHex` Ç-06 alanları)
 >
 > İlgili: [`00_genel_bakis.md`](00_genel_bakis.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`../INDEX.md`](../INDEX.md)
 
@@ -27,6 +27,16 @@ updated: 2026-08-20
 > (bkz. [`mimari_inceleme.md`](mimari_inceleme.md) O5 — read-model mekanizması yeni modüller için önkoşul).
 
 ---
+
+> **Ortak tüketici idempotency tablosu (`inbox_messages`, 2026-08-26):** `OutboxMessage`'ın kardeşi — 12 modül şemasının
+> (Identity, Teachers, Students, Scheduling, LessonSessions, Assignments, Payments, Notifications, Parents, Settings, Study,
+> ProgressTracking) her birinde aynı yapıda bulunur. Alanlar: `EventId` (Guid), `Handler` (string, handler tip adı),
+> `EventName` (string), `ProcessedOnUtc` (DateTime) — **composite PK `(EventId, Handler)`** (tek event birden çok handler
+> tarafından tüketilebilir). Ortak `IdempotentIntegrationEventHandler` taban sınıfı tarafından yazılır: iş yazımı + inbox-işaretleme
+> tek transaction'da atomik commit edilir (bkz. [`mimari_inceleme.md`](mimari_inceleme.md) Y4). Bu, eski modül-bazlı dedup
+> tablolarının yerini alır: ProgressTracking'in `processed_events`'i ve Parents'ın `processed_integration_events`'i
+> **kaldırıldı**; Notifications'ın `processed_integration_events`'i yalnızca `ParentWeeklySummaryService` haftalık-özet
+> dedup'ı için **korundu** (event idempotency'siyle ilgisiz, ayrı bir amaç).
 
 ## 2. Merkezi Referanslar (Hub'lar)
 
@@ -132,7 +142,8 @@ erDiagram
 | | `ParentPaymentDeclaration` (veli "ödedim" beyanı, Veli V-G; `Status` Declared/Confirmed/Rejected) | `Id` | `PaymentRecordId` → PaymentRecord · `ParentUserId`/`TeacherUserId` → UserAccount · `StudentId` → StudentProfile | |
 | Notifications (`notifications`) | `LessonReminder` | `Id` | `LessonScheduleId` (UNIQUE) · `TeacherUserId` · `StudentId` | [m11](m11_notifications.md) |
 | | `ParentNotification` (veli bildirimi, Veli V-E; `Type` WeeklySummary/NewAssignment/LessonCompleted/PaymentUpdate/LinkConnected/PaymentDeclared) | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile | |
-| | `ProcessedIntegrationEvent` (idempotency + haftalık özet dedup) | `Id` (=EventId / deterministik hafta anahtarı) | — | |
+| | `ProcessedIntegrationEvent` (yalnız **haftalık özet dedup** — `ParentWeeklySummaryService`; event idempotency'si artık `inbox_messages`'a taşındı) | `Id` (deterministik hafta anahtarı) | — | |
+| | `InboxMessage` (ortak tüketici idempotency — bkz. §1 not) | `(EventId, Handler)` composite PK | — | |
 | Settings (`settings`) | `UserSetting` | `Id` | `UserId` → UserAccount (UNIQUE) | [m15](m15_settings.md) |
 | Study (`study`) | `StudySession` | `Id` | `StudentId` → StudentProfile | [m08](m08_study.md) |
 | | `TestResult` (+`MockExamId?` — Ö-B 2026-07-19) | `Id` | `StudentId` → StudentProfile · `MockExamId?` → MockExam | |
@@ -151,7 +162,8 @@ erDiagram
 | | `ParentChildLink` (olaylar: `...Requested/Approved/Rejected/Revoked` + `ParentLinkConnectionNoticeDomainEvent` şeffaflık — Veli V-C) | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile · `ApprovedByUserId?` | |
 | | `ChildProgressSnapshot` (read-model) | `Id` | `StudentId` → StudentProfile (event ile beslenir) | |
 | | `KnownStudent` (read-model) | `Id` | `StudentId` → StudentProfile · `UserId` → UserAccount | |
-| | `ProcessedIntegrationEvent` (idempotency) | `Id` | işlenmiş event kimliği | |
+| | ~~`ProcessedIntegrationEvent`~~ **kaldırıldı (2026-08-26)** → ortak `InboxMessage`'a taşındı (bkz. §1 not) | — | — | |
+| | `InboxMessage` (ortak tüketici idempotency, 4 read-model projeksiyonu için — bkz. §1 not) | `(EventId, Handler)` composite PK | — | |
 
 **Enum'lar (koddan):** `UserRole`(Admin1,Teacher2,Student3,Parent4) · `UserAccountStatus`(PendingActivation1,Active2,Suspended3,Closed4) · `TeacherLessonFormat`/`ScheduledLessonFormat`(InPerson1,Online2,Hybrid3) · `StudentOrigin`(TeacherManaged1,SelfRegistered2) · `TargetExam`(None0,LGS1,TYT2,AYT3,YDS4,School5,Other6 — DB'de string; M08 net böleni) · `MembershipTier`(Free1,Premium2 — DB'de string, Shared/Contracts; M08 Free/Premium kapıları, Ö-D) · `TeacherStudentLinkStatus`(Manual1,InviteSent2,Linked3,Rejected4,Disconnected5) · `LessonScheduleStatus`(Draft1,Planned2,Cancelled3,Completed4) · `CancellationReason`(TeacherCancelled1,StudentCancelled2,Holiday3,Other4) · `OccurrenceScope`(Single1,ThisAndFuture2,All3) · `TimeOffType`(Holiday1,Leave2,Official3,Other4) · `OccurrenceExceptionAction`(Skipped1,Cancelled2,Rescheduled3) · `LessonChangeRequestStatus`(Pending1,Accepted2,Rejected3) · `LessonSessionStatus`(Planned1,InProgress2,Completed3,Cancelled4) · `StudentAttendanceStatus`(Unknown1,Attended2,Late3,Absent4) · `AssignmentStatus`(Pending1,InProgress2,Completed3,Cancelled4,Approved5,ReturnedForRevision6) · `LessonNoteVisibility`(Private1,Student2,StudentAndParent3) · `BillingItemType`(LessonFee1,MonthlyPackage2,ManualAdjustment3) · `PaymentStatus`(Pending1,PartiallyPaid2,Paid3,Overdue4,Cancelled5) · `ParentPaymentDeclarationStatus`(Declared1,Confirmed2,Rejected3 — Veli V-G) · `NotificationChannel`(InApp1,Push2) · `ReminderStatus`(Pending1,Sent2,Cancelled3) · `PrivacyLevel`(Standard1,Limited2,Hidden3) · `SessionTerminationPolicy`(KeepLatest1,TerminateOtherSessions2) · `ParentChildLinkStatus`(Pending1,Approved2,Rejected3,Revoked4) · `ParentInviteStatus`(Pending1,Claimed2 — Veli V-D) · `ParentNotificationType`(WeeklySummary1,NewAssignment2,LessonCompleted3,PaymentUpdate4,LinkConnected5,PaymentDeclared6 — Veli V-E) · **Parents** `ParentNotificationChannel`(Push1,Email2,Both3) — Notifications modülünün `NotificationChannel`(InApp1,Push2) enum'undan **farklı bir tip, farklı isimle** · **Study** `StudySessionStatus`(Running1,Paused2,Completed3,Discarded4) · `StudySessionSource`(Stopwatch1,Manual2) · `TestType`(Branch1,General2,Subject3,Topic4) · `AchievementCategory`(Streak1,StudyTime2,TestPerformance3,Goal4,Consistency5) · **ProgressTracking** `MasteryLevel`(NotStarted1,Weak2,Developing3,Proficient4,Mastered5) · `ProgressTrend`(Improving1,Stable2,Declining3) · `MasterySource`(StudyOnly1,LessonOnly2,Combined3) · `TopicGoalStatus`(Active1,Achieved2,Missed3,Cancelled4) · `TopicGoalSetterRole`(Student1,Teacher2).
 
@@ -166,7 +178,7 @@ erDiagram
 | M04 Scheduling | (Dilim A tamamlandı 2026-07-18: `MeetingUrl`, `TimeOffBlock`, `LessonOccurrenceException` artık **kodda**; Ö-F: `LessonChangeRequest` öğrenci erteleme talebi **kodda**) | — | [m04](m04_scheduling.md) |
 | M06 Assignments | **`AssignmentSubmission`**, **`LessonResource`** | `AssignmentId`→Assignment, öğrenci yükleme; kaynak (`TeacherUserId`,`LessonSessionId?`) | [m06](m06_assignments.md) |
 | M07 Payments | `PaymentRecord`+**`IsSharedWithParent`** | veli görünürlüğü | [m07](m07_payments.md) |
-| M10 ProgressTracking | ✅ `TopicMastery`, `TopicGoal`, `ProcessedEvent` (kodda, `progress_tracking` şeması); ⚠️ `ProgressSnapshot` (zaman serisi, önerilen) | `StudentId`→StudentProfile; `TopicGoal`+`ProcessedEvent` idempotency | [m10](m10_progress_tracking.md) |
+| M10 ProgressTracking | ✅ `TopicMastery`, `TopicGoal`, `InboxMessage` (kodda, `progress_tracking` şeması — eski `ProcessedEvent`/`processed_events` **kaldırıldı 2026-08-26**, ortak inbox'a taşındı, bkz. §1 not); ⚠️ `ProgressSnapshot` (zaman serisi, önerilen) | `StudentId`→StudentProfile; `InboxMessage` `(EventId,Handler)` idempotency | [m10](m10_progress_tracking.md) |
 | M12 Matching | **`TeacherListing`**, **`StudentRequestListing`**, **`MatchRequest`**, `TeacherSearchProjection` | `TeacherUserId`/`StudentUserId`; konum+yıldız+premium sıralama | [m12](m12_matching.md) |
 | M13 Reviews | **`TeacherReview`**, **`ReviewResponse`**, **`ReviewFlag`** | `TeacherUserId`,`StudentId`; doğrulanmış öğrenci | [m13](m13_reviews.md) |
 | M16 Messaging | **`Conversation`**, **`ConversationParticipant`**, **`Message`** | yalnız öğretmen↔öğrenci/veli; okundu | [m16](m16_messaging.md) |
@@ -192,4 +204,4 @@ erDiagram
 
 ---
 
-*Veri Modeli & ER Şeması | Güncelleme: 2026-08-20 (kod-drift düzeltmesi: Parents `ParentNotificationChannel` enum adı düzeltildi) · 2026-08-19 (m07–m12 kod-senkron: ProgressTracking enum'ları eklendi — MasteryLevel/ProgressTrend/MasterySource/TopicGoalStatus/TopicGoalSetterRole; m07-m12 tablo/enum envanteri koda göre doğrulandı) · 2026-08-19 (m01–m06 kod-senkron: `StudyScheduleEntryStatus` enum kaldırıldı; `LessonSchedule` nullable `TeacherUserId`/`Topic`/`ColorHex`) · 2026-07-19 (Veli V-F: dashboard canlı digest kontratları — Study/Scheduling/LessonSessions/Assignments/Payments; çalışma verisi bug fix · Veli V-E: `ParentNotification` + `ParentProfile.MembershipTier` + `IParentNotificationDirectory` veli bildirim motoru · Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı + `IParentAccessDirectory` · Veli V-D: `StudentParentInvite` öğretmen→veli davet kodu + `IParentInviteDirectory` · Veli V-C: `ParentLinkConnectionNoticeDomainEvent` bağlantı şeffaflığı + birincil veli tekilliği · Veli V-B: `IStudentPrivacyDirectory` gizlilik kontratı — Settings · Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi · Ö-F: `LessonChangeRequest` öğrenci ders erteleme talebi · Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*
+*Veri Modeli & ER Şeması | Güncelleme: 2026-08-26 (Y4 kapatıldı: ortak `InboxMessage`/`inbox_messages` — 12 modül şemasında `(EventId,Handler)` composite PK; ProgressTracking `processed_events` + Parents `processed_integration_events` kaldırıldı; Notifications `processed_integration_events` yalnız haftalık-özet dedup'a daraltıldı) · 2026-08-20 (kod-drift düzeltmesi: Parents `ParentNotificationChannel` enum adı düzeltildi) · 2026-08-19 (m07–m12 kod-senkron: ProgressTracking enum'ları eklendi — MasteryLevel/ProgressTrend/MasterySource/TopicGoalStatus/TopicGoalSetterRole; m07-m12 tablo/enum envanteri koda göre doğrulandı) · 2026-08-19 (m01–m06 kod-senkron: `StudyScheduleEntryStatus` enum kaldırıldı; `LessonSchedule` nullable `TeacherUserId`/`Topic`/`ColorHex`) · 2026-07-19 (Veli V-F: dashboard canlı digest kontratları — Study/Scheduling/LessonSessions/Assignments/Payments; çalışma verisi bug fix · Veli V-E: `ParentNotification` + `ParentProfile.MembershipTier` + `IParentNotificationDirectory` veli bildirim motoru · Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı + `IParentAccessDirectory` · Veli V-D: `StudentParentInvite` öğretmen→veli davet kodu + `IParentInviteDirectory` · Veli V-C: `ParentLinkConnectionNoticeDomainEvent` bağlantı şeffaflığı + birincil veli tekilliği · Veli V-B: `IStudentPrivacyDirectory` gizlilik kontratı — Settings · Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi · Ö-F: `LessonChangeRequest` öğrenci ders erteleme talebi · Ö-D: `StudentProfile.MembershipTier` Free/Premium — Study Free/Premium kapıları · Ö-B: `MockExam` çok dersli deneme + `TestResult.MockExamId` + `StudentProfile.TargetExam` · Dilim A: `TimeOffBlock`, `LessonOccurrenceException` + `LessonSchedule`/`LessonSession` yeni alanlar · Dilim B: `LessonNote.Visibility`, `Assignment.TeacherFeedback` + yeni statüler · Dilim C: `TeacherStudentLink` çoklu öğretmen bağı · Dilim D: `TeacherSubject`, `TeacherCertificate`)*

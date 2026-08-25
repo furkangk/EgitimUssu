@@ -3,7 +3,7 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-07-18
+updated: 2026-08-26
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
@@ -75,7 +75,7 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 **Öneri:** Mesaj başına try/catch; başarılıyı işaretle, başarısıza `Error` + `RetryCount` yaz; eşik aşılınca dead-letter. Handler'ları **idempotent** yap (bkz. Y4).
 
 ✅ _Çözüm (2026-07-01):_ `IOutboxStore` tek `ProcessPendingAsync(publish)` sözleşmesine indirildi; `EfOutboxStore` artık **mesaj-başına** işliyor: başarı → `ProcessedOnUtc`; başarısızlık → `RetryCount++` + `Error` + üstel `NextAttemptUtc` backoff; `RetryCount >= MaxRetryCount` → `DeadLetteredOnUtc` (kuyruktan çıkar). Zehirli mesaj artık sıradaki sağlıklı mesajı bloklamıyor (tüm sonuçlar tek `SaveChanges`). Deserialize başarısızlığı da sessizce düşürülmüyor, hata olarak işleniyor. Çoklu-instance: Npgsql'de `FOR UPDATE SKIP LOCKED` + lease (`NextAttemptUtc`) ile satır sahiplenme; InMemory'de sıralı seçim. Yeni alanlar için 9 context'te migration. Testler: `tests/Unit/OutboxRetryAndDeadLetterTests.cs`. (K4 context-başına izolasyon korunuyor.)
-✅ _Doğrulama (2026-07-06, M14):_ SKIP LOCKED + retry/dead-letter artık gerçek Postgres'e karşı test ediliyor (`tests/Integration/RealOutboxIntegrationTests.cs`, Testcontainers). ⚠️ Tüketici inbox/dedup idempotency'si (mesaj-id) hâlâ açık — HTTP idempotency (Y4) eklendi ama outbox tüketici tarafı dedup ayrı.
+✅ _Doğrulama (2026-07-06, M14):_ SKIP LOCKED + retry/dead-letter artık gerçek Postgres'e karşı test ediliyor (`tests/Integration/RealOutboxIntegrationTests.cs`, Testcontainers). ✅ _Tüketici inbox/dedup idempotency'si (2026-08-26):_ Artık kapalı — bkz. aşağıdaki **Y4** (ortak `inbox_messages` + `IdempotentIntegrationEventHandler`). HTTP idempotency (comp. denetim Y4, `Idempotency-Key`) ayrı bir mekanizma olarak kalmaya devam ediyor.
 
 ---
 
@@ -103,10 +103,12 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 ### ✅ Y3 — Mobil: token yenileme (refresh) akışı yok → kullanıcı 60 dk'da bir atılıyor — **Düzeltildi 2026-06-25**
 `TokenStorage`'a `readRefreshToken`/`writeRefreshToken` eklendi. `TokenRefreshInterceptor` (`QueuedInterceptorsWrapper`) 401'de `POST /api/identity/refresh` ile sessiz yenileme yapar; yenileme de başarısız olursa `_onUnauthorized` callback'i tetikler. `ApiClient` lazy closure ile `AuthRepository.refreshSession()`'ı çağırır (döngüsel bağımlılık önlendi).
 
-### Y4 — Handler'lar idempotent değil (at-least-once teslimat varsayımıyla çelişir)
+### ✅ Y4 — Handler'lar idempotent değil (at-least-once teslimat varsayımıyla çelişir) — **Düzeltildi 2026-08-26**
 Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegrationEventHandler`) tekrarı engellemiyor → çift kayıt riski.
 
-**Öneri:** İşlenen `EventId`'leri modül bazında "inbox/processed" tablosunda tut; tekrarı atla.
+**Öneri (eski):** İşlenen `EventId`'leri modül bazında "inbox/processed" tablosunda tut; tekrarı atla.
+
+✅ _Çözüm (2026-08-26):_ Paylaşılan `InboxMessage` entity'si + `inbox_messages` tablosu (composite PK `(EventId, Handler)`) her modül `DbContext`'ine eklendi, ve ortak `IdempotentIntegrationEventHandler` taban sınıfı yazıldı: handler önce `(EventId, Handler)` ile inbox'ta bir kayıt olup olmadığına bakar (guard), yoksa `ApplyAsync` iş yazımlarını **staged** (henüz kaydedilmemiş) olarak hazırlar, taban sınıf inbox-işaretleme + iş yazımını **tek transaction'da atomik commit** eder — ya ikisi de yazılır ya hiçbiri (at-least-once teslimat artık güvenli, çift kayıt riski yok). Tüm 11 tüketici handler bu taban sınıfa geçirildi: ProgressTracking (×2), Parents (×4 projeksiyon), Notifications (×2), Assignments (×1), Students (×1), ve 5 `StudentMerged` handler (Payments/Study/Assignments/Scheduling/LessonSessions). Eski modül-bazlı dedup tabloları — ProgressTracking'in `processed_events`'i ve Parents'ın `processed_integration_events`'i — kaldırıldı; Notifications'ın `processed_integration_events`'i **korundu** (yalnızca `ParentWeeklySummaryService` haftalık-özet dedup'ı için, event idempotency'siyle ilgisiz). 12 modül context'i için migration üretildi. Bkz. [`veri_modeli.md`](veri_modeli.md) (`inbox_messages` ER) ve [`00_genel_bakis.md`](00_genel_bakis.md) (handler envanteri).
 
 ### Y5 — Bildirimler gerçekten gönderilmiyor (yalnızca "gönderildi" işaretleniyor)
 `NotificationDispatchProcessor.DispatchDueRemindersAsync` `reminder.MarkSent(...)` diyor ama **FCM/APNs'e hiçbir şey göndermiyor**. Push altyapısı (PRD Faz 0.7) bağlı değil (bkz. [`m11_notifications.md`](m11_notifications.md)).
@@ -194,4 +196,4 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) — Düzeltmeler yapıldıkça güncellenmeli.*
