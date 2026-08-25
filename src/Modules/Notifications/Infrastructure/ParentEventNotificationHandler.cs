@@ -11,28 +11,31 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure;
 /// Olay bazlı veli bildirim üretici (Veli V-E). Yalnız **Premium** veliye ve ilgili tercih açıkken üretir.
 /// Kaynaklar: Assignments/`AssignmentCreatedDomainEvent`, LessonSessions/`LessonSessionCompletedDomainEvent`,
 /// Payments/`PaymentRecordUpdatedDomainEvent`, Parents/`ParentLinkConnectionNoticeDomainEvent`.
+/// Event dedup artık ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>); haftalık-özet
+/// dedup'ı (ayrı bir tablo/anahtar uzayı, <c>processed_integration_events</c>) bu handler'ı ETKİLEMEZ —
+/// yalnız <see cref="ParentWeeklySummaryService"/> onu kullanmaya devam eder.
 /// </summary>
-public sealed class ParentEventNotificationHandler : IIntegrationEventHandler
+public sealed class ParentEventNotificationHandler : IdempotentIntegrationEventHandler
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IParentNotificationDirectory _directory;
     private readonly IParentNotificationRepository _repository;
     private readonly IIdGenerator _idGenerator;
-    private readonly IClock _clock;
 
     public ParentEventNotificationHandler(
+        NotificationsDbContext dbContext,
         IParentNotificationDirectory directory,
         IParentNotificationRepository repository,
         IIdGenerator idGenerator,
         IClock clock)
+        : base(dbContext, clock)
     {
         _directory = directory;
         _repository = repository;
         _idGenerator = idGenerator;
-        _clock = clock;
     }
 
-    public bool CanHandle(IIntegrationEvent integrationEvent)
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent switch
         {
             { SourceModule: "Assignments", Name: "AssignmentCreatedDomainEvent" } => true,
@@ -42,22 +45,13 @@ public sealed class ParentEventNotificationHandler : IIntegrationEventHandler
             _ => false
         };
 
-    public async Task HandleAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        if (integrationEvent is not IntegrationEvent envelope)
-        {
-            return;
-        }
-
-        if (await _repository.HasProcessedAsync(envelope.EventId, cancellationToken))
-        {
-            return;
-        }
-
         var mapped = Map(envelope);
         if (mapped is null)
         {
-            return;
+            // Bilinmeyen/bozuk payload: eski davranışla birebir — işlenmiş sayılmaz (inbox'a yazılmaz), yeniden denenebilir.
+            return false;
         }
 
         var (studentId, type, requiredPref, title, message) = mapped.Value;
@@ -78,12 +72,13 @@ public sealed class ParentEventNotificationHandler : IIntegrationEventHandler
             }
 
             await _repository.AddAsync(
-                new ParentNotification(_idGenerator.New(), target.ParentUserId, studentId, type, title, message, _clock.UtcNow),
+                new ParentNotification(_idGenerator.New(), target.ParentUserId, studentId, type, title, message, Clock.UtcNow),
                 cancellationToken);
         }
 
-        _repository.MarkProcessed(envelope.EventId, envelope.Name, _clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
+        // Eski davranışla birebir: hedef bulunamasa/hepsi Premium-dışı veya tercih-kapalı olsa bile
+        // olay "işlenmiş" sayılır (eskiden MarkProcessed koşulsuzdu) → inbox'a yazılır, tekrar denenmez.
+        return true;
     }
 
     private static (Guid StudentId, ParentNotificationType Type, Func<ParentNotificationPrefs, bool>? RequiredPref, string Title, string Message)? Map(IntegrationEvent envelope)
