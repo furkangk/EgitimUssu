@@ -40,6 +40,9 @@ ConnectionStringGuard.EnsureValid(
 // P02/K-01: E-posta sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce e-posta göndermeme yasak).
 var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
 EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.IsDevelopment());
+// P03/K-02: Push sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce push göndermeme yasak).
+var pushOptions = builder.Configuration.GetSection(PushOptions.SectionName).Get<PushOptions>() ?? new PushOptions();
+PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.IsDevelopment());
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
@@ -110,6 +113,13 @@ if (!app.Environment.IsDevelopment()
 {
     app.Logger.LogWarning(
         "Email:Provider = \"Logging\" — e-postalar GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Smtp'ye geçin.");
+}
+
+if (!app.Environment.IsDevelopment()
+    && string.Equals(pushOptions.Provider, PushOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+{
+    app.Logger.LogWarning(
+        "Push:Provider = \"Logging\" — push bildirimleri GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Fcm'ye geçin.");
 }
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();

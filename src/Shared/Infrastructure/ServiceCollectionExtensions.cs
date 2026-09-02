@@ -6,6 +6,7 @@ using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Email;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
+using EgitimUssu.Shared.Infrastructure.Push;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
         services.Configure<RateLimitOptions>(configuration.GetSection(RateLimitOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
@@ -56,6 +58,18 @@ public static class ServiceCollectionExtensions
             return string.Equals(emailOptions.Provider, EmailOptions.SmtpProvider, StringComparison.OrdinalIgnoreCase)
                 ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
                 : ActivatorUtilities.CreateInstance<LoggingEmailSender>(provider);
+        });
+
+        // K-02: Push sağlayıcısı konfigürasyonla seçilir; uygulama kodu FCM'i bilmez.
+        services.AddSingleton<IFcmAccessTokenProvider, GoogleFcmAccessTokenProvider>();
+        services.AddHttpClient<FcmPushSender>();
+        services.AddScoped<IPushSender>(provider =>
+        {
+            var pushOptions = provider.GetRequiredService<IOptions<PushOptions>>().Value;
+
+            return string.Equals(pushOptions.Provider, PushOptions.FcmProvider, StringComparison.OrdinalIgnoreCase)
+                ? provider.GetRequiredService<FcmPushSender>()
+                : ActivatorUtilities.CreateInstance<LoggingPushSender>(provider);
         });
 
         return services;

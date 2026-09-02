@@ -287,7 +287,13 @@ git commit -m "feat(notifications): cihaz push token kaydi (M11-2)"
   - `interface IPushSender { Task<PushResult> SendAsync(string deviceToken, PushMessage message, CancellationToken ct = default); }`
   - `sealed class PushOptions { public string Provider = "Logging"; public string ProjectId = ""; public string ServiceAccountJsonPath = ""; public string ServiceAccountJson = ""; }`
 
-- [ ] **Step 1: Guard + gönderici testlerini yaz (kırmızı)**
+> **Sapma (uygulandı):** Plan `GoogleCredential.FromFile/FromJson` kullanıyordu; `Google.Apis.Auth` 1.76'da ikisi de `[Obsolete]` ve CI'nin `-warnaserror` derlemesini kırıyor. Yerine önerilen yol kullanıldı: `CredentialFactory.FromFile<ServiceAccountCredential>(...)` / `FromJson<ServiceAccountCredential>(...)` → `.ToGoogleCredential().CreateScoped(...)`.
+> **Sapma (uygulandı):** `FcmPushSender` ve `GoogleFcmAccessTokenProvider` plandaki `internal` yerine **`public`** (test projesi ayrı derlemede; `SmtpEmailSender` de public — P02 deseni korundu).
+> **Sapma (uygulandı):** Erişim token'ı sağlayıcısı `GoogleCredential`'ı alan bazında bir kez kurar (`_credential ??=`); Google kütüphanesi token yenilemeyi kendi yapar, her gönderimde dosya/JSON yeniden okunmaz.
+> **Sapma (uygulandı) — plan eksiği:** Plan 6 test öngörüyordu; 11 test yazıldı (guard: 6 — proje kimliği yok / kimlik yok / inline JSON / dosya yolu / bilinmeyen sağlayıcı / üretimde Logging; gönderici: 5 — Delivered, UNREGISTERED, INVALID_ARGUMENT, 503, istek gövdesi+Bearer başlığı doğrulaması).
+> **Sapma (uygulandı):** `Program.cs`'e guard'ın yanı sıra üretimde `Push:Provider=Logging` uyarısı da eklendi (P02'deki e-posta uyarısının eşleniği; "sessiz kayıp yok" ilkesi).
+
+- [x] **Step 1: Guard + gönderici testlerini yaz (kırmızı)**
 
 `tests/Unit/PushOptionsGuardTests.cs`:
 ```csharp
@@ -327,16 +333,16 @@ public async Task Server_Error_Should_Return_TransientFailure()
 ```
 Sahte handler: `sealed class StubHttpMessageHandler : HttpMessageHandler` — kurucu `(HttpStatusCode status, string body)`, `SendAsync` bunu döndürür. `FcmPushSender` kurucusu `IHttpClientFactory` yerine doğrudan `HttpClient` alsın ki test enjekte edebilsin; erişim token'ı için `IFcmAccessTokenProvider` arayüzü kullanılsın ve testte sabit token döndüren sahte verilsin.
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Push"`
 Expected: FAIL.
 
-- [ ] **Step 3: Paketi ekle**
+- [x] **Step 3: Paketi ekle**
 
 Run: `dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj package Google.Apis.Auth`
 
-- [ ] **Step 4: Sözleşmeleri ve seçenekleri yaz**
+- [x] **Step 4: Sözleşmeleri ve seçenekleri yaz**
 
 `PushMessage.cs` / `PushResult.cs` / `IPushSender.cs`:
 ```csharp
@@ -365,7 +371,7 @@ public interface IPushSender
 
 `LoggingPushSender.cs` — `LoggingEmailSender` gibi log'lar ve `PushDeliveryStatus.Delivered` döner.
 
-- [ ] **Step 5: `FcmPushSender`'ı yaz**
+- [x] **Step 5: `FcmPushSender`'ı yaz**
 
 `src/Shared/Infrastructure/Push/FcmPushSender.cs`:
 ```csharp
@@ -477,7 +483,7 @@ internal sealed class FcmPushSender : IPushSender
 }
 ```
 
-- [ ] **Step 6: DI + konfigürasyon**
+- [x] **Step 6: DI + konfigürasyon**
 
 `ServiceCollectionExtensions.cs`:
 ```csharp
@@ -503,12 +509,12 @@ internal sealed class FcmPushSender : IPushSender
 ```
 `Program.cs` → `EmailOptionsGuard` çağrısının ardına `PushOptionsGuard.Validate(...)`.
 
-- [ ] **Step 7: Testleri çalıştır**
+- [x] **Step 7: Testleri çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Push"`
 Expected: PASS (6 test).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/Shared/Infrastructure/Push src/Shared/Infrastructure/Configuration src/API.Host tests/Unit

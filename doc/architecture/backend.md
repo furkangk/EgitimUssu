@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
@@ -81,6 +81,7 @@ Host'un kurduğu çapraz-kesit servisler:
 | **Loglama** | JSON console + `RequestContextLoggingMiddleware` (istek bağlamı) |
 | **Health** | `/health/live` (canlılık), `/health/ready` (configuration + database hazır mı) |
 | **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp` (`SmtpEmailSender`, MailKit; herhangi bir relay: Gmail/SES/SendGrid/Resend). Env: `Email__Provider`, `Email__FromEmail`, `Email__Smtp__Host`, `Email__Smtp__Port`, `Email__Smtp__UseStartTls`, `Email__Smtp__Username`, `Email__Smtp__Password`. `EmailOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Kimlik akışı şablonları: `Identity/Infrastructure/EmailTemplates` (`egitimussu://` derin bağlantı, token URL-kodlu) |
+| **Push** | `IPushSender` (K-02); sağlayıcı `Push:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Fcm` (`FcmPushSender`, FCM HTTP v1 + service-account OAuth2, `IFcmAccessTokenProvider`). Env: `Push__Provider`, `Push__ProjectId`, `Push__ServiceAccountJson` (veya `Push__ServiceAccountJsonPath`). `PushOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Sonuç üç değerli: `Delivered` / `TokenInvalid` (token kapatılır) / `TransientFailure` (yeniden denenir) |
 | **Meta** | `GET /api/meta/version` → servis sürümü + yüklü modül listesi |
 | **OpenAPI** | `AddOpenApi` / `MapOpenApi` |
 
@@ -162,7 +163,7 @@ public static IServiceCollection AddIdentityModule(this IServiceCollection s, IC
 | **Kernel** | Domain çekirdeği + ortak sözleşmeler | `Entity`, `AggregateRoot<TId>`, `ValueObject`, `DomainEvent`, `Result`/`Result<T>`/`Error`, `PagedResult`, `IClock`, `ICurrentUser`, `IIdGenerator` |
 | **Application** | CQRS soyutlamaları | `ICommand`, `ICommandHandler`, `IQuery`, `IQueryHandler` (+ dispatcher/validator/authorizer sözleşmeleri) |
 | **Contracts** | Modüller-arası entegrasyon sözleşmesi | `IIntegrationEvent`, `IntegrationEvent` |
-| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), `SystemClock`, `GuidIdGenerator`, Configuration options |
+| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), Push (`IPushSender`, `PushMessage`/`PushResult`, `LoggingPushSender`, `FcmPushSender` + `IFcmAccessTokenProvider`/Google.Apis.Auth), `SystemClock`, `GuidIdGenerator`, Configuration options |
 
 **`Result` deseni** (istisna yerine):
 ```csharp
@@ -172,10 +173,10 @@ public sealed class Result<TValue> : Result { public TValue? Value { get; } /* �
 ```
 
 **Configuration option'ları:** `DatabaseOptions` (connection + `ApplyMigrationsOnStartup`), `JwtOptions`,
-`RedisOptions`, `OutboxOptions`, `RateLimitOptions`, `EmailOptions` (+`SmtpOptions`).
+`RedisOptions`, `OutboxOptions`, `RateLimitOptions`, `EmailOptions` (+`SmtpOptions`), `PushOptions`.
 
 **Startup guard'ları** (ortak desen: `Validate` nedeni döner → health check kullanır; `EnsureValid` fırlatır → `Program.cs` fail-fast):
-`JwtSigningKeyGuard`, `ConnectionStringGuard`, `EmailOptionsGuard`.
+`JwtSigningKeyGuard`, `ConnectionStringGuard`, `EmailOptionsGuard`, `PushOptionsGuard`.
 
 ## 6. Persistence & Veri İzolasyonu
 
@@ -259,4 +260,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-02 (P02: SmtpEmailSender + e-posta env değişkenleri)*
+*Backend Mimari | Güncelleme: 2026-09-03 (P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
