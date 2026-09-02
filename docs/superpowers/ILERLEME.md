@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P01 — Onarım` **✅ TAMAMLANDI (7/7)** (`plans/2026-09-02-01-onarim.md`) |
-| **Sıradaki görev** | **P02 Task 1** — E-posta altyapısı (`plans/2026-09-02-02-eposta.md`) · alternatif: P03/P04/P13 (paralel yürüyebilir) |
-| **Dal** | `feat/p01-onarim` — **push edildi** (`EgitimUssu/feat/p01-onarim`); PR açılacak: https://github.com/furkangk/EgitimUssu/pull/new/feat/p01-onarim |
-| **Durum** | ✅ P01 bitti; PR `main`'e merge edilince yeni plan dalı açılır (`gh auth login` gerekiyordu, PR el ile açılacak) |
-| **Son commit** | `3755896` (docs: P01 kapanışı) |
+| **Aktif plan** | `P02 — E-posta Altyapısı` **1/7** (`plans/2026-09-02-02-eposta-altyapisi.md`) |
+| **Sıradaki görev** | **P02 Task 2** — `SmtpEmailSender` (MailKit) + sağlayıcı seçen DI fabrikası |
+| **Dal** | `feat/p02-eposta` — `feat/p01-onarim` üzerine açıldı (P01 henüz `main`'e merge edilmedi; yeşil zemin oradaydı). P01 merge olunca bu dal rebase edilir. |
+| **Durum** | 🔄 P02 sürüyor · P01 dalı hâlâ PR bekliyor: https://github.com/furkangk/EgitimUssu/pull/new/feat/p01-onarim |
+| **Son commit** | `ee00755` (feat(email): IEmailSender + Logging + config guard) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -23,7 +23,7 @@
 | Plan | Görev | Durum | Not |
 |------|-------|-------|-----|
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
-| P02 E-posta altyapısı | 0/7 | ⚪ Bekliyor | P01 sonrası |
+| P02 E-posta altyapısı | 1/7 | 🔄 Devam ediyor | Task 1 bitti (`IEmailSender` + guard) · dal: `feat/p02-eposta` |
 | P03 Push bildirim | 0/7 | ⚪ Bekliyor | P01 sonrası (P02 ile paralel olabilir) |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
@@ -54,6 +54,7 @@
 | 2026-09-02 | P01 / Task 5 — C-07 gerçek-DB testleri yerelde koşulabilir (`scripts/test-with-docker.sh`) | `53cb0ba` | `./scripts/test-with-docker.sh`: 167 birim + 4 mimari + **18 integration, Atlanan 0, Başarısız 0** (Testcontainers gerçekten koştu) |
 | 2026-09-02 | P01 / Task 6 — F-01…F-07 doküman driftleri koda göre düzeltildi | `3ca961d` | `bash doc/_tools/kb_healthcheck.sh` → **temiz** (12 dosyanın frontmatter `updated:` alanı gövdeyle eşitlendi) |
 | 2026-09-02 | P01 / Task 7 — kapanış: boş `src/Modules/docs` silindi, CI `-warnaserror` derlemesi yeşile alındı, denetim envanteri işaretlendi | `3755896` | `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** (önce 13 hata) · tam paket: 167+4+18, **Başarısız 0, Atlanan 0** · `flutter test`: **48/48** · `flutter analyze`: 5 önceden var olan info |
+| 2026-09-02 | P02 / Task 1 — K-01 `IEmailSender` soyutlaması + `LoggingEmailSender` + `EmailOptionsGuard` | `ee00755` | `dotnet test EgitimUssu.slnx`: **175 birim + 4 mimari + 18 integration, Başarısız 0, Atlanan 0** (öncesi 167 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · Development'ta `dotnet run` → `Now listening on: http://localhost:5296` · Production + `Email__Provider=Smtp` (Host yok) → fail-fast (`exit=134`, "Email:Smtp:Host zorunludur") · Production + `Provider=Logging` → `LogLevel:Warning` uyarısı basıldı, uygulama açıldı · `doc/_tools/kb_healthcheck.sh` temiz |
 
 ---
 
@@ -84,6 +85,8 @@
 | 19 | Doküman drift'i işaretlerken plan "hepsini `[x]` yap" diyordu ama kod doğrulaması bazılarının **kısmen** doğru olduğunu gösterdi. Kalıcı yaklaşım: tam → `[x]`, kısmi → `[~]` + kapatacak plan etiketi (`(P03)` gibi), yok → `[ ]` + gerekçe. Doküman böylece "yalancı yeşil" olmuyor. | P01/Task 6 |
 | 20 | `doc/_tools/kb_healthcheck.sh`, frontmatter `updated:` ile gövdedeki `Güncelleme:` tarihinin **eşit** olmasını istiyor. Bir doc'un alt bilgisini güncellerken frontmatter'ı da güncelle, yoksa YELLOW DATE uyarısı çıkar. | P01/Task 6 |
 | 21 | Öğrenilenler #15'teki CI kırmızısı **Task 7'de kapatıldı**: `-warnaserror` 13 hata veriyordu (3× CS1573 eksik XML `<param>`, 1× CS8604 nullable `LessonFormat`, 9× CS8602 `result.Value`). Dikkat: `dotnet build` **incremental** olduğunda hatalar görünmüyor — CI'yi taklit etmek için **`--no-incremental`** şart. | P01/Task 7 |
+| 23 | **`dotnet run` yerelde `Properties/launchSettings.json` profilini uygular ve `ASPNETCORE_ENVIRONMENT` env değişkenini ezer.** Üretim davranışını (guard/uyarı) yerelde denemek için **`--no-launch-profile`** şart; yoksa uygulama sessizce Development'ta koşar ve testin bir anlamı kalmaz. | P02/Task 1 |
+| 24 | Yeni guard `Validate`/`EnsureValid` ikilisiyle yazıldı (#13) ama **`ConfigurationHealthCheck`'e bağlanmadı** — `Health/ConfigurationHealthCheck.cs` Task 1'in `Files:` listesinde yok (kapsam kilidi). `/health/ready` bugün e-posta yapılandırmasını raporlamıyor. Aday: P02 kapanışı veya P13. | P02/Task 1 |
 | 22 | `flutter analyze`'daki 5 info hâlâ duruyor ve CI **onu koşmuyor** (`build-android.yml` yalnız `pub get` + APK). Ana dalın yeşilliği bundan etkilenmiyor; temizlik P13'e kaldı. | P01/Task 7 |
 
 ---
@@ -118,4 +121,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 TAMAMLANDI — 7/7; dal `feat/p01-onarim` birleştirme kararı bekliyor)*
+*İlerleme defteri | Son güncelleme: 2026-09-02 (P02 Task 1 bitti — 1/7; dal `feat/p02-eposta`)*
