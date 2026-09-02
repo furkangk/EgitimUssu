@@ -80,7 +80,7 @@ updated: 2026-09-03
 | M03 | [`m03_students`](modules/m03_students.md) | 🟢/🟡 | M12 | [`m12_matching`](modules/m12_matching.md) | 🔴 |
 | M04 | [`m04_scheduling`](modules/m04_scheduling.md) | 🟢 | M13 | [`m13_reviews`](modules/m13_reviews.md) | 🔴 |
 | M05 | [`m05_lesson_sessions`](modules/m05_lesson_sessions.md) | 🟢 | M14 | [`m14_reporting`](modules/m14_reporting.md) | 🔴 |
-| M06 | [`m06_assignments`](modules/m06_assignments.md) | 🟢 | M15 | [`m15_settings`](modules/m15_settings.md) | 🟡 |
+| M06 | [`m06_assignments`](modules/m06_assignments.md) | 🟢 | M15 | [`m15_settings`](modules/m15_settings.md) | 🟢 |
 | M07 | [`m07_payments`](modules/m07_payments.md) | 🟢 | M16 | [`m16_messaging`](modules/m16_messaging.md) | 🔴 yeni |
 | M08 | [`m08_study`](modules/m08_study.md) | 🟢 | M17 | [`m17_membership`](modules/m17_membership.md) | 🔴 yeni |
 | M09 | [`m09_parents`](modules/m09_parents.md) | 🟢 | M18 | [`m18_feedback`](modules/m18_feedback.md) | 🔴 yeni |

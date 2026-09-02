@@ -207,7 +207,7 @@ Her madde şu alanlara sahip:
 | M11-2 | ~~Cihaz token kaydı yok~~ **✅ (P03)** | `DeviceToken` + `POST`/`DELETE /api/notifications/device-tokens` | — | — | Eklendi 2026-09-03 | Idempotent kayıt/silme; sahiplik `DeviceTokenCommandAuthorizer` ile |
 | M11-3 | ~~Öğrenci ve öğretmen in-app bildirim listesi yok~~ **✅ (P03)** | `UserNotification` + `GET /users/{userId}/notifications` (sayfalı, `onlyUnread`) | — | — | Eklendi 2026-09-03 | Rolden bağımsız; veli-özel `ParentNotification` listesi geriye dönük korundu |
 | M11-4 | ~~Okundu/okunmadı + rozet sayacı yok~~ **✅ (P03)** | `UserNotification.ReadOnUtc` + `GET /users/{userId}/unread-count` + `POST /{id}/read` | — | — | Eklendi 2026-09-03 | Mobil zil rozeti gerçek sayıya bağlandı |
-| M11-5 | M15 tercihlerine saygı kısmi | Yalnız veli tercihleri (`notification-preferences`) | Kullanıcı bildirim türünü kapatamıyor | M | | |
+| M11-5 | ~~M15 tercihlerine saygı kısmi~~ **✅ (P05)** | `IUserNotificationPreferences` (Shared.Contracts) + `NotificationDispatchProcessor` tercih kapısı | — | — | Eklendi 2026-09-03 | Kapı gönderim turunda (tek nokta); `MessageReceived`/`System` koşulsuz; in-app kaydı korunur |
 
 ### M12 — Matching (🔴 iskelet — 0 entity, 0 migration, yalnız `/status`)
 
@@ -245,10 +245,10 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M15-1 | **`GET`/`PUT /users/{userId}` genel ayar ucu yok** | `SettingsModule.cs` — yalnız `/status` ve `PUT /users/{id}/study-sharing` | Bildirim/gizlilik/güvenlik tercihleri **hiçbir yerde saklanmıyor** | M | | |
-| M15-2 | Sahiplik authorizer + admin istisnası testi yok | — | Yetki boşluğu riski | S | | |
-| M15-3 | `TerminateOtherSessions` davranışı yok | Identity ile entegrasyon yok | Güvenlik ayarı işlevsiz | S | | |
-| M15-4 | Rol bazlı profil/bildirim izin matrisi yok | — | Veli/öğrenci görünürlük ayarları eksik | M | | |
+| M15-1 | ~~**`GET`/`PUT /users/{userId}` genel ayar ucu yok**~~ **✅ (P05)** | `GetUserSettingsQuery` + `UpdateUserSettingsCommand` + `GET`/`PUT /api/settings/users/{userId}` | — | — | Eklendi 2026-09-03 | Kayıt yoksa `GET` 200 + varsayılan (`UserSetting.Default`); `PUT` upsert, `ShareStudyDataWith*`'a dokunmaz |
+| M15-2 | ~~Sahiplik authorizer + admin istisnası testi yok~~ **✅ (P05)** | `GetUserSettingsQueryAuthorizer` / `UpdateUserSettingsCommandAuthorizer` + 6 birim testi + integration 403 | — | — | Eklendi 2026-09-03 | Ortak `SettingsOwnership.Check`: self veya Admin; kimliksiz `shared.forbidden` |
+| M15-3 | ~~`TerminateOtherSessions` davranışı yok~~ **✅ (P05)** | `ISessionPolicyDirectory` + `UserAccount.RevokeOtherSessions` + `LoginUserCommandHandler` | — | — | Eklendi 2026-09-03 | Canlı doğrulandı: ikinci girişten sonra eski refresh token `401` |
+| M15-4 | ~~Rol bazlı profil/bildirim izin matrisi yok~~ **✅ (P05)** (kısmi) | `StudyPrivacyLevel` + veli dashboard'unda Standard/Limited/Hidden matrisi | Rol bazlı **profil düzenleme** ucu hâlâ yok | S | Eklendi 2026-09-03 | En kısıtlayıcı kazanır; profil düzenleme aday: P06/P13 |
 
 ### M16 / M17 / M18 — Hiç kodu olmayan modüller (🔴)
 
@@ -306,10 +306,10 @@ Her madde şu alanlara sahip:
 
 | ID | Sorun | Kanıt | Etki | Efor | Karar | Not |
 |----|-------|-------|------|------|-------|-----|
-| D-14 | **`more_page` ayar sayfalarının tamamı sahte** | `more_page.dart` — `_showGeneralSettingsSheet`, `_showNotificationSettingsSheet`, `_showWorkSettingsSheet`, `_showHolidaySettingsSheet` hepsi lokal `setState`; hiçbiri backend'e yazmıyor | Kullanıcı ayar yaptığını sanıyor, uygulama kapanınca kayboluyor | M (M15-1 sonrası) | | |
-| D-15 | **Abonelik kartı hardcoded** | `more_page.dart` → "Paket: Plus / Yenileme: 15 Haziran 2026 / Durum: Aktif" | Yanıltıcı; gerçek üyelik yok (M17) | S | | |
-| D-16 | **Raporlar kartı hardcoded** | `more_page.dart` → "42 ders / %94 devam / %81 tahsilat" | Yanıltıcı sahte veri | S | | |
-| D-17 | Auth yokken `'mock-teacher-user'` / `'mock-parent-user'` sentinel | `notifications_page.dart:18`, `parent_home_page.dart:18` | Oturum yoksa sahte kullanıcıyla istek atılıyor | S | | |
+| D-14 | ~~**`more_page` ayar sayfalarının tamamı sahte**~~ **✅ (P05)** | `settings` feature + `/settings/notifications` + `/settings/privacy`; sahte sheet'ler silindi | — | — | Eklendi 2026-09-03 | İyimser kayıt + hata geri alma; mock fallback yok; `more_page` 1166 → 750 satır |
+| D-15 | ~~**Abonelik kartı hardcoded**~~ **✅ (P05)** | Sahte sheet kaldırıldı; "Üyelik" satırı **pasif + "Yakında"** rozeti | — | — | Eklendi 2026-09-03 | Gerçek üyelik ucu P09'da gelince aktifleşecek |
+| D-16 | ~~**Raporlar kartı hardcoded**~~ **✅ (P05)** | Sahte sheet kaldırıldı; "Raporlar" satırı **pasif + "Yakında"** rozeti | — | — | Eklendi 2026-09-03 | Gerçek rapor ucu P08'de gelince aktifleşecek |
+| D-17 | ~~Auth yokken `'mock-teacher-user'` / `'mock-parent-user'` sentinel~~ **✅ (P05)** | `SessionRequiredView` — **5** veli ekranında sentinel kaldırıldı (`notifications_page` P03'te düzelmişti) | — | — | Eklendi 2026-09-03 | `dashboard_page.dart`'taki `mock-teacher-user` sentinel'i duruyor — aday: P06 |
 
 ### D.3 Teknik hijyen
 
@@ -428,4 +428,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*

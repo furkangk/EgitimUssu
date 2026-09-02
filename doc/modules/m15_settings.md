@@ -2,7 +2,7 @@
 title: "M15 — Ayarlar & Güvenlik"
 summary: "Kullanıcı bildirim/gizlilik/güvenlik ayarları; oku/yaz uçları + study-sharing + sahiplik authorizer kodda mevcut"
 tags: [modul, settings, gizlilik, bildirim, faz-0]
-status: "🟡"
+status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Settings/**
@@ -12,7 +12,7 @@ updated: 2026-09-03
 # ⚙️ Ayarlar ve Güvenlik Modülü (M15) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M15 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Settings`) + Flutter mobil
-> **PRD:** M15 · **Faz:** 0+ · **Durum:** 🟡 Domain var; **ayar oku/yaz** uçları (`GET`/`PUT /api/settings/users/{userId}`) + **çalışma-verisi paylaşımı** ucu + sahiplik authorizer'ları **kodda mevcut** (P05 Task 1); rol bazlı profil düzenleme hâlâ eksik
+> **PRD:** M15 · **Faz:** 0+ · **Durum:** 🟢 Çalışır — **ayar oku/yaz** uçları (`GET`/`PUT /api/settings/users/{userId}`), çalışma-verisi paylaşımı ucu, sahiplik authorizer'ları ve **üç modüller-arası sözleşme** (`IStudentPrivacyDirectory`, `IUserNotificationPreferences`, `ISessionPolicyDirectory`) kodda ve tüketiliyor. Kalan: rol bazlı **profil düzenleme** ucu (P06/P13 adayı)
 > **Mimari:** CQRS + Outbox; PostgreSQL (`settings` şeması), `UserId` UNIQUE (kullanıcı başına tek ayar kaydı)
 > **Marka rengi (mobil):** `0xFF082B4F`
 

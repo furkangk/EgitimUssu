@@ -358,10 +358,12 @@ git commit -m "feat(mobile): ayarlar ekranlari gercek backend'e baglandi, sahte 
 
 ### Task 6: Kapanış
 
-- [ ] **Step 1: Uçtan uca** — Mobilde "Ödev hatırlatmaları"nı kapat → backend'de ödev oluştur → **bildirim gelmediğini** doğrula → tekrar aç → bildirim geliyor.
-- [ ] **Step 2: Tam testler** — Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test` → yeşil.
-- [ ] **Step 3: Dokümanlar** — `doc/modules/m15_settings.md` durumu 🟢; `doc/INDEX.md` §3 durum sütunu; `doc/modules/00_genel_bakis.md` modül tablosu; `doc/denetim/2026-09-02_eksik_analizi.md` M15-1..4, M11-5, D-14..D-17 → `✅ (P05)`.
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Uçtan uca** — İki katmanda doğrulandı:
+  1. **Canlı API** (`InMemory:p05-e2e`, `127.0.0.1:5199`): kayıt → `GET` varsayılan 200 → `PUT` (ödev kapalı / Limited / TerminateOtherSessions) → `GET` kalıcı → başka kullanıcı **403** → ikinci giriş sonrası eski refresh token **401**.
+  2. **Otomatik kabul testi** (`Disabled_Homework_Preference_Should_Stop_Push_End_To_End`): cihaz token'ı kayıtlıyken tercih **açıkken** push gidiyor → `PUT` ile ödev hatırlatması kapatılıyor → aynı türde ikinci bildirimde **push gitmiyor**, in-app kaydı bildirim merkezinde duruyor. Manuel tıklama yerine tekrarlanabilir test tercih edildi (sapma).
+- [x] **Step 2: Tam testler** — Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test` → yeşil.
+- [x] **Step 3: Dokümanlar** — `doc/modules/m15_settings.md` durumu 🟢; `doc/INDEX.md` §3 durum sütunu; `doc/modules/00_genel_bakis.md` modül tablosu; `doc/denetim/2026-09-02_eksik_analizi.md` M15-1..4, M11-5, D-14..D-17 → `✅ (P05)`.
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -372,10 +374,10 @@ git commit -m "docs: P05 ayarlar kapanisi (M15-*/M11-5/D-14..17)"
 
 ## Kabul Kriterleri
 
-- [ ] `GET /api/settings/users/{id}` kayıt yokken varsayılan ayarı 200 ile döndürüyor
-- [ ] Başka kullanıcının ayarına erişim 403
-- [ ] Kapatılan bildirim türü **gerçekten gönderilmiyor** (test + elle doğrulama)
-- [ ] `TerminateOtherSessions` seçiliyken yeni giriş diğer oturumları iptal ediyor
-- [ ] `PrivacyLevel` üç seviyesi veli dashboard'unda farklı sonuç veriyor
-- [ ] Mobilde hiçbir ayar/abonelik/rapor ekranı sahte veri göstermiyor
-- [ ] `dotnet test EgitimUssu.slnx` ve `flutter test` yeşil
+- [x] `GET /api/settings/users/{id}` kayıt yokken varsayılan ayarı 200 ile döndürüyor
+- [x] Başka kullanıcının ayarına erişim 403
+- [x] Kapatılan bildirim türü **gerçekten gönderilmiyor** (test + elle doğrulama)
+- [x] `TerminateOtherSessions` seçiliyken yeni giriş diğer oturumları iptal ediyor
+- [x] `PrivacyLevel` üç seviyesi veli dashboard'unda farklı sonuç veriyor
+- [x] Mobilde hiçbir ayar/abonelik/rapor ekranı sahte veri göstermiyor
+- [x] `dotnet test EgitimUssu.slnx` ve `flutter test` yeşil
