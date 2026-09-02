@@ -36,3 +36,28 @@ abstract interface class NotificationRepository {
     bool activeOnly = false,
   });
 }
+
+/// Cihaz platformu. Değerler backend'in `DevicePlatform` enum'uyla birebir eşleşir
+/// (System.Text.Json varsayılanı enum'ları **sayı** olarak serileştirir — M11-2).
+enum DevicePlatform {
+  android(1),
+  ios(2),
+  web(3);
+
+  const DevicePlatform(this.wireValue);
+
+  /// API gövdesinde gönderilen sayısal değer.
+  final int wireValue;
+}
+
+/// M11-2: Cihaz push token'ının kaydı/silinmesi. Çıkışta token devre dışı bırakılır.
+abstract interface class DeviceTokenRepository {
+  Future<void> register({
+    required String userId,
+    required String token,
+    required DevicePlatform platform,
+    String? deviceName,
+  });
+
+  Future<void> unregister(String token);
+}

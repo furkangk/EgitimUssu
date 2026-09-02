@@ -1,20 +1,23 @@
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
+import 'package:egitim_ussu_mobile/core/push/firebase_push_binding.dart';
+import 'package:egitim_ussu_mobile/core/push/push_service.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/core/storage/token_storage.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/repositories/assignment_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
-import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
-import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
-import 'package:egitim_ussu_mobile/features/parent/data/repositories/parent_repository_impl.dart';
-import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/data/repositories/lesson_session_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/notifications/data/repositories/device_token_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
+import 'package:egitim_ussu_mobile/features/parent/data/repositories/parent_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/data/repositories/payment_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/progress/data/repositories/progress_repository_impl.dart';
@@ -31,7 +34,7 @@ import 'package:get_it/get_it.dart';
 
 final GetIt injector = GetIt.instance;
 
-Future<void> configureDependencies() async {
+Future<void> configureDependencies({bool firebaseAvailable = false}) async {
   if (injector.isRegistered<AppConfig>()) {
     return;
   }
@@ -154,6 +157,16 @@ Future<void> configureDependencies() async {
       () => NotificationRepositoryImpl(
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
+      ),
+    )
+    // A-04/M11-2: cihaz push token kaydı + FCM'e bağlı push servisi.
+    ..registerLazySingleton<DeviceTokenRepository>(
+      () => DeviceTokenRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<PushService>(
+      () => FirebasePushBinding.createService(
+        repository: injector<DeviceTokenRepository>(),
+        firebaseAvailable: firebaseAvailable,
       ),
     )
     ..registerLazySingleton<ParentRepository>(

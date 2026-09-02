@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -182,6 +182,30 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 > **Güvenlik (Y7, 2026-07-02):** Oturum önbelleği (`user_session` → `LocalCache`/SharedPreferences) **token içermez** — yalnız gizli-olmayan profil (userId/email/fullName/roles/expiry). Access/refresh token'lar **yalnız** secure storage'da tutulur; `restoreSession` token'ı oradan okuyup profille birleştirir. `AndroidManifest`'te `allowBackup="false"`. Önceden `toCache()` token'ları düz-metin yazıyordu (denetim Y7).
 
+### 7.1 Push Bildirim (A-04, 2026-09-03)
+
+`core/push/` iki parçadır:
+
+| Dosya | Sorumluluk |
+|-------|-----------|
+| `push_service.dart` | `PushService` — izin isteği, cihaz token kaydı/silme, token yenileme aboneliği, `taps` akışı. **Firebase'e bağlı değildir**: `tokenProvider` / `permissionRequester` / `tokenRefreshes` / `incomingTaps` dışarıdan verilir → platform kanalı olmadan test edilebilir. |
+| `firebase_push_binding.dart` | `FirebasePushBinding` — `Firebase.initializeApp()`, arka plan handler'ı ve `FirebaseMessaging` kaynaklarının `PushService`'e bağlanması. |
+
+**Yaşam döngüsü:** `AuthCubit` giriş / kayıt / oturum geri yükleme sonrasında `PushService.registerForUser(userId)`,
+çıkış ve oturum düşmesinde `PushService.unregister()` çağırır. Kayıt `POST /api/notifications/device-tokens`
+(`DeviceTokenRepositoryImpl`), silme `DELETE /api/notifications/device-tokens/{token}`.
+`DevicePlatform` **sayısal** gönderilir (`android=1`, `ios=2`, `web=3`) — backend enum'u JSON'da sayıdır.
+
+**Derin bağlantı:** `app.dart` `PushService.taps` akışını dinler; `tap.route` doluysa `router.push(route)`.
+Backend push gövdesine `data.route` koyar (ders hatırlatması → `/scheduling`, in-app bildirim → kendi rotası).
+
+> **Bilinçli fail-open:** `google-services.json` / `GoogleService-Info.plist` yoksa `Firebase.initializeApp()`
+> başarısız olur; uygulama **açılmaya devam eder** ve konsola bir **uyarı** basılır. Push o oturumda çalışmaz.
+> (Backend tarafı bunun tersi: `PushOptionsGuard` eksik ayarda fail-fast eder.) Kurulum adımları:
+> [`mobile/README_PUSH.md`](../../mobile/README_PUSH.md).
+
+---
+
 ## 8. Feature ↔ Backend Modül Eşlemesi
 
 | Mobil feature | Backend modül | Not |
@@ -229,6 +253,9 @@ dependencies:
   intl                    # tarih/locale
   file_picker             # dosya ekleme (ders notu)
   cached_network_image    # avatar/görsel
+  firebase_core           # Firebase başlatma (push — A-04, 2026-09-03)
+  firebase_messaging      # FCM push (A-04)
+  flutter_local_notifications  # ön planda yerel bildirim
   flutter_animate         # mikro animasyon
 ```
 
@@ -479,4 +506,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

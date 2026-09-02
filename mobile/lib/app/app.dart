@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:egitim_ussu_mobile/core/di/injector.dart';
+import 'package:egitim_ussu_mobile/core/push/push_service.dart';
 import 'package:egitim_ussu_mobile/core/routing/app_router.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_theme.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -14,11 +18,16 @@ class EgitimUssuApp extends StatefulWidget {
     this.authCubit,
     this.appRouter,
     this.notificationsCubit,
+    this.pushTaps,
   });
 
   final AuthCubit? authCubit;
   final AppRouter? appRouter;
   final NotificationsCubit? notificationsCubit;
+
+  /// A-04: bildirime dokunma akışı. Verilmezse DI'daki [PushService] kullanılır
+  /// (testlerde Firebase'e bağlanmamak için dışarıdan verilebilir).
+  final Stream<PushTap>? pushTaps;
 
   @override
   State<EgitimUssuApp> createState() => _EgitimUssuAppState();
@@ -28,6 +37,7 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
   late final AuthCubit _authCubit;
   late final AppRouter _appRouter;
   late final NotificationsCubit _notificationsCubit;
+  StreamSubscription<PushTap>? _pushTapSubscription;
 
   @override
   void initState() {
@@ -37,10 +47,28 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
     _notificationsCubit =
         widget.notificationsCubit ?? NotificationsCubit.create();
     _authCubit.restoreSession();
+    _listenToPushTaps();
+  }
+
+  /// Bildirime dokunulunca `data.route` varsa o ekrana gidilir (derin bağlantı).
+  void _listenToPushTaps() {
+    final taps =
+        widget.pushTaps ??
+        (injector.isRegistered<PushService>()
+            ? injector<PushService>().taps
+            : null);
+
+    _pushTapSubscription = taps?.listen((tap) {
+      final route = tap.route;
+      if (route != null && route.isNotEmpty) {
+        _appRouter.router.push(route);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pushTapSubscription?.cancel();
     if (widget.appRouter == null) {
       _appRouter.dispose();
     }

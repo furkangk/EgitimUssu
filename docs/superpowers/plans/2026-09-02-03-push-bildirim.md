@@ -832,17 +832,25 @@ git commit -m "feat(notifications): tum roller icin in-app bildirim + okundu/roz
   - `class PushTap { final String? route; final Map<String, String> data; }`
   - `DeviceTokenRepository` (mobil): `Future<void> register({required String userId, required String token, required String platform, String? deviceName})` → `POST /api/notifications/device-tokens`; `Future<void> unregister(String token)` → `DELETE`.
 
-- [ ] **Step 1: Firebase projesini hazırla (manuel, kod öncesi)**
+> **Sapma (uygulandı):** `PushService.unregister()` plandaki `unregister(userId)` yerine **parametresiz**. Silinecek şey kullanıcı değil, o oturumda kaydedilen **token**; servis onu zaten tutuyor ve backend ucu da token üzerinden çalışıyor.
+> **Sapma (uygulandı):** `PushService` Firebase'i hiç import etmez; gerçek bağlantı ayrı bir dosyada (`core/push/firebase_push_binding.dart`). Böylece 12 birim testi platform kanalı olmadan koşuyor.
+> **Sapma (uygulandı):** `DeviceTokenRepository.register` `platform` alanını `String` değil **`DevicePlatform` enum**'u alır ve gövdeye `wireValue` (1/2/3) yazar — backend `DevicePlatform`'u System.Text.Json varsayılanıyla **sayı** olarak bekliyor.
+> **Sapma (uygulandı) — bilinçli fail-open:** Plan `main.dart`'ta koşulsuz `await Firebase.initializeApp()` diyordu; platform dosyaları yokken bu **uygulamayı hiç açtırmaz**. Bunun yerine `FirebasePushBinding.initializeFirebase()` `try/catch` ile `false` döner, **uyarı log'lar** ve uygulama açılır; `PushService` o oturumda izin istemez/token üretmez. (Backend tarafı fail-fast kalır.)
+> **Sapma (uygulandı):** `AuthCubit` `PushService`'i **opsiyonel** alır (`pushService: null`), böylece mevcut cubit testleri Firebase/DI'ya bağlanmadan çalışmayı sürdürür. Push kaydı hata verse bile oturum akışı kesilmez.
+> **Sapma (uygulandı) — plan dışı:** `mobile/.gitignore`'a Firebase sır dosyaları eklendi ve kurulum rehberi `mobile/README_PUSH.md` yazıldı (Step 1 bloke olduğu için devralacak kişiye tam yol tarifi).
+> **Sapma (uygulandı) — plan eksiği:** Plan 2 test öngörüyordu; 12 test yazıldı (izin reddi, token yokluğu, token rotasyonu, oturumsuz rotasyon, unregister, kayıtsız unregister, dokunma akışı, kayıt hatası yutulmuyor, `PushTap.fromData`, enum tel değerleri).
+
+- [ ] 🚫 **Step 1: Firebase projesini hazırla (manuel, kod öncesi)** — **BLOKE (Q8):** Firebase hesabı/projesi yok. Platform dosyaları (`google-services.json`, `GoogleService-Info.plist`) eklenmedi; Android gradle eklentisi de **bilerek eklenmedi** (dosya yokken build kırılır). Kurulum adımları `mobile/README_PUSH.md`'ye yazıldı.
 
 Firebase Console → yeni proje → Android + iOS uygulaması ekle → `google-services.json` ve `GoogleService-Info.plist` indir → ilgili yollara koy. Service-account anahtarını (JSON) backend için `Push__ServiceAccountJson` ortam değişkenine koy, **repoya koyma**.
 Expected: iki platform dosyası yerinde, `.gitignore`'a `google-services.json` ve `GoogleService-Info.plist` eklendi (sırlar).
 
-- [ ] **Step 2: Paketleri ekle**
+- [x] **Step 2: Paketleri ekle**
 
 Run: `cd mobile && flutter pub add firebase_core`
 (`firebase_messaging` ve `flutter_local_notifications` zaten `pubspec.yaml`'da — artık gerçekten kullanılacak, D-18 kapanır.)
 
-- [ ] **Step 3: Test yaz (kırmızı)**
+- [x] **Step 3: Test yaz (kırmızı)**
 
 `mobile/test/core/push/push_service_test.dart` — `PushService`'i platform kanalına bağımlı olmayan bir arayüz arkasından test et:
 ```dart
@@ -875,11 +883,11 @@ test('izin verilmezse token kaydedilmez', () async {
 });
 ```
 
-- [ ] **Step 4: `PushService`'i yaz**
+- [x] **Step 4: `PushService`'i yaz**
 
 `mobile/lib/core/push/push_service.dart` — `tokenProvider` ve `permissionRequester` fonksiyon parametreleriyle test edilebilir; üretimde `FirebaseMessaging.instance.getToken` ve `requestPermission` bağlanır. `onTokenRefresh` aboneliği ile token yenilendiğinde tekrar `register` çağrılır. `FirebaseMessaging.onMessageOpenedApp` ve `getInitialMessage` `taps` akışına `PushTap(route: message.data['route'], data: ...)` basar.
 
-- [ ] **Step 5: `main.dart` ve DI bağlantısı**
+- [x] **Step 5: `main.dart` ve DI bağlantısı**
 
 `main.dart`:
 ```dart
@@ -891,21 +899,21 @@ test('izin verilmezse token kaydedilmez', () async {
 `_firebaseBackgroundHandler` üst düzey fonksiyon olarak tanımlanır (`@pragma('vm:entry-point')`).
 `injector.dart` → `registerLazySingleton<DeviceTokenRepository>` + `registerLazySingleton<PushService>`.
 
-- [ ] **Step 6: Oturum yaşam döngüsüne bağla**
+- [x] **Step 6: Oturum yaşam döngüsüne bağla**
 
 `AuthCubit` giriş başarısında `injector<PushService>().registerForUser(session.userId)`, çıkışta `unregister(session.userId)` çağırır. Uygulama açılışında oturum restore edilirse de `registerForUser` çağrılır (token rotasyonu için).
 
-- [ ] **Step 7: Bildirime dokunma → derin bağlantı**
+- [x] **Step 7: Bildirime dokunma → derin bağlantı**
 
 `app.dart` içinde `PushService.taps` dinlenir; `tap.route` doluysa `router.push(tap.route!)`.
 
-- [ ] **Step 8: Testler + gerçek cihaz doğrulaması**
+- [~] **Step 8: Testler + gerçek cihaz doğrulaması** — `flutter test` **69/69** ve `flutter analyze` **4 info** (öncesi 5; injector import sıralaması düzeldi) koştu. **Gerçek cihaz doğrulaması Step 1'e bağlı → yapılamadı (Q8).**
 
 Run: `cd mobile && flutter test && flutter analyze`
 Ardından gerçek cihaz/emülatörde: giriş yap → backend'de `device_tokens` tablosunda satır oluştuğunu doğrula → backend'den test bildirimi gönder (`Push__Provider=Fcm` ile bir ders hatırlatması oluştur) → cihazda bildirim görün → dokun → doğru ekran açılsın.
 Expected: bildirim geldi, dokunma doğru rotayı açtı.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add mobile
