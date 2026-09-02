@@ -75,14 +75,14 @@ Her madde şu alanlara sahip:
 - **Karar:** Ortak sahteler `mobile/test/helpers/` altına alındı (tek nokta kuralı → `doc/architecture/mobile_flutter.md` §17.1).
 - **Not:** Kök neden iki başlıydı: (1) 3 dosyada auth sahtesi `AuthRepository.login/register`'a eklenen `roleId` argümanını uygulamıyordu, (2) 2 dosyada `_FakeSchedulingRepository`, Ç-06 ile `SchedulingRepository`'ye eklenen 5 öğrenci metodunu uygulamıyordu. `FakeAuthRepository` + `FakeSchedulingRepository` yazıldı; `flutter test` → **47 başarılı, 0 başarısız**.
 
-### A-03 — E-posta hiç gönderilmiyor (şifre sıfırlama + e-posta doğrulama uçtan uca çalışmıyor) 🔴
+### A-03 — E-posta hiç gönderilmiyor (şifre sıfırlama + e-posta doğrulama uçtan uca çalışmıyor) ✅ Düzeltildi 2026-09-02 (P02)
 
 - **Kanıt:** `IdentityRepositoryAndSecurity.cs:132-135` → `NullIdentityNotificationService`: `SendPasswordResetAsync` ve `SendEmailVerificationAsync` gövdesi `Task.CompletedTask`. Projede hiç SMTP/MailKit/SendGrid bağımlılığı yok (`grep` ile doğrulandı).
 - **Etki:** `POST /password-reset/request` ve `/email-verification/request` uçları 200 dönüyor ama kullanıcıya **token ulaşmıyor** → şifresini unutan kullanıcı hesabına giremez; e-posta doğrulama tamamlanamaz.
 - **Kapsam:** Sağlayıcı seçimi (SMTP / Resend / SendGrid / Amazon SES), `IEmailSender` soyutlaması, şablonlar (doğrulama, şifre sıfırlama), dev ortamında "log'a yaz" implementasyonu.
 - **Efor:** M
-- **Karar:** ` `
-- **Not:** ` `
+- **Karar:** K-01 — sağlayıcı-agnostik SMTP. `Shared/Infrastructure/Email`: `IEmailSender` + `LoggingEmailSender` (dev) + `SmtpEmailSender` (MailKit 4.17). Seçim `Email:Provider`, eksik konfigde `EmailOptionsGuard` fail-fast; sırlar yalnız env.
+- **Not:** Identity'de `NullIdentityNotificationService` silindi, yerine `EmailIdentityNotificationService` + `EmailTemplates` (HTML+metin, `egitimussu://` derin bağlantı, token URL-kodlu). **Yan bulgu:** uçlar e-posta olmadan da 500 dönüyordu — `IdentityDbContext`'te `UserSecurityToken`/`RefreshTokenSession`/`UserRoleMembership` için `ValueGeneratedNever()` eksikti (P01 Öğrenilenler #3'ün aynısı); 3 regresyon testiyle kapatıldı. Yerel SMTP sunucusuna gerçek gönderim + token ile şifre değişimi + yeni şifreyle giriş uçtan uca doğrulandı.
 
 ### A-04 — Push bildirimi hiç yok (Y5 açık) 🔴
 
@@ -118,7 +118,7 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M01-1 | `GET /me` yok | `IdentityModule.cs` — yalnız `/users/{userId}` | Her istekte istemci `userId` taşıyor; token'dan çözülmeli | S | | |
+| M01-1 | ~~`GET /me` yok~~ **✅ (P02)** | `GetCurrentUserQuery` + `GetCurrentUserQueryAuthorizer`; `GET /api/identity/me` | — | S | Eklendi 2026-09-02 | Kimliksiz 401, kimlikli 200 (`CurrentUserResponse`); integration testi var |
 | M01-2 | `PUT /users/{userId}/status` (admin) yok | Domain'de `Active/Suspended/Closed` var, uç yok | Admin kötüye kullanan hesabı **askıya alamıyor** (M18 moderasyonun önkoşulu) | S | | |
 | M01-3 | `DELETE /users/{userId}/roles/{role}` yok | Rol atama var, geri alma yok | Yanlış verilen rol geri alınamıyor | S | | |
 | M01-4 | `GET /sessions` + `POST /sessions/revoke-all` yok | `UserSession` entity'sinde `DeviceName` var | Kullanıcı cihaz oturumlarını göremiyor/kapatamıyor | M | | |
@@ -288,8 +288,8 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik ekran / akış | Kanıt | Etki | Efor | Karar | Not |
 |----|--------------------|-------|------|------|-------|-----|
-| D-01 | **Şifremi unuttum** ekranı | `app_router.dart`'ta `/password-reset` yok | Sunucu ucu var, kullanıcı erişemiyor (A-03 ile birlikte tamamen ölü akış) | S | | |
-| D-02 | **E-posta doğrulama** ekranı / deep link | Rota yok | Doğrulama tamamlanamıyor | M | | |
+| D-01 | ~~**Şifremi unuttum** ekranı~~ **✅ (P02)** | `/password-reset` + `/password-reset/confirm`, `PasswordResetCubit` | — | S | Eklendi 2026-09-02 | [`../pages/auth_password_reset.md`](../pages/auth_password_reset.md) |
+| D-02 | ~~**E-posta doğrulama** ekranı / deep link~~ **✅ (P02)** | `/verify-email` + `egitimussu://` şeması (Android manifest, iOS `CFBundleURLTypes`), `normalizeDeepLink` | — | M | Eklendi 2026-09-02 | [`../pages/auth_email_verification.md`](../pages/auth_email_verification.md) |
 | D-03 | Cihaz oturumları ekranı | M01-4'e bağlı | Güvenlik özelliği yok | S | | |
 | D-04 | Öğretmen **uygunluk (haftalık slot) düzenleyici** | `teacher_profile_page.dart` içinde görsel ızgara yok | Uygunluk verisi girilemiyor → M12 eşleştirme beslenemez | M | | |
 | D-05 | Profil fotoğrafı yükleme (kamera/galeri) | `image_picker` yalnız ödev/not ekranlarında | Öğretmen vitrini eksik (M02-2) | S | | |

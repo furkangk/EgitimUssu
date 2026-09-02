@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P02 — E-posta Altyapısı` **1/7** (`plans/2026-09-02-02-eposta-altyapisi.md`) |
-| **Sıradaki görev** | **P02 Task 2** — `SmtpEmailSender` (MailKit) + sağlayıcı seçen DI fabrikası |
-| **Dal** | `feat/p02-eposta` — `feat/p01-onarim` üzerine açıldı (P01 henüz `main`'e merge edilmedi; yeşil zemin oradaydı). P01 merge olunca bu dal rebase edilir. |
-| **Durum** | 🔄 P02 sürüyor · P01 dalı hâlâ PR bekliyor: https://github.com/furkangk/EgitimUssu/pull/new/feat/p01-onarim |
-| **Son commit** | `ee00755` (feat(email): IEmailSender + Logging + config guard) |
+| **Aktif plan** | `P02 — E-posta Altyapısı` **7/7 ✅ BİTTİ** (`plans/2026-09-02-02-eposta-altyapisi.md`) |
+| **Sıradaki görev** | **P03 Task 1** (push bildirim) · alternatif: P04 (dosya depolama, Q4 kararı gerek) veya P13 (hijyen, paralel) |
+| **Dal** | `feat/p02-eposta` — `feat/p01-onarim` üzerine açıldı (P01 henüz `main`'e merge edilmedi). **Her iki dal da PR bekliyor.** |
+| **Durum** | ✅ P02 tamamlandı · P01 + P02 dalları push/merge bekliyor |
+| **Son commit** | `3b72301` (docs: P02 kapanışı) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -23,8 +23,8 @@
 | Plan | Görev | Durum | Not |
 |------|-------|-------|-----|
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
-| P02 E-posta altyapısı | 1/7 | 🔄 Devam ediyor | Task 1 bitti (`IEmailSender` + guard) · dal: `feat/p02-eposta` |
-| P03 Push bildirim | 0/7 | ⚪ Bekliyor | P01 sonrası (P02 ile paralel olabilir) |
+| P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
+| P03 Push bildirim | 0/7 | ⏳ Sırada | P02 bitti; başlanabilir |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
@@ -55,6 +55,12 @@
 | 2026-09-02 | P01 / Task 6 — F-01…F-07 doküman driftleri koda göre düzeltildi | `3ca961d` | `bash doc/_tools/kb_healthcheck.sh` → **temiz** (12 dosyanın frontmatter `updated:` alanı gövdeyle eşitlendi) |
 | 2026-09-02 | P01 / Task 7 — kapanış: boş `src/Modules/docs` silindi, CI `-warnaserror` derlemesi yeşile alındı, denetim envanteri işaretlendi | `3755896` | `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** (önce 13 hata) · tam paket: 167+4+18, **Başarısız 0, Atlanan 0** · `flutter test`: **48/48** · `flutter analyze`: 5 önceden var olan info |
 | 2026-09-02 | P02 / Task 1 — K-01 `IEmailSender` soyutlaması + `LoggingEmailSender` + `EmailOptionsGuard` | `ee00755` | `dotnet test EgitimUssu.slnx`: **175 birim + 4 mimari + 18 integration, Başarısız 0, Atlanan 0** (öncesi 167 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · Development'ta `dotnet run` → `Now listening on: http://localhost:5296` · Production + `Email__Provider=Smtp` (Host yok) → fail-fast (`exit=134`, "Email:Smtp:Host zorunludur") · Production + `Provider=Logging` → `LogLevel:Warning` uyarısı basıldı, uygulama açıldı · `doc/_tools/kb_healthcheck.sh` temiz |
+| 2026-09-02 | P02 / Task 2 — `SmtpEmailSender` (MailKit 4.17) + sağlayıcı seçen DI fabrikası | `236e76c` | `dotnet test EgitimUssu.slnx`: **179 birim + 4 mimari + 18 integration, Başarısız 0, Atlanan 0** · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** |
+| 2026-09-02 | P02 / Task 3 — A-03 gerçek e-posta gönderimi (`EmailTemplates` + `EmailIdentityNotificationService`) **+ plan dışı EF düzeltmesi** | `6fde493` | `dotnet test`: **182 birim + 4 + 18, Başarısız 0** · Canlı API (`Provider=Logging`): register/reset/verify hepsi **200** ve 3 e-posta log'landı; kayıtsız e-postada **200 ama e-posta yok** (enumeration engeli korunuyor) · `kb_healthcheck` temiz |
+| 2026-09-02 | P02 / Task 4 — `GET /api/identity/me` (M01-1) | `e44812c` | `dotnet test`: 186 birim + 4 mimari + **19 integration, Başarısız 0** (yeni: kimliksiz **401**, kimlikli **200** + `fullName`/`roles` doğrulaması) · `-warnaserror`: 0/0 |
+| 2026-09-02 | P02 / Task 5 — Mobil "Şifremi unuttum" akışı (D-01) | `70204eb` | `flutter test`: **51 başarılı, başarısız 0** (öncesi 48) · `flutter analyze`: aynı 5 önceden var olan info · `kb_healthcheck` temiz |
+| 2026-09-02 | P02 / Task 6 — Mobil e-posta doğrulama ekranı + `egitimussu://` derin bağlantı (D-02) | `5efdd30` | `flutter test`: **57 başarılı, başarısız 0** · `flutter analyze`: 5 önceden var olan info · **iOS Simulator:** ham `egitimussu://verify-email?token=ABC123` URL'i doğrulama ekranını açtı ve kod alanı `ABC123` doldu (ekran görüntüsü) |
+| 2026-09-02 | P02 / Task 7 — Kapanış: SMTP yolu canlı doğrulama + denetim envanteri + dokümanlar | `3b72301` | Yerel SMTP sunucusuna **gerçek gönderim**: MailKit bağlandı, UTF-8 konu + `multipart/alternative` + URL-kodlu `egitimussu://` bağlantı teslim edildi; yakalanan tokenla `password-reset/confirm` **200**, eski şifre **400**, yeni şifre **200**, `GET /me` doğru · `dotnet test EgitimUssu.slnx`: **186 + 4 + 19, Başarısız 0, Atlanan 0** · `flutter test`: **57/57** · `-warnaserror`: 0 uyarı / 0 hata · `kb_healthcheck` temiz |
 
 ---
 
@@ -88,6 +94,15 @@
 | 23 | **`dotnet run` yerelde `Properties/launchSettings.json` profilini uygular ve `ASPNETCORE_ENVIRONMENT` env değişkenini ezer.** Üretim davranışını (guard/uyarı) yerelde denemek için **`--no-launch-profile`** şart; yoksa uygulama sessizce Development'ta koşar ve testin bir anlamı kalmaz. | P02/Task 1 |
 | 24 | Yeni guard `Validate`/`EnsureValid` ikilisiyle yazıldı (#13) ama **`ConfigurationHealthCheck`'e bağlanmadı** — `Health/ConfigurationHealthCheck.cs` Task 1'in `Files:` listesinde yok (kapsam kilidi). `/health/ready` bugün e-posta yapılandırmasını raporlamıyor. Aday: P02 kapanışı veya P13. | P02/Task 1 |
 | 22 | `flutter analyze`'daki 5 info hâlâ duruyor ve CI **onu koşmuyor** (`build-android.yml` yalnız `pub get` + APK). Ana dalın yeşilliği bundan etkilenmiyor; temizlik P13'e kaldı. | P01/Task 7 |
+| 25 | **MailKit sahtesi yazarken iki tuzak:** (1) `MailTransport` taban sınıfı ctor'da `IProtocolLogger` ister → `new NullProtocolLogger()`; (2) sahtedeki `Connected`/`Authenticated`/`Disconnected` alanları `MailService`'in **event**'leriyle çakışıp `CS0108` üretir — `dotnet test` bunu göstermez ama CI'nin `-warnaserror` derlemesi kırılır. Adları `ConnectCalled`/… yap. | P02/Task 2 |
+| 26 | **EF `ValueGeneratedNever()` tuzağı Identity'de de vardı** (Öğrenilenler #3/#4'ün doğrulanması): `UserSecurityToken`, `RefreshTokenSession`, `UserRoleMembership`. Sonuç: `password-reset/request` ve `email-verification/request` uçları **500** dönüyordu — e-postadan bağımsız, önceden var olan bir hata. **Diğer modüller hâlâ taranmadı; P13'e madde olmalı.** | P02/Task 3 |
+| 27 | **Güvenlik tokenları base64'tür** (`+`, `/`, `=` içerir). Derin bağlantıya ham gömülürse `+` karşı tarafta boşluğa dönüşür. `Uri.EscapeDataString` ile kodlanır; elle yapıştırma için metin gövdede ham kod da bulunmalı. | P02/Task 3 |
+| 28 | **Şema-bazlı derin bağlantıda yol boştur:** `Uri.parse('egitimussu://verify-email').path == ''`, hedef `host`'tadır. go_router yalnız `uri.path`'e baktığı için bağlantı sessizce köke düşer. Çözüm: `core/routing/deep_links.dart` → `normalizeDeepLink(Uri)` (host → yol), router `redirect`'inin **ilk** adımı. Yeni derin bağlantı eklerken bu haritaya satır eklenmeli. | P02/Task 6 |
+| 29 | `app_router.dart`'ın `redirect`'i beyaz liste dışındaki her yolu köke/role atar. Yeni bir oturumsuz-erişilebilir ekran eklerken **rota tanımı tek başına yetmez**; `onAuthScreen` / `onAccountRecoveryScreen` listelerine de eklenmelidir. | P02/Task 5-6 |
+| 30 | **`flutter build ios` sonrası `mobile/build/` analiz sonucunu 5 → 13.104 issue'ya şişiriyor** (eklenti kaynakları oraya kopyalanıyor). Manuel cihaz denemesinden sonra `flutter clean && flutter pub get` çalıştır, yoksa "analyze temiz" iddiası kurulamaz. | P02/Task 7 |
+| 31 | **Gerçek SMTP hesabı olmadan da SMTP yolu doğrulanabilir:** yerel bir SMTP sunucusu (127.0.0.1:2525, STARTTLS yok, auth yok) + `Email__Smtp__UseStartTls=false`. Development'ta guard `Username` istemez. MailKit'in ürettiği tam MIME gövdesi böylece görülebilir. | P02/Task 7 |
+| 32 | Bu makinede **Android emülatörü yok** (yalnız iOS Simulator) ve **sentetik tıklama izni yok** (`osascript` → hata -25204). iOS'un "…ile Açılsın mı?" onay diyaloğu otomatik geçilemiyor. Soğuk açılışı taklit etmenin yolu: `flutter run -d <sim> --route "<ham-derin-bağlantı>"` — motorun `defaultRouteName`'e koyduğu değerin aynısı. | P02/Task 6 |
+| 33 | macOS'ta `flutter pub get` iki **izlenmeyen** SwiftPM artefaktı üretiyor: `mobile/macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` ve `mobile/macos/Runner.xcworkspace/…/swiftpm/Package.resolved`. `mobile/.gitignore` yalnız `.swiftpm/` (nokta ile) deseni taşıyor, bu yollar tutmuyor → `git add -A` ile kazara commit'lenebilir. **Aday: P13 hijyen** — `.gitignore`'a `**/xcshareddata/swiftpm/` eklenmeli. | P02/Task 7 |
 
 ---
 
@@ -101,6 +116,7 @@
 | Q4 — S3 mi Cloudflare R2 mı? (karar K-03) | P04 Task 5 | ❓ Cevap bekliyor (varsayılan: R2) |
 | Q5 — KVKK metinleri hazır mı? | P13 Task 5 | ❓ Cevap bekliyor |
 | Q6 — Beta öğretmen listesi (5–10 kişi)? | P06 sonrası | ❓ Cevap bekliyor |
+| Q7 — **Gerçek SMTP sağlayıcı hesabı** (host/kullanıcı/parola)? | P02 kapanış doğrulaması (tek seferlik gerçek gönderim) | ❓ Cevap bekliyor — kod hazır, yalnız kimlik bilgisi eksik |
 | K-11 — Angular 20 + signals onayı? | P14 | ❓ Cevap bekliyor |
 
 ---
@@ -121,4 +137,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-02 (P02 Task 1 bitti — 1/7; dal `feat/p02-eposta`)*
+*İlerleme defteri | Son güncelleme: 2026-09-02 (P02 tamamlandı — 7/7; dal `feat/p02-eposta`, merge bekliyor)*

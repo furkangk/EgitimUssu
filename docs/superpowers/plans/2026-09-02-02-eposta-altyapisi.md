@@ -1131,7 +1131,12 @@ git commit -m "feat(mobile): e-posta dogrulama ekrani + derin baglanti (D-02)"
 
 ### Task 7: Kapanış — uçtan uca doğrulama ve doküman
 
-- [ ] **Step 1: Gerçek SMTP ile bir kez dene (staging/geliştirici hesabı)**
+- [~] **Step 1: Gerçek SMTP ile bir kez dene (staging/geliştirici hesabı)**
+
+> **Sapma (kısmen yapıldı):** Gerçek bir sağlayıcı hesabı (SMTP host/kullanıcı/parola) elde yok — bu adım **dış bağımlılık** nedeniyle tamamlanamadı.
+> Yerine SMTP yolu **gerçekten uçuruldu**: yerel bir SMTP sunucusu (127.0.0.1:2525) dinlerken API `Email__Provider=Smtp` ile açıldı. Sonuç: MailKit bağlandı, `MAIL FROM:<no-reply@egitimussu.com>` / `RCPT TO:<smtp-test@example.com>`, UTF-8 kodlu konu (`EğitimÜssü — Şifre sıfırlama`), `multipart/alternative` (text+html) ve bağlantı `egitimussu://password-reset?token=Yc8i6%2Fhp…` (URL-kodlu) olarak teslim edildi. Ardından yakalanan tokenla `password-reset/confirm` **200**, eski şifreyle giriş **400**, yeni şifreyle giriş **200**, `GET /me` doğru gövdeyi döndü.
+> **Kalan:** gerçek bir sağlayıcıya (Gmail/SES/Resend) tek seferlik gönderim — kimlik bilgisi geldiğinde yapılmalı.
+
 
 ```bash
 Email__Provider=Smtp \
@@ -1145,12 +1150,12 @@ dotnet run --project src/API.Host
 Sonra `password-reset/request` çağır; gerçek posta kutusuna e-posta düşmeli, bağlantı `egitimussu://password-reset?token=...` olmalı.
 Expected: e-posta ulaştı, mobil uygulamada bağlantı doğrulama ekranını açıyor.
 
-- [ ] **Step 2: Tam test paketleri**
+- [x] **Step 2: Tam test paketleri**
 
 Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test`
 Expected: başarısız 0.
 
-- [ ] **Step 3: Dokümanları güncelle**
+- [x] **Step 3: Dokümanları güncelle**
 
 - `doc/modules/m01_identity.md`: e-posta gönderimi artık gerçek; `GET /me` eklendi; mobil kontrol listesi güncel.
 - `doc/modules/00_genel_bakis.md`: Identity endpoint bloğuna `GET /me (auth)`.
@@ -1158,7 +1163,7 @@ Expected: başarısız 0.
 - `doc/denetim/2026-09-02_eksik_analizi.md`: A-03, M01-1, D-01, D-02 → `✅ (P02)`.
 - Her dosyanın altındaki `Güncelleme:` tarihini `2026-09-02` yap.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -1169,10 +1174,10 @@ git commit -m "docs: P02 e-posta altyapisi kapanisi (A-03/M01-1/D-01/D-02)"
 
 ## Kabul Kriterleri
 
-- [ ] `Email:Provider=Smtp` iken eksik konfigürasyonla uygulama **açılmıyor** (guard testleri yeşil)
-- [ ] `Provider=Logging` iken e-posta içeriği log'da tam görünüyor
-- [ ] Gerçek SMTP ile şifre sıfırlama e-postası bir kez uçtan uca teslim edildi
-- [ ] Mobil: `/password-reset` → kod → yeni şifre → `/login` ile giriş yapılabiliyor
-- [ ] Mobil: `egitimussu://verify-email?token=...` bağlantısı uygulamayı doğru ekranda açıyor
-- [ ] `GET /api/identity/me` kimlikli 200, kimliksiz 401
-- [ ] `dotnet test EgitimUssu.slnx` ve `flutter test` yeşil
+- [x] `Email:Provider=Smtp` iken eksik konfigürasyonla uygulama **açılmıyor** (8 guard testi yeşil; P02 Task 1'de `exit=134` ile doğrulandı)
+- [x] `Provider=Logging` iken e-posta içeriği log'da tam görünüyor (konu + kod + `egitimussu://` bağlantı)
+- [~] Gerçek SMTP ile şifre sıfırlama e-postası bir kez uçtan uca teslim edildi — **yerel SMTP sunucusuna** teslim edildi ve tam MIME içeriği doğrulandı; gerçek sağlayıcı hesabı yok (bkz. Task 7 Step 1)
+- [x] Mobil: `/password-reset` → kod → yeni şifre → `/login` (ekranlar + cubit testleri; sunucu zinciri curl ile uçtan uca doğrulandı)
+- [x] Mobil: `egitimussu://verify-email?token=...` bağlantısı uygulamayı doğru ekranda açıyor — iOS Simulator'da ham URL ile doğrulama ekranı açıldı ve kod alanı doldu (yalnız iOS onay diyaloğuna basma otomatikleştirilemedi)
+- [x] `GET /api/identity/me` kimlikli 200, kimliksiz 401 (integration testi)
+- [x] `dotnet test EgitimUssu.slnx` (186 birim + 4 mimari + 19 integration) ve `flutter test` (57) — **başarısız 0, atlanan 0**

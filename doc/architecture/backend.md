@@ -80,7 +80,7 @@ Host'un kurduğu çapraz-kesit servisler:
 | **Hata** | `ProblemDetailsExceptionMiddleware` → tüm hatalar tutarlı ProblemDetails gövdesi |
 | **Loglama** | JSON console + `RequestContextLoggingMiddleware` (istek bağlamı) |
 | **Health** | `/health/live` (canlılık), `/health/ready` (configuration + database hazır mı) |
-| **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp`. `EmailOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır |
+| **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp` (`SmtpEmailSender`, MailKit; herhangi bir relay: Gmail/SES/SendGrid/Resend). Env: `Email__Provider`, `Email__FromEmail`, `Email__Smtp__Host`, `Email__Smtp__Port`, `Email__Smtp__UseStartTls`, `Email__Smtp__Username`, `Email__Smtp__Password`. `EmailOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Kimlik akışı şablonları: `Identity/Infrastructure/EmailTemplates` (`egitimussu://` derin bağlantı, token URL-kodlu) |
 | **Meta** | `GET /api/meta/version` → servis sürümü + yüklü modül listesi |
 | **OpenAPI** | `AddOpenApi` / `MapOpenApi` |
 
@@ -259,4 +259,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-02*
+*Backend Mimari | Güncelleme: 2026-09-02 (P02: SmtpEmailSender + e-posta env değişkenleri)*
