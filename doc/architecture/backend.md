@@ -231,9 +231,27 @@ durum eşler. Beklenmeyen istisnalar `ProblemDetailsExceptionMiddleware` tarafı
 - **Health:** `/health/live` + `/health/ready` (config + DB). `ConfigurationHealthCheck`, `DatabaseConnectionHealthCheck`.
 - **Sürüm/meta:** `GET /api/meta/version`.
 
+## 12. Yerel Geliştirme
+
+### Testleri gerçek altyapıyla koşma
+
+Testcontainers tabanlı testler (`RealDatabase`, `RealOutbox`, `RealRedis`, `RealStudentMerge`) çalışan bir Docker
+daemon gerektirir; yoksa `Skipped` olurlar. Docker varken tam paketi koşmak için:
+
+```bash
+cp infra/.env.example infra/.env   # bir kez (yerel altyapı yığını için)
+./scripts/test-with-docker.sh
+```
+
+Script Docker'ı doğrular, Compose kuruluysa `infra/docker-compose.yml` yığınını (Postgres + Redis, healthcheck'li)
+ayağa kaldırır, `dotnet test EgitimUssu.slnx` koşar ve yığını kapatır. Compose kurulu değilse yığın adımı atlanır —
+Testcontainers kendi container'larını yönetir, testler yine gerçek DB ile koşar.
+
+Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testleri `Skipped` olur (CI'da koşarlar).
+
 ---
 
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-06-24*
+*Backend Mimari | Güncelleme: 2026-09-02*
