@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/entities/user_session.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
 
@@ -12,10 +13,17 @@ import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_reposi
 /// - [hangOnRestore]: `restoreSession` hicbir zaman tamamlanmaz (uygulama "restoring"
 ///   durumunda kalir; acilis ekrani testleri icin).
 class FakeAuthRepository implements AuthRepository {
-  FakeAuthRepository({this.session, this.hangOnRestore = false});
+  FakeAuthRepository({
+    this.session,
+    this.hangOnRestore = false,
+    this.passwordResetError,
+  });
 
   final UserSession? session;
   final bool hangOnRestore;
+
+  /// Ayarlanirsa sifre sifirlama cagrilarinin ikisi de bu hatayi firlatir.
+  final ApiException? passwordResetError;
 
   final Completer<UserSession?> _pendingRestore = Completer<UserSession?>();
 
@@ -23,6 +31,10 @@ class FakeAuthRepository implements AuthRepository {
   int registerCallCount = 0;
   int refreshCallCount = 0;
   int logoutCount = 0;
+  int requestPasswordResetCallCount = 0;
+  int confirmPasswordResetCallCount = 0;
+  String? lastPasswordResetEmail;
+  String? lastPasswordResetToken;
 
   /// Testlerin ozellestirebilecegi varsayilan oturum.
   static UserSession defaultSession({
@@ -65,6 +77,25 @@ class FakeAuthRepository implements AuthRepository {
   }) async {
     registerCallCount++;
     return _session;
+  }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    requestPasswordResetCallCount++;
+    lastPasswordResetEmail = email;
+    if (passwordResetError != null) throw passwordResetError!;
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    confirmPasswordResetCallCount++;
+    lastPasswordResetEmail = email;
+    lastPasswordResetToken = token;
+    if (passwordResetError != null) throw passwordResetError!;
   }
 
   @override

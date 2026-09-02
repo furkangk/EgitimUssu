@@ -791,7 +791,11 @@ git commit -m "feat(identity): GET /me ucu (M01-1)"
 - Produces (cubit): `PasswordResetCubit` — durumlar `PasswordResetState(status: idle|sending|sent|confirming|done|failure, message: String?)`; metotlar `requestReset(String email)`, `confirmReset({required String email, required String token, required String newPassword})`.
 - Rotalar: `/password-reset` (istek), `/password-reset/confirm` (kod + yeni şifre; `state.extra` ile e-posta ve varsa token taşınır).
 
-- [ ] **Step 1: Cubit testini yaz (kırmızı)**
+> **Sapma (uygulandı):** `bloc_test` **eklenmedi.** Repodaki mevcut cubit testleri (`payments_cubit_test`, `dashboard_cubit_test`, `auth_cubit_test`) düz `test()` + `expectLater(cubit.stream, emitsInOrder(...))` kullanıyor; yeni bir dev bağımlılığı eklemek yerine aynı desen izlendi. 3 test yazıldı (istek, onay, hata).
+> **Sapma (uygulandı):** Ekranlar cubit'i `PasswordResetCubit.create()` fabrikasıyla kurar (`PaymentsCubit.create()` deseni) ve `BlocProvider.value` ile sağlar. Login/register sayfalarındaki tekrarlanan `InputDecoration` gövdesi `features/auth/presentation/widgets/auth_field_decoration.dart` altına alındı (yeni stil icat edilmedi, login'deki değerler birebir).
+> **Sapma (uygulandı) — plan eksiği:** `app_router.dart`'ın `redirect`'i oturumsuz kullanıcıyı `onAuthScreen` beyaz listesi dışındaki her yerden `/` köküne atıyor. Rotaları eklemek tek başına yetmezdi; listeye `state.matchedLocation.startsWith('/password-reset')` koşulu eklendi.
+
+- [x] **Step 1: Cubit testini yaz (kırmızı)**
 
 `mobile/test/features/auth/presentation/password_reset_cubit_test.dart`:
 ```dart
@@ -832,12 +836,12 @@ void main() {
 > `bloc_test` `dev_dependencies`'te yoksa: `cd mobile && flutter pub add --dev bloc_test`.
 > `FakeAuthRepository`'ye (P01 Task 2) `requestPasswordReset` / `confirmPasswordReset` gövdeleri eklenir.
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `cd mobile && flutter test test/features/auth/presentation/password_reset_cubit_test.dart`
 Expected: FAIL — `PasswordResetCubit` yok.
 
-- [ ] **Step 3: Repository metotlarını ekle**
+- [x] **Step 3: Repository metotlarını ekle**
 
 `auth_repository.dart` (arayüz):
 ```dart
@@ -873,7 +877,7 @@ Expected: FAIL — `PasswordResetCubit` yok.
 ```
 > `_apiClient.post` imzası için `mobile/lib/core/network/api_client.dart`'a bak; gövde alan adları backend `ResetPasswordCommand(string Email, string Token, string NewPassword)` ile birebir olmalı.
 
-- [ ] **Step 4: Cubit'i yaz**
+- [x] **Step 4: Cubit'i yaz**
 
 `mobile/lib/features/auth/presentation/cubit/password_reset_cubit.dart`:
 ```dart
@@ -928,12 +932,12 @@ class PasswordResetCubit extends Cubit<PasswordResetState> {
 }
 ```
 
-- [ ] **Step 5: Testi çalıştır**
+- [x] **Step 5: Testi çalıştır**
 
 Run: `cd mobile && flutter test test/features/auth/presentation/password_reset_cubit_test.dart`
 Expected: PASS.
 
-- [ ] **Step 6: İki ekranı yaz**
+- [x] **Step 6: İki ekranı yaz**
 
 `password_reset_request_page.dart`: e-posta alanı + "Sıfırlama kodu gönder" butonu; `sent` durumunda bilgilendirme + `context.push('/password-reset/confirm', extra: email)`.
 `password_reset_confirm_page.dart`: kod alanı + yeni şifre + tekrar alanı; `done` durumunda `context.go('/login')` + `SnackBar('Şifren güncellendi, giriş yapabilirsin.')`.
@@ -942,7 +946,7 @@ Her iki ekran da `doc/architecture/design_system.md` token'larını ve `mobile/l
 
 Metinler Türkçe ve **tam Türkçe karakterli**: "Şifremi unuttum", "E-posta adresin", "Sıfırlama kodu", "Yeni şifre".
 
-- [ ] **Step 7: Rotaları ve giriş bağlantısını bağla**
+- [x] **Step 7: Rotaları ve giriş bağlantısını bağla**
 
 `app_router.dart` → `/login` rotasının hemen ardına:
 ```dart
@@ -965,12 +969,12 @@ Metinler Türkçe ve **tam Türkçe karakterli**: "Şifremi unuttum", "E-posta a
             ),
 ```
 
-- [ ] **Step 8: Tüm mobil testleri koştur**
+- [x] **Step 8: Tüm mobil testleri koştur**
 
 Run: `cd mobile && flutter test && flutter analyze`
 Expected: PASS + sorun yok.
 
-- [ ] **Step 9: Sayfa dokümanı + commit**
+- [x] **Step 9: Sayfa dokümanı + commit**
 
 `doc/pages/auth_password_reset.md` oluştur (mevcut `doc/pages/auth_login.md` şablonunu izle: amaç, rota, state, API, boş/hata durumları) ve `doc/pages/00_pages_index.md`'ye iki satır ekle.
 ```bash

@@ -3,7 +3,7 @@ title: "Sayfa (Ekran) Dokümanları — İndeks"
 summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/More/Notifications/Parent)"
 tags: [sayfa-index, indeks, mobil]
 authority: derived
-updated: 2026-08-20
+updated: 2026-09-02
 ---
 
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
@@ -11,7 +11,7 @@ updated: 2026-08-20
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
+> **Son güncelleme:** 2026-09-02 (P02/D-01: şifre sıfırlama ekranları eklendi) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -22,6 +22,8 @@ updated: 2026-08-20
 | Hesap türü seçimi | `/role-selection` | [auth_role_selection](auth_role_selection.md) | — |
 | Giriş | `/login` | [auth_login](auth_login.md) | 🟢 |
 | Kayıt | `/register` | [auth_register](auth_register.md) | 🟢 |
+| Şifremi unuttum (kod isteme) | `/password-reset` | [auth_password_reset](auth_password_reset.md) | 🟢 |
+| Şifremi unuttum (yeni şifre) | `/password-reset/confirm` | [auth_password_reset](auth_password_reset.md) | 🟢 |
 
 ## Dashboard
 | Ekran | Route | md | Veri |

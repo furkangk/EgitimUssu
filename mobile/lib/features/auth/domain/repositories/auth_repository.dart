@@ -16,6 +16,17 @@ abstract interface class AuthRepository {
     int roleId = 2,
   });
 
+  /// D-01: Sifre sifirlama kodu istegi. Kullanici kayitli olmasa da hata donmez
+  /// (sunucu e-posta enumeration'i engellemek icin her durumda 200 doner).
+  Future<void> requestPasswordReset({required String email});
+
+  /// D-01: E-postadaki kod ile yeni sifreyi belirler.
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String token,
+    required String newPassword,
+  });
+
   Future<UserSession?> restoreSession();
   Future<UserSession> refreshSession();
   Future<void> logout();

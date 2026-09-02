@@ -269,17 +269,10 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   const Spacer(),
                                   TextButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Sifre sifirlama akisi henuz eklenmedi.',
-                                          ),
-                                        ),
-                                      );
-                                    },
+                                    onPressed: () => context.push(
+                                      '/password-reset',
+                                      extra: _emailController.text.trim(),
+                                    ),
                                     style: TextButton.styleFrom(
                                       foregroundColor: AppColors.primary,
                                       padding: EdgeInsets.zero,
@@ -287,7 +280,7 @@ class _LoginPageState extends State<LoginPage> {
                                       tapTargetSize:
                                           MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    child: const Text('Sifremi unuttum'),
+                                    child: const Text('Şifremi unuttum'),
                                   ),
                                 ],
                               ),

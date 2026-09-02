@@ -6,6 +6,8 @@ import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/stude
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/pages/password_reset_confirm_page.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/pages/password_reset_request_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/register_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/role_selection_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/welcome_page.dart';
@@ -59,7 +61,8 @@ class AppRouter {
             state.matchedLocation == '/' ||
             state.matchedLocation == '/role-selection' ||
             state.matchedLocation == '/login' ||
-            state.matchedLocation == '/register';
+            state.matchedLocation == '/register' ||
+            state.matchedLocation.startsWith('/password-reset');
         final onPreviewScreen =
             state.matchedLocation == '/teacher-panel-preview' ||
             state.matchedLocation == '/account-info-preview';
@@ -230,6 +233,19 @@ class AppRouter {
           path: '/login',
           builder: (context, state) => LoginPage(
             selectedRole: state.uri.queryParameters['role'] ?? 'ogretmen',
+          ),
+        ),
+        GoRoute(
+          path: '/password-reset',
+          builder: (context, state) => PasswordResetRequestPage(
+            initialEmail: state.uri.queryParameters['email'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/password-reset/confirm',
+          builder: (context, state) => PasswordResetConfirmPage(
+            email: state.extra is String ? state.extra! as String : '',
+            initialToken: state.uri.queryParameters['token'] ?? '',
           ),
         ),
         GoRoute(
