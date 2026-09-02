@@ -43,7 +43,11 @@
   - `interface IDeviceTokenRepository { Task<DeviceToken?> GetByTokenAsync(string token, CancellationToken ct); Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken ct); Task AddAsync(DeviceToken token, CancellationToken ct); Task SaveChangesAsync(CancellationToken ct); }`
   - `POST /api/notifications/device-tokens` (auth) · `DELETE /api/notifications/device-tokens/{token}` (auth)
 
-- [ ] **Step 1: Domain testini yaz (kırmızı)**
+> **Sapma (uygulandı):** `DELETE /device-tokens/{token}` `UserId`'yi **query parametresinden değil `ICurrentUser`'dan** okur. Plan komut imzasını (`UnregisterDeviceTokenCommand(Guid UserId, string Token)`) koruyor ama gövdesiz bir DELETE'te sahipliği istemciden almak gereksiz; çıkış akışında kullanıcı zaten kendi tokenını siler. `UserId` çözülemezse `shared.forbidden` (403).
+> **Sapma (uygulandı):** `DeviceTokenConfiguration`'a `builder.Property(e => e.Id).ValueGeneratedNever()` eklendi. Id istemcide `IIdGenerator` ile üretiliyor; bu satır olmadan EF onu `OnAdd` sayar (P01 Öğrenilenler #3 / P02 Task 3'teki Identity hatasının aynısı) — proaktif olarak kapatıldı.
+> **Sapma (uygulandı) — plan eksiği:** Plan Step 5'te yalnız kod veriyordu, test istemiyordu. Master tasarım §1 "testsiz kod yok" gereği handler ve authorizer için 6 test daha yazıldı (yeni kayıt, aynı token → `Touch`, boş token → 400, silme, bilinmeyen token idempotent, self/Admin/yabancı/anonim yetki).
+
+- [x] **Step 1: Domain testini yaz (kırmızı)**
 
 `tests/Unit/DeviceTokenTests.cs`:
 ```csharp
@@ -78,12 +82,12 @@ public sealed class DeviceTokenTests
 }
 ```
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~DeviceTokenTests"`
 Expected: FAIL — tip yok.
 
-- [ ] **Step 3: Domain'i yaz**
+- [x] **Step 3: Domain'i yaz**
 
 `NotificationsDomainModel.cs` sonuna:
 ```csharp
@@ -139,12 +143,12 @@ public sealed class DeviceToken : AggregateRoot<Guid>
 }
 ```
 
-- [ ] **Step 4: Testi çalıştır**
+- [x] **Step 4: Testi çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~DeviceTokenTests"`
 Expected: PASS.
 
-- [ ] **Step 5: Application katmanı (command + handler + authorizer)**
+- [x] **Step 5: Application katmanı (command + handler + authorizer)**
 
 `NotificationFeatures.cs`:
 ```csharp
@@ -203,7 +207,7 @@ public sealed class RegisterDeviceTokenCommandHandler : ICommandHandler<Register
 
 `NotificationPolicies.cs` → her iki komut için `ICommandAuthorizer<T>`: `_currentUser.IsAuthenticated` **ve** (`UserId` eşleşiyor veya `Admin`), aksi halde `shared.forbidden`.
 
-- [ ] **Step 6: Infrastructure (repository + DbContext + DI + migration)**
+- [x] **Step 6: Infrastructure (repository + DbContext + DI + migration)**
 
 `DeviceTokenRepository.cs` — `SettingsDbContext`/`UserSettingRepository` desenini izle.
 `NotificationsDbContext.cs`:
@@ -231,7 +235,7 @@ internal sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<Device
 Run: `dotnet ef migrations add AddDeviceTokens --project src/Modules/Notifications/Infrastructure --startup-project src/API.Host --context NotificationsDbContext`
 Expected: `Migrations/<zaman>_AddDeviceTokens.cs` üretildi.
 
-- [ ] **Step 7: Endpoint'leri ekle**
+- [x] **Step 7: Endpoint'leri ekle**
 
 `NotificationsModule.cs`:
 ```csharp
@@ -249,7 +253,7 @@ public sealed record RegisterDeviceTokenRequest(Guid UserId, string Token, Devic
 ```
 Metotlar `SettingsModule.SetStudySharingAsync` desenini izler (`ICommandDispatcher` + `ApiErrorHttpResults`).
 
-- [ ] **Step 8: Testler + commit**
+- [x] **Step 8: Testler + commit**
 
 Run: `dotnet test EgitimUssu.slnx`
 Expected: yeşil (yeni `AuthorizationCoverageValidator` şikayeti yoksa authorizer'lar doğru kayıtlı demektir).

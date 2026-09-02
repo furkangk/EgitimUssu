@@ -6,7 +6,7 @@ status: "🟡"
 authority: code
 code_refs:
   - src/Modules/Notifications/**
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 🔔 Bildirim Modülü (M11) — Detaylı Tasarım Dokümanı
@@ -55,7 +55,7 @@ updated: 2026-09-02
 ### 🔴 Eksik olan
 
 - **Gerçek push teslimatı YOK** (bkz. [`mimari_inceleme.md`](mimari_inceleme.md) **Y5**). `DispatchDueRemindersAsync` yalnızca `reminder.MarkSent(...)` yapar; **FCM/APNs'e hiçbir şey gönderilmez**. Bildirim "gönderildi" olarak işaretlenir ama kullanıcıya hiçbir şey ulaşmaz.
-- **Cihaz token kaydı yok** — mobil FCM/APNs token'larını alıp saklayan bir aggregate/endpoint bulunmuyor.
+- ✅ **Cihaz token kaydı eklendi** (2026-09-03, P03/M11-2) — `DeviceToken` aggregate + `POST /device-tokens` / `DELETE /device-tokens/{token}`. Gerçek gönderim hâlâ yok (P03 Task 2-3).
 - `NotificationChannel.Push` enum değeri tanımlı ama tüm hatırlatmalar `InApp` olarak üretiliyor.
 - ✅ **`ReminderOffsetMinutes` artık kullanılıyor** (2026-07-01, Y1) — offset `LessonScheduledDomainEvent` payload'ında taşınıp handler'da uygulanıyor; hatırlatma ders bazında erken/geç kurulabiliyor ([`m04_scheduling.md`](m04_scheduling.md)).
 - **Ders dışı bildirim türleri yok:** ödev son teslim yaklaşıyor/kaçırıldı, ödeme gecikmesi, yeni mesaj, günlük çalışma, haftalık özet (PRD M11 tablosu).
@@ -122,6 +122,24 @@ Kaynak: `src/Modules/Notifications/Domain/NotificationsDomainModel.cs`
 - `Title` (200), `Message` (1000) zorunlu; `Channel` ve `Status` `string` enum dönüşümü (maks. 32).
 - Index: `LessonScheduleId` **UNIQUE**; `(TeacherUserId, Status, RemindAtUtc)` bileşik (zamanlayıcı sorgusunu hızlandırır).
 
+### 🟢 Mevcut — `DeviceToken` (AggregateRoot, 2026-09-03)
+
+`src/Modules/Notifications/Domain/NotificationsDomainModel.cs` · tablo `notifications.device_tokens`
+
+| Alan | Tip | Not |
+|------|-----|-----|
+| `Id` | Guid | İstemcide üretilir (`IIdGenerator`); EF'te `ValueGeneratedNever()` |
+| `UserId` | Guid | Token'ın sahibi |
+| `Token` | string(512) | FCM/APNs kayıt token'ı · **UNIQUE indeks** |
+| `Platform` | `DevicePlatform` | `Android=1` / `IOS=2` / `Web=3`, string olarak saklanır |
+| `DeviceName` | string(128)? | "Pixel 8" gibi görünen ad |
+| `IsActive` | bool | `(UserId, IsActive)` indeksli — gönderimde yalnız aktifler okunur |
+| `CreatedOnUtc` / `LastSeenOnUtc` | DateTime | `IClock.UtcNow` |
+
+Metotlar: `Touch(nowUtc)` — tazeler ve **yeniden aktifleştirir**; `Deactivate(nowUtc)` — FCM `UNREGISTERED`/`INVALID_ARGUMENT` yanıtında veya çıkışta.
+
+> **Idempotens:** Aynı token yeniden kaydedilirse yeni satır açılmaz, mevcut satır `Touch` edilir (FCM token'ları rotasyona uğrar). Bilinmeyen bir token'ın silinmesi de hata değil, başarıdır.
+
 ### ⚠️ Önerilen — Genelleştirilmiş bildirim modeli
 
 Mevcut model yalnızca **ders hatırlatması**na özgüdür ve alıcısı yalnızca öğretmendir. Ödev/ödeme/mesaj bildirimlerini ve öğrenci/veli alıcılarını desteklemek için ayrı, genel bir aggregate önerilir:
@@ -178,12 +196,12 @@ Mevcut model yalnızca **ders hatırlatması**na özgüdür ve alıcısı yalnı
 |---------|----------------|-------|
 | Öğretmen ders hatırlatmaları | `GET /api/notifications/teachers/{teacherUserId}/lesson-reminders?activeOnly={bool}` | `AuthenticatedUser` + Admin **veya** sahibi öğretmen (`LessonReminderQueryAuthorizer`) |
 | **Veli bildirim listesi (Veli V-E)** | `GET /api/notifications/parents/{parentUserId}/notifications` | `AuthenticatedUser` + self **veya** Admin (`LessonReminderQueryAuthorizer`) — `ParentNotificationResponse[]`, en yeni önce |
+| **Cihaz token kaydı (M11-2)** | `POST /api/notifications/device-tokens` | `AuthenticatedUser` + self **veya** Admin (`DeviceTokenCommandAuthorizer`) — gövde `RegisterDeviceTokenRequest(UserId, Token, Platform, DeviceName)`; idempotent |
+| **Cihaz token silme (M11-2)** | `DELETE /api/notifications/device-tokens/{token}` | `AuthenticatedUser`; sahiplik gövdeden değil **oturumdan** (`ICurrentUser`) okunur — bilinmeyen token da `200` |
 
 ### Eksik / Önerilen ⚠️
 
 ```
-POST /api/notifications/devices                          → mobil FCM/APNs token kaydı (UserId = oturum sahibi)
-DELETE /api/notifications/devices/{token}                → cihaz token sil (logout/yenileme)
 GET  /api/notifications/users/{userId}?unreadOnly=       → kullanıcının in-app bildirim listesi (öğrenci/veli dahil)
 GET  /api/notifications/users/{userId}/unread-count      → okunmamış sayısı (rozet)
 PUT  /api/notifications/{id}/read                        → tek bildirimi okundu işaretle
@@ -196,6 +214,7 @@ PUT  /api/notifications/users/{userId}/read-all          → tümünü okundu i�
 
 ## 4. İş Kuralları
 
+0. **Cihaz token idempotensi (M11-2):** `Token` UNIQUE; aynı token yeniden POST edilirse `Touch` ile tazelenir. Boş/boşluk token `notifications.invalid_device_token` (**400**). Başkasının `UserId`'si ile kayıt `shared.forbidden` (**403**).
 1. **Tek hatırlatma / ders:** `LessonScheduleId` UNIQUE; handler önce mevcut kaydı kontrol eder → tekrarlı event'te ikinci kayıt oluşmaz (idempotent).
 2. **Durum geçişleri:** `MarkSent` yalnızca `Pending → Sent`; `Cancel` `* → Cancelled` (Cancelled hariç). Sent/Cancelled kayıt tekrar tetiklenmez.
 3. **Zamanlama:** `RemindAtUtc <= UtcNow && Status == Pending` olan kayıtlar 30 sn'lik döngüde işlenir. Sunucu kapalıyken biriken kayıtlar açılınca toplu işlenir (geçmiş hatırlatma "geç teslim" sayılır).
@@ -268,7 +287,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 ## 8. Eksikler ve Yapılacaklar (Öncelik Sırasıyla)
 
 1. **Outbox'ı aç (K1)** — yoksa hiçbir hatırlatma/bildirim oluşmaz. Startup uyarısı ekle.
-2. **Gerçek push entegrasyonu (Y5)** — FCM/APNs gönderimi + `DeviceToken` aggregate + `POST/DELETE /devices`.
+2. **Gerçek push entegrasyonu (Y5)** — ✅ `DeviceToken` aggregate + `POST/DELETE /device-tokens` **eklendi (2026-09-03, P03 Task 1)**; kalan: FCM gönderimi (`IPushSender`, P03 Task 2-3).
 3. ✅ **`ReminderOffsetMinutes` kullanımı** — ders bazlı offset event payload'ıyla uygulandı (2026-07-01, Y1).
 4. **Yeni bildirim türleri** — ödev son teslim yaklaşıyor/kaçırıldı (öğrenci + veli), ödeme gecikmesi, yeni mesaj; ileride günlük çalışma/haftalık özet.
 5. **Öğrenci/veli in-app bildirim listesi + okundu** endpoint'leri.
@@ -295,4 +314,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-03 (P03/M11-2: `DeviceToken` aggregate + `POST`/`DELETE /device-tokens`). Önceki not — 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*

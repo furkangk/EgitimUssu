@@ -5,7 +5,7 @@ tags: [modul, indeks, genel-bakis]
 authority: code
 code_refs:
   - src/Modules/*/API/*Module.cs
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 🗂️ Modüller — Genel Bakış ve Durum (Modül İndeksi)
@@ -185,6 +185,7 @@ GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-
 ```
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
 GET /parents/{parentUserId}/notifications   (veli bildirim listesi, Premium; Veli V-E 2026-07-19)
+POST /device-tokens   DELETE /device-tokens/{token}   (cihaz push token kaydi/silme, auth; M11-2 2026-09-03)
 [consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification (Premium + tercih kapılı, idempotent (ortak inbox_messages))
 [hosted] ParentWeeklySummaryService (haftalık özet, Premium)
 ```
@@ -248,4 +249,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-09-02 (P02/M01-1: Identity envanterine `GET /me (auth)` eklendi). Önceki not — 2026-09-02 (F-07: §3 mobil eşlemesi — app artık üç rolü de kapsıyor; `notifications` + `progress` feature satırları eklendi). Önceki not — 2026-08-26 (Y4 kapatıldı: tüm `[consume]` handler notları "idempotent (ortak inbox_messages)" olarak birleştirildi; Parents'ın 4 read-model projeksiyonu için `[consume]` satırı eklendi; §4 başına ortak `IdempotentIntegrationEventHandler` notu). Önceki not — 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-09-03 (P03/M11-2: Notifications envanterine `POST`/`DELETE /device-tokens`). Önceki not — 2026-09-02 (P02/M01-1: Identity envanterine `GET /me (auth)` eklendi). Önceki not — 2026-09-02 (F-07: §3 mobil eşlemesi — app artık üç rolü de kapsıyor; `notifications` + `progress` feature satırları eklendi). Önceki not — 2026-08-26 (Y4 kapatıldı: tüm `[consume]` handler notları "idempotent (ortak inbox_messages)" olarak birleştirildi; Parents'ın 4 read-model projeksiyonu için `[consume]` satırı eklendi; §4 başına ortak `IdempotentIntegrationEventHandler` notu). Önceki not — 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*

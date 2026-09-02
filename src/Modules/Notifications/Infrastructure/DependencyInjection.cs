@@ -15,7 +15,12 @@ public static class DependencyInjection
         services.AddModuleDbContext<NotificationsDbContext>(configuration, "Notifications", NotificationsDbContext.SchemaName);
         services.AddScoped<ILessonReminderRepository, LessonReminderRepository>();
         services.AddScoped<IParentNotificationRepository, ParentNotificationRepository>();
+        services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
         services.AddScoped<INotificationDispatchProcessor, NotificationDispatchProcessor>();
+        services.AddScoped<ICommandHandler<RegisterDeviceTokenCommand, Result>, RegisterDeviceTokenCommandHandler>();
+        services.AddScoped<ICommandHandler<UnregisterDeviceTokenCommand, Result>, UnregisterDeviceTokenCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<RegisterDeviceTokenCommand>, DeviceTokenCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<UnregisterDeviceTokenCommand>, DeviceTokenCommandAuthorizer>();
         services.AddScoped<IQueryHandler<ListTeacherLessonRemindersQuery, Result<IReadOnlyCollection<LessonReminderResponse>>>, ListTeacherLessonRemindersQueryHandler>();
         services.AddScoped<IQueryValidator<ListTeacherLessonRemindersQuery>, ListTeacherLessonRemindersQueryValidator>();
         services.AddScoped<IQueryAuthorizer<ListTeacherLessonRemindersQuery>, LessonReminderQueryAuthorizer>();

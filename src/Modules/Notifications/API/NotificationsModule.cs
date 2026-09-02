@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Notifications.Application;
+using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Modules.Notifications.Infrastructure;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure.Http;
@@ -33,6 +34,48 @@ public sealed class NotificationsModule : ModuleDefinition
 
         group.MapGet("/parents/{parentUserId:guid}/notifications", ListParentNotificationsAsync)
         .WithSummary("Velinin bildirimlerini listeler (Veli V-E)");
+
+        group.MapPost("/device-tokens", RegisterDeviceTokenAsync)
+        .WithSummary("Cihaz push token'ını kaydeder/tazeler (M11-2)");
+
+        group.MapDelete("/device-tokens/{token}", UnregisterDeviceTokenAsync)
+        .WithSummary("Cihaz push token'ını devre dışı bırakır (çıkış)");
+    }
+
+    /// <summary>
+    /// Cihazın push token'ını kaydeder; token zaten varsa yeni satır açmadan tazeler (M11-2).
+    /// </summary>
+    private static async Task<IResult> RegisterDeviceTokenAsync(
+        HttpContext context,
+        RegisterDeviceTokenRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new RegisterDeviceTokenCommand(request.UserId, request.Token, request.Platform, request.DeviceName),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Cihazın push token'ını devre dışı bırakır (çıkış akışı). Bilinmeyen token da başarı döner.
+    /// </summary>
+    private static async Task<IResult> UnregisterDeviceTokenAsync(
+        HttpContext context,
+        string token,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        // Kullanıcı yalnız kendi cihaz token'ını siler; sahiplik gövdeden değil token'dan okunur.
+        if (!Guid.TryParse(currentUser.UserId, out var userId))
+        {
+            return ApiErrorHttpResults.Forbidden(context, "Bu işlemi yapma yetkiniz yok.");
+        }
+
+        var result = await dispatcher.Dispatch(new UnregisterDeviceTokenCommand(userId, token), cancellationToken);
+        return ToHttpResult(context, result);
     }
 
     /// <summary>
@@ -75,4 +118,21 @@ public sealed class NotificationsModule : ModuleDefinition
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
     }
+
+    private static IResult ToHttpResult(HttpContext context, Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return Results.Ok();
+        }
+
+        return result.Error.Code switch
+        {
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
+    }
 }
+
+/// <summary>Cihaz push token kayıt isteği (M11-2).</summary>
+public sealed record RegisterDeviceTokenRequest(Guid UserId, string Token, DevicePlatform Platform, string? DeviceName);

@@ -21,6 +21,8 @@ public sealed class NotificationsDbContext : ModuleDbContext
 
     public DbSet<ParentNotification> ParentNotifications => Set<ParentNotification>();
 
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+
     public DbSet<ProcessedIntegrationEvent> ProcessedIntegrationEvents => Set<ProcessedIntegrationEvent>();
 
     protected override string Schema => SchemaName;
@@ -71,5 +73,22 @@ internal sealed class ProcessedIntegrationEventConfiguration : IEntityTypeConfig
         builder.HasKey(entity => entity.Id);
         builder.Property(entity => entity.EventName).HasMaxLength(256).IsRequired();
         builder.Property(entity => entity.ProcessedOnUtc).IsRequired();
+    }
+}
+
+internal sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceToken>
+{
+    public void Configure(EntityTypeBuilder<DeviceToken> builder)
+    {
+        builder.ToTable("device_tokens");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(entity => entity.Token).HasMaxLength(512).IsRequired();
+        builder.Property(entity => entity.Platform).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.DeviceName).HasMaxLength(128);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Property(entity => entity.LastSeenOnUtc).IsRequired();
+        builder.HasIndex(entity => entity.Token).IsUnique();
+        builder.HasIndex(entity => new { entity.UserId, entity.IsActive });
     }
 }

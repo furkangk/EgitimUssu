@@ -204,7 +204,7 @@ Her madde şu alanlara sahip:
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
 | M11-1 | Gerçek teslimat yok | A-04 | Tüm bildirim değeri ölü | L | | |
-| M11-2 | Cihaz token kaydı yok | Entity/uç yok | A-04'ün parçası | — | | |
+| M11-2 | ~~Cihaz token kaydı yok~~ **✅ (P03)** | `DeviceToken` + `POST`/`DELETE /api/notifications/device-tokens` | — | — | Eklendi 2026-09-03 | Idempotent kayıt/silme; sahiplik `DeviceTokenCommandAuthorizer` ile |
 | M11-3 | **Öğrenci ve öğretmen in-app bildirim listesi yok** | Yalnız `teachers/{id}/lesson-reminders` + `parents/{id}/notifications` | Öğretmenin mobil `/notifications` ekranı yalnız ders hatırlatması gösteriyor; öğrencinin bildirimi hiç yok | M | | |
 | M11-4 | Okundu/okunmadı + rozet sayacı yok | Domain'de yok | Bildirim merkezi UX'i eksik | S | | |
 | M11-5 | M15 tercihlerine saygı kısmi | Yalnız veli tercihleri (`notification-preferences`) | Kullanıcı bildirim türünü kapatamıyor | M | | |

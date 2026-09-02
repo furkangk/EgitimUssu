@@ -1,3 +1,4 @@
+using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Kernel;
 
@@ -53,5 +54,42 @@ public sealed class LessonReminderQueryAuthorizer :
 
         var ownsList = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == query.ParentUserId;
         return Task.FromResult(ownsList ? Result.Success() : Result.Failure(Forbidden));
+    }
+}
+
+// M11-2: Cihaz token'i yalniz sahibi (veya Admin) kaydeder/siler — varsayilan-deny.
+public sealed class DeviceTokenCommandAuthorizer :
+    ICommandAuthorizer<RegisterDeviceTokenCommand>,
+    ICommandAuthorizer<UnregisterDeviceTokenCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islemi yapma yetkiniz yok.");
+
+    private readonly ICurrentUser _currentUser;
+
+    public DeviceTokenCommandAuthorizer(ICurrentUser currentUser)
+    {
+        _currentUser = currentUser;
+    }
+
+    public Task<Result> Authorize(RegisterDeviceTokenCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(AuthorizeOwner(command.UserId));
+
+    public Task<Result> Authorize(UnregisterDeviceTokenCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(AuthorizeOwner(command.UserId));
+
+    private Result AuthorizeOwner(Guid userId)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var isSelf = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == userId;
+        return isSelf ? Result.Success() : Result.Failure(Forbidden);
     }
 }

@@ -198,3 +198,66 @@ public sealed record LessonReminderSentDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime SentOnUtc) : DomainEvent;
+
+public enum DevicePlatform
+{
+    Android = 1,
+    IOS = 2,
+    Web = 3
+}
+
+/// <summary>
+/// Bir kullanicinin bir cihazindaki push token'i. Ayni token yeniden kaydedilirse yeni satir
+/// acilmaz, mevcut satir <see cref="Touch"/> ile tazelenir (FCM token'lari rotasyona ugrar).
+/// </summary>
+public sealed class DeviceToken : AggregateRoot<Guid>
+{
+    private DeviceToken()
+    {
+    }
+
+    public DeviceToken(
+        Guid id,
+        Guid userId,
+        string token,
+        DevicePlatform platform,
+        string? deviceName,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        UserId = userId;
+        Token = token;
+        Platform = platform;
+        DeviceName = deviceName;
+        IsActive = true;
+        CreatedOnUtc = createdOnUtc;
+        LastSeenOnUtc = createdOnUtc;
+    }
+
+    public Guid UserId { get; private set; }
+
+    public string Token { get; private set; } = string.Empty;
+
+    public DevicePlatform Platform { get; private set; }
+
+    public string? DeviceName { get; private set; }
+
+    public bool IsActive { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    public DateTime LastSeenOnUtc { get; private set; }
+
+    public void Touch(DateTime nowUtc)
+    {
+        IsActive = true;
+        LastSeenOnUtc = nowUtc;
+    }
+
+    /// <summary>FCM "UNREGISTERED"/"INVALID_ARGUMENT" dondurdugunde veya kullanici cikis yaptiginda cagrilir.</summary>
+    public void Deactivate(DateTime nowUtc)
+    {
+        IsActive = false;
+        LastSeenOnUtc = nowUtc;
+    }
+}
