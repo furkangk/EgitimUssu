@@ -42,6 +42,10 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
         builder.Property(entity => entity.Description).HasMaxLength(2000);
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.AttachmentUrl).HasMaxLength(512);
+        // P04: teslim dosyasi artik IFileStorage anahtariyla saklanir (public URL degil).
+        builder.Property(entity => entity.AttachmentStorageKey).HasMaxLength(512);
+        builder.Property(entity => entity.AttachmentFileName).HasMaxLength(256);
+        builder.Property(entity => entity.AttachmentContentType).HasMaxLength(128);
         builder.Property(entity => entity.TeacherFeedback).HasMaxLength(2000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.StudentId, entity.Status });

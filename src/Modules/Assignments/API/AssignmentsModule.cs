@@ -2,6 +2,7 @@ using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Modules.Assignments.Domain;
 using EgitimUssu.Modules.Assignments.Infrastructure;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Kernel.Storage;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using EgitimUssu.Shared.Kernel;
@@ -91,18 +92,17 @@ public sealed class AssignmentsModule : ModuleDefinition
     }
 
     /// <summary>
-    /// Öğrenci ödev çözümünü yükler. Dosya önce belleğe alınır; yetki/komut başarılıysa depolamaya yazılır
-    /// (aksi halde başka bir öğrencinin dosyasının üzerine yazılmasını önlemek için hiç kaydedilmez).
+    /// Öğrenci ödev çözümünü yükler (P04). Dosya belleğe alınır ve komuta verilir; doğrulama, yetki ve
+    /// depolama yazımı handler'da yapılır — yetkisiz istek depoya hiçbir şey bırakmaz.
+    /// Boyut/tür kuralı `FileValidation` (10 MB + beyaz liste).
     /// </summary>
     private static async Task<IResult> SubmitAssignmentAsync(
         HttpContext context,
         Guid assignmentId,
         IFormFile? file,
         ICommandDispatcher dispatcher,
-        IAssignmentFileStorage storage,
         CancellationToken cancellationToken)
     {
-        const long maxBytes = 20 * 1024 * 1024;
         if (file is null || file.Length == 0)
         {
             return ApiErrorHttpResults.FromError(
@@ -110,48 +110,55 @@ public sealed class AssignmentsModule : ModuleDefinition
                 new EgitimUssu.Shared.Kernel.Error("assignments.invalid_request", "Yüklenecek dosya bulunamadı."));
         }
 
-        if (file.Length > maxBytes)
-        {
-            return ApiErrorHttpResults.FromError(
-                context, StatusCodes.Status400BadRequest,
-                new EgitimUssu.Shared.Kernel.Error("assignments.file_too_large", "Dosya boyutu 20 MB sınırını aşıyor."));
-        }
-
         using var buffer = new MemoryStream();
         await file.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
 
-        var attachmentUrl = $"/api/assignments/{assignmentId}/attachment";
-        var result = await dispatcher.Dispatch(new SubmitAssignmentWorkCommand(assignmentId, attachmentUrl), cancellationToken);
-        if (result.IsSuccess)
-        {
-            buffer.Position = 0;
-            await storage.SaveAsync(assignmentId, file.FileName, buffer, cancellationToken);
-        }
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        var result = await dispatcher.Dispatch(
+            new SubmitAssignmentWorkCommand(assignmentId, file.FileName, contentType, buffer.Length, buffer),
+            cancellationToken);
 
         return ToHttpResult(context, result);
     }
 
-    /// <summary>Ödev ekini (öğrenci teslimi) yetkili kullanıcıya (öğrenci/öğretmen/admin) döner.</summary>
+    /// <summary>
+    /// Ödev ekini (öğrenci teslimi) yetkili kullanıcıya (öğrenci/öğretmen/admin) akıtır (P04).
+    /// Dosya doğrudan URL ile sunulmaz; anahtar `IFileStorage`'tan yetki kontrolünden **sonra** okunur.
+    /// </summary>
     private static async Task<IResult> DownloadAttachmentAsync(
         HttpContext context,
         Guid assignmentId,
         IQueryDispatcher dispatcher,
-        IAssignmentFileStorage storage,
+        IFileStorage fileStorage,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(new GetAssignmentQuery(assignmentId), cancellationToken);
+        var result = await dispatcher.Dispatch(new GetAssignmentAttachmentQuery(assignmentId), cancellationToken);
         if (!result.IsSuccess)
         {
-            return ToHttpResult(context, result);
+            return result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                "assignments.assignment_not_found" or "assignments.attachment_not_found"
+                    => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
         }
 
-        var file = await storage.OpenAsync(assignmentId, cancellationToken);
-        if (file is null)
+        var attachment = result.Value!;
+        var content = await fileStorage.OpenReadAsync(attachment.StorageKey, cancellationToken);
+        if (content is null)
         {
-            return Results.NotFound();
+            // Kayıt var ama dosya yok (elle silinmiş / göç eksik): sessizce boş dönmek yerine 404.
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status404NotFound,
+                new EgitimUssu.Shared.Kernel.Error("assignments.attachment_not_found", "Ödev eki bulunamadı."));
         }
 
-        return Results.File(file.Content, file.ContentType, file.FileName);
+        return Results.File(content, attachment.ContentType, attachment.FileName);
     }
 
     /// <summary>

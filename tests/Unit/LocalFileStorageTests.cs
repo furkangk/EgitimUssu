@@ -1,5 +1,6 @@
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Storage;
+using EgitimUssu.Shared.Kernel.Storage;
 using Microsoft.Extensions.Options;
 
 namespace EgitimUssu.Tests.Unit;

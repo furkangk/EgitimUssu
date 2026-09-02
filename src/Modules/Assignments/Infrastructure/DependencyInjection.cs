@@ -15,7 +15,6 @@ public static class DependencyInjection
         services.AddModuleDbContext<AssignmentsDbContext>(configuration, "Assignments", AssignmentsDbContext.SchemaName);
         services.AddScoped<IAssignmentRepository, AssignmentRepository>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudentNotesDirectory, StudentNotesDirectory>();
-        services.AddSingleton<IAssignmentFileStorage, LocalAssignmentFileStorage>();
         services.AddScoped<ICommandHandler<CreateLessonSessionFollowUpCommand, Result<LessonSessionFollowUpResponse>>, CreateLessonSessionFollowUpCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionFollowUpQuery, Result<LessonSessionFollowUpResponse>>, GetLessonSessionFollowUpQueryHandler>();
         services.AddScoped<IQueryHandler<ListAssignmentsQuery, Result<IReadOnlyCollection<AssignmentResponse>>>, ListAssignmentsQueryHandler>();
@@ -32,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetAssignmentQuery, Result<AssignmentResponse>>, GetAssignmentQueryHandler>();
         services.AddScoped<ICommandHandler<MarkAssignmentCompletedCommand, Result<AssignmentResponse>>, MarkAssignmentCompletedCommandHandler>();
         services.AddScoped<ICommandHandler<SubmitAssignmentWorkCommand, Result<AssignmentResponse>>, SubmitAssignmentWorkCommandHandler>();
+        services.AddScoped<IQueryHandler<GetAssignmentAttachmentQuery, Result<AssignmentAttachmentResponse>>, GetAssignmentAttachmentQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetAssignmentAttachmentQuery>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<ICommandAuthorizer<MarkAssignmentCompletedCommand>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<ICommandAuthorizer<SubmitAssignmentWorkCommand>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetAssignmentQuery>, AssignmentStudentActionAuthorizer>();

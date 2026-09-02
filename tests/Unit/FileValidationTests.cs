@@ -1,4 +1,4 @@
-using EgitimUssu.Shared.Infrastructure.Storage;
+using EgitimUssu.Shared.Kernel.Storage;
 
 namespace EgitimUssu.Tests.Unit;
 

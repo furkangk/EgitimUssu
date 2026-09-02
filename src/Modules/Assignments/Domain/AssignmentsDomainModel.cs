@@ -58,6 +58,16 @@ public sealed class Assignment : AggregateRoot<Guid>
 
     public string? TeacherFeedback { get; private set; }
 
+    /// <summary>P04: Teslim dosyasının <c>IFileStorage</c> anahtarı (public URL değildir).</summary>
+    public string? AttachmentStorageKey { get; private set; }
+
+    /// <summary>Kullanıcıya gösterilecek özgün dosya adı.</summary>
+    public string? AttachmentFileName { get; private set; }
+
+    public string? AttachmentContentType { get; private set; }
+
+    public long? AttachmentSizeBytes { get; private set; }
+
     public void MarkCompleted(DateTime completedOnUtc)
     {
         Status = AssignmentStatus.Completed;
@@ -76,6 +86,29 @@ public sealed class Assignment : AggregateRoot<Guid>
         }
 
         Raise(new AssignmentSubmittedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, nowUtc));
+    }
+
+    /// <summary>
+    /// P04: Ödeve depolanmış bir teslim dosyası bağlar ve <see cref="SubmitWork"/> geçişini uygular.
+    /// Önceki dosyanın anahtarını döndürür; çağıran onu depodan siler (yetim dosya kalmasın).
+    /// </summary>
+    public string? AttachSubmission(
+        string storageKey,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        DateTime nowUtc)
+    {
+        var previousKey = AttachmentStorageKey;
+
+        AttachmentStorageKey = storageKey;
+        AttachmentFileName = fileName;
+        AttachmentContentType = contentType;
+        AttachmentSizeBytes = sizeBytes;
+
+        SubmitWork($"/api/assignments/{Id}/attachment", nowUtc);
+
+        return string.Equals(previousKey, storageKey, StringComparison.Ordinal) ? null : previousKey;
     }
 
     /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>

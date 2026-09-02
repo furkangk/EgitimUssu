@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Assignments/**
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 📝 Ödev, Not & Kaynak (M06) — Detaylı Tasarım Dokümanı
@@ -61,7 +61,11 @@ updated: 2026-09-02
 | `Description` | `string?` | Açıklama |
 | `DueDateUtc` | `DateTime?` | Son teslim tarihi |
 | `Status` | enum `AssignmentStatus` | `Pending=1`, `InProgress=2`, `Completed=3`, `Cancelled=4`, `Approved=5`, `ReturnedForRevision=6` |
-| `AttachmentUrl` | `string?` | **ÖĞRETMEN tarafı** ek (ödev dosyası/yönerge linki) |
+| `AttachmentUrl` | `string?` | Ek bağlantısı; öğrenci teslimi yapıldığında `/api/assignments/{id}/attachment` ile doldurulur |
+| `AttachmentStorageKey` | `string?` | P04: teslim dosyasının `IFileStorage` anahtarı, **maks. 512** (public URL değil) |
+| `AttachmentFileName` | `string?` | Özgün dosya adı, **maks. 256** |
+| `AttachmentContentType` | `string?` | MIME türü, **maks. 128** |
+| `AttachmentSizeBytes` | `long?` | Dosya boyutu |
 | `CreatedOnUtc` | `DateTime` | Oluşturma |
 | `CompletedOnUtc` | `DateTime?` | Tamamlanma |
 | `TeacherFeedback` | `string?` | Öğretmenin onay/geri gönder geri bildirimi (T-06.7/8) |
@@ -69,6 +73,7 @@ updated: 2026-09-02
 **Davranış:**
 - `MarkCompleted(completedOnUtc)` → `Status = Completed`, `AssignmentCompletedDomainEvent` yayılır.
 - `SubmitWork(attachmentUrl, nowUtc)` → teslim; `Pending` **veya** `ReturnedForRevision` durumundaki ödevi `InProgress` yapar, `AssignmentSubmittedDomainEvent` yayılır.
+- `AttachSubmission(storageKey, fileName, contentType, sizeBytes, nowUtc)` (2026-09-03, P04) → depolanmış teslim dosyasını bağlar (`AttachmentStorageKey`/`AttachmentFileName`/`AttachmentContentType`/`AttachmentSizeBytes`), `AttachmentUrl`'i indirme ucuna ayarlar ve `SubmitWork`'ü uygular. **Önceki anahtarı döndürür** — çağıran onu depodan siler (yetim dosya kalmaz).
 - `Approve(feedback?, nowUtc)` → `Status = Approved`, `TeacherFeedback` set edilir, `AssignmentApprovedDomainEvent` yayılır (T-06.7).
 - `ReturnForRevision(feedback, nowUtc)` → `Status = ReturnedForRevision`, `TeacherFeedback` set edilir, `AssignmentReturnedDomainEvent` yayılır (T-06.8).
 > Yeni ödev her zaman `Pending` ile oluşturulur (`CreateLessonSessionFollowUpCommandHandler`).
@@ -179,8 +184,8 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | Yetenek | Endpoint | Not |
 |---------|----------|-----|
 | Ödev tamamla | `POST /api/assignments/{assignmentId}/complete` | `MarkCompleted()`; yalnızca ödevin öğrencisi/admin |
-| Ödev çözümü yükle | `POST /api/assignments/{assignmentId}/submission` (multipart `file`) | `SubmitWork()` + yerel disk depolama (`IAssignmentFileStorage`/`LocalAssignmentFileStorage`); teslim ödevi `InProgress` yapar; `AttachmentUrl` = indirme endpoint'i |
-| Teslim dosyasını indir | `GET /api/assignments/{assignmentId}/attachment` | Ödevin öğrencisi/öğretmeni/admin; dosya modül-içi yetkili sunulur (statik değil) |
+| Ödev çözümü yükle | `POST /api/assignments/{assignmentId}/submission` (multipart `file`) | **P04 (2026-09-03):** ortak `IFileStorage` (`assignments/{assignmentId}/` öneki); doğrulama `FileValidation` (10 MB + uzantı beyaz listesi → `storage.file_too_large` / `storage.unsupported_type` / `storage.empty_file`); yetki+doğrulama **yazmadan önce**; yeni dosya bağlanınca eskisi silinir. Teslim ödevi `InProgress` yapar; `AttachmentUrl` = indirme endpoint'i |
+| Teslim dosyasını indir | `GET /api/assignments/{assignmentId}/attachment` | `GetAssignmentAttachmentQuery` (authorizer: ödevin öğrencisi/öğretmeni/Admin) → anahtar çözülür → `IFileStorage.OpenReadAsync` ile akıtılır. **Public URL yok.** Ek yoksa/dosya kayıpsa `assignments.attachment_not_found` (404) |
 
 > Sahiplik `AssignmentStudentActionAuthorizer` ile: tamamlama/teslim yalnızca öğrenci; indirme öğrenci+öğretmen.
 > Dosya önce belleğe alınır, komut/yetki başarılıysa diske yazılır (başka öğrencinin dosyasının üzerine
@@ -215,7 +220,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 3. **Idempotent tamamlama davranışı (🟢 kodda):** Not zaten var ama **henüz ödev yoksa**, ikinci çağrı notu günceller ve gönderilen ödevleri **ekler** (append). Not + ödev birlikte varsa 409 döner.
 4. **Otomatik özet üretimi (🟢 kodda):** `GET follow-up` çağrıldığında not yoksa ama oturum tamamlanmışsa, sistem otomatik bir `LessonNote` üretir (`BuildAutoSummary`: önce `TeacherNotes`, yoksa `CoveredContent`, yoksa `"{TopicTitle} konusu tamamlandı."`).
 5. **Ödev başlangıç durumu (🟢 kodda):** Yeni ödev `Pending` ile başlar.
-6. **`AttachmentUrl` sahipliği (🟢 kodda):** Bu alan **öğretmen** tarafının ekidir (öğrencinin teslimi değil). Öğrenci teslimi ayrı `AssignmentSubmission` ile modellenmeli (⚠️).
+6. **`AttachmentUrl` sahipliği (🟢 kodda):** Bu alan **öğretmen** tarafının ekidir (öğrencinin teslimi değil). Öğrenci teslimi 2026-09-03'te (P04) ayrı `Attachment*` alanlarına taşındı; tam ayrım için hâlâ ayrı bir `AssignmentSubmission` aggregate'i düşünülebilir (⚠️).
 7. **⚠️ Son teslim uyarısı:** `DueDateUtc` yaklaşınca/geçilince **öğrenciye ve veliye** bildirim gitmeli (`promp.txt`: "Son teslim tarihinden önce yüklemezse velisine bildirim gidebilir") → m11 + m09.
 8. **⚠️ Öğrenci yükleme zorunluluğu:** Öğrenci ödevini `AssignmentSubmission` ile yükler; geç teslim `Late` işaretlenir.
 9. **Sahiplik (yetki):** Öğretmen yalnızca kendi öğrencisine ödev/not verir; öğrenci yalnızca kendi ödev/not/kaynaklarını görür (`AssignmentPolicies.cs`).
@@ -323,4 +328,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*

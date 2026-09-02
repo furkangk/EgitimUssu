@@ -75,6 +75,8 @@ doc/.obsidian/plugins/
 doc/.obsidian/themes/
 doc/.obsidian/snippets/
 
-# P04: yerel dosya depolama kok dizini (Storage:LocalRootPath) — repoya girmez
-storage/
-src/API.Host/storage/
+# P04: yerel dosya depolama kok dizini (Storage:LocalRootPath) — repoya girmez.
+# DIKKAT: desen kok-baglantili olmali. Basit "storage/" macOS'un buyuk/kucuk harf
+# duyarsiz dosya sisteminde src/Shared/**/Storage/ kaynak klasorunu de gizler.
+/storage/
+/src/API.Host/storage/

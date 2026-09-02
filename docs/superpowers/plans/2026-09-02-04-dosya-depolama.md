@@ -241,7 +241,16 @@ git commit -m "feat(storage): S3-uyumlu IFileStorage soyutlamasi + yerel impleme
 - Consumes: `IFileStorage`, `FileValidation`.
 - Produces: `AssignmentSubmission.StorageKey` alanı (eski `FilePath` yerine) — migration gerekir.
 
-- [ ] **Step 1: Testi yaz (kırmızı)**
+> **Sapma (uygulandı) — katman düzeltmesi:** `IFileStorage` / `StoredFile` / `FileValidation` **`Shared.Kernel/Storage`**'a taşındı (plan `Shared.Infrastructure`'da diyordu). Handler Application katmanındadır ve Application → Infrastructure referansı yoktur; `IClock`/`ICurrentUser`/`IIdGenerator` gibi bu da bir **port**tur, Kernel'e aittir. Implementasyonlar (`LocalFileStorage`, `S3FileStorage`) Infrastructure'da kaldı. Task 1 dosya listesi buna göre düzeltilmiş sayılır.
+> **Sapma (uygulandı) — ciddi bulgu:** Task 1'de `.gitignore`'a eklenen `storage/` deseni macOS'un **büyük/küçük harf duyarsız** dosya sisteminde `src/Shared/Infrastructure/Storage/`'ı da eşledi; Task 1 commit'i (`ba5969c`) depolama kaynaklarını **hiç içermedi**. Desen kök-bağlantılı hale getirildi (`/storage/`, `/src/API.Host/storage/`) ve dosyalar bu görevde commit'lendi.
+> **Sapma (uygulandı):** Plan `AssignmentSubmission.StorageKey` diyor; ayrı bir `AssignmentSubmission` aggregate'i **yok**. Alanlar mevcut `Assignment` üzerine eklendi: `AttachmentStorageKey`, `AttachmentFileName`, `AttachmentContentType`, `AttachmentSizeBytes`. Eski `AttachmentUrl` **korundu** (indirme ucunu gösteriyor) — bu yüzden "yeniden adlandırma" değil, **ekleme** migration'ı: `AddAssignmentAttachmentStorage`.
+> **Sapma (uygulandı):** İndirme için ayrı `GetAssignmentAttachmentQuery` + handler + authorizer eklendi. `AssignmentResponse`'a depolama anahtarı konmadı (istemciye iç anahtar sızmasın).
+> **Sapma (uygulandı):** Eski 20 MB'lık uç-nokta kontrolü kaldırıldı; tek kural `FileValidation` (10 MB + uzantı beyaz listesi) ve **handler'da** çalışıyor — yetkisiz istek artık dosya yazmıyor.
+> **Sapma (uygulandı):** `AttachSubmission` önceki anahtarı döndürür, handler onu siler → yeni teslim eskisini yetim bırakmaz.
+> **Sapma (uygulandı) — göç:** Script veritabanına **dokunmaz**; dosyaları kopyalar ve gözden geçirilecek `UPDATE` SQL'i üretir (`--sql-out`, `--dry-run`). Eski düzenin `.name` yan dosyasından özgün ad, uzantıdan MIME türü çözülür. Sahte bir eski dizinle dry-run doğrulandı.
+> **Sapma (uygulandı) — plan eksiği:** Plan 2 test öngörüyordu; 8 test yazıldı (boyut, tür, anahtar öneki, aggregate alanları + durum geçişi, eski dosyanın silinmesi, bilinmeyen ödevde depoya dokunmama, ek yokken 404, ek meta verisi).
+
+- [x] **Step 1: Testi yaz (kırmızı)**
 
 `tests/Unit/AssignmentSubmissionStorageTests.cs`:
 ```csharp
@@ -258,9 +267,9 @@ public async Task Upload_Should_Save_With_Assignments_Key_Prefix()
 }
 ```
 
-- [ ] **Step 2: Çalıştır, kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~AssignmentSubmissionStorageTests"`
+- [x] **Step 2: Çalıştır, kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~AssignmentSubmissionStorageTests"`
 
-- [ ] **Step 3: Handler'ları ortak soyutlamaya çevir**
+- [x] **Step 3: Handler'ları ortak soyutlamaya çevir**
 
 `AssignmentStudentFeatures.cs` içindeki yükleme handler'ı:
 ```csharp
@@ -282,16 +291,16 @@ public async Task Upload_Should_Save_With_Assignments_Key_Prefix()
 İndirme handler'ı `_fileStorage.OpenReadAsync(submission.StorageKey, ct)` kullanır; `null` ise `assignments.attachment_not_found`.
 `IAssignmentFileStorage` bağımlılıklarını `IFileStorage` ile değiştir, iki dosyayı sil, DI kaydını kaldır.
 
-- [ ] **Step 4: Domain alan adını ve migration'ı güncelle**
+- [x] **Step 4: Domain alan adını ve migration'ı güncelle**
 
 `AssignmentSubmission` içindeki dosya yolu alanını `StorageKey` olarak yeniden adlandır (eski değer aynı formatta kalabilir).
 Run: `dotnet ef migrations add RenameSubmissionFilePathToStorageKey --project src/Modules/Assignments/Infrastructure --startup-project src/API.Host --context AssignmentsDbContext`
 
-- [ ] **Step 5: Mevcut dosyalar için göç script'i**
+- [x] **Step 5: Mevcut dosyalar için göç script'i**
 
 `scripts/migrate-assignment-files.sh` — eski yerel klasördeki dosyaları yeni `IFileStorage` kök yoluna (veya S3 bucket'ına `aws s3 sync` ile) taşır; script başında ne yapacağını yazar ve `--dry-run` destekler.
 
-- [ ] **Step 6: Testler + commit**
+- [x] **Step 6: Testler + commit**
 
 Run: `dotnet test EgitimUssu.slnx`
 ```bash

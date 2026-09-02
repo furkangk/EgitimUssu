@@ -8,6 +8,7 @@ using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Shared.Infrastructure.Push;
 using EgitimUssu.Shared.Infrastructure.Storage;
+using EgitimUssu.Shared.Kernel.Storage;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
