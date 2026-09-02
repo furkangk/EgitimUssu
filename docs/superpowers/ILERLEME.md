@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P04 — Dosya Depolama` **4/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
-| **Sıradaki görev** | **P04 Task 5** — Kapanış (S3 doğrulama, dokümanlar, denetim envanteri) · **Q4 kararı gerek** |
-| **Dal** | `feat/p04-depolama` — `feat/p03-push` üzerine açıldı. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
-| **Durum** | 🔄 P04 sürüyor · P01 + P02 + P03 dalları push/merge bekliyor |
-| **Son commit** | `13fe651` (feat(assignments): ders kaynağı paylaşımı — M06-1) |
+| **Aktif plan** | *(yok — kullanıcı isteğiyle P04 sonunda duruldu)*. Sıradaki plan: `P05 — Ayarlar & Tercihler` **0/6** (`plans/2026-09-02-05-settings-tercihler.md`) |
+| **Sıradaki görev** | **P05 Task 1** — (yeni dal `feat/p05-ayarlar` açılacak) |
+| **Dal** | `feat/p04-depolama` (P04 bitti) → P05 için yeni dal açılacak. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
+| **Durum** | ✅ P01–P04 bitti (A-04/Y5 + C-02/O8 kapandı) · **dört dalın dördü de PR/merge bekliyor** |
+| **Son commit** | `34929cf` (docs: P04 dosya depolama kapanışı + S3 düzeltmeleri) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -25,8 +25,8 @@
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
-| P04 Dosya depolama | 4/5 | 🔄 Devam ediyor | Task 1-4 bitti (`IFileStorage` + Local/S3 + guard · ödev teslimi · profil fotoğrafı · ders kaynağı) · dal: `feat/p04-depolama` · **Q4 kararı Task 5'te gerek** |
-| P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
+| P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (merge bekliyor) |
+| P05 Ayarlar | 0/6 | ⏳ Sırada | P03 bitti — başlayabilir |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
 | P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
 | P08 Gelişim & raporlama | 0/6 | ⚪ Bekliyor | P07 sonrası |
@@ -72,6 +72,7 @@
 | 2026-09-03 | P04 / Task 2 — C-02 ödev teslimi ortak `IFileStorage`'a taşındı + göç script'i | `221f561` | `dotnet test EgitimUssu.slnx`: **271 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 263 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddAssignmentAttachmentStorage` üretildi · `scripts/migrate-assignment-files.sh --dry-run` sahte eski dizinle koşturuldu (dosya + doğru `UPDATE` SQL'i üretti) · `kb_healthcheck` temiz |
 | 2026-09-03 | P04 / Task 3 — M02-2/D-05 öğretmen profil fotoğrafı (backend + mobil) | `efbe78e` | `dotnet test EgitimUssu.slnx`: **282 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 271 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add RenameProfilePhotoUrlToKey` → gerçek `RenameColumn` (veri korunur) · `flutter test`: **84/84** (öncesi 79) · `flutter analyze`: 4 info (değişmedi) · `kb_healthcheck` temiz |
 | 2026-09-03 | P04 / Task 4 — M06-1 ders kaynağı (`LessonResource`) paylaşımı: 4 uç + mobil bölüm | `13fe651` | `dotnet test EgitimUssu.slnx`: **296 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 282 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddLessonResources` üretildi · `flutter test`: **91/91** (öncesi 84) · `flutter analyze`: 4 info · `kb_healthcheck` temiz |
+| 2026-09-03 | P04 / Task 5 — Kapanış: **MinIO'ya karşı canlı S3 doğrulaması** + 2 gerçek hata düzeltmesi + O8 kapatıldı | `34929cf` | `dotnet test EgitimUssu.slnx`: **301 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** · `-warnaserror`: **0/0** · `flutter test`: **91/91** · **Canlı (MinIO bucket):** profil fotoğrafı + ders kaynağı yükle→indir **içerik birebir aynı**, bucket'ta nesneler görüldü; yabancı öğretmen indirme/arşivleme/listeleme **403**, kimliksiz **401**, `.exe` **400**, 11 MB **400** · `kb_healthcheck` temiz |
 
 ---
 
@@ -134,6 +135,7 @@
 | 51 | Dosya alanlarını istemcinin yazmasına izin verme (Y1 dersinin tekrarı): `profilePhotoUrl` istek gövdesinden **kaldırıldı**, yalnız yükleme ucu `ProfilePhotoKey`'i set ediyor. Yanıtta aynı ad korunuyor ama artık **indirme rotası** taşıyor — istemci kırılmıyor, iç anahtar sızmıyor. | P04/Task 3 |
 | 52 | **Minimal API'de aynı uçtan hem dosya hem JSON alanı almak için `HttpRequest.ReadFormAsync`** kullanılır (`IFormFile` + `[FromForm]` karışımı sorunlu). `POST /lesson-resources` böyle yazıldı; `postMultipart` istemci tarafındaki eşleniği. | P04/Task 4 |
 | 53 | Ders kaynağında **çapraz-modül bağ doğrulamasına gerek kalmadı**: kayıt zaten `TeacherUserId` + `StudentId` taşıyor, öğrenci yalnız `studentId = kendisi` filtresiyle listeliyor. Yeni bir `Shared/Contracts` bağımlılığı eklemeden yetki kapatıldı (O5 kuralı korundu). | P04/Task 4 |
+| 54 | ⚠️ **Dış sağlayıcıyı birim testi taklit edemez.** P04'ün S3 yolu tüm birim testlerinde yeşildi ama **gerçek bir S3 sunucusunda hiç çalışmıyordu**: (a) `DisablePayloadSigning` yalnız HTTPS'te geçerli, (b) `PutObjectAsync` `InputStream`'i kapattığı için sonradan `Length` okumak patlıyor. **Ticari hesap beklemeye gerek yok — `docker run minio/minio` ile S3-uyumlu bir sunucu 1 dakikada ayağa kalkıyor.** Yeni bir dış bağımlılıkta bu turu atlama. | P04/Task 5 |
 
 ---
 
@@ -144,7 +146,7 @@
 | Q1 — iyzico ticari hesabı? (karar K-05) | P09 Task 4 | ❓ Cevap bekliyor |
 | Q2 — Nihai fiyat listesi? | P09 Task 3 | ❓ Cevap bekliyor |
 | Q3 — AdMob hesabı + yerleşim politikası? (karar K-06) | P09 Task 5 | ❓ Cevap bekliyor |
-| Q4 — S3 mi Cloudflare R2 mı? (karar K-03) | P04 Task 5 | ❓ Cevap bekliyor (varsayılan: R2) |
+| Q4 — S3 mi Cloudflare R2 mı? (karar K-03) | P04 **teknik olarak kapandı** — yalnız üretim hesabı açma kaldı | ❓ Cevap bekliyor (varsayılan: R2). Kod her ikisiyle de çalışır; MinIO'ya karşı doğrulandı |
 | Q5 — KVKK metinleri hazır mı? | P13 Task 5 | ❓ Cevap bekliyor |
 | Q6 — Beta öğretmen listesi (5–10 kişi)? | P06 sonrası | ❓ Cevap bekliyor |
 | Q7 — **Gerçek SMTP sağlayıcı hesabı** (host/kullanıcı/parola)? | P02 kapanış doğrulaması (tek seferlik gerçek gönderim) | ❓ Cevap bekliyor — kod hazır, yalnız kimlik bilgisi eksik |
@@ -169,4 +171,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-03 (P04 Task 4 bitti — 4/5; dal `feat/p04-depolama`)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (**P04 BİTTİ — 5/5**; kullanıcı isteğiyle burada duruldu. Sıradaki: P05, yeni dal `feat/p05-ayarlar`)*
