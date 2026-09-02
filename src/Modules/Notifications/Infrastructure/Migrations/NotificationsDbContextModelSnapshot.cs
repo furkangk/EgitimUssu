@@ -70,6 +70,9 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Channel")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -77,6 +80,10 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<Guid>("LessonScheduleId")
                         .HasColumnType("uuid");

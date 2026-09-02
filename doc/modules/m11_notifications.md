@@ -54,7 +54,7 @@ updated: 2026-09-03
 
 ### 🔴 Eksik olan
 
-- **Gerçek push teslimatı YOK** (bkz. [`mimari_inceleme.md`](mimari_inceleme.md) **Y5**). `DispatchDueRemindersAsync` yalnızca `reminder.MarkSent(...)` yapar; **FCM/APNs'e hiçbir şey gönderilmez**. Bildirim "gönderildi" olarak işaretlenir ama kullanıcıya hiçbir şey ulaşmaz.
+- ✅ **Gerçek push teslimatı eklendi (2026-09-03, P03 Task 3 — Y5 kapandı).** `DispatchDueRemindersAsync` artık alıcının aktif `DeviceToken`'larına `IPushSender` ile gönderir; en az biri teslim edilirse `MarkSent`, hiçbiri edilemezse `MarkFailed` (durum `Pending` kalır → tekrar denenir, 5 denemeden sonra `Failed`). FCM `UNREGISTERED`/`INVALID_ARGUMENT` yanıtında token `Deactivate` edilir. **Kalan:** kendi-ders (Ç-06) hatırlatmalarında `TeacherUserId` boş olduğu için öğrenciye teslim yok — `StudentId → UserId` eşlemesi P07 read-model'e bağlı.
 - ✅ **Cihaz token kaydı eklendi** (2026-09-03, P03/M11-2) — `DeviceToken` aggregate + `POST /device-tokens` / `DELETE /device-tokens/{token}`. Gerçek gönderim hâlâ yok (P03 Task 2-3).
 - `NotificationChannel.Push` enum değeri tanımlı ama tüm hatırlatmalar `InApp` olarak üretiliyor.
 - ✅ **`ReminderOffsetMinutes` artık kullanılıyor** (2026-07-01, Y1) — offset `LessonScheduledDomainEvent` payload'ında taşınıp handler'da uygulanıyor; hatırlatma ders bazında erken/geç kurulabiliyor ([`m04_scheduling.md`](m04_scheduling.md)).
@@ -106,13 +106,16 @@ Kaynak: `src/Modules/Notifications/Domain/NotificationsDomainModel.cs`
 | `ScheduledLessonStartAtUtc` | `DateTime` | Dersin başlangıcı |
 | `RemindAtUtc` | `DateTime` | Hatırlatmanın tetikleneceği an |
 | `Channel` | `enum NotificationChannel` | `InApp = 1`, `Push = 2` |
-| `Status` | `enum ReminderStatus` | `Pending = 1`, `Sent = 2`, `Cancelled = 3` |
+| `Status` | `enum ReminderStatus` | `Pending = 1`, `Sent = 2`, `Cancelled = 3`, `Failed = 4` (P03 Task 3) |
+| `AttemptCount` | `int` | Başarısız push teslimat denemesi sayısı (P03 Task 3) |
+| `LastError` | `string?` | Son teslimat hatası, **maks. 1000** (P03 Task 3) |
 | `CreatedOnUtc` | `DateTime` | Oluşturulma |
 | `UpdatedOnUtc` | `DateTime` | Son güncelleme (constructor'da `CreatedOnUtc` ile eşitlenir) |
 
 **Davranışlar (idempotent guard'lı):**
 - `MarkSent(utcNow)` → yalnızca `Status == Pending` ise `Sent` yapar, `LessonReminderSentDomainEvent` üretir.
 - `Cancel(utcNow)` → zaten `Cancelled` değilse `Cancelled` yapar, `LessonReminderCancelledDomainEvent` üretir.
+- `MarkFailed(error, utcNow)` (2026-09-03, P03 Task 3) → yalnızca `Pending` ise `AttemptCount++` + `LastError`; `MaxDeliveryAttempts` (5) sayısına ulaşınca `Failed`. Event üretmez.
 - `Reschedule(scheduledStartAtUtc, remindAtUtc, utcNow)` (2026-07-08) → kayıt aynı kalırken zamanı günceller ve `Pending`'e alır (kaynak ders/girdi güncellendiğinde; tek-satır kısıtı korunur). Event üretmez.
 - Constructor → `LessonReminderCreatedDomainEvent` üretir.
 
@@ -246,7 +249,7 @@ Scheduling: LessonScheduleCancelledDomainEvent  ──▶
 [her 30 sn] NotificationDispatcher
   → ListDuePendingAsync(now)   (RemindAtUtc ≤ now && Status==Pending)
      → her biri: reminder.MarkSent(now)
-        ↑ BURADA gerçek FCM/APNs push gönderilmeli (EKSİK — Y5)
+        ↑ IPushSender ile aktif DeviceToken'lara gerçek push (P03 Task 3) ✅
 ```
 
 ### Önerilen (yeni türler)
@@ -274,7 +277,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 ## 7. Kabul Kriterleri
 
 - [x] Outbox dispatch açık ([K1] — `Outbox:DispatchEnabled=true`) ve Scheduling event'leri tüketiliyor (`LessonScheduleNotificationIntegrationEventHandler`); tekrar teslimde ortak inbox (`IdempotentIntegrationEventHandler`) mükerrer `LessonReminder` üretilmesini engelliyor.
-- [ ] `RemindAtUtc` geldiğinde kullanıcıya **gerçek push** ulaşıyor (FCM/APNs) — bugün `NotificationDispatchProcessor` yalnız `MarkSent` yapıyor; FCM/APNs entegrasyonu yok **(P03)**.
+- [x] `RemindAtUtc` geldiğinde kullanıcıya **gerçek push** ulaşıyor (FCM) — `NotificationDispatchProcessor` `IPushSender` ile gönderiyor **(2026-09-03, P03 Task 3)**. Not: kendi-ders kayıtlarında alıcı çözümlemesi P07'ye bağlı.
 - [ ] Mobil cihaz token'ı kaydediliyor/siliniyor; geçersiz token devre dışı bırakılıyor — cihaz token ucu yok **(P03)**.
 - [~] In-app bildirim listesi: **veli** için var (`GET /parents/{parentUserId}/notifications`); **öğrenci** listesi ile okundu/okunmamış + rozet sayısı yok **(P03)**.
 - [~] Ödev bildirimi: **yeni ödev** → veliye gidiyor (`AssignmentCreatedDomainEvent`); **son teslim yaklaşıyor/kaçırıldı** tetikleyicisi ve öğrenciye gönderim yok **(P03)**.
@@ -287,7 +290,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 ## 8. Eksikler ve Yapılacaklar (Öncelik Sırasıyla)
 
 1. **Outbox'ı aç (K1)** — yoksa hiçbir hatırlatma/bildirim oluşmaz. Startup uyarısı ekle.
-2. **Gerçek push entegrasyonu (Y5)** — ✅ `DeviceToken` aggregate + `POST/DELETE /device-tokens` **eklendi (2026-09-03, P03 Task 1)**; ✅ `IPushSender` + `FcmPushSender` (FCM HTTP v1, service-account OAuth2) **eklendi (2026-09-03, P03 Task 2)** — `Push:Provider` ile seçilir, varsayılan `Logging`; kalan: `NotificationDispatchProcessor`'ın gerçekten göndermesi ve geçersiz token'ı kapatması (P03 Task 3).
+2. **Gerçek push entegrasyonu (Y5) — ✅ kapandı (2026-09-03, P03 Task 1-3):** `DeviceToken` aggregate + `POST/DELETE /device-tokens` (Task 1); `IPushSender` + `FcmPushSender` (FCM HTTP v1, service-account OAuth2, `Push:Provider` ile seçilir, varsayılan `Logging`) (Task 2); `NotificationDispatchProcessor` gerçek gönderim + `MarkFailed` yeniden deneme + geçersiz token kapatma (Task 3). Kalan alt madde: kendi-ders (Ç-06) hatırlatmalarında öğrenciye teslim (`StudentId → UserId`, P07).
 3. ✅ **`ReminderOffsetMinutes` kullanımı** — ders bazlı offset event payload'ıyla uygulandı (2026-07-01, Y1).
 4. **Yeni bildirim türleri** — ödev son teslim yaklaşıyor/kaçırıldı (öğrenci + veli), ödeme gecikmesi, yeni mesaj; ileride günlük çalışma/haftalık özet.
 5. **Öğrenci/veli in-app bildirim listesi + okundu** endpoint'leri.
@@ -314,4 +317,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-03 (P03 Task 2: `IPushSender`/`FcmPushSender` + `PushOptions`/`PushOptionsGuard`; P03/M11-2: `DeviceToken` aggregate + `POST`/`DELETE /device-tokens`). Önceki not — 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-03 (P03 Task 3: gerçek push gönderimi + `LessonReminder.MarkFailed`/`ReminderStatus.Failed` + geçersiz token kapatma; P03 Task 2: `IPushSender`/`FcmPushSender` + `PushOptions`/`PushOptionsGuard`; P03/M11-2: `DeviceToken` aggregate + `POST`/`DELETE /device-tokens`). Önceki not — 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*

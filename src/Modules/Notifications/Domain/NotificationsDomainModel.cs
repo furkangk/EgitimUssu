@@ -4,6 +4,9 @@ namespace EgitimUssu.Modules.Notifications.Domain;
 
 public sealed class LessonReminder : AggregateRoot<Guid>
 {
+    /// <summary>Bu sayıya ulaşan hatırlatma kalıcı olarak <see cref="ReminderStatus.Failed"/> olur.</summary>
+    public const int MaxDeliveryAttempts = 5;
+
     private LessonReminder()
     {
     }
@@ -59,6 +62,12 @@ public sealed class LessonReminder : AggregateRoot<Guid>
 
     public DateTime UpdatedOnUtc { get; private set; }
 
+    /// <summary>Başarısız push teslimat denemesi sayısı (P03 Task 3).</summary>
+    public int AttemptCount { get; private set; }
+
+    /// <summary>Son teslimat hatasının metni; tanılama için saklanır.</summary>
+    public string? LastError { get; private set; }
+
     public void Cancel(DateTime updatedOnUtc)
     {
         if (Status == ReminderStatus.Cancelled)
@@ -95,6 +104,28 @@ public sealed class LessonReminder : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
 
         Raise(new LessonReminderSentDomainEvent(Id, LessonScheduleId, TeacherUserId, StudentId, updatedOnUtc));
+    }
+
+    /// <summary>
+    /// Push teslimatı başarısız oldu. Hatırlatma <b>Sent işaretlenmez</b> — bir sonraki turda tekrar denenir.
+    /// <see cref="MaxDeliveryAttempts"/> denemeden sonra kalıcı olarak <see cref="ReminderStatus.Failed"/> olur,
+    /// böylece kuyruk sonsuza kadar aynı satırı denemez.
+    /// </summary>
+    public void MarkFailed(string error, DateTime nowUtc)
+    {
+        if (Status != ReminderStatus.Pending)
+        {
+            return;
+        }
+
+        AttemptCount++;
+        LastError = error;
+        UpdatedOnUtc = nowUtc;
+
+        if (AttemptCount >= MaxDeliveryAttempts)
+        {
+            Status = ReminderStatus.Failed;
+        }
     }
 }
 
@@ -174,7 +205,10 @@ public enum ReminderStatus
 {
     Pending = 1,
     Sent = 2,
-    Cancelled = 3
+    Cancelled = 3,
+
+    /// <summary>Maksimum deneme sayısına ulaşıldı; artık denenmez (P03 Task 3).</summary>
+    Failed = 4
 }
 
 public sealed record LessonReminderCreatedDomainEvent(

@@ -535,7 +535,14 @@ git commit -m "feat(push): IPushSender + FCM HTTP v1 gonderici"
 - Consumes: `IPushSender`, `IDeviceTokenRepository`, `ILessonReminderRepository`, `IClock`.
 - Produces: `LessonReminder.MarkFailed(string error, DateTime nowUtc)` — `AttemptCount++`, `LastError`, 5 denemeden sonra `Status = Failed`.
 
-- [ ] **Step 1: Testi yaz (kırmızı)**
+> **Sapma (uygulandı):** Plan `reminder.UserId` diyor; böyle bir alan yok. Alıcı **`reminder.TeacherUserId`** olarak alındı. Kendi-ders (Ç-06) kayıtlarında bu alan `Guid.Empty` olduğundan aktif token bulunmaz → hatırlatma bir kez `MarkSent` edilir (kuyruk tıkanmaz). Öğrenciye teslim `StudentId → UserId` eşlemesi gerektirir; bu çapraz-modül okuma **P07 read-model**'e bağlıdır ve bu görevin kapsamında değildir (m11 + mimari_inceleme Y5'e not düşüldü).
+> **Sapma (uygulandı):** `NotificationDispatchProcessor` plandaki `internal` yerine **`public`** yapıldı (test projesi ayrı derlemede; P02'deki `SmtpEmailSender` deseni).
+> **Sapma (uygulandı):** `MarkFailed` yalnız `Status == Pending` iken çalışır (idempotent guard — `MarkSent`/`Cancel` deseniyle tutarlı) ve `UpdatedOnUtc`'yi tazeler. Sınır sabiti `LessonReminder.MaxDeliveryAttempts = 5` olarak isimlendirildi.
+> **Sapma (uygulandı):** `TokenInvalid` durumunda token kapatılmakla kalmaz, `lastError` da doldurulur — aksi halde yalnız geçersiz token'ı olan bir hatırlatma `MarkFailed`'a boş hata ile girerdi.
+> **Sapma (uygulandı) — plan eksiği:** Plan 4 test öngörüyordu; 6 test yazıldı (ek: push gövdesinin derin-bağlantı `route`/`lessonId` alanları; 5 denemeden sonra kalıcı `Failed`).
+> **Ek (plan dışı, gerekli):** `NotificationsDbContext`'te `AttemptCount` (zorunlu) + `LastError` (maks. 1000) konfigürasyonu ve `20260902213313_AddReminderDeliveryTracking` migration'ı üretildi.
+
+- [x] **Step 1: Testi yaz (kırmızı)**
 
 `tests/Unit/NotificationDispatchProcessorTests.cs`:
 ```csharp
@@ -569,12 +576,12 @@ public async Task Reminder_Without_Active_Token_Should_Be_Marked_Sent_Once()
 }
 ```
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~NotificationDispatchProcessorTests"`
 Expected: FAIL.
 
-- [ ] **Step 3: `NotificationDispatchProcessor`'ı gerçek gönderime çevir**
+- [x] **Step 3: `NotificationDispatchProcessor`'ı gerçek gönderime çevir**
 
 `NotificationDispatching.cs`:
 ```csharp
@@ -663,12 +670,12 @@ Expected: FAIL.
 `LessonReminderStatus` enum'una `Failed` ekle. Migration üret:
 Run: `dotnet ef migrations add AddReminderDeliveryTracking --project src/Modules/Notifications/Infrastructure --startup-project src/API.Host --context NotificationsDbContext`
 
-- [ ] **Step 4: Testleri çalıştır**
+- [x] **Step 4: Testleri çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~NotificationDispatchProcessorTests"`
 Expected: PASS (4 test).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Modules/Notifications tests/Unit/NotificationDispatchProcessorTests.cs

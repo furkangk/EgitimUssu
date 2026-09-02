@@ -3,7 +3,7 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
@@ -116,10 +116,12 @@ Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegration
 
 ✅ _Çözüm (2026-08-26):_ Paylaşılan `InboxMessage` entity'si + `inbox_messages` tablosu (composite PK `(EventId, Handler)`) her modül `DbContext`'ine eklendi, ve ortak `IdempotentIntegrationEventHandler` taban sınıfı yazıldı: handler önce `(EventId, Handler)` ile inbox'ta bir kayıt olup olmadığına bakar (guard), yoksa `ApplyAsync` iş yazımlarını **staged** (henüz kaydedilmemiş) olarak hazırlar, taban sınıf inbox-işaretleme + iş yazımını **tek transaction'da atomik commit** eder — ya ikisi de yazılır ya hiçbiri (at-least-once teslimat artık güvenli, çift kayıt riski yok). 11 mantıksal tüketici handler (15 somut sınıf) bu taban sınıfa geçirildi: ProgressTracking (×2), Parents (×4 projeksiyon), Notifications (×2), Assignments (×1), Students (×1), ve 5 `StudentMerged` handler (Payments/Study/Assignments/Scheduling/LessonSessions). Eski modül-bazlı dedup tabloları — ProgressTracking'in `processed_events`'i ve Parents'ın `processed_integration_events`'i — kaldırıldı; Notifications'ın `processed_integration_events`'i **korundu** (yalnızca `ParentWeeklySummaryService` haftalık-özet dedup'ı için, event idempotency'siyle ilgisiz). 12 modül context'i için migration üretildi. Bkz. [`veri_modeli.md`](veri_modeli.md) (`inbox_messages` ER) ve [`00_genel_bakis.md`](00_genel_bakis.md) (handler envanteri).
 
-### Y5 — Bildirimler gerçekten gönderilmiyor (yalnızca "gönderildi" işaretleniyor)
-`NotificationDispatchProcessor.DispatchDueRemindersAsync` `reminder.MarkSent(...)` diyor ama **FCM/APNs'e hiçbir şey göndermiyor**. Push altyapısı (PRD Faz 0.7) bağlı değil (bkz. [`m11_notifications.md`](m11_notifications.md)).
+### ✅ Y5 — Bildirimler gerçekten gönderilmiyor (yalnızca "gönderildi" işaretleniyor) — **Düzeltildi 2026-09-03 (P03 Task 1-3)**
+`NotificationDispatchProcessor.DispatchDueRemindersAsync` `reminder.MarkSent(...)` diyor ama **FCM/APNs'e hiçbir şey göndermiyor**du. Push altyapısı (PRD Faz 0.7) bağlı değildi (bkz. [`m11_notifications.md`](m11_notifications.md)).
 
-**Öneri:** Gerçek push entegrasyonu (FCM) + cihaz token kaydı.
+**Öneri (eski):** Gerçek push entegrasyonu (FCM) + cihaz token kaydı.
+
+✅ _Çözüm (2026-09-03, P03):_ (1) `DeviceToken` aggregate + `POST`/`DELETE /api/notifications/device-tokens` ile cihaz token kaydı (Task 1). (2) `Shared/Infrastructure/Push`: `IPushSender` soyutlaması, `FcmPushSender` (FCM HTTP v1 + service-account OAuth2) ve `LoggingPushSender`; sağlayıcı `Push:Provider` ile seçilir, `PushOptionsGuard` startup'ta fail-fast eder (K-02, Task 2). (3) Dispatcher artık alıcının aktif token'larına **gerçekten gönderir**: en az biri teslim edilirse `MarkSent`, hiçbiri edilemezse `MarkFailed` — durum `Pending` kalır ve bir sonraki turda tekrar denenir, 5. denemede `Failed`; FCM `UNREGISTERED`/`INVALID_ARGUMENT` yanıtında token `Deactivate` edilir (Task 3). Kalan alt madde: kendi-ders (Ç-06) hatırlatmalarında `TeacherUserId` boş olduğu için öğrenciye teslim yok — `StudentId → UserId` eşlemesi P07 read-model'e bağlı.
 
 ---
 
@@ -207,4 +209,4 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

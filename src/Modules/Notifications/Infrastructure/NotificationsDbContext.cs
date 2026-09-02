@@ -46,6 +46,9 @@ internal sealed class LessonReminderConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.Message).HasMaxLength(1000).IsRequired();
         builder.Property(entity => entity.Channel).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        // P03 Task 3: push teslimat izleme (başarısız denemeler + son hata).
+        builder.Property(entity => entity.AttemptCount).IsRequired();
+        builder.Property(entity => entity.LastError).HasMaxLength(1000);
         builder.HasIndex(entity => entity.LessonScheduleId).IsUnique();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status, entity.RemindAtUtc });
     }
