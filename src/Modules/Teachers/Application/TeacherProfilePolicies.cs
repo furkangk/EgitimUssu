@@ -43,7 +43,6 @@ public sealed class UpdateTeacherProfileCommandValidator : ICommandValidator<Upd
                 command.EducationLevel,
                 command.HourlyRateAmount,
                 command.Currency,
-                command.ProfilePhotoUrl,
                 command.AvailabilitySlots,
                 command.Subjects,
                 command.Certificates),
@@ -53,7 +52,8 @@ public sealed class UpdateTeacherProfileCommandValidator : ICommandValidator<Upd
 
 public sealed class TeacherProfileCommandAuthorizer :
     ICommandAuthorizer<CreateTeacherProfileCommand>,
-    ICommandAuthorizer<UpdateTeacherProfileCommand>
+    ICommandAuthorizer<UpdateTeacherProfileCommand>,
+    ICommandAuthorizer<UploadTeacherPhotoCommand>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
@@ -73,6 +73,12 @@ public sealed class TeacherProfileCommandAuthorizer :
         return Task.FromResult(CanManageTeacherProfile(command.UserId) ? Result.Success() : Result.Failure(Forbidden));
     }
 
+    // P04 (M02-2): Fotografi yalniz profil sahibi ogretmen (veya Admin) yukler.
+    public Task<Result> Authorize(UploadTeacherPhotoCommand command, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(CanManageTeacherProfile(command.UserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
     private bool CanManageTeacherProfile(Guid userId)
     {
         if (!_currentUser.IsAuthenticated)
@@ -86,7 +92,9 @@ public sealed class TeacherProfileCommandAuthorizer :
     }
 }
 
-public sealed class TeacherProfileQueryAuthorizer : IQueryAuthorizer<GetTeacherProfileByUserIdQuery>
+public sealed class TeacherProfileQueryAuthorizer :
+    IQueryAuthorizer<GetTeacherProfileByUserIdQuery>,
+    IQueryAuthorizer<GetTeacherPhotoQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
@@ -100,6 +108,12 @@ public sealed class TeacherProfileQueryAuthorizer : IQueryAuthorizer<GetTeacherP
     {
         // Öğretmen profilleri tüm kimlik doğrulanmış kullanıcılara (öğretmen/öğrenci/veli/admin) açıktır.
         // Dispatcher bu authorizer olmaksızın çağrıya izin veriyordu (K3); artık açık onay gerekiyor.
+        return Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    // P04: Profil fotografi profil verisiyle ayni gorunurluktedir (kimlik dogrulanmis her kullanici).
+    public Task<Result> Authorize(GetTeacherPhotoQuery query, CancellationToken cancellationToken)
+    {
         return Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
     }
 }

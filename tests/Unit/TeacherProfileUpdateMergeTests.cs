@@ -21,7 +21,7 @@ public sealed class TeacherProfileUpdateMergeTests
         var profile = new TeacherProfile(
             id, Guid.NewGuid(), "Ayse Yilmaz", "Matematik", "Istanbul", "Kadikoy",
             null, null, TeacherLessonFormat.Online, 3, "Lisans", 1000m, "TRY",
-            isVerified: false, profilePhotoUrl: null, createdOnUtc: new DateTime(2026, 1, 1));
+            isVerified: false, profilePhotoKey: null, createdOnUtc: new DateTime(2026, 1, 1));
         profile.Subjects.Add(new TeacherSubject(Guid.NewGuid(), id, "Matematik"));
         return profile;
     }
@@ -48,7 +48,7 @@ public sealed class TeacherProfileUpdateMergeTests
 
             loaded.Update(
                 "Ayse Yilmaz Guncel", "Matematik", "Istanbul", "Kadikoy", null, null,
-                TeacherLessonFormat.Online, 4, "Lisans", 1100m, "TRY", null,
+                TeacherLessonFormat.Online, 4, "Lisans", 1100m, "TRY",
                 availabilitySlots: [],
                 subjects: [new TeacherSubject(Guid.NewGuid(), loaded.Id, "Matematik")],
                 certificates: [],
@@ -83,7 +83,7 @@ public sealed class TeacherProfileUpdateMergeTests
             var loaded = await context.Set<TeacherProfile>().Include(p => p.Subjects).SingleAsync();
             loaded.Update(
                 "Ayse Yilmaz", "Fizik", "Istanbul", "Kadikoy", null, null,
-                TeacherLessonFormat.Online, 3, "Lisans", 1000m, "TRY", null,
+                TeacherLessonFormat.Online, 3, "Lisans", 1000m, "TRY",
                 availabilitySlots: [],
                 subjects:
                 [

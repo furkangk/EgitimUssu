@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class TeacherAvailability {
   const TeacherAvailability({
     required this.dayOfWeek,
@@ -56,4 +58,14 @@ abstract interface class TeacherRepository {
   Future<TeacherProfile> createProfile(TeacherProfile profile);
   Future<TeacherProfile> updateProfile(TeacherProfile profile);
   Future<TeacherProfile> getProfile(String userId);
+
+  /// M02-2/D-05: Profil fotografini yukler; sunucunun dondugu indirme rotasini verir.
+  /// Fotograf `profilePhotoUrl` alanina **istemciden yazilmaz** — yalniz bu uc set eder.
+  Future<String> uploadProfilePhoto({
+    required String userId,
+    required String filePath,
+  });
+
+  /// Profil fotografinin baytlarini yetkili ucdan indirir; fotograf yoksa `null`.
+  Future<Uint8List?> downloadProfilePhoto(String userId);
 }

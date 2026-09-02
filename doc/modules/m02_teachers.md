@@ -1,12 +1,12 @@
 ---
 title: "M02 — Öğretmen Profili (Teachers)"
-summary: "Öğretmen profili CRUD + haftalık uygunluk + çoklu branş/sertifika çalışır durumda; profil fotoğrafı depolama ve öğretmen arama/listeleme eksik"
+summary: "Öğretmen profili CRUD + haftalık uygunluk + çoklu branş/sertifika + profil fotoğrafı depolama çalışır durumda; öğretmen arama/listeleme eksik"
 tags: [modul, teachers, profil, uygunluk, faz-1]
 status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Teachers/**
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 👨‍🏫 Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım Dokümanı
@@ -42,11 +42,11 @@ updated: 2026-09-02
 | Domain event yayını | ✅ var | `TeacherProfileCreatedDomainEvent`, `TeacherProfileUpdatedDomainEvent` |
 | **`IsVerified`'in yalnız admin tarafından yazılması** | ✅ kapatıldı | `UpdateTeacherProfileCommand`/`UpsertTeacherProfileRequest`/`TeacherProfile.Update()` metodundan çıkarıldı; update akışı `IsVerified`'e dokunmuyor — bkz. mimari_inceleme **Y1** |
 | **`GET /profiles/{userId}` yetkilendirici** | ✅ kapatıldı (2026-06-26) | `TeacherProfileQueryAuthorizer` eklendi — kimlik doğrulanmış tüm roller okuyabilir; bkz. mimari_inceleme **K3** |
-| Profil fotoğrafı için dosya-depolama altyapısı | 🔴 eksik | `ProfilePhotoUrl` string; yükleme/saklama servisi yok |
+| Profil fotoğrafı için dosya-depolama altyapısı | 🟢 var (2026-09-03, P04) | `ProfilePhotoKey` + `IFileStorage`; `POST`/`GET /profiles/{userId}/photo` |
 | Öğretmen listeleme / arama (şehir/branş filtresi) | 🔴 eksik | Yalnızca tekil `GET by userId` var (eşleştirme M12'de) |
 | Tatil/izin istisnaları (ScheduleException) | 🔴 eksik | Modellenmedi → **M04 Scheduling**'de ele alınacak |
 
-> **Özet:** Profil CRUD + haftalık uygunluk **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Kalan açık noktalar profil fotoğrafı depolama + listeleme/arama gibi genişletmelerdir.
+> **Özet:** Profil CRUD + haftalık uygunluk **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Profil fotoğrafı depolama 2026-09-03'te (P04/M02-2) eklendi. Kalan açık nokta listeleme/arama genişletmeleridir.
 
 ---
 
@@ -73,7 +73,7 @@ Tablolar: `teacher_profiles`, `teacher_availability_slots`, `teacher_subjects`, 
 | `HourlyRateAmount` | decimal | Saatlik ücret tutarı |
 | `Currency` | string | Para birimi (varsayılan `"TRY"`, `ToUpperInvariant` ile normalize) |
 | `IsVerified` | bool | Doğrulama rozeti (yalnızca admin akışıyla `true` olmalı — bkz. §4) |
-| `ProfilePhotoUrl` | string? | Profil fotoğrafı URL'i |
+| `ProfilePhotoKey` | string? | P04: profil fotoğrafının `IFileStorage` anahtarı, **maks. 512** (public URL değil). Yanıtta `profilePhotoUrl` olarak `/api/teachers/profiles/{userId}/photo` rotası döner |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `AvailabilitySlots` | List&lt;`TeacherAvailabilitySlot`&gt; | Haftalık uygunluk |
 | `Subjects` | List&lt;`TeacherSubject`&gt; | Çoklu branş (§2.5) |
@@ -115,7 +115,7 @@ TeacherProfileUpdatedDomainEvent(Guid TeacherProfileId, Guid UserId, string Subj
 | `IsVerified` için ayrı `VerifyTeacher(...)` davranışı + `TeacherVerifiedDomainEvent` | Doğrulamayı sıradan güncellemeden ayırıp yalnız admin akışına bağlamak (Y1 çözümü) |
 | `ScheduleException` (tatil/izin istisnası) | Haftalık uygunluğun belirli tarihlerde geçersiz kılınması → **M04 Scheduling**'de modellenecek |
 | `AverageRating` / `ReviewCount` (okuma modeli) | Puanlama (M13) entegrasyonu için profil özetinde gösterim |
-| `ProfilePhoto` yükleme entegrasyonu | `ProfilePhotoUrl` yerine güvenli dosya-depolama (blob/object storage) + boyut/format doğrulama |
+| ~~`ProfilePhoto` yükleme entegrasyonu~~ **✅ (2026-09-03, P04)** | `ProfilePhotoKey` + ortak `IFileStorage`; `FileValidation` ile 10 MB + uzantı beyaz listesi; dosya yalnız yetkili uçtan akıtılır |
 
 ### 2.5 🟢 Mevcut (koddan) — `TeacherSubject` (Entity&lt;Guid&gt;)
 
@@ -166,7 +166,7 @@ TeacherCertificateItem(string Title, string? Institution, int? Year, string? Fil
 UpsertTeacherProfileRequest(Guid UserId, string FullName, string Subject, string City, string District,
                             string? Biography, string? Headline, TeacherLessonFormat LessonFormat,
                             int ExperienceYears, string EducationLevel, decimal HourlyRateAmount,
-                            string Currency, string? ProfilePhotoUrl,
+                            string Currency,
                             IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots,
                             IReadOnlyCollection<string> Subjects,
                             IReadOnlyCollection<TeacherCertificateItem> Certificates)
@@ -174,7 +174,7 @@ UpsertTeacherProfileRequest(Guid UserId, string FullName, string Subject, string
 TeacherProfileResponse(Guid Id, Guid UserId, string FullName, string Subject, string City, string District,
                        string? Biography, string? Headline, string LessonFormat, int ExperienceYears,
                        string EducationLevel, decimal HourlyRateAmount, string Currency, bool IsVerified,
-                       string? ProfilePhotoUrl, IReadOnlyCollection<TeacherAvailabilityResponse> AvailabilitySlots,
+                       string? ProfilePhotoUrl /* indirme rotasi */, IReadOnlyCollection<TeacherAvailabilityResponse> AvailabilitySlots,
                        IReadOnlyCollection<string> Subjects,
                        IReadOnlyCollection<TeacherCertificateResponse> Certificates,
                        DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
@@ -199,7 +199,7 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
 
 - [x] **`GET /profiles/{userId}` için authorizer** — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı); kimlik doğrulanmış tüm roller okuyabilir. (Profilin herkese açık kısmı için ayrı "public" projeksiyon hâlâ düşünülebilir.)
 - [ ] **`PUT /profiles/{userId}/verification`** — yalnız **admin**; `IsVerified`'i set edecek ayrı endpoint + `TeacherVerifiedDomainEvent` (Y1 kısmen kapatıldı — upsert'ten çıkarıldı; admin endpoint henüz yok).
-- [ ] **`POST /profiles/{userId}/photo`** — dosya yükleme + güvenli depolama; `ProfilePhotoUrl` sunucuda set edilir.
+- [x] **`POST /profiles/{userId}/photo`** (multipart, self/Admin) — dosya `IFileStorage`'a yazılır, `ProfilePhotoKey` **sunucuda** set edilir; yanıt `{ photoUrl }`. **`GET /profiles/{userId}/photo`** dosyayı yetkiyle akıtır. `UpsertTeacherProfileRequest`'ten `profilePhotoUrl` **kaldırıldı** — istemci fotoğrafı yazamaz (Y1 dersi). **(2026-09-03, P04/M02-2)**
 - [ ] **`GET /profiles` (arama/listeleme)** — şehir/ilçe/branş/format/ücret aralığı filtreleri (eşleştirme M12 ile koordineli).
 - [ ] **`DELETE /profiles/{userId}` / pasifleştirme** — öğretmen ayrılışı senaryosu.
 
@@ -213,7 +213,7 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
    - Create'te kod **her zaman `false`** atar ✅.
    - Update'te `IsVerified` **hiç güncellenmez** (`UpsertTeacherProfileRequest` ve `TeacherProfile.Update()` imzasından çıkarıldı) ✅ — yalnız gelecekteki admin-only endpoint değiştirebilir.
 4. **Para birimi normalizasyonu:** `Currency.Trim().ToUpperInvariant()` (örn. `try` → `TRY`).
-5. **Metin temizliği:** `FullName`, `Subject`, `City`, `District`, `EducationLevel`, `Biography`, `Headline`, `ProfilePhotoUrl` `Trim()` edilir.
+5. **Metin temizliği:** `FullName`, `Subject`, `City`, `District`, `EducationLevel`, `Biography`, `Headline` `Trim()` edilir.
 6. **Validator (create & update):** `UserId != Guid.Empty`, ad/branş/şehir/ilçe/eğitim seviyesi/para birimi boş olamaz; `ExperienceYears >= 0`, `HourlyRateAmount >= 0` (`teachers.invalid_request`). Update validator aynı kuralları create üzerinden uygular.
 7. **Komut yetkisi:** `TeacherProfileCommandAuthorizer` → **admin** her zaman; **öğretmen** yalnızca `command.UserId == kendi userId`'si için create/update yapabilir; aksi halde `shared.forbidden`.
 8. **Çocuk koleksiyonlarda birleştirme (merge) semantiği:** Update'te uygunluk slotları, branşlar ve sertifikalar **doğal anahtara göre birleştirilir** (`TeacherProfile.MergeAvailabilitySlots` / `MergeSubjects` / `MergeCertificates`): istekte olmayan kayıt silinir, eşleşen kayıt **aynı PK ile korunur**, yeni kayıt eklenir. Dışarıdan görünen davranış yine **tam değiştirme** (replace) — istekteki liste nihai listedir — ama kimlikler korunduğu için EF "orphan update" hatası oluşmaz.
@@ -304,5 +304,5 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

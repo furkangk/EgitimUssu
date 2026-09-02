@@ -52,7 +52,8 @@ internal sealed class TeacherProfileConfiguration : IEntityTypeConfiguration<Tea
         builder.Property(entity => entity.EducationLevel).HasMaxLength(120).IsRequired();
         builder.Property(entity => entity.HourlyRateAmount).HasPrecision(18, 2);
         builder.Property(entity => entity.Currency).HasMaxLength(8).IsRequired();
-        builder.Property(entity => entity.ProfilePhotoUrl).HasMaxLength(512);
+        // P04: artik URL degil, IFileStorage anahtari saklanir.
+        builder.Property(entity => entity.ProfilePhotoKey).HasMaxLength(512);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.UserId).IsUnique();

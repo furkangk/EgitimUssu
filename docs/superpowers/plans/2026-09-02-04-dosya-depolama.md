@@ -328,16 +328,25 @@ git commit -m "refactor(assignments): ödev dosyalarini ortak IFileStorage'a tas
   - `sealed record UploadTeacherPhotoCommand(Guid UserId, string FileName, string ContentType, Stream Content) : ICommand<Result<TeacherPhotoResponse>>`
   - `TeacherProfile.SetProfilePhoto(string storageKey, DateTime updatedOnUtc)` — `ProfilePhotoUrl` alanı artık **storage key** tutar (alan adı `ProfilePhotoKey` olarak yeniden adlandırılır).
 
-- [ ] **Step 1: Domain + handler testini yaz (kırmızı)** — yalnız profil sahibi (veya Admin) yükleyebilir; 10 MB üstü ve `.exe` reddedilir; başarılı yüklemede `ProfilePhotoKey` set edilir.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherProfilePhotoTests"`
-- [ ] **Step 3: Domain + command + handler + authorizer'ı yaz**, `ProfilePhotoUrl` → `ProfilePhotoKey` yeniden adlandırması ve migration:
+> **Sapma (uygulandı):** Alan `ProfilePhotoKey` olarak yeniden adlandırıldı ama **API yanıtındaki `profilePhotoUrl` korundu** — artık iç anahtar değil, `/api/teachers/profiles/{userId}/photo` indirme rotası döner. Böylece istemciye depolama anahtarı sızmıyor ve mevcut mobil alan adı kırılmıyor.
+> **Sapma (uygulandı):** EF `RenameColumn` migration'ı üretti (`RenameProfilePhotoUrlToKey`) — mevcut satırlardaki değer korunur.
+> **Sapma (uygulandı):** `UploadTeacherPhotoCommand` `Stream` yanında **`SizeBytes`** de taşır (akış ileri-sarılamayabilir); Task 2'deki ödev teslimiyle aynı desen.
+> **Sapma (uygulandı):** İndirme için ayrı `GetTeacherPhotoQuery` + handler + authorizer eklendi. Fotoğraf görünürlüğü profil verisiyle aynı: kimlik doğrulanmış her kullanıcı okuyabilir, yalnız sahibi/Admin yükleyebilir.
+> **Sapma (uygulandı) — mobil görüntüleme:** Fotoğraf ucu `Authorization` başlığı ister, bu yüzden `Image.network` kullanılamaz. `ApiClient.getBytes` eklendi (404'te `null`), `TeacherRepository.downloadProfilePhoto` baytları çeker, ekran `Image.memory` ile basar. Fotoğraf yoksa baş harfler gösterilir (eski `i.pravatar.cc` sahte görseli kaldırıldı — A-05 ilkesi).
+> **Sapma (uygulandı):** Fotoğraf alt sayfasındaki iki seçenek de gerçekten çalışıyor (`image_picker`, kamera/galeri, maks. genişlik 1024/kalite 85). Önceki hali yalnız "güncellendi" mesajı basan bir maketti.
+> **Sapma (uygulandı) — plan eksiği:** Plan test sayısı vermiyordu; backend 11 + mobil 5 test yazıldı.
+> **Sapma (uygulandı):** `POST .../photo` ucuna `.DisableAntiforgery()` gerekti (minimal API'de `IFormFile` bağlaması antiforgery ister).
+
+- [x] **Step 1: Domain + handler testini yaz (kırmızı)** — yalnız profil sahibi (veya Admin) yükleyebilir; 10 MB üstü ve `.exe` reddedilir; başarılı yüklemede `ProfilePhotoKey` set edilir.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherProfilePhotoTests"`
+- [x] **Step 3: Domain + command + handler + authorizer'ı yaz**, `ProfilePhotoUrl` → `ProfilePhotoKey` yeniden adlandırması ve migration:
   Run: `dotnet ef migrations add RenameProfilePhotoUrlToKey --project src/Modules/Teachers/Infrastructure --startup-project src/API.Host --context TeachersDbContext`
   > `UpsertTeacherProfileRequest` içindeki `profilePhotoUrl` alanı **kaldırılır** — foto yalnız yükleme ucundan set edilir (Y1 dersi: istemci yazamamalı).
-- [ ] **Step 4: Endpoint'leri ekle** — multipart okuma için `AssignmentsModule`'deki `POST /{assignmentId}/submission` desenini birebir izle.
-- [ ] **Step 5: Testleri yeşile al** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Mobil yükleme akışı** — `teacher_profile_page.dart`'a avatar + "Fotoğraf ekle" (kamera/galeri, `image_picker`); yükleme sırasında `CircularProgressIndicator`; başarıda `cached_network_image` ile `GET .../photo` gösterilir (Authorization header'lı `CachedNetworkImageProvider` veya `Image.memory` ile indirilen bayt).
-- [ ] **Step 7: Mobil test + analiz** — Run: `cd mobile && flutter test && flutter analyze`
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 4: Endpoint'leri ekle** — multipart okuma için `AssignmentsModule`'deki `POST /{assignmentId}/submission` desenini birebir izle.
+- [x] **Step 5: Testleri yeşile al** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 6: Mobil yükleme akışı** — `teacher_profile_page.dart`'a avatar + "Fotoğraf ekle" (kamera/galeri, `image_picker`); yükleme sırasında `CircularProgressIndicator`; başarıda `cached_network_image` ile `GET .../photo` gösterilir (Authorization header'lı `CachedNetworkImageProvider` veya `Image.memory` ile indirilen bayt).
+- [x] **Step 7: Mobil test + analiz** — Run: `cd mobile && flutter test && flutter analyze`
+- [x] **Step 8: Doküman + commit**
 
 `doc/modules/m02_teachers.md` (yeni uçlar + `ProfilePhotoKey`), `doc/pages/teacher_profile.md`.
 ```bash

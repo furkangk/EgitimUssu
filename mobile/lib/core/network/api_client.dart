@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
@@ -76,6 +77,25 @@ class ApiClient {
       final response = await _dio.post<Map<String, dynamic>>(path, data: formData);
       return response.data ?? <String, dynamic>{};
     } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    }
+  }
+
+  /// Ikili (binary) icerik indirir — yetkili dosya uclari icin (P04: profil fotografi,
+  /// odev eki). Auth interceptor'i devrede oldugu icin Authorization basligi otomatik eklenir.
+  /// Icerik yoksa (404) `null` doner.
+  Future<Uint8List?> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = response.data;
+      return data == null ? null : Uint8List.fromList(data);
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        return null;
+      }
       throw ApiException.fromDioException(error);
     }
   }

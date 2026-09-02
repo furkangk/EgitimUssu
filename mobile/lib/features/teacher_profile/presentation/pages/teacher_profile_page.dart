@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -7,6 +11,7 @@ import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/t
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shimmer/shimmer.dart';
 
 class TeacherProfilePage extends StatefulWidget {
@@ -28,6 +33,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   bool _profileVisible = true;
   bool _onlineAvailable = true;
   bool _inPersonAvailable = true;
+
+  /// P04/M02-2: fotoğraf yetkili uçtan bayt olarak indirilir (public URL yok).
+  Uint8List? _photoBytes;
+  bool _photoUploading = false;
 
   @override
   void initState() {
@@ -76,6 +85,13 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
             setState(
               () => _populateFromProfile(state.profile!, session?.email),
             );
+            // P04/M02-2: fotoğraf gövdede gelmez; anahtar varsa yetkili uçtan indirilir.
+            unawaited(
+              _loadPhoto(
+                state.profile!.userId,
+                state.profile!.profilePhotoUrl != null,
+              ),
+            );
           }
           if (state.successMessage != null) {
             ScaffoldMessenger.of(
@@ -108,6 +124,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   const SizedBox(height: 22),
                   _PhotoHeader(
                     profile: _profile,
+                    photoBytes: _photoBytes,
+                    isUploading: _photoUploading,
                     onChangePhoto: _showPhotoOptions,
                   ),
                   const SizedBox(height: 18),
@@ -409,7 +427,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       hourlyRate:
           '${profile.hourlyRateAmount.toStringAsFixed(0)} ${profile.currency}',
       lessonFormat: lessonFormat,
-      photoUrl: profile.profilePhotoUrl ?? 'https://i.pravatar.cc/240?img=12',
+      // P04: fotoğraf artık ayrı, yetkili uçtan bayt olarak indirilir (bkz. _loadPhoto).
+      photoUrl: profile.profilePhotoUrl ?? '',
       biography: profile.biography ?? '',
       parentNote: '',
     );
@@ -513,7 +532,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
           child: Column(
@@ -524,21 +543,20 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               _ActionRow(
                 icon: Icons.photo_camera_outlined,
                 title: 'Kamera ile çek',
-                subtitle: 'Statik önizleme için fotoğraf değiştirildi sayılır.',
+                subtitle: 'Fotoğraf çekilir ve profiline yüklenir.',
                 onTap: () {
-                  Navigator.of(context).pop();
-                  _showSavedMessage('Fotoğraf güncellendi.');
+                  Navigator.of(sheetContext).pop();
+                  _pickAndUploadPhoto(ImageSource.camera);
                 },
               ),
               const _DividerLine(),
               _ActionRow(
                 icon: Icons.photo_library_outlined,
                 title: 'Galeriden seç',
-                subtitle:
-                    'API bağlantısı olmadan sadece tasarım akışı gösterilir.',
+                subtitle: 'En fazla 10 MB; jpg, png veya webp.',
                 onTap: () {
-                  Navigator.of(context).pop();
-                  _showSavedMessage('Fotoğraf güncellendi.');
+                  Navigator.of(sheetContext).pop();
+                  _pickAndUploadPhoto(ImageSource.gallery);
                 },
               ),
             ],
@@ -546,6 +564,58 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         );
       },
     );
+  }
+
+  /// M02-2/D-05: fotoğrafı seçer, yükler ve yüklenen görseli ekrana basar.
+  /// Hata sessizce yutulmaz — kullanıcıya SnackBar ile bildirilir.
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    final userId = context.read<AuthCubit>().state.session?.userId;
+    if (userId == null) {
+      _showSavedMessage('Fotoğraf yüklemek için giriş yapmalısın.');
+      return;
+    }
+
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null) {
+      return;
+    }
+
+    setState(() => _photoUploading = true);
+    try {
+      final repository = injector<TeacherRepository>();
+      await repository.uploadProfilePhoto(userId: userId, filePath: picked.path);
+      final bytes = await repository.downloadProfilePhoto(userId);
+      if (!mounted) return;
+      setState(() {
+        _photoBytes = bytes;
+        _photoUploading = false;
+      });
+      _showSavedMessage('Fotoğraf güncellendi.');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _photoUploading = false);
+      _showSavedMessage('Fotoğraf yüklenemedi: $error');
+    }
+  }
+
+  /// Profil yüklendikten sonra mevcut fotoğrafı (varsa) indirir.
+  Future<void> _loadPhoto(String userId, bool hasPhoto) async {
+    if (!hasPhoto) {
+      return;
+    }
+
+    try {
+      final bytes = await injector<TeacherRepository>().downloadProfilePhoto(userId);
+      if (mounted) {
+        setState(() => _photoBytes = bytes);
+      }
+    } catch (_) {
+      // Fotoğraf indirilemedi: baş harfler gösterilir, ekran çalışmaya devam eder.
+    }
   }
 
   void _editText({
@@ -1025,10 +1095,20 @@ class _TopBar extends StatelessWidget {
 }
 
 class _PhotoHeader extends StatelessWidget {
-  const _PhotoHeader({required this.profile, required this.onChangePhoto});
+  const _PhotoHeader({
+    required this.profile,
+    required this.onChangePhoto,
+    this.photoBytes,
+    this.isUploading = false,
+  });
 
   final _TeacherProfileData profile;
   final VoidCallback onChangePhoto;
+
+  /// Yetkili uçtan indirilen fotoğraf baytları; `null` ise baş harfler gösterilir.
+  final Uint8List? photoBytes;
+
+  final bool isUploading;
 
   @override
   Widget build(BuildContext context) {
@@ -1047,19 +1127,22 @@ class _PhotoHeader extends StatelessWidget {
                 boxShadow: AppShadows.soft,
               ),
               clipBehavior: Clip.antiAlias,
-              child: Image.network(
-                profile.photoUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Center(
-                  child: Text(
-                    _initials(profile.fullName),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
+              child: isUploading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    )
+                  : photoBytes != null
+                  ? Image.memory(photoBytes!, fit: BoxFit.cover)
+                  : Center(
+                      child: Text(
+                        _initials(profile.fullName),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
             Positioned(
               right: 2,

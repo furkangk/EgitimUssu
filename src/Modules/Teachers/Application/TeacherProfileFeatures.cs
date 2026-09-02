@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Teachers.Domain;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Shared.Kernel.Storage;
 
 namespace EgitimUssu.Modules.Teachers.Application;
 
@@ -30,7 +31,6 @@ public sealed record CreateTeacherProfileCommand(
     string EducationLevel,
     decimal HourlyRateAmount,
     string Currency,
-    string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots,
     IReadOnlyCollection<string> Subjects,
     IReadOnlyCollection<TeacherCertificateRequest> Certificates) : ICommand<Result<TeacherProfileResponse>>;
@@ -48,12 +48,32 @@ public sealed record UpdateTeacherProfileCommand(
     string EducationLevel,
     decimal HourlyRateAmount,
     string Currency,
-    string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityRequest> AvailabilitySlots,
     IReadOnlyCollection<string> Subjects,
     IReadOnlyCollection<TeacherCertificateRequest> Certificates) : ICommand<Result<TeacherProfileResponse>>;
 
 public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>;
+
+// ---- P04 (M02-2/D-05): Profil fotografi ----
+
+/// <summary>
+/// Profil fotografi yukleme. Dosya <see cref="Content"/> ile tasinir; handler dogrular, depolar ve
+/// anahtari profile baglar. <see cref="SizeBytes"/> ayrica tasinir — akis ileri-sarilamayabilir.
+/// </summary>
+public sealed record UploadTeacherPhotoCommand(
+    Guid UserId,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    Stream Content) : ICommand<Result<TeacherPhotoResponse>>;
+
+/// <summary>Yanit ic anahtari degil, yetkili indirme rotasini tasir.</summary>
+public sealed record TeacherPhotoResponse(string PhotoUrl);
+
+/// <summary>Indirme icin fotografin depolama anahtarini ve MIME turunu cozer (yetki authorizer'da).</summary>
+public sealed record GetTeacherPhotoQuery(Guid UserId) : IQuery<Result<TeacherPhotoFileResponse>>;
+
+public sealed record TeacherPhotoFileResponse(string StorageKey, string ContentType);
 
 public sealed record TeacherAvailabilityResponse(
     DayOfWeek DayOfWeek,
@@ -155,7 +175,7 @@ public sealed class CreateTeacherProfileCommandHandler : ICommandHandler<CreateT
             command.HourlyRateAmount,
             command.Currency.Trim().ToUpperInvariant(),
             false,
-            command.ProfilePhotoUrl?.Trim(),
+            null,
             now);
 
         profile.AvailabilitySlots.AddRange(slots);
@@ -259,7 +279,6 @@ public sealed class UpdateTeacherProfileCommandHandler : ICommandHandler<UpdateT
             command.EducationLevel.Trim(),
             command.HourlyRateAmount,
             command.Currency.Trim().ToUpperInvariant(),
-            command.ProfilePhotoUrl?.Trim(),
             slots,
             teacherSubjects,
             teacherCertificates,
@@ -308,7 +327,8 @@ internal static class TeacherProfileMappings
             profile.HourlyRateAmount,
             profile.Currency,
             profile.IsVerified,
-            profile.ProfilePhotoUrl,
+            // P04: istemciye iç anahtar değil, yetkili indirme rotası verilir.
+            profile.ProfilePhotoKey is null ? null : $"/api/teachers/profiles/{profile.UserId}/photo",
             profile.AvailabilitySlots
                 .OrderBy(slot => slot.DayOfWeek)
                 .ThenBy(slot => slot.StartTime)
@@ -332,5 +352,114 @@ internal static class TeacherProfileMappings
                 .ToArray(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
+    }
+}
+
+
+/// <summary>
+/// P04 (M02-2): Profil fotografini ortak <see cref="IFileStorage"/> uzerinden saklar.
+/// Sira onemlidir: once dogrulama ve profilin varligi, sonra yazma — yetkisiz/hatali istek
+/// depoya hicbir sey birakmaz. Yeni fotograf baglaninca eskisi silinir.
+/// </summary>
+public sealed class UploadTeacherPhotoCommandHandler
+    : ICommandHandler<UploadTeacherPhotoCommand, Result<TeacherPhotoResponse>>
+{
+    private static readonly Error NotFound = new("teachers.profile_not_found", "Ogretmen profili bulunamadi.");
+    private static readonly Error InvalidRequest = new("teachers.invalid_request", "Yuklenecek dosya bilgisi eksik.");
+
+    private readonly ITeacherProfileRepository _repository;
+    private readonly IFileStorage _fileStorage;
+    private readonly IClock _clock;
+
+    public UploadTeacherPhotoCommandHandler(
+        ITeacherProfileRepository repository,
+        IFileStorage fileStorage,
+        IClock clock)
+    {
+        _repository = repository;
+        _fileStorage = fileStorage;
+        _clock = clock;
+    }
+
+    public async Task<Result<TeacherPhotoResponse>> Handle(
+        UploadTeacherPhotoCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.FileName))
+        {
+            return Result<TeacherPhotoResponse>.Failure(InvalidRequest);
+        }
+
+        var validation = FileValidation.Validate(command.FileName, command.SizeBytes);
+        if (validation.IsFailure)
+        {
+            return Result<TeacherPhotoResponse>.Failure(validation.Error);
+        }
+
+        var profile = await _repository.GetByUserIdAsync(command.UserId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<TeacherPhotoResponse>.Failure(NotFound);
+        }
+
+        var stored = await _fileStorage.SaveAsync(
+            $"teachers/{command.UserId}",
+            command.FileName,
+            command.ContentType,
+            command.Content,
+            cancellationToken);
+
+        var previousKey = profile.SetProfilePhoto(stored.Key, _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(previousKey))
+        {
+            await _fileStorage.DeleteAsync(previousKey, cancellationToken);
+        }
+
+        return Result<TeacherPhotoResponse>.Success(
+            new TeacherPhotoResponse($"/api/teachers/profiles/{command.UserId}/photo"));
+    }
+}
+
+/// <summary>P04: Fotograf indirme oncesi anahtari cozer; fotograf yoksa 404 uretilir.</summary>
+public sealed class GetTeacherPhotoQueryHandler
+    : IQueryHandler<GetTeacherPhotoQuery, Result<TeacherPhotoFileResponse>>
+{
+    private static readonly Error NotFound = new("teachers.profile_not_found", "Ogretmen profili bulunamadi.");
+    private static readonly Error PhotoNotFound = new("teachers.photo_not_found", "Profil fotografi bulunamadi.");
+
+    private readonly ITeacherProfileRepository _repository;
+
+    public GetTeacherPhotoQueryHandler(ITeacherProfileRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<TeacherPhotoFileResponse>> Handle(
+        GetTeacherPhotoQuery query,
+        CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<TeacherPhotoFileResponse>.Failure(NotFound);
+        }
+
+        if (string.IsNullOrWhiteSpace(profile.ProfilePhotoKey))
+        {
+            return Result<TeacherPhotoFileResponse>.Failure(PhotoNotFound);
+        }
+
+        var contentType = Path.GetExtension(profile.ProfilePhotoKey).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
+
+        return Result<TeacherPhotoFileResponse>.Success(
+            new TeacherPhotoFileResponse(profile.ProfilePhotoKey, contentType));
     }
 }

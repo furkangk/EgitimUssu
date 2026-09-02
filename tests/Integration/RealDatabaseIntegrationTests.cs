@@ -82,7 +82,7 @@ public sealed class RealDatabaseIntegrationTests(ContainerFixture fixture)
 
             profile.Update(
                 "Ayse", "Fizik", "Istanbul", "Kadikoy", null, null, TeacherLessonFormat.Online, 4,
-                "Lisans", 1100m, "TRY", null, [],
+                "Lisans", 1100m, "TRY", [],
                 [new TeacherSubject(Guid.NewGuid(), profileId, "Fizik")], [], DateTime.UtcNow);
             await context.SaveChangesAsync();
         }

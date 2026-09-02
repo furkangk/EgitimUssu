@@ -23,7 +23,7 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         decimal hourlyRateAmount,
         string currency,
         bool isVerified,
-        string? profilePhotoUrl,
+        string? profilePhotoKey,
         DateTime createdOnUtc)
     {
         Id = id;
@@ -40,7 +40,7 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         HourlyRateAmount = hourlyRateAmount;
         Currency = currency;
         IsVerified = isVerified;
-        ProfilePhotoUrl = profilePhotoUrl;
+        ProfilePhotoKey = profilePhotoKey;
         CreatedOnUtc = createdOnUtc;
         UpdatedOnUtc = createdOnUtc;
 
@@ -73,7 +73,11 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
 
     public bool IsVerified { get; private set; }
 
-    public string? ProfilePhotoUrl { get; private set; }
+    /// <summary>
+    /// P04: Profil fotoğrafının <c>IFileStorage</c> anahtarı (public URL değil).
+    /// Dosya yalnız <c>GET /api/teachers/profiles/{userId}/photo</c> üzerinden yetkiyle sunulur.
+    /// </summary>
+    public string? ProfilePhotoKey { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
 
@@ -97,7 +101,6 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         string educationLevel,
         decimal hourlyRateAmount,
         string currency,
-        string? profilePhotoUrl,
         IReadOnlyCollection<TeacherAvailabilitySlot> availabilitySlots,
         IReadOnlyCollection<TeacherSubject> subjects,
         IReadOnlyCollection<TeacherCertificate> certificates,
@@ -114,7 +117,6 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         EducationLevel = educationLevel;
         HourlyRateAmount = hourlyRateAmount;
         Currency = currency;
-        ProfilePhotoUrl = profilePhotoUrl;
         UpdatedOnUtc = updatedOnUtc;
 
         MergeAvailabilitySlots(availabilitySlots);
@@ -122,6 +124,20 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         MergeCertificates(certificates);
 
         Raise(new TeacherProfileUpdatedDomainEvent(Id, UserId, Subject, updatedOnUtc));
+    }
+
+    /// <summary>
+    /// P04 (M02-2): Profil fotoğrafını depolama anahtarına bağlar. **Önceki anahtarı döndürür** —
+    /// çağıran onu depodan siler, böylece yetim dosya kalmaz.
+    /// </summary>
+    public string? SetProfilePhoto(string storageKey, DateTime updatedOnUtc)
+    {
+        var previousKey = ProfilePhotoKey;
+
+        ProfilePhotoKey = storageKey;
+        UpdatedOnUtc = updatedOnUtc;
+
+        return string.Equals(previousKey, storageKey, StringComparison.Ordinal) ? null : previousKey;
     }
 
     /// <summary>

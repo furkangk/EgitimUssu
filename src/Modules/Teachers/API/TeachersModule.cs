@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Shared.Kernel.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -37,6 +38,81 @@ public sealed class TeachersModule : ModuleDefinition
 
         group.MapGet("/profiles/{userId:guid}", GetTeacherProfileAsync)
         .WithSummary("Öğretmen profilini getirir");
+
+        group.MapPost("/profiles/{userId:guid}/photo", UploadTeacherPhotoAsync)
+        .WithSummary("Öğretmen profil fotoğrafını yükler (M02-2)")
+        .DisableAntiforgery();
+
+        group.MapGet("/profiles/{userId:guid}/photo", DownloadTeacherPhotoAsync)
+        .WithSummary("Öğretmen profil fotoğrafını yetkiyle akıtır (M02-2)");
+    }
+
+    /// <summary>
+    /// Profil fotoğrafını yükler (P04/M02-2). Dosya belleğe alınır ve komuta verilir; doğrulama, yetki ve
+    /// depolama yazımı handler'da yapılır. Boyut/tür kuralı `FileValidation` (10 MB + beyaz liste).
+    /// </summary>
+    private static async Task<IResult> UploadTeacherPhotoAsync(
+        HttpContext context,
+        Guid userId,
+        IFormFile? file,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status400BadRequest,
+                new Error("teachers.invalid_request", "Yüklenecek dosya bulunamadı."));
+        }
+
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
+
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        var result = await dispatcher.Dispatch(
+            new UploadTeacherPhotoCommand(userId, file.FileName, contentType, buffer.Length, buffer),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Profil fotoğrafını akıtır (P04/M02-2). Dosya doğrudan URL ile sunulmaz; anahtar yetki kontrolünden
+    /// **sonra** `IFileStorage`'tan okunur.
+    /// </summary>
+    private static async Task<IResult> DownloadTeacherPhotoAsync(
+        HttpContext context,
+        Guid userId,
+        IQueryDispatcher dispatcher,
+        IFileStorage fileStorage,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetTeacherPhotoQuery(userId), cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                "teachers.profile_not_found" or "teachers.photo_not_found"
+                    => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
+        }
+
+        var photo = result.Value!;
+        var content = await fileStorage.OpenReadAsync(photo.StorageKey, cancellationToken);
+        if (content is null)
+        {
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status404NotFound,
+                new Error("teachers.photo_not_found", "Profil fotoğrafı bulunamadı."));
+        }
+
+        return Results.File(content, photo.ContentType);
     }
 
     /// <summary>
@@ -131,7 +207,6 @@ public sealed record UpsertTeacherProfileRequest(
     string EducationLevel,
     decimal HourlyRateAmount,
     string Currency,
-    string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots,
     IReadOnlyCollection<string> Subjects,
     IReadOnlyCollection<TeacherCertificateItem> Certificates)
@@ -151,7 +226,6 @@ public sealed record UpsertTeacherProfileRequest(
             EducationLevel,
             HourlyRateAmount,
             Currency,
-            ProfilePhotoUrl,
             AvailabilitySlots
                 .Select(slot => new TeacherAvailabilityRequest(
                     slot.DayOfWeek,
@@ -185,7 +259,6 @@ public sealed record UpsertTeacherProfileRequest(
             EducationLevel,
             HourlyRateAmount,
             Currency,
-            ProfilePhotoUrl,
             AvailabilitySlots
                 .Select(slot => new TeacherAvailabilityRequest(
                     slot.DayOfWeek,

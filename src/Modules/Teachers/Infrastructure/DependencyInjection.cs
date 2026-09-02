@@ -20,6 +20,10 @@ public static class DependencyInjection
         services.AddScoped<ICommandValidator<UpdateTeacherProfileCommand>, UpdateTeacherProfileCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<UpdateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
+        services.AddScoped<ICommandHandler<UploadTeacherPhotoCommand, Result<TeacherPhotoResponse>>, UploadTeacherPhotoCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<UploadTeacherPhotoCommand>, TeacherProfileCommandAuthorizer>();
+        services.AddScoped<IQueryHandler<GetTeacherPhotoQuery, Result<TeacherPhotoFileResponse>>, GetTeacherPhotoQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetTeacherPhotoQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();
         return services;
     }
