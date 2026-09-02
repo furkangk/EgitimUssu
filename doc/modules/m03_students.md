@@ -6,7 +6,7 @@ status: "🟢/🟡"
 authority: code
 code_refs:
   - src/Modules/Students/**
-updated: 2026-07-19
+updated: 2026-09-02
 ---
 
 # 🎓 Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım Dokümanı
@@ -323,8 +323,8 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ### Eksik / planlanan mobil ekranlar ⚠️
 - [ ] **Öğrenci ekleme formu zenginleştirme** — `StudentSubject` (branş + hedef seviye) çoklu giriş + **veli bağlama** alanı.
-- [ ] **Öğrenci self-register akışı** — öğrencinin kendi profilini oluşturduğu ekran (`SelfRegistered`).
-- [ ] **Manuel→gerçek bağlama** — öğretmenin öğrenciyi davet etmesi / öğrencinin daveti kabul etmesi.
+- [x] **Öğrenci self-register akışı** (`SelfRegistered`) — backend `POST /profiles` (`Origin=SelfRegistered`) + mobilde ayrı ekran yerine **otomatik profil oluşturma** (`StudentScope` / `StudyHomeCubit` → `createSelfProfile`).
+- [ ] **Manuel→gerçek bağlama (mobil ekranlar)** — backend uçları **hazır**: `POST /teachers/{teacherUserId}/students/{studentId}/invite`, `POST /links/{linkId}/accept`, `POST /links/{linkId}/reject`, `POST /links/claim`. Mobilde davet formu şu an yalnız arayüz taslağı (repository çağrısı yok), kabul/red/claim ekranı yok — (P06).
 
 ---
 
@@ -376,4 +376,4 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

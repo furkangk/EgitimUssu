@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-08-20
+updated: 2026-09-02
 ---
 
 # 📱 Mobil Mimari & UI — Flutter

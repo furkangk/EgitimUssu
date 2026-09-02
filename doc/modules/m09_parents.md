@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Parents/**
-updated: 2026-08-26
+updated: 2026-09-02
 ---
 
 # 👪 M09 — Veli (Parents) Modülü — Detaylı Tasarım Dokümanı
@@ -311,9 +311,9 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 - [x] Bildirim tercihleri ayarlanabilir; **salt-okunur** panel + yalnız `Approved` bağ görünürlüğü uygulanır.
 
 ### Faz 3 (öğretmen verisi entegre)
-- [ ] Öğretmen bağlıysa veli; **son ders özeti, ödevler, öğretmen notları, ödeme özeti** görebilir.
-- [ ] **Ödev kaçırma** bildirimi (M11) tercihe bağlı çalışır.
-- [ ] Gelişim grafik + rapor (M10/M14) veli panelinde görüntülenir.
+- [x] Öğretmen bağlıysa veli; **son ders özeti, ödevler, öğretmen notları, ödeme özeti** görebilir — `GET /{parentUserId}/children/{studentId}/dashboard` → `ChildDashboardResponse` (`LastLesson`, `Assignments`, `TeacherNotes`, `Payments`/`PaymentLines`).
+- [~] **Ödev kaçırma** bildirimi (M11) — tercih alanı (`NotifyMissedAssignment`) ve tercihe saygı duyan üretim var, ancak tetikleyici bugün `AssignmentCreatedDomainEvent`; **son teslim yaklaştı/kaçırıldı** olayı henüz yok **(P03)**.
+- [ ] Gelişim grafik + rapor (M10/M14) veli panelinde görüntülenir — mobil model (`ChildProgressSummary`) hazır ama `ChildDashboardResponse` henüz `progress` alanı döndürmüyor **(P08)**.
 
 ---
 
@@ -355,4 +355,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-09-02 (F-06: Faz 3 kabul kriterleri kodla karşılaştırıldı — dashboard ✅, ödev-kaçırma ~ (P03), gelişim ⬜ (P08)). Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*

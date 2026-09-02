@@ -5,7 +5,7 @@ tags: [modul, indeks, genel-bakis]
 authority: code
 code_refs:
   - src/Modules/*/API/*Module.cs
-updated: 2026-08-26
+updated: 2026-09-02
 ---
 
 # 🗂️ Modüller — Genel Bakış ve Durum (Modül İndeksi)
@@ -87,7 +87,8 @@ mobile/lib/features/<ozellik>/
 
 ## 3. Mobil Feature Eşlemesi
 
-> Bir kullanıcı rolü birden çok backend modülünü kullanır (bkz. [`../roles/`](../roles/00_roller_genel_bakis.md)). Mevcut mobil app **öğretmen odaklı**.
+> Bir kullanıcı rolü birden çok backend modülünü kullanır (bkz. [`../roles/`](../roles/00_roller_genel_bakis.md)). Mevcut mobil app **üç rolü de kapsıyor**:
+> öğretmen (dashboard/öğrenci/takvim/ödev/ödeme), **öğrenci** (`/student-home` 4 sekme + kronometre/test/hedef/başarım) ve **veli** (`/parent` paneli).
 
 | Modül | Mobil Feature | Not |
 |-------|---------------|-----|
@@ -102,7 +103,9 @@ mobile/lib/features/<ozellik>/
 | API.Host (BFF) | `dashboard` | öğretmen pano özeti (bugünkü ders + bekleyen ödev + geciken ödeme) |
 | Parents | `parent` | veli paneli (home/children/child_detail/notifications/profile) + `ParentBottomNav` + `/parent` rol navigasyonu |
 | Study | `study` | öğrenci paneli: `student-home` (dashboard) + `study/timer`, `study/test`, `study/goals`, `study/history`, `study/achievements` + `/student-home` rol navigasyonu + self-register |
-| ProgressTracking/Matching/Reviews/Reporting/Messaging/Membership/Feedback | _(yok)_ | planlanan (yeni özellik ekranları) |
+| Notifications | `notifications` | bildirim listesi (`NotificationsPage` + `NotificationsCubit`) |
+| ProgressTracking | `progress` | `ProgressOverviewPage` (gelişim özeti) — backend M10 🟡 |
+| Matching/Reviews/Reporting/Messaging/Membership/Feedback | _(yok)_ | planlanan (yeni özellik ekranları) |
 
 ---
 
@@ -245,4 +248,4 @@ GET /api/matching/status
 
 ---
 
-*Modüller Genel Bakış / İndeks | Güncelleme: 2026-08-26 (Y4 kapatıldı: tüm `[consume]` handler notları "idempotent (ortak inbox_messages)" olarak birleştirildi; Parents'ın 4 read-model projeksiyonu için `[consume]` satırı eklendi; §4 başına ortak `IdempotentIntegrationEventHandler` notu). Önceki not — 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*
+*Modüller Genel Bakış / İndeks | Güncelleme: 2026-09-02 (F-07: §3 mobil eşlemesi — app artık üç rolü de kapsıyor; `notifications` + `progress` feature satırları eklendi). Önceki not — 2026-08-26 (Y4 kapatıldı: tüm `[consume]` handler notları "idempotent (ortak inbox_messages)" olarak birleştirildi; Parents'ın 4 read-model projeksiyonu için `[consume]` satırı eklendi; §4 başına ortak `IdempotentIntegrationEventHandler` notu). Önceki not — 2026-08-19 (Geçiş 2 kod-senkron m07-m12: Payments envanterine `/records/search` + ProgressTracking `/status` eklendi; endpoint sayıları doğrulandı — Payments 11, Study 38, Parents 11, ProgressTracking 8, Notifications 2, Matching 1). Önceki not — 2026-07-19 (Ö-E: M08 sayaç güvenilirliği — `sessions/{id}/recover` takılı seans kurtarma + `students/{id}/active-session` (isStale 6 saat) + pause/complete opsiyonel `clientEffectiveMinutes` istemci-otoriter süre · Ö-C: M03 `POST /links/claim` davet kodu ile öğrenci claim + tam profil birleştirme merge → modüller-arası `StudentId` yeniden atama · Ö-B: M08 `POST /students/{id}/mock-exams` çok dersli deneme + sınav tipine göre net böleni (ExamPenalty) + M03 `TargetExam` · Ö-A2: M08 seans/test düzenle-sil endpoint'leri + konu rollup yeniden türetme) · 2026-07-18 (Dilim A takvim çekirdeği: M04 MeetingUrl/erteleme/iptal nedeni+sil/tatil bloğu/occurrence istisnaları; M05 oturum IsChargeable · Dilim B: M06 not görünürlüğü + ödev onay/geri gönder · Dilim D: M02 çoklu branş + sertifika)*

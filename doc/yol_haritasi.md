@@ -3,7 +3,7 @@ title: "Geliştirme Yol Haritası"
 summary: "Faz 0-5 geliştirme yol haritası: epic→faz eşlemesi, bağımlılıklar, milestone'lar"
 tags: [yol-haritasi, planlama, faz]
 authority: product
-updated: 2026-06-24
+updated: 2026-09-02
 ---
 
 # 🗺️ EğitimÜssü — Geliştirme Yol Haritası
@@ -15,7 +15,7 @@ updated: 2026-06-24
 >
 > **Temel strateji:** Önce rollerin **bireysel/ortak** kullanımını doldur, **eşleştirme/ilan**'ı en son aç (PRD §2).
 >
-> **Güncelleme:** 2026-06-24
+> **Güncelleme:** 2026-09-02
 
 ---
 
@@ -25,8 +25,8 @@ updated: 2026-06-24
 |-----|-----|-----------|-------|
 | **Faz 0** | Temel & Sertleştirme | Mimari/güvenlik açıklarını kapat + ortak altyapı (dosya depolama, read-model, push) | 🔴 Açık (kritik) |
 | **Faz 1** | Öğretmen Çekirdeği (MVP) | Öğretmen her gün kullanır: takvim, öğrenci, ders, ödev/kaynak, ödeme | 🟢 Büyük ölçüde hazır, eksikler var |
-| **Faz 2** | Öğrenci Bireysel Çalışma | Öğretmensiz öğrenci: kronometre, test/net, hedef, seri, başarım | 🔴 İskelet |
-| **Faz 3** | Gelişim, Bildirim & Veli | Konu gelişimi, veli paneli (tam), mesajlaşma, zengin bildirim | 🔴 İskelet |
+| **Faz 2** | Öğrenci Bireysel Çalışma | Öğretmensiz öğrenci: kronometre, test/net, hedef, seri, başarım | 🟢 Büyük ölçüde hazır (M08 Study 38 uç) |
+| **Faz 3** | Gelişim, Bildirim & Veli | Konu gelişimi, veli paneli (tam), mesajlaşma, zengin bildirim | 🟡 Kısmen (veli paneli 🟢, M10 🟡, M16 🔴) |
 | **Faz 4** | Eşleştirme & Değerlendirme | İki taraflı ilan, keşif/filtre, puanlama/yorum, şikayet/moderasyon | 🔴 İskelet |
 | **Faz 5** | Premium & Para Kazanma | Üyelik/abonelik, reklam, kampanya/referans, raporlama/analitik | 🔴 İskelet |
 
@@ -67,7 +67,7 @@ updated: 2026-06-24
 
 ---
 
-## 🔴 Faz 2 — Öğrenci Bireysel Çalışma
+## 🟢 Faz 2 — Öğrenci Bireysel Çalışma
 
 **Epic:** `Öğrenci Bireysel Çalışma` · İlgili: [`roles/ogrenci`](roles/ogrenci.md), [`modules/m08_study`](modules/m08_study.md).
 **İşler:**
@@ -81,7 +81,7 @@ updated: 2026-06-24
 
 ---
 
-## 🔴 Faz 3 — Gelişim, Bildirim & Veli
+## 🟡 Faz 3 — Gelişim, Bildirim & Veli
 
 **Epicler:** `Veli Paneli`, `Mesajlaşma` (kısmı), ProgressTracking/Notifications genişletme.
 **İşler:**
@@ -144,4 +144,4 @@ Faz 0 (sertleştirme + dosya depolama + read-model + push)
 
 ---
 
-*Geliştirme Yol Haritası | Güncelleme: 2026-06-24*
+*Geliştirme Yol Haritası | Güncelleme: 2026-09-02 (F-05: Faz 2 🟢, Faz 3 🟡 — koda göre)*

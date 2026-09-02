@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Assignments/**
-updated: 2026-08-19
+updated: 2026-09-02
 ---
 
 # 📝 Ödev, Not & Kaynak (M06) — Detaylı Tasarım Dokümanı
@@ -292,10 +292,10 @@ POST /assignments/{id}/complete
 - [x] Öğretmen ödevi onaylayabilir / geri bildirimle geri gönderebilir (T-06.7/8); geri gönderme için geri bildirim zorunlu.
 - [x] Ödev "tamamla" endpoint'i (`POST /{id}/complete` → `MarkCompleted`) — 2026-07-09 eklendi.
 - [ ] ⚠️ `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü.
-- [ ] ⚠️ `AssignmentSubmission` (öğrenci yükleme) + değerlendirme.
+- [x] **Öğrenci teslimi + değerlendirme** — `POST /{assignmentId}/submission` (dosya) → `Assignment.SubmitWork` + `AssignmentSubmittedDomainEvent`; öğretmen `approve`/`return` ile değerlendirir. (Ayrı `AssignmentSubmission` varlığı yok; teslim alanları `Assignment` üzerinde tutuluyor.)
 - [ ] ⚠️ Son teslim uyarısı (öğrenci + veli bildirimi).
-- [ ] ⚠️ Öğrenci görünümü endpoint'leri (ödev/not/kaynak).
-- [ ] ⚠️ Dosya depolama altyapısı.
+- [x] **Öğrenci görünümü uçları** — `GET /` (`studentId` filtresi ile `ListAssignmentsQuery`) + `GET /{assignmentId}/attachment`. Kaynak (`LessonResource`) görünümü hâlâ yok (yukarıdaki madde).
+- [ ] ⚠️ Dosya depolama altyapısı **(P04)** — şu an yalnız yerel disk (`LocalAssignmentFileStorage`); nesne depolama (S3/R2) bekliyor.
 
 ---
 
@@ -323,4 +323,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*

@@ -3,7 +3,7 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-08-26
+updated: 2026-09-02
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler

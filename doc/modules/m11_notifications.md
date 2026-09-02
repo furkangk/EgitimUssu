@@ -6,7 +6,7 @@ status: "🟡"
 authority: code
 code_refs:
   - src/Modules/Notifications/**
-updated: 2026-08-19
+updated: 2026-09-02
 ---
 
 # 🔔 Bildirim Modülü (M11) — Detaylı Tasarım Dokümanı
@@ -254,14 +254,14 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ## 7. Kabul Kriterleri
 
-- [ ] Outbox dispatch açık ([K1]) ve Scheduling event'leri tüketiliyor; planlanan her ders için tam **bir** `LessonReminder` oluşuyor.
-- [ ] `RemindAtUtc` geldiğinde kullanıcıya **gerçek push** ulaşıyor (FCM/APNs), yalnızca `MarkSent` değil (Y5 kapandı).
-- [ ] Mobil cihaz token'ı kaydediliyor/siliniyor; geçersiz token devre dışı bırakılıyor.
-- [ ] Öğrenci ve veli in-app bildirim listesini görebiliyor; okundu/okunmamış ve rozet sayısı doğru.
-- [ ] Ödev son teslim yaklaşıyor/kaçırıldı bildirimi hem öğrenciye hem veliye gidiyor.
-- [ ] Kullanıcı `UserSetting`'te bir türü kapattığında o bildirim **gönderilmiyor** (M15 entegrasyonu).
+- [x] Outbox dispatch açık ([K1] — `Outbox:DispatchEnabled=true`) ve Scheduling event'leri tüketiliyor (`LessonScheduleNotificationIntegrationEventHandler`); tekrar teslimde ortak inbox (`IdempotentIntegrationEventHandler`) mükerrer `LessonReminder` üretilmesini engelliyor.
+- [ ] `RemindAtUtc` geldiğinde kullanıcıya **gerçek push** ulaşıyor (FCM/APNs) — bugün `NotificationDispatchProcessor` yalnız `MarkSent` yapıyor; FCM/APNs entegrasyonu yok **(P03)**.
+- [ ] Mobil cihaz token'ı kaydediliyor/siliniyor; geçersiz token devre dışı bırakılıyor — cihaz token ucu yok **(P03)**.
+- [~] In-app bildirim listesi: **veli** için var (`GET /parents/{parentUserId}/notifications`); **öğrenci** listesi ile okundu/okunmamış + rozet sayısı yok **(P03)**.
+- [~] Ödev bildirimi: **yeni ödev** → veliye gidiyor (`AssignmentCreatedDomainEvent`); **son teslim yaklaşıyor/kaçırıldı** tetikleyicisi ve öğrenciye gönderim yok **(P03)**.
+- [~] Tercihe saygı: **veli** tercihleri (`ParentNotificationPreferences`) uygulanıyor; genel `UserSetting` (M15) entegrasyonu yok — Settings modülünde bugün yalnız `/status` + `study-sharing` var **(P05)**.
 - [x] `ReminderOffsetMinutes` ayarı hatırlatma zamanını etkiliyor (2026-07-01, Y1).
-- [ ] Sahiplik authorizer'ı, başka kullanıcının bildirimlerine erişimi reddediyor (K3).
+- [ ] Sahiplik authorizer'ı, başka kullanıcının bildirimlerine erişimi reddediyor (K3) — uçlar `parentUserId`/`teacherUserId`'yi rotadan alıyor, çağıranla karşılaştırma yok **(P13)**.
 
 ---
 
@@ -295,4 +295,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*
