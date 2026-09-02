@@ -42,7 +42,15 @@
   - `static class FileValidation { public const long MaxSizeBytes = 10 * 1024 * 1024; public static Result Validate(string fileName, long sizeBytes); }`
   - `sealed class StorageOptions { public string Provider = "Local"; public string LocalRootPath = "storage"; public string BucketName = ""; public string? ServiceUrl; public string Region = "auto"; public string AccessKeyId = ""; public string SecretAccessKey = ""; }`
 
-- [ ] **Step 1: Doğrulama ve yerel depolama testlerini yaz (kırmızı)**
+> **Sapma (uygulandı):** `FileValidation`'a **`storage.empty_file`** hatası eklendi (0 bayt). Plan yalnız üst sınırı kontrol ediyordu; boş dosya kaydı "yüklendi" görünüp işe yaramazdı.
+> **Sapma (uygulandı):** `StorageOptionsGuard`, `Provider=Local` iken de `LocalRootPath`'in boş olmamasını arar — boş kökle `Path.GetFullPath` çalışma dizinine yazar.
+> **Sapma (uygulandı):** `S3FileStorage.SaveAsync` içeriği önce belleğe alır. `StoredFile.SizeBytes` gerçek uzunluk ister ve gelen `Stream` (multipart) ileri-sarılamayabilir. 10 MB üst sınırı zaten `FileValidation`'da olduğu için bellek riski sınırlı.
+> **Sapma (uygulandı):** `ServiceUrl` doluyken `ForcePathStyle = true` + `DisablePayloadSigning = true` — R2 ve MinIO chunked payload imzasını desteklemez.
+> **Sapma (uygulandı):** `S3FileStorage`'a testler için `internal` bir `IAmazonS3` kurucusu eklendi (bu görevde kullanılmadı; gerçek S3 doğrulaması Q4 kararına bağlı).
+> **Sapma (uygulandı):** `.gitignore`'a `storage/` **ve** `src/API.Host/storage/` eklendi — uygulama çalışma dizininden başlatıldığında kök oraya düşüyor.
+> **Sapma (uygulandı) — plan eksiği:** Plan 6 test öngörüyordu; 34 test yazıldı (20 `FileValidationTests` — 13'ü izinli uzantı theory'si, 8 `LocalFileStorageTests` — path traversal 3 varyant + çakışmayan anahtar + idempotent silme, 6 `StorageOptionsGuardTests`).
+
+- [x] **Step 1: Doğrulama ve yerel depolama testlerini yaz (kırmızı)**
 
 `tests/Unit/FileValidationTests.cs`:
 ```csharp
@@ -110,12 +118,12 @@ public async Task Key_Should_Not_Allow_Path_Traversal()
 }
 ```
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~FileValidationTests|FullyQualifiedName~LocalFileStorageTests"`
 Expected: FAIL — tipler yok.
 
-- [ ] **Step 3: Sözleşme + doğrulama + yerel implementasyon**
+- [x] **Step 3: Sözleşme + doğrulama + yerel implementasyon**
 
 `src/Shared/Infrastructure/Storage/IFileStorage.cs`:
 ```csharp
@@ -176,12 +184,12 @@ public static class FileValidation
 
 `StorageOptions.cs` / `StorageOptionsGuard.cs` — `EmailOptionsGuard` deseninin eşleniği: `Provider=S3` iken `BucketName`, `AccessKeyId`, `SecretAccessKey` zorunlu.
 
-- [ ] **Step 4: Testleri çalıştır**
+- [x] **Step 4: Testleri çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~FileValidationTests|FullyQualifiedName~LocalFileStorageTests|FullyQualifiedName~StorageOptionsGuardTests"`
 Expected: PASS.
 
-- [ ] **Step 5: DI + konfigürasyon + guard**
+- [x] **Step 5: DI + konfigürasyon + guard**
 
 `ServiceCollectionExtensions.cs`:
 ```csharp
@@ -209,7 +217,7 @@ Expected: PASS.
 `Program.cs` → `StorageOptionsGuard.Validate(...)`.
 `.gitignore` → `storage/`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Shared/Infrastructure/Storage src/Shared/Infrastructure/Configuration src/API.Host tests/Unit .gitignore

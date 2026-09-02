@@ -7,6 +7,7 @@ using EgitimUssu.Shared.Infrastructure.Email;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Shared.Infrastructure.Push;
+using EgitimUssu.Shared.Infrastructure.Storage;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.Configure<RateLimitOptions>(configuration.GetSection(RateLimitOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
@@ -70,6 +72,16 @@ public static class ServiceCollectionExtensions
             return string.Equals(pushOptions.Provider, PushOptions.FcmProvider, StringComparison.OrdinalIgnoreCase)
                 ? provider.GetRequiredService<FcmPushSender>()
                 : ActivatorUtilities.CreateInstance<LoggingPushSender>(provider);
+        });
+
+        // K-03: Dosya depolama sağlayıcısı konfigürasyonla seçilir; modüller S3'ü bilmez.
+        services.AddSingleton<IFileStorage>(provider =>
+        {
+            var storageOptions = provider.GetRequiredService<IOptions<StorageOptions>>().Value;
+
+            return string.Equals(storageOptions.Provider, StorageOptions.S3Provider, StringComparison.OrdinalIgnoreCase)
+                ? ActivatorUtilities.CreateInstance<S3FileStorage>(provider)
+                : ActivatorUtilities.CreateInstance<LocalFileStorage>(provider);
         });
 
         return services;

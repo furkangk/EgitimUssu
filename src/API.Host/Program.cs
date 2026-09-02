@@ -43,6 +43,9 @@ EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.IsDevelopment())
 // P03/K-02: Push sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce push göndermeme yasak).
 var pushOptions = builder.Configuration.GetSection(PushOptions.SectionName).Get<PushOptions>() ?? new PushOptions();
 PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.IsDevelopment());
+// P04/K-03: Depolama sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (yüklenen dosya kaybolmasın).
+var storageOptions = builder.Configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
+StorageOptionsGuard.EnsureValid(storageOptions, builder.Environment.IsDevelopment());
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
