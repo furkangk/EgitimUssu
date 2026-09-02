@@ -5,7 +5,7 @@ tags: [mimari, widget, flutter]
 authority: code
 code_refs:
   - mobile/lib/shared/widgets/**
-updated: 2026-08-20
+updated: 2026-09-03
 ---
 
 # 🧩 Ortak Widget Kataloğu (Shared Widgets)
@@ -87,6 +87,7 @@ updated: 2026-08-20
 | LoadingState | `LoadingStateView` @ `state_views.dart` | `message='Yukleniyor...'` | Ortalı spinner + metin | 🟢 |
 | ErrorState | `ErrorStateView` @ `state_views.dart` | `message, onRetry?` | errorContainer kart + "Tekrar dene" | 🟢 |
 | EmptyState | `EmptyStateView` @ `state_views.dart` | `title, subtitle` | İkon + başlık + açıklama | 🟢 |
+| SessionRequired | `SessionRequiredView` @ `session_required_view.dart` | `title?, subtitle?` | Oturum yokken sahte kullanıcı uydurmak yerine kilit ikonu + "Giriş yap" (D-17) | 🟢 |
 
 ## 4. Önerilen Tamamlama Sırası (🔴/🟡)
 
@@ -113,4 +114,20 @@ ProfileMenuTile → SectionHeader**. (AppHeader ve AppBottomNav 🟢 tamamlandı
 > İlgili: token'lar → [`design_system.md`](design_system.md) · mobil mimari/ekranlar → [`mobile_flutter.md`](mobile_flutter.md) ·
 > tab detay → [`../tab_widget.md`](../tab_widget.md) · sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md)
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-08-20*
+### 3.1 Ayar ekranı bileşenleri (P05, `features/settings/presentation/widgets/settings_widgets.dart`)
+
+`settings` feature'ına özel oldukları için `shared/` altına alınmadılar; başka bir feature aynı desene
+ihtiyaç duyduğunda taşınmalıdır.
+
+| Bileşen | API | Kural |
+|---------|-----|-------|
+| `SettingsScaffold` | `title, child` | Geri butonlu sade AppBar + `SafeArea` |
+| `SettingsSectionTitle` | `text` | Büyük harf, `textSecondary`, harf aralığı 0.6 |
+| `SettingsPanel` | `children` | 18 radius kart + `AppShadows.soft` + `border` |
+| `SettingsDivider` | — | 1px `AppColors.divider` |
+| `SettingsSwitchRow` | `icon, title, subtitle, value, onChanged, isSaving` | Kaydederken `AbsorbPointer` + %60 opaklık (çift istek yok) |
+| `SettingsChoiceRow` | `title, subtitle, selected, onTap, isSaving` | Radyo benzeri tekli seçim |
+| `SettingsHint` | `text` | Panel altı açıklama metni |
+| `settingsErrorListener` | `BlocConsumer` listener'ı | Kaydetme hatasını SnackBar ile bildirir; yükleme hatası `ErrorStateView`'e bırakılır |
+
+*Ortak Widget Kataloğu | Güncelleme: 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*

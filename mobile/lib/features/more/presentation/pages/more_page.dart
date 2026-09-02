@@ -17,18 +17,6 @@ class MorePage extends StatefulWidget {
 }
 
 class _MorePageState extends State<MorePage> {
-  bool _lessonReminders = true;
-  bool _paymentReminders = true;
-  bool _parentNotifications = false;
-  bool _weeklyReport = true;
-  bool _autoHolidayBlock = true;
-  bool _hideHolidaySlots = true;
-  bool _onlineAvailable = true;
-  bool _inPersonAvailable = true;
-  String _quietHours = '22:00 - 08:00';
-  String _holidayMode = 'Resmi tatiller';
-  String _workMode = 'Hibrit';
-
   @override
   Widget build(BuildContext context) {
     final session = context.select((AuthCubit cubit) => cubit.state.session);
@@ -82,56 +70,65 @@ class _MorePageState extends State<MorePage> {
                         onTap: () => context.push('/account-info'),
                       ),
                       _DividerLine(),
+                      // D-15: Gercek uyelik ucu yok (P09). Sahte "Plus" karti kaldirildi;
+                      // satir "Yakinda" etiketiyle pasif duruyor — yaniltici veri gosterilmiyor.
                       _MenuTile(
                         icon: Icons.workspace_premium_outlined,
-                        title: 'Abonelik ayarlari',
-                        subtitle: 'Plus uyelik, fatura ve paket bilgileri',
+                        title: 'Uyelik',
+                        subtitle: 'Paket ve fatura bilgileri',
                         color: AppColors.amber,
-                        onTap: _showSubscriptionSheet,
+                        enabled: false,
+                        badge: 'Yakinda',
                       ),
                       _DividerLine(),
+                      // D-16: Rapor ucu yok (P08). Sahte 42/%94/%81 karti kaldirildi.
                       _MenuTile(
                         icon: Icons.bar_chart_rounded,
                         title: 'Raporlar',
                         subtitle: 'Ders, devam ve tahsilat ozetleri',
                         color: AppColors.amber,
-                        onTap: _showReportsSheet,
+                        enabled: false,
+                        badge: 'Yakinda',
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   _MenuPanel(
                     children: <Widget>[
+                      // D-14: Sahte "sessiz saatler" sheet'i kaldirildi; satir gercek
+                      // gizlilik/guvenlik ekranina gidiyor (M15-3/M15-4).
                       _MenuTile(
-                        icon: Icons.tune_rounded,
-                        title: 'Ayarlar',
-                        subtitle: 'Genel uygulama tercihleri',
+                        icon: Icons.shield_outlined,
+                        title: 'Gizlilik ve guvenlik',
+                        subtitle: 'Calisma verisi paylasimi ve oturum politikasi',
                         color: AppColors.accentBlue,
-                        onTap: _showGeneralSettingsSheet,
+                        onTap: () => context.push('/settings/privacy'),
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.notifications_active_outlined,
                         title: 'Bildirim ayarlari',
-                        subtitle: 'Ders, odeme, veli ve rapor bildirimleri',
+                        subtitle: 'Ders, odev, odeme ve haftalik ozet',
                         color: AppColors.accentRed,
-                        onTap: _showNotificationSettingsSheet,
+                        onTap: () => context.push('/settings/notifications'),
                       ),
                       _DividerLine(),
+                      // Gercek karsiligi ogretmen profilidir (ders bicimi + musaitlik).
                       _MenuTile(
                         icon: Icons.work_outline_rounded,
                         title: 'Calisma ayarlari',
-                        subtitle: 'Ders modu ve uygunluk tercihleri',
+                        subtitle: 'Ders bicimi ve musaitlik (profil)',
                         color: AppColors.accentGreen,
-                        onTap: _showWorkSettingsSheet,
+                        onTap: () => context.push('/teacher-profile'),
                       ),
                       _DividerLine(),
+                      // Gercek karsiligi M04 tatil uclaridir; takvimdeki tatil yonetimi.
                       _MenuTile(
                         icon: Icons.event_busy_outlined,
                         title: 'Tatil ayarlari',
                         subtitle: 'Kapali gunler ve tatil takvimi',
                         color: AppColors.amber,
-                        onTap: _showHolidaySettingsSheet,
+                        onTap: () => context.push('/scheduling'),
                       ),
                     ],
                   ),
@@ -178,178 +175,6 @@ class _MorePageState extends State<MorePage> {
           );
         },
       ),
-    );
-  }
-
-  void _showReportsSheet() {
-    _showInfoSheet(
-      title: 'Raporlar',
-      children: const <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _StatTile(label: 'Bu ay ders', value: '42'),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: _StatTile(label: 'Devam', value: '%94'),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: _StatTile(label: 'Tahsilat', value: '%81'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _showSubscriptionSheet() {
-    _showInfoSheet(
-      title: 'Abonelik ayarlari',
-      children: <Widget>[
-        const _SubscriptionSummary(),
-        _DividerLine(),
-        _InfoRow(label: 'Paket', value: 'Plus'),
-        _InfoRow(label: 'Yenileme', value: '15 Haziran 2026'),
-        _InfoRow(label: 'Durum', value: 'Aktif'),
-      ],
-    );
-  }
-
-  void _showGeneralSettingsSheet() {
-    _showInfoSheet(
-      title: 'Ayarlar',
-      children: <Widget>[
-        _ChoiceRow(
-          icon: Icons.bedtime_outlined,
-          title: 'Sessiz saatler',
-          value: _quietHours,
-          onTap: () => _pickValue(
-            title: 'Sessiz saatler',
-            values: const <String>[
-              '21:00 - 08:00',
-              '22:00 - 08:00',
-              '23:00 - 09:00',
-            ],
-            selected: _quietHours,
-            onSelected: (value) => setState(() => _quietHours = value),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showNotificationSettingsSheet() {
-    _showInfoSheet(
-      title: 'Bildirim ayarlari',
-      children: <Widget>[
-        _SwitchRow(
-          icon: Icons.notifications_active_outlined,
-          title: 'Ders hatirlatmalari',
-          subtitle: 'Yaklasan derslerden once bildirim al.',
-          value: _lessonReminders,
-          onChanged: (value) => setState(() => _lessonReminders = value),
-        ),
-        _DividerLine(),
-        _SwitchRow(
-          icon: Icons.payments_outlined,
-          title: 'Odeme hatirlatmalari',
-          subtitle: 'Vadesi gelen ve geciken odemeleri kacirma.',
-          value: _paymentReminders,
-          onChanged: (value) => setState(() => _paymentReminders = value),
-        ),
-        _DividerLine(),
-        _SwitchRow(
-          icon: Icons.family_restroom_rounded,
-          title: 'Veli bilgilendirmeleri',
-          subtitle: 'Ders notu ve odev durumlari icin hazir akis.',
-          value: _parentNotifications,
-          onChanged: (value) => setState(() => _parentNotifications = value),
-        ),
-        _DividerLine(),
-        _SwitchRow(
-          icon: Icons.summarize_outlined,
-          title: 'Haftalik rapor',
-          subtitle: 'Hafta sonunda ders ve tahsilat ozeti al.',
-          value: _weeklyReport,
-          onChanged: (value) => setState(() => _weeklyReport = value),
-        ),
-      ],
-    );
-  }
-
-  void _showWorkSettingsSheet() {
-    _showInfoSheet(
-      title: 'Calisma ayarlari',
-      children: <Widget>[
-        _ChoiceRow(
-          icon: Icons.sync_alt_rounded,
-          title: 'Ders verme sekli',
-          value: _workMode,
-          onTap: () => _pickValue(
-            title: 'Ders verme sekli',
-            values: const <String>['Online', 'Yuz yuze', 'Hibrit'],
-            selected: _workMode,
-            onSelected: (value) => setState(() => _workMode = value),
-          ),
-        ),
-        _DividerLine(),
-        _SwitchRow(
-          icon: Icons.videocam_outlined,
-          title: 'Online uygun',
-          subtitle: 'Uzaktan ders talepleri icin gorunur olur.',
-          value: _onlineAvailable,
-          onChanged: (value) => setState(() => _onlineAvailable = value),
-        ),
-        _DividerLine(),
-        _SwitchRow(
-          icon: Icons.location_city_outlined,
-          title: 'Yuz yuze uygun',
-          subtitle: 'Sehir ve ilce filtrelerinde yer alir.',
-          value: _inPersonAvailable,
-          onChanged: (value) => setState(() => _inPersonAvailable = value),
-        ),
-      ],
-    );
-  }
-
-  void _showHolidaySettingsSheet() {
-    _showInfoSheet(
-      title: 'Tatil ayarlari',
-      children: <Widget>[
-        _SwitchRow(
-          icon: Icons.event_busy_outlined,
-          title: 'Tatil gunlerini kapat',
-          subtitle: 'Tatil gunlerinde yeni ders slotu acilmaz.',
-          value: _autoHolidayBlock,
-          onChanged: (value) => setState(() => _autoHolidayBlock = value),
-        ),
-        _DividerLine(),
-        _SwitchRow(
-          icon: Icons.visibility_off_outlined,
-          title: 'Bos tatil slotlarini gizle',
-          subtitle: 'Takvimde sadece gercek dersler gorunur.',
-          value: _hideHolidaySlots,
-          onChanged: (value) => setState(() => _hideHolidaySlots = value),
-        ),
-        _DividerLine(),
-        _ChoiceRow(
-          icon: Icons.calendar_month_outlined,
-          title: 'Tatil takvimi',
-          value: _holidayMode,
-          onTap: () => _pickValue(
-            title: 'Tatil takvimi',
-            values: const <String>[
-              'Resmi tatiller',
-              'Okul tatilleri',
-              'Ozel tatil listem',
-            ],
-            selected: _holidayMode,
-            onSelected: (value) => setState(() => _holidayMode = value),
-          ),
-        ),
-      ],
     );
   }
 
@@ -523,50 +348,6 @@ class _MorePageState extends State<MorePage> {
     );
   }
 
-  void _pickValue({
-    required String title,
-    required List<String> values,
-    required String selected,
-    required ValueChanged<String> onSelected,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              _SheetTitle(title: title),
-              const SizedBox(height: 12),
-              ...values.map(
-                (value) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(value),
-                  trailing: selected == value
-                      ? const Icon(
-                          Icons.check_rounded,
-                          color: AppColors.primary,
-                        )
-                      : null,
-                  onTap: () {
-                    onSelected(value);
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _TopBar extends StatelessWidget {
@@ -674,48 +455,6 @@ class _PlusBadge extends StatelessWidget {
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SubscriptionSummary extends StatelessWidget {
-  const _SubscriptionSummary();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: <Widget>[
-          const _TintedIcon(
-            icon: Icons.workspace_premium_rounded,
-            color: AppColors.amber,
-            size: 44,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Plus uyelik aktif',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Gelismis raporlar ve oncelikli destek kullanilabilir.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -842,165 +581,85 @@ class _MenuTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.color,
-    required this.onTap,
+    this.onTap,
     this.titleColor,
+    this.enabled = true,
+    this.badge,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color? titleColor;
 
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-        child: Row(
-          children: <Widget>[
-            _TintedIcon(icon: icon, color: color, size: 42),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: titleColor ?? AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+  /// D-15/D-16: Karsiligi henuz olmayan satir pasif gosterilir (sahte veri yerine).
+  final bool enabled;
 
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
+  /// Pasif satirin sagindaki kucuk etiket (or. "Yakinda").
+  final String? badge;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-      child: Row(
-        children: <Widget>[
-          _TintedIcon(icon: icon, color: AppColors.accentBlue, size: 40),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+          child: Row(
+            children: <Widget>[
+              _TintedIcon(icon: icon, color: color, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: titleColor ?? AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            activeThumbColor: AppColors.primary,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChoiceRow extends StatelessWidget {
-  const _ChoiceRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-        child: Row(
-          children: <Widget>[
-            _TintedIcon(icon: icon, color: AppColors.accentGreen, size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
               ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-            ),
-          ],
+              if (badge != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.tabBackground,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1038,81 +697,6 @@ class _FaqTile extends StatelessWidget {
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),

@@ -31,6 +31,8 @@ import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.da
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payment_form_page.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payments_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
+import 'package:egitim_ussu_mobile/features/settings/presentation/pages/notification_settings_page.dart';
+import 'package:egitim_ussu_mobile/features/settings/presentation/pages/privacy_settings_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/student_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/students_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/achievements_page.dart';
@@ -296,6 +298,14 @@ class AppRouter {
           builder: (context, state) => const TeacherProfilePage(),
         ),
         GoRoute(path: '/more', builder: (context, state) => const MorePage()),
+        GoRoute(
+          path: '/settings/notifications',
+          builder: (context, state) => const NotificationSettingsPage(),
+        ),
+        GoRoute(
+          path: '/settings/privacy',
+          builder: (context, state) => const PrivacySettingsPage(),
+        ),
         GoRoute(
           path: '/account-info',
           builder: (context, state) => const AccountInfoPage(),

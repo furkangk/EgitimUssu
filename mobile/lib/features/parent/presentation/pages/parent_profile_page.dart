@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_cubit.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_state.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/widgets/parent_widgets.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/session_required_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,9 +13,12 @@ class ParentProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select(
-      (AuthCubit c) => c.state.session?.userId ?? 'mock-parent-user',
-    );
+    final userId = context.select((AuthCubit c) => c.state.session?.userId);
+    if (userId == null) {
+      // D-17: Sahte kullanici sentinel'i yok — oturum yoksa veri de yok.
+      return const SessionRequiredView();
+    }
+
     final fullName = context.select(
       (AuthCubit c) => c.state.session?.fullName ?? 'Veli',
     );

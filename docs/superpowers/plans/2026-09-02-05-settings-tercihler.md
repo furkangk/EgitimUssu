@@ -324,6 +324,8 @@ git commit -m "feat(settings): gizlilik seviyesi veli gorunumune baglandi (M15-4
 - Modify: `mobile/lib/core/di/injector.dart`, `mobile/lib/core/routing/app_router.dart`
 - Modify: `mobile/lib/features/notifications/presentation/pages/notifications_page.dart:18`, `mobile/lib/features/parent/presentation/pages/parent_home_page.dart:18` (D-17)
 - Test: `mobile/test/features/settings/settings_cubit_test.dart`
+- Create: `mobile/lib/features/settings/presentation/widgets/settings_widgets.dart` (planda yoktu; iki ekranın ortak bileşenleri)
+- Create: `mobile/lib/shared/widgets/session_required_view.dart` (planda yoktu; D-17 boş durumu)
 - Create: `doc/pages/settings_notifications.md`, `doc/pages/settings_privacy.md`
 
 **Interfaces:**
@@ -331,20 +333,20 @@ git commit -m "feat(settings): gizlilik seviyesi veli gorunumune baglandi (M15-4
 - `SettingsCubit`: `loading | loaded(settings) | saving | failure(message)`; `toggle(...)` iyimser günceller, hata olursa geri alır ve SnackBar gösterir.
 - Rotalar: `/settings/notifications`, `/settings/privacy`.
 
-- [ ] **Step 1: Cubit testini yaz (kırmızı)** — yükleme → `loaded`; `toggle` sonrası `save` çağrılıyor; `save` hata verirse eski değere dönülüyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/settings/settings_cubit_test.dart`
-- [ ] **Step 3: Model + repository + cubit'i yaz** (mock fallback **yok**).
-- [ ] **Step 4: İki ayar ekranını yaz** — `SwitchListTile`'lar gerçek değerlerle dolar, değişiklik anında kaydedilir, kaydedilirken satır `AbsorbPointer` + küçük ilerleme göstergesi.
-- [ ] **Step 5: `more_page` temizliği**
+- [x] **Step 1: Cubit testini yaz (kırmızı)** — yükleme → `loaded`; `toggle` sonrası `save` çağrılıyor; `save` hata verirse eski değere dönülüyor.
+- [x] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/settings/settings_cubit_test.dart`
+- [x] **Step 3: Model + repository + cubit'i yaz** (mock fallback **yok**).
+- [x] **Step 4: İki ayar ekranını yaz** — `SwitchListTile`'lar gerçek değerlerle dolar, değişiklik anında kaydedilir, kaydedilirken satır `AbsorbPointer` + küçük ilerleme göstergesi.
+- [x] **Step 5: `more_page` temizliği**
   - `_showNotificationSettingsSheet` → `context.push('/settings/notifications')`.
   - `_showGeneralSettingsSheet` (sessiz saatler) → gizlilik ekranına taşınır veya karşılığı yoksa **kaldırılır**.
   - `_showWorkSettingsSheet`, `_showHolidaySettingsSheet` → gerçek karşılıkları M04 tatil uçları; "Tatil ayarları" satırı `/scheduling` tatil yönetimine yönlendirilir, sahte sheet silinir.
   - `_showSubscriptionSheet` (sahte "Plus") → **kaldırılır**; yerine "Üyelik" satırı, P09 gelene kadar `Yakında` etiketiyle pasif gösterilir (yanıltıcı veri yok). (D-15)
   - `_showReportsSheet` (sahte 42/%94/%81) → **kaldırılır**; "Raporlar" satırı P08'e kadar pasif. (D-16)
-- [ ] **Step 6: D-17 — sahte kullanıcı sentinel'lerini kaldır**
-  `notifications_page.dart:18` ve `parent_home_page.dart:18`'deki `?? 'mock-teacher-user'` / `?? 'mock-parent-user'` ifadelerini kaldır; oturum yoksa ekran "Oturum bulunamadı" boş durumu gösterir ve `/login`'e yönlendirir.
-- [ ] **Step 7: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 6: D-17 — sahte kullanıcı sentinel'lerini kaldır**
+  **Sapma (kapsam genişletildi):** `notifications_page.dart` sentinel'i P03'te zaten kaldırılmıştı. `mock-parent-user` ise **beş** veli ekranında vardı (`parent_home`, `parent_profile`, `parent_notifications`, `parent_children`, `parent_child_detail`); yalnız birini düzeltmek tutarsız bir yarı-durum bırakırdı — beşi de ortak `SessionRequiredView` ile düzeltildi. Repository içindeki `_mock*` üretici metotlar (mock-fallback verisi) **dokunulmadı**; onlar sentinel değil.
+- [x] **Step 7: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
+- [x] **Step 8: Doküman + commit**
 
 `doc/pages/00_pages_index.md` (2 yeni sayfa), `doc/pages/more.md` (kaldırılan sahte bölümler), `doc/architecture/widgets.md` (yeni ortak widget varsa).
 ```bash

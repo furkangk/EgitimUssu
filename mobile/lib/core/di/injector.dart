@@ -24,6 +24,8 @@ import 'package:egitim_ussu_mobile/features/progress/data/repositories/progress_
 import 'package:egitim_ussu_mobile/features/progress/domain/progress_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/repositories/scheduling_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
+import 'package:egitim_ussu_mobile/features/settings/data/repositories/settings_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/settings/domain/settings_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/data/repositories/student_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/data/repositories/study_repository_impl.dart';
@@ -152,6 +154,9 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
       ),
+    )
+    ..registerLazySingleton<SettingsRepository>(
+      () => SettingsRepositoryImpl(apiClient: injector<ApiClient>()),
     )
     ..registerLazySingleton<NotificationRepository>(
       () => NotificationRepositoryImpl(
