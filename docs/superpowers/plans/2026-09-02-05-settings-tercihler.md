@@ -296,12 +296,12 @@ git commit -m "feat(settings): diger oturumlari sonlandir politikasi (M15-3)"
   - `Limited` — yalnız haftalık toplam süre ve ders katılımı görünür; seans/test detayı gizlenir.
   - `Hidden` — hiçbir çalışma verisi paylaşılmaz (yalnız ders/ödev/ödeme).
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — `StudentPrivacyFilterTests` içine üç seviye için birer test: veli dashboard yanıtında hangi alanların `null`/boş geldiği.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentPrivacyFilterTests"`
-- [ ] **Step 3: `StudentPrivacyDirectory`'yi seviyeye duyarlı hale getir** — bugün yalnız `ShareStudyDataWith*` bayraklarına bakıyor; `PrivacyLevel` de dikkate alınsın (en kısıtlayıcı kazanır).
-- [ ] **Step 4: Veli dashboard handler'ında filtreyi uygula.**
-- [ ] **Step 5: Testler** — Run: `dotnet test EgitimUssu.slnx` → yeşil.
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — `StudentPrivacyFilterTests` içine üç seviye için birer test: veli dashboard yanıtında hangi alanların `null`/boş geldiği.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentPrivacyFilterTests"`
+- [x] **Step 3: `StudentPrivacyDirectory`'yi seviyeye duyarlı hale getir** — bugün yalnız `ShareStudyDataWith*` bayraklarına bakıyor; `PrivacyLevel` de dikkate alınsın (en kısıtlayıcı kazanır).
+- [x] **Step 4: Veli dashboard handler'ında filtreyi uygula.**
+- [x] **Step 5: Testler** — Run: `dotnet test EgitimUssu.slnx` → yeşil.
+- [x] **Step 6: Doküman + commit**
 
 `doc/modules/m15_settings.md` + `doc/modules/m09_parents.md` (gizlilik matrisi tablosu).
 ```bash

@@ -145,6 +145,22 @@ diğer refresh oturumlarını iptal eder — kullanıcı yalnız son giriş yapt
 > kayıtların zaman damgasını değiştirmez (`RefreshTokenSession.Revoke` idempotenttir).
 > Ayar kaydı yoksa politika `KeepLatest` sayılır → mevcut çok-cihaz davranışı korunur.
 
+### 3.2 Gizlilik seviyesi matrisi (M15-4)
+
+`PrivacyLevel` artık **davranışa bağlıdır**. Veli dashboard'undaki çalışma özeti
+(`GET /api/parents/{parentUserId}/children/{studentId}/dashboard` → `study`) seviyeye göre kırpılır.
+
+| Seviye | `weeklyStudyMinutes` | `streakDays` | `subjectBreakdown` | `isShared` |
+|--------|----------------------|--------------|--------------------|------------|
+| `Standard` | gerçek | gerçek | gerçek | `true` |
+| `Limited` | gerçek | `0` | boş | `true` |
+| `Hidden` | `0` | `0` | boş | `false` |
+
+> **En kısıtlayıcı kazanır:** `ShareStudyDataWithParent = false` ise seviye ne olursa olsun
+> `Hidden` gibi davranılır. Ayar kaydı olmayan öğrenci `Standard` + paylaşım açık sayılır.
+> Sözleşme tarafı: `Shared.Contracts.StudyPrivacyLevel` (Settings'in `PrivacyLevel` enum'unun
+> modüller-arası karşılığı) ve `StudentPrivacy.Level`.
+
 ## 4. İş Kuralları
 
 1. **Kullanıcı başına tek kayıt:** `UserId` UNIQUE; ilk `GET`'te kayıt yoksa **varsayılan** (tümü açık, `Standard`, `KeepLatest`) döner veya lazımken oluşturulur.
