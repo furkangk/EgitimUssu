@@ -17,6 +17,7 @@ class FakeAuthRepository implements AuthRepository {
     this.session,
     this.hangOnRestore = false,
     this.passwordResetError,
+    this.emailVerificationError,
   });
 
   final UserSession? session;
@@ -24,6 +25,9 @@ class FakeAuthRepository implements AuthRepository {
 
   /// Ayarlanirsa sifre sifirlama cagrilarinin ikisi de bu hatayi firlatir.
   final ApiException? passwordResetError;
+
+  /// Ayarlanirsa e-posta dogrulama cagrilarinin ikisi de bu hatayi firlatir.
+  final ApiException? emailVerificationError;
 
   final Completer<UserSession?> _pendingRestore = Completer<UserSession?>();
 
@@ -35,6 +39,9 @@ class FakeAuthRepository implements AuthRepository {
   int confirmPasswordResetCallCount = 0;
   String? lastPasswordResetEmail;
   String? lastPasswordResetToken;
+  int requestEmailVerificationCallCount = 0;
+  int confirmEmailVerificationCallCount = 0;
+  String? lastEmailVerificationToken;
 
   /// Testlerin ozellestirebilecegi varsayilan oturum.
   static UserSession defaultSession({
@@ -96,6 +103,22 @@ class FakeAuthRepository implements AuthRepository {
     lastPasswordResetEmail = email;
     lastPasswordResetToken = token;
     if (passwordResetError != null) throw passwordResetError!;
+  }
+
+  @override
+  Future<void> requestEmailVerification({required String email}) async {
+    requestEmailVerificationCallCount++;
+    if (emailVerificationError != null) throw emailVerificationError!;
+  }
+
+  @override
+  Future<void> confirmEmailVerification({
+    required String email,
+    required String token,
+  }) async {
+    confirmEmailVerificationCallCount++;
+    lastEmailVerificationToken = token;
+    if (emailVerificationError != null) throw emailVerificationError!;
   }
 
   @override

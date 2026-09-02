@@ -8,6 +8,18 @@
 	<string>Egitim Ussu Mobile</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<!-- D-02: e-postadaki egitimussu:// derin baglantilari -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.egitimussu.egitimUssuMobile</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>egitimussu</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>

@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:egitim_ussu_mobile/core/routing/deep_links.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignments_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/student_assignments_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/pages/email_verification_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/password_reset_confirm_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/password_reset_request_page.dart';
@@ -56,13 +58,25 @@ class AppRouter {
       initialLocation: initialLocation,
       refreshListenable: _refreshListenable,
       redirect: (context, state) {
+        // D-02: Sema-bazli derin baglanti (egitimussu://verify-email?token=...)
+        // yol tasimaz; once uygulama-ici bir rotaya cevrilir.
+        final deepLink = normalizeDeepLink(state.uri);
+        if (deepLink != null) {
+          return deepLink;
+        }
+
         final status = authCubit.state.status;
         final onAuthScreen =
             state.matchedLocation == '/' ||
             state.matchedLocation == '/role-selection' ||
             state.matchedLocation == '/login' ||
-            state.matchedLocation == '/register' ||
-            state.matchedLocation.startsWith('/password-reset');
+            state.matchedLocation == '/register';
+
+        // Hesap kurtarma ekranlari (sifre sifirlama / e-posta dogrulama) hem
+        // oturumsuz hem oturumlu kullaniciya acik; rol yonlendirmesi bunlari kacirmaz.
+        final onAccountRecoveryScreen =
+            state.matchedLocation.startsWith('/password-reset') ||
+            state.matchedLocation.startsWith('/verify-email');
         final onPreviewScreen =
             state.matchedLocation == '/teacher-panel-preview' ||
             state.matchedLocation == '/account-info-preview';
@@ -72,14 +86,22 @@ class AppRouter {
         }
 
         if (status == AuthStatus.initial) {
-          return state.matchedLocation == '/' || onPreviewScreen ? null : '/';
+          return state.matchedLocation == '/' ||
+                  onPreviewScreen ||
+                  onAccountRecoveryScreen
+              ? null
+              : '/';
         }
 
         if (status == AuthStatus.unauthenticated) {
-          if (onPreviewScreen) {
+          if (onPreviewScreen || onAccountRecoveryScreen) {
             return null;
           }
           return onAuthScreen ? null : '/';
+        }
+
+        if (onAccountRecoveryScreen) {
+          return null;
         }
 
         // Rol bazlı yönlendirme: veli kendi paneline, öğrenci çalışma paneline,
@@ -233,6 +255,13 @@ class AppRouter {
           path: '/login',
           builder: (context, state) => LoginPage(
             selectedRole: state.uri.queryParameters['role'] ?? 'ogretmen',
+          ),
+        ),
+        GoRoute(
+          path: '/verify-email',
+          builder: (context, state) => EmailVerificationPage(
+            email: state.uri.queryParameters['email'] ?? '',
+            initialToken: state.uri.queryParameters['token'] ?? '',
           ),
         ),
         GoRoute(

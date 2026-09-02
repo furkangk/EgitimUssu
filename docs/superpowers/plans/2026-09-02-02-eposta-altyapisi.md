@@ -1001,7 +1001,12 @@ git commit -m "feat(mobile): sifremi unuttum akisi (D-01)"
   - `Future<void> confirmEmailVerification({required String email, required String token});` → `POST /api/identity/email-verification/confirm`
 - Rota: `/verify-email?token=...` — `state.uri.queryParameters['token']` ile token okunur; boşsa kullanıcı elle girer.
 
-- [ ] **Step 1: Derin bağlantı testini yaz (kırmızı)**
+> **Sapma (uygulandı) — planın atladığı kök sorun:** `egitimussu://verify-email?token=X` **yol taşımaz**; hedef `host` alanındadır (`Uri.parse(...).path == ''`). go_router yalnız `uri.path`'e baktığı için plandaki rota tanımı tek başına hiçbir zaman eşleşmezdi — bağlantı sessizce köke düşerdi. `core/routing/deep_links.dart` içine saf `normalizeDeepLink(Uri)` fonksiyonu eklendi (host → yol; `password-reset` host'u token varsa `/password-reset/confirm`'e gider) ve router `redirect`'inin ilk adımı oldu. 5 birim testi + 1 widget testi.
+> **Sapma (uygulandı):** Ekran durumu için `EmailVerificationCubit` eklendi (plan doğrudan repository çağrısı öneriyordu; `PasswordResetCubit` ile simetri için cubit tercih edildi). Widget testi `injector`'a `FakeAuthRepository` kaydeder (`scheduling_page_test` deseni).
+> **Sapma (uygulandı):** `redirect`'te oturum durumu kontrolü hesap-kurtarma ekranlarını (`/password-reset*`, `/verify-email`) hem oturumsuz hem oturumlu kullanıcı için serbest bırakacak şekilde genişletildi; aksi halde rol yönlendirmesi doğrulama ekranını anında kapatırdı.
+> **Sapma (Step 8 — kısmen doğrulandı):** Bu makinede **Android emülatörü yok** (yalnız iOS Simulator) ve sentetik tıklama izni bulunmadığından iOS'un "…ile Açılsın mı?" onay diyaloğuna basılamadı. Doğrulananlar: (1) URL şeması **kayıtlı** — diyalog uygulamayı adıyla gösteriyor; (2) ham URL soğuk açılışta doğru ekrana çözülüyor — `flutter run -d <sim> --route "egitimussu://verify-email?token=ABC123"` (motorun `defaultRouteName`'e koyduğu değerin aynısı) doğrulama ekranını açtı ve kod alanı `ABC123` doldu (ekran görüntüsüyle teyit). Kalan tek adım — diyalogdaki "Aç"a el ile basmak — kullanıcı tarafından denenmeli.
+
+- [x] **Step 1: Derin bağlantı testini yaz (kırmızı)**
 
 `mobile/test/core/routing/deep_link_test.dart`:
 ```dart
@@ -1032,12 +1037,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `cd mobile && flutter test test/core/routing/deep_link_test.dart`
 Expected: FAIL — `EmailVerificationPage` yok.
 
-- [ ] **Step 3: Repository metotlarını ekle**
+- [x] **Step 3: Repository metotlarını ekle**
 
 `auth_repository.dart` + `_impl.dart`:
 ```dart
@@ -1058,11 +1063,11 @@ Expected: FAIL — `EmailVerificationPage` yok.
   }
 ```
 
-- [ ] **Step 4: Ekranı yaz**
+- [x] **Step 4: Ekranı yaz**
 
 `email_verification_page.dart` — `initialToken` ile açılır; token alanı `TextEditingController(text: initialToken)` ile dolar (test bu metni arar), "Doğrula" butonu `confirmEmailVerification` çağırır, başarıda `context.go('/login')` + başarı SnackBar'ı, "Kodu tekrar gönder" butonu `requestEmailVerification` çağırır.
 
-- [ ] **Step 5: Rotayı ekle**
+- [x] **Step 5: Rotayı ekle**
 
 `app_router.dart`:
 ```dart
@@ -1074,7 +1079,7 @@ Expected: FAIL — `EmailVerificationPage` yok.
         ),
 ```
 
-- [ ] **Step 6: Platform derin bağlantı tanımları**
+- [x] **Step 6: Platform derin bağlantı tanımları**
 
 `mobile/android/app/src/main/AndroidManifest.xml` → ana `<activity>` içine:
 ```xml
@@ -1100,12 +1105,12 @@ Expected: FAIL — `EmailVerificationPage` yok.
 	</array>
 ```
 
-- [ ] **Step 7: Testleri koştur**
+- [x] **Step 7: Testleri koştur**
 
 Run: `cd mobile && flutter test && flutter analyze`
 Expected: PASS + sorun yok.
 
-- [ ] **Step 8: Cihazda derin bağlantıyı doğrula**
+- [x] **Step 8: Cihazda derin bağlantıyı doğrula**
 
 Run (Android emülatör açıkken):
 ```bash
@@ -1114,7 +1119,7 @@ adb shell am start -W -a android.intent.action.VIEW -d "egitimussu://verify-emai
 Expected: Uygulama açılır, doğrulama ekranında token alanı `ABC123` doludur.
 (Paket adı farklıysa `mobile/android/app/build.gradle.kts` içindeki `applicationId`'yi kullan.)
 
-- [ ] **Step 9: Doküman + commit**
+- [x] **Step 9: Doküman + commit**
 
 `doc/pages/auth_email_verification.md` oluştur, `doc/pages/00_pages_index.md`'ye satır ekle, `doc/modules/m01_identity.md` mobil kontrol listesindeki ilgili maddeleri `- [x]` yap.
 ```bash

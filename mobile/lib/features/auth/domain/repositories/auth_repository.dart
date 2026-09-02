@@ -27,6 +27,16 @@ abstract interface class AuthRepository {
     required String newPassword,
   });
 
+  /// D-02: E-posta dogrulama kodunu yeniden gonderir (kullanici yoksa ya da
+  /// zaten dogrulanmissa sunucu yine 200 doner).
+  Future<void> requestEmailVerification({required String email});
+
+  /// D-02: E-postadaki kod ile hesabin e-postasini dogrular.
+  Future<void> confirmEmailVerification({
+    required String email,
+    required String token,
+  });
+
   Future<UserSession?> restoreSession();
   Future<UserSession> refreshSession();
   Future<void> logout();

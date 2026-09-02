@@ -275,8 +275,8 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 | `/register` | `RegisterPage` | ✅ | Kayıt; seçilen rol(ler) `Roles` olarak gönderilir |
 
 ### Eksik / planlanan mobil ekranlar ⚠️
-- [ ] **Şifremi unuttum** akışı (request + confirm ekranları) — sunucu ucu hazır.
-- [ ] **E-posta doğrulama** ekranı / derin bağlantı (deep link) ile token onayı.
+- [x] **Şifremi unuttum** akışı (request + confirm ekranları) — **eklendi (2026-09-02, P02/D-01)**: `/password-reset`, `/password-reset/confirm` · [`../pages/auth_password_reset.md`](../pages/auth_password_reset.md)
+- [x] **E-posta doğrulama** ekranı / derin bağlantı — **eklendi (2026-09-02, P02/D-02)**: `/verify-email` + `egitimussu://` şeması (Android manifest + iOS `CFBundleURLTypes`) · [`../pages/auth_email_verification.md`](../pages/auth_email_verification.md)
 - [x] **Token yenileme interceptor'ı** (dio): 401 → `/refresh` → tekrar dene; başarısızsa `/login`'e yönlendir — ✅ 2026-07 (Y3), `mobile/lib/core/network/token_refresh_interceptor.dart`.
 - [x] **Güvenli depolama:** access + refresh token `flutter_secure_storage` ile saklanıyor — ✅ 2026-07 (Y7), `mobile/lib/core/storage/token_storage.dart`.
 - [ ] **Cihaz oturumları** ekranı (aktif `DeviceName` listesi + uzaktan çıkış).
@@ -325,4 +325,4 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

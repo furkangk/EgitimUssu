@@ -11,7 +11,7 @@ updated: 2026-09-02
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-09-02 (P02/D-01: şifre sıfırlama ekranları eklendi) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
+> **Son güncelleme:** 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -24,6 +24,7 @@ updated: 2026-09-02
 | Kayıt | `/register` | [auth_register](auth_register.md) | 🟢 |
 | Şifremi unuttum (kod isteme) | `/password-reset` | [auth_password_reset](auth_password_reset.md) | 🟢 |
 | Şifremi unuttum (yeni şifre) | `/password-reset/confirm` | [auth_password_reset](auth_password_reset.md) | 🟢 |
+| E-posta doğrulama | `/verify-email` | [auth_email_verification](auth_email_verification.md) | 🟢 |
 
 ## Dashboard
 | Ekran | Route | md | Veri |

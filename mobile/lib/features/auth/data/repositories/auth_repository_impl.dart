@@ -121,6 +121,25 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<void> requestEmailVerification({required String email}) async {
+    await _apiClient.post(
+      '/api/identity/email-verification/request',
+      data: <String, dynamic>{'email': email},
+    );
+  }
+
+  @override
+  Future<void> confirmEmailVerification({
+    required String email,
+    required String token,
+  }) async {
+    await _apiClient.post(
+      '/api/identity/email-verification/confirm',
+      data: <String, dynamic>{'email': email, 'token': token},
+    );
+  }
+
+  @override
   Future<UserSession?> restoreSession() async {
     final cached = await _localCache.readString(_sessionKey);
     if (cached == null) return null;
