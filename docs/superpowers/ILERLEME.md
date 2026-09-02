@@ -11,20 +11,18 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P01 — Onarım` (`plans/2026-09-02-01-onarim.md`) |
-| **Sıradaki görev** | **Task 5** — C-07: Gerçek-DB testlerini yerelde koşulabilir yap |
-| **Dal** | `feat/p01-onarim` |
-| **Durum** | 🔄 Task 4 bitti (4/7) |
-| **Son commit** | `b655d30` (fix(config): A-06) |
+| **Aktif plan** | `P01 — Onarım` **✅ TAMAMLANDI (7/7)** (`plans/2026-09-02-01-onarim.md`) |
+| **Sıradaki görev** | **P02 Task 1** — E-posta altyapısı (`plans/2026-09-02-02-eposta.md`) · alternatif: P03/P04/P13 (paralel yürüyebilir) |
+| **Dal** | `feat/p01-onarim` — **birleştirme kararı bekliyor** (`main`'e merge / PR / olduğu gibi bırak) |
+| **Durum** | ✅ P01 bitti; yeni plan dalı P01 birleştikten sonra açılır |
+| **Son commit** | `3755896` (docs: P01 kapanışı) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
-
----
 
 ## 📋 Plan Durumu
 
 | Plan | Görev | Durum | Not |
 |------|-------|-------|-----|
-| P01 Onarım | 4/7 | 🔄 Devam ediyor | Ana dalı yeşile alır — **önce bu** · dal: `feat/p01-onarim` |
+| P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 0/7 | ⚪ Bekliyor | P01 sonrası |
 | P03 Push bildirim | 0/7 | ⚪ Bekliyor | P01 sonrası (P02 ile paralel olabilir) |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
@@ -53,6 +51,9 @@
 | 2026-09-02 | P01 / Task 2 — A-02 derlenmeyen 5 mobil test dosyası | `5fa58ea` | `flutter test`: **47 başarılı, başarısız 0** (önce 41 +, 5 dosya yüklenemiyordu) · `flutter analyze`: 5 info, hepsi `lib/` içinde önceden var olan (bu görevin dosyaları temiz) · backend yeşil kaldı |
 | 2026-09-02 | P01 / Task 3 — A-05 mock fallback varsayılanı kapatıldı | `fa875e7` | `flutter test`: **48 başarılı, başarısız 0** · `flutter analyze`: aynı 5 önceden var olan info, yeni yok · `dotnet test EgitimUssu.slnx`: 158 birim + 4 mimari + 13 integration, **başarısız 0** (5 atlandı: Docker yok) |
 | 2026-09-02 | P01 / Task 4 — A-06 Postgres sırrı config'ten çıkarıldı + `ConnectionStringGuard` | `b655d30` | `dotnet test EgitimUssu.slnx`: **167 birim + 4 mimari + 13 integration, başarısız 0** (5 atlandı: Docker yok) · Development'ta `dotnet run` → `Now listening on: http://localhost:5000` · Production'da dize yokken fail-fast (`exit=134`, guard mesajı) |
+| 2026-09-02 | P01 / Task 5 — C-07 gerçek-DB testleri yerelde koşulabilir (`scripts/test-with-docker.sh`) | `53cb0ba` | `./scripts/test-with-docker.sh`: 167 birim + 4 mimari + **18 integration, Atlanan 0, Başarısız 0** (Testcontainers gerçekten koştu) |
+| 2026-09-02 | P01 / Task 6 — F-01…F-07 doküman driftleri koda göre düzeltildi | `3ca961d` | `bash doc/_tools/kb_healthcheck.sh` → **temiz** (12 dosyanın frontmatter `updated:` alanı gövdeyle eşitlendi) |
+| 2026-09-02 | P01 / Task 7 — kapanış: boş `src/Modules/docs` silindi, CI `-warnaserror` derlemesi yeşile alındı, denetim envanteri işaretlendi | `3755896` | `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** (önce 13 hata) · tam paket: 167+4+18, **Başarısız 0, Atlanan 0** · `flutter test`: **48/48** · `flutter analyze`: 5 önceden var olan info |
 
 ---
 
@@ -79,6 +80,11 @@
 | 15 | ⚠️ **CI'nin derleme adımı bugün kırmızı olmalı:** `dotnet build EgitimUssu.slnx -warnaserror` (backend-ci.yml'de var) `tests/Unit`'te **18 adet önceden var olan `CS8602`** (olası null başvuru) üretiyor — `ClaimParentInviteTests`, `ChildDashboardEnrichmentTests`, `StudentCalendarQueryTests`, `StudentPrivacyFilterTests`. Bu görevin değişiklikleri olmadan da üretiliyor (stash ile doğrulandı), yani A-06 kaynaklı değil. `dotnet test` `-warnaserror` kullanmadığı için yerelde görünmüyor. **Aday: P01 Task 7 (kapanış hijyeni) veya P13.** | P01/Task 4 |
 | 16 | `src/Shared/Infrastructure/Design/DesignTimeDbContextFactoryBase.cs:18` hâlâ `Password=postgres` içeren bir varsayılan taşıyor. Yalnız `dotnet ef` tasarım-zamanı aracını besliyor (uygulama çalışma zamanına girmiyor) ve Task 4'ün `Files:` listesinde değil — kapsam kilidi gereği dokunulmadı. **Aday: P13 hijyen.** | P01/Task 4 |
 | 17 | Bu repoda bazı dosyalar **CRLF** satır sonu kullanıyor (`appsettings.json`, `ConfigurationHealthCheck.cs`, `mimari_inceleme.md`). Python `read_text`/`write_text` ile düzenleme satır sonlarını LF'e çevirip diff'i şişiriyor — ikili (`read_bytes`/`write_bytes`) düzenleme yapılmalı. | P01/Task 4 |
+| 18 | Bu makinede **Docker Compose eklentisi yok** (colima + salt `docker` CLI). Testcontainers zaten yalnız çalışan bir Docker daemon'a ihtiyaç duyuyor; `scripts/test-with-docker.sh` Compose'u algılayıp yoksa yığın adımını atlıyor. Docker'ı başlatmak için: `colima start`. | P01/Task 5 |
+| 19 | Doküman drift'i işaretlerken plan "hepsini `[x]` yap" diyordu ama kod doğrulaması bazılarının **kısmen** doğru olduğunu gösterdi. Kalıcı yaklaşım: tam → `[x]`, kısmi → `[~]` + kapatacak plan etiketi (`(P03)` gibi), yok → `[ ]` + gerekçe. Doküman böylece "yalancı yeşil" olmuyor. | P01/Task 6 |
+| 20 | `doc/_tools/kb_healthcheck.sh`, frontmatter `updated:` ile gövdedeki `Güncelleme:` tarihinin **eşit** olmasını istiyor. Bir doc'un alt bilgisini güncellerken frontmatter'ı da güncelle, yoksa YELLOW DATE uyarısı çıkar. | P01/Task 6 |
+| 21 | Öğrenilenler #15'teki CI kırmızısı **Task 7'de kapatıldı**: `-warnaserror` 13 hata veriyordu (3× CS1573 eksik XML `<param>`, 1× CS8604 nullable `LessonFormat`, 9× CS8602 `result.Value`). Dikkat: `dotnet build` **incremental** olduğunda hatalar görünmüyor — CI'yi taklit etmek için **`--no-incremental`** şart. | P01/Task 7 |
+| 22 | `flutter analyze`'daki 5 info hâlâ duruyor ve CI **onu koşmuyor** (`build-android.yml` yalnız `pub get` + APK). Ana dalın yeşilliği bundan etkilenmiyor; temizlik P13'e kaldı. | P01/Task 7 |
 
 ---
 
@@ -112,4 +118,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 Task 4 tamamlandı)*
+*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 TAMAMLANDI — 7/7; dal `feat/p01-onarim` birleştirme kararı bekliyor)*
