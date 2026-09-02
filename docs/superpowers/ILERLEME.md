@@ -11,12 +11,12 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | *(yok — kullanıcı isteğiyle P04 sonunda duruldu)*. Sıradaki plan: `P05 — Ayarlar & Tercihler` **0/6** (`plans/2026-09-02-05-settings-tercihler.md`) |
-| **Sıradaki görev** | **P05 Task 1** — (yeni dal `feat/p05-ayarlar` açılacak) |
-| **Dal** | `feat/p04-depolama` (P04 bitti) → P05 için yeni dal açılacak. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
-| **Durum** | ✅ P01–P04 bitti (A-04/Y5 + C-02/O8 kapandı) · **dört dalın dördü de PR/merge bekliyor** |
-| **Son commit** | `34929cf` (docs: P04 dosya depolama kapanışı + S3 düzeltmeleri) |
-| **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
+| **Aktif plan** | `P06 — Öğretmen MVP Kapanışı` (`plans/2026-09-02-06-ogretmen-mvp-kapanisi.md`) |
+| **Sıradaki görev** | **P06 Task 1** |
+| **Dal** | `feat/p05-ayarlar` (P05 bitti; P06/P07 aynı oturumda sürüyor). **P01–P05 dallarının beşi de PR/merge bekliyor.** |
+| **Durum** | ✅ P01–P05 bitti (M15 🟢, M11-5 tercih kapısı, D-14..D-17 kapandı) |
+| **Son commit** | `aa9c38e` (docs: P05 ayarlar kapanışı) |
+| **Çalışma ağacı** | `mobile/pubspec.lock` kirli (beklenen — Öğrenilenler #44) + izlenmeyen `.claude/worktrees/` |
 
 ## 📋 Plan Durumu
 
@@ -26,8 +26,8 @@
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
 | P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (merge bekliyor) |
-| P05 Ayarlar | 0/6 | ⏳ Sırada | P03 bitti — başlayabilir |
-| P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
+| P05 Ayarlar | 6/6 | ✅ Bitti | M15-1/2/3 + M11-5 + D-14..D-17 kapandı, M15-4 kısmi (rol bazlı profil düzenleme kaldı); **M15 🟡 → 🟢** · dal: `feat/p05-ayarlar` |
+| P06 Öğretmen MVP | 0/10 | 🔄 Devam ediyor | P02+P03+P04+P05 bitti → **beta noktası** |
 | P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
 | P08 Gelişim & raporlama | 0/6 | ⚪ Bekliyor | P07 sonrası |
 | P09 Üyelik & gelir | 0/7 | ⚪ Bekliyor | P07 sonrası · **Q1–Q3 kararı gerek** |
@@ -73,6 +73,12 @@
 | 2026-09-03 | P04 / Task 3 — M02-2/D-05 öğretmen profil fotoğrafı (backend + mobil) | `efbe78e` | `dotnet test EgitimUssu.slnx`: **282 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 271 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add RenameProfilePhotoUrlToKey` → gerçek `RenameColumn` (veri korunur) · `flutter test`: **84/84** (öncesi 79) · `flutter analyze`: 4 info (değişmedi) · `kb_healthcheck` temiz |
 | 2026-09-03 | P04 / Task 4 — M06-1 ders kaynağı (`LessonResource`) paylaşımı: 4 uç + mobil bölüm | `13fe651` | `dotnet test EgitimUssu.slnx`: **296 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 282 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddLessonResources` üretildi · `flutter test`: **91/91** (öncesi 84) · `flutter analyze`: 4 info · `kb_healthcheck` temiz |
 | 2026-09-03 | P04 / Task 5 — Kapanış: **MinIO'ya karşı canlı S3 doğrulaması** + 2 gerçek hata düzeltmesi + O8 kapatıldı | `34929cf` | `dotnet test EgitimUssu.slnx`: **301 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** · `-warnaserror`: **0/0** · `flutter test`: **91/91** · **Canlı (MinIO bucket):** profil fotoğrafı + ders kaynağı yükle→indir **içerik birebir aynı**, bucket'ta nesneler görüldü; yabancı öğretmen indirme/arşivleme/listeleme **403**, kimliksiz **401**, `.exe` **400**, 11 MB **400** · `kb_healthcheck` temiz |
+| 2026-09-03 | P05 / Task 1 — M15-1/M15-2 ayar oku/yaz uçları | `fac3612` | `dotnet test`: 4 mimari + 312 birim + 20 integration, **başarısız 0** |
+| 2026-09-03 | P05 / Task 2 — M11-5 bildirim tercih kapısı | `f547aa5` | `dotnet test`: 319 birim + 20 integration, **başarısız 0** · `dotnet build -warnaserror --no-incremental`: 0 hata 0 uyarı |
+| 2026-09-03 | P05 / Task 3 — M15-3 diğer oturumları sonlandır | `65b28a1` | `dotnet test`: 322 birim + 20 integration, **başarısız 0** · `-warnaserror` temiz |
+| 2026-09-03 | P05 / Task 4 — M15-4 gizlilik seviyesi matrisi | `25f868a` | `dotnet test`: 326 birim + 20 integration, **başarısız 0** · `-warnaserror` temiz |
+| 2026-09-03 | P05 / Task 5 — mobil ayar ekranları + sahte kart temizliği | `eed5053` | `flutter test`: **98 başarılı, başarısız 0** · `flutter analyze`: 4 info (P01 öncesinden 5'ti, biri düzeldi; yeni yok) |
+| 2026-09-03 | P05 / Task 6 — kapanış (uçtan uca + doküman) | `aa9c38e` | `dotnet test`: 4 mimari + 326 birim + **21** integration, **başarısız 0** · `-warnaserror` 0/0 · canlı API doğrulaması (403 / 401 / kalıcı PUT) |
 
 ---
 
@@ -136,6 +142,12 @@
 | 52 | **Minimal API'de aynı uçtan hem dosya hem JSON alanı almak için `HttpRequest.ReadFormAsync`** kullanılır (`IFormFile` + `[FromForm]` karışımı sorunlu). `POST /lesson-resources` böyle yazıldı; `postMultipart` istemci tarafındaki eşleniği. | P04/Task 4 |
 | 53 | Ders kaynağında **çapraz-modül bağ doğrulamasına gerek kalmadı**: kayıt zaten `TeacherUserId` + `StudentId` taşıyor, öğrenci yalnız `studentId = kendisi` filtresiyle listeliyor. Yeni bir `Shared/Contracts` bağımlılığı eklemeden yetki kapatıldı (O5 kuralı korundu). | P04/Task 4 |
 | 54 | ⚠️ **Dış sağlayıcıyı birim testi taklit edemez.** P04'ün S3 yolu tüm birim testlerinde yeşildi ama **gerçek bir S3 sunucusunda hiç çalışmıyordu**: (a) `DisablePayloadSigning` yalnız HTTPS'te geçerli, (b) `PutObjectAsync` `InputStream`'i kapattığı için sonradan `Length` okumak patlıyor. **Ticari hesap beklemeye gerek yok — `docker run minio/minio` ile S3-uyumlu bir sunucu 1 dakikada ayağa kalkıyor.** Yeni bir dış bağımlılıkta bu turu atlama. | P04/Task 5 |
+| 55 | **Tercih kapısını olay tüketicisine değil gönderim turuna koy.** `NotificationDispatchProcessor` tek noktadır: hem `LessonReminder` hem in-app kaynaklı push aynı tercihi görür, yeni bildirim üreticileri otomatik kapsanır ve inbox transaction'ına çapraz-modül okuma eklenmez (Öğrenilenler #40'ın devamı). Tür → bayrak eşlemesi `IsKindEnabled`'da; `MessageReceived`/`System` **koşulsuz** gönderilir. | P05/Task 2 |
+| 56 | **Bir sözleşme kaydının şeklini değiştirirken varsayılan parametre kullan.** `StudentPrivacy`'ye `Level` eklenirken `StudyPrivacyLevel Level = StudyPrivacyLevel.Standard` yazıldı → mevcut 2 çağrı yeri ve testler hiç değişmeden derlendi. `Shared.Contracts` bir modülün domain enum'unu (`Settings.PrivacyLevel`) referanslayamaz; **paralel bir contract enum + eşleyici** gerekir. | P05/Task 4 |
+| 57 | **Repository'ye metot eklemeden önce aggregate'in elinde olup olmadığına bak.** Plan `IUserAccountRepository.RevokeOtherSessionsAsync` öngörüyordu; ama `GetByEmailAsync` zaten `RefreshSessions`'ı `Include` ediyor → `UserAccount.RevokeOtherSessions(keepId, now)` domain metodu hem daha doğru hem test edilebilir. | P05/Task 3 |
+| 58 | ⚠️ **`GET /api/notifications/users/{id}/notifications` sorgu parametresiz çağrılınca 500 dönüyor** (`onlyUnread`/`skip`/`take` varsayılansız `bool`/`int`). Mobil istemci hepsini gönderdiği için kullanıcıya yansımıyor; canlı probe ile doğrulandı. Kapsam kilidi gereği düzeltilmedi — **aday: P13 hijyen** (tek satır: `int take = 20` gibi varsayılanlar). | P05/Task 6 |
+| 59 | **Sentinel temizliğinde tek dosyayı düzeltmek yarı-durum bırakır.** `mock-parent-user` beş veli ekranındaydı; planda yalnız biri vardı. Beşi birden ortak `SessionRequiredView` ile düzeltildi. `dashboard_page.dart`'taki `mock-teacher-user` (2 yer) **hâlâ duruyor** — aday: P06. Repository içindeki `_mock*` üretici metotlar sentinel değil, mock-fallback verisidir; dokunulmadı. | P05/Task 5 |
+| 60 | **`dotnet run` ile canlı deneme için `Jwt__SigningKey` şart** (`--no-launch-profile` ile guard devrede). Çalışan komut: `ConnectionStrings__Postgres="InMemory:x" Jwt__SigningKey="<32+ karakter>" ASPNETCORE_URLS="http://127.0.0.1:5199" dotnet run --project src/API.Host/... --no-launch-profile`. | P05/Task 6 |
 
 ---
 
@@ -171,4 +183,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-03 (**P04 BİTTİ — 5/5**; kullanıcı isteğiyle burada duruldu. Sıradaki: P05, yeni dal `feat/p05-ayarlar`)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (**P05 BİTTİ — 6/6**; kullanıcı isteği: P05+P06+P07 aynı oturumda. Sıradaki: P06 Task 1, dal `feat/p05-ayarlar`)*
