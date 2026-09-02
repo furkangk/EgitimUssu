@@ -33,13 +33,14 @@ updated: 2026-09-03
 | Sahiplik authorizer | `SettingsFeatures.cs` → `SettingsAuthorizer`, **`GetUserSettingsQueryAuthorizer`**, **`UpdateUserSettingsCommandAuthorizer`** | Üçü de ortak `SettingsOwnership.Check` mantığını kullanır: yalnızca kendi kullanıcısı (veya `Admin`) → aksi halde `shared.forbidden` (K3 uygulanmış) |
 | Repository | `src/Modules/Settings/Infrastructure/UserSettingRepository.cs` | `IUserSettingRepository` (GetByUserId / Add / SaveChanges) |
 | Read-contract | `src/Modules/Settings/Infrastructure/StudentPrivacyDirectory.cs` | `IStudentPrivacyDirectory` (`Shared/Contracts`) — diğer modüllere `ShareStudyDataWith*` bayraklarını okutur (kayıt yoksa ikisi de açık varsayılır) |
+| Read-contract (M11-5) | `src/Modules/Settings/Infrastructure/UserNotificationPreferencesDirectory.cs` | **`IUserNotificationPreferences`** (`Shared/Contracts`) — Notifications gönderim turu bildirim tercihlerini buradan okur; kayıt yoksa `AllEnabled` |
 | Module tanımı | `src/Modules/Settings/API/SettingsModule.cs` | `GET /api/settings/status` (placeholder) + `GET`/`PUT /api/settings/users/{userId:guid}` + `PUT /api/settings/users/{userId:guid}/study-sharing` (hepsi `RequireAuthorization("AuthenticatedUser")`) |
 
 ### 🔴 Eksik olan
 
 - ✅ **(P05 Task 1) Oku/yaz uçları eklendi:** `GET /api/settings/users/{userId}` (kayıt yoksa varsayılan, 404 değil) ve `PUT /api/settings/users/{userId}` (bildirim + gizlilik seviyesi + oturum politikası tek gövdede). Rol-bazlı profil `PUT` ucu hâlâ **yok**.
 - **Domain event yok** — `UpdatePreferences()` eklendi ama `UserSettingsUpdatedDomainEvent` **yok**; tercih değişikliği olay yayınlamıyor (tüketiciler tercihi okuma anında sorguluyor).
-- **Notifications (M11) entegrasyonu yok** — bildirim üretilirken tercih bayraklarına bakılmıyor ([`m11_notifications.md`](m11_notifications.md)).
+- ✅ **(P05/M11-5) Notifications entegrasyonu yapıldı** — `IUserNotificationPreferences` sözleşmesi Settings tarafından uygulanır, `NotificationDispatchProcessor` gönderim turunda tüketir ([`m11_notifications.md`](m11_notifications.md) §5.1).
 - **Rol bazlı profil düzenleme yok** — öğretmen/öğrenci/veli profilleri ve bildirim izinlerinin tek yerden yönetimi henüz yok.
 - **Mobil bağlama kısmî** — mobil `more` feature'ı (Ayarlar/hesap) var; yalnızca çalışma-verisi paylaşımı backend'e bağlanabilir, bildirim/güvenlik ekranlarının backend'i yok.
 

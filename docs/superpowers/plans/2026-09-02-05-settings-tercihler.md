@@ -168,7 +168,8 @@ git commit -m "feat(settings): kullanici ayarlarini oku/yaz uclari (M15-1)"
 - Create: `src/Modules/Settings/Infrastructure/UserNotificationPreferencesDirectory.cs`
 - Modify: `src/Modules/Settings/Infrastructure/DependencyInjection.cs`
 - Modify: `src/Modules/Notifications/Infrastructure/NotificationDispatching.cs`
-- Modify: `src/Modules/Notifications/Infrastructure/ParentEventNotificationHandler.cs`
+- ~~Modify: `src/Modules/Notifications/Infrastructure/ParentEventNotificationHandler.cs`~~ (sapma: değiştirilmedi, aşağıdaki nota bak)
+- Modify: `tests/Unit/NotificationDispatchProcessorTests.cs` (ctor imzası değişti)
 - Test: `tests/Unit/NotificationPreferenceGateTests.cs`
 
 **Interfaces:**
@@ -192,7 +193,7 @@ git commit -m "feat(settings): kullanici ayarlarini oku/yaz uclari (M15-1)"
     ```
   - `UserNotificationPreferencesDirectory : IUserNotificationPreferences` — kayıt yoksa hepsi `true` döner.
 
-- [ ] **Step 1: Testi yaz (kırmızı)**
+- [x] **Step 1: Testi yaz (kırmızı)**
 
 `tests/Unit/NotificationPreferenceGateTests.cs`:
 ```csharp
@@ -210,11 +211,11 @@ public async Task Push_Disabled_Should_Skip_Push_But_Keep_InApp_Notification()
 }
 ```
 
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~NotificationPreferenceGateTests"`
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~NotificationPreferenceGateTests"`
 
-- [ ] **Step 3: Sözleşmeyi ve implementasyonu yaz** — `Shared/Contracts` + Settings tarafında `IUserSettingRepository` üzerinden okuyan directory; DI kaydı.
+- [x] **Step 3: Sözleşmeyi ve implementasyonu yaz** — `Shared/Contracts` + Settings tarafında `IUserSettingRepository` üzerinden okuyan directory; DI kaydı.
 
-- [ ] **Step 4: Notifications'ta kapıyı uygula**
+- [x] **Step 4: Notifications'ta kapıyı uygula**
 
 `NotificationDispatchProcessor.DispatchDueRemindersAsync` içinde, token döngüsünden **önce**:
 ```csharp
@@ -232,11 +233,12 @@ public async Task Push_Disabled_Should_Skip_Push_But_Keep_InApp_Notification()
                 continue;
             }
 ```
-`ParentEventNotificationHandler` ve `UserNotification` üreten diğer handler'larda da ilgili bayrak kontrol edilir (`HomeworkReminderEnabled`, `PaymentReminderEnabled`, `WeeklySummaryEnabled`).
+**⚠️ Plan sapması (uygulanan çözüm):** Kapı **yalnız gönderim turunda** (`NotificationDispatchProcessor`) uygulandı; `ParentEventNotificationHandler` **değiştirilmedi**. Gerekçe: (a) tek nokta tüm üreticileri kapsar (yalnız veli olayları değil), (b) olay tüketicisine çapraz-modül okuma eklemek inbox transaction'ını uzatır (Öğrenilenler #40), (c) in-app kaydı korunur — kullanıcı push'u kapatsa da bildirim merkezinde görür. Tür → bayrak eşlemesi `NotificationDispatchProcessor.IsKindEnabled` içinde; `MessageReceived`/`System` koşulsuz gönderilir.
+`tests/Unit/NotificationDispatchProcessorTests.cs` de güncellendi (ctor 6. parametre) — plandaki `Files:` listesinde yoktu ama derleme için zorunluydu.
 
-- [ ] **Step 5: Testleri yeşile al** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 5: Testleri yeşile al** — Run: `dotnet test EgitimUssu.slnx`
 
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 6: Doküman + commit**
 
 `doc/modules/m11_notifications.md` ("tercih kapısı" davranışı), `doc/modules/m15_settings.md` (expose edilen sözleşme).
 ```bash

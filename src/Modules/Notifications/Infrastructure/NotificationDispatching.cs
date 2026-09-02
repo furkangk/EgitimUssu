@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Push;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,6 +31,7 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
     private readonly IDeviceTokenRepository _deviceTokens;
     private readonly IUserNotificationRepository _userNotifications;
     private readonly IPushSender _pushSender;
+    private readonly IUserNotificationPreferences _preferences;
     private readonly EgitimUssu.Shared.Kernel.IClock _clock;
 
     public NotificationDispatchProcessor(
@@ -37,12 +39,14 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
         IDeviceTokenRepository deviceTokens,
         IUserNotificationRepository userNotifications,
         IPushSender pushSender,
+        IUserNotificationPreferences preferences,
         EgitimUssu.Shared.Kernel.IClock clock)
     {
         _repository = repository;
         _deviceTokens = deviceTokens;
         _userNotifications = userNotifications;
         _pushSender = pushSender;
+        _preferences = preferences;
         _clock = clock;
     }
 
@@ -54,6 +58,16 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
         foreach (var reminder in dueReminders)
         {
+            // M11-5 tercih kapısı: kullanıcı ders hatırlatmasını ya da tüm push'u kapattıysa gönderme.
+            // Kuyruğu tıkamaması için gönderilmiş sayılır (tekrar denenmez).
+            var preferences = await _preferences.GetAsync(reminder.TeacherUserId, cancellationToken);
+            if (!preferences.PushEnabled || !preferences.LessonReminderEnabled)
+            {
+                reminder.MarkSent(now);
+                sentCount++;
+                continue;
+            }
+
             // Alıcı: hatırlatmanın sahibi olan öğretmen kullanıcısı. Kendi-ders (Ç-06) kayıtlarında
             // TeacherUserId boştur; öğrenciye teslim StudentId → UserId eşlemesi gerektirir (P07 read-model).
             var tokens = await _deviceTokens.ListActiveByUserAsync(reminder.TeacherUserId, cancellationToken);
@@ -136,6 +150,14 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
         foreach (var notification in pending)
         {
+            // M11-5 tercih kapısı: in-app kaydı DURUR (bildirim merkezinde görünür) ama push atlanır.
+            var preferences = await _preferences.GetAsync(notification.UserId, cancellationToken);
+            if (!preferences.PushEnabled || !IsKindEnabled(notification.Kind, preferences))
+            {
+                notification.MarkPushed(now);
+                continue;
+            }
+
             var tokens = await _deviceTokens.ListActiveByUserAsync(notification.UserId, cancellationToken);
             if (tokens.Count == 0)
             {
@@ -185,6 +207,22 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
         return pushedCount;
     }
+
+    /// <summary>
+    /// M11-5: Bildirim türünü kullanıcının tercih bayrağına eşler. Karşılığı olmayan türler
+    /// (mesaj, sistem/güvenlik) <b>koşulsuz</b> gönderilir — kullanıcı bunları kapatamaz.
+    /// </summary>
+    private static bool IsKindEnabled(UserNotificationKind kind, UserNotificationPreferences preferences)
+        => kind switch
+        {
+            UserNotificationKind.LessonReminder or UserNotificationKind.LessonCompleted
+                => preferences.LessonReminderEnabled,
+            UserNotificationKind.AssignmentCreated or UserNotificationKind.AssignmentDue or UserNotificationKind.AssignmentMissed
+                => preferences.HomeworkReminderEnabled,
+            UserNotificationKind.PaymentDue or UserNotificationKind.PaymentOverdue
+                => preferences.PaymentReminderEnabled,
+            _ => true
+        };
 }
 
 internal sealed class NotificationDispatcher : BackgroundService

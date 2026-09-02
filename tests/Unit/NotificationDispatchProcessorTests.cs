@@ -183,6 +183,7 @@ public sealed class NotificationDispatchProcessorTests
             deviceTokens,
             userNotifications ?? new UserNotificationTests.FakeUserNotificationRepository(),
             sender,
+            new AllEnabledPreferences(),
             new FixedClock(Now));
 
     private static LessonReminder CreateReminder(out Guid teacherUserId)
@@ -204,6 +205,13 @@ public sealed class NotificationDispatchProcessorTests
 
     private static DeviceToken CreateToken(Guid userId, string token)
         => new(Guid.NewGuid(), userId, token, DevicePlatform.Android, "Pixel 8", Now.AddDays(-1));
+
+    // M11-5: Bu testler tercih kapısını konu almaz; hepsi açık varsayılır.
+    private sealed class AllEnabledPreferences : EgitimUssu.Shared.Contracts.IUserNotificationPreferences
+    {
+        public Task<EgitimUssu.Shared.Contracts.UserNotificationPreferences> GetAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult(EgitimUssu.Shared.Contracts.UserNotificationPreferences.AllEnabled);
+    }
 
     private sealed class FixedClock(DateTime utcNow) : IClock
     {

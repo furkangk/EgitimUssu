@@ -90,10 +90,12 @@ public sealed class UserSettingTests
         var result = await handler.Handle(new GetUserSettingsQuery(userId), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(userId, result.Value.UserId);
-        Assert.True(result.Value.HomeworkReminderEnabled);
-        Assert.Equal("Standard", result.Value.PrivacyLevel);
-        Assert.Equal("KeepLatest", result.Value.SessionTerminationPolicy);
+        Assert.NotNull(result.Value);
+        var response = result.Value;
+        Assert.Equal(userId, response.UserId);
+        Assert.True(response.HomeworkReminderEnabled);
+        Assert.Equal("Standard", response.PrivacyLevel);
+        Assert.Equal("KeepLatest", response.SessionTerminationPolicy);
     }
 
     [Fact]
@@ -113,6 +115,7 @@ public sealed class UserSettingTests
         Assert.False(stored.PushNotificationsEnabled);
         Assert.Equal(PrivacyLevel.Hidden, stored.PrivacyLevel);
         Assert.False(stored.ShareStudyDataWithTeacher);
+        Assert.NotNull(result.Value);
         Assert.Equal("Hidden", result.Value.PrivacyLevel);
         Assert.Equal(1, repository.SaveCount);
     }
