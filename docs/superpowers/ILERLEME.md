@@ -15,7 +15,7 @@
 | **Sıradaki görev** | **P03 Task 1** (push bildirim) · alternatif: P04 (dosya depolama, Q4 kararı gerek) veya P13 (hijyen, paralel) |
 | **Dal** | `feat/p02-eposta` — `feat/p01-onarim` üzerine açıldı (P01 henüz `main`'e merge edilmedi). **Her iki dal da PR bekliyor.** |
 | **Durum** | ✅ P02 tamamlandı · P01 + P02 dalları push/merge bekliyor |
-| **Son commit** | `3b72301` (docs: P02 kapanışı) |
+| **Son commit** | `9f9b5e2` (docs: P02 kapanışı) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -60,7 +60,7 @@
 | 2026-09-02 | P02 / Task 4 — `GET /api/identity/me` (M01-1) | `e44812c` | `dotnet test`: 186 birim + 4 mimari + **19 integration, Başarısız 0** (yeni: kimliksiz **401**, kimlikli **200** + `fullName`/`roles` doğrulaması) · `-warnaserror`: 0/0 |
 | 2026-09-02 | P02 / Task 5 — Mobil "Şifremi unuttum" akışı (D-01) | `70204eb` | `flutter test`: **51 başarılı, başarısız 0** (öncesi 48) · `flutter analyze`: aynı 5 önceden var olan info · `kb_healthcheck` temiz |
 | 2026-09-02 | P02 / Task 6 — Mobil e-posta doğrulama ekranı + `egitimussu://` derin bağlantı (D-02) | `5efdd30` | `flutter test`: **57 başarılı, başarısız 0** · `flutter analyze`: 5 önceden var olan info · **iOS Simulator:** ham `egitimussu://verify-email?token=ABC123` URL'i doğrulama ekranını açtı ve kod alanı `ABC123` doldu (ekran görüntüsü) |
-| 2026-09-02 | P02 / Task 7 — Kapanış: SMTP yolu canlı doğrulama + denetim envanteri + dokümanlar | `3b72301` | Yerel SMTP sunucusuna **gerçek gönderim**: MailKit bağlandı, UTF-8 konu + `multipart/alternative` + URL-kodlu `egitimussu://` bağlantı teslim edildi; yakalanan tokenla `password-reset/confirm` **200**, eski şifre **400**, yeni şifre **200**, `GET /me` doğru · `dotnet test EgitimUssu.slnx`: **186 + 4 + 19, Başarısız 0, Atlanan 0** · `flutter test`: **57/57** · `-warnaserror`: 0 uyarı / 0 hata · `kb_healthcheck` temiz |
+| 2026-09-02 | P02 / Task 7 — Kapanış: SMTP yolu canlı doğrulama + denetim envanteri + dokümanlar | `9f9b5e2` | Yerel SMTP sunucusuna **gerçek gönderim**: MailKit bağlandı, UTF-8 konu + `multipart/alternative` + URL-kodlu `egitimussu://` bağlantı teslim edildi; yakalanan tokenla `password-reset/confirm` **200**, eski şifre **400**, yeni şifre **200**, `GET /me` doğru · `dotnet test EgitimUssu.slnx`: **186 + 4 + 19, Başarısız 0, Atlanan 0** · `flutter test`: **57/57** · `-warnaserror`: 0 uyarı / 0 hata · `kb_healthcheck` temiz |
 
 ---
 
