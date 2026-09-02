@@ -12,10 +12,10 @@
 | Alan | Değer |
 |------|-------|
 | **Aktif plan** | `P01 — Onarım` (`plans/2026-09-02-01-onarim.md`) |
-| **Sıradaki görev** | **Task 3** — A-05: Mock fallback'i varsayılan olarak kapat + görünür işaret |
+| **Sıradaki görev** | **Task 4** — A-06: Postgres bağlantı sırrını konfigürasyondan çıkar |
 | **Dal** | `feat/p01-onarim` |
-| **Durum** | 🔄 Task 2 bitti (2/7) |
-| **Son commit** | `5fa58ea` (test(mobile): A-02) |
+| **Durum** | 🔄 Task 3 bitti (3/7) |
+| **Son commit** | `fa875e7` (chore(mobile): A-05) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ---
@@ -24,7 +24,7 @@
 
 | Plan | Görev | Durum | Not |
 |------|-------|-------|-----|
-| P01 Onarım | 2/7 | 🔄 Devam ediyor | Ana dalı yeşile alır — **önce bu** · dal: `feat/p01-onarim` |
+| P01 Onarım | 3/7 | 🔄 Devam ediyor | Ana dalı yeşile alır — **önce bu** · dal: `feat/p01-onarim` |
 | P02 E-posta altyapısı | 0/7 | ⚪ Bekliyor | P01 sonrası |
 | P03 Push bildirim | 0/7 | ⚪ Bekliyor | P01 sonrası (P02 ile paralel olabilir) |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
@@ -51,6 +51,7 @@
 |-------|--------------|--------|-----------|
 | 2026-09-02 | P01 / Task 1 — A-01 öğretmen profil güncelleme 500'ü | `a835eba` | `dotnet test EgitimUssu.slnx`: 158 birim + 4 mimari + 13 integration, **başarısız 0** (5 atlandı: Docker yok) |
 | 2026-09-02 | P01 / Task 2 — A-02 derlenmeyen 5 mobil test dosyası | `5fa58ea` | `flutter test`: **47 başarılı, başarısız 0** (önce 41 +, 5 dosya yüklenemiyordu) · `flutter analyze`: 5 info, hepsi `lib/` içinde önceden var olan (bu görevin dosyaları temiz) · backend yeşil kaldı |
+| 2026-09-02 | P01 / Task 3 — A-05 mock fallback varsayılanı kapatıldı | `fa875e7` | `flutter test`: **48 başarılı, başarısız 0** · `flutter analyze`: aynı 5 önceden var olan info, yeni yok · `dotnet test EgitimUssu.slnx`: 158 birim + 4 mimari + 13 integration, **başarısız 0** (5 atlandı: Docker yok) |
 
 ---
 
@@ -69,6 +70,8 @@
 | 7 | **A-02'nin kökü tek değil, ikiydi.** Plan yalnız auth sahtesini öngörüyordu; 5 dosyanın 2'si (`dashboard_cubit_test`, `scheduling_page_test`) aslında `_FakeSchedulingRepository`'nin Ç-06'da eklenen 5 öğrenci metodunu uygulamamasından kırılıyordu. İkinci ortak sahte (`FakeSchedulingRepository`) yazıldı; plan Task 2 bu sapmayla güncellendi. | P01/Task 2 |
 | 8 | **Kalıcı kural oldu:** test sahteleri artık `mobile/test/helpers/` altında tek noktada. Yeni bir repository arayüzü için test dosyası içine yerel `_Fake*` yazma — `doc/architecture/mobile_flutter.md` §17.1. | P01/Task 2 |
 | 9 | `flutter analyze` zaten **5 info** üretiyor (2× `directives_ordering` + 3× `deprecated_member_use` `parent_notifications_page.dart`'ta). Bunlar P01 öncesinden var; "No issues found!" beklentisi gerçekçi değil, temizlik P13 hijyen planına aday. | P01/Task 2 |
+| 10 | Plan başlığı "A-05 … **+ görünür işaret**" diyordu ama hiçbir adım/`Files:` girdisi mock rozetini kapsamıyordu; denetimde de bu bir **alternatif** öneriydi ("varsayılanı false yap **ya da** rozet göster"). Varsayılan kapatıldı, başlık teslim edilenle hizalandı. Rozet istenirse ayrı iş (aday: P13). | P01/Task 3 |
+| 11 | Mock varsayılanı kapanınca **hiçbir test kırılmadı** (48/48 yeşil) — testler mock fallback'e dayanmıyor. Ama artık geliştirmede backend kapalıyken ekranlar boş/hatalı gelir; el ile deneme yaparken `--dart-define=USE_MOCK_FALLBACK=true` gerekir (`mobile/README.md`). | P01/Task 3 |
 
 ---
 
@@ -102,4 +105,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 Task 2 tamamlandı)*
+*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 Task 3 tamamlandı)*
