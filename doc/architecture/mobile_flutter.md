@@ -447,6 +447,20 @@ form hatası için sade error text. Paketler: `flutter_animate`, `animations`.
 - Sabit string'ler localization'a (`app_strings.dart`); renkler `AppColors`, metin `AppTextStyles` üzerinden — **doğrudan değer yazma**.
 - Dosya adı: `*_page.dart`, `*_cubit.dart`, `*_state.dart`, `*_tile.dart`, `*_card.dart`, `*_repository_impl.dart`.
 
+### 17.1 Test sahteleri (`test/helpers/`) — tek nokta kuralı
+
+Bir repository arayüzünün sahtesi (`Fake*`) **test dosyası içinde tanımlanmaz**; `mobile/test/helpers/` altında
+tek bir dosyada tutulur ve tüm testler onu import eder. Gerekçe: arayüze yeni metot/parametre eklendiğinde
+her test dosyasındaki kopya sessizce eskiyor ve **testler derlenmeyip "atlanıyor"** (A-02 kök nedeni).
+
+| Sahte | Dosya | Ayar noktaları |
+|-------|-------|----------------|
+| `FakeAuthRepository` | `test/helpers/fake_auth_repository.dart` | `session` (restore/login/register dönüşü), `hangOnRestore` (restore hiç tamamlanmaz), `loginCallCount` / `logoutCount` sayaçları, `FakeAuthRepository.defaultSession(...)` |
+| `FakeSchedulingRepository` | `test/helpers/fake_scheduling_repository.dart` | `teacherLessons`, `studentLessons`, `studentCalendar`; yazma metotları `UnimplementedError` atar |
+
+Kural: **arayüz imzası değişince yalnız `test/helpers/` altındaki sahte güncellenir.** Yeni bir repository için
+ikinci kez yerel sahte yazmak yerine buraya bir `Fake*` eklenir.
+
 ```dart
 class SectionHeader extends StatelessWidget {        // örnek reusable widget
   final String title; final String? actionText; final VoidCallback? onActionTap;
@@ -465,4 +479,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-02 (§17.1 test sahteleri tek-nokta kuralı eklendi — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

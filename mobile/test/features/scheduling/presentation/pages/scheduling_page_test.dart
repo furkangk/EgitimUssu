@@ -8,10 +8,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../../helpers/fake_scheduling_repository.dart';
+
 void main() {
   setUp(() {
     injector
-      ..registerFactory<SchedulingRepository>(_FakeSchedulingRepository.new)
+      ..registerFactory<SchedulingRepository>(FakeSchedulingRepository.new)
       ..registerFactory<StudentRepository>(_FakeStudentRepository.new);
   });
 
@@ -35,45 +37,6 @@ void main() {
     expect(find.text('Etkinlik ekle'), findsNothing);
     expect(find.text('Ders Ekle'), findsOneWidget);
   });
-}
-
-class _FakeSchedulingRepository implements SchedulingRepository {
-  @override
-  Future<LessonSchedule> createLesson(LessonSchedule lessonSchedule) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<LessonSchedule> updateLesson(LessonSchedule lessonSchedule) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<LessonSchedule> getLesson(String lessonId) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<LessonSchedule> cancelLesson({
-    required String lessonId,
-    String? cancellationNote,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<LessonSchedule> completeLesson({required String lessonId}) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<List<LessonSchedule>> listTeacherLessons({
-    required String teacherUserId,
-    DateTime? startAtUtc,
-    DateTime? endAtUtc,
-  }) async {
-    return const <LessonSchedule>[];
-  }
 }
 
 class _FakeNotificationRepository implements NotificationRepository {

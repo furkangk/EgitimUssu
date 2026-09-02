@@ -67,13 +67,13 @@ Her madde şu alanlara sahip:
 - **Not (senin):** ` `
 - **Çözüm (P01 Task 1):** Kök neden ikiliydi. (1) `Clear`+`AddRange` yerine doğal anahtara göre **merge** (`MergeSubjects`/`MergeCertificates`/`MergeAvailabilitySlots`). (2) Asıl tetikleyici: çocuk entity `Id`'leri `IIdGenerator` ile istemcide atanıyor ama EF onları `ValueGenerated.OnAdd` sayıyordu; bu yüzden izlenen profile eklenen **yeni** çocuk `Added` değil **`Modified`** olarak izlenip var olmayan satırı UPDATE etmeye çalışıyordu → `ValueGeneratedNever()` ile çözüldü. İlişkiler açık `DeleteBehavior.Cascade` aldı. Testler: `tests/Unit/TeacherProfileUpdateMergeTests.cs` (2 test, EF InMemory + gerçek `SaveChanges`) + `RealDatabaseIntegrationTests.TeacherProfile_Update_Should_Merge_Subjects_On_Real_Postgres` (Testcontainers). `UpdateTeacherProfile_Should_Not_Change_IsVerified` yeşile döndü.
 
-### A-02 — Mobilde 5 test dosyası derlenmiyor 🔴
+### A-02 — Mobilde 5 test dosyası derlenmiyor ✅ Düzeltildi 2026-09-02 (P01)
 
 - **Kanıt:** `flutter test` → `41 +, 5 -`. Hata: `_DelayedAuthRepository.login has fewer named arguments than those of overridden method 'AuthRepository.login'` (`mobile/test/widget_test.dart:52`, `:63`). Etkilenen dosyalar: `widget_test.dart`, `core/routing/app_router_test.dart`, `features/auth/presentation/cubit/auth_cubit_test.dart`, `features/dashboard/presentation/cubit/dashboard_cubit_test.dart`, `features/scheduling/presentation/pages/scheduling_page_test.dart`.
 - **Etki:** Auth, routing, dashboard ve takvim ekranı için **regresyon koruması fiilen yok**; testler "geçiyor" görünüyor ama yüklenmiyor.
 - **Efor:** S
-- **Karar:** ` `
-- **Not:** ` `
+- **Karar:** Ortak sahteler `mobile/test/helpers/` altına alındı (tek nokta kuralı → `doc/architecture/mobile_flutter.md` §17.1).
+- **Not:** Kök neden iki başlıydı: (1) 3 dosyada auth sahtesi `AuthRepository.login/register`'a eklenen `roleId` argümanını uygulamıyordu, (2) 2 dosyada `_FakeSchedulingRepository`, Ç-06 ile `SchedulingRepository`'ye eklenen 5 öğrenci metodunu uygulamıyordu. `FakeAuthRepository` + `FakeSchedulingRepository` yazıldı; `flutter test` → **47 başarılı, 0 başarısız**.
 
 ### A-03 — E-posta hiç gönderilmiyor (şifre sıfırlama + e-posta doğrulama uçtan uca çalışmıyor) 🔴
 
@@ -319,7 +319,7 @@ Her madde şu alanlara sahip:
 | D-19 | l10n altyapısı yok | `app.dart:75-80` `supportedLocales`'te `en_US` var ama ARB/`l10n` klasörü yok; metinler hardcoded | İngilizce fiilen desteklenmiyor | M | | |
 | D-20 | Türkçe karakter kullanılmayan metinler | `more_page.dart`: "Cikis yap", "Odeme hatirlatmalari", "Abonelik ayarlari" … | Marka kalitesi (`EğitimÜssü` adlandırma kuralıyla da çelişiyor) | S | | |
 | D-21 | Öğrenci/veli akışları için widget testi yok | `mobile/test/` — parent hiç yok, study kısmi | Regresyon riski | M | | |
-| D-22 | Flutter CI'da test adımı etkisiz | `build-android.yml` var; A-02 yüzünden testler zaten kırık | Koruma yok | S | | |
+| D-22 | Flutter CI'da test adımı etkisiz | `build-android.yml` var; A-02 yüzünden testler zaten kırık | Koruma yok | S | | A-02 ✅ (P01) ile testler yeşil; CI adımının kendisi P13'te ele alınacak |
 
 ---
 
