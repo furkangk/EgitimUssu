@@ -162,6 +162,7 @@ public sealed class StudySession : AggregateRoot<Guid>
     }
 
     /// <summary>Aktif dilimi net süreye ekler ve seansı molaya alır.</summary>
+    /// <param name="nowUtc">İşlemin uygulandığı UTC an (<c>IClock.UtcNow</c>).</param>
     /// <param name="clientEffectiveMinutes">
     /// İstemcinin bildirdiği toplam net süre (offline/arka planda birikmiş). Makul aralıktaysa
     /// (0 &lt; değer ≤ sunucu-hesabı + <see cref="ClientMinutesToleranceMinutes"/>) net süre olarak baz alınır.
@@ -203,6 +204,8 @@ public sealed class StudySession : AggregateRoot<Guid>
     }
 
     /// <summary>Son aktif/mola dilimini kapatır, seansı tamamlar ve tamamlanma olayını yükseltir.</summary>
+    /// <param name="nowUtc">İşlemin uygulandığı UTC an (<c>IClock.UtcNow</c>).</param>
+    /// <param name="personalNote">Öğrencinin seansa iliştirdiği kişisel not (opsiyonel).</param>
     /// <param name="clientEffectiveMinutes">
     /// İstemcinin (offline/arka planda birikmiş) bildirdiği net süre. Verilirse ve makul aralıktaysa
     /// (0 &lt; değer ≤ sunucu-hesabı + <see cref="ClientMinutesToleranceMinutes"/>) net süre olarak kullanılır;

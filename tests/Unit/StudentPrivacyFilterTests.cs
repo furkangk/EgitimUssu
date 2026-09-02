@@ -31,8 +31,8 @@ public sealed class StudentPrivacyFilterTests
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
-        Assert.False(result.Value.Study.IsShared);
-        Assert.Equal(0, result.Value.Study.WeeklyStudyMinutes);
+        Assert.False(result.Value!.Study.IsShared);
+        Assert.Equal(0, result.Value!.Study.WeeklyStudyMinutes);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class StudentPrivacyFilterTests
 
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.True(result.Value.Study.IsShared);
+        Assert.True(result.Value!.Study.IsShared);
     }
 
     private sealed class FakePrivacyDirectory : IStudentPrivacyDirectory

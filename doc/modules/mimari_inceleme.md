@@ -168,6 +168,11 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 - **D3** — Placeholder dosyalar: `Shared/*/Class1.cs` ve boş `AssemblyReference.cs` kaldırılmalı.
 - **D4** — ✅ _Düzeltildi._ Doküman tutarsızlığı (.NET 8/10) gerçek hedef **.NET 9** ile hizalandı.
 - **D5** — `StudentProfileQueryAuthorizer` 3 arayüzle 3 kez `AddScoped` → 3 instance (gereksiz).
+- **D7** — ✅ _Düzeltildi (2026-09-02, P01)._ CI derleme adımı (`dotnet build EgitimUssu.slnx -warnaserror`) 13 hata veriyordu:
+  3× `CS1573` (eksik XML `<param>` — `StudySession.Pause/Complete`), 1× `CS8604` (`LessonSchedule.LessonFormat` nullable enum
+  → `LessonScheduleResponse`), 9× `CS8602` (`Result.Value` dereference, 4 birim test dosyası). Hepsi kapatıldı; davranış değişmedi.
+- **D8** — `src/Shared/Infrastructure/Design/DesignTimeDbContextFactoryBase.cs` hâlâ `Password=postgres` içeren bir varsayılan
+  taşıyor. Yalnız `dotnet ef` tasarım zamanını besliyor (çalışma zamanına girmiyor) — yine de temizlenmeli (**P13**).
 - **D6** — İskelet modüller (`Matching`, `Reviews`, `Reporting`) yalnız `/status` döndürüyor — beklenen (yol haritası), tasarımları [`m12`](m12_matching.md)/[`m13`](m13_reviews.md)/[`m14`](m14_reporting.md)'te. (`Study` 🟢, `Parents` 🟢, `ProgressTracking` 🟡 artık gerçek endpoint'ler.)
 
 ---
@@ -202,4 +207,4 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

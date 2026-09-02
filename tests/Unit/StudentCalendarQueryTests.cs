@@ -37,7 +37,7 @@ public sealed class StudentCalendarQueryTests
         var result = await handler.Handle(new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var occ = result.Value;
+        var occ = result.Value!;
         Assert.Equal(2, occ.Count);
 
         var teacherOcc = Assert.Single(occ, o => o.Source == "Teacher");

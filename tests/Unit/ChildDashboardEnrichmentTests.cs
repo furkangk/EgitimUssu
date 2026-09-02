@@ -25,11 +25,11 @@ public sealed class ChildDashboardEnrichmentTests
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value.Study.IsShared);
-        Assert.Equal(120, result.Value.Study.WeeklyStudyMinutes);
-        Assert.Equal(5, result.Value.Study.StreakDays);
-        Assert.True(result.Value.Study.HasData);
-        Assert.Equal(2, result.Value.Study.SubjectBreakdown.Count);
+        Assert.True(result.Value!.Study.IsShared);
+        Assert.Equal(120, result.Value!.Study.WeeklyStudyMinutes);
+        Assert.Equal(5, result.Value!.Study.StreakDays);
+        Assert.True(result.Value!.Study.HasData);
+        Assert.Equal(2, result.Value!.Study.SubjectBreakdown.Count);
     }
 
     [Fact]
@@ -43,9 +43,9 @@ public sealed class ChildDashboardEnrichmentTests
         var handler = new GetChildDashboardQueryHandler(repo, privacy, digest, new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.False(result.Value.Study.IsShared);
-        Assert.Equal(0, result.Value.Study.WeeklyStudyMinutes);
-        Assert.Empty(result.Value.Study.SubjectBreakdown);
+        Assert.False(result.Value!.Study.IsShared);
+        Assert.Equal(0, result.Value!.Study.WeeklyStudyMinutes);
+        Assert.Empty(result.Value!.Study.SubjectBreakdown);
         Assert.False(digest.Called);
     }
 
@@ -71,11 +71,11 @@ public sealed class ChildDashboardEnrichmentTests
         var handler = new GetChildDashboardQueryHandler(repo, privacy, new FakeStudyDigest(new StudyDigest(0, 0, Array.Empty<StudySubjectMinutes>())), upcoming, lastLesson, new FakeNotes(), new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.Single(result.Value.UpcomingLessons);
-        Assert.Equal("Matematik", result.Value.UpcomingLessons.First().Subject);
-        Assert.NotNull(result.Value.LastLesson);
-        Assert.Equal("Türev", result.Value.LastLesson!.TopicTitle);
-        Assert.Null(result.Value.LastLesson.TeacherNotes); // veli-görünürlük garantisi olmadan not sızmaz
+        Assert.Single(result.Value!.UpcomingLessons);
+        Assert.Equal("Matematik", result.Value!.UpcomingLessons.First().Subject);
+        Assert.NotNull(result.Value!.LastLesson);
+        Assert.Equal("Türev", result.Value!.LastLesson!.TopicTitle);
+        Assert.Null(result.Value!.LastLesson.TeacherNotes); // veli-görünürlük garantisi olmadan not sızmaz
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public sealed class ChildDashboardEnrichmentTests
             new FakeUpcoming(), new FakeLastLesson(), notes, new FakePayments(), new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.Single(result.Value.TeacherNotes);
-        Assert.Equal("Bugün türev işledik", result.Value.TeacherNotes.First().Content);
+        Assert.Single(result.Value!.TeacherNotes);
+        Assert.Equal("Bugün türev işledik", result.Value!.TeacherNotes.First().Content);
     }
 
     [Fact]
@@ -111,9 +111,9 @@ public sealed class ChildDashboardEnrichmentTests
             new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), payments, new FixedClock(Now));
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.Single(result.Value.PaymentLines);
-        Assert.Equal("Temmuz dersleri", result.Value.PaymentLines.First().Description);
-        Assert.Equal("PartiallyPaid", result.Value.PaymentLines.First().Status);
+        Assert.Single(result.Value!.PaymentLines);
+        Assert.Equal("Temmuz dersleri", result.Value!.PaymentLines.First().Description);
+        Assert.Equal("PartiallyPaid", result.Value!.PaymentLines.First().Status);
     }
 
     private sealed class FakeUpcoming : IStudentUpcomingLessonsDirectory

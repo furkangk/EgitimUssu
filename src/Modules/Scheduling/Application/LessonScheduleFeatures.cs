@@ -493,7 +493,8 @@ internal static class LessonScheduleMappings
             lesson.TeacherUserId,
             lesson.StudentId,
             lesson.Subject,
-            lesson.LessonFormat.ToString(),
+            // Ç-06: self-lesson'da LessonFormat null; Nullable<T>.ToString() zaten "" döner — davranış aynı, uyarı susturuluyor.
+            lesson.LessonFormat?.ToString() ?? string.Empty,
             lesson.StartAtUtc,
             lesson.EndAtUtc,
             lesson.TimeZone,

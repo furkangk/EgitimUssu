@@ -102,13 +102,13 @@ Her madde şu alanlara sahip:
 - **Karar:** İlk seçenek uygulandı — `USE_MOCK_FALLBACK` varsayılanı `false`. Görünür "MOCK" rozeti yapılmadı (alternatif öneriydi); istenirse ayrı iş, aday P13.
 - **Not:** `app_config.dart` varsayılanı çevrildi + regresyon testi (`app_config_test.dart` → "mock fallback varsayilan olarak kapalidir"). Kullanım `mobile/README.md`'de, doküman `doc/architecture/mobile_flutter.md` AppConfig tablosunda güncellendi. `flutter test` → **48 başarılı, 0 başarısız** (mock'a dayanan kırılan test çıkmadı).
 
-### A-06 — Postgres parolası hâlâ `appsettings.json` içinde 🟠
+### A-06 — Postgres parolası hâlâ `appsettings.json` içinde ✅ Düzeltildi 2026-09-02 (P01)
 
 - **Kanıt:** `mimari_inceleme.md` Y2'nin kalan yarısı; JWT anahtarı çıkarıldı ama `Password=postgres` duruyor.
 - **Etki:** Sır sızıntısı riski; prod'da yanlış konfigürasyonla açılma ihtimali (JWT'de olduğu gibi fail-fast guard yok).
 - **Efor:** S
-- **Karar:** ` `
-- **Not:** ` `
+- **Karar:** P01 Task 4 ile kapatıldı.
+- **Not:** Bağlantı dizesi `appsettings.json`'dan çıkarıldı (`""`), `ConnectionStringGuard` startup + health-check'te doğruluyor.
 
 ---
 
@@ -275,9 +275,9 @@ Her madde şu alanlara sahip:
 | C-04 | Gözlemlenebilirlik yok | OpenTelemetry / Serilog / Sentry / App Insights bağımlılığı **hiç yok**; yalnız `RequestContextLoggingMiddleware` | Prod'da hata/performans görünürlüğü yok | M | | |
 | C-05 | Sorgu authorizer'ları varlığı iki kez yüklüyor (O2) | Örn. `GetStudentProfileByIdQuery` | Her korumalı sorguda çift DB gidişi | S | | |
 | C-06 | `CommandDispatcher`/`QueryDispatcher` `dynamic` + reflection, cache yok (O4) | `Shared/Infrastructure/Application/` | Ölçekte CPU maliyeti; pipeline (validation/logging/tx) kancası yok | M | | |
-| C-07 | Integration testler Docker'sız atlanıyor | `dotnet test` → **4 atlandı** (Testcontainers) | Yerelde gerçek Postgres/Redis doğrulaması yapılmıyor; A-01 gibi hatalar geç fark ediliyor | S | | |
+| C-07 | Integration testler Docker'sız atlanıyor | `dotnet test` → **4 atlandı** (Testcontainers) | Yerelde gerçek Postgres/Redis doğrulaması yapılmıyor; A-01 gibi hatalar geç fark ediliyor | S | ✅ Düzeltildi 2026-09-02 (P01) | `scripts/test-with-docker.sh` + compose healthcheck + `infra/.env.example`; doğrulandı: **Atlanan 0** (18/18 integration) |
 | C-08 | Domain'de value object yok, invariant'lar handler'a kaçmış | 2026-06-30 denetimi DDD skoru 4.5/10 | Para/e-posta/tarih aralığı gibi kavramlar primitive | L | | |
-| C-09 | `docs`, `Class1.cs`, boş `AssemblyReference.cs` gibi placeholder'lar | `src/Modules/docs` klasörü, iskelet modüllerdeki boş dosyalar | Hijyen | S | | |
+| C-09 | `docs`, `Class1.cs`, boş `AssemblyReference.cs` gibi placeholder'lar | `src/Modules/docs` klasörü, iskelet modüllerdeki boş dosyalar | Hijyen | S | ✅ Kısmen düzeltildi 2026-09-02 (P01) | Boş `src/Modules/docs` silindi (izlenmiyordu); iskelet modüllerdeki boş `AssemblyReference.cs`/`Class1.cs` temizliği **P13**'e bırakıldı |
 | C-10 | API sürümleme stratejisi yok | Yalnız `/api/meta/version` | Kırıcı değişiklikte istemci yönetimi zor | S | | |
 
 ---
@@ -343,13 +343,13 @@ Her madde şu alanlara sahip:
 
 | ID | Doküman | Yanlış iddia | Kod gerçeği | Karar | Not |
 |----|---------|--------------|-------------|-------|-----|
-| F-01 | `m01_identity.md:276-277` | Mobil refresh interceptor + secure storage eksik | `TokenRefreshInterceptor` + `flutter_secure_storage` **var** (Y3/Y7 kapandı) | | |
-| F-02 | `m03_students.md:326-327` | Self-register + davet/kabul akışı eksik | `POST /links/claim`, `/invite`, `/accept`, `/reject` **var** | | |
-| F-03 | `m06_assignments.md:295,297-298` | `AssignmentSubmission` + öğrenci görünümü + dosya depolama eksik | Submission + attachment + öğrenci uçları **var** (ortak `IFileStorage` hâlâ yok → C-02 doğru) | | |
-| F-04 | `m04_scheduling.md:398` | `Planned → Completed` geçişi eksik | `POST /lessons/{id}/complete` **var** | | |
-| F-05 | `yol_haritasi.md` faz tablosu | Faz 2 "🔴 İskelet", Faz 3 "🔴 İskelet" | Study 🟢 (38 endpoint), Parents 🟢 (11 endpoint), ProgressTracking 🟡 | | |
-| F-06 | `m09_parents.md:314`, `m11_notifications.md:257` | Kontrol listeleri açık | Kısmen yapılmış (veli dashboard + bildirim motoru) — madde madde gözden geçirilmeli | | |
-| F-07 | `modules/00_genel_bakis.md` §3 | "Mevcut mobil app öğretmen odaklı" | Öğrenci (4 sekme) + veli panelleri de kodda | | |
+| F-01 | `m01_identity.md:276-277` | Mobil refresh interceptor + secure storage eksik | `TokenRefreshInterceptor` + `flutter_secure_storage` **var** (Y3/Y7 kapandı) | ✅ Düzeltildi 2026-09-02 (P01) | Maddeler `[x]` yapıldı |
+| F-02 | `m03_students.md:326-327` | Self-register + davet/kabul akışı eksik | `POST /links/claim`, `/invite`, `/accept`, `/reject` **var** | ✅ Düzeltildi 2026-09-02 (P01) | Self-register `[x]`; **mobil** kabul/red/claim ekranı hâlâ yok → madde (P06) etiketiyle açık bırakıldı |
+| F-03 | `m06_assignments.md:295,297-298` | `AssignmentSubmission` + öğrenci görünümü + dosya depolama eksik | Submission + attachment + öğrenci uçları **var** (ortak `IFileStorage` hâlâ yok → C-02 doğru) | ✅ Düzeltildi 2026-09-02 (P01) | İlk iki madde `[x]`; dosya depolama (P04) etiketiyle açık |
+| F-04 | `m04_scheduling.md:398` | `Planned → Completed` geçişi eksik | `POST /lessons/{id}/complete` **var** | ✅ Düzeltildi 2026-09-02 (P01) | Madde `[x]` |
+| F-05 | `yol_haritasi.md` faz tablosu | Faz 2 "🔴 İskelet", Faz 3 "🔴 İskelet" | Study 🟢 (38 endpoint), Parents 🟢 (11 endpoint), ProgressTracking 🟡 | ✅ Düzeltildi 2026-09-02 (P01) | Faz 2 → 🟢, Faz 3 → 🟡 (kodda 38 Study ucu doğrulandı) |
+| F-06 | `m09_parents.md:314`, `m11_notifications.md:257` | Kontrol listeleri açık | Kısmen yapılmış (veli dashboard + bildirim motoru) — madde madde gözden geçirilmeli | ✅ Düzeltildi 2026-09-02 (P01) | Her madde kodla karşılaştırıldı; kısmi olanlar `[~]` + kapatacak plan etiketi (P03/P05/P08/P13) |
+| F-07 | `modules/00_genel_bakis.md` §3 | "Mevcut mobil app öğretmen odaklı" | Öğrenci (4 sekme) + veli panelleri de kodda | ✅ Düzeltildi 2026-09-02 (P01) | §3 metni düzeltildi + `notifications`/`progress` feature satırları eklendi |
 
 ---
 
@@ -402,7 +402,7 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 | Sıra | Dilim | İçerik | Gerekçe |
 |------|-------|--------|---------|
-| 1 | **Onarım** | A-01, A-02, A-05, A-06, C-07 | Bozuk olanı düzeltmeden yeni özellik anlamsız; CI yeşile döner |
+| 1 | **Onarım** | A-01, A-02, A-05, A-06, C-07 | ✅ **Tamamlandı 2026-09-02 (P01)** — CI derleme (`-warnaserror`) + test paketi yeşil; Testcontainers testleri yerelde koşuyor |
 | 2 | **İletişim omurgası** | A-03 (e-posta), A-04 (push) + M11-2/3/4, D-01, D-02, D-11 | Ürünün "geri dönüş" döngüsü bunsuz yok |
 | 3 | **Ortak altyapı (Faz 0 kalanı)** | C-02 (IFileStorage), M15-1 (Settings) + D-14, C-03 (read-model kararı) | Üst fazların hepsi bunlara dayanıyor |
 | 4 | **Öğretmen MVP kapanışı** | M02-1, M02-3, M05-1/2, M06-1, M07-1/2, M04-1, D-04, D-05 | Beta (5-10 öğretmen) hedefi |
