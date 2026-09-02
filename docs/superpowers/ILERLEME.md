@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P04 — Dosya Depolama` **1/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
-| **Sıradaki görev** | **P04 Task 2** — Ödev teslimini ortak depolamaya taşı (göç adımı dahil) |
+| **Aktif plan** | `P04 — Dosya Depolama` **2/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
+| **Sıradaki görev** | **P04 Task 3** — Öğretmen profil fotoğrafı (M02-2 + D-05) |
 | **Dal** | `feat/p04-depolama` — `feat/p03-push` üzerine açıldı. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
 | **Durum** | 🔄 P04 sürüyor · P01 + P02 + P03 dalları push/merge bekliyor |
-| **Son commit** | `ba5969c` (feat(storage): S3-uyumlu IFileStorage + yerel implementasyon — C-02) |
+| **Son commit** | `221f561` (feat(assignments): ödev teslimini ortak IFileStorage'a taşı — C-02) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -25,7 +25,7 @@
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
-| P04 Dosya depolama | 1/5 | 🔄 Devam ediyor | Task 1 bitti (`IFileStorage` + Local/S3 + guard) · dal: `feat/p04-depolama` · **Q4 kararı Task 5'te gerek** |
+| P04 Dosya depolama | 2/5 | 🔄 Devam ediyor | Task 1-2 bitti (`IFileStorage` + Local/S3 + guard · ödev teslimi göç edildi) · dal: `feat/p04-depolama` · **Q4 kararı Task 5'te gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
 | P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
@@ -69,6 +69,7 @@
 | 2026-09-03 | P03 / Task 6 — D-11 mobil bildirim merkezi (Tümü/Okunmamış, okundu, derin bağlantı, gerçek rozet) | `a3e9427` | `flutter test`: **79 başarılı, başarısız 0** (öncesi 69) · `flutter analyze`: **4 info** (değişmedi) · `kb_healthcheck` temiz · `doc/pages/notifications.md` oluşturuldu |
 | 2026-09-03 | P03 / Task 7 — Kapanış: denetim envanteri (A-04/M11-1..4/D-11 ✅), INDEX/m11 durumu 🟢, kabul kriterleri | `c0d9138` | `dotnet test EgitimUssu.slnx`: **229 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** · `-warnaserror`: **0 uyarı / 0 hata** · `flutter test`: **79/79** · `flutter analyze`: 4 info · `kb_healthcheck` temiz. **Uçtan uca gerçek cihaz senaryosu yapılamadı (Q8)** |
 | 2026-09-03 | P04 / Task 1 — C-02 `IFileStorage` + `LocalFileStorage`/`S3FileStorage` + `FileValidation` + `StorageOptionsGuard` | `ba5969c` | `dotnet test EgitimUssu.slnx`: **263 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 229 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `kb_healthcheck` temiz |
+| 2026-09-03 | P04 / Task 2 — C-02 ödev teslimi ortak `IFileStorage`'a taşındı + göç script'i | `221f561` | `dotnet test EgitimUssu.slnx`: **271 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 263 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddAssignmentAttachmentStorage` üretildi · `scripts/migrate-assignment-files.sh --dry-run` sahte eski dizinle koşturuldu (dosya + doğru `UPDATE` SQL'i üretti) · `kb_healthcheck` temiz |
 
 ---
 
@@ -124,6 +125,8 @@
 | 44 | `mobile/pubspec.lock` **tracked** ama `CLAUDE.md` onu `main`'e commit'lemeyi yasaklıyor. Bağımlılık eklendiğinde dosya değişir; commit öncesi `git restore --staged mobile/pubspec.lock` gerekir, yoksa `git add -A` onu içeri alır. Çalışma ağacında kirli kalır — bu **beklenen** durumdur. | P03/Task 5 |
 | 45 | **Zil rozeti `AppPageHeader`'da tek noktada.** Sayı `NotificationsState.unreadCount`'tan gelir; önceden bekleyen ders hatırlatmalarından türetiliyordu (yalnız öğretmende doğruydu), şimdi `GET /users/{id}/unread-count`. Rozetle ilgili değişiklik bu tek dosyadan yapılır. | P03/Task 6 |
 | 46 | Bir domain arayüzü (`NotificationRepository`) büyüyünce **test dosyalarındaki yerel sahteler derlenmez olur**. Öğrenilenler #8'in maliyeti burada görüldü: 2 test dosyası kırıldı, sahte `test/helpers/fake_notification_repository.dart`'a taşındı. Yeni sahte yazmadan önce `test/helpers/`'a bak. | P03/Task 6 |
+| 47 | ⚠️ **`.gitignore`'da kök-bağlantısız desen tehlikeli.** `storage/` satırı macOS'un **büyük/küçük harf duyarsız** dosya sisteminde `src/Shared/Infrastructure/Storage/`'ı da eşledi; P04 Task 1 commit'i (`ba5969c`) depolama kaynaklarını **hiç içermedi** ve bu ancak `git mv` "not under version control" dediğinde fark edildi. Yeni yoksayma deseni yazarken **kök-bağlantılı** yaz (`/storage/`) ve commit sonrası `git ls-files <klasör>` ile doğrula. | P04/Task 2 |
+| 48 | **Altyapı portları `Shared.Kernel`'e aittir, `Shared.Infrastructure`'a değil.** Modüllerin Application katmanı Infrastructure'ı referanslamıyor; `IFileStorage`/`FileValidation` orada kalsaydı handler onları göremezdi. `IClock`/`ICurrentUser`/`IIdGenerator` deseni: **port Kernel'de, implementasyon Infrastructure'da.** | P04/Task 2 |
 
 ---
 
@@ -159,4 +162,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-03 (P04 Task 1 bitti — 1/5; dal `feat/p04-depolama`)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (P04 Task 2 bitti — 2/5; dal `feat/p04-depolama`)*
