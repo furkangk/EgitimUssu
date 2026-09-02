@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P02 — E-posta Altyapısı` **7/7 ✅ BİTTİ** (`plans/2026-09-02-02-eposta-altyapisi.md`) |
-| **Sıradaki görev** | **P03 Task 1** (push bildirim) · alternatif: P04 (dosya depolama, Q4 kararı gerek) veya P13 (hijyen, paralel) |
-| **Dal** | `feat/p02-eposta` — `feat/p01-onarim` üzerine açıldı (P01 henüz `main`'e merge edilmedi). **Her iki dal da PR bekliyor.** |
-| **Durum** | ✅ P02 tamamlandı · P01 + P02 dalları push/merge bekliyor |
-| **Son commit** | `9f9b5e2` (docs: P02 kapanışı) |
+| **Aktif plan** | `P03 — Push Bildirim ve Bildirim Merkezi` **1/7** (`plans/2026-09-02-03-push-bildirim.md`) |
+| **Sıradaki görev** | **P03 Task 2** — `IPushSender` soyutlaması + `FcmPushSender` (FCM HTTP v1, service-account OAuth) |
+| **Dal** | `feat/p03-push` — `feat/p02-eposta` üzerine açıldı. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
+| **Durum** | 🔄 P03 sürüyor · P01 + P02 dalları push/merge bekliyor |
+| **Son commit** | `5e5d2ce` (feat(notifications): cihaz push token kaydı) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -24,7 +24,7 @@
 |------|-------|-------|-----|
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
-| P03 Push bildirim | 0/7 | ⏳ Sırada | P02 bitti; başlanabilir |
+| P03 Push bildirim | 1/7 | 🔄 Devam ediyor | Task 1 bitti (M11-2 cihaz token) · dal: `feat/p03-push` |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
@@ -61,6 +61,7 @@
 | 2026-09-02 | P02 / Task 5 — Mobil "Şifremi unuttum" akışı (D-01) | `70204eb` | `flutter test`: **51 başarılı, başarısız 0** (öncesi 48) · `flutter analyze`: aynı 5 önceden var olan info · `kb_healthcheck` temiz |
 | 2026-09-02 | P02 / Task 6 — Mobil e-posta doğrulama ekranı + `egitimussu://` derin bağlantı (D-02) | `5efdd30` | `flutter test`: **57 başarılı, başarısız 0** · `flutter analyze`: 5 önceden var olan info · **iOS Simulator:** ham `egitimussu://verify-email?token=ABC123` URL'i doğrulama ekranını açtı ve kod alanı `ABC123` doldu (ekran görüntüsü) |
 | 2026-09-02 | P02 / Task 7 — Kapanış: SMTP yolu canlı doğrulama + denetim envanteri + dokümanlar | `9f9b5e2` | Yerel SMTP sunucusuna **gerçek gönderim**: MailKit bağlandı, UTF-8 konu + `multipart/alternative` + URL-kodlu `egitimussu://` bağlantı teslim edildi; yakalanan tokenla `password-reset/confirm` **200**, eski şifre **400**, yeni şifre **200**, `GET /me` doğru · `dotnet test EgitimUssu.slnx`: **186 + 4 + 19, Başarısız 0, Atlanan 0** · `flutter test`: **57/57** · `-warnaserror`: 0 uyarı / 0 hata · `kb_healthcheck` temiz |
+| 2026-09-03 | P03 / Task 1 — M11-2 `DeviceToken` aggregate + kayıt/silme uçları | `5e5d2ce` | `dotnet test EgitimUssu.slnx`: **195 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 186 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddDeviceTokens` üretildi (`device_tokens`, Token UNIQUE) · **Canlı API:** kimliksiz kayıt **401**, kayıt **200**, aynı token tekrar **200** (yeni satır yok), başkasının adına **403**, boş token **400**, silme **200**, bilinmeyen token silme **200**, kimliksiz silme **401** · `kb_healthcheck` temiz |
 
 ---
 
@@ -103,6 +104,10 @@
 | 31 | **Gerçek SMTP hesabı olmadan da SMTP yolu doğrulanabilir:** yerel bir SMTP sunucusu (127.0.0.1:2525, STARTTLS yok, auth yok) + `Email__Smtp__UseStartTls=false`. Development'ta guard `Username` istemez. MailKit'in ürettiği tam MIME gövdesi böylece görülebilir. | P02/Task 7 |
 | 32 | Bu makinede **Android emülatörü yok** (yalnız iOS Simulator) ve **sentetik tıklama izni yok** (`osascript` → hata -25204). iOS'un "…ile Açılsın mı?" onay diyaloğu otomatik geçilemiyor. Soğuk açılışı taklit etmenin yolu: `flutter run -d <sim> --route "<ham-derin-bağlantı>"` — motorun `defaultRouteName`'e koyduğu değerin aynısı. | P02/Task 6 |
 | 33 | macOS'ta `flutter pub get` iki **izlenmeyen** SwiftPM artefaktı üretiyor: `mobile/macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` ve `mobile/macos/Runner.xcworkspace/…/swiftpm/Package.resolved`. `mobile/.gitignore` yalnız `.swiftpm/` (nokta ile) deseni taşıyor, bu yollar tutmuyor → `git add -A` ile kazara commit'lenebilir. **Aday: P13 hijyen** — `.gitignore`'a `**/xcshareddata/swiftpm/` eklenmeli. | P02/Task 7 |
+| 34 | **`AuthorizationCoverageValidator` sessiz bir güvenlik ağı:** yeni bir command/query için authorizer kaydı unutulursa uygulama startup'ta patlar; `dotnet test` yeşilse kayıtlar tamamdır. Ayrı bir kontrol yazmaya gerek yok. | P03/Task 1 |
+| 35 | Yeni EF entity eklerken `ValueGeneratedNever()` **baştan** yazılmalı (Öğrenilenler #3/#26). Id `IIdGenerator` ile istemcide üretildiği için bu satır olmadan ilk güncelleme senaryosunda `DbUpdateConcurrencyException` çıkar. `DeviceToken`'da proaktif eklendi. | P03/Task 1 |
+| 36 | Canlı uç denerken **kullanıcı bir kez oluşturulunca InMemory DB'de kalır**; aynı e-postayla ikinci kayıt `identity.duplicate_email` (409) döner ve `accessToken` alınamaz → tüm sonraki çağrılar 401 görünür. Denemeyi tekrarlarken e-postayı değiştir. | P03/Task 1 |
+| 37 | Bash'te `UID` bir kabuk **salt-okunur değişkeni**; `UID=$(...)` zsh'de "bad math expression" ile patlar. Script değişkenlerinde `USERID` gibi adlar kullan. | P03/Task 1 |
 
 ---
 
@@ -137,4 +142,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-02 (P02 tamamlandı — 7/7; dal `feat/p02-eposta`, merge bekliyor)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (P03 Task 1 bitti — 1/7; dal `feat/p03-push`)*
