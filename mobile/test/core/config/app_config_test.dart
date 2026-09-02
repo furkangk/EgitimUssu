@@ -24,4 +24,11 @@ void main() {
 
     expect(config.isMockFallbackEnabled('scheduling'), isFalse);
   });
+
+  test('mock fallback varsayilan olarak kapalidir', () {
+    final config = AppConfig.fromEnvironment();
+
+    expect(config.useMockFallback, isFalse);
+    expect(config.isMockFallbackEnabled('payments'), isFalse);
+  });
 }

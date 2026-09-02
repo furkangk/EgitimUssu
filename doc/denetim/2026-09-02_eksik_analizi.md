@@ -93,14 +93,14 @@ Her madde şu alanlara sahip:
 - **Karar:** ` `
 - **Not:** ` `
 
-### A-05 — Mobilde mock fallback varsayılan olarak AÇIK 🟠
+### A-05 — Mobilde mock fallback varsayılan olarak AÇIK ✅ Düzeltildi 2026-09-02 (P01)
 
 - **Kanıt:** `mobile/lib/core/config/app_config.dart:36-43` → `USE_MOCK_FALLBACK` default `true`, `MOCK_FALLBACK_FEATURES` default `'*'`. Kullanan repolar: payments, scheduling, students, study, assignments, lesson_sessions, dashboard, parent, teacher_profile, auth, notifications.
 - **Etki:** Geliştirme ortamında API hata verse bile ekranlar **sahte veriyle** doluyor → gerçek entegrasyon hataları görünmez oluyor (bu denetimde A-01'in fark edilmemesinin muhtemel sebeplerinden). `isProductionLike` ile beta/prod'da kapanıyor, yani prod riski değil; **geliştirme disiplini** riski.
 - **Öneri:** Varsayılanı `false` yap, açık niyetle `--dart-define=USE_MOCK_FALLBACK=true` ile aç; ya da mock aktifken ekranda görünür bir "MOCK" rozeti göster.
 - **Efor:** S
-- **Karar:** ` `
-- **Not:** ` `
+- **Karar:** İlk seçenek uygulandı — `USE_MOCK_FALLBACK` varsayılanı `false`. Görünür "MOCK" rozeti yapılmadı (alternatif öneriydi); istenirse ayrı iş, aday P13.
+- **Not:** `app_config.dart` varsayılanı çevrildi + regresyon testi (`app_config_test.dart` → "mock fallback varsayilan olarak kapalidir"). Kullanım `mobile/README.md`'de, doküman `doc/architecture/mobile_flutter.md` AppConfig tablosunda güncellendi. `flutter test` → **48 başarılı, 0 başarısız** (mock'a dayanan kırılan test çıkmadı).
 
 ### A-06 — Postgres parolası hâlâ `appsettings.json` içinde 🟠
 

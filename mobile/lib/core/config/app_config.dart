@@ -33,9 +33,11 @@ class AppConfig {
       'APP_ENV',
       defaultValue: 'development',
     );
+    // A-05: varsayılan **kapalı**. Sahte veri yalnız açık niyetle devreye girer
+    // (`--dart-define=USE_MOCK_FALLBACK=true`); aksi halde API hatası ekranda görünür.
     const useMockFallback = bool.fromEnvironment(
       'USE_MOCK_FALLBACK',
-      defaultValue: true,
+      defaultValue: false,
     );
     const mockFallbackFeatures = String.fromEnvironment(
       'MOCK_FALLBACK_FEATURES',

@@ -173,10 +173,10 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 |----------|------------|----------|
 | `API_BASE_URL` | platforma göre: Android `http://10.0.2.2:5296`, iOS/masaüstü `http://localhost:5296` | Backend taban URL (`API.Host` varsayılan portu 5296; verilirse override eder) |
 | `APP_ENV` | `development` | `development` / `beta` / `production` |
-| `USE_MOCK_FALLBACK` | `true` | Geliştirmede mock'a düşme |
-| `MOCK_FALLBACK_FEATURES` | `*` | Hangi feature'lar mock'a düşer |
+| `USE_MOCK_FALLBACK` | **`false`** (A-05, 2026-09-02) | Sahte veriye düşme; yalnız açık niyetle `--dart-define=USE_MOCK_FALLBACK=true` ile açılır |
+| `MOCK_FALLBACK_FEATURES` | `*` | Hangi feature'lar mock'a düşer (`USE_MOCK_FALLBACK` kapalıyken etkisiz) |
 
-`isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır; geliştirmede backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
+`isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır **ve 2026-09-02'den itibaren geliştirmede de varsayılan kapalıdır**: bayrak verilmedikçe uygulama daima gerçek API'yi kullanır, API hatası ekranda görünür (A-05 — sahte veri gerçek entegrasyon hatalarını gizliyordu). Bayrak açıkken backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
 
 **Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
 
@@ -479,4 +479,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-02 (§17.1 test sahteleri tek-nokta kuralı eklendi — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
