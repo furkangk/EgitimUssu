@@ -155,12 +155,14 @@ Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) bi
 ### O7 — Test kapsamı çok düşük
 Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test edilmiyor; Y1, K3 bir test olsa yakalanırdı.
 
-### O8 — Dosya yükleme/depolama servisi (kısmen çözüldü 🟡 — 2026-07-09)
-**Öğrenci ödev yükleme çözüldü:** M06'da `IAssignmentFileStorage`/`LocalAssignmentFileStorage` (yerel disk) +
-`POST /api/assignments/{id}/submission` (multipart) + modül-içi yetkili indirme eklendi. **Kalan:** `Shared/`'da
-ortak `IFileStorage`/blob soyutlaması hâlâ yok; `TeacherProfile.ProfilePhotoUrl`, ders **kaynağı (LessonResource)**
-düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya (S3/Blob) taşınmalı.
-**Öneri:** `Shared/Infrastructure`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob).
+### ✅ O8 — Dosya yükleme/depolama servisi — **Düzeltildi 2026-09-03 (P04)**
+**Öneri (eski):** `Shared/`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob).
+
+✅ _Çözüm (2026-09-03, P04/K-03):_ Port **`Shared.Kernel/Storage`**'da (`IFileStorage`, `StoredFile`, `FileValidation` — `IClock`/`ICurrentUser` deseni; Application katmanı Infrastructure'ı referanslamadığı için port Kernel'de durur), implementasyonlar `Shared.Infrastructure/Storage`'da: `LocalFileStorage` (dev, **path traversal** korumalı) ve `S3FileStorage` (AWSSDK.S3; AWS S3 / Cloudflare R2 / MinIO — `ServiceUrl` doluysa path-style). Sağlayıcı `Storage:Provider` ile seçilir; `StorageOptionsGuard` eksik S3 ayarında startup'ı fail-fast durdurur. Ortak kural: 10 MB + 13 uzantılık beyaz liste (`storage.file_too_large`/`storage.unsupported_type`/`storage.empty_file`). **Public bucket yok** — her indirme uygulama üzerinden yetkiyle akıtılır.
+
+Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya taşındı, eski sınıflar silindi, göç script'i yazıldı (`scripts/migrate-assignment-files.sh`); (2) `TeacherProfile.ProfilePhotoUrl` → `ProfilePhotoKey` + `POST`/`GET /api/teachers/profiles/{userId}/photo`; (3) **`LessonResource`** aggregate'i eklendi (dosya veya bağlantı, 4 uç, yumuşak silme).
+
+**Canlı doğrulama (2026-09-03):** Yerel **MinIO** (S3-uyumlu) bucket'ına karşı uçtan uca tur — profil fotoğrafı ve ders kaynağı yüklendi, bucket'ta nesne oluştu, indirme aynı içeriği döndürdü; yabancı kullanıcı **403**, kimliksiz **401**, `.exe` **400**, 11 MB **400**. Bu turda gerçek iki hata yakalandı ve düzeltildi: `DisablePayloadSigning` yalnız HTTPS'te geçerli, ve AWS SDK `PutObjectAsync` sonrası akışı kapattığı için boyut çağrıdan önce okunmalı (ikisi de regresyon testine bağlandı).
 
 ---
 
@@ -204,9 +206,9 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 4. **K2 + Y4** — Outbox hata izolasyonu/retry + idempotent handler.
 5. ✅ **Y2** — Sırları config'ten çıkar, prod fail-fast. *(JWT 2026-07-01, DB 2026-09-02)*
 6. **Y3** — Mobil refresh token akışı.
-7. **O5 + O8** — Modüller arası okuma + dosya depolama (yeni modüllerin önkoşulu).
+7. **O5** — Modüller arası okuma (yeni modüllerin önkoşulu). *(O8 dosya depolama 2026-09-03'te kapatıldı.)*
 8. **O7** — Regresyon testleri.
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-03 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

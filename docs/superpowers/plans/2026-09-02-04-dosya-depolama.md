@@ -443,7 +443,12 @@ git commit -m "feat(assignments): ders kaynagi paylasimi (M06-1)"
 
 ### Task 5: Kapanış
 
-- [ ] **Step 1: S3 sağlayıcısına karşı bir kez doğrula**
+> **Sapma (uygulandı) — Q4 beklenmeden doğrulandı:** Ticari hesap (AWS/R2) yok, ama S3 yolu **yerel MinIO** (S3-uyumlu, Docker) ile uçtan uca doğrulandı. Bu tur **iki gerçek hata** yakaladı; ikisi de düzeltilip regresyon testine bağlandı:
+> 1. `DisablePayloadSigning = true` AWS SDK'da **yalnız HTTPS** ile geçerli → HTTP uç noktada `AmazonClientException`. Artık yalnız `https://` uç noktalarda açılıyor (`S3FileStorage.ShouldDisablePayloadSigning`).
+> 2. `PutObjectAsync` sonrası SDK `InputStream`'i **kapatıyor** → `buffer.Length` `ObjectDisposedException` fırlatıyordu. Boyut artık çağrıdan **önce** okunuyor (`S3FileStorageSaveTests` gerçek SDK davranışını taklit ediyor).
+> **Ders:** birim testleri sağlayıcı davranışını taklit edemez; S3 gibi dış bağımlılıklar en az bir kez gerçek (ya da uyumlu) bir sunucuya karşı koşulmalı.
+
+- [x] **Step 1: S3 sağlayıcısına karşı bir kez doğrula** (MinIO ile — Q4 ticari hesabı hâlâ açık)
 
 Seçilen sağlayıcıda (Q4: R2 veya S3) bucket aç, env ver:
 ```bash
@@ -452,9 +457,9 @@ Storage__AccessKeyId=<id> Storage__SecretAccessKey=<secret> dotnet run --project
 ```
 Ödev dosyası yükle → bucket'ta nesne oluştu → indirme ucu aynı dosyayı döndürüyor.
 
-- [ ] **Step 2: Tam testler** — Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test` → yeşil.
-- [ ] **Step 3: Dokümanlar** — `doc/architecture/backend.md` "Dosya depolama" başlığı; `doc/modules/mimari_inceleme.md` O8 maddesini `✅ Düzeltildi 2026-09-02 (P04)` yap; `doc/denetim/2026-09-02_eksik_analizi.md` C-02/M06-1/M06-2/M02-2/D-05 → `✅ (P04)`.
-- [ ] **Step 4: Commit**
+- [x] **Step 2: Tam testler** — Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test` → yeşil.
+- [x] **Step 3: Dokümanlar** — `doc/architecture/backend.md` "Dosya depolama" başlığı; `doc/modules/mimari_inceleme.md` O8 maddesini `✅ Düzeltildi 2026-09-02 (P04)` yap; `doc/denetim/2026-09-02_eksik_analizi.md` C-02/M06-1/M06-2/M02-2/D-05 → `✅ (P04)`.
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -465,10 +470,10 @@ git commit -m "docs: P04 dosya depolama kapanisi (C-02/M06-1/M02-2)"
 
 ## Kabul Kriterleri
 
-- [ ] `Storage:Provider=S3` iken eksik konfigürasyonla uygulama açılmıyor
-- [ ] 10 MB üstü ve izinsiz uzantılı dosya reddediliyor (`storage.*` hata kodları)
-- [ ] Ödev teslimi S3'e yazılıyor, yetkisiz kullanıcı indiremiyor (403)
-- [ ] Öğretmen profil fotoğrafı yükleyip görebiliyor; `profilePhotoUrl` istemciden set edilemiyor
-- [ ] Öğretmen ders kaynağı (dosya + bağlantı) paylaşabiliyor, öğrenci görüp açabiliyor
-- [ ] Yol dolaşımı (`../`) denemesi `null`/404 dönüyor
-- [ ] `dotnet test EgitimUssu.slnx` ve `flutter test` yeşil
+- [x] `Storage:Provider=S3` iken eksik konfigürasyonla uygulama açılmıyor (`StorageOptionsGuard`, 6 test)
+- [x] 10 MB üstü ve izinsiz uzantılı dosya reddediliyor — **canlı doğrulandı**: 11 MB → `storage.file_too_large` (400), `.exe` → `storage.unsupported_type` (400)
+- [x] Dosyalar S3'e (MinIO bucket'ına) yazılıyor, yetkisiz kullanıcı indiremiyor — **canlı doğrulandı**: yabancı öğretmen indirme/arşivleme/listeleme **403**, kimliksiz **401**
+- [x] Öğretmen profil fotoğrafı yükleyip görebiliyor (**canlı**: yükle → indir → içerik birebir aynı); `profilePhotoUrl` istek gövdesinden kaldırıldı
+- [x] Öğretmen ders kaynağı (dosya + bağlantı) paylaşabiliyor, öğrenci görüp açabiliyor (**canlı**: dosya kaynağı yükle → indir → içerik aynı → arşivle → listeden düştü)
+- [x] Yol dolaşımı (`../`) denemesi `null` dönüyor (`LocalFileStorageTests`, 3 varyant)
+- [x] `dotnet test EgitimUssu.slnx` (301 + 4 + 19) ve `flutter test` (91) yeşil, başarısız 0

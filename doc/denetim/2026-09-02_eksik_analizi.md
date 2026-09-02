@@ -129,7 +129,7 @@ Her madde şu alanlara sahip:
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
 | M02-1 | **Admin doğrulama ucu yok** — `PUT /profiles/{userId}/verification` + `TeacherVerifiedDomainEvent` | Y1'de `IsVerified` upsert'ten çıkarıldı ama yerine admin ucu konmadı | **Hiç kimse doğrulama rozeti veremiyor**; güven altyapısı (M12/M13) bunsuz anlamsız | S | | |
-| M02-2 | Profil fotoğrafı yükleme yok | `ProfilePhotoUrl` düz string, sunucu tarafı yükleme yok | Öğretmen vitrini eksik; C-04'e (dosya depolama) bağlı | M | | |
+| M02-2 | ~~Profil fotoğrafı yükleme yok~~ **✅ (P04)** | `ProfilePhotoKey` + `POST`/`GET /api/teachers/profiles/{userId}/photo` | — | — | Eklendi 2026-09-03 | İstek gövdesinden `profilePhotoUrl` kaldırıldı — istemci yazamaz |
 | M02-3 | `GET /profiles` arama/listeleme yok | Şehir/ilçe/branş/format/ücret filtresi yok | **M12 eşleştirmenin doğrudan önkoşulu**; ayrıca admin listesi de yok | M | | |
 | M02-4 | Pasifleştirme / silme yok | Öğretmen ayrılış senaryosu tanımsız | Ayrılan öğretmen sistemde aktif görünüyor | S | | |
 | M02-5 | Uygunluk (availability) yönetimi yalnız upsert içinde | Slot ekle/sil ayrı uç yok | Mobil uygunluk düzenleyici (D-05) bunu istiyor | S | | |
@@ -163,8 +163,8 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M06-1 | **`LessonResource` (ders kaynağı paylaşımı) hiç yok** | Domain'de entity yok | Öğretmen ders materyali paylaşamıyor (PRD Faz 1 maddesi) | M | | |
-| M06-2 | Dosya depolama modüle gömülü, ortak soyutlama yok | `LocalAssignmentFileStorage.cs` — yerel disk | Çok-instance/Render'da **yüklenen dosya kaybolur**; bkz. C-04 | — | | |
+| M06-1 | ~~`LessonResource` (ders kaynağı paylaşımı) hiç yok~~ **✅ (P04)** | `LessonResource` aggregate + 4 uç (`/api/assignments/lesson-resources`) + mobil `LessonResourcesSection` | — | — | Eklendi 2026-09-03 | Dosya veya bağlantı; yumuşak silme; öğrenci yalnız kendisine açık olanları görür |
+| M06-2 | ~~Dosya depolama modüle gömülü~~ **✅ (P04)** | `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; teslim ortak `IFileStorage`'a taşındı | — | — | Eklendi 2026-09-03 | Göç: `scripts/migrate-assignment-files.sh` (dosya kopyası + `UPDATE` SQL, `--dry-run`) |
 | M06-3 | Son teslim yaklaşıyor / kaçırıldı bildirimi yok | Zamanlanmış iş yok | Öğrenci+veli uyarılmıyor (A-04'e bağlı) | M | | |
 | M06-4 | Ödev değerlendirme/puanlama yok | Onay/geri gönder var, not/puan yok | Gelişim takibi (M10) ödevden beslenemiyor | S | | |
 
@@ -270,7 +270,7 @@ Her madde şu alanlara sahip:
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
 | C-01 | **Admin API grubu yok** | Yalnız dağınık `Roles.Contains("Admin")` kontrolleri (Payments, Study, Parents, Identity…); `/api/admin/*` yok | Admin rolü tanımlı ama **yönetim yüzeyi yok**: kullanıcı listesi, doğrulama, askıya alma, moderasyon | L | | |
-| C-02 | Ortak `IFileStorage` soyutlaması yok (O8) | Yalnız `Assignments/Infrastructure/LocalAssignmentFileStorage.cs` | Yerel disk → Render/çok-instance'ta **veri kaybı**; profil foto + ders kaynağı bunu bekliyor | M | | |
+| C-02 | ~~Ortak `IFileStorage` soyutlaması yok (O8)~~ **✅ (P04)** | `Shared.Kernel/Storage` portu + `LocalFileStorage`/`S3FileStorage`; `StorageOptionsGuard` fail-fast | — | — | Eklendi 2026-09-03 | MinIO'ya karşı canlı doğrulandı; 10 MB + uzantı beyaz listesi; public bucket yok |
 | C-03 | **Modüller arası read-model mekanizması yok (O5)** | `Shared/Contracts` sadece nokta atışı arayüzler; genel projeksiyon deseni yok | M12 arama, M14 rapor, M09 zenginleştirme bunsuz ilerlemez — **en önemli mimari önkoşul** | L | | |
 | C-04 | Gözlemlenebilirlik yok | OpenTelemetry / Serilog / Sentry / App Insights bağımlılığı **hiç yok**; yalnız `RequestContextLoggingMiddleware` | Prod'da hata/performans görünürlüğü yok | M | | |
 | C-05 | Sorgu authorizer'ları varlığı iki kez yüklüyor (O2) | Örn. `GetStudentProfileByIdQuery` | Her korumalı sorguda çift DB gidişi | S | | |
@@ -292,7 +292,7 @@ Her madde şu alanlara sahip:
 | D-02 | ~~**E-posta doğrulama** ekranı / deep link~~ **✅ (P02)** | `/verify-email` + `egitimussu://` şeması (Android manifest, iOS `CFBundleURLTypes`), `normalizeDeepLink` | — | M | Eklendi 2026-09-02 | [`../pages/auth_email_verification.md`](../pages/auth_email_verification.md) |
 | D-03 | Cihaz oturumları ekranı | M01-4'e bağlı | Güvenlik özelliği yok | S | | |
 | D-04 | Öğretmen **uygunluk (haftalık slot) düzenleyici** | `teacher_profile_page.dart` içinde görsel ızgara yok | Uygunluk verisi girilemiyor → M12 eşleştirme beslenemez | M | | |
-| D-05 | Profil fotoğrafı yükleme (kamera/galeri) | `image_picker` yalnız ödev/not ekranlarında | Öğretmen vitrini eksik (M02-2) | S | | |
+| D-05 | ~~Profil fotoğrafı yükleme (kamera/galeri)~~ **✅ (P04)** | `teacher_profile_page.dart`: `image_picker` ile kamera/galeri → yükleme → `Image.memory` ile gösterim | — | — | Eklendi 2026-09-03 | Sahte `i.pravatar.cc` görseli kaldırıldı (A-05) |
 | D-06 | Public öğretmen profili / "öğrenci nasıl görüyor" önizlemesi | Ekran yok | — | M | | |
 | D-07 | **Keşif / öğretmen arama** ekranları | `/student/discover` rotası var ama M12 API'si yok | Öğrenci öğretmen bulamıyor | L | | |
 | D-08 | **Mesajlaşma** ekranları | Feature klasörü yok | M16'ya bağlı | L | | |
@@ -329,7 +329,7 @@ Her madde şu alanlara sahip:
 |----|-------|-------------|------|------|-------|-----|
 | E-01 | **Angular web hiç yok** | `src/` altında yalnız API.Host/Modules/Shared; `doc/architecture/web_angular.md` 🔴 planlanan | PRD Faz 4-5; SEO/keşif tarafı yok | XL | | |
 | E-02 | E-posta/SMS sağlayıcı sözleşmesi yok | A-03, M01-5 | — | — | | |
-| E-03 | Nesne depolama (S3/Blob) yok | C-02 | — | — | | |
+| E-03 | ~~Nesne depolama (S3/Blob) yok~~ **[~] teknik kısım ✅ (P04)** | `S3FileStorage` (AWS S3 / R2 / MinIO) hazır ve MinIO'ya karşı doğrulandı | Kalan: ticari sağlayıcı hesabı (**Q4**) | — | Kısmen 2026-09-03 | Env: `Storage__*` |
 | E-04 | Ödeme sağlayıcı yok | M17-4 | — | — | | |
 | E-05 | Yedekleme/geri yükleme, migration rollback planı yok | `render.yaml` + `ApplyModuleMigrationsAsync` otomatik migrate | Prod'da riskli otomatik migrate | M | | |
 | E-06 | Staging ortamı / seed verisi yok | — | Beta testi (5-10 öğretmen) için gerekli | M | | |
@@ -428,4 +428,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*

@@ -29,7 +29,7 @@ public sealed class S3FileStorage : IFileStorage
     }
 
     /// <summary>Testler için hazır bir istemci enjekte etmeye izin verir.</summary>
-    internal S3FileStorage(IAmazonS3 client, IOptions<StorageOptions> options, ILogger<S3FileStorage> logger)
+    public S3FileStorage(IAmazonS3 client, IOptions<StorageOptions> options, ILogger<S3FileStorage> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -54,6 +54,10 @@ public sealed class S3FileStorage : IFileStorage
         await content.CopyToAsync(buffer, cancellationToken);
         buffer.Position = 0;
 
+        // DİKKAT: AWS SDK gönderim sonrası InputStream'i kapatır. Uzunluk **çağrıdan önce**
+        // okunmalı; sonra okunursa ObjectDisposedException alınır (MinIO'ya karşı yakalandı).
+        var sizeBytes = buffer.Length;
+
         await _client.PutObjectAsync(
             new PutObjectRequest
             {
@@ -61,11 +65,11 @@ public sealed class S3FileStorage : IFileStorage
                 Key = key,
                 InputStream = buffer,
                 ContentType = contentType,
-                DisablePayloadSigning = !string.IsNullOrWhiteSpace(_options.ServiceUrl)
+                DisablePayloadSigning = ShouldDisablePayloadSigning(_options.ServiceUrl)
             },
             cancellationToken);
 
-        return new StoredFile(key, fileName, contentType, buffer.Length);
+        return new StoredFile(key, fileName, contentType, sizeBytes);
     }
 
     public async Task<Stream?> OpenReadAsync(string key, CancellationToken cancellationToken = default)
@@ -105,6 +109,22 @@ public sealed class S3FileStorage : IFileStorage
         }
     }
 
+    /// <summary>
+    /// AWS-disi bir uc nokta (R2/MinIO) verildiginde path-style adresleme gerekir;
+    /// AWS S3'te varsayilan virtual-hosted stil korunur.
+    /// </summary>
+    public static bool ShouldUsePathStyle(string serviceUrl) => !string.IsNullOrWhiteSpace(serviceUrl);
+
+    /// <summary>
+    /// Cloudflare R2 chunked payload imzasini desteklemez; cozum <c>DisablePayloadSigning</c>.
+    /// Ancak AWS SDK bu bayragi **yalniz HTTPS** ile kabul eder — HTTP bir uc noktada
+    /// (or. yerel MinIO) istek imzalanirken <c>AmazonClientException</c> firlatir.
+    /// Bu yuzden bayrak yalnizca HTTPS uc noktalarda acilir.
+    /// </summary>
+    public static bool ShouldDisablePayloadSigning(string serviceUrl)
+        => !string.IsNullOrWhiteSpace(serviceUrl)
+            && serviceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
     private static IAmazonS3 CreateClient(StorageOptions options)
     {
         var credentials = new BasicAWSCredentials(options.AccessKeyId, options.SecretAccessKey);
@@ -118,7 +138,7 @@ public sealed class S3FileStorage : IFileStorage
         {
             // R2/MinIO: bölge yerine uç nokta + path-style adresleme.
             config.ServiceURL = options.ServiceUrl;
-            config.ForcePathStyle = true;
+            config.ForcePathStyle = ShouldUsePathStyle(options.ServiceUrl);
             config.AuthenticationRegion = options.Region;
         }
 
