@@ -93,3 +93,69 @@ public sealed class DeviceTokenCommandAuthorizer :
         return isSelf ? Result.Success() : Result.Failure(Forbidden);
     }
 }
+
+/// <summary>
+/// M11-3: Bildirim merkezi varsayilan-deny. Kullanici yalniz **kendi** bildirimlerini listeler,
+/// sayar ve okundu isaretler; Admin istisnadir. Okundu komutunda sahiplik bildirimin kendisinden
+/// (UserId) okunur — istemciden gelen bir kimlige guvenilmez.
+/// </summary>
+public sealed class UserNotificationAuthorizer :
+    IQueryAuthorizer<ListUserNotificationsQuery>,
+    IQueryAuthorizer<GetUnreadNotificationCountQuery>,
+    ICommandAuthorizer<MarkNotificationReadCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynaga erisim yetkiniz yok.");
+
+    private readonly ICurrentUser _currentUser;
+    private readonly IUserNotificationRepository _repository;
+
+    public UserNotificationAuthorizer(ICurrentUser currentUser, IUserNotificationRepository repository)
+    {
+        _currentUser = currentUser;
+        _repository = repository;
+    }
+
+    public Task<Result> Authorize(ListUserNotificationsQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(AuthorizeOwner(query.UserId));
+
+    public Task<Result> Authorize(GetUnreadNotificationCountQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(AuthorizeOwner(query.UserId));
+
+    public async Task<Result> Authorize(MarkNotificationReadCommand command, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var notification = await _repository.GetByIdAsync(command.NotificationId, cancellationToken);
+        if (notification is null)
+        {
+            // Var olmayan bildirim: yetki katmani sizinti yapmaz, handler NotFound doner.
+            return Result.Success();
+        }
+
+        return AuthorizeOwner(notification.UserId);
+    }
+
+    private Result AuthorizeOwner(Guid userId)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var isSelf = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == userId;
+        return isSelf ? Result.Success() : Result.Failure(Forbidden);
+    }
+}

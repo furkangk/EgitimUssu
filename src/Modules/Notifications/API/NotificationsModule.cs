@@ -40,6 +40,15 @@ public sealed class NotificationsModule : ModuleDefinition
 
         group.MapDelete("/device-tokens/{token}", UnregisterDeviceTokenAsync)
         .WithSummary("Cihaz push token'ını devre dışı bırakır (çıkış)");
+
+        group.MapGet("/users/{userId:guid}/notifications", ListUserNotificationsAsync)
+        .WithSummary("Kullanıcının in-app bildirimlerini listeler (M11-3)");
+
+        group.MapGet("/users/{userId:guid}/unread-count", GetUnreadNotificationCountAsync)
+        .WithSummary("Okunmamış bildirim sayısını döndürür — rozet (M11-4)");
+
+        group.MapPost("/{notificationId:guid}/read", MarkNotificationReadAsync)
+        .WithSummary("Bildirimi okundu işaretler (M11-4)");
     }
 
     /// <summary>
@@ -76,6 +85,60 @@ public sealed class NotificationsModule : ModuleDefinition
 
         var result = await dispatcher.Dispatch(new UnregisterDeviceTokenCommand(userId, token), cancellationToken);
         return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Kullanıcının in-app bildirimlerini (en yeni önce) sayfalı listeler (M11-3).
+    /// Kullanıcı yalnız kendi bildirimlerini görür; Admin istisnadır.
+    /// </summary>
+    private static async Task<IResult> ListUserNotificationsAsync(
+        HttpContext context,
+        Guid userId,
+        bool onlyUnread,
+        int skip,
+        int take,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListUserNotificationsQuery(userId, onlyUnread, skip, take),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>Okunmamış bildirim sayısı — mobil rozet için (M11-4).</summary>
+    private static async Task<IResult> GetUnreadNotificationCountAsync(
+        HttpContext context,
+        Guid userId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetUnreadNotificationCountQuery(userId), cancellationToken);
+        return result.IsSuccess
+            ? Results.Ok(new UnreadNotificationCountResponse(result.Value))
+            : ToHttpResult(context, result);
+    }
+
+    /// <summary>Bildirimi okundu işaretler; tekrar çağrılırsa ilk okuma zamanı korunur (M11-4).</summary>
+    private static async Task<IResult> MarkNotificationReadAsync(
+        HttpContext context,
+        Guid notificationId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new MarkNotificationReadCommand(notificationId), cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok();
+        }
+
+        return result.Error.Code switch
+        {
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            "notifications.notification_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
     }
 
     /// <summary>
@@ -133,6 +196,9 @@ public sealed class NotificationsModule : ModuleDefinition
         };
     }
 }
+
+/// <summary>Okunmamış bildirim sayısı yanıtı — mobil rozet (M11-4).</summary>
+public sealed record UnreadNotificationCountResponse(int Count);
 
 /// <summary>Cihaz push token kayıt isteği (M11-2).</summary>
 public sealed record RegisterDeviceTokenRequest(Guid UserId, string Token, DevicePlatform Platform, string? DeviceName);

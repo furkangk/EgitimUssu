@@ -704,7 +704,14 @@ git commit -m "feat(notifications): hatirlatmalari gercek push ile gonder + gece
   - `GET /api/notifications/users/{userId}/unread-count` → `{ count: int }`
   - `POST /api/notifications/{notificationId}/read`
 
-- [ ] **Step 1: Testi yaz (kırmızı)**
+> **Sapma (uygulandı):** Uç adları plandan biraz farklı: rozet ucu `GET /users/{userId}/unread-count` gövdesi `{ "count": n }` olacak şekilde `UnreadNotificationCountResponse` döndürür (ham `int` yerine — istemcide alan adı sabit kalır). Sorgu/komut adları `GetUnreadNotificationCountQuery` / `MarkNotificationReadCommand`.
+> **Sapma (uygulandı):** `PagedResult<T>` `Page`/`PageSize` bekliyor, plan `skip`/`take` diyor. Uç `skip`/`take` alır, handler 1-tabanlı sayfayı türetir; `take` 1–100 arasına **clamp** edilir (varsayılan 20) — istemci sınırsız sayfa isteyemez.
+> **Sapma (uygulandı):** `MarkNotificationReadCommand` authorizer'ı bildirim yoksa **başarı** döner (sahiplik sızıntısı yapmamak için); 404'ü handler üretir. Sahiplik istemciden değil bildirimin `UserId`'sinden okunur.
+> **Sapma (uygulandı) — Step 5 daraltıldı:** Plan "ilgili öğrenci/öğretmen kullanıcısı için `UserNotification`" diyordu; `ParentEventNotificationHandler`'ın elinde **kullanıcı kimliği olarak yalnız `target.ParentUserId`** var (`StudentId` bir profil kimliği, `TeacherUserId` ise olayın *üreticisi* — kendi eylemini kendine bildirmek anlamsız). Bu yüzden `UserNotification` her veli hedefi için üretiliyor; öğrenci/öğretmen akışları `StudentId → UserId` eşlemesi (P07) ve öğretmen MVP'si (P06) ile gelecek.
+> **Sapma (uygulandı):** Push, olay tüketicisinde **senkron gönderilmiyor** (plan da bunu istiyordu): `UserNotification.PushedOnUtc` alanı eklendi ve `NotificationDispatchProcessor.DispatchPendingUserNotificationsAsync` turu (tur başına en fazla 100 kayıt) bunları gönderiyor. `PushedOnUtc` yalnız gerçekten teslim edilince yazılır; cihazı olmayan kayıt kuyruğu tıkamamak için işaretlenir.
+> **Sapma (uygulandı) — plan eksiği:** Plan 1 test öngörüyordu; 17 test yazıldı (13 `UserNotificationTests` + 3 dispatcher push turu + 1 olay tüketicisi `UserNotification` üretimi).
+
+- [x] **Step 1: Testi yaz (kırmızı)**
 
 `tests/Unit/UserNotificationTests.cs`:
 ```csharp
@@ -724,7 +731,7 @@ public void MarkRead_Should_Set_ReadOn_Once()
 }
 ```
 
-- [ ] **Step 2: Kırmızı gör → domain'i yaz → yeşil**
+- [x] **Step 2: Kırmızı gör → domain'i yaz → yeşil**
 
 Run (önce): `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~UserNotificationTests"` → FAIL
 Domain:
@@ -776,7 +783,7 @@ public sealed class UserNotification : AggregateRoot<Guid>
 ```
 Run (sonra): aynı komut → PASS.
 
-- [ ] **Step 3: Query/command + handler + authorizer + repository**
+- [x] **Step 3: Query/command + handler + authorizer + repository**
 
 - `ListUserNotificationsQuery(Guid UserId, bool OnlyUnread, int Skip, int Take) : IQuery<Result<PagedResult<UserNotificationResponse>>>`
 - `GetUnreadCountQuery(Guid UserId) : IQuery<Result<int>>`
@@ -785,19 +792,19 @@ Run (sonra): aynı komut → PASS.
 - `IUserNotificationRepository`: `ListAsync`, `CountUnreadAsync`, `GetByIdAsync`, `AddAsync`, `SaveChangesAsync`.
 - `PagedResult<T>` `Shared.Kernel`'de mevcut; onu kullan.
 
-- [ ] **Step 4: Endpoint'ler + DbContext + migration**
+- [x] **Step 4: Endpoint'ler + DbContext + migration**
 
 `NotificationsModule.cs`'e 3 endpoint (hepsi `RequireAuthorization("AuthenticatedUser")`).
 `NotificationsDbContext` → `DbSet<UserNotification>` + `user_notifications` tablosu; `HasIndex(e => new { e.UserId, e.ReadOnUtc })`.
 Run: `dotnet ef migrations add AddUserNotifications --project src/Modules/Notifications/Infrastructure --startup-project src/API.Host --context NotificationsDbContext`
 
-- [ ] **Step 5: Olay tüketicilerini `UserNotification` üretecek şekilde genişlet**
+- [x] **Step 5: Olay tüketicilerini `UserNotification` üretecek şekilde genişlet**
 
 `ParentEventNotificationHandler.cs` (ve kardeşleri) `IdempotentIntegrationEventHandler` tabanını korur; `ApplyAsync` içinde veli bildirimine **ek olarak** ilgili öğrenci/öğretmen kullanıcısı için `UserNotification` stage eder ve mümkünse push kuyruğuna düşer. Push gönderimi handler içinde **senkron yapılmaz**; `UserNotification` yazılır, `NotificationDispatcher` turu bunu da alır (aynı `IPushSender` yolu).
 
 > Bu adımda yeni bir arka plan servisi yazma: `NotificationDispatcher`'ın döngüsüne "gönderilmemiş `UserNotification`'ları da gönder" adımını ekle ve `UserNotification`'a `DateTime? PushedOnUtc` alanı koy.
 
-- [ ] **Step 6: Testler + commit**
+- [x] **Step 6: Testler + commit**
 
 Run: `dotnet test EgitimUssu.slnx`
 ```bash

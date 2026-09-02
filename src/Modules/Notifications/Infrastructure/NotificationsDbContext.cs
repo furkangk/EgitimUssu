@@ -23,6 +23,8 @@ public sealed class NotificationsDbContext : ModuleDbContext
 
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+
     public DbSet<ProcessedIntegrationEvent> ProcessedIntegrationEvents => Set<ProcessedIntegrationEvent>();
 
     protected override string Schema => SchemaName;
@@ -93,5 +95,26 @@ internal sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<Device
         builder.Property(entity => entity.LastSeenOnUtc).IsRequired();
         builder.HasIndex(entity => entity.Token).IsUnique();
         builder.HasIndex(entity => new { entity.UserId, entity.IsActive });
+    }
+}
+
+/// <summary>M11-3: Rolden bağımsız in-app bildirim. Rozet sorgusu (UserId + okunmamış) indeksli.</summary>
+internal sealed class UserNotificationConfiguration : IEntityTypeConfiguration<UserNotification>
+{
+    public void Configure(EntityTypeBuilder<UserNotification> builder)
+    {
+        builder.ToTable("user_notifications");
+        builder.HasKey(entity => entity.Id);
+        // Id istemcide IIdGenerator ile üretiliyor; EF'in OnAdd sayması güncelleme senaryosunu bozar (Öğrenilenler #3).
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(entity => entity.UserId).IsRequired();
+        builder.Property(entity => entity.Kind).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
+        builder.Property(entity => entity.Body).HasMaxLength(1000).IsRequired();
+        builder.Property(entity => entity.Route).HasMaxLength(256);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Ignore(entity => entity.IsRead);
+        builder.HasIndex(entity => new { entity.UserId, entity.ReadOnUtc });
+        builder.HasIndex(entity => entity.PushedOnUtc);
     }
 }

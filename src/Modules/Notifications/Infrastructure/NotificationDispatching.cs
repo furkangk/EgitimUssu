@@ -10,6 +10,9 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure;
 public interface INotificationDispatchProcessor
 {
     Task<int> DispatchDueRemindersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>M11-3: Henüz push edilmemiş in-app bildirimleri cihazlara gönderir.</summary>
+    Task<int> DispatchPendingUserNotificationsAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -20,19 +23,25 @@ public interface INotificationDispatchProcessor
 /// </summary>
 public sealed class NotificationDispatchProcessor : INotificationDispatchProcessor
 {
+    /// <summary>Tek turda gönderilecek in-app bildirim üst sınırı (tur süresini sınırlar).</summary>
+    private const int PendingUserNotificationBatchSize = 100;
+
     private readonly ILessonReminderRepository _repository;
     private readonly IDeviceTokenRepository _deviceTokens;
+    private readonly IUserNotificationRepository _userNotifications;
     private readonly IPushSender _pushSender;
     private readonly EgitimUssu.Shared.Kernel.IClock _clock;
 
     public NotificationDispatchProcessor(
         ILessonReminderRepository repository,
         IDeviceTokenRepository deviceTokens,
+        IUserNotificationRepository userNotifications,
         IPushSender pushSender,
         EgitimUssu.Shared.Kernel.IClock clock)
     {
         _repository = repository;
         _deviceTokens = deviceTokens;
+        _userNotifications = userNotifications;
         _pushSender = pushSender;
         _clock = clock;
     }
@@ -108,6 +117,74 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
         return sentCount;
     }
+
+    /// <summary>
+    /// M11-3: In-app bildirim yazıldığı anda push gönderilmez (olay tüketicisi senkron ağ çağrısı yapmaz);
+    /// bu tur onları toplu gönderir. <c>PushedOnUtc</c> yalnız gerçekten teslim edilince yazılır —
+    /// başarısız olan bir sonraki turda tekrar denenir, teslim edilen ikinci kez gönderilmez.
+    /// </summary>
+    public async Task<int> DispatchPendingUserNotificationsAsync(CancellationToken cancellationToken = default)
+    {
+        var now = _clock.UtcNow;
+        var pending = await _userNotifications.ListPendingPushAsync(PendingUserNotificationBatchSize, cancellationToken);
+        if (pending.Count == 0)
+        {
+            return 0;
+        }
+
+        var pushedCount = 0;
+
+        foreach (var notification in pending)
+        {
+            var tokens = await _deviceTokens.ListActiveByUserAsync(notification.UserId, cancellationToken);
+            if (tokens.Count == 0)
+            {
+                // Cihazı yok: in-app kaydı durur, push kuyruğunu tıkamaması için gönderilmiş sayılır.
+                notification.MarkPushed(now);
+                continue;
+            }
+
+            var anyDelivered = false;
+
+            foreach (var token in tokens)
+            {
+                var data = new Dictionary<string, string> { ["kind"] = notification.Kind.ToString() };
+                if (!string.IsNullOrWhiteSpace(notification.Route))
+                {
+                    data["route"] = notification.Route;
+                }
+
+                var result = await _pushSender.SendAsync(
+                    token.Token,
+                    new PushMessage(notification.Title, notification.Body, data),
+                    cancellationToken);
+
+                switch (result.Status)
+                {
+                    case PushDeliveryStatus.Delivered:
+                        anyDelivered = true;
+                        break;
+                    case PushDeliveryStatus.TokenInvalid:
+                        token.Deactivate(now);
+                        break;
+                    case PushDeliveryStatus.TransientFailure:
+                    default:
+                        break;
+                }
+            }
+
+            if (anyDelivered)
+            {
+                notification.MarkPushed(now);
+                pushedCount++;
+            }
+        }
+
+        await _userNotifications.SaveChangesAsync(cancellationToken);
+        await _deviceTokens.SaveChangesAsync(cancellationToken);
+
+        return pushedCount;
+    }
 }
 
 internal sealed class NotificationDispatcher : BackgroundService
@@ -131,6 +208,7 @@ internal sealed class NotificationDispatcher : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var processor = scope.ServiceProvider.GetRequiredService<INotificationDispatchProcessor>();
                 await processor.DispatchDueRemindersAsync(stoppingToken);
+                await processor.DispatchPendingUserNotificationsAsync(stoppingToken);
             }
             catch (Exception exception)
             {

@@ -295,3 +295,74 @@ public sealed class DeviceToken : AggregateRoot<Guid>
         LastSeenOnUtc = nowUtc;
     }
 }
+
+/// <summary>Rolden bağımsız in-app bildirim türü (M11-3).</summary>
+public enum UserNotificationKind
+{
+    LessonReminder = 1,
+    AssignmentCreated = 2,
+    AssignmentDue = 3,
+    AssignmentMissed = 4,
+    PaymentDue = 5,
+    PaymentOverdue = 6,
+    LessonCompleted = 7,
+    MessageReceived = 8,
+    System = 9
+}
+
+/// <summary>
+/// Rolden bağımsız in-app bildirim (M11-3/M11-4). Veli-özel <see cref="ParentNotification"/> korunur;
+/// yeni akışlar bu genel tipi üretir — öğrenci, öğretmen ve veli aynı bildirim merkezini kullanır.
+/// <see cref="PushedOnUtc"/> alanı, aynı kaydın <c>NotificationDispatcher</c> turunda bir kez push
+/// edilmesini sağlar (çift bildirim yok).
+/// </summary>
+public sealed class UserNotification : AggregateRoot<Guid>
+{
+    private UserNotification()
+    {
+    }
+
+    public UserNotification(
+        Guid id,
+        Guid userId,
+        UserNotificationKind kind,
+        string title,
+        string body,
+        string? route,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        UserId = userId;
+        Kind = kind;
+        Title = title;
+        Body = body;
+        Route = route;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid UserId { get; private set; }
+
+    public UserNotificationKind Kind { get; private set; }
+
+    public string Title { get; private set; } = string.Empty;
+
+    public string Body { get; private set; } = string.Empty;
+
+    /// <summary>Mobilde dokunulunca gidilecek rota (ör. "/student/assignments").</summary>
+    public string? Route { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    public DateTime? ReadOnUtc { get; private set; }
+
+    /// <summary>Push olarak gönderildiği an; <c>null</c> ise dispatcher turunda gönderilecek.</summary>
+    public DateTime? PushedOnUtc { get; private set; }
+
+    public bool IsRead => ReadOnUtc.HasValue;
+
+    /// <summary>Okundu işareti idempotenttir; ilk okuma zamanı korunur.</summary>
+    public void MarkRead(DateTime nowUtc) => ReadOnUtc ??= nowUtc;
+
+    /// <summary>Push gönderimi idempotenttir; aynı bildirim iki kez push edilmez.</summary>
+    public void MarkPushed(DateTime nowUtc) => PushedOnUtc ??= nowUtc;
+}

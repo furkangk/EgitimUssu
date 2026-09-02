@@ -20,18 +20,21 @@ public sealed class ParentEventNotificationHandler : IdempotentIntegrationEventH
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IParentNotificationDirectory _directory;
     private readonly IParentNotificationRepository _repository;
+    private readonly IUserNotificationRepository _userNotifications;
     private readonly IIdGenerator _idGenerator;
 
     public ParentEventNotificationHandler(
         NotificationsDbContext dbContext,
         IParentNotificationDirectory directory,
         IParentNotificationRepository repository,
+        IUserNotificationRepository userNotifications,
         IIdGenerator idGenerator,
         IClock clock)
         : base(dbContext, clock)
     {
         _directory = directory;
         _repository = repository;
+        _userNotifications = userNotifications;
         _idGenerator = idGenerator;
     }
 
@@ -74,12 +77,45 @@ public sealed class ParentEventNotificationHandler : IdempotentIntegrationEventH
             await _repository.AddAsync(
                 new ParentNotification(_idGenerator.New(), target.ParentUserId, studentId, type, title, message, Clock.UtcNow),
                 cancellationToken);
+
+            // M11-3: Aynı olay, rolden bağımsız bildirim merkezine de yazılır. Push burada gönderilmez —
+            // NotificationDispatcher turu PushedOnUtc'si boş kayıtları toplu gönderir (senkron ağ çağrısı yok).
+            await _userNotifications.AddAsync(
+                new UserNotification(
+                    _idGenerator.New(),
+                    target.ParentUserId,
+                    ToKind(type),
+                    title,
+                    message,
+                    RouteFor(type),
+                    Clock.UtcNow),
+                cancellationToken);
         }
 
         // Eski davranışla birebir: hedef bulunamasa/hepsi Premium-dışı veya tercih-kapalı olsa bile
         // olay "işlenmiş" sayılır (eskiden MarkProcessed koşulsuzdu) → inbox'a yazılır, tekrar denenmez.
         return true;
     }
+
+    /// <summary>Veli-özel bildirim türünü genel bildirim merkezi türüne eşler (M11-3).</summary>
+    private static UserNotificationKind ToKind(ParentNotificationType type)
+        => type switch
+        {
+            ParentNotificationType.NewAssignment => UserNotificationKind.AssignmentCreated,
+            ParentNotificationType.LessonCompleted => UserNotificationKind.LessonCompleted,
+            ParentNotificationType.PaymentUpdate => UserNotificationKind.PaymentDue,
+            _ => UserNotificationKind.System
+        };
+
+    /// <summary>Bildirime dokunulunca mobilde açılacak rota (derin bağlantı verisi).</summary>
+    private static string? RouteFor(ParentNotificationType type)
+        => type switch
+        {
+            ParentNotificationType.NewAssignment => "/parent/assignments",
+            ParentNotificationType.LessonCompleted => "/parent/lessons",
+            ParentNotificationType.PaymentUpdate => "/parent/payments",
+            _ => "/parent/notifications"
+        };
 
     private static (Guid StudentId, ParentNotificationType Type, Func<ParentNotificationPrefs, bool>? RequiredPref, string Title, string Message)? Map(IntegrationEvent envelope)
     {

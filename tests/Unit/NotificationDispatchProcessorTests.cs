@@ -106,11 +106,84 @@ public sealed class NotificationDispatchProcessorTests
         Assert.Equal(1, sentCount);
     }
 
+    [Fact]
+    public async Task Pending_User_Notification_Should_Be_Pushed_And_Marked()
+    {
+        var userId = Guid.NewGuid();
+        var notification = CreateUserNotification(userId);
+        var userNotifications = new UserNotificationTests.FakeUserNotificationRepository(notification);
+        var sender = new FakePushSender(PushDeliveryStatus.Delivered);
+        var processor = CreateProcessor(
+            CreateReminder(out _),
+            new FakeDeviceTokenRepository(CreateToken(userId, "token-1")),
+            sender,
+            userNotifications);
+
+        var pushedCount = await processor.DispatchPendingUserNotificationsAsync();
+
+        Assert.Equal(1, pushedCount);
+        Assert.Equal(Now, notification.PushedOnUtc);
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Equal("/student/assignments", message.Data["route"]);
+        Assert.Equal("AssignmentCreated", message.Data["kind"]);
+    }
+
+    [Fact]
+    public async Task Failed_User_Notification_Push_Should_Stay_Pending()
+    {
+        var userId = Guid.NewGuid();
+        var notification = CreateUserNotification(userId);
+        var sender = new FakePushSender(PushDeliveryStatus.TransientFailure, "503");
+        var processor = CreateProcessor(
+            CreateReminder(out _),
+            new FakeDeviceTokenRepository(CreateToken(userId, "token-1")),
+            sender,
+            new UserNotificationTests.FakeUserNotificationRepository(notification));
+
+        var pushedCount = await processor.DispatchPendingUserNotificationsAsync();
+
+        Assert.Equal(0, pushedCount);
+        Assert.Null(notification.PushedOnUtc);
+    }
+
+    [Fact]
+    public async Task User_Notification_Without_Device_Should_Not_Block_Queue()
+    {
+        var notification = CreateUserNotification(Guid.NewGuid());
+        var sender = new FakePushSender(PushDeliveryStatus.Delivered);
+        var processor = CreateProcessor(
+            CreateReminder(out _),
+            new FakeDeviceTokenRepository(),
+            sender,
+            new UserNotificationTests.FakeUserNotificationRepository(notification));
+
+        await processor.DispatchPendingUserNotificationsAsync();
+
+        Assert.Empty(sender.SentTokens);
+        Assert.Equal(Now, notification.PushedOnUtc);
+    }
+
+    private static UserNotification CreateUserNotification(Guid userId)
+        => new(
+            Guid.NewGuid(),
+            userId,
+            UserNotificationKind.AssignmentCreated,
+            "Yeni ödev",
+            "Matematik ödevi eklendi",
+            "/student/assignments",
+            Now.AddMinutes(-5));
+
     private static NotificationDispatchProcessor CreateProcessor(
         LessonReminder reminder,
         FakeDeviceTokenRepository deviceTokens,
-        FakePushSender sender)
-        => new(new FakeLessonReminderRepository(reminder), deviceTokens, sender, new FixedClock(Now));
+        FakePushSender sender,
+        UserNotificationTests.FakeUserNotificationRepository? userNotifications = null)
+        => new(
+            new FakeLessonReminderRepository(reminder),
+            deviceTokens,
+            userNotifications ?? new UserNotificationTests.FakeUserNotificationRepository(),
+            sender,
+            new FixedClock(Now));
 
     private static LessonReminder CreateReminder(out Guid teacherUserId)
     {

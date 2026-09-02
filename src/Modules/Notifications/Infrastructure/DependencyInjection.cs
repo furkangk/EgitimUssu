@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<ILessonReminderRepository, LessonReminderRepository>();
         services.AddScoped<IParentNotificationRepository, ParentNotificationRepository>();
         services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+        services.AddScoped<IUserNotificationRepository, UserNotificationRepository>();
         services.AddScoped<INotificationDispatchProcessor, NotificationDispatchProcessor>();
         services.AddScoped<ICommandHandler<RegisterDeviceTokenCommand, Result>, RegisterDeviceTokenCommandHandler>();
         services.AddScoped<ICommandHandler<UnregisterDeviceTokenCommand, Result>, UnregisterDeviceTokenCommandHandler>();
@@ -24,6 +25,12 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListTeacherLessonRemindersQuery, Result<IReadOnlyCollection<LessonReminderResponse>>>, ListTeacherLessonRemindersQueryHandler>();
         services.AddScoped<IQueryValidator<ListTeacherLessonRemindersQuery>, ListTeacherLessonRemindersQueryValidator>();
         services.AddScoped<IQueryAuthorizer<ListTeacherLessonRemindersQuery>, LessonReminderQueryAuthorizer>();
+        services.AddScoped<IQueryHandler<ListUserNotificationsQuery, Result<PagedResult<UserNotificationResponse>>>, ListUserNotificationsQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<ListUserNotificationsQuery>, UserNotificationAuthorizer>();
+        services.AddScoped<IQueryHandler<GetUnreadNotificationCountQuery, Result<int>>, GetUnreadNotificationCountQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetUnreadNotificationCountQuery>, UserNotificationAuthorizer>();
+        services.AddScoped<ICommandHandler<MarkNotificationReadCommand, Result>, MarkNotificationReadCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<MarkNotificationReadCommand>, UserNotificationAuthorizer>();
         services.AddScoped<IQueryHandler<ListParentNotificationsQuery, Result<IReadOnlyCollection<ParentNotificationResponse>>>, ListParentNotificationsQueryHandler>();
         services.AddScoped<IQueryAuthorizer<ListParentNotificationsQuery>, LessonReminderQueryAuthorizer>();
         // Ç-06: Kendi ders hatırlatmaları da LessonScheduledDomainEvent (teacher null) üzerinden üretilir;
