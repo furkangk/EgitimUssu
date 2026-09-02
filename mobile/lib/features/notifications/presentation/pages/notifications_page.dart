@@ -2,90 +2,105 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
+import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notification_center_cubit.dart';
+import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notification_center_state.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
-import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_state.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
+/// D-11 / M11-3 / M11-4: Rolden bağımsız bildirim merkezi.
+/// "Tümü / Okunmamış" filtresi, okundu işareti ve `route` ile derin bağlantı.
 class NotificationsPage extends StatelessWidget {
-  const NotificationsPage({super.key});
+  const NotificationsPage({super.key, this.cubit});
+
+  /// Testlerde hazır bir cubit verilebilir; üretimde DI'dan üretilir.
+  final NotificationCenterCubit? cubit;
 
   @override
   Widget build(BuildContext context) {
-    final teacherUserId = context.select(
-      (AuthCubit c) => c.state.session?.userId ?? 'mock-teacher-user',
-    );
+    final userId = context.select((AuthCubit c) => c.state.session?.userId);
 
-    return BlocProvider(
-      create: (_) => NotificationsCubit.create()..load(teacherUserId),
-      child: Scaffold(
+    if (userId == null) {
+      return const Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
-          child: Column(
-            children: [
-              _Header(),
-              Expanded(
-                child: BlocBuilder<NotificationsCubit, NotificationsState>(
-                  builder: (context, state) {
-                    if (state.isLoading) {
-                      return const LoadingStateView();
-                    }
-                    if (state.errorMessage != null) {
-                      return ErrorStateView(
-                        message: state.errorMessage!,
-                        onRetry: () => context.read<NotificationsCubit>().load(
-                          teacherUserId,
+          child: EmptyStateView(
+            title: 'Bildirim yok',
+            subtitle: 'Bildirimleri görmek için giriş yapmalısın.',
+          ),
+        ),
+      );
+    }
+
+    return BlocProvider<NotificationCenterCubit>(
+      create: (_) =>
+          (cubit ?? NotificationCenterCubit.create())..load(userId),
+      // Okundu işaretlendiğinde uygulama genelindeki zil rozeti de anında düşsün.
+      child: BlocListener<NotificationCenterCubit, NotificationCenterState>(
+        listenWhen: (previous, current) =>
+            previous.unreadCount != current.unreadCount,
+        listener: (context, state) {
+          final badge = context.read<NotificationsCubit?>();
+          badge?.setUnreadCount(state.unreadCount);
+        },
+        child: const _NotificationsView(),
+      ),
+    );
+  }
+}
+
+class _NotificationsView extends StatelessWidget {
+  const _NotificationsView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const _Header(),
+            const _FilterTabs(),
+            Expanded(
+              child:
+                  BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+                    builder: (context, state) {
+                      if (state.isLoading) {
+                        return const LoadingStateView();
+                      }
+                      if (state.errorMessage != null) {
+                        return ErrorStateView(
+                          message: state.errorMessage!,
+                          onRetry: () =>
+                              context.read<NotificationCenterCubit>().refresh(),
+                        );
+                      }
+                      if (state.items.isEmpty) {
+                        return EmptyStateView(
+                          title: 'Henüz bildirimin yok',
+                          subtitle: state.onlyUnread
+                              ? 'Okunmamış bildirimin yok.'
+                              : 'Ders, ödev ve ödeme bildirimleri burada görünecek.',
+                        );
+                      }
+
+                      return RefreshIndicator(
+                        color: AppColors.primary,
+                        onRefresh: () =>
+                            context.read<NotificationCenterCubit>().refresh(),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                          itemCount: state.items.length,
+                          itemBuilder: (context, index) =>
+                              _NotificationCard(item: state.items[index]),
                         ),
                       );
-                    }
-                    if (state.reminders.isEmpty) {
-                      return const EmptyStateView(
-                        title: 'Bildirim yok',
-                        subtitle: 'Ders hatırlatmaları burada görünecek.',
-                      );
-                    }
-                    return RefreshIndicator(
-                      color: AppColors.primary,
-                      onRefresh: () => context
-                          .read<NotificationsCubit>()
-                          .refresh(teacherUserId),
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                        children: [
-                          if (state.pending.isNotEmpty) ...[
-                            _SectionLabel(
-                              label: 'Yaklaşan (${state.pending.length})',
-                              color: AppColors.accentOrange,
-                            ),
-                            const SizedBox(height: 8),
-                            ...state.pending.map(
-                              (r) =>
-                                  _ReminderCard(reminder: r, isPending: true),
-                            ),
-                          ],
-                          if (state.past.isNotEmpty) ...[
-                            if (state.pending.isNotEmpty)
-                              const SizedBox(height: 20),
-                            _SectionLabel(
-                              label: 'Geçmiş',
-                              color: AppColors.textSecondary,
-                            ),
-                            const SizedBox(height: 8),
-                            ...state.past.map(
-                              (r) =>
-                                  _ReminderCard(reminder: r, isPending: false),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+                    },
+                  ),
+            ),
+          ],
         ),
       ),
     );
@@ -93,6 +108,8 @@ class NotificationsPage extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
+  const _Header();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -133,11 +150,18 @@ class _Header extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                BlocBuilder<NotificationsCubit, NotificationsState>(
+                BlocBuilder<
+                  NotificationCenterCubit,
+                  NotificationCenterState
+                >(
+                  buildWhen: (previous, current) =>
+                      previous.unreadCount != current.unreadCount,
                   builder: (context, state) {
-                    if (state.unreadCount == 0) return const SizedBox.shrink();
+                    if (state.unreadCount == 0) {
+                      return const SizedBox.shrink();
+                    }
                     return Text(
-                      '${state.unreadCount} bekleyen',
+                      '${state.unreadCount} okunmamış',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -158,165 +182,213 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, required this.color});
-
-  final String label;
-  final Color color;
+class _FilterTabs extends StatelessWidget {
+  const _FilterTabs();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+    return BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+      buildWhen: (previous, current) =>
+          previous.onlyUnread != current.onlyUnread,
+      builder: (context, state) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              _FilterChip(
+                label: 'Tümü',
+                selected: !state.onlyUnread,
+                onTap: () =>
+                    context.read<NotificationCenterCubit>().setOnlyUnread(false),
+              ),
+              const SizedBox(width: 8),
+              _FilterChip(
+                label: 'Okunmamış',
+                selected: state.onlyUnread,
+                onTap: () =>
+                    context.read<NotificationCenterCubit>().setOnlyUnread(true),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
 
-class _ReminderCard extends StatelessWidget {
-  const _ReminderCard({required this.reminder, required this.isPending});
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final LessonReminder reminder;
-  final bool isPending;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = isPending ? AppColors.primary : AppColors.accentGreen;
-    final bgColor = isPending
-        ? AppColors.primaryLight
-        : const Color(0xFFEAF7F2);
-    final iconData = isPending
-        ? Icons.notifications_active_rounded
-        : Icons.check_circle_rounded;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: selected ? Colors.white : AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({required this.item});
+
+  final UserNotification item;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = item.isRead
+        ? AppColors.textSecondary
+        : AppColors.primary;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: item.isRead ? AppColors.border : AppColors.primary,
+        ),
         boxShadow: AppShadows.soft,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _onTap(context),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: item.isRead
+                      ? AppColors.background
+                      : AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(_iconFor(item.kind), color: accentColor, size: 20),
               ),
-              child: Icon(iconData, color: accentColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          reminder.title,
-                          style: Theme.of(context).textTheme.titleSmall
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: item.isRead
+                                      ? FontWeight.w600
+                                      : FontWeight.w800,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _relativeTime(item.createdOnUtc),
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
                               ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatTime(reminder.remindAtUtc),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    reminder.message,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.45,
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 12,
+                    const SizedBox(height: 4),
+                    Text(
+                      item.body,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
+                        height: 1.45,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Ders: ${_formatLesson(reminder.scheduledLessonStartAtUtc)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              if (!item.isRead) ...[
+                const SizedBox(width: 8),
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(top: 6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final local = dt.toLocal();
-    final diff = now.difference(local);
+  void _onTap(BuildContext context) {
+    context.read<NotificationCenterCubit>().markRead(item.id);
 
-    if (diff.inSeconds < 0) {
-      final future = local.difference(now);
-      if (future.inMinutes < 60) return '${future.inMinutes} dk sonra';
-      if (future.inHours < 24) return '${future.inHours} sa sonra';
-      return '${future.inDays} gün sonra';
+    final route = item.route;
+    if (route != null && route.isNotEmpty) {
+      context.push(route);
     }
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
-    if (diff.inHours < 24) return '${diff.inHours} sa önce';
-    return '${diff.inDays} gün önce';
   }
 
-  String _formatLesson(DateTime dt) {
-    final local = dt.toLocal();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    final day = DateTime(local.year, local.month, local.day);
+  static IconData _iconFor(String kind) {
+    switch (kind) {
+      case 'LessonReminder':
+      case 'LessonCompleted':
+        return Icons.event_available_rounded;
+      case 'AssignmentCreated':
+      case 'AssignmentDue':
+      case 'AssignmentMissed':
+        return Icons.assignment_rounded;
+      case 'PaymentDue':
+      case 'PaymentOverdue':
+        return Icons.payments_rounded;
+      case 'MessageReceived':
+        return Icons.chat_bubble_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
 
-    final timeStr = DateFormat('HH:mm').format(local);
-    if (day == today) return 'Bugün $timeStr';
-    if (day == tomorrow) return 'Yarın $timeStr';
-    return DateFormat('d MMM HH:mm', 'tr_TR').format(local);
+  static String _relativeTime(DateTime createdOnUtc) {
+    final diff = DateTime.now().difference(createdOnUtc.toLocal());
+
+    if (diff.inMinutes < 1) return 'az önce';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
+    if (diff.inHours < 24) return '${diff.inHours} sa önce';
+    if (diff.inDays < 7) return '${diff.inDays} gün önce';
+    return '${(diff.inDays / 7).floor()} hf önce';
   }
 }

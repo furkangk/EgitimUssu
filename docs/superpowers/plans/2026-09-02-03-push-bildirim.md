@@ -938,14 +938,20 @@ git commit -m "feat(mobile): FCM push entegrasyonu + cihaz token kaydi (A-04)"
 - Produces: `NotificationRepository.listUserNotifications({required String userId, bool onlyUnread, int skip, int take})`, `unreadCount(String userId)`, `markRead(String notificationId)`.
 - `NotificationCenterCubit` durumları: `loading | loaded(items, unreadCount) | failure(message)`; `markRead(id)` iyimser günceller.
 
-- [ ] **Step 1: Cubit testini yaz (kırmızı)** — `loaded` sonrası `markRead` çağrısında `unreadCount` bir azalmalı ve ilgili öğe `isRead: true` olmalı.
-- [ ] **Step 2: Çalıştır, kırmızı gör** — Run: `cd mobile && flutter test test/features/notifications/notification_center_cubit_test.dart`
-- [ ] **Step 3: Model + repository metotlarını yaz** (mevcut `notification_repository_impl.dart` desenine uy; **mock fallback ekleme** — A-05 kararı).
-- [ ] **Step 4: Cubit'i yaz** ve testi yeşile al.
-- [ ] **Step 5: `notifications_page.dart`'ı bildirim merkezine çevir** — sekmeler "Tümü / Okunmamış", öğe kartında ikon (kind'e göre), başlık, gövde, göreli zaman; dokununca `route` varsa oraya git + `markRead`. Boş durum: "Henüz bildirimin yok."
-- [ ] **Step 6: Rozet** — öğretmen dashboard ve öğrenci ana ekranındaki bildirim ikonuna okunmamış sayısı rozeti (`unreadCount`).
-- [ ] **Step 7: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 8: Doküman + commit**
+> **Sapma (uygulandı):** Rozet ayrı ekranlara eklenmedi — zaten **ortak** `shared/widgets/app_page_header.dart` içindeki zilde vardı ama sayıyı *bekleyen ders hatırlatması*ndan türetiyordu (yalnız öğretmende anlamlı). `NotificationsState.unreadCount` artık gerçek `GET /users/{userId}/unread-count` sonucudur → **tek değişiklikle üç rolde de doğru**. Öğretmen `dashboard_page.dart` / öğrenci `student_home_page.dart` dosyalarına dokunmaya gerek kalmadı.
+> **Sapma (uygulandı):** Bildirim merkezinde okundu işaretlenince `BlocListener` uygulama genelindeki `NotificationsCubit.setUnreadCount(n)`'i çağırıyor — iki cubit ayrı olduğu için rozet aksi halde bayat kalırdı.
+> **Sapma (uygulandı):** `markRead` iyimser güncellemesi **geri alınabilir**: sunucu reddederse liste ve sayı eski haline döner (kullanıcı yanlış bilgilenmesin).
+> **Sapma (uygulandı) — plan dışı, gerekli:** `test/widget_test.dart` ve `scheduling_page_test.dart` içindeki yerel `_FakeNotificationRepository` sahteleri arayüz büyüyünce derlenmez oldu; Öğrenilenler #8 gereği ortak `test/helpers/fake_notification_repository.dart`'a taşındı.
+> **Sapma (uygulandı) — plan eksiği:** Plan 1 cubit testi öngörüyordu; 10 test yazıldı (7 cubit + 3 widget: liste+rozet, dokunma→okundu+rozet düşüşü, boş durum).
+
+- [x] **Step 1: Cubit testini yaz (kırmızı)** — `loaded` sonrası `markRead` çağrısında `unreadCount` bir azalmalı ve ilgili öğe `isRead: true` olmalı.
+- [x] **Step 2: Çalıştır, kırmızı gör** — Run: `cd mobile && flutter test test/features/notifications/notification_center_cubit_test.dart`
+- [x] **Step 3: Model + repository metotlarını yaz** (mevcut `notification_repository_impl.dart` desenine uy; **mock fallback ekleme** — A-05 kararı).
+- [x] **Step 4: Cubit'i yaz** ve testi yeşile al.
+- [x] **Step 5: `notifications_page.dart`'ı bildirim merkezine çevir** — sekmeler "Tümü / Okunmamış", öğe kartında ikon (kind'e göre), başlık, gövde, göreli zaman; dokununca `route` varsa oraya git + `markRead`. Boş durum: "Henüz bildirimin yok."
+- [x] **Step 6: Rozet** — öğretmen dashboard ve öğrenci ana ekranındaki bildirim ikonuna okunmamış sayısı rozeti (`unreadCount`).
+- [x] **Step 7: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
+- [x] **Step 8: Doküman + commit**
 
 ```bash
 git add mobile doc/pages

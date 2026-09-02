@@ -1,5 +1,4 @@
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
-import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
@@ -8,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../../helpers/fake_notification_repository.dart';
 import '../../../../helpers/fake_scheduling_repository.dart';
 
 void main() {
@@ -24,7 +24,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       BlocProvider<NotificationsCubit>(
-        create: (_) => NotificationsCubit(_FakeNotificationRepository()),
+        create: (_) => NotificationsCubit(FakeNotificationRepository()),
         child: const MaterialApp(home: SchedulingPage()),
       ),
     );
@@ -37,16 +37,6 @@ void main() {
     expect(find.text('Etkinlik ekle'), findsNothing);
     expect(find.text('Ders Ekle'), findsOneWidget);
   });
-}
-
-class _FakeNotificationRepository implements NotificationRepository {
-  @override
-  Future<List<LessonReminder>> listReminders({
-    required String teacherUserId,
-    bool activeOnly = false,
-  }) async {
-    return const <LessonReminder>[];
-  }
 }
 
 class _FakeStudentRepository implements StudentRepository {
