@@ -39,7 +39,7 @@
   - `GET /api/settings/users/{userId}` · `PUT /api/settings/users/{userId}`
   - `UserSetting.UpdatePreferences(...)` domain metodu (`SetStudySharing` ile aynı desende, `LastUpdatedOnUtc` günceller).
 
-- [ ] **Step 1: Domain testini yaz (kırmızı)**
+- [x] **Step 1: Domain testini yaz (kırmızı)**
 
 `tests/Unit/UserSettingTests.cs` içine:
 ```csharp
@@ -71,9 +71,9 @@ public void UpdatePreferences_Should_Change_Flags_And_Timestamp()
 }
 ```
 
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~UserSettingTests"`
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~UserSettingTests"`
 
-- [ ] **Step 3: Domain metodunu yaz**
+- [x] **Step 3: Domain metodunu yaz**
 
 `src/Modules/Settings/Domain/SettingsDomainModel.cs`, `SetStudySharing`'in altına:
 ```csharp
@@ -106,7 +106,7 @@ public void UpdatePreferences_Should_Change_Flags_And_Timestamp()
             PrivacyLevel.Standard, SessionTerminationPolicy.KeepLatest, nowUtc);
 ```
 
-- [ ] **Step 4: Query/command + handler + authorizer'ları yaz**
+- [x] **Step 4: Query/command + handler + authorizer'ları yaz**
 
 `SettingsFeatures.cs` — `SetStudySharingCommandHandler` desenini izle:
 - `GetUserSettingsQueryHandler`: kayıt yoksa `UserSetting.Default(...)` map'ler.
@@ -115,7 +115,7 @@ public void UpdatePreferences_Should_Change_Flags_And_Timestamp()
 
 `DependencyInjection.cs`'e 2 handler + 2 authorizer kaydı ekle.
 
-- [ ] **Step 5: Endpoint'leri ekle**
+- [x] **Step 5: Endpoint'leri ekle**
 
 `SettingsModule.cs`:
 ```csharp
@@ -140,18 +140,18 @@ public sealed record UpdateUserSettingsRequest(
     SessionTerminationPolicy SessionTerminationPolicy);
 ```
 
-- [ ] **Step 5b: Sahiplik authorizer testini yaz (M15-2)**
+- [x] **Step 5b: Sahiplik authorizer testini yaz (M15-2)**
 
 `tests/Unit/UserSettingTests.cs` içine: başka kullanıcının ayarını okumaya/yazmaya çalışan authorizer `shared.forbidden` döndürüyor; `Admin` rolü izin alıyor; kimliksiz istek reddediliyor.
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~UserSettingTests"` → PASS.
 
-- [ ] **Step 6: Integration testi yaz ve koştur**
+- [x] **Step 6: Integration testi yaz ve koştur**
 
 `tests/Integration/SettingsWorkflowIntegrationTests.cs`: kayıt → `GET` varsayılan döner (200) → `PUT` ile `homeworkReminderEnabled: false` → `GET` bunu yansıtır → **başka bir kullanıcının** ayarına `GET` 403.
 Run: `dotnet test tests/Integration/EgitimUssu.Tests.Integration.csproj --filter "FullyQualifiedName~SettingsWorkflow"`
 Expected: PASS.
 
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 7: Doküman + commit**
 
 `doc/modules/m15_settings.md` (durum 🟡 → 🟢 adayı, uçlar, kontrol listesi), `doc/modules/00_genel_bakis.md` (Settings bloğu).
 ```bash

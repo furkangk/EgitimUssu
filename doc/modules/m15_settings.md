@@ -1,18 +1,18 @@
 ---
 title: "M15 — Ayarlar & Güvenlik"
-summary: "Kullanıcı bildirim/gizlilik/güvenlik ayarları; study-sharing endpoint + CQRS + sahiplik authorizer mevcut, tam CRUD eksik"
+summary: "Kullanıcı bildirim/gizlilik/güvenlik ayarları; oku/yaz uçları + study-sharing + sahiplik authorizer kodda mevcut"
 tags: [modul, settings, gizlilik, bildirim, faz-0]
 status: "🟡"
 authority: code
 code_refs:
   - src/Modules/Settings/**
-updated: 2026-08-19
+updated: 2026-09-03
 ---
 
 # ⚙️ Ayarlar ve Güvenlik Modülü (M15) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M15 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Settings`) + Flutter mobil
-> **PRD:** M15 · **Faz:** 0+ · **Durum:** 🟡 Domain var; **çalışma-verisi paylaşımı** ucu + CQRS feature (`SetStudySharing`) + sahiplik authorizer'ı **kodda mevcut**; tam CRUD (get/bildirim/güvenlik/profil) hâlâ eksik
+> **PRD:** M15 · **Faz:** 0+ · **Durum:** 🟡 Domain var; **ayar oku/yaz** uçları (`GET`/`PUT /api/settings/users/{userId}`) + **çalışma-verisi paylaşımı** ucu + sahiplik authorizer'ları **kodda mevcut** (P05 Task 1); rol bazlı profil düzenleme hâlâ eksik
 > **Mimari:** CQRS + Outbox; PostgreSQL (`settings` şeması), `UserId` UNIQUE (kullanıcı başına tek ayar kaydı)
 > **Marka rengi (mobil):** `0xFF082B4F`
 
@@ -26,19 +26,19 @@ updated: 2026-08-19
 
 | Bileşen | Konum | Açıklama |
 |---------|-------|----------|
-| Domain aggregate | `src/Modules/Settings/Domain/SettingsDomainModel.cs` | `UserSetting : AggregateRoot<Guid>` + `SetStudySharing(...)` güncelleme metodu |
+| Domain aggregate | `src/Modules/Settings/Domain/SettingsDomainModel.cs` | `UserSetting : AggregateRoot<Guid>` + `SetStudySharing(...)` + `UpdatePreferences(...)` + `UserSetting.Default(userId, nowUtc)` fabrikası |
 | DbContext | `src/Modules/Settings/Infrastructure/SettingsDbContext.cs` | `DbSet<UserSetting>`, şema `settings`, tablo `user_settings` |
 | Migration | `.../Migrations/20260504210120_InitialCreate.cs`, `.../20260701181041_AddOutboxRetryFields.cs` | `user_settings` tablosu + Outbox retry alanları |
-| CQRS feature | `src/Modules/Settings/Application/SettingsFeatures.cs` | `SetStudySharingCommand` + `SetStudySharingCommandValidator` + `SetStudySharingCommandHandler` + `SetStudySharingRequest/Response` |
-| Sahiplik authorizer | `SettingsFeatures.cs` → `SettingsAuthorizer : ICommandAuthorizer<SetStudySharingCommand>` | Yalnızca kendi kullanıcısı (veya `Admin`) → aksi halde `shared.forbidden` (K3 uygulanmış) |
+| CQRS feature | `src/Modules/Settings/Application/SettingsFeatures.cs` | `SetStudySharingCommand` (+validator/handler) · **`GetUserSettingsQuery`** + `GetUserSettingsQueryHandler` · **`UpdateUserSettingsCommand`** + validator + handler · `UserSettingsResponse` |
+| Sahiplik authorizer | `SettingsFeatures.cs` → `SettingsAuthorizer`, **`GetUserSettingsQueryAuthorizer`**, **`UpdateUserSettingsCommandAuthorizer`** | Üçü de ortak `SettingsOwnership.Check` mantığını kullanır: yalnızca kendi kullanıcısı (veya `Admin`) → aksi halde `shared.forbidden` (K3 uygulanmış) |
 | Repository | `src/Modules/Settings/Infrastructure/UserSettingRepository.cs` | `IUserSettingRepository` (GetByUserId / Add / SaveChanges) |
 | Read-contract | `src/Modules/Settings/Infrastructure/StudentPrivacyDirectory.cs` | `IStudentPrivacyDirectory` (`Shared/Contracts`) — diğer modüllere `ShareStudyDataWith*` bayraklarını okutur (kayıt yoksa ikisi de açık varsayılır) |
-| Module tanımı | `src/Modules/Settings/API/SettingsModule.cs` | `GET /api/settings/status` (placeholder) + `PUT /api/settings/users/{userId:guid}/study-sharing` (`RequireAuthorization("AuthenticatedUser")`) |
+| Module tanımı | `src/Modules/Settings/API/SettingsModule.cs` | `GET /api/settings/status` (placeholder) + `GET`/`PUT /api/settings/users/{userId:guid}` + `PUT /api/settings/users/{userId:guid}/study-sharing` (hepsi `RequireAuthorization("AuthenticatedUser")`) |
 
 ### 🔴 Eksik olan
 
-- **Tam CRUD YOK:** Yalnızca **çalışma-verisi paylaşımı** (`study-sharing`) ucu var. `GET` (ayarları oku), bildirim / güvenlik / rol-bazlı profil `PUT` uçları ve bunların CQRS feature'ları **yok**.
-- **Domain event yok** — `UserSetting` yalnızca `SetStudySharing()` içerir; bildirim/güvenlik güncelleme metodu ve `UserSettingsUpdatedDomainEvent` **yok** (tüm property'ler `private set`).
+- ✅ **(P05 Task 1) Oku/yaz uçları eklendi:** `GET /api/settings/users/{userId}` (kayıt yoksa varsayılan, 404 değil) ve `PUT /api/settings/users/{userId}` (bildirim + gizlilik seviyesi + oturum politikası tek gövdede). Rol-bazlı profil `PUT` ucu hâlâ **yok**.
+- **Domain event yok** — `UpdatePreferences()` eklendi ama `UserSettingsUpdatedDomainEvent` **yok**; tercih değişikliği olay yayınlamıyor (tüketiciler tercihi okuma anında sorguluyor).
 - **Notifications (M11) entegrasyonu yok** — bildirim üretilirken tercih bayraklarına bakılmıyor ([`m11_notifications.md`](m11_notifications.md)).
 - **Rol bazlı profil düzenleme yok** — öğretmen/öğrenci/veli profilleri ve bildirim izinlerinin tek yerden yönetimi henüz yok.
 - **Mobil bağlama kısmî** — mobil `more` feature'ı (Ayarlar/hesap) var; yalnızca çalışma-verisi paylaşımı backend'e bağlanabilir, bildirim/güvenlik ekranlarının backend'i yok.
@@ -97,6 +97,8 @@ Kaynak: `src/Modules/Settings/Domain/SettingsDomainModel.cs` (alanlar/enum'lar b
 | Yetenek | Method + Route | Yetki |
 |---------|----------------|-------|
 | Sağlık/placeholder | `GET /api/settings/status` | — (placeholder) |
+| Ayarları oku | `GET /api/settings/users/{userId:guid}` | `AuthenticatedUser` + sahiplik authorizer (self/Admin) |
+| Tercihleri güncelle (upsert) | `PUT /api/settings/users/{userId:guid}` | `AuthenticatedUser` + sahiplik authorizer (self/Admin) |
 | Çalışma-verisi paylaşımı (upsert) | `PUT /api/settings/users/{userId:guid}/study-sharing` | `AuthenticatedUser` + sahiplik authorizer (self/Admin) |
 
 > **Gövde:** `SetStudySharingRequest(bool ShareWithTeacher, bool ShareWithParent)` → `SetStudySharingCommand`. Kayıt yoksa varsayılanlarla oluşturulur, varsa `SetStudySharing` ile güncellenir. Yetkisizde `shared.forbidden` (403), doğrulama hatası `settings.invalid_request` (400). Bu uç, Veli **V-B gizlilik filtresi** akışını besler ([`m09_parents.md`](m09_parents.md)).
@@ -104,12 +106,23 @@ Kaynak: `src/Modules/Settings/Domain/SettingsDomainModel.cs` (alanlar/enum'lar b
 ### Eksik / Önerilen ⚠️
 
 ```
-GET  /api/settings/users/{userId}                  → kullanıcının ayarları (yoksa varsayılan döner)
-PUT  /api/settings/users/{userId}/notifications     → bildirim tercihlerini güncelle (push/email/tür bayrakları)
-PUT  /api/settings/users/{userId}/privacy           → PrivacyLevel (study-sharing ayrı uçta mevcut)
-PUT  /api/settings/users/{userId}/security          → oturum sonlandırma politikası (SessionTerminationPolicy)
 PUT  /api/settings/users/{userId}/profile           → rol bazlı profil alanları (öğretmen/öğrenci/veli)
 ```
+
+> `GET /users/{userId}` ile bildirim/gizlilik/güvenlik `PUT`'u **tek uçta birleştirildi** (P05 Task 1): ayrı `notifications`/`privacy`/`security` uçları yerine tek `UpdateUserSettingsRequest` gövdesi kullanılır — mobil ekran tek çağrıyla kaydeder.
+
+**`GET`/`PUT /api/settings/users/{userId}` yanıtı — `UserSettingsResponse`:**
+
+| Alan | Tip | Not |
+|------|-----|-----|
+| `userId` | `Guid` | |
+| `pushNotificationsEnabled` … `weeklySummaryEnabled` | `bool` × 6 | Bildirim bayrakları |
+| `shareStudyDataWithTeacher` / `shareStudyDataWithParent` | `bool` | Yalnız okunur — `study-sharing` ucundan değişir |
+| `privacyLevel` | `string` | `Standard` / `Limited` / `Hidden` |
+| `sessionTerminationPolicy` | `string` | `KeepLatest` / `TerminateOtherSessions` |
+| `lastUpdatedOnUtc` | `DateTime` | |
+
+> **Kayıt yoksa:** `GET` **200** + varsayılan nesne döner (`UserSetting.Default`) — kalıcı kayıt oluşturulmaz. `PUT` kayıt yoksa oluşturur ve `ShareStudyDataWith*` alanlarını **değiştirmez**.
 
 > **Yetki:** Kullanıcı yalnızca **kendi** ayarını okuyup yazabilmeli. Sahiplik authorizer'ı (oturum `UserId == route userId` ya da Admin) + varsayılan reddet guard'ı zorunlu (K3). Yetki kaydı eksik kalırsa **sessiz açık erişim** riski vardır.
 
@@ -199,4 +212,4 @@ Güvenlik (Identity):
 
 ---
 
-*Ayarlar ve Güvenlik Modülü (M15) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-08-19*
+*Ayarlar ve Güvenlik Modülü (M15) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-03*
