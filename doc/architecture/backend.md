@@ -162,7 +162,7 @@ public static IServiceCollection AddIdentityModule(this IServiceCollection s, IC
 | **Kernel** | Domain çekirdeği + ortak sözleşmeler | `Entity`, `AggregateRoot<TId>`, `ValueObject`, `DomainEvent`, `Result`/`Result<T>`/`Error`, `PagedResult`, `IClock`, `ICurrentUser`, `IIdGenerator` |
 | **Application** | CQRS soyutlamaları | `ICommand`, `ICommandHandler`, `IQuery`, `IQueryHandler` (+ dispatcher/validator/authorizer sözleşmeleri) |
 | **Contracts** | Modüller-arası entegrasyon sözleşmesi | `IIntegrationEvent`, `IntegrationEvent` |
-| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`), `SystemClock`, `GuidIdGenerator`, Configuration options |
+| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), `SystemClock`, `GuidIdGenerator`, Configuration options |
 
 **`Result` deseni** (istisna yerine):
 ```csharp

@@ -254,12 +254,16 @@ git commit -m "feat(email): saglayici-agnostik IEmailSender + Logging implementa
 - Produces: `internal sealed class SmtpEmailSender : IEmailSender` — ctor `(IOptions<EmailOptions> options, ILogger<SmtpEmailSender> logger, ISmtpClientFactory clientFactory)`.
 - Produces: `interface ISmtpClientFactory { IMailTransport Create(); }` + `MailKitSmtpClientFactory` — testte sahte transport enjekte edilebilsin diye.
 
-- [ ] **Step 1: MailKit paketini ekle**
+> **Sapma (uygulandı):** `SmtpEmailSender`, `MailKitSmtpClientFactory` ve `ISmtpClientFactory` **`public`** (Task 1 sapmasıyla aynı gerekçe: `InternalsVisibleTo` yok, test doğrudan kuruyor).
+> **Sapma (uygulandı):** Test sahtesi `MailKit.IMailTransport`'u elle uygulamak yerine **`MailKit.MailTransport`**'tan türüyor (~35 soyut üye; kullanılmayanlar `NotSupportedException`). İki tuzak: (1) taban sınıf ctor'u `IProtocolLogger` ister → `new NullProtocolLogger()`; (2) `Connected`/`Authenticated`/`Disconnected` adları `MailService`'in **event**'leriyle çakışıp `CS0108` üretir (`-warnaserror` altında CI'yi kırar) → bayraklar `ConnectCalled`/`AuthenticateCalled`/`DisconnectCalled` adlandırıldı.
+> **Sapma (uygulandı):** DI'da fabrika `ActivatorUtilities.CreateInstance<T>(provider)` ile kurar (elle `ILogger`/`IOptions` çözmek yerine). Paket sürümü **MailKit 4.17.0**.
+
+- [x] **Step 1: MailKit paketini ekle**
 
 Run: `dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj package MailKit`
 Expected: `MailKit` `PackageReference` olarak eklenir.
 
-- [ ] **Step 2: Başarısız testi yaz**
+- [x] **Step 2: Başarısız testi yaz**
 
 `tests/Unit/SmtpEmailSenderTests.cs`:
 ```csharp
@@ -306,12 +310,12 @@ public sealed class SmtpEmailSenderTests
 ```
 `RecordingMailTransport` ve `StubSmtpClientFactory`'yi aynı dosyanın altına yaz: `RecordingMailTransport`, `MailKit.IMailTransport`'un `SendAsync`, `ConnectAsync`, `AuthenticateAsync`, `DisconnectAsync` üyelerini kaydeden minimal bir sahte olsun (kullanılmayan üyeler `NotSupportedException` fırlatabilir).
 
-- [ ] **Step 3: Çalıştır, kırmızı gör**
+- [x] **Step 3: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~SmtpEmailSenderTests"`
 Expected: FAIL — `SmtpEmailSender` yok.
 
-- [ ] **Step 4: `SmtpEmailSender` ve fabrikayı yaz**
+- [x] **Step 4: `SmtpEmailSender` ve fabrikayı yaz**
 
 `src/Shared/Infrastructure/Email/SmtpEmailSender.cs`:
 ```csharp
@@ -391,7 +395,7 @@ internal sealed class SmtpEmailSender : IEmailSender
 }
 ```
 
-- [ ] **Step 5: DI kaydını tamamla**
+- [x] **Step 5: DI kaydını tamamla**
 
 `ServiceCollectionExtensions.cs`:
 ```csharp
@@ -399,12 +403,12 @@ internal sealed class SmtpEmailSender : IEmailSender
 ```
 ve Task 1 Step 5'teki `IEmailSender` fabrika kaydını (Smtp dalı dahil) etkinleştir.
 
-- [ ] **Step 6: Testi çalıştır**
+- [x] **Step 6: Testi çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~SmtpEmailSenderTests"`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Shared/Infrastructure tests/Unit/SmtpEmailSenderTests.cs

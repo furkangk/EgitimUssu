@@ -10,6 +10,7 @@ using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace EgitimUssu.Shared.Infrastructure;
 
@@ -46,8 +47,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITokenBlacklist, RedisTokenBlacklist>();
         services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
 
-        // K-01: E-posta sağlayıcısı konfigürasyonla seçilir. "Smtp" implementasyonu P02 Task 2'de eklenir.
-        services.AddScoped<IEmailSender, LoggingEmailSender>();
+        // K-01: E-posta sağlayıcısı konfigürasyonla seçilir; kod hiçbir sağlayıcıya bağlı değildir.
+        services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
+        services.AddScoped<IEmailSender>(provider =>
+        {
+            var emailOptions = provider.GetRequiredService<IOptions<EmailOptions>>().Value;
+
+            return string.Equals(emailOptions.Provider, EmailOptions.SmtpProvider, StringComparison.OrdinalIgnoreCase)
+                ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
+                : ActivatorUtilities.CreateInstance<LoggingEmailSender>(provider);
+        });
 
         return services;
     }
