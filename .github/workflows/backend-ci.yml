@@ -29,6 +29,9 @@ jobs:
         run: dotnet build EgitimUssu.slnx --configuration Release --no-restore -warnaserror
 
       - name: Testler
+        # A-06: Bağlantı dizesi artık appsettings.json'da yok; testler bellek-içi sağlayıcıyla koşar.
+        env:
+          ConnectionStrings__Postgres: "InMemory:ci"
         run: dotnet test EgitimUssu.slnx --configuration Release --no-build --verbosity normal
 
       - name: Zafiyetli paket taraması

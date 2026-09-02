@@ -33,6 +33,10 @@ builder.Services
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 // Y3: Zayıf/eksik/yer-tutucu imzalama anahtarını startup'ta reddet (fail-fast).
 JwtSigningKeyGuard.EnsureValid(jwtOptions.SigningKey);
+// A-06: Bağlantı dizesi repoda tutulmaz; boş/zayıf parolalı dizeyi startup'ta reddet (fail-fast).
+ConnectionStringGuard.EnsureValid(
+    builder.Configuration.GetConnectionString("Postgres"),
+    builder.Environment.IsDevelopment());
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services

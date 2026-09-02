@@ -94,13 +94,17 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 `IsVerified`, `UpsertTeacherProfileRequest`, `UpdateTeacherProfileCommand` ve `TeacherProfile.Update()` metodundan kaldırıldı. Client `toUpdatePayload()` artık `isVerified` göndermez; regresyon testi eklendi.
 > **Kalan:** Admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent` henüz eklenmedi.
 
-### 🟡 Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar — **JWT kısmı düzeltildi 2026-07-01**
+### ✅ Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar — **JWT 2026-07-01 · DB 2026-09-02 (P01)**
 `appsettings.json`: `Jwt:SigningKey = "change-this-development-signing-key"`, Postgres `Password=postgres`; kod-içi varsayılan `"replace-with-a-long-development-key"`. Prod'da override edilmezse token **taklit edilebilir**.
 
 **Öneri:** Sırları environment/secret manager'dan al; varsayılanı boş bırak + **prod'da yoksa fail-fast**.
 
 ✅ _JWT düzeltmesi (comp. denetim Y3, 2026-07-01):_ Gömülü anahtar `appsettings.json`'dan çıkarıldı (`SigningKey: ""`), `JwtOptions` varsayılanı da boş. Yeni `JwtSigningKeyGuard` startup'ta fail-fast doğrular: boş/yer-tutucu/`< 32 bayt` anahtar reddedilir (`Program.cs` + `ConfigurationHealthCheck` aynı guard'ı kullanır). Dev anahtarı yalnız `appsettings.Development.json`'da (prod'da yüklenmez). Birim testi: `tests/Unit/JwtSigningKeyGuardTests.cs`.
-⚠️ _Kalan:_ Postgres `Password=postgres` hâlâ `appsettings.json`'da (sır yönetimi ayrı bir iş).
+✅ _DB düzeltmesi (A-06, 2026-09-02, P01):_ Bağlantı dizesi `appsettings.json`'dan çıkarıldı (`"Postgres": ""`); üretimde
+`ConnectionStrings__Postgres` ortam değişkeninden gelir (Render'da managed DB'ye bağlı). Yeni `ConnectionStringGuard`
+startup'ta (`Program.cs`) ve `/health/ready`'de (`ConfigurationHealthCheck`) doğrular: boş dize her ortamda,
+varsayılan/zayıf parola (`postgres`, `changeme`, boş parola vb.) yalnız üretimde reddedilir; `InMemory:` önekli dizeler muaftır.
+Geliştirme dizesi yalnız `appsettings.Development.json`'da (`InMemory:development`). Birim testi: `tests/Unit/ConnectionStringGuardTests.cs`.
 
 ### ✅ Y3 — Mobil: token yenileme (refresh) akışı yok → kullanıcı 60 dk'da bir atılıyor — **Düzeltildi 2026-06-25**
 `TokenStorage`'a `readRefreshToken`/`writeRefreshToken` eklendi. `TokenRefreshInterceptor` (`QueuedInterceptorsWrapper`) 401'de `POST /api/identity/refresh` ile sessiz yenileme yapar; yenileme de başarısız olursa `_onUnauthorized` callback'i tetikler. `ApiClient` lazy closure ile `AuthRepository.refreshSession()`'ı çağırır (döngüsel bağımlılık önlendi).
@@ -191,11 +195,11 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 2. **K1** — Outbox'ı aç + startup uyarısı.
 3. **K3** — Eksik authorizer'lar + startup guard.
 4. **K2 + Y4** — Outbox hata izolasyonu/retry + idempotent handler.
-5. **Y2** — Sırları config'ten çıkar, prod fail-fast.
+5. ✅ **Y2** — Sırları config'ten çıkar, prod fail-fast. *(JWT 2026-07-01, DB 2026-09-02)*
 6. **Y3** — Mobil refresh token akışı.
 7. **O5 + O8** — Modüller arası okuma + dosya depolama (yeni modüllerin önkoşulu).
 8. **O7** — Regresyon testleri.
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

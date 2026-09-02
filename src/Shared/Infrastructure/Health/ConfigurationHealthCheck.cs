@@ -2,12 +2,14 @@ using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace EgitimUssu.Shared.Infrastructure.Health;
 
 public sealed class ConfigurationHealthCheck(
     IConfiguration configuration,
+    IHostEnvironment environment,
     IOptions<RedisOptions> redisOptions,
     IOptions<JwtOptions> jwtOptions,
     IReadOnlyCollection<IModule> modules) : IHealthCheck
@@ -18,9 +20,12 @@ public sealed class ConfigurationHealthCheck(
     {
         var issues = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("Postgres")))
+        var connectionStringIssue = ConnectionStringGuard.Validate(
+            configuration.GetConnectionString("Postgres"),
+            environment.IsDevelopment());
+        if (connectionStringIssue is not null)
         {
-            issues.Add("ConnectionStrings:Postgres missing.");
+            issues.Add(connectionStringIssue);
         }
 
         if (string.IsNullOrWhiteSpace(redisOptions.Value.Configuration))
