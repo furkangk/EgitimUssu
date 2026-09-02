@@ -34,6 +34,7 @@ updated: 2026-09-03
 | Repository | `src/Modules/Settings/Infrastructure/UserSettingRepository.cs` | `IUserSettingRepository` (GetByUserId / Add / SaveChanges) |
 | Read-contract | `src/Modules/Settings/Infrastructure/StudentPrivacyDirectory.cs` | `IStudentPrivacyDirectory` (`Shared/Contracts`) — diğer modüllere `ShareStudyDataWith*` bayraklarını okutur (kayıt yoksa ikisi de açık varsayılır) |
 | Read-contract (M11-5) | `src/Modules/Settings/Infrastructure/UserNotificationPreferencesDirectory.cs` | **`IUserNotificationPreferences`** (`Shared/Contracts`) — Notifications gönderim turu bildirim tercihlerini buradan okur; kayıt yoksa `AllEnabled` |
+| Read-contract (M15-3) | `src/Modules/Settings/Infrastructure/SessionPolicyDirectory.cs` | **`ISessionPolicyDirectory`** (`Shared/Contracts`) — Identity giriş akışı "diğer oturumları sonlandır" politikasını buradan okur; kayıt yoksa `false` |
 | Module tanımı | `src/Modules/Settings/API/SettingsModule.cs` | `GET /api/settings/status` (placeholder) + `GET`/`PUT /api/settings/users/{userId:guid}` + `PUT /api/settings/users/{userId:guid}/study-sharing` (hepsi `RequireAuthorization("AuthenticatedUser")`) |
 
 ### 🔴 Eksik olan
@@ -128,6 +129,21 @@ PUT  /api/settings/users/{userId}/profile           → rol bazlı profil alanla
 > **Yetki:** Kullanıcı yalnızca **kendi** ayarını okuyup yazabilmeli. Sahiplik authorizer'ı (oturum `UserId == route userId` ya da Admin) + varsayılan reddet guard'ı zorunlu (K3). Yetki kaydı eksik kalırsa **sessiz açık erişim** riski vardır.
 
 ---
+
+### 3.1 "Diğer oturumları sonlandır" (M15-3)
+
+`SessionTerminationPolicy.TerminateOtherSessions` seçiliyken **her başarılı giriş**, o kullanıcının
+diğer refresh oturumlarını iptal eder — kullanıcı yalnız son giriş yaptığı cihazda açık kalır.
+
+| Adım | Nerede |
+|------|--------|
+| Politikayı oku | `ISessionPolicyDirectory.ShouldTerminateOtherSessionsAsync(userId)` → Settings'teki `SessionPolicyDirectory` |
+| Uygula | `LoginUserCommandHandler` — yeni oturum eklendikten **sonra** `UserAccount.RevokeOtherSessions(session.Id, now)` |
+| Kapsam | Yalnız `login`. `refresh` akışı kendi oturumunu döndürdüğü için etkilenmez |
+
+> Domain kuralı: `RevokeOtherSessions` korunacak oturuma dokunmaz ve **zaten iptal edilmiş**
+> kayıtların zaman damgasını değiştirmez (`RefreshTokenSession.Revoke` idempotenttir).
+> Ayar kaydı yoksa politika `KeepLatest` sayılır → mevcut çok-cihaz davranışı korunur.
 
 ## 4. İş Kuralları
 

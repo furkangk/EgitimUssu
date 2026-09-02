@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -256,6 +256,8 @@ Kayıt başarılı            → UserRegisteredDomainEvent (UserId, Email, Regi
 E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificationAsync (kayıt + istek anında)
 Şifre sıfırlama token'ı    → IIdentityNotificationService.SendPasswordResetAsync
 Şifre sıfırlandı           → tüm aktif RefreshTokenSession.Revoke (toplu çıkış)
+Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOtherSessions ise
+                             UserAccount.RevokeOtherSessions(yeniOturum.Id, now) → tek cihaz
 ```
 
 > Olaylar **Outbox pattern** ile güvenilir biçimde yayılır (`Shared/Infrastructure/Messaging`).
@@ -306,7 +308,7 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 3. ~~**`GET /me` ucu**~~ — **2026-09-02'de eklendi** (P02/M01-1).
 4. **Admin kullanıcı yönetimi** — durum geçişi (`PUT /users/{id}/status`) + `UserStatusChangedDomainEvent`.
 5. **Rol yönetimi uçları** — kayıt sonrası rol ekle/çıkar (örn. öğretmen aynı zamanda veli olduğunda).
-6. **Oturum yönetimi** — `GET /sessions`, `POST /sessions/revoke-all`.
+6. **Oturum yönetimi** — `GET /sessions`, `POST /sessions/revoke-all`. (Kısmen: "diğer oturumları sonlandır" P05/M15-3 ile girişte otomatik uygulanıyor; kullanıcıya oturum **listesi** hâlâ yok.)
 7. ✅ **Kaba kuvvet sertleştirme (2026-07-01, Y4)** — Redis tabanlı hesap kilidi (`RedisLoginAttemptThrottle`) + dağıtık rate limiting; DB alanı gerektirmedi.
 8. **Telefon (SMS/OTP) doğrulama** — `PhoneNumberConfirmed` + yeni `SecurityTokenPurpose`.
 
@@ -325,4 +327,4 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

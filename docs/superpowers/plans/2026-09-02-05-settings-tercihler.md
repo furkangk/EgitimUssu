@@ -260,20 +260,20 @@ git commit -m "feat(settings): bildirim tercihleri gonderim yolunda uygulaniyor 
 **Interfaces:**
 - Produces:
   - `interface ISessionPolicyDirectory { Task<bool> ShouldTerminateOtherSessionsAsync(Guid userId, CancellationToken ct); }`
-  - `IUserAccountRepository.RevokeOtherSessionsAsync(Guid userId, Guid keepSessionId, DateTime nowUtc, CancellationToken ct)`
+  - ~~`IUserAccountRepository.RevokeOtherSessionsAsync(...)`~~ → **sapma:** repository metodu yerine **domain metodu** `UserAccount.RevokeOtherSessions(Guid keepSessionId, DateTime nowUtc)`. Gerekçe: `GetByEmailAsync` zaten `RefreshSessions`'ı `Include` ediyor, aggregate elde; iptal kararı aggregate'in kendi kuralıdır, repository'ye taşımak DDD sınırını bozardı.
 
-- [ ] **Step 1: Testi yaz (kırmızı)** — Politika `true` iken login sonrası kullanıcının önceki refresh oturumları `Revoked`; `false` iken korunuyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TerminateOtherSessionsTests"`
-- [ ] **Step 3: Sözleşme + directory + repository metodunu yaz.**
-- [ ] **Step 4: `LoginCommandHandler`'a bağla** — yeni oturum oluşturulduktan sonra:
+- [x] **Step 1: Testi yaz (kırmızı)** — Politika `true` iken login sonrası kullanıcının önceki refresh oturumları `Revoked`; `false` iken korunuyor.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TerminateOtherSessionsTests"`
+- [x] **Step 3: Sözleşme + directory + repository metodunu yaz.**
+- [x] **Step 4: `LoginCommandHandler`'a bağla** — yeni oturum oluşturulduktan sonra:
 ```csharp
         if (await _sessionPolicy.ShouldTerminateOtherSessionsAsync(user.Id, cancellationToken))
         {
-            await _repository.RevokeOtherSessionsAsync(user.Id, session.Id, now, cancellationToken);
+            user.RevokeOtherSessions(session.Id, now);
         }
 ```
-- [ ] **Step 5: Testler** — Run: `dotnet test EgitimUssu.slnx` → yeşil.
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 5: Testler** — Run: `dotnet test EgitimUssu.slnx` → yeşil.
+- [x] **Step 6: Doküman + commit**
 
 ```bash
 git add src/Shared/Contracts src/Modules/Settings src/Modules/Identity tests doc

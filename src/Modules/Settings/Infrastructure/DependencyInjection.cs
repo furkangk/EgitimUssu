@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<IUserSettingRepository, UserSettingRepository>();
         services.AddScoped<IStudentPrivacyDirectory, StudentPrivacyDirectory>();
         services.AddScoped<IUserNotificationPreferences, UserNotificationPreferencesDirectory>();
+        services.AddScoped<ISessionPolicyDirectory, SessionPolicyDirectory>();
 
         services.AddScoped<ICommandHandler<SetStudySharingCommand, Result<StudySharingResponse>>, SetStudySharingCommandHandler>();
         services.AddScoped<ICommandValidator<SetStudySharingCommand>, SetStudySharingCommandValidator>();

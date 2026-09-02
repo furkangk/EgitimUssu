@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Identity.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Identity.Application;
@@ -87,8 +88,8 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
     private static readonly Error InvalidCredentials = new("identity.invalid_credentials", "E-posta veya sifre hatali.");
     private static readonly Error UserInactive = new("identity.user_inactive", "Kullanici hesabi aktif degil.");
     private static readonly Error TooManyAttempts = new("identity.too_many_attempts", "Cok fazla basarisiz giris denemesi. Lutfen bir sure sonra tekrar deneyin.");
-    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
-    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _idGenerator = idGenerator; _clock = clock; }
+    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly ISessionPolicyDirectory _sessionPolicy; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
+    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, ISessionPolicyDirectory sessionPolicy, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _sessionPolicy = sessionPolicy; _idGenerator = idGenerator; _clock = clock; }
     public async Task<Result<AuthResponse>> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
@@ -104,7 +105,14 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
         await _throttle.ResetAsync(normalizedEmail, cancellationToken);
         var now = _clock.UtcNow;
         var refreshToken = _tokenProtector.GenerateToken();
-        user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), command.DeviceName, now, now.AddDays(30)));
+        var session = new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), command.DeviceName, now, now.AddDays(30));
+        user.RefreshSessions.Add(session);
+        // M15-3: "Diğer oturumları sonlandır" seçiliyse önceki refresh oturumları iptal edilir.
+        if (await _sessionPolicy.ShouldTerminateOtherSessionsAsync(user.Id, cancellationToken))
+        {
+            user.RevokeOtherSessions(session.Id, now);
+        }
+
         await _repository.SaveChangesAsync(cancellationToken);
         var access = _tokenIssuer.Issue(user);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));

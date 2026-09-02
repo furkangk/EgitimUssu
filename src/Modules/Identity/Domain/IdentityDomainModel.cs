@@ -76,6 +76,25 @@ public sealed class UserAccount : AggregateRoot<Guid>
         PasswordHash = passwordHash;
         UpdatedOnUtc = now;
     }
+
+    /// <summary>
+    /// M15-3: Korunacak oturum dışındaki tüm aktif refresh oturumlarını iptal eder
+    /// ("diğer oturumları sonlandır"). Zaten iptal edilmiş kayıtların zaman damgası korunur.
+    /// </summary>
+    /// <param name="keepSessionId">Ayakta kalacak oturum (genelde az önce açılan).</param>
+    /// <param name="nowUtc">İptal zamanı (UTC).</param>
+    public void RevokeOtherSessions(Guid keepSessionId, DateTime nowUtc)
+    {
+        foreach (var session in RefreshSessions)
+        {
+            if (session.Id != keepSessionId)
+            {
+                session.Revoke(nowUtc);
+            }
+        }
+
+        UpdatedOnUtc = nowUtc;
+    }
 }
 
 public sealed class UserRoleMembership : Entity<Guid>
