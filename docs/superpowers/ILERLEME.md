@@ -12,11 +12,11 @@
 | Alan | Değer |
 |------|-------|
 | **Aktif plan** | `P01 — Onarım` (`plans/2026-09-02-01-onarim.md`) |
-| **Sıradaki görev** | **Task 2** — A-02: Derlenmeyen mobil testleri onar |
+| **Sıradaki görev** | **Task 3** — A-05: Mock fallback'i varsayılan olarak kapat + görünür işaret |
 | **Dal** | `feat/p01-onarim` |
-| **Durum** | 🔄 Task 1 bitti (1/7) |
-| **Son commit** | `a835eba` (fix(teachers): A-01) |
-| **Çalışma ağacı** | Temiz (program dokümanları `6580acb` ile commit'lendi) |
+| **Durum** | 🔄 Task 2 bitti (2/7) |
+| **Son commit** | `5fa58ea` (test(mobile): A-02) |
+| **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ---
 
@@ -24,7 +24,7 @@
 
 | Plan | Görev | Durum | Not |
 |------|-------|-------|-----|
-| P01 Onarım | 1/7 | 🔄 Devam ediyor | Ana dalı yeşile alır — **önce bu** · dal: `feat/p01-onarim` |
+| P01 Onarım | 2/7 | 🔄 Devam ediyor | Ana dalı yeşile alır — **önce bu** · dal: `feat/p01-onarim` |
 | P02 E-posta altyapısı | 0/7 | ⚪ Bekliyor | P01 sonrası |
 | P03 Push bildirim | 0/7 | ⚪ Bekliyor | P01 sonrası (P02 ile paralel olabilir) |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
@@ -50,6 +50,7 @@
 | Tarih | Plan / Görev | Commit | Doğrulama |
 |-------|--------------|--------|-----------|
 | 2026-09-02 | P01 / Task 1 — A-01 öğretmen profil güncelleme 500'ü | `a835eba` | `dotnet test EgitimUssu.slnx`: 158 birim + 4 mimari + 13 integration, **başarısız 0** (5 atlandı: Docker yok) |
+| 2026-09-02 | P01 / Task 2 — A-02 derlenmeyen 5 mobil test dosyası | `5fa58ea` | `flutter test`: **47 başarılı, başarısız 0** (önce 41 +, 5 dosya yüklenemiyordu) · `flutter analyze`: 5 info, hepsi `lib/` içinde önceden var olan (bu görevin dosyaları temiz) · backend yeşil kaldı |
 
 ---
 
@@ -65,6 +66,9 @@
 | 4 | Aynı tuzak **diğer modüllerde de** olabilir (aynı Id deseni her yerde). Kapsam kilidi gereği bu görevde yalnız Teachers düzeltildi — modül-genelinde tarama ayrı bir iş olarak değerlendirilmeli (öneri: P13 hijyen planına madde). | P01/Task 1 |
 | 5 | `tests/Unit` projesi modül **Infrastructure** katmanlarını referanslamıyordu; EF davranışını birim testinde zorlamak için `Microsoft.EntityFrameworkCore.InMemory` + ilgili `*.Infrastructure.csproj` referansı eklendi. Benzer testler için aynı yol izlenir. | P01/Task 1 |
 | 6 | Integration'da gerçek-DB deseni: `Skip.IfNot(fixture.Available, …)` + `RealInfrastructure.Use(fixture)` + `WebApplicationFactory<Program>` → `CreateAsyncScope()` ile DbContext. (Planlardaki `RealInfrastructure.CreateTeachersContextAsync()` gibi yardımcılar **yok**.) | P01/Task 1 |
+| 7 | **A-02'nin kökü tek değil, ikiydi.** Plan yalnız auth sahtesini öngörüyordu; 5 dosyanın 2'si (`dashboard_cubit_test`, `scheduling_page_test`) aslında `_FakeSchedulingRepository`'nin Ç-06'da eklenen 5 öğrenci metodunu uygulamamasından kırılıyordu. İkinci ortak sahte (`FakeSchedulingRepository`) yazıldı; plan Task 2 bu sapmayla güncellendi. | P01/Task 2 |
+| 8 | **Kalıcı kural oldu:** test sahteleri artık `mobile/test/helpers/` altında tek noktada. Yeni bir repository arayüzü için test dosyası içine yerel `_Fake*` yazma — `doc/architecture/mobile_flutter.md` §17.1. | P01/Task 2 |
+| 9 | `flutter analyze` zaten **5 info** üretiyor (2× `directives_ordering` + 3× `deprecated_member_use` `parent_notifications_page.dart`'ta). Bunlar P01 öncesinden var; "No issues found!" beklentisi gerçekçi değil, temizlik P13 hijyen planına aday. | P01/Task 2 |
 
 ---
 
@@ -98,4 +102,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 Task 1 tamamlandı)*
+*İlerleme defteri | Son güncelleme: 2026-09-02 (P01 Task 2 tamamlandı)*
