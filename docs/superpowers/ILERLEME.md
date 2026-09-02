@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P04 — Dosya Depolama` **3/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
-| **Sıradaki görev** | **P04 Task 4** — Ders kaynağı `LessonResource` (M06-1) |
+| **Aktif plan** | `P04 — Dosya Depolama` **4/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
+| **Sıradaki görev** | **P04 Task 5** — Kapanış (S3 doğrulama, dokümanlar, denetim envanteri) · **Q4 kararı gerek** |
 | **Dal** | `feat/p04-depolama` — `feat/p03-push` üzerine açıldı. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
 | **Durum** | 🔄 P04 sürüyor · P01 + P02 + P03 dalları push/merge bekliyor |
-| **Son commit** | `efbe78e` (feat(teachers): profil fotoğrafı yükleme — M02-2/D-05) |
+| **Son commit** | `13fe651` (feat(assignments): ders kaynağı paylaşımı — M06-1) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -25,7 +25,7 @@
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
-| P04 Dosya depolama | 3/5 | 🔄 Devam ediyor | Task 1-3 bitti (`IFileStorage` + Local/S3 + guard · ödev teslimi · öğretmen profil fotoğrafı) · dal: `feat/p04-depolama` · **Q4 kararı Task 5'te gerek** |
+| P04 Dosya depolama | 4/5 | 🔄 Devam ediyor | Task 1-4 bitti (`IFileStorage` + Local/S3 + guard · ödev teslimi · profil fotoğrafı · ders kaynağı) · dal: `feat/p04-depolama` · **Q4 kararı Task 5'te gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
 | P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
@@ -71,6 +71,7 @@
 | 2026-09-03 | P04 / Task 1 — C-02 `IFileStorage` + `LocalFileStorage`/`S3FileStorage` + `FileValidation` + `StorageOptionsGuard` | `ba5969c` | `dotnet test EgitimUssu.slnx`: **263 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 229 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `kb_healthcheck` temiz |
 | 2026-09-03 | P04 / Task 2 — C-02 ödev teslimi ortak `IFileStorage`'a taşındı + göç script'i | `221f561` | `dotnet test EgitimUssu.slnx`: **271 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 263 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddAssignmentAttachmentStorage` üretildi · `scripts/migrate-assignment-files.sh --dry-run` sahte eski dizinle koşturuldu (dosya + doğru `UPDATE` SQL'i üretti) · `kb_healthcheck` temiz |
 | 2026-09-03 | P04 / Task 3 — M02-2/D-05 öğretmen profil fotoğrafı (backend + mobil) | `efbe78e` | `dotnet test EgitimUssu.slnx`: **282 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 271 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add RenameProfilePhotoUrlToKey` → gerçek `RenameColumn` (veri korunur) · `flutter test`: **84/84** (öncesi 79) · `flutter analyze`: 4 info (değişmedi) · `kb_healthcheck` temiz |
+| 2026-09-03 | P04 / Task 4 — M06-1 ders kaynağı (`LessonResource`) paylaşımı: 4 uç + mobil bölüm | `13fe651` | `dotnet test EgitimUssu.slnx`: **296 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 282 birim) · `-warnaserror`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddLessonResources` üretildi · `flutter test`: **91/91** (öncesi 84) · `flutter analyze`: 4 info · `kb_healthcheck` temiz |
 
 ---
 
@@ -131,6 +132,8 @@
 | 49 | **Yetkili dosya uçları `Image.network` ile gösterilemez** (Authorization başlığı gitmez). Desen: `ApiClient.getBytes` (404'te `null`) → repository → `Image.memory`. Yeni bir korumalı görsel ucu eklerken bu yolu izle. | P04/Task 3 |
 | 50 | **Minimal API'de `IFormFile` bağlaması antiforgery ister**; uca `.DisableAntiforgery()` eklenmezse yükleme 400 döner. `POST .../photo` ve ödev teslimi bu yüzden işaretli. | P04/Task 3 |
 | 51 | Dosya alanlarını istemcinin yazmasına izin verme (Y1 dersinin tekrarı): `profilePhotoUrl` istek gövdesinden **kaldırıldı**, yalnız yükleme ucu `ProfilePhotoKey`'i set ediyor. Yanıtta aynı ad korunuyor ama artık **indirme rotası** taşıyor — istemci kırılmıyor, iç anahtar sızmıyor. | P04/Task 3 |
+| 52 | **Minimal API'de aynı uçtan hem dosya hem JSON alanı almak için `HttpRequest.ReadFormAsync`** kullanılır (`IFormFile` + `[FromForm]` karışımı sorunlu). `POST /lesson-resources` böyle yazıldı; `postMultipart` istemci tarafındaki eşleniği. | P04/Task 4 |
+| 53 | Ders kaynağında **çapraz-modül bağ doğrulamasına gerek kalmadı**: kayıt zaten `TeacherUserId` + `StudentId` taşıyor, öğrenci yalnız `studentId = kendisi` filtresiyle listeliyor. Yeni bir `Shared/Contracts` bağımlılığı eklemeden yetki kapatıldı (O5 kuralı korundu). | P04/Task 4 |
 
 ---
 
@@ -166,4 +169,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-03 (P04 Task 3 bitti — 3/5; dal `feat/p04-depolama`)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (P04 Task 4 bitti — 4/5; dal `feat/p04-depolama`)*
