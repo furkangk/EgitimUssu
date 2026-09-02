@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P04 — Dosya Depolama` **0/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
-| **Sıradaki görev** | **P04 Task 1** — `IFileStorage` soyutlaması + `LocalFileStorage` |
-| **Dal** | `feat/p03-push` (P03 bitti) → P04 için yeni dal `feat/p04-depolama` açılacak. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
-| **Durum** | ✅ P03 bitti (A-04/Y5 kapandı, M11 🟢) · P01 + P02 + P03 dalları push/merge bekliyor |
-| **Son commit** | `c0d9138` (docs: P03 push bildirim kapanışı) |
+| **Aktif plan** | `P04 — Dosya Depolama` **1/5** (`plans/2026-09-02-04-dosya-depolama.md`) — P03 ✅ 7/7 bitti |
+| **Sıradaki görev** | **P04 Task 2** — Ödev teslimini ortak depolamaya taşı (göç adımı dahil) |
+| **Dal** | `feat/p04-depolama` — `feat/p03-push` üzerine açıldı. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
+| **Durum** | 🔄 P04 sürüyor · P01 + P02 + P03 dalları push/merge bekliyor |
+| **Son commit** | `ba5969c` (feat(storage): S3-uyumlu IFileStorage + yerel implementasyon — C-02) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -25,7 +25,7 @@
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
-| P04 Dosya depolama | 0/5 | ⏳ Sırada | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
+| P04 Dosya depolama | 1/5 | 🔄 Devam ediyor | Task 1 bitti (`IFileStorage` + Local/S3 + guard) · dal: `feat/p04-depolama` · **Q4 kararı Task 5'te gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
 | P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
@@ -68,6 +68,7 @@
 | 2026-09-03 | P03 / Task 5 — A-04/D-11 mobil push: izin + cihaz token kaydı + dokunma → derin bağlantı | `fb26cd8` | `flutter test`: **69 başarılı, başarısız 0** (öncesi 57) · `flutter analyze`: **4 info** (öncesi 5 — `injector.dart` import sıralaması düzeldi) · `kb_healthcheck` temiz. **Gerçek cihaz doğrulaması yapılamadı** (Firebase projesi yok — Q8) |
 | 2026-09-03 | P03 / Task 6 — D-11 mobil bildirim merkezi (Tümü/Okunmamış, okundu, derin bağlantı, gerçek rozet) | `a3e9427` | `flutter test`: **79 başarılı, başarısız 0** (öncesi 69) · `flutter analyze`: **4 info** (değişmedi) · `kb_healthcheck` temiz · `doc/pages/notifications.md` oluşturuldu |
 | 2026-09-03 | P03 / Task 7 — Kapanış: denetim envanteri (A-04/M11-1..4/D-11 ✅), INDEX/m11 durumu 🟢, kabul kriterleri | `c0d9138` | `dotnet test EgitimUssu.slnx`: **229 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** · `-warnaserror`: **0 uyarı / 0 hata** · `flutter test`: **79/79** · `flutter analyze`: 4 info · `kb_healthcheck` temiz. **Uçtan uca gerçek cihaz senaryosu yapılamadı (Q8)** |
+| 2026-09-03 | P04 / Task 1 — C-02 `IFileStorage` + `LocalFileStorage`/`S3FileStorage` + `FileValidation` + `StorageOptionsGuard` | `ba5969c` | `dotnet test EgitimUssu.slnx`: **263 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 229 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `kb_healthcheck` temiz |
 
 ---
 
@@ -158,4 +159,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-03 (**P03 BİTTİ — 7/7**; sıradaki P04, yeni dal `feat/p04-depolama`)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (P04 Task 1 bitti — 1/5; dal `feat/p04-depolama`)*
