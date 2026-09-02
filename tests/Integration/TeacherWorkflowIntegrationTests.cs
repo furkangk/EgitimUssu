@@ -887,6 +887,53 @@ public sealed class TeacherWorkflowIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task Me_Should_Return_Authenticated_User()
+    {
+        var previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
+        Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", "InMemory:me-tests");
+
+        try
+        {
+            await using var factory = new WebApplicationFactory<Program>();
+            using var client = factory.CreateClient();
+
+            var anonymousResponse = await client.GetAsync("/api/identity/me");
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+
+            var registerResponse = await client.PostAsJsonAsync("/api/identity/register", new
+            {
+                email = "me1@example.com",
+                password = "Teacher123!",
+                firstName = "Mehmet",
+                lastName = "Demir",
+                phoneNumber = "5551110000",
+                roles = new[] { 2 }
+            });
+
+            registerResponse.EnsureSuccessStatusCode();
+            var authPayload = await ReadJsonAsync(registerResponse);
+            var userId = authPayload.GetProperty("userId").GetGuid();
+            var accessToken = authPayload.GetProperty("accessToken").GetString();
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var meResponse = await client.GetAsync("/api/identity/me");
+            meResponse.EnsureSuccessStatusCode();
+            var me = await ReadJsonAsync(meResponse);
+
+            Assert.Equal(userId, me.GetProperty("userId").GetGuid());
+            Assert.Equal("me1@example.com", me.GetProperty("email").GetString());
+            Assert.Equal("Mehmet Demir", me.GetProperty("fullName").GetString());
+            Assert.False(me.GetProperty("isEmailConfirmed").GetBoolean());
+            Assert.Contains("Teacher", me.GetProperty("roles").EnumerateArray().Select(role => role.GetString()));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", previousConnectionString);
+        }
+    }
+
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
     {
         var json = await response.Content.ReadFromJsonAsync<JsonElement>();

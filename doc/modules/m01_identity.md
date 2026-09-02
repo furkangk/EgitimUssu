@@ -158,6 +158,7 @@ Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToH
 | Şifre sıfırlama onayı | `POST /password-reset/confirm` | herkese açık | `PasswordResetConfirmRequest` | `200 OK` |
 | E-posta doğrulama isteği | `POST /email-verification/request` | herkese açık | `EmailVerificationRequest` | `200 OK` |
 | E-posta doğrulama onayı | `POST /email-verification/confirm` | herkese açık | `EmailVerificationConfirmRequest` | `200 OK` |
+| Oturum açmış kullanıcı | `GET /me` | **AuthenticatedUser** | — | `CurrentUserResponse` |
 | Oturum kapat | `POST /logout` | **AuthenticatedUser** | `LogoutRequest` | `200 OK` |
 | Kullanıcı getir | `GET /users/{userId:guid}` | **AuthenticatedUser** | — | `UserAccountResponse` |
 | Rol ata (yalnız Admin) | `POST /users/{userId:guid}/roles` | **AuthenticatedUser** + `AssignRolesCommandAuthorizer` (Admin) | `AssignRolesRequest` | `UserAccountResponse` |
@@ -179,6 +180,8 @@ EmailVerificationConfirmRequest(string Email, string Token)
 
 AuthResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles,
              string AccessToken, DateTime ExpiresAtUtc, string RefreshToken)
+CurrentUserResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles,
+                    bool IsEmailConfirmed, string Status)
 UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName, string? PhoneNumber,
                     string Status, bool IsEmailConfirmed, bool IsProfileVerified,
                     IReadOnlyCollection<string> Roles, DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
@@ -205,7 +208,7 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 ### 3.3 Eksik / Önerilen Endpoint'ler ⚠️
 
 - [ ] `POST /refresh` için mobilde **otomatik yenileme** (dio interceptor) — sunucu ucu var, istemci akışı yok (**Y3**).
-- [ ] `GET /me` — token'daki `sub`'a göre o anki kullanıcı (her seferinde `userId` taşımadan).
+- [x] `GET /me` — token'daki `sub`'a göre o anki kullanıcı **eklendi (2026-09-02, P02/M01-1)**; `GetCurrentUserQuery` + `GetCurrentUserQueryAuthorizer` (kimlik doğrulanmamışsa 401).
 - [ ] `PUT /users/{userId}/status` (admin) — `Active`/`Suspended`/`Closed` geçişi.
 - [x] `POST /users/{userId}/roles` (admin) — rol atama **eklendi (2026-07-01)**. `DELETE /users/{userId}/roles/{role}` (rol kaldırma) hâlâ önerilen.
 - [ ] `POST /sessions/revoke-all` — kullanıcının tüm cihaz oturumlarını kapatma.
@@ -300,7 +303,7 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 1. **Mobil refresh akışı (Y3)** — dio interceptor + güvenli token depolama; en yüksek kullanıcı etkisi.
 2. **JWT imza anahtarı gizli yönetimi (Y2)** — secret store/env, anahtar rotasyonu, üretim öncesi zorunlu.
-3. **`GET /me` ucu** — token'a dayalı geçerli kullanıcı; mobil/web için pratik.
+3. ~~**`GET /me` ucu**~~ — **2026-09-02'de eklendi** (P02/M01-1).
 4. **Admin kullanıcı yönetimi** — durum geçişi (`PUT /users/{id}/status`) + `UserStatusChangedDomainEvent`.
 5. **Rol yönetimi uçları** — kayıt sonrası rol ekle/çıkar (örn. öğretmen aynı zamanda veli olduğunda).
 6. **Oturum yönetimi** — `GET /sessions`, `POST /sessions/revoke-all`.
@@ -322,4 +325,4 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (P02/A-03: gerçek e-posta gönderimi + EF token kalıcılık düzeltmesi) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`) · 2026-07-01*

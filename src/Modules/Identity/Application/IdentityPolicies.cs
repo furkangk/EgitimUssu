@@ -128,3 +128,18 @@ public sealed class GetUserByIdQueryAuthorizer : IQueryAuthorizer<GetUserByIdQue
         return Task.FromResult(isAdmin || isSelf ? Result.Success() : Result.Failure(Forbidden));
     }
 }
+
+// M01-1: /me yalnizca kimligi dogrulanmis kullaniciya acik (varsayilan-deny).
+public sealed class GetCurrentUserQueryAuthorizer : IQueryAuthorizer<GetCurrentUserQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public GetCurrentUserQueryAuthorizer(ICurrentUser currentUser)
+    {
+        _currentUser = currentUser;
+    }
+
+    public Task<Result> Authorize(GetCurrentUserQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}

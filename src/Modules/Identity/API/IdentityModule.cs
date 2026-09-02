@@ -56,6 +56,9 @@ public sealed class IdentityModule : ModuleDefinition
         authorizedGroup.MapPost("/logout", LogoutAsync)
         .WithSummary("Kullanıcı oturumunu kapatır");
 
+        authorizedGroup.MapGet("/me", GetCurrentUserAsync)
+        .WithSummary("Oturum acmis kullanicinin bilgilerini dondurur");
+
         authorizedGroup.MapGet("/users/{userId:guid}", GetUserByIdAsync)
         .WithSummary("Kullanıcı bilgilerini getirir");
 
@@ -82,6 +85,18 @@ public sealed class IdentityModule : ModuleDefinition
                 request.Roles),
             cancellationToken);
 
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Oturum açmış kullanıcının kendi bilgilerini döndürür (M01-1).
+    /// </summary>
+    private static async Task<IResult> GetCurrentUserAsync(
+        HttpContext context,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetCurrentUserQuery(), cancellationToken);
         return ToHttpResult(context, result);
     }
 

@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<RequestEmailVerificationCommand, Result>, RequestEmailVerificationCommandHandler>();
         services.AddScoped<ICommandHandler<ConfirmEmailVerificationCommand, Result>, ConfirmEmailVerificationCommandHandler>();
         services.AddScoped<IQueryHandler<GetUserByIdQuery, Result<UserAccountResponse>>, GetUserByIdQueryHandler>();
+        services.AddScoped<IQueryHandler<GetCurrentUserQuery, Result<CurrentUserResponse>>, GetCurrentUserQueryHandler>();
         services.AddScoped<ICommandHandler<AssignRolesCommand, Result<UserAccountResponse>>, AssignRolesCommandHandler>();
         services.AddScoped<ICommandValidator<RegisterUserCommand>, RegisterUserCommandValidator>();
         services.AddScoped<ICommandValidator<LoginUserCommand>, LoginUserCommandValidator>();
@@ -37,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandValidator<RequestEmailVerificationCommand>, RequestEmailVerificationCommandValidator>();
         services.AddScoped<ICommandValidator<ConfirmEmailVerificationCommand>, ConfirmEmailVerificationCommandValidator>();
         services.AddScoped<IQueryAuthorizer<GetUserByIdQuery>, GetUserByIdQueryAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetCurrentUserQuery>, GetCurrentUserQueryAuthorizer>();
         services.AddScoped<ICommandValidator<AssignRolesCommand>, AssignRolesCommandValidator>();
         services.AddScoped<ICommandAuthorizer<AssignRolesCommand>, AssignRolesCommandAuthorizer>();
         return services;

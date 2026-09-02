@@ -643,7 +643,10 @@ git commit -m "feat(identity): gercek e-posta gonderimi (sifre sifirlama + dogru
   - `sealed record CurrentUserResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, bool IsEmailConfirmed, string Status)`
   - `GET /api/identity/me` (auth `AuthenticatedUser`)
 
-- [ ] **Step 1: Başarısız integration testini yaz**
+> **Sapma (uygulandı):** `IUserAccountRepository.GetByIdAsync` zaten vardı (üstelik `RoleMemberships`'i `Include` ediyor) — arayüze ekleme gerekmedi. `UserAccount`'ta `FullName`/`Roles` alanı yok; `$"{FirstName} {LastName}".Trim()` ve `RoleMemberships.Select(m => m.Role.ToString())` kullanıldı (`AuthResponse` ile aynı desen).
+> **Sapma (uygulandı):** Endpoint gövdesi plandaki elle `Results.Ok`/`ApiErrorHttpResults` yerine modülün mevcut `ToHttpResult(context, result)` yardımcısını kullanıyor — hata eşlemesi (`identity.user_not_found` → 404) böylece tek noktadan geliyor.
+
+- [x] **Step 1: Başarısız integration testini yaz**
 
 `tests/Integration/TeacherWorkflowIntegrationTests.cs` içine, mevcut testlerin env kurulum desenini birebir izleyen yeni bir `[Fact]` ekle:
 ```csharp
@@ -664,12 +667,12 @@ git commit -m "feat(identity): gercek e-posta gonderimi (sifre sifirlama + dogru
 ```
 Ayrıca kimliksiz istekte 401 dönmesini doğrulayan ikinci bir assert ekle (`client` üzerinden Authorization header'ı temizleyip `Assert.Equal(HttpStatusCode.Unauthorized, ...)`).
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Integration/EgitimUssu.Tests.Integration.csproj --filter "FullyQualifiedName~Me_Should_Return_Authenticated_User"`
 Expected: FAIL — 404.
 
-- [ ] **Step 3: Query + handler + authorizer yaz**
+- [x] **Step 3: Query + handler + authorizer yaz**
 
 `IdentityFeatures.cs` (dosya sonuna):
 ```csharp
@@ -728,7 +731,7 @@ public sealed class GetCurrentUserQueryAuthorizer : IQueryAuthorizer<GetCurrentU
 }
 ```
 
-- [ ] **Step 4: Endpoint'i ve DI'yı bağla**
+- [x] **Step 4: Endpoint'i ve DI'yı bağla**
 
 `IdentityModule.cs` → `MapEndpoints` içine:
 ```csharp
@@ -753,12 +756,12 @@ ve metot:
         services.AddScoped<IQueryAuthorizer<GetCurrentUserQuery>, GetCurrentUserQueryAuthorizer>();
 ```
 
-- [ ] **Step 5: Testi çalıştır**
+- [x] **Step 5: Testi çalıştır**
 
 Run: `dotnet test tests/Integration/EgitimUssu.Tests.Integration.csproj --filter "FullyQualifiedName~Me_Should_Return"`
 Expected: PASS.
 
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 6: Doküman + commit**
 
 `doc/modules/m01_identity.md` §3.3 → `GET /me` maddesini `- [x]` yap ve endpoint envanterine ekle; `doc/modules/00_genel_bakis.md` Identity bloğuna `GET /me (auth)` satırını ekle.
 ```bash

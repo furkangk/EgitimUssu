@@ -16,6 +16,10 @@ public sealed record GetUserByIdQuery(Guid UserId) : IQuery<Result<UserAccountRe
 public sealed record AssignRolesCommand(Guid UserId, IReadOnlyCollection<UserRole> Roles) : ICommand<Result<UserAccountResponse>>;
 
 public sealed record AuthResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, string AccessToken, DateTime ExpiresAtUtc, string RefreshToken);
+public sealed record GetCurrentUserQuery : IQuery<Result<CurrentUserResponse>>;
+
+public sealed record CurrentUserResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, bool IsEmailConfirmed, string Status);
+
 public sealed record UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName, string? PhoneNumber, string Status, bool IsEmailConfirmed, bool IsProfileVerified, IReadOnlyCollection<string> Roles, DateTime CreatedOnUtc, DateTime UpdatedOnUtc);
 
 public interface IUserAccountRepository
@@ -229,6 +233,43 @@ public sealed class GetUserByIdQueryHandler : IQueryHandler<GetUserByIdQuery, Re
         var user = await _repository.GetByIdAsync(query.UserId, cancellationToken);
         if (user is null) return Result<UserAccountResponse>.Failure(NotFound);
         return Result<UserAccountResponse>.Success(new UserAccountResponse(user.Id, user.Email, user.FirstName, user.LastName, user.PhoneNumber, user.Status.ToString(), user.IsEmailConfirmed, user.IsProfileVerified, user.RoleMemberships.Select(role => role.Role.ToString()).ToArray(), user.CreatedOnUtc, user.UpdatedOnUtc));
+    }
+}
+
+
+// M01-1: Oturum acmis kullanicinin kendi bilgisi. Kimlik mobilde token'dan degil, bu uctan okunur.
+public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQuery, Result<CurrentUserResponse>>
+{
+    private static readonly Error NotFound = new("identity.user_not_found", "Kullanici bulunamadi.");
+    private readonly IUserAccountRepository _repository;
+    private readonly ICurrentUser _currentUser;
+
+    public GetCurrentUserQueryHandler(IUserAccountRepository repository, ICurrentUser currentUser)
+    {
+        _repository = repository;
+        _currentUser = currentUser;
+    }
+
+    public async Task<Result<CurrentUserResponse>> Handle(GetCurrentUserQuery query, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(_currentUser.UserId, out var userId))
+        {
+            return Result<CurrentUserResponse>.Failure(NotFound);
+        }
+
+        var user = await _repository.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+        {
+            return Result<CurrentUserResponse>.Failure(NotFound);
+        }
+
+        return Result<CurrentUserResponse>.Success(new CurrentUserResponse(
+            user.Id,
+            user.Email,
+            $"{user.FirstName} {user.LastName}".Trim(),
+            user.RoleMemberships.Select(membership => membership.Role.ToString()).ToArray(),
+            user.IsEmailConfirmed,
+            user.Status.ToString()));
     }
 }
 
