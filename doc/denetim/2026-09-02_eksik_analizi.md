@@ -3,7 +3,7 @@ title: "Eksik / Yapılmamış İşler Analizi (2026-09-02)"
 summary: "Backend (15 modül) + mobil (41 ekran) kod gerçeğine karşı çıkarılmış, madde madde eksik iş envanteri; her madde için kanıt, etki, efor ve karar sütunu"
 tags: [denetim, eksik-analizi, envanter, planlama]
 authority: derived
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 🔍 EğitimÜssü — Eksik / Yapılmamış İşler Analizi
@@ -84,14 +84,14 @@ Her madde şu alanlara sahip:
 - **Karar:** K-01 — sağlayıcı-agnostik SMTP. `Shared/Infrastructure/Email`: `IEmailSender` + `LoggingEmailSender` (dev) + `SmtpEmailSender` (MailKit 4.17). Seçim `Email:Provider`, eksik konfigde `EmailOptionsGuard` fail-fast; sırlar yalnız env.
 - **Not:** Identity'de `NullIdentityNotificationService` silindi, yerine `EmailIdentityNotificationService` + `EmailTemplates` (HTML+metin, `egitimussu://` derin bağlantı, token URL-kodlu). **Yan bulgu:** uçlar e-posta olmadan da 500 dönüyordu — `IdentityDbContext`'te `UserSecurityToken`/`RefreshTokenSession`/`UserRoleMembership` için `ValueGeneratedNever()` eksikti (P01 Öğrenilenler #3'ün aynısı); 3 regresyon testiyle kapatıldı. Yerel SMTP sunucusuna gerçek gönderim + token ile şifre değişimi + yeni şifreyle giriş uçtan uca doğrulandı.
 
-### A-04 — Push bildirimi hiç yok (Y5 açık) 🔴
+### A-04 — Push bildirimi hiç yok (Y5 açık) ✅ Düzeltildi 2026-09-03 (P03)
 
 - **Kanıt:** `NotificationDispatching.cs:24-38` → `DispatchDueRemindersAsync` yalnız `reminder.MarkSent(...)` yapıyor, hiçbir yere göndermiyor. Mobilde `firebase_messaging` + `flutter_local_notifications` **pubspec'te tanımlı ama `mobile/lib/` içinde tek satır kullanım yok**; `google-services.json` / `GoogleService-Info.plist` **yok**. Cihaz token'ı kaydeden endpoint/tablo yok.
 - **Etki:** Ders hatırlatması, ödev/ödeme/veli bildirimleri **kullanıcıya hiç ulaşmıyor** — sadece DB'de "gönderildi" işaretleniyor. M11'in tamamı ve veli/öğrenci bildirim değer önerisi bu maddeye bağlı.
 - **Kapsam:** `DeviceToken` entity + `POST/DELETE /api/notifications/device-tokens`, FCM/APNs gönderici (`INotificationSender`), geçersiz token devre dışı bırakma, mobil izin akışı + foreground/background handler, deep link.
 - **Efor:** L
-- **Karar:** ` `
-- **Not:** ` `
+- **Karar:** K-02 — tek kanal FCM (HTTP v1, service-account OAuth2); sağlayıcı `Push:Provider` ile seçilir, varsayılan `Logging`.
+- **Not:** Backend: `Shared/Infrastructure/Push` (`IPushSender`, `PushMessage`/`PushResult`, `LoggingPushSender`, `FcmPushSender`, `IFcmAccessTokenProvider`) + `PushOptions`/`PushOptionsGuard` (fail-fast). `DeviceToken` aggregate + `POST`/`DELETE /api/notifications/device-tokens`. `NotificationDispatchProcessor` artık gerçekten gönderiyor: en az bir cihaza teslimde `MarkSent`, aksi halde `MarkFailed` (5. denemede `ReminderStatus.Failed`); FCM `UNREGISTERED`/`INVALID_ARGUMENT` → `DeviceToken.Deactivate`. Mobil: `core/push/push_service.dart` + `firebase_push_binding.dart`, `DeviceTokenRepositoryImpl`, `AuthCubit` yaşam döngüsü, `data.route` derin bağlantısı. **Kalan (bloke):** Firebase projesi/platform dosyaları yok (Q8) → gerçek cihaz doğrulaması yapılamadı; kurulum `mobile/README_PUSH.md`. Kendi-ders (Ç-06) hatırlatmalarında alıcı çözümlemesi P07'ye bağlı.
 
 ### A-05 — Mobilde mock fallback varsayılan olarak AÇIK ✅ Düzeltildi 2026-09-02 (P01)
 
@@ -203,10 +203,10 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M11-1 | Gerçek teslimat yok | A-04 | Tüm bildirim değeri ölü | L | | |
+| M11-1 | ~~Gerçek teslimat yok~~ **✅ (P03)** | `IPushSender`/`FcmPushSender` + `NotificationDispatchProcessor` gerçek gönderim | — | — | Eklendi 2026-09-03 | Başarısızsa Sent işaretlenmez; 5 denemede `Failed`; geçersiz token kapatılır |
 | M11-2 | ~~Cihaz token kaydı yok~~ **✅ (P03)** | `DeviceToken` + `POST`/`DELETE /api/notifications/device-tokens` | — | — | Eklendi 2026-09-03 | Idempotent kayıt/silme; sahiplik `DeviceTokenCommandAuthorizer` ile |
-| M11-3 | **Öğrenci ve öğretmen in-app bildirim listesi yok** | Yalnız `teachers/{id}/lesson-reminders` + `parents/{id}/notifications` | Öğretmenin mobil `/notifications` ekranı yalnız ders hatırlatması gösteriyor; öğrencinin bildirimi hiç yok | M | | |
-| M11-4 | Okundu/okunmadı + rozet sayacı yok | Domain'de yok | Bildirim merkezi UX'i eksik | S | | |
+| M11-3 | ~~Öğrenci ve öğretmen in-app bildirim listesi yok~~ **✅ (P03)** | `UserNotification` + `GET /users/{userId}/notifications` (sayfalı, `onlyUnread`) | — | — | Eklendi 2026-09-03 | Rolden bağımsız; veli-özel `ParentNotification` listesi geriye dönük korundu |
+| M11-4 | ~~Okundu/okunmadı + rozet sayacı yok~~ **✅ (P03)** | `UserNotification.ReadOnUtc` + `GET /users/{userId}/unread-count` + `POST /{id}/read` | — | — | Eklendi 2026-09-03 | Mobil zil rozeti gerçek sayıya bağlandı |
 | M11-5 | M15 tercihlerine saygı kısmi | Yalnız veli tercihleri (`notification-preferences`) | Kullanıcı bildirim türünü kapatamıyor | M | | |
 
 ### M12 — Matching (🔴 iskelet — 0 entity, 0 migration, yalnız `/status`)
@@ -298,7 +298,7 @@ Her madde şu alanlara sahip:
 | D-08 | **Mesajlaşma** ekranları | Feature klasörü yok | M16'ya bağlı | L | | |
 | D-09 | **Puanlama / yorum** ekranları | Feature klasörü yok | M13'e bağlı | M | | |
 | D-10 | **Üyelik / paywall / reklam** ekranları | Feature yok; `more_page`'de sahte "Plus" kartı var | M17'ye bağlı; gelir modeli yok | L | | |
-| D-11 | **Öğrenci/öğretmen bildirim merkezi** (okundu, rozet) | `notifications_page.dart` yalnız öğretmen ders hatırlatmaları | M11-3/4'e bağlı | M | | |
+| D-11 | ~~Öğrenci/öğretmen bildirim merkezi~~ **✅ (P03)** | `NotificationCenterCubit` + `/notifications` bildirim merkezi (Tümü/Okunmamış, okundu, `route` derin bağlantısı, rozet) | — | — | Eklendi 2026-09-03 | `doc/pages/notifications.md` |
 | D-12 | Admin arayüzü | Yok | C-01'e bağlı | L | | |
 | D-13 | Geri bildirim/şikayet akışı | `more_page` "Bize ulaşın" statik bilgi sayfası | M18'e bağlı | M | | |
 
@@ -315,7 +315,7 @@ Her madde şu alanlara sahip:
 
 | ID | Sorun | Kanıt | Etki | Efor | Karar | Not |
 |----|-------|-------|------|------|-------|-----|
-| D-18 | Kullanılmayan ağır bağımlılıklar | `pubspec.yaml`: `firebase_messaging`, `flutter_local_notifications`, `flutter_chat_ui` — `lib/` içinde **hiç kullanım yok** | Paket boyutu + yanıltıcı "var" algısı | S | | |
+| D-18 | ~~Kullanılmayan ağır bağımlılıklar~~ **[~] kısmen (P03)** | `firebase_messaging` artık **kullanılıyor** (`firebase_push_binding.dart`) + `firebase_core` eklendi. Kalan: `flutter_local_notifications` ve `flutter_chat_ui` hâlâ kullanılmıyor | — | S | Kısmen 2026-09-03 | `flutter_chat_ui` P10 (mesajlaşma), `flutter_local_notifications` ön-plan bildirimi için **(P13)** |
 | D-19 | l10n altyapısı yok | `app.dart:75-80` `supportedLocales`'te `en_US` var ama ARB/`l10n` klasörü yok; metinler hardcoded | İngilizce fiilen desteklenmiyor | M | | |
 | D-20 | Türkçe karakter kullanılmayan metinler | `more_page.dart`: "Cikis yap", "Odeme hatirlatmalari", "Abonelik ayarlari" … | Marka kalitesi (`EğitimÜssü` adlandırma kuralıyla da çelişiyor) | S | | |
 | D-21 | Öğrenci/veli akışları için widget testi yok | `mobile/test/` — parent hiç yok, study kısmi | Regresyon riski | M | | |
@@ -428,4 +428,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-02 | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*

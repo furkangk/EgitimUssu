@@ -3,7 +3,7 @@ title: "Doküman Haritası (INDEX)"
 summary: "doc/ altındaki tüm dokümanların tek listesi ve kanonik gerçekler; hangi konuda hangi dokümana bakılacağını gösterir"
 tags: [index, harita, kanonik]
 authority: derived
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 📚 EğitimÜssü — Doküman Haritası (INDEX)
@@ -13,7 +13,7 @@ updated: 2026-09-02
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-09-02 (§6'ya `denetim/2026-09-02_eksik_analizi.md` eklendi — 121 maddelik eksik envanteri). Önceki: 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
+> **Son güncelleme:** 2026-09-03 (P03: M11 durumu 🟡 → 🟢 — gerçek FCM push + bildirim merkezi; §5'e `pages/notifications.md` eklendi). Önceki: 2026-09-02 (§6'ya `denetim/2026-09-02_eksik_analizi.md` eklendi — 121 maddelik eksik envanteri). Önceki: 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -76,7 +76,7 @@ updated: 2026-09-02
 | M | Dosya | Durum | M | Dosya | Durum |
 |---|-------|-------|---|-------|-------|
 | M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🟡 |
-| M02 | [`m02_teachers`](modules/m02_teachers.md) | 🟢 | M11 | [`m11_notifications`](modules/m11_notifications.md) | 🟡 |
+| M02 | [`m02_teachers`](modules/m02_teachers.md) | 🟢 | M11 | [`m11_notifications`](modules/m11_notifications.md) | 🟢 |
 | M03 | [`m03_students`](modules/m03_students.md) | 🟢/🟡 | M12 | [`m12_matching`](modules/m12_matching.md) | 🔴 |
 | M04 | [`m04_scheduling`](modules/m04_scheduling.md) | 🟢 | M13 | [`m13_reviews`](modules/m13_reviews.md) | 🔴 |
 | M05 | [`m05_lesson_sessions`](modules/m05_lesson_sessions.md) | 🟢 | M14 | [`m14_reporting`](modules/m14_reporting.md) | 🔴 |

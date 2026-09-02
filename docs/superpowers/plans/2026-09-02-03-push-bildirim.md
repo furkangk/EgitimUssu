@@ -962,15 +962,15 @@ git commit -m "feat(mobile): bildirim merkezi + okunmamis rozeti (D-11)"
 
 ### Task 7: Kapanış
 
-- [ ] **Step 1: Tam test paketleri** — Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test` → başarısız 0.
-- [ ] **Step 2: Uçtan uca senaryo** — Öğretmen hesabıyla yarın için ders planla → `lesson_reminders` satırı oluştu → `RemindAtUtc`'yi geçmişe çekip dispatcher turunu bekle → cihaza bildirim geldi → dokun → takvim açıldı.
-- [ ] **Step 3: Dokümanlar**
+- [x] **Step 1: Tam test paketleri** — Run: `dotnet test EgitimUssu.slnx && cd mobile && flutter test` → başarısız 0.
+- [ ] 🚫 **Step 2: Uçtan uca senaryo** — **BLOKE (Q8):** Firebase projesi/platform dosyaları olmadan gerçek cihaza bildirim gönderilemiyor. Backend zinciri birim testleriyle kapalı (gönderim, yeniden deneme, token kapatma, in-app push turu); eksik olan **yalnız** son teslimat halkası. — Öğretmen hesabıyla yarın için ders planla → `lesson_reminders` satırı oluştu → `RemindAtUtc`'yi geçmişe çekip dispatcher turunu bekle → cihaza bildirim geldi → dokun → takvim açıldı.
+- [x] **Step 3: Dokümanlar**
   - `doc/modules/m11_notifications.md`: yeni endpoint'ler, `DeviceToken`/`UserNotification` domain, gerçek push akışı, kontrol listesi maddeleri `- [x]`.
   - `doc/modules/00_genel_bakis.md`: Notifications endpoint bloğu (2 → 7 endpoint).
   - `doc/modules/veri_modeli.md`: `device_tokens` + `user_notifications` ER.
   - `doc/architecture/backend.md`: "Push" başlığı.
   - `doc/denetim/2026-09-02_eksik_analizi.md`: A-04, M11-1..4, D-11, D-18 → `✅ (P03)`.
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -981,11 +981,11 @@ git commit -m "docs: P03 push bildirim kapanisi (A-04/M11-1..4/D-11)"
 
 ## Kabul Kriterleri
 
-- [ ] `Push:Provider=Fcm` iken eksik konfigürasyonla uygulama açılmıyor
-- [ ] Giriş yapan cihazın token'ı `device_tokens`'a yazılıyor; çıkışta pasifleşiyor
-- [ ] Planlanan ders için gerçek cihaza bildirim ulaşıyor
-- [ ] FCM `UNREGISTERED` yanıtında token otomatik pasifleşiyor
-- [ ] Push başarısızsa hatırlatma "gönderildi" işaretlenmiyor, tekrar deneniyor, 5 denemede `Failed`
-- [ ] Öğrenci/öğretmen/veli bildirim listesini görüyor; okunmamış rozeti doğru
-- [ ] Bildirime dokunma ilgili ekranı açıyor
-- [ ] `dotnet test EgitimUssu.slnx` ve `flutter test` yeşil
+- [x] `Push:Provider=Fcm` iken eksik konfigürasyonla uygulama açılmıyor (`PushOptionsGuard`, 6 test)
+- [~] Giriş yapan cihazın token'ı `device_tokens`'a yazılıyor; çıkışta pasifleşiyor — **API tarafı canlı doğrulandı (Task 1)**, mobil zincir birim testleriyle kapalı; gerçek cihazda uçtan uca **Q8'e bağlı**
+- [ ] 🚫 Planlanan ders için **gerçek cihaza** bildirim ulaşıyor — **Q8 (Firebase projesi) bekliyor**
+- [x] FCM `UNREGISTERED`/`INVALID_ARGUMENT` yanıtında token otomatik pasifleşiyor (`FcmPushSenderTests` + `NotificationDispatchProcessorTests`)
+- [x] Push başarısızsa hatırlatma "gönderildi" işaretlenmiyor, tekrar deneniyor, 5 denemede `Failed`
+- [x] Öğrenci/öğretmen/veli bildirim listesini görüyor; okunmamış rozeti doğru (rozet artık gerçek `unread-count`)
+- [~] Bildirime dokunma ilgili ekranı açıyor — in-app kartta doğrulandı (widget testi); **push** dokunmasının uçtan ucu Q8'e bağlı
+- [x] `dotnet test EgitimUssu.slnx` (229+4+19) ve `flutter test` (79) yeşil, başarısız 0

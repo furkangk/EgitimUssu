@@ -2,7 +2,7 @@
 title: "M11 — Bildirim (Notifications)"
 summary: "Cihaz token + FCM push teslimatı + rolden bağımsız in-app bildirim merkezi (rozet/okundu) kodda var"
 tags: [modul, notifications, bildirim, hatirlatma, faz-3]
-status: "🟡"
+status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Notifications/**
