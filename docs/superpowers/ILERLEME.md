@@ -13,8 +13,8 @@
 |------|-------|
 | **Aktif plan** | `P01 — Onarım` **✅ TAMAMLANDI (7/7)** (`plans/2026-09-02-01-onarim.md`) |
 | **Sıradaki görev** | **P02 Task 1** — E-posta altyapısı (`plans/2026-09-02-02-eposta.md`) · alternatif: P03/P04/P13 (paralel yürüyebilir) |
-| **Dal** | `feat/p01-onarim` — **birleştirme kararı bekliyor** (`main`'e merge / PR / olduğu gibi bırak) |
-| **Durum** | ✅ P01 bitti; yeni plan dalı P01 birleştikten sonra açılır |
+| **Dal** | `feat/p01-onarim` — **push edildi** (`EgitimUssu/feat/p01-onarim`); PR açılacak: https://github.com/furkangk/EgitimUssu/pull/new/feat/p01-onarim |
+| **Durum** | ✅ P01 bitti; PR `main`'e merge edilince yeni plan dalı açılır (`gh auth login` gerekiyordu, PR el ile açılacak) |
 | **Son commit** | `3755896` (docs: P01 kapanışı) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
