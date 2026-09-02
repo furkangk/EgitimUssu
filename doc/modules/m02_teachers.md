@@ -216,7 +216,17 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
 5. **Metin temizliği:** `FullName`, `Subject`, `City`, `District`, `EducationLevel`, `Biography`, `Headline`, `ProfilePhotoUrl` `Trim()` edilir.
 6. **Validator (create & update):** `UserId != Guid.Empty`, ad/branş/şehir/ilçe/eğitim seviyesi/para birimi boş olamaz; `ExperienceYears >= 0`, `HourlyRateAmount >= 0` (`teachers.invalid_request`). Update validator aynı kuralları create üzerinden uygular.
 7. **Komut yetkisi:** `TeacherProfileCommandAuthorizer` → **admin** her zaman; **öğretmen** yalnızca `command.UserId == kendi userId`'si için create/update yapabilir; aksi halde `shared.forbidden`.
-8. **Uygunluk yeniden yazımı:** Update'te mevcut slotlar tamamen temizlenip yeni liste eklenir (`Clear` + `AddRange`) — kısmi güncelleme değil, **tam değiştirme** (replace) semantiği.
+8. **Çocuk koleksiyonlarda birleştirme (merge) semantiği:** Update'te uygunluk slotları, branşlar ve sertifikalar **doğal anahtara göre birleştirilir** (`TeacherProfile.MergeAvailabilitySlots` / `MergeSubjects` / `MergeCertificates`): istekte olmayan kayıt silinir, eşleşen kayıt **aynı PK ile korunur**, yeni kayıt eklenir. Dışarıdan görünen davranış yine **tam değiştirme** (replace) — istekteki liste nihai listedir — ama kimlikler korunduğu için EF "orphan update" hatası oluşmaz.
+   - Doğal anahtarlar: branş → `Subject` (büyük/küçük harf duyarsız) · sertifika → `(Title, Institution, Year)` · slot → `(DayOfWeek, StartTime, EndTime)`; eşleşen slotta yalnız `IsOnlineAvailable` / `IsInPersonAvailable` güncellenir.
+
+> **Güncelleme (2026-09-02, denetim A-01):** Eski "sil + yeniden ekle" (`Clear` + `AddRange`) deseni `PUT /api/teachers/profiles/{userId}` isteğinde **500** üretiyordu
+> (`DbUpdateConcurrencyException: Attempted to update or delete an entity that does not exist in the store`). İki kök neden birlikte düzeltildi:
+> 1. Çocuk koleksiyonlar artık doğal anahtara göre **birleştiriliyor** (yukarıdaki kural 8).
+> 2. Çocuk entity'lerin `Id` alanı `ValueGeneratedNever()` olarak yapılandırıldı. Id'ler `IIdGenerator` ile **istemcide** atandığı hâlde EF onları
+>    `ValueGenerated.OnAdd` sanıyor, bu yüzden izlenen bir profile eklenen yeni çocuğu `Added` yerine **`Modified`** olarak izliyor ve var olmayan satırı
+>    UPDATE etmeye çalışıyordu. Bu kural, Id'si istemcide üretilen tüm çocuk entity'ler için geçerlidir.
+>
+> Ayrıca ilişkiler artık açık `OnDelete(DeleteBehavior.Cascade)` ile tanımlıdır.
 
 ---
 
@@ -294,5 +304,5 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

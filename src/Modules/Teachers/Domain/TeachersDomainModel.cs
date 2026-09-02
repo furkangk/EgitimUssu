@@ -117,14 +117,68 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         ProfilePhotoUrl = profilePhotoUrl;
         UpdatedOnUtc = updatedOnUtc;
 
-        AvailabilitySlots.Clear();
-        AvailabilitySlots.AddRange(availabilitySlots);
-        Subjects.Clear();
-        Subjects.AddRange(subjects);
-        Certificates.Clear();
-        Certificates.AddRange(certificates);
+        MergeAvailabilitySlots(availabilitySlots);
+        MergeSubjects(subjects);
+        MergeCertificates(certificates);
 
         Raise(new TeacherProfileUpdatedDomainEvent(Id, UserId, Subject, updatedOnUtc));
+    }
+
+    /// <summary>
+    /// Branş listesini doğal anahtara (branş adı) göre birleştirir: eşleşenler korunur (PK değişmez),
+    /// listede olmayanlar silinir, yeni olanlar eklenir. Sil-yeniden-ekle deseni EF'te
+    /// "orphan update" hatasına yol açtığı için tercih edilmez (A-01).
+    /// </summary>
+    public void MergeSubjects(IReadOnlyCollection<TeacherSubject> desired)
+    {
+        var desiredNames = desired
+            .Select(subject => subject.Subject)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        Subjects.RemoveAll(existing => !desiredNames.Contains(existing.Subject));
+
+        var existingNames = Subjects
+            .Select(subject => subject.Subject)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        Subjects.AddRange(desired.Where(subject => existingNames.Add(subject.Subject)));
+    }
+
+    /// <summary>
+    /// Sertifikaları (Başlık, Kurum, Yıl) üçlüsüne göre birleştirir.
+    /// </summary>
+    public void MergeCertificates(IReadOnlyCollection<TeacherCertificate> desired)
+    {
+        static string Key(TeacherCertificate certificate)
+            => $"{certificate.Title}|{certificate.Institution}|{certificate.Year}".ToUpperInvariant();
+
+        var desiredKeys = desired.Select(Key).ToHashSet(StringComparer.Ordinal);
+        Certificates.RemoveAll(existing => !desiredKeys.Contains(Key(existing)));
+
+        var existingKeys = Certificates.Select(Key).ToHashSet(StringComparer.Ordinal);
+        Certificates.AddRange(desired.Where(certificate => existingKeys.Add(Key(certificate))));
+    }
+
+    /// <summary>
+    /// Uygunluk slotlarını (Gün, Başlangıç, Bitiş) üçlüsüne göre birleştirir; eşleşen slotta
+    /// yalnız online/yüz yüze bayrakları güncellenir.
+    /// </summary>
+    public void MergeAvailabilitySlots(IReadOnlyCollection<TeacherAvailabilitySlot> desired)
+    {
+        static string Key(TeacherAvailabilitySlot slot)
+            => $"{(int)slot.DayOfWeek}|{slot.StartTime:HH\\:mm}|{slot.EndTime:HH\\:mm}";
+
+        var desiredByKey = desired.ToDictionary(Key, slot => slot, StringComparer.Ordinal);
+        AvailabilitySlots.RemoveAll(existing => !desiredByKey.ContainsKey(Key(existing)));
+
+        foreach (var existing in AvailabilitySlots)
+        {
+            var match = desiredByKey[Key(existing)];
+            existing.SetAvailability(match.IsOnlineAvailable, match.IsInPersonAvailable);
+        }
+
+        var existingKeys = AvailabilitySlots.Select(Key).ToHashSet(StringComparer.Ordinal);
+        AvailabilitySlots.AddRange(desired.Where(slot => existingKeys.Add(Key(slot))));
     }
 }
 
@@ -163,6 +217,12 @@ public sealed class TeacherAvailabilitySlot : Entity<Guid>
     public bool IsOnlineAvailable { get; private set; }
 
     public bool IsInPersonAvailable { get; private set; }
+
+    public void SetAvailability(bool isOnlineAvailable, bool isInPersonAvailable)
+    {
+        IsOnlineAvailable = isOnlineAvailable;
+        IsInPersonAvailable = isInPersonAvailable;
+    }
 }
 
 public sealed class TeacherSubject : Entity<Guid>

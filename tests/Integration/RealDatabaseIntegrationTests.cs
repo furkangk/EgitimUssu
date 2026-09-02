@@ -1,5 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using EgitimUssu.Modules.Teachers.Domain;
+using EgitimUssu.Modules.Teachers.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EgitimUssu.Tests.Integration;
 
@@ -38,5 +42,59 @@ public sealed class RealDatabaseIntegrationTests(ContainerFixture fixture)
         // Aynı e-posta → NormalizedEmail unique index gerçek DB'de ihlali yakalar → 409.
         var duplicate = await client.PostAsJsonAsync("/api/identity/register", register);
         Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+    }
+
+    /// <summary>
+    /// A-01: Profil güncellemesinde çocuk koleksiyonların doğal anahtara göre birleştirilmesi (merge)
+    /// gerçek Postgres'te de çalışmalı — InMemory'de görünen "orphan update" hatası burada
+    /// <c>DbUpdateConcurrencyException</c> olarak yüzeye çıkıyordu.
+    /// </summary>
+    [SkippableFact]
+    public async Task TeacherProfile_Update_Should_Merge_Subjects_On_Real_Postgres()
+    {
+        Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
+
+        using var _ = RealInfrastructure.Use(fixture);
+        await using var factory = new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program>();
+
+        var profileId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TeachersDbContext>();
+            var profile = new TeacherProfile(
+                profileId, Guid.NewGuid(), "Ayse", "Matematik", "Istanbul", "Kadikoy", null, null,
+                TeacherLessonFormat.Online, 3, "Lisans", 1000m, "TRY", false, null, now);
+            profile.Subjects.Add(new TeacherSubject(Guid.NewGuid(), profileId, "Matematik"));
+            context.TeacherProfiles.Add(profile);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TeachersDbContext>();
+            var profile = await context.TeacherProfiles
+                .Include(entity => entity.Subjects)
+                .Include(entity => entity.Certificates)
+                .Include(entity => entity.AvailabilitySlots)
+                .SingleAsync(entity => entity.Id == profileId);
+
+            profile.Update(
+                "Ayse", "Fizik", "Istanbul", "Kadikoy", null, null, TeacherLessonFormat.Online, 4,
+                "Lisans", 1100m, "TRY", null, [],
+                [new TeacherSubject(Guid.NewGuid(), profileId, "Fizik")], [], DateTime.UtcNow);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<TeachersDbContext>();
+            var subjects = await context.TeacherSubjects
+                .Where(subject => subject.TeacherProfileId == profileId)
+                .ToListAsync();
+            Assert.Single(subjects);
+            Assert.Equal("Fizik", subjects[0].Subject);
+        }
     }
 }

@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.13" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
@@ -33,6 +34,7 @@
     <ProjectReference Include="..\..\src\Modules\Assignments\Domain\EgitimUssu.Modules.Assignments.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Assignments\Application\EgitimUssu.Modules.Assignments.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Teachers\Domain\EgitimUssu.Modules.Teachers.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Teachers\Infrastructure\EgitimUssu.Modules.Teachers.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Students\Domain\EgitimUssu.Modules.Students.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Students\Application\EgitimUssu.Modules.Students.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Study\Domain\EgitimUssu.Modules.Study.Domain.csproj" />
