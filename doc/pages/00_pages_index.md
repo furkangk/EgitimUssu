@@ -11,7 +11,7 @@ updated: 2026-09-03
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-09-03 (P03/D-11: `/notifications` bildirim merkezine dönüştü — sayfa md'si eklendi, 🟡 → 🟢) · 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
+> **Son güncelleme:** 2026-09-03 (P04/M06-1: ders detayına "Kaynaklar" sekmesi — 🔴 → 🟡) · 2026-09-03 (P03/D-11: `/notifications` bildirim merkezine dönüştü — sayfa md'si eklendi, 🟡 → 🟢) · 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -61,7 +61,7 @@ updated: 2026-09-03
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
 | Dersler | `/lesson-sessions` | [lesson_sessions_list](lesson_sessions_list.md) | 🟡 |
-| Ders detayı | `/lesson-sessions/detail` | [lesson_detail](lesson_detail.md) | 🔴 |
+| Ders detayı | `/lesson-sessions/detail` | [lesson_detail](lesson_detail.md) | 🟡 (Kaynaklar sekmesi gerçek API — M06-1 2026-09-03; not/ödev sekmeleri demo) |
 | Ders notu formu | `/lesson-notes/new` | [lesson_note_form](lesson_note_form.md) | 🔴 |
 | Ders notu görüntüleme | `/lesson-sessions/detail/note` | [lesson_note_view](lesson_note_view.md) | 🔴 |
 

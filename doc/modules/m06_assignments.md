@@ -1,6 +1,6 @@
 ---
 title: "M06 — Ödev, Not & Kaynak (Assignments)"
-summary: "Ders sonrası not/ödev akışı; öğretmen tarafı + öğrenci teslim/tamamlama/onay-geri gönder çalışır, ders kaynağı (LessonResource) ve dosya depolama altyapısı eksik"
+summary: "Ders sonrası not/ödev akışı, öğrenci teslim/tamamlama/onay-geri gönder, ders kaynağı (LessonResource) paylaşımı ve ortak IFileStorage depolaması çalışır"
 tags: [modul, assignments, odev, not, faz-1]
 status: "🟢"
 authority: code
@@ -37,7 +37,7 @@ updated: 2026-09-03
 | Öğrenci **dosya yükleme** (teslim) | ✅ Endpoint | `Assignment.SubmitWork()` + `POST /{id}/submission` (multipart) + yerel depolama |
 | Ödev **onay / geri gönder** + geri bildirim | ✅ Endpoint | `Assignment.Approve()`/`ReturnForRevision()` + `POST /{id}/approve`, `POST /{id}/return` (öğretmen) |
 | Not **görünürlük** kontrolü | ✅ Mevcut | `LessonNote.Visibility` (`Private`/`Student`/`StudentAndParent`) — B-05 |
-| Ders **kaynağı** (`LessonResource`) | 🔴 **Yok** | Önerilen — not'tan ayrı materyal paylaşımı |
+| Ders **kaynağı** (`LessonResource`) | 🟢 **Var** (2026-09-03, P04/M06-1) | Dosya veya bağlantı; 4 uç + mobil bölüm |
 | Öğrenci ödev **yükleme** (`AssignmentSubmission`) | 🔴 **Yok** | Önerilen — öğrenci dosya yükler |
 | Son teslim uyarısı (veliye bildirim) | 🔴 **Yok** | Önerilen — m11 + m09 |
 | Öğrenci görünümü endpoint'leri | 🔴 **Kısmi** | `GET /assignments?studentId=` var; not/kaynak öğrenci görünümü eksik |
@@ -113,8 +113,8 @@ LessonNoteVisibility : Private = 1, Student = 2, StudentAndParent = 3
 
 ### 2.3 ⚠️ Önerilen (henüz kodda yok)
 
-#### A) `LessonResource` (ders KAYNAĞI / materyali — yeni Aggregate)
-Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal** (PDF, video linki, soru bankası). Öğrenci görür ve takip eder (`promp.txt`: "not ve kaynakları görebilir takip edebilir").
+#### A) `LessonResource` (ders KAYNAĞI / materyali) — ✅ **kodda (2026-09-03, P04/M06-1)**
+Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal** (dosya ya da bağlantı). Öğrenci görür ve takip eder.
 
 | Alan | Tip | Açıklama |
 |------|-----|----------|
@@ -122,12 +122,18 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | `TeacherUserId` | `Guid` | Paylaşan öğretmen |
 | `StudentId` | `Guid?` | Belirli öğrenciye özel mi yoksa genel mi |
 | `LessonSessionId` | `Guid?` | İsteğe bağlı oturum bağı |
-| `Subject` | `string` | Branş/konu |
-| `Title` | `string` | Kaynak adı |
-| `ResourceType` | enum (öneri) | `Pdf`, `Video`, `Link`, `Image`, `Other` |
-| `Url` | `string` | Dosya/link adresi (depolama altyapısı gerekli) |
-| `Description` | `string?` | |
-| `CreatedOnUtc` | `DateTime` | |
+| `Title` | `string` | Kaynak adı, **maks. 200**, zorunlu |
+| `Description` | `string?` | **maks. 1000** |
+| `Kind` | `enum LessonResourceKind` | `File = 1`, `Link = 2` |
+| `StorageKey` | `string?` | Dosya kaynağının `IFileStorage` anahtarı, **maks. 512** |
+| `FileName` / `ContentType` / `SizeBytes` | `string?` / `string?` / `long?` | Dosya meta verisi (256 / 128) |
+| `Url` | `string?` | Bağlantı kaynağının dış adresi, **maks. 1024** |
+| `IsActive` | `bool` | Arşivlenince `false` (yumuşak silme) |
+| `CreatedOnUtc` / `ArchivedOnUtc` | `DateTime` / `DateTime?` | |
+
+**Fabrikalar / davranış:** `CreateFile(...)` anahtarsız, `CreateLink(...)` URL'siz oluşturulamaz (`ArgumentException`); başlık zorunludur. `Archive(nowUtc)` yumuşak silme yapar — geçmiş derse ait kaynak kaybolmaz.
+
+**Yetki:** Oluşturma/arşivleme yalnız kaynağın öğretmeni (veya Admin). Listeleme/indirme: öğretmen kendi kaynaklarını (`teacherUserId` = kendisi), öğrenci `studentId` = kendisi olan **veya** `StudentId = null` (tüm öğrencilere açık) kaynakları görür. `LessonResourceAuthorizer` — varsayılan-deny.
 
 #### B) `AssignmentSubmission` (öğrenci ödev YÜKLEME — yeni Entity/Aggregate)
 Öğrenci ödevini **yükler** (`promp.txt`: "Öğrenci ödevlerini yüklemesi gerekir"). Ödevin teslim tarafı.
@@ -207,7 +213,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | Yetenek | Öneri | Gerekçe |
 |---------|-------|---------|
 | Ödev güncelle/iptal | `PUT /api/assignments/{assignmentId}` | Başlık/açıklama/son teslim/iptal |
-| Kaynak ekle/listele | `POST /api/assignments/resources`, `GET /api/assignments/resources?studentId=&teacherUserId=` | `LessonResource` için |
+| ~~Kaynak ekle/listele~~ ✅ **eklendi (2026-09-03, P04/M06-1)** | `POST /api/assignments/lesson-resources` (multipart: `title`, `description`, `url` **veya** `file`, `studentId?`, `lessonSessionId?`) · `GET /api/assignments/lesson-resources?teacherUserId=&studentId=&lessonSessionId=` · `GET /api/assignments/lesson-resources/{resourceId}/file` (yetkili indirme) · `DELETE /api/assignments/lesson-resources/{resourceId}` (arşivle) | — |
 | Yükleme değerlendir | `PUT /api/assignments/{assignmentId}/grade` | Öğretmen değerlendirmesi/notu |
 | Öğrenci not/kaynak görünümü | `GET /api/assignments/students/{studentId}/notes`, `.../resources` | Öğrenci kendi not/kaynaklarını görür |
 
@@ -278,7 +284,7 @@ POST /assignments/{id}/complete
 > `mobile/lib/features/assignments`, `flutter_bloc` (Cubit).
 
 ### ⚠️ Planlanan
-- **Kaynak paylaşımı ekranı** (`LessonResource`): PDF/video/link ekleme + öğrenci listesi.
+- ✅ **Kaynak paylaşımı** (`LessonResource`, 2026-09-03): `LessonResourcesSection` — dosya (`file_picker`) veya bağlantı ekleme, uzun listede silme; bağlantılar `url_launcher` ile açılır, dosyalar yetkili uçtan indirilir.
 - **Öğrenci tarafı:** "Ödevlerim", "Notlarım", "Kaynaklarım" listeleri + ödev **yükleme** (dosya seç).
 - **Ödev durum yönetimi:** tamamla / geç teslim rozeti / son teslim geri sayımı.
 - **Ödev detay sayfası** (assignment detail, status update).
@@ -296,10 +302,10 @@ POST /assignments/{id}/complete
 - [x] Öğretmen not görünürlüğünü (`Private`/`Student`/`StudentAndParent`) seçebilir (B-05).
 - [x] Öğretmen ödevi onaylayabilir / geri bildirimle geri gönderebilir (T-06.7/8); geri gönderme için geri bildirim zorunlu.
 - [x] Ödev "tamamla" endpoint'i (`POST /{id}/complete` → `MarkCompleted`) — 2026-07-09 eklendi.
-- [ ] ⚠️ `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü.
+- [x] `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü **(2026-09-03, P04/M06-1)**; mobilde `LessonResourcesSection` öğretmen ders detayında "Kaynaklar" sekmesi, öğrenci ders detayında liste olarak.
 - [x] **Öğrenci teslimi + değerlendirme** — `POST /{assignmentId}/submission` (dosya) → `Assignment.SubmitWork` + `AssignmentSubmittedDomainEvent`; öğretmen `approve`/`return` ile değerlendirir. (Ayrı `AssignmentSubmission` varlığı yok; teslim alanları `Assignment` üzerinde tutuluyor.)
 - [ ] ⚠️ Son teslim uyarısı (öğrenci + veli bildirimi).
-- [x] **Öğrenci görünümü uçları** — `GET /` (`studentId` filtresi ile `ListAssignmentsQuery`) + `GET /{assignmentId}/attachment`. Kaynak (`LessonResource`) görünümü hâlâ yok (yukarıdaki madde).
+- [x] **Öğrenci görünümü uçları** — `GET /` (`studentId` filtresi ile `ListAssignmentsQuery`) + `GET /{assignmentId}/attachment` + `GET /lesson-resources?studentId=` (2026-09-03, P04).
 - [ ] ⚠️ Dosya depolama altyapısı **(P04)** — şu an yalnız yerel disk (`LocalAssignmentFileStorage`); nesne depolama (S3/R2) bekliyor.
 
 ---
@@ -310,7 +316,7 @@ POST /assignments/{id}/complete
 
 1. **Dosya depolama altyapısı** — Diğer her şeyin ön koşulu (presigned URL / blob); bkz. [`mimari_inceleme.md`](mimari_inceleme.md).
 2. **`AssignmentSubmission` (öğrenci yükleme)** + öğretmen değerlendirme + durum güncelleme.
-3. **`LessonResource` (ders kaynağı)** — aggregate + endpoint + öğrenci görünümü.
+3. ✅ **`LessonResource` (ders kaynağı)** — aggregate + 4 endpoint + öğrenci görünümü **eklendi (2026-09-03, P04/M06-1)**.
 4. **Ödev güncelle/iptal endpoint'leri** (`PUT/DELETE /{id}`). Ödev "tamamla" (`POST /{id}/complete`) zaten mevcut (2026-07-09).
 5. **Son teslim uyarı otomasyonu** — zamanlanmış iş + m11 + m09 (veliye bildirim).
 6. **Öğrenci görünümü endpoint'leri** (kendi ödev/not/kaynak) + yetkilendirme testleri.
@@ -328,4 +334,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P04/M06-1: `LessonResource` aggregate + 4 uç + mobil `LessonResourcesSection`; P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*

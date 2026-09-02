@@ -54,6 +54,146 @@ public sealed class AssignmentsModule : ModuleDefinition
 
         group.MapPost("/{assignmentId:guid}/return", ReturnAssignmentAsync)
         .WithSummary("Öğretmen ödevi geri bildirimle geri gönderir");
+
+        group.MapPost("/lesson-resources", CreateLessonResourceAsync)
+        .WithSummary("Ders kaynağı ekler — dosya veya bağlantı (M06-1)")
+        .DisableAntiforgery();
+
+        group.MapGet("/lesson-resources", ListLessonResourcesAsync)
+        .WithSummary("Ders kaynaklarını listeler (öğretmen kendi, öğrenci kendisine açık olanlar)");
+
+        group.MapGet("/lesson-resources/{resourceId:guid}/file", DownloadLessonResourceAsync)
+        .WithSummary("Ders kaynağı dosyasını yetkiyle indirir");
+
+        group.MapDelete("/lesson-resources/{resourceId:guid}", ArchiveLessonResourceAsync)
+        .WithSummary("Ders kaynağını arşivler (yumuşak silme)");
+    }
+
+    /// <summary>
+    /// Ders kaynağı ekler (M06-1). `file` alanı doluysa dosya, `url` alanı doluysa bağlantı kaynağı üretilir.
+    /// Multipart form olarak gelir; doğrulama ve depolama yazımı handler'da yapılır.
+    /// </summary>
+    private static async Task<IResult> CreateLessonResourceAsync(
+        HttpContext context,
+        HttpRequest request,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var teacherUserId))
+        {
+            return ApiErrorHttpResults.Forbidden(context, "Bu işlemi yapma yetkiniz yok.");
+        }
+
+        var form = await request.ReadFormAsync(cancellationToken);
+        var title = form["title"].ToString();
+        var description = form["description"].ToString();
+        var url = form["url"].ToString();
+        var studentId = Guid.TryParse(form["studentId"], out var parsedStudentId) ? parsedStudentId : (Guid?)null;
+        var lessonSessionId = Guid.TryParse(form["lessonSessionId"], out var parsedSessionId) ? parsedSessionId : (Guid?)null;
+
+        var file = form.Files.GetFile("file");
+        MemoryStream? buffer = null;
+
+        try
+        {
+            if (file is not null && file.Length > 0)
+            {
+                buffer = new MemoryStream();
+                await file.CopyToAsync(buffer, cancellationToken);
+                buffer.Position = 0;
+            }
+
+            var result = await dispatcher.Dispatch(
+                new CreateLessonResourceCommand(
+                    teacherUserId,
+                    studentId,
+                    lessonSessionId,
+                    title,
+                    string.IsNullOrWhiteSpace(description) ? null : description,
+                    string.IsNullOrWhiteSpace(url) ? null : url,
+                    file?.FileName,
+                    file?.ContentType,
+                    buffer?.Length ?? 0,
+                    buffer),
+                cancellationToken);
+
+            return ToHttpResult(context, result);
+        }
+        finally
+        {
+            buffer?.Dispose();
+        }
+    }
+
+    /// <summary>Ders kaynaklarını listeler (M06-1). Yetki: öğretmen kendi, öğrenci kendisine açık olanlar.</summary>
+    private static async Task<IResult> ListLessonResourcesAsync(
+        HttpContext context,
+        Guid? teacherUserId,
+        Guid? studentId,
+        Guid? lessonSessionId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListLessonResourcesQuery(teacherUserId, studentId, lessonSessionId),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>Ders kaynağı dosyasını akıtır (M06-1). Public URL yok; anahtar yetkiden sonra okunur.</summary>
+    private static async Task<IResult> DownloadLessonResourceAsync(
+        HttpContext context,
+        Guid resourceId,
+        IQueryDispatcher dispatcher,
+        IFileStorage fileStorage,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetLessonResourceFileQuery(resourceId), cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                "assignments.resource_not_found" or "assignments.resource_not_a_file"
+                    => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
+        }
+
+        var resource = result.Value!;
+        var content = await fileStorage.OpenReadAsync(resource.StorageKey, cancellationToken);
+        if (content is null)
+        {
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status404NotFound,
+                new EgitimUssu.Shared.Kernel.Error("assignments.resource_not_found", "Ders kaynağı bulunamadı."));
+        }
+
+        return Results.File(content, resource.ContentType, resource.FileName);
+    }
+
+    /// <summary>Ders kaynağını arşivler — yumuşak silme (M06-1).</summary>
+    private static async Task<IResult> ArchiveLessonResourceAsync(
+        HttpContext context,
+        Guid resourceId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ArchiveLessonResourceCommand(resourceId), cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok();
+        }
+
+        return result.Error.Code switch
+        {
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            "assignments.resource_not_found"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
     }
 
     /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>

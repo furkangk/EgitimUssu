@@ -19,6 +19,8 @@ public sealed class AssignmentsDbContext : ModuleDbContext
 
     public DbSet<Assignment> Assignments => Set<Assignment>();
 
+    public DbSet<LessonResource> LessonResources => Set<LessonResource>();
+
     public DbSet<LessonNote> LessonNotes => Set<LessonNote>();
 
     protected override string Schema => SchemaName;
@@ -65,5 +67,29 @@ internal sealed class LessonNoteConfiguration : IEntityTypeConfiguration<LessonN
         builder.Property(entity => entity.Visibility).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.LessonSessionId).IsUnique();
+    }
+}
+
+/// <summary>M06-1: Ders kaynagi. Listeleme sorgusu (aktif + ogretmen/ogrenci) indeksli.</summary>
+internal sealed class LessonResourceConfiguration : IEntityTypeConfiguration<LessonResource>
+{
+    public void Configure(EntityTypeBuilder<LessonResource> builder)
+    {
+        builder.ToTable("lesson_resources");
+        builder.HasKey(entity => entity.Id);
+        // Id istemcide IIdGenerator ile uretiliyor (Ogrenilenler #3).
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(entity => entity.TeacherUserId).IsRequired();
+        builder.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
+        builder.Property(entity => entity.Description).HasMaxLength(1000);
+        builder.Property(entity => entity.Kind).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.StorageKey).HasMaxLength(512);
+        builder.Property(entity => entity.FileName).HasMaxLength(256);
+        builder.Property(entity => entity.ContentType).HasMaxLength(128);
+        builder.Property(entity => entity.Url).HasMaxLength(1024);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.IsActive });
+        builder.HasIndex(entity => new { entity.StudentId, entity.IsActive });
+        builder.HasIndex(entity => entity.LessonSessionId);
     }
 }

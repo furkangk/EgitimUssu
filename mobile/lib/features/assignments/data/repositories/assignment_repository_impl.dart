@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/models/assignment_model.dart';
+import 'package:egitim_ussu_mobile/features/assignments/data/models/lesson_resource_model.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 
 class AssignmentRepositoryImpl implements AssignmentRepository {
@@ -103,4 +104,54 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
       rethrow;
     }
   }
+
+  // ---- M06-1 (P04): ders kaynagi paylasimi. Mock fallback YOK — sahte kaynak,
+  // gercek paylasim hatasini gizler (A-05 ilkesi).
+
+  @override
+  Future<LessonResource> createLessonResource({
+    required String title,
+    String? description,
+    String? url,
+    String? filePath,
+    String? studentId,
+    String? lessonSessionId,
+  }) async {
+    final response = await _apiClient.postMultipart(
+      '/api/assignments/lesson-resources',
+      fields: <String, String>{
+        'title': title,
+        if (description != null && description.isNotEmpty) 'description': description,
+        if (url != null && url.isNotEmpty) 'url': url,
+        if (studentId != null) 'studentId': studentId,
+        if (lessonSessionId != null) 'lessonSessionId': lessonSessionId,
+      },
+      filePath: filePath,
+    );
+    return LessonResourceModel.fromJson(response);
+  }
+
+  @override
+  Future<List<LessonResource>> listLessonResources({
+    String? teacherUserId,
+    String? studentId,
+    String? lessonSessionId,
+  }) async {
+    final response = await _apiClient.getList(
+      '/api/assignments/lesson-resources',
+      queryParameters: <String, dynamic>{
+        if (teacherUserId != null) 'teacherUserId': teacherUserId,
+        if (studentId != null) 'studentId': studentId,
+        if (lessonSessionId != null) 'lessonSessionId': lessonSessionId,
+      },
+    );
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(LessonResourceModel.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<void> archiveLessonResource(String resourceId) =>
+      _apiClient.delete('/api/assignments/lesson-resources/$resourceId');
 }

@@ -1,22 +1,31 @@
 ---
 title: "Ders Detayı Ekranı"
-summary: "Tek dersin detayı (Ders Notu/Ödevler/Ödeme sekmeleri); tamamlama ve düzenleme gerçek backend'e bağlı, diğer sekmeler demo/UI"
+summary: "Tek dersin detayı (Ders Notu/Ödevler/Kaynaklar/Ödeme sekmeleri); tamamlama, düzenleme ve ders kaynakları gerçek backend'e bağlı, not/ödev sekmeleri demo/UI"
 tags: [sayfa, lesson-sessions, ogretmen]
-status: "🔴"
+status: "🟡"
 authority: code
 code_refs:
   - mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-06-28
+updated: 2026-09-03
 ---
 
 # Ders Detayı (`/lesson-sessions/detail`)
 
 > **Feature:** `lesson_sessions` · **Dosya:** `mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart`
-> **State:** Stateful (tab) · **Veri:** ⚠️ Demo/UI · **Güncelleme:** 2026-06-28
+> **State:** Stateful (tab) · **Veri:** Kısmen gerçek (tamamlama/düzenleme/kaynaklar gerçek; not & ödev sekmeleri demo) · **Güncelleme:** 2026-09-03
 
 ## Amaç
-Tek dersin detayı; sekmeler: Ders Notu / Ödevler / Ödeme. Ders meta verisi, ekler, ilgili ödevler, ödeme durumu.
+Tek dersin detayı; sekmeler: **Ders Notu / Ödevler / Kaynaklar / Ödeme**. Ders meta verisi, ekler, ilgili ödevler, ödeme durumu.
+
+## Kaynaklar sekmesi (2026-09-03, P04/M06-1)
+`LessonResourcesSection` (`features/assignments/presentation/widgets/`) — **gerçek API**:
+- Liste: `GET /api/assignments/lesson-resources?teacherUserId={self}&lessonSessionId={lessonId}`
+- Ekleme: "Kaynak ekle" → dosya (`file_picker`, maks. 10 MB) veya bağlantı → `POST .../lesson-resources` (multipart)
+- Silme: çöp kutusu → onay diyaloğu → `DELETE .../lesson-resources/{id}` (**yumuşak silme**, iyimser liste güncellemesi; sunucu reddederse geri alınır)
+- Açma: bağlantı `url_launcher` ile dış tarayıcıda; dosya yetkili uçtan indirilip geçici dizine yazılır ve yolu SnackBar ile bildirilir.
+
+> Aynı bölüm öğrenci tarafında (`student_lesson_detail_page.dart`) `studentId` ile salt-okunur çalışır: öğrenci yalnız kendisine özel **veya** tüm öğrencilere açık (`studentId = null`) kaynakları görür.
 
 ## Route
 - Veri `route.extra` ile `LessonDetailPayload` olarak gelir: `studentName`, `subject`, `dateLabel`, `timeLabel`, `modeLabel`, `accent`, `lessonId?`, `lessonStatus?`, `meetingUrl?`, **`lesson?`** (tam `LessonSchedule` — kalıcı düzenleme için).

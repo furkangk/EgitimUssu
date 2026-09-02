@@ -1,6 +1,8 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
+import 'package:egitim_ussu_mobile/features/assignments/presentation/widgets/lesson_resources_section.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
@@ -73,7 +75,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     ),
   ];
 
-  static const _tabs = <String>['Ders notu', 'Odevler', 'Odeme'];
+  static const _tabs = <String>['Ders notu', 'Odevler', 'Kaynaklar', 'Odeme'];
 
   LessonDetailPayload? _editedPayload;
   SchedulingCubit? _schedulingCubit;
@@ -280,6 +282,19 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   }
 
   Widget _buildTabContent() {
+    // M06-1: "Kaynaklar" sekmesi (index 2) ders materyallerini yonetir; odeme sekmesi 3'e kaydi.
+    if (_selectedTab == 2) {
+      final teacherUserId = context.read<AuthCubit>().state.session?.userId;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: LessonResourcesSection(
+          teacherUserId: teacherUserId,
+          lessonSessionId: _payload.lessonId,
+          canManage: true,
+        ),
+      );
+    }
+
     switch (_selectedTab) {
       case 0:
         return ListView(

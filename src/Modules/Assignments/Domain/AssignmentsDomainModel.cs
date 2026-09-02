@@ -243,3 +243,141 @@ public sealed record LessonNoteCreatedDomainEvent(
     Guid TeacherUserId,
     Guid StudentId,
     DateTime CreatedOnUtc) : DomainEvent;
+
+/// <summary>M06-1: Ders kaynağının türü.</summary>
+public enum LessonResourceKind
+{
+    File = 1,
+    Link = 2
+}
+
+/// <summary>
+/// M06-1 (P04): Öğretmenin paylaştığı ders materyali — yüklenmiş bir dosya ya da bir bağlantı.
+/// <see cref="StudentId"/> <c>null</c> ise öğretmenin tüm öğrencilerine açıktır.
+/// Silme **yumuşaktır** (<see cref="Archive"/>): geçmiş derse ait kaynak kaybolmasın diye kayıt durur.
+/// </summary>
+public sealed class LessonResource : AggregateRoot<Guid>
+{
+    private LessonResource()
+    {
+    }
+
+    private LessonResource(
+        Guid id,
+        Guid teacherUserId,
+        Guid? studentId,
+        Guid? lessonSessionId,
+        string title,
+        string? description,
+        LessonResourceKind kind,
+        DateTime createdOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ArgumentException("Kaynak basligi zorunludur.", nameof(title));
+        }
+
+        Id = id;
+        TeacherUserId = teacherUserId;
+        StudentId = studentId;
+        LessonSessionId = lessonSessionId;
+        Title = title.Trim();
+        Description = description?.Trim();
+        Kind = kind;
+        IsActive = true;
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid TeacherUserId { get; private set; }
+
+    /// <summary><c>null</c> = öğretmenin tüm öğrencilerine açık.</summary>
+    public Guid? StudentId { get; private set; }
+
+    public Guid? LessonSessionId { get; private set; }
+
+    public string Title { get; private set; } = string.Empty;
+
+    public string? Description { get; private set; }
+
+    public LessonResourceKind Kind { get; private set; }
+
+    /// <summary><see cref="LessonResourceKind.File"/> için <c>IFileStorage</c> anahtarı.</summary>
+    public string? StorageKey { get; private set; }
+
+    public string? FileName { get; private set; }
+
+    public string? ContentType { get; private set; }
+
+    public long? SizeBytes { get; private set; }
+
+    /// <summary><see cref="LessonResourceKind.Link"/> için dış bağlantı.</summary>
+    public string? Url { get; private set; }
+
+    public bool IsActive { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    public DateTime? ArchivedOnUtc { get; private set; }
+
+    public static LessonResource CreateFile(
+        Guid id,
+        Guid teacherUserId,
+        Guid? studentId,
+        Guid? lessonSessionId,
+        string title,
+        string? description,
+        string storageKey,
+        string fileName,
+        string contentType,
+        long sizeBytes,
+        DateTime createdOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            throw new ArgumentException("Dosya kaynagi icin depolama anahtari zorunludur.", nameof(storageKey));
+        }
+
+        return new LessonResource(
+            id, teacherUserId, studentId, lessonSessionId, title, description, LessonResourceKind.File, createdOnUtc)
+        {
+            StorageKey = storageKey,
+            FileName = fileName,
+            ContentType = contentType,
+            SizeBytes = sizeBytes
+        };
+    }
+
+    public static LessonResource CreateLink(
+        Guid id,
+        Guid teacherUserId,
+        Guid? studentId,
+        Guid? lessonSessionId,
+        string title,
+        string? description,
+        string url,
+        DateTime createdOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new ArgumentException("Baglanti kaynagi icin URL zorunludur.", nameof(url));
+        }
+
+        return new LessonResource(
+            id, teacherUserId, studentId, lessonSessionId, title, description, LessonResourceKind.Link, createdOnUtc)
+        {
+            Url = url.Trim()
+        };
+    }
+
+    /// <summary>Yumuşak silme: kaynak listelerden düşer ama kayıt (ve dosya) korunur.</summary>
+    public void Archive(DateTime nowUtc)
+    {
+        if (!IsActive)
+        {
+            return;
+        }
+
+        IsActive = false;
+        ArchivedOnUtc = nowUtc;
+    }
+}

@@ -81,6 +81,29 @@ class ApiClient {
     }
   }
 
+  /// Cok parcali (multipart) form gonderir: istege bagli bir dosya + ek metin alanlari.
+  /// [postFile]'dan farki, dosyanin yaninda form alanlari da tasimasidir (P04: ders kaynagi).
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    Map<String, String> fields = const <String, String>{},
+    String? filePath,
+    String field = 'file',
+  }) async {
+    try {
+      final payload = <String, dynamic>{...fields};
+      if (filePath != null) {
+        payload[field] = await MultipartFile.fromFile(filePath);
+      }
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: FormData.fromMap(payload),
+      );
+      return response.data ?? <String, dynamic>{};
+    } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    }
+  }
+
   /// Ikili (binary) icerik indirir — yetkili dosya uclari icin (P04: profil fotografi,
   /// odev eki). Auth interceptor'i devrede oldugu icin Authorization basligi otomatik eklenir.
   /// Icerik yoksa (404) `null` doner.

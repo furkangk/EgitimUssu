@@ -32,6 +32,16 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<MarkAssignmentCompletedCommand, Result<AssignmentResponse>>, MarkAssignmentCompletedCommandHandler>();
         services.AddScoped<ICommandHandler<SubmitAssignmentWorkCommand, Result<AssignmentResponse>>, SubmitAssignmentWorkCommandHandler>();
         services.AddScoped<IQueryHandler<GetAssignmentAttachmentQuery, Result<AssignmentAttachmentResponse>>, GetAssignmentAttachmentQueryHandler>();
+        // M06-1: ders kaynagi paylasimi.
+        services.AddScoped<ILessonResourceRepository, LessonResourceRepository>();
+        services.AddScoped<ICommandHandler<CreateLessonResourceCommand, Result<LessonResourceResponse>>, CreateLessonResourceCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<CreateLessonResourceCommand>, LessonResourceAuthorizer>();
+        services.AddScoped<ICommandHandler<ArchiveLessonResourceCommand, Result>, ArchiveLessonResourceCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<ArchiveLessonResourceCommand>, LessonResourceAuthorizer>();
+        services.AddScoped<IQueryHandler<ListLessonResourcesQuery, Result<IReadOnlyCollection<LessonResourceResponse>>>, ListLessonResourcesQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<ListLessonResourcesQuery>, LessonResourceAuthorizer>();
+        services.AddScoped<IQueryHandler<GetLessonResourceFileQuery, Result<LessonResourceFileResponse>>, GetLessonResourceFileQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetLessonResourceFileQuery>, LessonResourceAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetAssignmentAttachmentQuery>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<ICommandAuthorizer<MarkAssignmentCompletedCommand>, AssignmentStudentActionAuthorizer>();
         services.AddScoped<ICommandAuthorizer<SubmitAssignmentWorkCommand>, AssignmentStudentActionAuthorizer>();

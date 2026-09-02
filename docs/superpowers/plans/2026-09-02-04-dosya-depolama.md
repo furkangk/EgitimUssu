@@ -374,7 +374,15 @@ git commit -m "feat(teachers): profil fotografi yukleme (M02-2/D-05)"
   - `GET /api/assignments/lesson-resources/{resourceId}/file` (yetkili indirme)
   - `DELETE /api/assignments/lesson-resources/{resourceId}` (arşivle)
 
-- [ ] **Step 1: Domain testini yaz (kırmızı)**
+> **Sapma (uygulandı):** Uç yolu plandaki `/api/assignments/lesson-resources`; `POST` **multipart form** olarak okunur (`title`/`description`/`url`/`studentId`/`lessonSessionId` alanları + isteğe bağlı `file`), böylece dosya ve bağlantı kaynağı **tek uçtan** gelir.
+> **Sapma (uygulandı):** Aggregate'e plandaki alanların yanında `ContentType`, `SizeBytes` ve `ArchivedOnUtc` eklendi (indirme yanıtı ve liste görünümü için gerekli). `CreateFile`/`CreateLink` fabrikaları geçersiz durumu `ArgumentException` ile kapatır.
+> **Sapma (uygulandı) — yetki:** Plan öğrenci-öğretmen bağını `Shared/Contracts` üzerinden doğrulamayı öneriyordu. Kaynak zaten `TeacherUserId` + `StudentId` taşıdığı için ek bir çapraz-modül çağrısına gerek kalmadı: öğrenci yalnız `studentId = kendisi` filtresiyle listeleyebilir, indirmede kaynak ya kendisine özel ya da `StudentId = null` olmalıdır. Böylece **yeni bağımlılık eklenmedi** (O5 kuralına dokunulmadı).
+> **Sapma (uygulandı):** `ListLessonResourcesQuery` authorizer'ı `teacherUserId` **ya da** `studentId`'nin çağıranla eşleşmesini şart koşar; ikisi de boş bırakılan "hepsini listele" isteği (Admin dışında) reddedilir.
+> **Sapma (uygulandı) — mobil:** Plan iki ayrı ekran değişikliği öngörüyordu; tek bir yeniden kullanılabilir `LessonResourcesSection` widget'ı yazıldı ve iki ekrana da takıldı (öğretmen ders detayında yeni **"Kaynaklar"** sekmesi, öğrenci ders detayında salt-okunur bölüm). `student_assignments_page.dart` değiştirilmedi — ders bağı olmadan liste anlamsız olurdu.
+> **Sapma (uygulandı):** `ApiClient.postMultipart` eklendi (mevcut `postFile` ek form alanı taşımıyor). Bağlantıları açmak için **`url_launcher`** bağımlılığı eklendi; dosyalar yetkili uçtan indirilip `Directory.systemTemp`'e yazılır ve yolu SnackBar ile bildirilir (uygulama-içi önizleme kapsam dışı).
+> **Sapma (uygulandı) — plan eksiği:** Plan 3 test öngörüyordu; backend 14 + mobil 7 test yazıldı.
+
+- [x] **Step 1: Domain testini yaz (kırmızı)**
 
 `tests/Unit/LessonResourceTests.cs`:
 ```csharp
@@ -398,11 +406,11 @@ public void Archive_Should_Deactivate()
 }
 ```
 
-- [ ] **Step 2: Kırmızı gör → domain'i yaz → yeşil**
+- [x] **Step 2: Kırmızı gör → domain'i yaz → yeşil**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LessonResourceTests"`
 
-- [ ] **Step 3: Application + Infrastructure + endpoint'ler**
+- [x] **Step 3: Application + Infrastructure + endpoint'ler**
 
 Yetki kuralı (`LessonResourcePolicies`):
 - Oluşturma/silme: yalnız `TeacherUserId` sahibi veya Admin.
@@ -411,19 +419,19 @@ Yetki kuralı (`LessonResourcePolicies`):
 
 Run: `dotnet ef migrations add AddLessonResources --project src/Modules/Assignments/Infrastructure --startup-project src/API.Host --context AssignmentsDbContext`
 
-- [ ] **Step 4: Backend testleri** — Run: `dotnet test EgitimUssu.slnx` → yeşil.
+- [x] **Step 4: Backend testleri** — Run: `dotnet test EgitimUssu.slnx` → yeşil.
 
-- [ ] **Step 5: Mobil — öğretmen tarafı**
+- [x] **Step 5: Mobil — öğretmen tarafı**
 
 `lesson_detail_page.dart`'a "Kaynak ekle" eylemi: dosya seç (`file_picker`) veya bağlantı gir; liste halinde mevcut kaynaklar, uzun basınca sil.
 
-- [ ] **Step 6: Mobil — öğrenci tarafı**
+- [x] **Step 6: Mobil — öğrenci tarafı**
 
 `student_lesson_detail_page.dart` ve `student_assignments_page.dart`'a "Ders kaynakları" bölümü: dosyayı indir/aç, bağlantıyı tarayıcıda aç.
 
-- [ ] **Step 7: Mobil test + analiz** — Run: `cd mobile && flutter test && flutter analyze`
+- [x] **Step 7: Mobil test + analiz** — Run: `cd mobile && flutter test && flutter analyze`
 
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 8: Doküman + commit**
 
 `doc/modules/m06_assignments.md` (yeni aggregate + 4 endpoint + yetki matrisi), `doc/modules/00_genel_bakis.md` (Assignments bloğu 7 → 11 endpoint), `doc/modules/veri_modeli.md` (`lesson_resources`), `doc/pages/lesson_detail.md`.
 ```bash
