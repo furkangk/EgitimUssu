@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | `P03 — Push Bildirim ve Bildirim Merkezi` **2/7** (`plans/2026-09-02-03-push-bildirim.md`) |
-| **Sıradaki görev** | **P03 Task 3** — Hatırlatmaları gerçekten gönder + geçersiz token'ı kapat |
+| **Aktif plan** | `P03 — Push Bildirim ve Bildirim Merkezi` **3/7** (`plans/2026-09-02-03-push-bildirim.md`) |
+| **Sıradaki görev** | **P03 Task 4** — Tüm roller için in-app bildirim (`UserNotification`) |
 | **Dal** | `feat/p03-push` — `feat/p02-eposta` üzerine açıldı. **P01, P02, P03 dallarının üçü de PR/merge bekliyor.** |
 | **Durum** | 🔄 P03 sürüyor · P01 + P02 dalları push/merge bekliyor |
-| **Son commit** | `49d8ad8` (feat(push): IPushSender + FCM HTTP v1 gönderici) |
+| **Son commit** | `1097ac7` (feat(notifications): hatırlatmaları gerçek push ile gönder — A-04/Y5) |
 | **Çalışma ağacı** | Temiz (yalnız izlenmeyen `.claude/worktrees/` duruyor) |
 
 ## 📋 Plan Durumu
@@ -24,7 +24,7 @@
 |------|-------|-------|-----|
 | P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
 | P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
-| P03 Push bildirim | 2/7 | 🔄 Devam ediyor | Task 1 (M11-2 cihaz token) + Task 2 (`IPushSender`/FCM) bitti · dal: `feat/p03-push` |
+| P03 Push bildirim | 3/7 | 🔄 Devam ediyor | Task 1-3 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim; **mimari Y5 kapandı**) · dal: `feat/p03-push` |
 | P04 Dosya depolama | 0/5 | ⚪ Bekliyor | P01 sonrası (paralel olabilir) · **Q4 kararı gerek** |
 | P05 Ayarlar | 0/6 | ⚪ Bekliyor | P03 sonrası |
 | P06 Öğretmen MVP | 0/10 | ⚪ Bekliyor | P02+P03+P04 sonrası → **beta noktası** |
@@ -63,6 +63,7 @@
 | 2026-09-02 | P02 / Task 7 — Kapanış: SMTP yolu canlı doğrulama + denetim envanteri + dokümanlar | `9f9b5e2` | Yerel SMTP sunucusuna **gerçek gönderim**: MailKit bağlandı, UTF-8 konu + `multipart/alternative` + URL-kodlu `egitimussu://` bağlantı teslim edildi; yakalanan tokenla `password-reset/confirm` **200**, eski şifre **400**, yeni şifre **200**, `GET /me` doğru · `dotnet test EgitimUssu.slnx`: **186 + 4 + 19, Başarısız 0, Atlanan 0** · `flutter test`: **57/57** · `-warnaserror`: 0 uyarı / 0 hata · `kb_healthcheck` temiz |
 | 2026-09-03 | P03 / Task 1 — M11-2 `DeviceToken` aggregate + kayıt/silme uçları | `5e5d2ce` | `dotnet test EgitimUssu.slnx`: **195 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 186 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddDeviceTokens` üretildi (`device_tokens`, Token UNIQUE) · **Canlı API:** kimliksiz kayıt **401**, kayıt **200**, aynı token tekrar **200** (yeni satır yok), başkasının adına **403**, boş token **400**, silme **200**, bilinmeyen token silme **200**, kimliksiz silme **401** · `kb_healthcheck` temiz |
 | 2026-09-03 | P03 / Task 2 — `IPushSender` + `FcmPushSender` (FCM HTTP v1) + `PushOptionsGuard` | `49d8ad8` | `dotnet test EgitimUssu.slnx`: **206 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 195 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `kb_healthcheck` temiz |
+| 2026-09-03 | P03 / Task 3 — A-04/Y5 hatırlatmalar gerçekten gönderiliyor + geçersiz token kapatılıyor | `1097ac7` | `dotnet test EgitimUssu.slnx`: **212 birim + 4 mimari + 19 integration, Başarısız 0, Atlanan 0** (öncesi 206 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddReminderDeliveryTracking` üretildi · `kb_healthcheck` temiz |
 
 ---
 
@@ -110,6 +111,7 @@
 | 36 | Canlı uç denerken **kullanıcı bir kez oluşturulunca InMemory DB'de kalır**; aynı e-postayla ikinci kayıt `identity.duplicate_email` (409) döner ve `accessToken` alınamaz → tüm sonraki çağrılar 401 görünür. Denemeyi tekrarlarken e-postayı değiştir. | P03/Task 1 |
 | 37 | Bash'te `UID` bir kabuk **salt-okunur değişkeni**; `UID=$(...)` zsh'de "bad math expression" ile patlar. Script değişkenlerinde `USERID` gibi adlar kullan. | P03/Task 1 |
 | 38 | **`Google.Apis.Auth` 1.76'da `GoogleCredential.FromFile`/`FromJson` `[Obsolete]`.** `dotnet test` bunu göstermez ama CI'nin `-warnaserror` derlemesi CS0618 ile kırılır. Doğru yol: `CredentialFactory.FromFile<ServiceAccountCredential>(path)` / `FromJson<ServiceAccountCredential>(json)` → `.ToGoogleCredential().CreateScoped(scope)`. Plandaki kod bloğu eskiydi. | P03/Task 2 |
+| 39 | **`LessonReminder`'da genel bir `UserId` yok** — alıcı `TeacherUserId`. Kendi-ders (Ç-06) hatırlatmalarında bu alan `Guid.Empty`, dolayısıyla **öğrenciye push gitmiyor**. `StudentId → UserId` eşlemesi çapraz-modül okuma; **P07 read-model** geldiğinde kapatılmalı (m11 + mimari_inceleme Y5'e not düşüldü). | P03/Task 3 |
 
 ---
 
@@ -144,4 +146,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-03 (P03 Task 2 bitti — 2/7; dal `feat/p03-push`)*
+*İlerleme defteri | Son güncelleme: 2026-09-03 (P03 Task 3 bitti — 3/7; dal `feat/p03-push`)*
