@@ -80,6 +80,7 @@ Host'un kurduğu çapraz-kesit servisler:
 | **Hata** | `ProblemDetailsExceptionMiddleware` → tüm hatalar tutarlı ProblemDetails gövdesi |
 | **Loglama** | JSON console + `RequestContextLoggingMiddleware` (istek bağlamı) |
 | **Health** | `/health/live` (canlılık), `/health/ready` (configuration + database hazır mı) |
+| **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp`. `EmailOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır |
 | **Meta** | `GET /api/meta/version` → servis sürümü + yüklü modül listesi |
 | **OpenAPI** | `AddOpenApi` / `MapOpenApi` |
 
@@ -161,7 +162,7 @@ public static IServiceCollection AddIdentityModule(this IServiceCollection s, IC
 | **Kernel** | Domain çekirdeği + ortak sözleşmeler | `Entity`, `AggregateRoot<TId>`, `ValueObject`, `DomainEvent`, `Result`/`Result<T>`/`Error`, `PagedResult`, `IClock`, `ICurrentUser`, `IIdGenerator` |
 | **Application** | CQRS soyutlamaları | `ICommand`, `ICommandHandler`, `IQuery`, `IQueryHandler` (+ dispatcher/validator/authorizer sözleşmeleri) |
 | **Contracts** | Modüller-arası entegrasyon sözleşmesi | `IIntegrationEvent`, `IntegrationEvent` |
-| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, `SystemClock`, `GuidIdGenerator`, Configuration options |
+| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`), `SystemClock`, `GuidIdGenerator`, Configuration options |
 
 **`Result` deseni** (istisna yerine):
 ```csharp
@@ -171,7 +172,10 @@ public sealed class Result<TValue> : Result { public TValue? Value { get; } /* �
 ```
 
 **Configuration option'ları:** `DatabaseOptions` (connection + `ApplyMigrationsOnStartup`), `JwtOptions`,
-`RedisOptions`, `OutboxOptions`.
+`RedisOptions`, `OutboxOptions`, `RateLimitOptions`, `EmailOptions` (+`SmtpOptions`).
+
+**Startup guard'ları** (ortak desen: `Validate` nedeni döner → health check kullanır; `EnsureValid` fırlatır → `Program.cs` fail-fast):
+`JwtSigningKeyGuard`, `ConnectionStringGuard`, `EmailOptionsGuard`.
 
 ## 6. Persistence & Veri İzolasyonu
 
@@ -207,6 +211,7 @@ teslim ve atomik yazma (domain + event tek tx) sağlar. Mevcut `IDomainEventMapp
 - **Rate limiting:** kimlik uçları `auth` (10/dk), genel `default` (120/dk).
 - **Parola/token:** `IPasswordHasher` (ASP.NET hasher), `ITokenProtector` (SHA-256) ile reset/verify token'ları hash'li.
 - **Hata sızdırmama:** Tüm hata yanıtları ProblemDetails; 401/403 challenge'ları özel `ApiErrorHttpResults` ile tutarlı.
+- **Sır repoda yok:** Bağlantı dizesi, JWT anahtarı ve SMTP kimlik bilgileri yalnız ortam değişkeninden (`ConnectionStrings__Postgres`, `Jwt__SigningKey`, `Email__Smtp__Username`, `Email__Smtp__Password`); eksik/zayıf değerde uygulama açılmaz.
 
 ## 9. Hata Yönetimi
 

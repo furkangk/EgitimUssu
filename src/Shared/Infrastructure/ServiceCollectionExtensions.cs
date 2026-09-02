@@ -3,6 +3,7 @@ using EgitimUssu.Shared.Infrastructure.Application;
 using EgitimUssu.Shared.Infrastructure.Authentication;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Configuration;
+using EgitimUssu.Shared.Infrastructure.Email;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Shared.Kernel;
@@ -21,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
         services.Configure<RateLimitOptions>(configuration.GetSection(RateLimitOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
@@ -43,6 +45,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRateLimiter, RedisRateLimiter>();
         services.AddSingleton<ITokenBlacklist, RedisTokenBlacklist>();
         services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
+
+        // K-01: E-posta sağlayıcısı konfigürasyonla seçilir. "Smtp" implementasyonu P02 Task 2'de eklenir.
+        services.AddScoped<IEmailSender, LoggingEmailSender>();
 
         return services;
     }

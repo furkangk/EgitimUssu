@@ -37,6 +37,9 @@ JwtSigningKeyGuard.EnsureValid(jwtOptions.SigningKey);
 ConnectionStringGuard.EnsureValid(
     builder.Configuration.GetConnectionString("Postgres"),
     builder.Environment.IsDevelopment());
+// P02/K-01: E-posta sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce e-posta göndermeme yasak).
+var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
+EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.IsDevelopment());
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
@@ -100,6 +103,14 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+// Üretimde "Logging" sağlayıcısı bilinçli bir geçiş dönemi seçimidir; sessiz kalmasın diye uyarılır.
+if (!app.Environment.IsDevelopment()
+    && string.Equals(emailOptions.Provider, EmailOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+{
+    app.Logger.LogWarning(
+        "Email:Provider = \"Logging\" — e-postalar GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Smtp'ye geçin.");
+}
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
 app.UseMiddleware<RequestContextLoggingMiddleware>();

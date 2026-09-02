@@ -32,6 +32,7 @@
 - Create: `src/Shared/Infrastructure/Configuration/EmailOptionsGuard.cs`
 - Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs` (`AddSharedInfrastructure` içine e-posta kaydı)
 - Modify: `src/API.Host/appsettings.json`, `src/API.Host/appsettings.Development.json`
+- Modify: `src/API.Host/Program.cs` (startup guard + üretimde `Logging` sağlayıcı uyarısı)
 - Test: `tests/Unit/EmailOptionsGuardTests.cs`
 
 **Interfaces:**
@@ -40,61 +41,23 @@
   - `interface IEmailSender { Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default); }`
   - `sealed class EmailOptions { public string Provider {get;set;} = "Logging"; public string FromEmail {get;set;} = ""; public string FromName {get;set;} = "EğitimÜssü"; public SmtpOptions Smtp {get;set;} = new(); public string AppLinkScheme {get;set;} = "egitimussu"; }`
   - `sealed class SmtpOptions { public string Host {get;set;} = ""; public int Port {get;set;} = 587; public bool UseStartTls {get;set;} = true; public string Username {get;set;} = ""; public string Password {get;set;} = ""; }`
-  - `static class EmailOptionsGuard { public static void Validate(EmailOptions options, bool isDevelopment); }`
+  - `static class EmailOptionsGuard { public static string? Validate(EmailOptions options, bool isDevelopment); public static void EnsureValid(EmailOptions options, bool isDevelopment); }`
+  > **Sapma (uygulandı):** Plan tek bir fırlatan `Validate` öngörüyordu; repo konvansiyonu (`JwtSigningKeyGuard`, `ConnectionStringGuard`) **`Validate` (neden döner) + `EnsureValid` (fırlatır)** ikilisidir (P01 Öğrenilenler #13). Guard bu desene çekildi; testler `EnsureValid` üzerinden fırlatmayı doğruluyor.
+  > **Sapma (uygulandı):** `LoggingEmailSender`/`SmtpEmailSender` `internal` değil **`public sealed`** — repoda `InternalsVisibleTo` yok ve `RedisRateLimiter` vb. hep `public sealed`. Task 2 testi `SmtpEmailSender`'ı doğrudan kuruyor; `internal` olsaydı derlenmezdi.
 
-- [ ] **Step 1: Başarısız guard testini yaz**
+- [x] **Step 1: Başarısız guard testini yaz**
 
-`tests/Unit/EmailOptionsGuardTests.cs`:
-```csharp
-using EgitimUssu.Shared.Infrastructure.Configuration;
-using Xunit;
+`tests/Unit/EmailOptionsGuardTests.cs` — 8 test (yazıldı, yeşil):
+`EnsureValid` fırlatmalı: Smtp'de `Host` yok · `FromEmail` yok · `Port` geçersiz.
+`Validate` neden dönmeli: üretimde `Username` yok (mesaj `Email__Smtp__Username` içerir) · bilinmeyen `Provider`.
+`Validate` `null` dönmeli: geliştirmede `Username` yok · tam SMTP yapılandırması · `Provider = "Logging"` (her ortamda).
 
-namespace EgitimUssu.Tests.Unit;
-
-public sealed class EmailOptionsGuardTests
-{
-    [Fact]
-    public void Smtp_Without_Host_Should_Throw()
-    {
-        var options = new EmailOptions { Provider = "Smtp", FromEmail = "no-reply@egitimussu.com" };
-        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.Validate(options, isDevelopment: false));
-    }
-
-    [Fact]
-    public void Smtp_Without_FromEmail_Should_Throw()
-    {
-        var options = new EmailOptions
-        {
-            Provider = "Smtp",
-            Smtp = new SmtpOptions { Host = "smtp.example.com", Username = "u", Password = "p" }
-        };
-        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.Validate(options, isDevelopment: false));
-    }
-
-    [Fact]
-    public void Complete_Smtp_Should_Pass()
-    {
-        var options = new EmailOptions
-        {
-            Provider = "Smtp",
-            FromEmail = "no-reply@egitimussu.com",
-            Smtp = new SmtpOptions { Host = "smtp.example.com", Port = 587, Username = "u", Password = "p" }
-        };
-        EmailOptionsGuard.Validate(options, isDevelopment: false);
-    }
-
-    [Fact]
-    public void Logging_Provider_Should_Pass_Anywhere()
-        => EmailOptionsGuard.Validate(new EmailOptions { Provider = "Logging" }, isDevelopment: false);
-}
-```
-
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EmailOptionsGuardTests"`
 Expected: FAIL — tipler yok.
 
-- [ ] **Step 3: Sözleşme ve seçenek tiplerini yaz**
+- [x] **Step 3: Sözleşme ve seçenek tiplerini yaz**
 
 `src/Shared/Infrastructure/Email/EmailMessage.cs`:
 ```csharp
@@ -221,12 +184,12 @@ internal sealed class LoggingEmailSender : IEmailSender
 }
 ```
 
-- [ ] **Step 4: Testi çalıştır**
+- [x] **Step 4: Testi çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EmailOptionsGuardTests"`
 Expected: PASS (4 test).
 
-- [ ] **Step 5: DI kaydı + konfigürasyon**
+- [x] **Step 5: DI kaydı + konfigürasyon**
 
 `src/Shared/Infrastructure/ServiceCollectionExtensions.cs` → `AddSharedInfrastructure` içine (mevcut `Configure<...>` kayıtlarının yanına):
 ```csharp
@@ -240,6 +203,9 @@ Expected: PASS (4 test).
         });
 ```
 > `SmtpEmailSender` Task 2'de eklenecek; bu adımda derleme hatası almamak için Task 2'yi aynı görev bloğunda tamamla ya da geçici olarak yalnız `LoggingEmailSender` kaydet ve Task 2'de bu satırı tamamla.
+>
+> **Uygulanan (Task 1):** geçici olarak yalnız `services.AddScoped<IEmailSender, LoggingEmailSender>();` kaydedildi;
+> yukarıdaki sağlayıcı-seçen fabrika **Task 2 Step 5'te** yazılacak.
 
 `src/API.Host/appsettings.json` → kök seviyeye:
 ```json
@@ -253,12 +219,20 @@ Expected: PASS (4 test).
 ```
 `src/API.Host/Program.cs` → `ConnectionStringGuard` çağrısının ardına:
 ```csharp
-EmailOptionsGuard.Validate(
-    builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions(),
-    builder.Environment.IsDevelopment());
+var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
+EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.IsDevelopment());
+```
+Ve `var app = builder.Build();` sonrasına — Global Constraints'teki "Provider=Logging prod'da uyarı log'lar" kuralı
+hiçbir adımda karşılanmıyordu, bu görevde eklendi:
+```csharp
+if (!app.Environment.IsDevelopment()
+    && string.Equals(emailOptions.Provider, EmailOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+{
+    app.Logger.LogWarning("Email:Provider = \"Logging\" — e-postalar GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Smtp'ye geçin.");
+}
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/Shared/Infrastructure/Email src/Shared/Infrastructure/Configuration src/API.Host tests/Unit/EmailOptionsGuardTests.cs
