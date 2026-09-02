@@ -63,6 +63,7 @@ internal sealed class UserRoleMembershipConfiguration : IEntityTypeConfiguration
     {
         builder.ToTable("user_role_memberships");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Role).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.AssignedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.UserAccountId, entity.Role }).IsUnique();
@@ -75,6 +76,7 @@ internal sealed class RefreshTokenSessionConfiguration : IEntityTypeConfiguratio
     {
         builder.ToTable("refresh_token_sessions");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.RefreshTokenHash).HasMaxLength(512).IsRequired();
         builder.Property(entity => entity.DeviceName).HasMaxLength(128);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
@@ -89,6 +91,7 @@ internal sealed class UserSecurityTokenConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("user_security_tokens");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Purpose).HasConversion<string>().HasMaxLength(64).IsRequired();
         builder.Property(entity => entity.TokenHash).HasMaxLength(512).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();

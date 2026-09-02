@@ -128,9 +128,3 @@ internal sealed class Sha256TokenProtector : ITokenProtector
         return Convert.ToBase64String(bytes);
     }
 }
-
-internal sealed class NullIdentityNotificationService : IIdentityNotificationService
-{
-    public Task SendPasswordResetAsync(string email, string token, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task SendEmailVerificationAsync(string email, string token, CancellationToken cancellationToken) => Task.CompletedTask;
-}

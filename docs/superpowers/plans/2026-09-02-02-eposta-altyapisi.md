@@ -433,7 +433,11 @@ git commit -m "feat(email): MailKit tabanli SmtpEmailSender"
   - `static class EmailTemplates` — `static EmailMessage PasswordReset(string toEmail, string token, string appLinkScheme)`, `static EmailMessage EmailVerification(string toEmail, string token, string appLinkScheme)`.
   - `internal sealed class EmailIdentityNotificationService : IIdentityNotificationService`.
 
-- [ ] **Step 1: Başarısız testi yaz**
+> **Sapma (uygulandı):** `EmailIdentityNotificationService` **`public sealed`** (test doğrudan kuruyor). `tests/Unit` projesine `EgitimUssu.Modules.Identity.Infrastructure` proje referansı eklendi.
+> **Sapma (uygulandı) — plan dışı kök neden:** Step 6'da `password-reset/request` ve `email-verification/request` **500** döndü. Neden e-posta değil, P01 Öğrenilenler #3/#4'teki EF tuzağıydı: `IdentityDbContext`'te `UserSecurityToken`, `RefreshTokenSession` ve `UserRoleMembership` yapılandırmalarında `ValueGeneratedNever()` yoktu → izlenen bir `UserAccount`'a eklenen yeni çocuk `Modified` sayılıp UPDATE ediliyor, `DbUpdateConcurrencyException` atıyordu. **Planın hedefi (uçtan uca çalışan akış) bu düzeltme olmadan sağlanamazdı**, bu yüzden `Files:` listesine `src/Modules/Identity/Infrastructure/IdentityDbContext.cs` + `tests/Unit/IdentitySecurityTokenPersistenceTests.cs` (3 regresyon testi) eklendi.
+> **Sapma (uygulandı):** Token base64'tür (`+`, `/`, `=` içerir); derin bağlantıda ham gömülürse mobil taraf `+`'yı boşluk okur. `EmailTemplates` bağlantıdaki tokenı `Uri.EscapeDataString` ile kodlar, metin gövdedeki "Kodun:" satırı ham kalır (elle yapıştırma). Testle sabitlendi.
+
+- [x] **Step 1: Başarısız testi yaz**
 
 `tests/Unit/EmailIdentityNotificationServiceTests.cs`:
 ```csharp
@@ -490,12 +494,12 @@ public sealed class EmailIdentityNotificationServiceTests
 }
 ```
 
-- [ ] **Step 2: Çalıştır, kırmızı gör**
+- [x] **Step 2: Çalıştır, kırmızı gör**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EmailIdentityNotificationServiceTests"`
 Expected: FAIL.
 
-- [ ] **Step 3: Şablonları yaz**
+- [x] **Step 3: Şablonları yaz**
 
 `src/Modules/Identity/Infrastructure/EmailTemplates.cs`:
 ```csharp
@@ -561,7 +565,7 @@ internal static class EmailTemplates
 }
 ```
 
-- [ ] **Step 4: Servisi yaz ve `Null...`'ı sil**
+- [x] **Step 4: Servisi yaz ve `Null...`'ı sil**
 
 `src/Modules/Identity/Infrastructure/EmailIdentityNotificationService.cs`:
 ```csharp
@@ -600,12 +604,12 @@ internal sealed class EmailIdentityNotificationService : IIdentityNotificationSe
         services.AddScoped<IIdentityNotificationService, EmailIdentityNotificationService>();
 ```
 
-- [ ] **Step 5: Testi çalıştır**
+- [x] **Step 5: Testi çalıştır**
 
 Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EmailIdentityNotificationServiceTests"`
 Expected: PASS (2 test).
 
-- [ ] **Step 6: Uçtan uca elle doğrula (Provider=Logging)**
+- [x] **Step 6: Uçtan uca elle doğrula (Provider=Logging)**
 
 Run: `dotnet run --project src/API.Host` (ayrı terminalde)
 Run:
@@ -615,7 +619,7 @@ curl -s -X POST http://localhost:5296/api/identity/password-reset/request \
 ```
 Expected: `200`; API log'unda `E-POSTA (gönderilmedi, Provider=Logging) → diag1@example.com | Konu: EğitimÜssü — Şifre sıfırlama` satırı ve içinde token görünür.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/Modules/Identity tests/Unit/EmailIdentityNotificationServiceTests.cs

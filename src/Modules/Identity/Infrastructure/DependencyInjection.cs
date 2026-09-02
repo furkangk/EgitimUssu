@@ -17,7 +17,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenIssuer, JwtTokenIssuer>();
         services.AddScoped<ITokenProtector, Sha256TokenProtector>();
         services.AddScoped<ILoginAttemptThrottle, RedisLoginAttemptThrottle>();
-        services.AddScoped<IIdentityNotificationService, NullIdentityNotificationService>();
+        services.AddScoped<IIdentityNotificationService, EmailIdentityNotificationService>();
         services.AddScoped<ICommandHandler<RegisterUserCommand, Result<AuthResponse>>, RegisterUserCommandHandler>();
         services.AddScoped<ICommandHandler<LoginUserCommand, Result<AuthResponse>>, LoginUserCommandHandler>();
         services.AddScoped<ICommandHandler<RefreshTokenCommand, Result<AuthResponse>>, RefreshTokenCommandHandler>();

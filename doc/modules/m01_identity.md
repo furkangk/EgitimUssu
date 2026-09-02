@@ -221,6 +221,7 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 3. **E-posta normalizasyonu:** Tüm aramalar `Email.Trim().ToUpperInvariant()` ile yapılır; benzersizlik `NormalizedEmail` üzerinden.
 4. **Mükerrer e-posta:** Aynı normalize e-posta varsa kayıt `identity.duplicate_email` (409) ile reddedilir.
 5. **Kayıt sonrası durum:** Yeni kullanıcı `Status = Active`, `IsEmailConfirmed = false`, `IsProfileVerified = false` ile oluşur; **24 saatlik** e-posta doğrulama token'ı üretilir ve doğrulama e-postası gönderilir.
+   > **2026-09-02:** Bu e-posta artık gerçekten gönderiliyor (`EmailIdentityNotificationService`). Ayrıca aynı turda bir EF tuzağı kapatıldı: `UserSecurityToken`/`RefreshTokenSession`/`UserRoleMembership` yapılandırmalarına `ValueGeneratedNever()` eklendi — izlenen bir `UserAccount`'a yeni token eklenince EF satırı UPDATE etmeye çalışıyor ve `password-reset/request` ile `email-verification/request` uçları **500** dönüyordu.
 6. **Giriş koşulu:** Parola PBKDF2 ile doğrulanır; hesap yalnızca `Active` **veya** `PendingActivation` ise giriş yapılabilir (`Suspended`/`Closed` → `identity.user_inactive`). Hatalı e-posta/şifre tek tip `identity.invalid_credentials` döner (kullanıcı sayımı/enumeration engeli).
 7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token `identity.invalid_refresh_token` (401) verir.
 8. **Refresh ömrü:** Tüm refresh oturumları **30 gün** geçerlidir.
@@ -255,7 +256,7 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 ```
 
 > Olaylar **Outbox pattern** ile güvenilir biçimde yayılır (`Shared/Infrastructure/Messaging`).
-> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır (gerçek e-posta/SMS sağlayıcısı Infrastructure'da takılır).
+> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır. **2026-09-02 (P02/A-03):** `NullIdentityNotificationService` kaldırıldı; yerine `EmailIdentityNotificationService` geldi — `EmailTemplates` ile HTML+metin gövde üretir ve `Shared/Infrastructure/Email`'deki `IEmailSender`'a verir. Sağlayıcı `Email:Provider` ile seçilir (`Logging` = log'a basar, `Smtp` = MailKit relay). E-postadaki derin bağlantı `egitimussu://password-reset?token=…` / `egitimussu://verify-email?token=…` biçimindedir; token base64 olduğu için bağlantıda **URL-kodlanır**, elle yapıştırma için ham kod da metin gövdede yer alır.
 
 ---
 
@@ -321,4 +322,4 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (F-01: mobil refresh interceptor + secure storage kodda — işaretlendi) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-02 (P02/A-03: gerçek e-posta gönderimi + EF token kalıcılık düzeltmesi) · 2026-07-01*
