@@ -54,6 +54,12 @@ public sealed record UpdateTeacherProfileCommand(
 
 public sealed record GetTeacherProfileByUserIdQuery(Guid UserId) : IQuery<Result<TeacherProfileResponse>>;
 
+/// <summary>M02-1: Öğretmenin doğrulama rozetini verir/geri alır (yalnız Admin).</summary>
+/// <param name="UserId">Öğretmenin kullanıcı kimliği.</param>
+/// <param name="IsVerified">Yeni doğrulama durumu.</param>
+public sealed record SetTeacherVerificationCommand(Guid UserId, bool IsVerified)
+    : ICommand<Result<TeacherProfileResponse>>;
+
 // ---- P04 (M02-2/D-05): Profil fotografi ----
 
 /// <summary>
@@ -461,5 +467,45 @@ public sealed class GetTeacherPhotoQueryHandler
 
         return Result<TeacherPhotoFileResponse>.Success(
             new TeacherPhotoFileResponse(profile.ProfilePhotoKey, contentType));
+    }
+}
+
+/// <summary>
+/// M02-1: Doğrulama rozetini uygular. Yetki <see cref="EgitimUssu.Modules.Teachers.Application.SetTeacherVerificationCommandAuthorizer"/>
+/// tarafından Admin'e sınırlanır; bu handler yalnız profili bulup domain metodunu çağırır.
+/// </summary>
+public sealed class SetTeacherVerificationCommandHandler
+    : ICommandHandler<SetTeacherVerificationCommand, Result<TeacherProfileResponse>>
+{
+    private static readonly Error ProfileNotFound = new("teachers.profile_not_found", "Öğretmen profili bulunamadı.");
+
+    private readonly ITeacherProfileRepository _repository;
+    private readonly IClock _clock;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="repository">Öğretmen profili deposu.</param>
+    /// <param name="clock">Saat.</param>
+    public SetTeacherVerificationCommandHandler(ITeacherProfileRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    /// <summary>Komutu işler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Güncellenmiş profil.</returns>
+    public async Task<Result<TeacherProfileResponse>> Handle(SetTeacherVerificationCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetByUserIdAsync(command.UserId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<TeacherProfileResponse>.Failure(ProfileNotFound);
+        }
+
+        profile.SetVerification(command.IsVerified, _clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+
+        return Result<TeacherProfileResponse>.Success(profile.ToResponse());
     }
 }

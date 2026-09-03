@@ -117,3 +117,27 @@ public sealed class TeacherProfileQueryAuthorizer :
         return Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
     }
 }
+
+/// <summary>
+/// M02-1: Doğrulama rozeti **yalnız Admin** tarafından verilir. Öğretmen kendini doğrulayamaz —
+/// bu yüzden sahiplik kontrolü (<c>CanManageTeacherProfile</c>) burada kullanılmaz.
+/// </summary>
+public sealed class SetTeacherVerificationCommandAuthorizer : ICommandAuthorizer<SetTeacherVerificationCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Öğretmen doğrulama yetkisi yalnızca yöneticidedir.");
+    private readonly ICurrentUser _currentUser;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    public SetTeacherVerificationCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public Task<Result> Authorize(SetTeacherVerificationCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(
+            _currentUser.IsAuthenticated && _currentUser.Roles.Contains("Admin")
+                ? Result.Success()
+                : Result.Failure(Forbidden));
+}

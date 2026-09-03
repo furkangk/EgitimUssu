@@ -45,6 +45,9 @@ public sealed class TeachersModule : ModuleDefinition
 
         group.MapGet("/profiles/{userId:guid}/photo", DownloadTeacherPhotoAsync)
         .WithSummary("Öğretmen profil fotoğrafını yetkiyle akıtır (M02-2)");
+
+        group.MapPut("/profiles/{userId:guid}/verification", SetTeacherVerificationAsync)
+        .WithSummary("Öğretmenin doğrulama rozetini verir/geri alır — yalnız Admin (M02-1)");
     }
 
     /// <summary>
@@ -155,6 +158,22 @@ public sealed class TeachersModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// M02-1: Öğretmenin doğrulama rozetini verir veya geri alır. Yetki yalnız Admin'dedir
+    /// (<c>SetTeacherVerificationCommandAuthorizer</c>); öğretmen kendini doğrulayamaz.
+    /// </summary>
+    private static async Task<IResult> SetTeacherVerificationAsync(
+        HttpContext context,
+        Guid userId,
+        SetTeacherVerificationRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new SetTeacherVerificationCommand(userId, request.IsVerified), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -171,6 +190,12 @@ public sealed class TeachersModule : ModuleDefinition
         };
     }
 }
+
+/// <summary>
+/// M02-1: Doğrulama rozeti isteği.
+/// </summary>
+/// <param name="IsVerified">Rozet verilsin mi (false = geri al).</param>
+public sealed record SetTeacherVerificationRequest(bool IsVerified);
 
 /// <summary>
 /// Öğretmenin haftalık tekrar eden müsaitlik aralığını ve ders formatı tercihlerini taşır.

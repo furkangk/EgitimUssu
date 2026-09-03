@@ -24,7 +24,7 @@ Admin, son kullanıcı değil **platform yöneticisidir**. Kod tarafında `UserR
 ## 2. Yetenekler
 | Yetenek | İlgili modül | Durum |
 |---------|--------------|-------|
-| Öğretmen **doğrulama** (`IsVerified` → rozet) | [`m02_teachers`](../modules/m02_teachers.md) | ⚠️ Yalnız admin değiştirebilmeli (güvenlik açığı Y1 — bkz. [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md)) |
+| Öğretmen **doğrulama** (`IsVerified` → rozet) | [`m02_teachers`](../modules/m02_teachers.md) | 🟢 `PUT /api/teachers/profiles/{userId}/verification` — yalnız `Admin` rolü; öğretmen kendini doğrulayamaz (P06/M02-1, Y1 kapandı) |
 | **Yorum moderasyonu** (şüpheli/olumsuz yorum) | [`m13_reviews`](../modules/m13_reviews.md) | 🔴 Planlanan |
 | **Şikayet / kötüye kullanım** moderasyonu | [`m18_feedback`](../modules/m18_feedback.md) | 🔴 Planlanan |
 | **Hata/geri bildirim** triyajı | [`m18_feedback`](../modules/m18_feedback.md) | 🔴 Planlanan |
@@ -32,13 +32,13 @@ Admin, son kullanıcı değil **platform yöneticisidir**. Kod tarafında `UserR
 | İçerik/ilan denetimi | [`m12_matching`](../modules/m12_matching.md) | 🔴 Planlanan |
 
 ## 3. İş Kuralları
-- **Doğrulama yalnız admin:** Öğretmen kendini "doğrulanmış" yapamaz; `IsVerified` yalnızca admin/doğrulama akışıyla değişmeli (bkz. mimari_inceleme **Y1**).
+- **Doğrulama yalnız admin:** Öğretmen kendini "doğrulanmış" yapamaz; `IsVerified` yalnızca `PUT /api/teachers/profiles/{userId}/verification` ucuyla ve `Admin` rolüyle değişir ✅ (P06/M02-1; mimari_inceleme **Y1** kapandı).
 - **Olumsuz yorum gizlenemez:** Admin yalnızca kural ihlali olan yorumu kaldırır; öğretmen olumsuz yoruma yanıt verebilir ama gizleyemez (M13).
 - **Moderasyon kuyruğu:** M13 `ReviewFlag` + M16 mesaj şikayeti + M18 `AbuseReport` ortak bir moderasyon kuyruğunda toplanır; karar `ModerationAction` olarak ilgili modüllere yayılır.
 
 ## 4. Eksikler ve Yapılacaklar
 1. Admin yetkisi için **fail-fast authorizer guard** (eksik authorizer'lar — bkz. mimari_inceleme **K3**).
-2. Öğretmen doğrulama akışı + ayrı endpoint (`Admin` rolü).
+2. ✅ ~~Öğretmen doğrulama akışı + ayrı endpoint (`Admin` rolü)~~ — P06/M02-1 ile eklendi.
 3. Moderasyon paneli (yorum/şikayet/mesaj) — büyük olasılıkla **web (Angular)** tarafında.
 4. Kullanıcı yönetimi (askıya alma/kapatma) admin akışı.
 

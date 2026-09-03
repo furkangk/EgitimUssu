@@ -37,7 +37,7 @@
   - `sealed record SetTeacherVerificationCommand(Guid UserId, bool IsVerified) : ICommand<Result<TeacherProfileResponse>>`
   - `PUT /api/teachers/profiles/{userId}/verification` (auth, **yalnız Admin**)
 
-- [ ] **Step 1: Testi yaz (kırmızı)**
+- [x] **Step 1: Testi yaz (kırmızı)**
 
 ```csharp
 [Fact]
@@ -61,10 +61,10 @@ public async Task Non_Admin_Should_Be_Forbidden()
 ```
 > `FakeCurrentUser` yoksa `tests/Unit/TestDoubles/` altına ekle (`ICurrentUser` uygulayan basit kayıt).
 
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherVerificationTests"`
-- [ ] **Step 3: Domain + command + handler + authorizer + endpoint + DI'yı yaz.**
-- [ ] **Step 4: Yeşil gör** — aynı komut → PASS.
-- [ ] **Step 5: Doküman + commit**
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherVerificationTests"`
+- [x] **Step 3: Domain + command + handler + authorizer + endpoint + DI'yı yaz.**
+- [x] **Step 4: Yeşil gör** — aynı komut → PASS.
+- [x] **Step 5: Doküman + commit**
 
 `doc/modules/m02_teachers.md` (madde `- [x]`), `doc/modules/00_genel_bakis.md`, `doc/roles/admin.md` (yeni yetenek).
 ```bash

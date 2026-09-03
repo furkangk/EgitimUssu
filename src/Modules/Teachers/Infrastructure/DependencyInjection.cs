@@ -22,6 +22,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<UpdateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
         services.AddScoped<ICommandHandler<UploadTeacherPhotoCommand, Result<TeacherPhotoResponse>>, UploadTeacherPhotoCommandHandler>();
         services.AddScoped<ICommandAuthorizer<UploadTeacherPhotoCommand>, TeacherProfileCommandAuthorizer>();
+        services.AddScoped<ICommandHandler<SetTeacherVerificationCommand, Result<TeacherProfileResponse>>, SetTeacherVerificationCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<SetTeacherVerificationCommand>, SetTeacherVerificationCommandAuthorizer>();
         services.AddScoped<IQueryHandler<GetTeacherPhotoQuery, Result<TeacherPhotoFileResponse>>, GetTeacherPhotoQueryHandler>();
         services.AddScoped<IQueryAuthorizer<GetTeacherPhotoQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();

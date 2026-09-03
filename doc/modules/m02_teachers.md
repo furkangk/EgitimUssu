@@ -46,7 +46,7 @@ updated: 2026-09-03
 | Öğretmen listeleme / arama (şehir/branş filtresi) | 🔴 eksik | Yalnızca tekil `GET by userId` var (eşleştirme M12'de) |
 | Tatil/izin istisnaları (ScheduleException) | 🔴 eksik | Modellenmedi → **M04 Scheduling**'de ele alınacak |
 
-> **Özet:** Profil CRUD + haftalık uygunluk **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Profil fotoğrafı depolama 2026-09-03'te (P04/M02-2) eklendi. Kalan açık nokta listeleme/arama genişletmeleridir.
+> **Özet:** Profil CRUD + haftalık uygunluk + **Admin doğrulama ucu** (P06/M02-1) **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Profil fotoğrafı depolama 2026-09-03'te (P04/M02-2) eklendi. Kalan açık nokta listeleme/arama genişletmeleridir.
 
 ---
 
@@ -112,7 +112,7 @@ TeacherProfileUpdatedDomainEvent(Guid TeacherProfileId, Guid UserId, string Subj
 | Öneri | Gerekçe |
 |-------|---------|
 | ✅ ~~`TeacherSubject` alt-koleksiyonu (çoklu branş)~~ | **Yapıldı (Dilim D)** — §2.5. Birincil `Subject` korunur. `TeacherSubject.Level` (seviye) hâlâ önerilebilir. |
-| `IsVerified` için ayrı `VerifyTeacher(...)` davranışı + `TeacherVerifiedDomainEvent` | Doğrulamayı sıradan güncellemeden ayırıp yalnız admin akışına bağlamak (Y1 çözümü) |
+| ~~`IsVerified` için ayrı davranış + `TeacherVerifiedDomainEvent`~~ ✅ **(P06)** | `SetVerification(bool, DateTime)` eklendi; **değer değişmediyse olay yayılmaz** (idempotent, gereksiz bildirim yok) |
 | `ScheduleException` (tatil/izin istisnası) | Haftalık uygunluğun belirli tarihlerde geçersiz kılınması → **M04 Scheduling**'de modellenecek |
 | `AverageRating` / `ReviewCount` (okuma modeli) | Puanlama (M13) entegrasyonu için profil özetinde gösterim |
 | ~~`ProfilePhoto` yükleme entegrasyonu~~ **✅ (2026-09-03, P04)** | `ProfilePhotoKey` + ortak `IFileStorage`; `FileValidation` ile 10 MB + uzantı beyaz listesi; dosya yalnız yetkili uçtan akıtılır |
@@ -198,7 +198,7 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
 ### 3.3 Eksik / Önerilen Endpoint'ler ⚠️
 
 - [x] **`GET /profiles/{userId}` için authorizer** — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı); kimlik doğrulanmış tüm roller okuyabilir. (Profilin herkese açık kısmı için ayrı "public" projeksiyon hâlâ düşünülebilir.)
-- [ ] **`PUT /profiles/{userId}/verification`** — yalnız **admin**; `IsVerified`'i set edecek ayrı endpoint + `TeacherVerifiedDomainEvent` (Y1 kısmen kapatıldı — upsert'ten çıkarıldı; admin endpoint henüz yok).
+- [x] **`PUT /profiles/{userId}/verification`** — ✅ **(P06/M02-1)** yalnız **Admin**; `SetTeacherVerificationCommand` + `SetTeacherVerificationCommandAuthorizer` + `TeacherProfile.SetVerification()` + `TeacherVerifiedDomainEvent`. **Y1 tamamen kapandı.**
 - [x] **`POST /profiles/{userId}/photo`** (multipart, self/Admin) — dosya `IFileStorage`'a yazılır, `ProfilePhotoKey` **sunucuda** set edilir; yanıt `{ photoUrl }`. **`GET /profiles/{userId}/photo`** dosyayı yetkiyle akıtır. `UpsertTeacherProfileRequest`'ten `profilePhotoUrl` **kaldırıldı** — istemci fotoğrafı yazamaz (Y1 dersi). **(2026-09-03, P04/M02-2)**
 - [ ] **`GET /profiles` (arama/listeleme)** — şehir/ilçe/branş/format/ücret aralığı filtreleri (eşleştirme M12 ile koordineli).
 - [ ] **`DELETE /profiles/{userId}` / pasifleştirme** — öğretmen ayrılışı senaryosu.
@@ -211,7 +211,7 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
 2. **Uygunluk geçerliliği:** Her slotta `EndTime > StartTime` zorunludur; aksi halde `teachers.invalid_availability` (400). Hem create hem update'te kontrol edilir.
 3. **Doğrulama rozeti (`IsVerified`):**
    - Create'te kod **her zaman `false`** atar ✅.
-   - Update'te `IsVerified` **hiç güncellenmez** (`UpsertTeacherProfileRequest` ve `TeacherProfile.Update()` imzasından çıkarıldı) ✅ — yalnız gelecekteki admin-only endpoint değiştirebilir.
+   - Update'te `IsVerified` **hiç güncellenmez** (`UpsertTeacherProfileRequest` ve `TeacherProfile.Update()` imzasından çıkarıldı) ✅ — yalnız `PUT /profiles/{userId}/verification` (Admin) değiştirir ✅ **(P06/M02-1)**.
 4. **Para birimi normalizasyonu:** `Currency.Trim().ToUpperInvariant()` (örn. `try` → `TRY`).
 5. **Metin temizliği:** `FullName`, `Subject`, `City`, `District`, `EducationLevel`, `Biography`, `Headline` `Trim()` edilir.
 6. **Validator (create & update):** `UserId != Guid.Empty`, ad/branş/şehir/ilçe/eğitim seviyesi/para birimi boş olamaz; `ExperienceYears >= 0`, `HourlyRateAmount >= 0` (`teachers.invalid_request`). Update validator aynı kuralları create üzerinden uygular.
@@ -278,7 +278,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ## 8. Eksikler ve Yapılacaklar (öncelik sırasıyla)
 
-1. ✅ ~~**`IsVerified` yazma yolunu kısıtla (Y1)**~~ — upsert'ten çıkarıldı. Kalan: admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent`.
+1. ✅ ~~**`IsVerified` yazma yolunu kısıtla (Y1)**~~ — upsert'ten çıkarıldı **ve** admin-only `PUT /profiles/{userId}/verification` + `TeacherVerifiedDomainEvent` eklendi (P06/M02-1). **Kalan yok.**
 2. ✅ ~~**`GET /profiles/{userId}` yetkilendirmesi (K3)**~~ — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı). Kalan: herkese açık "public" projeksiyon ayrımı (opsiyonel).
 3. **Profil fotoğrafı dosya-depolama altyapısı** — yükleme ucu + güvenli saklama + format/boyut doğrulama.
 4. ✅ ~~**Çoklu branş** — `TeacherSubject` koleksiyonu~~ — **yapıldı (Dilim D)**; birincil `Subject` korunur. Kalan: branş bazlı seviye (`Level`).

@@ -127,6 +127,24 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
     }
 
     /// <summary>
+    /// M02-1: Doğrulama rozetini verir veya geri alır. Değer değişmediyse olay yayılmaz
+    /// (aynı isteğin tekrarı gereksiz bildirim üretmesin).
+    /// </summary>
+    /// <param name="isVerified">Yeni doğrulama durumu.</param>
+    /// <param name="updatedOnUtc">Güncelleme zamanı (UTC).</param>
+    public void SetVerification(bool isVerified, DateTime updatedOnUtc)
+    {
+        if (IsVerified == isVerified)
+        {
+            return;
+        }
+
+        IsVerified = isVerified;
+        UpdatedOnUtc = updatedOnUtc;
+        Raise(new TeacherVerifiedDomainEvent(Id, UserId, isVerified, updatedOnUtc));
+    }
+
+    /// <summary>
     /// P04 (M02-2): Profil fotoğrafını depolama anahtarına bağlar. **Önceki anahtarı döndürür** —
     /// çağıran onu depodan siler, böylece yetim dosya kalmaz.
     /// </summary>
@@ -306,3 +324,14 @@ public sealed record TeacherProfileUpdatedDomainEvent(
     Guid UserId,
     string Subject,
     DateTime UpdatedOnUtc) : DomainEvent;
+
+/// <summary>M02-1: Öğretmenin doğrulama rozeti değişti (Admin işlemi).</summary>
+/// <param name="TeacherProfileId">Profil kimliği.</param>
+/// <param name="UserId">Öğretmenin kullanıcı kimliği.</param>
+/// <param name="IsVerified">Yeni doğrulama durumu.</param>
+/// <param name="VerifiedOnUtc">İşlemin uygulandığı zaman (UTC).</param>
+public sealed record TeacherVerifiedDomainEvent(
+    Guid TeacherProfileId,
+    Guid UserId,
+    bool IsVerified,
+    DateTime VerifiedOnUtc) : DomainEvent;
