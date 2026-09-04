@@ -359,6 +359,12 @@ POST /lesson-requests/{id}/reject
 > (`POST /api/lesson-sessions/from-schedule/{id}`) planı bu sözleşmeyle okur. Öğrencinin **kendi** dersi
 > (öğretmensiz, Ç-06) bu sözleşmeden `null` döner — self dersten ders oturumu türetilemez.
 > Tüketici modül Scheduling'e proje referansı vermez.
+>
+> **P08 Task 3 / M14-5 genişletmesi:** `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync(teacherUserId, fromUtc, toUtc)`
+> öğretmenin verilen aralıkta **dolu** olduğu zaman parçalarını döner (`TeacherBusyInterval`, `Kind` = `Lesson` | `TimeOff`).
+> Tekrar eden seriler `RecurrenceExpander` ile açılır, occurrence istisnaları uygulanır ve iptal edilen oluşumlar
+> elenir — yani öğretmen takvimi ucuyla **aynı** hesap yolu (Öğrenilenler #67). İzin/tatil blokları da doluluk
+> sayılır: öğretmen tatildeyken boş görünmemeli. Tüketici: Reporting boş zaman analizi.
 
 ---
 
@@ -433,4 +439,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 3 / M14-5: `ILessonScheduleDirectory` `ListTeacherBusyIntervalsAsync` ile genişledi — ders oluşumları + izin blokları tek listede, Reporting boş zaman analizi tüketiyor) · 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*

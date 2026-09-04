@@ -476,6 +476,11 @@ public sealed class ProgressAccessTests
     {
         public Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
             => Task.FromResult(details);
+
+        public Task<IReadOnlyCollection<TeacherBusyInterval>> ListTeacherBusyIntervalsAsync(
+            Guid teacherUserId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<TeacherBusyInterval>>(Array.Empty<TeacherBusyInterval>());
+
     }
 
     private sealed class FakeLessonSessionAccessService(LessonSessionDetails? details) : ILessonSessionAccessService

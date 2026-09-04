@@ -18,6 +18,12 @@ public sealed class ReportingDbContext : ModuleDbContext
 
     public DbSet<TeacherDashboardProjection> TeacherDashboardProjections => Set<TeacherDashboardProjection>();
 
+    public DbSet<TeacherMonthlyProjection> TeacherMonthlyProjections => Set<TeacherMonthlyProjection>();
+
+    public DbSet<StudentStudyProjection> StudentStudyProjections => Set<StudentStudyProjection>();
+
+    public DbSet<StudentPerformanceProjection> StudentPerformanceProjections => Set<StudentPerformanceProjection>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Reporting";
@@ -51,6 +57,75 @@ public sealed class ReportingDbContext : ModuleDbContext
             builder.Property(item => item.Amount).HasPrecision(18, 2);
             builder.Property(item => item.Currency).HasMaxLength(8);
             builder.HasIndex(item => new { item.TeacherUserId, item.Kind, item.OccursAtUtc });
+        });
+
+        // M14-1: öğretmen aylık özeti (dönem kovası = (öğretmen, yıl, ay))
+        modelBuilder.Entity<TeacherMonthlyProjection>(builder =>
+        {
+            builder.ToTable("teacher_monthly_projections");
+            builder.HasKey(item => new { item.TeacherUserId, item.Year, item.Month });
+            builder.Property(item => item.CollectedAmount).HasPrecision(18, 2);
+
+            builder.HasMany(item => item.Items)
+                .WithOne()
+                .HasForeignKey(item => new { item.TeacherUserId, item.Year, item.Month })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Navigation(item => item.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<TeacherMonthlyItem>(builder =>
+        {
+            builder.ToTable("teacher_monthly_items");
+            builder.HasKey(item => new { item.TeacherUserId, item.Year, item.Month, item.Kind, item.ItemId });
+            builder.Property(item => item.Kind).HasConversion<int>();
+            builder.Property(item => item.Amount).HasPrecision(18, 2);
+        });
+
+        // M14-2: öğrenci haftalık çalışma (dönem kovası = (öğrenci, ISO yıl, ISO hafta))
+        modelBuilder.Entity<StudentStudyProjection>(builder =>
+        {
+            builder.ToTable("student_study_projections");
+            builder.HasKey(item => new { item.StudentId, item.Year, item.WeekOfYear });
+
+            builder.HasMany(item => item.Items)
+                .WithOne()
+                .HasForeignKey(item => new { item.StudentId, item.Year, item.WeekOfYear })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Navigation(item => item.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<StudentStudyItem>(builder =>
+        {
+            builder.ToTable("student_study_items");
+            builder.HasKey(item => new { item.StudentId, item.Year, item.WeekOfYear, item.Kind, item.ItemId });
+            builder.Property(item => item.Kind).HasConversion<int>();
+        });
+
+        // M14-3: öğrenci aylık performansı (dönem kovası = (öğrenci, ders, yıl, ay))
+        modelBuilder.Entity<StudentPerformanceProjection>(builder =>
+        {
+            builder.ToTable("student_performance_projections");
+            builder.HasKey(item => new { item.StudentId, item.Subject, item.Year, item.Month });
+            builder.Property(item => item.Subject).HasMaxLength(120);
+
+            builder.HasMany(item => item.Items)
+                .WithOne()
+                .HasForeignKey(item => new { item.StudentId, item.Subject, item.Year, item.Month })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Navigation(item => item.Items).UsePropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<StudentPerformanceItem>(builder =>
+        {
+            builder.ToTable("student_performance_items");
+            builder.HasKey(item => new { item.StudentId, item.Subject, item.Year, item.Month, item.Kind, item.ItemKey });
+            builder.Property(item => item.Subject).HasMaxLength(120);
+            builder.Property(item => item.ItemKey).HasMaxLength(160);
+            builder.Property(item => item.Kind).HasConversion<int>();
+            builder.Property(item => item.Score).HasPrecision(8, 4);
         });
     }
 }

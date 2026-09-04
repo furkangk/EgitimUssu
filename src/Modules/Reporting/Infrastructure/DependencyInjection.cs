@@ -19,6 +19,20 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetTeacherDashboardQuery, Result<TeacherDashboardResponse>>, GetTeacherDashboardQueryHandler>();
         services.AddScoped<IQueryAuthorizer<GetTeacherDashboardQuery>, ReportingAuthorizer>();
 
+        // M14-1/2/3/5: analitik uçlar
+        services.AddScoped<IReportingProjectionReader, ReportingProjectionReader>();
+        services.AddScoped<StudentReportPrivacyGate>();
+
+        services.AddScoped<IQueryHandler<GetTeacherMonthlyReportQuery, Result<TeacherMonthlyReportResponse>>, GetTeacherMonthlyReportQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTeacherFreeSlotsQuery, Result<IReadOnlyCollection<FreeSlotResponse>>>, GetTeacherFreeSlotsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetStudentStudyAnalysisQuery, Result<IReadOnlyCollection<StudentStudyWeekResponse>>>, GetStudentStudyAnalysisQueryHandler>();
+        services.AddScoped<IQueryHandler<GetStudentPerformanceQuery, Result<IReadOnlyCollection<StudentPerformanceMonthResponse>>>, GetStudentPerformanceQueryHandler>();
+
+        services.AddScoped<IQueryAuthorizer<GetTeacherMonthlyReportQuery>, TeacherScopedReportAuthorizer<GetTeacherMonthlyReportQuery>>();
+        services.AddScoped<IQueryAuthorizer<GetTeacherFreeSlotsQuery>, TeacherScopedReportAuthorizer<GetTeacherFreeSlotsQuery>>();
+        services.AddScoped<IQueryAuthorizer<GetStudentStudyAnalysisQuery>, StudentScopedReportAuthorizer<GetStudentStudyAnalysisQuery>>();
+        services.AddScoped<IQueryAuthorizer<GetStudentPerformanceQuery>, StudentScopedReportAuthorizer<GetStudentPerformanceQuery>>();
+
         // Read-model projeksiyon handler'ları (diğer modüllerin integration event'lerinden beslenir)
         services.AddScoped<IIntegrationEventHandler, LessonScheduleUpsertProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, LessonScheduleCancelledProjectionHandler>();
@@ -27,6 +41,16 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, PaymentOverdueProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, PaymentSettledProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, TeacherStudentLinkProjectionHandler>();
+
+        // M14-1/2/3 analitik projeksiyon handler'ları
+        services.AddScoped<IIntegrationEventHandler, TeacherMonthlyLessonCompletedProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, TeacherMonthlyLessonCancelledProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, TeacherMonthlyPaymentExpectedProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, TeacherMonthlyPaymentCollectedProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudentStudySessionProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudentStudyTestProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudentPerformanceTestProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudentPerformanceMasteryProjectionHandler>();
 
         return services;
     }

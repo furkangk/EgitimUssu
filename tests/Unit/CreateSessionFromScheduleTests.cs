@@ -134,6 +134,11 @@ public sealed class CreateSessionFromScheduleTests
     {
         public Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
             => Task.FromResult(details is not null && details.LessonScheduleId == lessonScheduleId ? details : null);
+
+        public Task<IReadOnlyCollection<TeacherBusyInterval>> ListTeacherBusyIntervalsAsync(
+            Guid teacherUserId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<TeacherBusyInterval>>(Array.Empty<TeacherBusyInterval>());
+
     }
 
     private sealed class FakeRepository : ILessonSessionRepository

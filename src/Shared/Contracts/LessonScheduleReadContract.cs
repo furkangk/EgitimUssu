@@ -33,4 +33,26 @@ public interface ILessonScheduleDirectory
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Ders ayrıntısı ya da <c>null</c>.</returns>
     Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// M14-5: Öğretmenin verilen aralıkta <b>dolu</b> olduğu zaman parçaları — planlı ders oluşumları
+    /// (tekrar kuralları açılmış, occurrence istisnaları uygulanmış) ve izin/tatil blokları.
+    /// Boş zaman analizi bu listeyi haftalık uygunluk şablonundan çıkarır.
+    /// </summary>
+    /// <param name="teacherUserId">Öğretmen kullanıcı kimliği.</param>
+    /// <param name="fromUtc">Aralık başlangıcı (UTC, dahil).</param>
+    /// <param name="toUtc">Aralık bitişi (UTC, hariç).</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Dolu aralıklar (sıralı olması garanti değildir).</returns>
+    Task<IReadOnlyCollection<TeacherBusyInterval>> ListTeacherBusyIntervalsAsync(
+        Guid teacherUserId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>Öğretmenin dolu olduğu tek bir zaman aralığı.</summary>
+/// <param name="StartAtUtc">Başlangıç (UTC).</param>
+/// <param name="EndAtUtc">Bitiş (UTC).</param>
+/// <param name="Kind">Doluluğun kaynağı: <c>Lesson</c> veya <c>TimeOff</c>.</param>
+public sealed record TeacherBusyInterval(DateTime StartAtUtc, DateTime EndAtUtc, string Kind);

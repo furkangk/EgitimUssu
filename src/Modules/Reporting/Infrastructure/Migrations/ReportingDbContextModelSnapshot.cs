@@ -23,6 +23,110 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentPerformanceItem", b =>
+                {
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ItemKey")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<decimal>("Score")
+                        .HasPrecision(8, 4)
+                        .HasColumnType("numeric(8,4)");
+
+                    b.HasKey("StudentId", "Subject", "Year", "Month", "Kind", "ItemKey");
+
+                    b.ToTable("student_performance_items", "reporting");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentPerformanceProjection", b =>
+                {
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("LastAppliedEventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("StudentId", "Subject", "Year", "Month");
+
+                    b.ToTable("student_performance_projections", "reporting");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentStudyItem", b =>
+                {
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WeekOfYear")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Minutes")
+                        .HasColumnType("integer");
+
+                    b.HasKey("StudentId", "Year", "WeekOfYear", "Kind", "ItemId");
+
+                    b.ToTable("student_study_items", "reporting");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentStudyProjection", b =>
+                {
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WeekOfYear")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("LastAppliedEventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("StudentId", "Year", "WeekOfYear");
+
+                    b.ToTable("student_study_projections", "reporting");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherDashboardItem", b =>
                 {
                     b.Property<Guid>("TeacherUserId")
@@ -66,6 +170,61 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
                     b.HasKey("TeacherUserId");
 
                     b.ToTable("teacher_dashboard_projections", "reporting");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherMonthlyItem", b =>
+                {
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TeacherUserId", "Year", "Month", "Kind", "ItemId");
+
+                    b.ToTable("teacher_monthly_items", "reporting");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherMonthlyProjection", b =>
+                {
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("CollectedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("LastAppliedEventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TeacherUserId", "Year", "Month");
+
+                    b.ToTable("teacher_monthly_projections", "reporting");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage", b =>
@@ -149,6 +308,24 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
                     b.ToTable("outbox_messages", "reporting");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentPerformanceItem", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Reporting.Domain.StudentPerformanceProjection", null)
+                        .WithMany("Items")
+                        .HasForeignKey("StudentId", "Subject", "Year", "Month")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentStudyItem", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Reporting.Domain.StudentStudyProjection", null)
+                        .WithMany("Items")
+                        .HasForeignKey("StudentId", "Year", "WeekOfYear")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherDashboardItem", b =>
                 {
                     b.HasOne("EgitimUssu.Modules.Reporting.Domain.TeacherDashboardProjection", null)
@@ -158,7 +335,31 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherMonthlyItem", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Reporting.Domain.TeacherMonthlyProjection", null)
+                        .WithMany("Items")
+                        .HasForeignKey("TeacherUserId", "Year", "Month")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentPerformanceProjection", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentStudyProjection", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherDashboardProjection", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.TeacherMonthlyProjection", b =>
                 {
                     b.Navigation("Items");
                 });

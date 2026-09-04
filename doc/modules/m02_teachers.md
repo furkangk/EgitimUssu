@@ -162,6 +162,12 @@ Tüm uçlar `RoutePrefix = /api/teachers` altında ve grup **`RequireAuthorizati
 | **Profili pasifleştir** (M02-4) | `POST /profiles/{userId:guid}/deactivate` | `TeacherActivationCommandAuthorizer` (sahibi veya Admin) | — | `TeacherProfileResponse` |
 | **Profili aktifleştir** (M02-4) | `POST /profiles/{userId:guid}/activate` | `TeacherActivationCommandAuthorizer` (sahibi veya Admin) | — | `TeacherProfileResponse` |
 
+**Modüller-arası sözleşme (Shared.Contracts):** M02, öğretmenin **haftalık uygunluk şablonunun** otoritesidir ve
+`ITeacherAvailabilityDirectory` sözleşmesini `TeacherAvailabilityDirectory` ile uygular (M14-5, 2026-09-04):
+`ListWeeklySlotsAsync(teacherUserId) → IReadOnlyCollection<TeacherWeeklySlot>` (gün + başlangıç/bitiş saati).
+Reporting'in boş zaman analizi bu sözleşmeyle okur — Teachers'ın `DbContext`'ine erişmeden, proje referansı olmadan.
+Saatler **UTC duvar saati** kabul edilir (repo genelinde tüm hesaplar UTC).
+
 **İstek/yanıt sözleşmeleri (koddan):**
 
 ```
@@ -342,5 +348,5 @@ tamamını taşır; §5 madde 8'deki merge semantiği sayesinde tekrar kaydetme 
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 10 canlı doğrulama: **arama filtresi Türkçe 'I' hatası düzeltildi** — `TeacherSearchFilter.NormalizeForSearch` girdiyi Postgres'in `lower()` davranışıyla hizalar; tr-TR sunucuda "Istanbul" araması boş dönüyordu) · 2026-09-04 (P06/D-04/M02-5: mobil uygunluk düzenleyici — `AvailabilityEditor`, slot bazlı online/yüz yüze + çakışma engeli) · 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 3 / M14-5: `ITeacherAvailabilityDirectory` sözleşmesi eklendi — haftalık uygunluk şablonu Reporting'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **arama filtresi Türkçe 'I' hatası düzeltildi** — `TeacherSearchFilter.NormalizeForSearch` girdiyi Postgres'in `lower()` davranışıyla hizalar; tr-TR sunucuda "Istanbul" araması boş dönüyordu) · 2026-09-04 (P06/D-04/M02-5: mobil uygunluk düzenleyici — `AvailabilityEditor`, slot bazlı online/yüz yüze + çakışma engeli) · 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

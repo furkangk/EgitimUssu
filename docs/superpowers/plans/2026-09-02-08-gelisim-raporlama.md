@@ -119,30 +119,44 @@ git commit -m "feat(progress): ogretmen/veli gelisim gorunumu + hedef otomatik k
 **Files:**
 - Create: `src/Modules/Reporting/Domain/ReportingProjections.cs`
 - Create: `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs`
-- Modify: `src/Modules/Reporting/Application/*` (query + handler + authorizer)
+- Create: `src/Modules/Reporting/Application/ReportingAnalyticsFeatures.cs` + `ReportingPolicies.cs` + `FreeSlotCalculator.cs`
 - Modify: `src/Modules/Reporting/API/ReportingModule.cs`
-- Modify: `src/Modules/Reporting/Infrastructure/*` + migration
+- Modify: `src/Modules/Reporting/Infrastructure/{ReportingDbContext,DependencyInjection}.cs` + `ReportingProjectionReader.cs` + migration `AddReportingProjections`
+- Create: `src/Shared/Contracts/TeacherAvailabilityContract.cs` · Modify: `LessonScheduleReadContract.cs` *(M14-5 sözleşmeleri)*
+- Create: `src/Modules/Teachers/Infrastructure/TeacherAvailabilityDirectory.cs` + Teachers DI *(sözleşmeyi uygular)*
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs` *(dolu aralık listesi)*
 - Test: `tests/Unit/ReportingProjectionTests.cs`
+- Test: `tests/Integration/RealReportingAnalyticsTests.cs` *(plan dışı, zorunlu — Öğrenilenler #81)*
+- Modify: `tests/Unit/{CreateSessionFromScheduleTests,ProgressAccessTests}.cs` *(sözleşme genişleyince `ILessonScheduleDirectory` sahteleri)*
 
 **Interfaces:**
 - Produces:
   - `TeacherMonthlyProjection : ProjectionEntity` — `Guid TeacherUserId`, `int Year`, `int Month`, `int CompletedLessonCount`, `decimal CollectedAmount`, `decimal ExpectedAmount`, `int ActiveStudentCount`, `int CancelledLessonCount`.
   - `StudentStudyProjection : ProjectionEntity` — `Guid StudentId`, `int Year`, `int WeekOfYear`, `int StudyMinutes`, `int SessionCount`, `int TestCount`.
-  - `StudentPerformanceProjection : ProjectionEntity` — `Guid StudentId`, `string Subject`, `int Year`, `int Month`, `decimal AverageNet`, `int MasteryScore`, `int Delta`.
+  - `StudentPerformanceProjection : ProjectionEntity` — `Guid StudentId`, `string Subject`, `int Year`, `int Month`, `decimal AverageNet`, `int MasteryScore`.
+  - ⚠️ **Plan düzeltmesi (2026-09-04):** `Delta` **saklanmaz**. Komşuya (bir önceki aya) bağlı bir değerdir;
+    sorgu penceresi kırpıldığında satır kendi yazıldığı andaki komşusuna göre yanlış cevap verir — M10-1'de
+    aynı hata trend için yakalanmıştı (Öğrenilenler #102). `ReportingDelta.FromScores(previous, current)` ile
+    sorgu anında üretilir, serinin ilk ayı 0 alır.
+  - ⚠️ **Plan düzeltmesi:** üç projeksiyonun da sayaçları **kümeden türetilir** (child item tabloları), düz
+    `+1` alanlar değil. Gerekçe P07 Task 2 ile aynı: aynı iş olayı iki farklı event'le gelirse (ders yeniden
+    tamamlanır, seans süresi düzeltilir) sayaç bozulur. Tek istisna `CollectedAmount` — kaynak olay mutlak
+    tutar değil önceki/şimdiki çifti taşır, tahsilatın hangi aya düştüğü ancak **farkla** doğru çıkar.
   - Uçlar:
     - `GET /api/reporting/teachers/{teacherUserId}/monthly?year=&month=` (M07-3 dönemsel gelir raporunun karşılığı)
     - `GET /api/reporting/teachers/{teacherUserId}/free-slots?from=&to=` (boş zaman analizi — M14-5; uygunluk slotları eksi planlı dersler)
     - `GET /api/reporting/students/{studentId}/study-analysis?from=&to=`
     - `GET /api/reporting/students/{studentId}/performance?subject=&from=&to=`
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — her projeksiyon için event → alan eşlemesi; tekrar eden event'te sayaç bozulmaması; ay sınırında doğru bucket'a düşme (UTC).
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ReportingProjectionTests"`
-- [ ] **Step 3: Projeksiyonlar + handler'lar + migration**
-  Run: `dotnet ef migrations add AddReportingProjections --project src/Modules/Reporting/Infrastructure --startup-project src/API.Host --context ReportingDbContext`
-- [ ] **Step 4: Sorgu uçları + authorizer'lar** (öğretmen kendi verisi; öğrenci kendi verisi; veli onaylı çocuk + gizlilik; Admin serbest).
-- [ ] **Step 5: Boş zaman analizi** — öğretmenin `TeacherAvailabilitySlot`'ları `Shared/Contracts` üzerinden okunur (Teachers modülü `ITeacherAvailabilityDirectory` açar), planlı dersler `ILessonScheduleDirectory` (P06 Task 4) ile alınır; fark hesaplanır.
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — 20 test: UTC ay sınırı + ISO hafta yıl sınırı; her projeksiyonda tekrar eden iş olayının sayacı bozmaması; tahsilat farkının birikmesi; event → alan eşlemesi (5 handler); boş zaman analizinin dört kuralı (çıkarma, eşik altı parça, çakışan aralık birleştirme, haftalık tekrar).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test ... --filter "FullyQualifiedName~ReportingProjectionTests"` → **24 × CS0246 + 11 × CS0103 + 7 × CS1061** (projeksiyonlar, `ReportingPeriods`, `FreeSlotCalculator` yok)
+- [x] **Step 3: Projeksiyonlar + handler'lar + migration**
+  Run: `dotnet ef migrations add AddReportingProjections ...` ✅ **6 tablo** üretildi (3 projeksiyon + 3 item tablosu).
+- [x] **Step 4: Sorgu uçları + authorizer'lar** — `TeacherScopedReportAuthorizer<T>` (öğretmen kendisi/Admin) ve `StudentScopedReportAuthorizer<T>` (öğrenci kendisi · bağlı öğretmen · onaylı veli · Admin). Gizlilik yetkilendiricide değil `StudentReportPrivacyGate`'te: kapalıysa **403 değil boş sonuç** (P08 Task 2 ile aynı ayrım, Öğrenilenler #106).
+- [x] **Step 5: Boş zaman analizi**
+  ⚠️ **Plan düzeltmesi:** plan "planlı dersler `ILessonScheduleDirectory` ile alınır" diyordu — ama o sözleşmede yalnız `GetAsync(lessonScheduleId)` vardı, **tek ders** döner. Bir aralıktaki oluşumlar tekrar kuralı açılımı + occurrence istisnası + izin bloğu ister; hepsi Scheduling'in içindedir. Sözleşme `ListTeacherBusyIntervalsAsync(teacherUserId, from, to)` ile genişletildi ve Scheduling bunu **öğretmen takvimi ucuyla aynı yoldan** uygular (Öğrenilenler #67). Hesap saf `FreeSlotCalculator`'da.
+- [x] **Step 6: Yeşil gör** — Run: `./scripts/test-with-docker.sh` → 4 mimari + **534 birim** + **36 integration**, Başarısız 0, Atlanan 0 · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata
+- [x] **Step 7: Doküman + commit**
 
 ```bash
 git add src/Modules/Reporting src/Shared/Contracts tests doc

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EgitimUssu.Modules.Teachers.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Teachers.Infrastructure;
@@ -32,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetTeacherPhotoQuery, Result<TeacherPhotoFileResponse>>, GetTeacherPhotoQueryHandler>();
         services.AddScoped<IQueryAuthorizer<GetTeacherPhotoQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();
+        services.AddScoped<ITeacherAvailabilityDirectory, TeacherAvailabilityDirectory>();
+
         return services;
     }
 }

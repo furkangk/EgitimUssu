@@ -33,7 +33,80 @@ public sealed class ReportingModule : ModuleDefinition
         group.MapGet("/teachers/{teacherUserId:guid}/dashboard", GetTeacherDashboardAsync)
             .WithSummary("Öğretmen paneli sayaçlarını read-model projeksiyonundan getirir")
             .RequireAuthorization("AuthenticatedUser");
+
+        var secure = CreateModuleGroup(endpoints);
+        secure.RequireAuthorization("AuthenticatedUser");
+
+        secure.MapGet("/teachers/{teacherUserId:guid}/monthly", GetTeacherMonthlyAsync)
+            .WithSummary("Öğretmenin aylık ders/tahsilat özetini getirir (M14-1)");
+        secure.MapGet("/teachers/{teacherUserId:guid}/free-slots", GetTeacherFreeSlotsAsync)
+            .WithSummary("Öğretmenin verilen aralıktaki boş zaman dilimlerini getirir (M14-5)");
+        secure.MapGet("/students/{studentId:guid}/study-analysis", GetStudentStudyAnalysisAsync)
+            .WithSummary("Öğrencinin haftalık çalışma analizini getirir (M14-2, gizlilik filtreli)");
+        secure.MapGet("/students/{studentId:guid}/performance", GetStudentPerformanceAsync)
+            .WithSummary("Öğrencinin ders bazlı aylık performansını getirir (M14-3, gizlilik filtreli)");
     }
+
+    /// <summary>M14-1: Yıl/ay verilmezse içinde bulunulan ay kullanılır (eksik parametre 500 üretmez).</summary>
+    private static async Task<IResult> GetTeacherMonthlyAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        int? year,
+        int? month,
+        IQueryDispatcher dispatcher,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        return ToHttpResult(context, await dispatcher.Dispatch(
+            new GetTeacherMonthlyReportQuery(teacherUserId, year ?? now.Year, month ?? now.Month), cancellationToken));
+    }
+
+    /// <summary>M14-5: Aralık verilmezse bugünden itibaren bir hafta bakılır.</summary>
+    private static async Task<IResult> GetTeacherFreeSlotsAsync(
+        HttpContext context,
+        Guid teacherUserId,
+        DateTime? from,
+        DateTime? to,
+        IQueryDispatcher dispatcher,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        var start = DateTime.SpecifyKind((from ?? clock.UtcNow).Date, DateTimeKind.Utc);
+        var end = to is { } given ? DateTime.SpecifyKind(given, DateTimeKind.Utc) : start.AddDays(7);
+        return ToHttpResult(context, await dispatcher.Dispatch(
+            new GetTeacherFreeSlotsQuery(teacherUserId, start, end), cancellationToken));
+    }
+
+    private static async Task<IResult> GetStudentStudyAnalysisAsync(
+        HttpContext context,
+        Guid studentId,
+        DateOnly? from,
+        DateOnly? to,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+        => ToHttpResult(context, await dispatcher.Dispatch(
+            new GetStudentStudyAnalysisQuery(studentId, from, to), cancellationToken));
+
+    private static async Task<IResult> GetStudentPerformanceAsync(
+        HttpContext context,
+        Guid studentId,
+        string? subject,
+        DateOnly? from,
+        DateOnly? to,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+        => ToHttpResult(context, await dispatcher.Dispatch(
+            new GetStudentPerformanceQuery(studentId, subject, from, to), cancellationToken));
+
+    private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
+        => result.IsSuccess
+            ? Results.Ok(result.Value)
+            : result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
 
     /// <summary>
     /// Öğretmen panelinin sayaçlarını (bugünkü ders, açık ödev, gecikmiş ödeme, aktif öğrenci) projeksiyondan
