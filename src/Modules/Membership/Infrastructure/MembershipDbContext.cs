@@ -21,6 +21,10 @@ public sealed class MembershipDbContext : ModuleDbContext
 
     public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
 
+    public DbSet<ReferralCode> ReferralCodes => Set<ReferralCode>();
+
+    public DbSet<ReferralRedemption> ReferralRedemptions => Set<ReferralRedemption>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Membership";
@@ -65,5 +69,33 @@ internal sealed class UserSubscriptionConfiguration : IEntityTypeConfiguration<U
         builder.HasIndex(entity => entity.UserId).IsUnique();
         builder.HasIndex(entity => new { entity.Status, entity.CurrentPeriodEndUtc });
         builder.HasIndex(entity => entity.ProviderSubscriptionId);
+    }
+}
+
+internal sealed class ReferralCodeConfiguration : IEntityTypeConfiguration<ReferralCode>
+{
+    public void Configure(EntityTypeBuilder<ReferralCode> builder)
+    {
+        builder.ToTable("referral_codes");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Code).HasMaxLength(16).IsRequired();
+
+        // Kod elle girilen bir anahtardır: çift olamaz. Sahip başına da tek kod tutulur.
+        builder.HasIndex(entity => entity.Code).IsUnique();
+        builder.HasIndex(entity => entity.OwnerUserId).IsUnique();
+    }
+}
+
+internal sealed class ReferralRedemptionConfiguration : IEntityTypeConfiguration<ReferralRedemption>
+{
+    public void Configure(EntityTypeBuilder<ReferralRedemption> builder)
+    {
+        builder.ToTable("referral_redemptions");
+        builder.HasKey(entity => entity.Id);
+
+        // "Bir kullanıcı ömrü boyunca bir referans ödülü alır" kuralını veritabanı da zorlar:
+        // uygulama katmanındaki kontrol eşzamanlı iki istekte yarışabilir.
+        builder.HasIndex(entity => entity.RedeemerUserId).IsUnique();
+        builder.HasIndex(entity => entity.ReferrerUserId);
     }
 }

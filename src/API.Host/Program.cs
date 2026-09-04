@@ -9,6 +9,7 @@ using EgitimUssu.Shared.Infrastructure.Extensions;
 using EgitimUssu.Shared.Infrastructure.Health;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Middleware;
+using EgitimUssu.Modules.Membership.Infrastructure;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -155,6 +156,13 @@ var databaseOptions = app.Services.GetRequiredService<Microsoft.Extensions.Optio
 if (databaseOptions.ApplyMigrationsOnStartup)
 {
     await app.Services.ApplyModuleMigrationsAsync();
+
+    // M17-1: Plan kataloğu tohumlaması YALNIZ Development'ta koşar — fiyatlar henüz hipotez (Q2).
+    // Üretimde planlar Admin ucundan (POST /api/membership/plans) girilir.
+    if (app.Environment.IsDevelopment())
+    {
+        await app.Services.SeedMembershipPlansAsync();
+    }
 }
 
 await app.RunAsync();

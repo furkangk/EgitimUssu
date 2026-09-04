@@ -109,11 +109,14 @@ internal sealed class EntitlementDirectory : IEntitlementDirectory, IMembershipR
 
         if (subscription is not null && subscription.HasAccess(now))
         {
-            var planCode = await _dbContext.SubscriptionPlans
-                .AsNoTracking()
-                .Where(plan => plan.Id == subscription.PlanId)
-                .Select(plan => plan.Code)
-                .FirstOrDefaultAsync(cancellationToken);
+            // Kampanya ödülüyle açılan abonelikte plan yoktur (PlanId null): kod da yoktur, sorgu atlanır.
+            var planCode = subscription.PlanId is { } planId
+                ? await _dbContext.SubscriptionPlans
+                    .AsNoTracking()
+                    .Where(plan => plan.Id == planId)
+                    .Select(plan => plan.Code)
+                    .FirstOrDefaultAsync(cancellationToken)
+                : null;
 
             return new UserMembershipSnapshot(
                 MembershipTier.Premium, subscription.CurrentPeriodEndUtc, subscription.Status, planCode);

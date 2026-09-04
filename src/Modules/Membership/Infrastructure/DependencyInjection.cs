@@ -22,7 +22,49 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetMyMembershipQuery, Result<MembershipStatusResponse>>, GetMyMembershipQueryHandler>();
         services.AddScoped<IQueryAuthorizer<GetMyMembershipQuery>, GetMyMembershipQueryAuthorizer>();
 
-        // Plan yönetimi, deneme ve abonelik komutları P09 Task 3'te eklenecek.
+        // M17-1/M17-3: plan kataloğu, deneme, iptal ve referans kampanyası (P09 Task 3).
+        services.AddScoped<IMembershipRepository, MembershipRepository>();
+
+        services.AddScoped<
+            IQueryHandler<ListPlansQuery, Result<IReadOnlyList<SubscriptionPlanResponse>>>,
+            ListPlansQueryHandler>();
+
+        services.AddScoped<
+            ICommandHandler<CreateSubscriptionPlanCommand, Result<SubscriptionPlanResponse>>,
+            CreateSubscriptionPlanCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<UpdateSubscriptionPlanCommand, Result<SubscriptionPlanResponse>>,
+            UpdateSubscriptionPlanCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<StartTrialCommand, Result<MembershipStatusResponse>>,
+            StartTrialCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<CancelSubscriptionCommand, Result<MembershipStatusResponse>>,
+            CancelSubscriptionCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<EnsureReferralCodeCommand, Result<ReferralCodeResponse>>,
+            EnsureReferralCodeCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<RedeemReferralCommand, Result<MembershipStatusResponse>>,
+            RedeemReferralCommandHandler>();
+
+        // Tek örnek birden çok komutun kapısını taşır (Admin uçları / oturum uçları).
+        services.AddScoped<AdminOnlyMembershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<CreateSubscriptionPlanCommand>>(
+            provider => provider.GetRequiredService<AdminOnlyMembershipAuthorizer>());
+        services.AddScoped<ICommandAuthorizer<UpdateSubscriptionPlanCommand>>(
+            provider => provider.GetRequiredService<AdminOnlyMembershipAuthorizer>());
+
+        services.AddScoped<AuthenticatedMembershipAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<StartTrialCommand>>(
+            provider => provider.GetRequiredService<AuthenticatedMembershipAuthorizer>());
+        services.AddScoped<ICommandAuthorizer<CancelSubscriptionCommand>>(
+            provider => provider.GetRequiredService<AuthenticatedMembershipAuthorizer>());
+        services.AddScoped<ICommandAuthorizer<EnsureReferralCodeCommand>>(
+            provider => provider.GetRequiredService<AuthenticatedMembershipAuthorizer>());
+        services.AddScoped<ICommandAuthorizer<RedeemReferralCommand>>(
+            provider => provider.GetRequiredService<AuthenticatedMembershipAuthorizer>());
+
         return services;
     }
 }

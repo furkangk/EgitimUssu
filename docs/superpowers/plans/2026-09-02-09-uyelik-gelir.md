@@ -172,11 +172,14 @@ git commit -m "feat(membership): entitlement sozlesmesi + tum modullerin devri (
 ### Task 3: Plan yönetimi, deneme ve referans kampanyası (M17-1/M17-3)
 
 **Files:**
-- Modify: `src/Modules/Membership/Domain/MembershipDomainModel.cs` (`ReferralCode`, `ReferralRedemption`)
+- Modify: `src/Modules/Membership/Domain/MembershipDomainModel.cs` (`ReferralCode`, `ReferralRedemption`, `ReferralCodeFactory`, `UserSubscription.GrantCampaignMonths`/`SwitchPlan`, `SubscriptionPlan.UpdatePricing`, `PlanId` → nullable)
 - Modify: `src/Modules/Membership/Application/MembershipFeatures.cs`
 - Modify: `src/Modules/Membership/API/MembershipModule.cs`
-- Modify: `src/Modules/Membership/Infrastructure/*` + migration
-- Test: `tests/Unit/ReferralTests.cs`, `tests/Unit/TrialTests.cs`
+- Modify: `src/Modules/Membership/Infrastructure/MembershipDbContext.cs` + `DependencyInjection.cs` + migration `AddReferralAndTrial`
+- Create: `src/Modules/Membership/Infrastructure/MembershipRepository.cs`, `MembershipPlanSeeder.cs` *(plan dışı, zorunlu: plan yalnız "Infrastructure/*" diyordu; yazma yolu bir depoya, seed ayrı bir dosyaya ihtiyaç duydu)*
+- Modify: `src/Modules/Membership/Infrastructure/EntitlementDirectory.cs` *(plan dışı, zorunlu: `PlanId` nullable olunca plan kodu sorgusu koşullu hâle geldi)*
+- Modify: `src/API.Host/Program.cs` *(plan dışı, zorunlu: Step 4 "seed yalnız Development'ta koşar" diyor; bunu `HasData` ile yapmak fiyatları migration'a — dolayısıyla üretime — gömerdi, tek yol startup kancası)*
+- Test: `tests/Unit/ReferralTests.cs`, `tests/Unit/TrialTests.cs`, `tests/Unit/SubscriptionPlanTests.cs` *(plan dışı: görev üç konu taşıyor (plan yönetimi / deneme / referans) ama plan iki test dosyası listeliyordu; plan kataloğu + Admin CRUD testlerini "TrialTests" içine tıkmak yerine kendi dosyasına konuldu)*
 
 **Interfaces:**
 - Produces:
@@ -186,14 +189,47 @@ git commit -m "feat(membership): entitlement sozlesmesi + tum modullerin devri (
   - `GET /api/membership/referral-code` (auth) — kullanıcıya ait kod (yoksa üretir)
   - `POST /api/membership/referral/redeem` (auth) — kayıt sonrası kod girer; **her iki tarafa** 1 ay premium
   - Admin: `POST /api/membership/plans`, `PUT /api/membership/plans/{planId}` (yalnız Admin)
+  - ⚠️ **Plan düzeltmesi (2026-09-04) — `UserSubscription.PlanId` nullable yapıldı.** Referans ödülü
+    satın alınmış bir plana bağlı değildir; henüz hiç aboneliği olmayan bir kullanıcıya ödül yazmak
+    için ona bir plan **atamak** gerekirdi. Rol başına plan seçmek, planların tohumlanmış olmasını
+    şart koşardı — ama tohumlama yalnız Development'ta koşuyor, yani üretimde referans akışı sessizce
+    kırılırdı. Bunun yerine kampanya aboneliği **plansız** açılıyor (`PlanId = null`); kullanıcı
+    sonradan denemeye/satın almaya geçince `SwitchPlan` ile bağlanıyor.
+  - Ek üretilenler *(plan listelemiyordu, kural için gerekli)*: `ReferralCodeFactory` (kod kullanıcı
+    kimliğinden **deterministik** türetilir — rastgele üretim çakışmada yeniden-deneme döngüsü ister
+    ve testte sabitlenemezdi; alfabede karıştırılabilir `0/O/1/I/L` yok), `MembershipCampaigns`
+    (ödül ayı + satılabilir rol listesi), `IMembershipRepository`, `MembershipStatusFactory`,
+    `AdminOnlyMembershipAuthorizer` + `AuthenticatedMembershipAuthorizer`
+    (`AuthorizationCoverageValidator` her komut için authorizer zorunlu kılıyor),
+    `UserSubscription.GrantCampaignMonths` (ödül mevcut dönemi **ezmez, uzatır**),
+    `SubscriptionPlan.UpdatePricing` (kod/rol/periyot kararlı anahtar → değişmez).
+  - ⚠️ **Uçlarda `{userId}` yok:** hedef kullanıcı gövdeden değil **oturumdan** gelir; başkasının
+    aboneliğine dokunmanın yolu böylece sözleşme düzeyinde kapalı.
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — kendi kodunu kullanamama; aynı kodu iki kez kullanamama; kod geçersizse `membership.invalid_referral`; ödül iki tarafa da 1 ay ekliyor; deneme ikinci kez başlatılamıyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ReferralTests|FullyQualifiedName~TrialTests"`
-- [ ] **Step 3: Domain + handler + endpoint + migration**
-  Run: `dotnet ef migrations add AddReferralAndTrial --project src/Modules/Membership/Infrastructure --startup-project src/API.Host --context MembershipDbContext`
-- [ ] **Step 4: Plan tohumlama (seed)** — `codex/03_paket_fiyatlandirma.md`'deki fiyatlarla 6 plan (3 rol × aylık/yıllık) `MembershipDbContext` seed'i veya idempotent startup görevi olarak eklenir. **Fiyatlar Q2 ile doğrulanmadan prod'a çıkmaz** — seed yalnız Development'ta koşar.
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — plandaki 5 senaryo + 18 ek (iptal sonrası deneme yine reddedilir,
+  bilinmeyen plan, denemesiz plan, iptalde erişimin sürmesi, aboneliksiz iptal, ödülün mevcut premium'u
+  **uzatması**, kodun deterministik ve karıştırılamaz olması, plan listeleme/filtre, Admin CRUD + çift kod
+  + geçersiz rol + bilinmeyen plan, Admin-dışı reddi, seed kapsamı) = **23 test** (7 + 8 + 8)
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ReferralTests|FullyQualifiedName~TrialTests|FullyQualifiedName~SubscriptionPlanTests"` → **CS0246** (`StartTrialCommandHandler`, `CancelSubscriptionCommandHandler`, `EnsureReferralCodeCommandHandler`, `RedeemReferralCommandHandler` yok)
+- [x] **Step 3: Domain + handler + endpoint + migration**
+  Run: `dotnet ef migrations add AddReferralAndTrial ...` ✅ 2 yeni tablo (`referral_codes` benzersiz `Code` +
+  benzersiz `OwnerUserId`; `referral_redemptions` **benzersiz `RedeemerUserId`**) + `user_subscriptions.PlanId`
+  nullable'a alındı.
+  ⚠️ **Tasarım notu — "bir kullanıcı ömrü boyunca tek referans ödülü"** kuralı hem handler'da hem
+  **veritabanı indeksinde** duruyor: uygulama kontrolü eşzamanlı iki istekte yarışabilir, benzersiz indeks
+  yarışı kapatır. Aynı gerekçeyle "deneme bir kez" `HasUsedTrial` + benzersiz `UserId` ikilisiyle taşınıyor.
+- [x] **Step 4: Plan tohumlama (seed)** — `MembershipPlanSeeder` (idempotent: yalnız **eksik kodları** ekler,
+  var olan planın fiyatına dokunmaz — Admin'in elle yaptığı değişikliği her açılışta geri almamak için),
+  `Program.cs`'te `ApplyMigrationsOnStartup` + `IsDevelopment()` altında. 6 plan: öğretmen 249/2490,
+  öğrenci 99/990, veli 99/990 TRY — `codex/03_paket_fiyatlandirma.md` §4 aralığının **alt sınırı**
+  (aynı dokümanın 5. ilkesi). Aylık planlarda 30 günlük deneme = "ilk ay ücretsiz".
+  ⚠️ **Q2 hâlâ açık:** fiyatlar hipotezdir; üretimde plan kataloğu Admin ucundan girilir.
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari + **602 birim** + **39 integration**, Başarısız 0, Atlanan 0 (öncesi 579 birim; +23) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata
+- [x] **Step 6: Doküman + commit**
+
+`doc/modules/m17_membership.md` (§1 plan/kampanya bloğu, §2.4 kodda-olan sadeleşme notu, §3 uç sözleşmesi, §8 durum),
+`00_genel_bakis.md` (**Membership kendi uç bölümünü aldı** — 2 → 9 uç), `veri_modeli.md` (iki yeni tablo + nullable `PlanId`),
+`doc/INDEX.md`, `doc/roles/admin.md` (plan yönetimi yeteneği), `doc/roles/{ogretmen,ogrenci,veli}.md` (deneme/iptal/referans).
 
 ```bash
 git add src/Modules/Membership tests doc
@@ -229,7 +265,7 @@ git commit -m "feat(membership): plan yonetimi + deneme + referans kampanyasi (M
   Run: `dotnet add src/Modules/Membership/Infrastructure/EgitimUssu.Modules.Membership.Infrastructure.csproj package Iyzipay`
   Sırlar: `Payment__ApiKey`, `Payment__SecretKey`, `Payment__BaseUrl` (env; `appsettings.json`'da boş).
 - [ ] **Step 4: Webhook handler'ı yaz** — `ProviderEventId` daha önce işlendiyse `200 OK` döner ve **hiçbir şey yapmaz** (idempotent). Durum eşlemesi: ödeme başarılı → `Activate`/`Renew`; başarısız → `MarkPastDue`; iptal → `Cancel`.
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari + **602 birim** + **39 integration**, Başarısız 0, Atlanan 0 (öncesi 579 birim; +23) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata
 - [ ] **Step 6: Sandbox'ta uçtan uca dene** — iyzico sandbox kartıyla checkout → callback → abonelik `Active` → `GET /api/membership/me` premium döner.
 - [ ] **Step 7: Doküman + commit**
 

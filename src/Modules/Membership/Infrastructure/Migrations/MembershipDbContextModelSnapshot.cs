@@ -23,6 +23,71 @@ namespace EgitimUssu.Modules.Membership.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.Membership.Domain.ReferralCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RedemptionCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("OwnerUserId")
+                        .IsUnique();
+
+                    b.ToTable("referral_codes", "membership");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Membership.Domain.ReferralRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RedeemedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RedeemerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReferralCodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReferrerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RewardMonths")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RedeemerUserId")
+                        .IsUnique();
+
+                    b.HasIndex("ReferrerUserId");
+
+                    b.ToTable("referral_redemptions", "membership");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Membership.Domain.SubscriptionPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -92,7 +157,7 @@ namespace EgitimUssu.Modules.Membership.Infrastructure.Migrations
                     b.Property<bool>("HasUsedTrial")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("PlanId")
+                    b.Property<Guid?>("PlanId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("ProviderSubscriptionId")

@@ -44,6 +44,9 @@ public static class MembershipErrors
 
     public static readonly Error InvalidPeriodEnd =
         new("membership.invalid_period_end", "Dönem bitişi şu andan ileri bir tarih olmalıdır.");
+
+    public static readonly Error InvalidCampaignMonths =
+        new("membership.invalid_campaign_months", "Kampanya ödülü en az bir ay olmalıdır.");
 }
 
 /// <summary>
@@ -108,6 +111,19 @@ public sealed class SubscriptionPlan : AggregateRoot<Guid>
         _ => fromUtc.AddMonths(1)
     };
 
+    /// <summary>
+    /// M17-1: Admin plan güncellemesi. <see cref="Code"/>, <see cref="Role"/> ve <see cref="Period"/>
+    /// bilinçli olarak <b>değiştirilemez</b>: bunlar ödeme sağlayıcısına ve istemciye giden kararlı
+    /// anahtarlardır, sonradan değişmeleri geçmiş abonelikleri anlamsızlaştırırdı.
+    /// </summary>
+    public void UpdatePricing(decimal price, string currency, int trialDays, bool isActive)
+    {
+        Price = price;
+        Currency = currency;
+        TrialDays = trialDays;
+        IsActive = isActive;
+    }
+
     public void Deactivate() => IsActive = false;
 
     public void Activate() => IsActive = true;
@@ -128,7 +144,7 @@ public sealed class UserSubscription : AggregateRoot<Guid>
     {
     }
 
-    public UserSubscription(Guid id, Guid userId, Guid planId, DateTime createdOnUtc)
+    public UserSubscription(Guid id, Guid userId, Guid? planId, DateTime createdOnUtc)
     {
         Id = id;
         UserId = userId;
@@ -141,7 +157,11 @@ public sealed class UserSubscription : AggregateRoot<Guid>
 
     public Guid UserId { get; private set; }
 
-    public Guid PlanId { get; private set; }
+    /// <summary>
+    /// Abone olunan plan. <b>Kampanya (referans) ödülüyle</b> açılan aboneliklerde plan yoktur:
+    /// ödül satın alınmış bir plana bağlı değildir, bu yüzden alan <c>null</c> olabilir.
+    /// </summary>
+    public Guid? PlanId { get; private set; }
 
     public SubscriptionStatus Status { get; private set; }
 
@@ -253,6 +273,28 @@ public sealed class UserSubscription : AggregateRoot<Guid>
         return true;
     }
 
+    /// <summary>
+    /// M17-3: Kampanya ödülü (referans, beta vb.) olarak <paramref name="months"/> ay premium ekler.
+    /// <para>
+    /// Ödül mevcut dönemi <b>ezmez, uzatır</b>: erişimi süren kullanıcıda başlangıç noktası
+    /// <see cref="CurrentPeriodEndUtc"/>, süresi dolmuş kullanıcıda <paramref name="nowUtc"/>'dir.
+    /// Aksi hâlde ödül, ödenmiş bir dönemi kısaltabilirdi.
+    /// </para>
+    /// </summary>
+    public Result GrantCampaignMonths(int months, DateTime nowUtc)
+    {
+        if (months <= 0)
+        {
+            return Result.Failure(MembershipErrors.InvalidCampaignMonths);
+        }
+
+        var baseline = HasAccess(nowUtc) ? CurrentPeriodEndUtc : nowUtc;
+        return Activate(baseline.AddMonths(months), nowUtc);
+    }
+
+    /// <summary>Aboneliği bir plana bağlar (plansız kampanya aboneliği sonradan plan seçtiğinde).</summary>
+    public void SwitchPlan(Guid planId) => PlanId = planId;
+
     /// <summary>Sağlayıcı abonelik kimliğini bağlar (webhook eşlemesi, P09 Task 4).</summary>
     public void LinkProviderSubscription(string providerSubscriptionId)
         => ProviderSubscriptionId = providerSubscriptionId;
@@ -274,3 +316,123 @@ public sealed record MembershipChangedDomainEvent(
     MembershipTier Tier,
     DateTime EffectiveUntilUtc,
     DateTime ChangedOnUtc) : DomainEvent;
+
+/// <summary>
+/// M17-3: "Arkadaşını getir" kampanyasının kullanıcı başına tek referans kodu.
+/// <para>
+/// Kod <b>kullanıcı kimliğinden türetilir</b> (bkz. <see cref="ReferralCodeFactory"/>): rastgele üretim
+/// çakışma hâlinde yeniden deneme döngüsü gerektirirdi ve testte sabitlenemezdi.
+/// </para>
+/// </summary>
+public sealed class ReferralCode : AggregateRoot<Guid>
+{
+    private ReferralCode()
+    {
+    }
+
+    public ReferralCode(Guid id, Guid ownerUserId, string code, DateTime createdOnUtc)
+    {
+        Id = id;
+        OwnerUserId = ownerUserId;
+        Code = code;
+        CreatedOnUtc = createdOnUtc;
+        IsActive = true;
+    }
+
+    /// <summary>Kodun sahibi (davet eden kullanıcı).</summary>
+    public Guid OwnerUserId { get; private set; }
+
+    /// <summary>Elle girilebilir, büyük harfli kod (ör. <c>K7QMR2XA</c>).</summary>
+    public string Code { get; private set; } = string.Empty;
+
+    public DateTime CreatedOnUtc { get; private set; }
+
+    /// <summary>Kampanya kapatıldığında kod kullanılamaz olur; geçmiş ödüller geri alınmaz.</summary>
+    public bool IsActive { get; private set; }
+
+    /// <summary>Bu kodun kaç kez kullanıldığı (kampanya raporlaması için).</summary>
+    public int RedemptionCount { get; private set; }
+
+    public void RegisterRedemption() => RedemptionCount++;
+
+    public void Deactivate() => IsActive = false;
+}
+
+/// <summary>
+/// M17-3: Bir referans kodunun tek kullanımı. <see cref="RedeemerUserId"/> benzersizdir:
+/// bir kullanıcı ömrü boyunca <b>yalnız bir</b> referans ödülü alabilir.
+/// </summary>
+public sealed class ReferralRedemption : AggregateRoot<Guid>
+{
+    private ReferralRedemption()
+    {
+    }
+
+    public ReferralRedemption(
+        Guid id,
+        Guid referralCodeId,
+        Guid referrerUserId,
+        Guid redeemerUserId,
+        int rewardMonths,
+        DateTime redeemedOnUtc)
+    {
+        Id = id;
+        ReferralCodeId = referralCodeId;
+        ReferrerUserId = referrerUserId;
+        RedeemerUserId = redeemerUserId;
+        RewardMonths = rewardMonths;
+        RedeemedOnUtc = redeemedOnUtc;
+    }
+
+    public Guid ReferralCodeId { get; private set; }
+
+    /// <summary>Davet eden (kodun sahibi).</summary>
+    public Guid ReferrerUserId { get; private set; }
+
+    /// <summary>Kodu giren (davet edilen) kullanıcı.</summary>
+    public Guid RedeemerUserId { get; private set; }
+
+    /// <summary>Her iki tarafa verilen ay sayısı (kampanya kuralı değişirse geçmiş kayıt bozulmasın).</summary>
+    public int RewardMonths { get; private set; }
+
+    public DateTime RedeemedOnUtc { get; private set; }
+}
+
+/// <summary>
+/// M17-3: Referans kodunun kullanıcı kimliğinden türetilmesi — saf ve deterministik.
+/// <para>
+/// Alfabede karıştırılabilir karakterler (<c>0/O</c>, <c>1/I/L</c>) yoktur: kod kullanıcıdan
+/// <b>elle</b> girilir ve bu karakterler yanlış girişin en sık nedenidir.
+/// </para>
+/// </summary>
+public static class ReferralCodeFactory
+{
+    /// <summary>Kodun karakter sayısı.</summary>
+    public const int Length = 8;
+
+    private const string Alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+    /// <summary>Verilen kullanıcı için kararlı referans kodunu üretir.</summary>
+    /// <param name="userId">Kod sahibinin kimliği.</param>
+    /// <returns><see cref="Length"/> karakterlik büyük harfli kod.</returns>
+    public static string For(Guid userId)
+    {
+        var bytes = userId.ToByteArray();
+        var value = BitConverter.ToUInt64(bytes, 0) ^ BitConverter.ToUInt64(bytes, 8);
+
+        var characters = new char[Length];
+        for (var index = Length - 1; index >= 0; index--)
+        {
+            characters[index] = Alphabet[(int)(value % (ulong)Alphabet.Length)];
+            value /= (ulong)Alphabet.Length;
+        }
+
+        return new string(characters);
+    }
+
+    /// <summary>Kullanıcının girdiği kodu karşılaştırılabilir biçime getirir (boşluk/küçük harf toleransı).</summary>
+    /// <param name="code">Ham girdi.</param>
+    /// <returns>Normalleştirilmiş kod.</returns>
+    public static string Normalize(string code)
+        => code.Trim().Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
+}
