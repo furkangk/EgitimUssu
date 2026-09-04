@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
@@ -164,7 +164,7 @@ public static IServiceCollection AddIdentityModule(this IServiceCollection s, IC
 | **Kernel** | Domain çekirdeği + ortak sözleşmeler | `Entity`, `AggregateRoot<TId>`, `ValueObject`, `DomainEvent`, `Result`/`Result<T>`/`Error`, `PagedResult`, `IClock`, `ICurrentUser`, `IIdGenerator` |
 | **Application** | CQRS soyutlamaları | `ICommand`, `ICommandHandler`, `IQuery`, `IQueryHandler` (+ dispatcher/validator/authorizer sözleşmeleri) |
 | **Contracts** | Modüller-arası entegrasyon sözleşmesi | `IIntegrationEvent`, `IntegrationEvent` |
-| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), Push (`IPushSender`, `PushMessage`/`PushResult`, `LoggingPushSender`, `FcmPushSender` + `IFcmAccessTokenProvider`/Google.Apis.Auth), Depolama (`IFileStorage`, `StoredFile`, `FileValidation`, `LocalFileStorage`, `S3FileStorage`/AWSSDK.S3), `SystemClock`, `GuidIdGenerator`, Configuration options |
+| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), Push (`IPushSender`, `PushMessage`/`PushResult`, `LoggingPushSender`, `FcmPushSender` + `IFcmAccessTokenProvider`/Google.Apis.Auth), Depolama (`IFileStorage`, `StoredFile`, `FileValidation`, `LocalFileStorage`, `S3FileStorage`/AWSSDK.S3), Projeksiyon (`ProjectionEntity`, `ProjectionHandler<TEvent>`, `IProjectionRebuilder`), `SystemClock`, `GuidIdGenerator`, Configuration options |
 
 **`Result` deseni** (istisna yerine):
 ```csharp
@@ -205,6 +205,41 @@ Aggregate.Raise(DomainEvent)
 `OutboxMessage`: `Id, Module, Type, Payload, OccurredOnUtc, ProcessedOnUtc?, Error?`. Bu desen **en az bir kez**
 teslim ve atomik yazma (domain + event tek tx) sağlar. Mevcut `IDomainEventMapper` varsayılanı `NoOpDomainEventMapper`
 (modüller mapper'larını ekledikçe gerçek event yayını devreye girer).
+
+## 7.1 Projeksiyon (Read-Model) Deseni
+
+**Ne zaman kullanılır:** Bir modülün ekranı/ucu **başka modüllerin** verisine ihtiyaç duyduğunda. Çapraz-modül
+**senkron** DB okuması yasaktır (`Modules_Should_Not_Reference_Other_Modules` mimari testi zorlar); ihtiyaç duyulan
+veri, kaynak modülün yaydığı integration event'lerden beslenen bir **projeksiyon** (read-model) satırında tutulur (karar **K-04**).
+
+**Nerede yaşar:** Projeksiyon, **tüketen** modülün kendi şemasındadır. Kaynak modül yalnız event yayar, tüketicisini bilmez.
+
+**Yapı taşları** (`src/Shared/Infrastructure/Projections/`):
+
+| Tip | Rol |
+|-----|-----|
+| `ProjectionEntity` | Projeksiyon satırlarının tabanı: `LastAppliedEventId`, `UpdatedOnUtc`, `MarkApplied(eventId, nowUtc)`. Satırın hangi event'e kadar beslendiğini taşır. |
+| `ProjectionHandler<TEvent>` | `IdempotentIntegrationEventHandler` üzerine kurulu taban. Zarfın JSON payload'ını `TEvent`'e çözer, `ProjectAsync(payload, envelope, ct)` çağırır. `TEvent` **payload sözleşmesidir**, `IIntegrationEvent` değil. |
+| `IProjectionRebuilder` | `Name` + `RebuildAsync(ct)`. Projeksiyonu kaynak veriden yeniden kurar; yönetim ucu (`POST /api/admin/projections/{name}/rebuild`) P12'de gelir. |
+
+**Kurallar:**
+
+- **Tek yön:** Projeksiyon yalnız event'ten beslenir; handler içinde başka modülün DbContext'i okunmaz.
+- **Idempotent:** Aynı event iki kez teslim edilirse projeksiyon **bir kez** uygulanır — dedup `inbox_messages`
+  (`EventId`, `Handler`) üzerinden tabandan gelir. Sayaç artıran projeksiyonlar bu yüzden güvenlidir.
+- **Atomik:** `ProjectAsync` **SaveChanges çağırmaz**; iş-yazımı + inbox satırı tek transaction'da commit olur.
+  `ProjectAsync` hata verirse (ya da `false` dönerse) inbox satırı yazılmaz → mesaj yeniden denenebilir kalır.
+- **Okunamayan payload sessizce yutulmaz:** payload `null` çözülürse taban `false` döner, event işlenmiş sayılmaz.
+- **Yeniden kurulabilir:** Her projeksiyon `IProjectionRebuilder` ile sıfırdan inşa edilebilmelidir; projeksiyon
+  şeması "türetilmiş veri"dir, kayıp durumunda kaynak modüllerden yeniden üretilir.
+
+```
+Kaynak modül aggregate → DomainEvent → Outbox → IEventBus
+    └─ ProjectionHandler<TPayload> (tüketen modülde)
+         ├─ inbox guard (EventId, Handler)  → zaten işlenmişse çık
+         ├─ ProjectAsync: projeksiyon satırını STAGE et + MarkApplied(eventId, now)
+         └─ taban: iş-yazımı + inbox satırı TEK transaction'da commit
+```
 
 ## 8. Güvenlik
 
@@ -261,4 +296,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-03 (P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-04 (P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

@@ -20,13 +20,14 @@
 
 ---
 
-### Task 1: Projeksiyon deseni (`ProjectionEntity` + `ProjectionHandler`)
+### Task 1: Projeksiyon deseni (`ProjectionEntity` + `ProjectionHandler`) ✅
 
 **Files:**
 - Create: `src/Shared/Infrastructure/Projections/ProjectionEntity.cs`
 - Create: `src/Shared/Infrastructure/Projections/ProjectionHandler.cs`
 - Create: `src/Shared/Infrastructure/Projections/IProjectionRebuilder.cs`
 - Test: `tests/Unit/ProjectionHandlerTests.cs`
+- Modify: `tests/Unit/TestDoubles/TestModuleDbContext.cs` — **plan dışı, gerekliydi:** `ProjectionHandler` testi için `ProjectionEntity` türeten bir test entity'si (`TestCounterProjection`) + `DbSet` gerekiyordu
 
 **Interfaces:**
 - Produces:
@@ -38,10 +39,10 @@
         public void MarkApplied(Guid eventId, DateTime nowUtc) { LastAppliedEventId = eventId; UpdatedOnUtc = nowUtc; }
     }
     ```
-  - `abstract class ProjectionHandler<TEvent> : IdempotentIntegrationEventHandler where TEvent : IIntegrationEvent` — `ApplyAsync` içinde payload'ı `TEvent`'e çözer, `ProjectAsync(TEvent payload, IntegrationEvent envelope, CancellationToken)` çağırır; commit tabana aittir.
+  - `abstract class ProjectionHandler<TEvent> : IdempotentIntegrationEventHandler where TEvent : class` — `ApplyAsync` içinde payload'ı `TEvent`'e çözer, `ProjectAsync(TEvent payload, IntegrationEvent envelope, CancellationToken)` çağırır; commit tabana aittir. **Plan düzeltmesi:** kısıt önce `where TEvent : IIntegrationEvent` yazıyordu; `TEvent` zarf değil **payload sözleşmesidir** (mevcut `ParentReadModelProjections` deseninde de payload'lar düz `record`'dur), o yüzden `class` kısıtı doğrudur.
   - `interface IProjectionRebuilder { string Name { get; } Task<int> RebuildAsync(CancellationToken cancellationToken); }`
 
-- [ ] **Step 1: Testi yaz (kırmızı)**
+- [x] **Step 1: Testi yaz (kırmızı)**
 
 `tests/Unit/ProjectionHandlerTests.cs`:
 ```csharp
@@ -65,10 +66,10 @@ public async Task MarkApplied_Should_Record_Event_Id()
 ```
 > `tests/Unit/TestDoubles/TestModuleDbContext.cs` ve `IdempotentIntegrationEventHandlerTests` mevcut; onların kurulumunu yeniden kullan.
 
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ProjectionHandlerTests"`
-- [ ] **Step 3: Tipleri yaz** (yukarıdaki imzalar birebir).
-- [ ] **Step 4: Yeşil gör** — aynı komut → PASS.
-- [ ] **Step 5: Doküman + commit**
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ProjectionHandlerTests"`
+- [x] **Step 3: Tipleri yaz** (yukarıdaki imzalar birebir).
+- [x] **Step 4: Yeşil gör** — aynı komut → PASS.
+- [x] **Step 5: Doküman + commit**
 
 `doc/architecture/backend.md`'ye "Projeksiyon (read-model) deseni" başlığı: ne zaman kullanılır, nerede yaşar, nasıl yeniden inşa edilir, hangi kurallar geçerlidir.
 ```bash
