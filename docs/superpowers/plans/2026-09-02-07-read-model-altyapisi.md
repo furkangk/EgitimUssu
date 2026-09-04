@@ -23,7 +23,7 @@
 ### Task 1: Projeksiyon deseni (`ProjectionEntity` + `ProjectionHandler`) ✅
 
 **Files:**
-- Create: `src/Shared/Infrastructure/Projections/ProjectionEntity.cs`
+- Create: ~~`src/Shared/Infrastructure/Projections/ProjectionEntity.cs`~~ → **Task 2'de `src/Shared/Kernel/ProjectionEntity.cs`'e taşındı** (Domain katmanı Infrastructure'a referans veremez)
 - Create: `src/Shared/Infrastructure/Projections/ProjectionHandler.cs`
 - Create: `src/Shared/Infrastructure/Projections/IProjectionRebuilder.cs`
 - Test: `tests/Unit/ProjectionHandlerTests.cs`
@@ -79,7 +79,7 @@ git commit -m "feat(shared): projeksiyon (read-model) deseni (C-03)"
 
 ---
 
-### Task 2: İlk tüketici — öğretmen dashboard'unu projeksiyona taşı
+### Task 2: İlk tüketici — öğretmen dashboard projeksiyonu ✅
 
 **Files:**
 - Create: `src/API.Host/Projections/` **yerine** → Create: `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs`
@@ -87,26 +87,34 @@ git commit -m "feat(shared): projeksiyon (read-model) deseni (C-03)"
 - Modify: `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` (ilk gerçek entity — iskeletten çıkıyor)
 - Modify: `src/Modules/Reporting/Infrastructure/DependencyInjection.cs` (artık `AddModuleDbContext` kaydı yapılır)
 - Modify: `src/Modules/Reporting/API/ReportingModule.cs` (yeni sorgu ucu)
-- Modify: `src/API.Host/TeacherDashboardEndpoints.cs` (BFF → projeksiyondan okuma)
+- ~~Modify: `src/API.Host/TeacherDashboardEndpoints.cs` (BFF → projeksiyondan okuma)~~ — **yapılmadı, bkz. Step 5 sapması**
 - Test: `tests/Unit/TeacherDashboardProjectionTests.cs`
+- **Plan dışı, gerekliydi:**
+  - Move: `ProjectionEntity` → `src/Shared/Kernel/ProjectionEntity.cs` (Task 1'de Infrastructure'a konmuştu; `Reporting.Domain` Infrastructure'a referans veremez — `Domain_Projects_Should_Not_Take_Web_Or_EfCore_Dependencies` mimari testi zorluyor)
+  - Create: `src/Modules/Reporting/Application/ReportingFeatures.cs` (CQRS sözleşmesi: query + handler + `ReportingAuthorizer`; `AuthorizationCoverageValidator` her sorgu için authorizer istiyor)
+  - Create: `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionReader.cs`
+  - Create: `src/Modules/Reporting/Infrastructure/ReportingDesignTimeDbContextFactory.cs` (`dotnet ef migrations add` için)
+  - Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Reporting Domain/Application/Infrastructure referansları)
 
 **Interfaces:**
 - Produces:
-  - `sealed class TeacherDashboardProjection : ProjectionEntity` — `Guid TeacherUserId` (PK), `int TodayLessonCount`, `int PendingAssignmentCount`, `int OverduePaymentCount`, `decimal OverdueAmountTotal`, `int ActiveStudentCount`.
-  - Handler'lar: `LessonScheduledProjectionHandler`, `LessonCancelledProjectionHandler`, `AssignmentCreatedProjectionHandler`, `AssignmentCompletedProjectionHandler`, `PaymentBecameOverdueProjectionHandler`, `PaymentRecordUpdatedProjectionHandler`, `StudentLinkAcceptedProjectionHandler`.
-  - `GET /api/reporting/teachers/{teacherUserId}/dashboard` (auth; öğretmen kendisi veya Admin)
+  - `sealed class TeacherDashboardProjection : ProjectionEntity` — `Guid TeacherUserId` (PK) + `TeacherDashboardItem` çocuk kümesi (composite PK `(TeacherUserId, Kind, ItemId)`).
+    **Plan düzeltmesi — sayaçlar saklanmıyor, kümeden türetiliyor:** (a) `TodayLessonCount` tarihe bağlıdır, saklanan bir sayaç ertesi gün yanlışa döner — ders satırı `OccursAtUtc` ile tutulur, "bugün" sorgu anında `IClock` ile hesaplanır; (b) "+1/−1" sayaç deseni bu domain'de kırılıyor (aynı ödev hem `Completed` hem `Approved` olur, aynı ödeme iki kez `Overdue` işaretlenebilir, `MarkCompleted` guard'sız) — küme üyeliğinde ekleme upsert, çıkarma "varsa sil" olduğundan çift sayım imkânsız.
+  - Handler'lar (7): `LessonScheduleUpsertProjectionHandler` (Scheduled **+ Rescheduled** — plan Rescheduled'ı atlıyordu, olmadan ders saati bayatlıyor), `LessonScheduleCancelledProjectionHandler`, `AssignmentOpenedProjectionHandler`, `AssignmentClosedProjectionHandler` (Completed **+ Approved**), `PaymentOverdueProjectionHandler`, `PaymentSettledProjectionHandler`, `TeacherStudentLinkProjectionHandler`.
+  - `GET /api/reporting/teachers/{teacherUserId}/dashboard` (auth; öğretmen kendisi veya Admin) — projeksiyon beslenmemişse **404 `reporting.dashboard_not_ready`**
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — her handler için "event → sayaç doğru değişti"; aynı event iki kez → sayaç bir kez; ilgisiz öğretmenin sayacı etkilenmiyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherDashboardProjectionTests"`
-- [ ] **Step 3: Reporting modülünü iskeletten çıkar**
+- [x] **Step 1: Testleri yaz (kırmızı)** — her handler için "event → sayaç doğru değişti"; aynı event iki kez → sayaç bir kez; ilgisiz öğretmenin sayacı etkilenmiyor.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherDashboardProjectionTests"`
+- [x] **Step 3: Reporting modülünü iskeletten çıkar**
   - `ReportingDbContext`'e `DbSet<TeacherDashboardProjection>` + `teacher_dashboard_projections` tablosu.
   - `DependencyInjection`'a `AddModuleDbContext<ReportingDbContext>(configuration, "Reporting", ReportingDbContext.SchemaName)` (K4 notu: artık entity var, kayıt güvenli).
   Run: `dotnet ef migrations add AddTeacherDashboardProjection --project src/Modules/Reporting/Infrastructure --startup-project src/API.Host --context ReportingDbContext`
-- [ ] **Step 4: Handler'ları ve sorgu ucunu yaz.**
-- [ ] **Step 5: BFF'i projeksiyona çevir**
-  `src/API.Host/TeacherDashboardEndpoints.cs` bugün 3 modülü paralel sorguluyor. Yeni davranış: önce projeksiyonu okur; projeksiyon yoksa (henüz beslenmemiş öğretmen) **eski paralel sorgu yoluna düşer** ve arka planda `IProjectionRebuilder` tetiklenir. Böylece geçiş kesintisiz olur.
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 4: Handler'ları ve sorgu ucunu yaz.**
+- [~] **Step 5: BFF'i projeksiyona çevir — YAPILMADI (plan hatası)**
+  `src/API.Host/TeacherDashboardEndpoints.cs` yalnız sayaç değil, **liste** döndürüyor: `todayLessons` (konu, format, saat, konum), `pendingAssignments` (başlık, son teslim), `overduePayments` (açıklama, tutar, vade) — mobil `teacher_dashboard_summary_model.dart` bunları okuyor. Bugünkü integration event'ler bu alanları **taşımıyor** (`AssignmentCreatedDomainEvent`'te başlık/tarih yok, `LessonScheduledDomainEvent`'te konu/konum yok, `PaymentBecameOverdueDomainEvent`'te açıklama yok), dolayısıyla listeler projeksiyondan üretilemez. Sayaçları projeksiyondan, listeleri modüllerden almak ikisinin **birbirinden sapmasına** yol açardı — bugünkünden kötü. BFF olduğu gibi bırakıldı; taşıma üç modülün event sözleşmesini zenginleştirmeyi gerektirir → **ayrı iş** (aday: P08/P13).
+  Ayrıca `IProjectionRebuilder` implementasyonu da yapılmadı: yeniden inşa kaynağı diğer modüllerin outbox'ı/verisi olurdu, Reporting bunları **okuyamaz** (modül sınırı) — rebuild host seviyesinde orkestre edilmeli (P12).
+- [x] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 7: Doküman + commit**
 
 `doc/modules/m14_reporting.md` (🔴 → 🟡: ilk projeksiyon), `doc/modules/00_genel_bakis.md` (Reporting artık gerçek endpoint), `doc/modules/veri_modeli.md`, `doc/INDEX.md` durum sütunu.
 ```bash
@@ -197,10 +205,10 @@ git commit -m "docs: P07 read-model altyapisi kapanisi (C-03/C-05/C-06)"
 
 ## Kabul Kriterleri
 
-- [ ] Projeksiyon deseni testlerle sabitlendi (idempotent + atomik)
-- [ ] Öğretmen dashboard'u projeksiyondan okunuyor; projeksiyon yoksa eski yola düşüyor
-- [ ] Aynı event iki kez geldiğinde dashboard sayaçları bozulmuyor
+- [x] Projeksiyon deseni testlerle sabitlendi (idempotent + atomik)
+- [~] Öğretmen dashboard **sayaçları** projeksiyondan okunuyor (`GET /api/reporting/teachers/{id}/dashboard`); projeksiyon yoksa 404. BFF `dashboard-summary` **taşınmadı** (liste alanları event'lerde yok — Task 2 Step 5)
+- [x] Aynı event iki kez geldiğinde dashboard sayaçları bozulmuyor
 - [ ] Korumalı sorguda varlık **bir kez** yükleniyor (EF log ile doğrulandı)
 - [ ] Dispatcher'da `dynamic` kullanımı kalmadı (`grep -rn "dynamic" src/Shared/Infrastructure/Application` boş)
-- [ ] `Modules_Should_Not_Reference_Other_Modules` mimari testi hâlâ yeşil
+- [x] `Modules_Should_Not_Reference_Other_Modules` mimari testi hâlâ yeşil
 - [ ] Tam test paketi (Docker'lı) yeşil

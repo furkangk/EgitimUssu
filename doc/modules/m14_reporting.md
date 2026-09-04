@@ -1,54 +1,82 @@
 ---
 title: "M14 — Raporlama ve Analiz (Reporting)"
-summary: "Diğer modüllerin verisini birleştiren read-model raporlama modülü iskelet seviyesinde; hiçbir DbSet yok, yalnızca placeholder endpoint var"
-tags: [modul, reporting, raporlama, read-model, iskelet, faz-5]
-status: "🔴"
+summary: "Read-model raporlama modülü: öğretmen dashboard projeksiyonu (event-beslemeli, idempotent) canlı; kalan analiz/rapor yüzeyi hâlâ eksik"
+tags: [modul, reporting, raporlama, read-model, projeksiyon, faz-5]
+status: "🟡"
 authority: code
 code_refs:
   - src/Modules/Reporting/**
-updated: 2026-08-19
+updated: 2026-09-04
 ---
 
 # 📊 Raporlama ve Analiz Modülü (M14) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M14 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Reporting`) + Flutter mobil
-> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🔴 İskelet — boş DbContext, yalnızca `GET /api/reporting/status` placeholder
+> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟡 Kısmi — ilk gerçek read-model (öğretmen dashboard projeksiyonu) çalışıyor; analiz/PDF/premium rapor yüzeyi eksik
 > **Mimari:** CQRS + Outbox + Integration Event; önerilen **read-model / projeksiyon** yaklaşımı, PostgreSQL (`reporting` şeması), Redis (rapor cache)
 > **Marka rengi (mobil):** `0xFF082B4F`
 
 > Bu modül **kendi iş verisi üretmez**; Payments, Scheduling, Study, Assignments, ProgressTracking gibi modüllerin verisini **rapor ve analiz** olarak birleştiren bir **okuma (read-model)** modülüdür.
 >
-> ⚠️ **Mimari kısıt:** [`mimari_inceleme.md`](mimari_inceleme.md) **O5** — modüller arası senkron okuma mekanizması (read-model/contract) **henüz yok**. Anlamlı rapor için bu önce çözülmelidir.
+> ✅ **Mimari kısıt kapandı (P07):** [`mimari_inceleme.md`](mimari_inceleme.md) **O5** — kanonik projeksiyon deseni kuruldu
+> (`ProjectionEntity` · `ProjectionHandler<TEvent>` · `IProjectionRebuilder`, bkz. [`../architecture/backend.md`](../architecture/backend.md) §7.1).
+> Bu modül desenin **ilk gerçek tüketicisi**dir.
 
 ---
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-### 🔴 Var olan (iskelet)
+### 🟡 Var olan (P07 Task 2 sonrası)
 
 | Bileşen | Konum | Durum |
 |---------|-------|-------|
-| Module tanımı | `src/Modules/Reporting/API/ReportingModule.cs` | Yalnızca `GET /api/reporting/status` (`state = "placeholder"`) |
-| DbContext | `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` | **Hiçbir `DbSet` yok** — tümüyle boş, şema `reporting` |
-| DI | `src/Modules/Reporting/Infrastructure/DependencyInjection.cs` | `AddReportingModule` (boş kayıt) |
+| Module tanımı | `src/Modules/Reporting/API/ReportingModule.cs` | `GET /api/reporting/status` (placeholder) + `GET /api/reporting/teachers/{id}/dashboard` (gerçek) |
+| Domain | `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs` | `TeacherDashboardProjection` + `TeacherDashboardItem` + `TeacherDashboardItemKind` |
+| DbContext | `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` | `teacher_dashboard_projections` + `teacher_dashboard_items` (`reporting` şeması) |
+| Projeksiyon handler'ları | `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionHandlers.cs` | 7 handler (Scheduling/Assignments/Payments/Students event'leri) |
+| Sorgu | `src/Modules/Reporting/Application/ReportingFeatures.cs` | `GetTeacherDashboardQuery` + handler + `ReportingAuthorizer` |
+| Reader | `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionReader.cs` | `AsNoTracking` tek satır okuma |
+| DI | `src/Modules/Reporting/Infrastructure/DependencyInjection.cs` | `AddModuleDbContext<ReportingDbContext>` + handler/sorgu kayıtları |
+| Migration | `.../Migrations/*_AddTeacherDashboardProjection.cs` | `reporting` şeması + outbox/inbox/module_states + 2 projeksiyon tablosu |
 
 **Doğrulanmış gerçekler:**
-- `ReportingDbContext` yalnızca `Schema => "reporting"` ve `ModuleName => "Reporting"` tanımlar; **`OnModelCreating` override'ı, entity konfigürasyonu, hiçbir tablo yok**.
-- Domain modeli, CQRS feature (query/handler), migration, integration event handler, mobil ekran **yok**.
-- API yüzeyi tek placeholder endpoint'ten ibaret.
+- Projeksiyon **yalnız integration event'lerden** beslenir; Reporting hiçbir modülün DbContext'ini okumaz (`Modules_Should_Not_Reference_Other_Modules` yeşil).
+- Idempotency ortak `inbox_messages` guard'ından gelir; ayrıca sayaçlar **küme üyeliğinden türetilir** (aşağıya bkz.), bu yüzden aynı olay iki kez gelse de bozulmaz.
+- Canlı doğrulandı: ders planlandı → `todayLessonCount = 1`, ders iptal edildi → `todayLessonCount = 0`.
 
-### ⚠️ Önkoşullar
-- Anlamlı rapor için kaynak modüllerin **dolu** olması gerekir: özellikle Study (M08, [`m08_study.md`](m08_study.md)) ve gerçek veriyle çalışan Payments (M07, [`m07_payments.md`](m07_payments.md)), Scheduling (M04, [`m04_scheduling.md`](m04_scheduling.md)), ProgressTracking (M10, [`m10_progress_tracking.md`](m10_progress_tracking.md)).
-- Modüller arası okuma kararı (O5) verilmeden projeksiyon tabloları beslenemez.
+### ⚠️ Hâlâ eksik
+- Aylık gelir/ders özeti, boş zaman analizi, öğrenci çalışma/performans analizi, veli özeti, PDF rapor, premium kapısı.
+- `IProjectionRebuilder` implementasyonu ve `POST /api/admin/projections/{name}/rebuild` (P12).
 
 ---
 
 ## 2. Domain / Projeksiyon Modeli
 
-### 🟢 Mevcut
-**Yok.** `ReportingDbContext` boş; hiçbir aggregate veya projeksiyon tablosu tanımlı değil.
+### 🟢 Mevcut — `TeacherDashboardProjection` (öğretmen paneli read-model'i)
 
-### ⚠️ Önerilen — Read-model projeksiyonları
+Sayaçlar **saklanmaz, kümeden türetilir**: her ders / açık ödev / gecikmiş ödeme / aktif öğrenci bir
+`TeacherDashboardItem` satırıdır. Ekleme upsert, çıkarma "varsa sil" olduğundan handler'lar doğal olarak idempotenttir —
+"+1/−1 sayaç" deseninin kırıldığı yerler (aynı ödev hem `Completed` hem `Approved` olur, aynı ödeme iki kez `Overdue`
+işaretlenir) sayacı bozmaz.
+
+**`teacher_dashboard_projections`** (PK `TeacherUserId`): `LastAppliedEventId`, `UpdatedOnUtc` (`ProjectionEntity`'den).
+
+**`teacher_dashboard_items`** (PK `TeacherUserId` + `Kind` + `ItemId`):
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `Kind` | `TeacherDashboardItemKind` | `Lesson` (1) · `OpenAssignment` (2) · `OverduePayment` (3) · `ActiveStudent` (4) |
+| `ItemId` | `Guid` | Kaynak modüldeki kaydın kimliği |
+| `OccursAtUtc` | `DateTime?` | Ders başlangıcı (bugünkü ders sayımı bundan türer) |
+| `Amount` / `Currency` | `decimal?` / `string?` | Gecikmiş ödeme tutarı ve para birimi |
+
+**Türetilen değerler:** `CountLessonsOn(gün)` · `PendingAssignmentCount` · `OverduePaymentCount` ·
+`OverdueAmountTotal` · `OverdueCurrency` · `ActiveStudentCount`.
+
+> **Neden "bugünkü ders" saklanmıyor:** tarihe bağlı bir sayaç ertesi gün yanlışa döner. Ders satırı başlangıç saatiyle
+> tutulur, "bugün" sınırı sorgu anında `IClock` ile hesaplanır.
+
+### ⚠️ Önerilen — sonraki projeksiyonlar
 
 Modül sınırı kuralı gereği **başka modülün DB'sine doğrudan erişilmez**. Önerilen yaklaşım: integration event'leri dinleyip Reporting kendi `reporting` şemasında **önceden hesaplanmış özet tabloları** tutar (eventual consistency). Sorgular hızlı olur ve premium analizler için uygundur.
 
@@ -91,6 +119,16 @@ Modül sınırı kuralı gereği **başka modülün DB'sine doğrudan erişilmez
 | Yetenek | Method + Route | Yetki |
 |---------|----------------|-------|
 | Sağlık/placeholder | `GET /api/reporting/status` | — (placeholder, `state="placeholder"`) |
+| Öğretmen paneli sayaçları | `GET /api/reporting/teachers/{teacherUserId}/dashboard` | `AuthenticatedUser`; öğretmenin kendisi veya Admin (yoksa **403**) |
+
+`dashboard` yanıtı: `teacherUserId`, `todayLessonCount`, `pendingAssignmentCount`, `overduePaymentCount`,
+`overdueAmountTotal`, `overdueCurrency`, `activeStudentCount`, `updatedOnUtc`.
+Projeksiyon henüz beslenmediyse **404 `reporting.dashboard_not_ready`** döner — sıfır göstermek yalancı-yeşil olurdu.
+
+> ℹ️ `GET /api/teachers/profiles/{id}/dashboard-summary` (BFF) **projeksiyona taşınmadı**: mobil panel ders/ödev/ödeme
+> **listelerini** basıyor, bugünkü integration event'ler ise ders konusu/saati etiketi, ödev başlığı/son teslim tarihi ve
+> ödeme açıklaması taşımıyor. Liste projeksiyondan üretilemediği için BFF üç modülü sorgulamayı sürdürüyor; taşımak
+> üç modülün event sözleşmesini zenginleştirmeyi gerektirir (ayrı iş).
 
 ### Eksik / Önerilen ⚠️
 
@@ -122,9 +160,24 @@ POST /api/reporting/students/{studentId}/pdf                          → PDF ö
 
 ## 5. Olay Akışı
 
+**Mevcut (P07, çalışıyor):**
+
+```
+Scheduling:   LessonScheduledDomainEvent / LessonScheduleRescheduledDomainEvent ─▶ ders satırı upsert
+Scheduling:   LessonScheduleCancelledDomainEvent                                ─▶ ders satırı sil
+Assignments:  AssignmentCreatedDomainEvent                                      ─▶ açık ödev ekle
+Assignments:  AssignmentCompletedDomainEvent / AssignmentApprovedDomainEvent    ─▶ açık ödev çıkar
+Payments:     PaymentBecameOverdueDomainEvent                                   ─▶ gecikmiş ödeme ekle (tutar+kur)
+Payments:     PaymentRecordUpdatedDomainEvent (CurrentStatus != Overdue)        ─▶ gecikmiş ödeme çıkar
+Students:     TeacherStudentLinkAcceptedDomainEvent                             ─▶ aktif öğrenci ekle
+```
+
+> Öğretmensiz ders planı (öğrencinin bireysel planı) projeksiyon satırı **oluşturmaz**.
+
+**Önerilen (sonraki projeksiyonlar):**
+
 ```
 Payments:        PaymentRecordUpdated / PaymentCollected ──▶ TeacherMonthlyReportProjection güncelle
-Scheduling:      LessonScheduled / LessonSessionCompleted ─▶ LessonCount / ActiveStudent / Availability güncelle
 Study (M08):     StudySessionEnded                        ──▶ StudentStudyProjection güncelle
 ProgressTracking:ProgressRecorded                         ──▶ StudentPerformanceProjection güncelle
 
@@ -153,15 +206,15 @@ Sorgu zamanı:
 
 ## 7. Kabul Kriterleri
 
-- [ ] Modüller arası okuma kararı (O5) verildi; projeksiyonlar integration event'lerle besleniyor.
+- [x] Modüller arası okuma kararı (O5) verildi; projeksiyonlar integration event'lerle besleniyor. **(P07)**
 - [ ] Öğretmen aylık özeti doğru ders sayısı + tahsil/beklenen gelir + aktif öğrenci gösteriyor.
 - [ ] Öğrenci çalışma analizi Study (M08) verisinden haftalık/aylık doğru toplamları üretiyor.
 - [ ] Öğrenci performans raporu konu bazlı değişimi ProgressTracking'ten gösteriyor.
 - [ ] Veli yalnızca bağlı çocuklarının özetini görebiliyor; gizlilik bayrakları uygulanıyor (M15).
 - [ ] PDF öğrenci raporu üretilip indirilebiliyor.
 - [ ] Premium özellikler üyelik kontrolünden geçiyor (M17); free kullanıcıda kilitli.
-- [ ] Aynı event tekrar gelse de projeksiyon sayaçları bozulmuyor (idempotent).
-- [ ] Sahiplik/rol guard'ı yetkisiz erişimi reddediyor (K3).
+- [x] Aynı event tekrar gelse de projeksiyon sayaçları bozulmuyor (idempotent). **(P07 — inbox guard + küme üyeliği)**
+- [~] Sahiplik/rol guard'ı yetkisiz erişimi reddediyor (K3). **(P07 — dashboard ucunda var; kalan uçlar yok)**
 
 ---
 
@@ -169,8 +222,8 @@ Sorgu zamanı:
 
 > ⚠️ **Önkoşul:** Faz 5 modülü. Kaynak veri (Study M08 dolu, gerçek Payments) ve analiz ihtiyacı oluşmadan başlanmamalı.
 
-1. **Modüller arası read mekanizması** kararı (projeksiyon vs. read-contract — O5).
-2. **`reporting` şemasına projeksiyon tabloları** + migration.
+1. ~~**Modüller arası read mekanizması** kararı (projeksiyon vs. read-contract — O5).~~ ✅ **(P07)**
+2. ~~**`reporting` şemasına projeksiyon tabloları** + migration.~~ ✅ **(P07 — öğretmen dashboard'u; diğer projeksiyonlar hâlâ yok)**
 3. **Öğretmen aylık özet projeksiyonu** (Payments + Scheduling/LessonSession event'lerinden).
 4. **Öğrenci çalışma/performans analizi** (Study M08 + ProgressTracking M10 verisinden).
 5. **Boş zaman analizi** (Scheduling + Teachers uygunluk verisinden).
@@ -198,4 +251,4 @@ Sorgu zamanı:
 
 ---
 
-*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-08-19*
+*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*

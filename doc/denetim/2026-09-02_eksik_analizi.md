@@ -288,7 +288,7 @@ Her madde şu alanlara sahip:
 |----|-------|-------------|------|------|-------|-----|
 | C-01 | **Admin API grubu yok** | Yalnız dağınık `Roles.Contains("Admin")` kontrolleri (Payments, Study, Parents, Identity…); `/api/admin/*` yok | Admin rolü tanımlı ama **yönetim yüzeyi yok**: kullanıcı listesi, doğrulama, askıya alma, moderasyon | L | | |
 | C-02 | ~~Ortak `IFileStorage` soyutlaması yok (O8)~~ **✅ (P04)** | `Shared.Kernel/Storage` portu + `LocalFileStorage`/`S3FileStorage`; `StorageOptionsGuard` fail-fast | — | — | Eklendi 2026-09-03 | MinIO'ya karşı canlı doğrulandı; 10 MB + uzantı beyaz listesi; public bucket yok |
-| C-03 | **Modüller arası read-model mekanizması yok (O5)** | `Shared/Contracts` sadece nokta atışı arayüzler; genel projeksiyon deseni yok | M12 arama, M14 rapor, M09 zenginleştirme bunsuz ilerlemez — **en önemli mimari önkoşul** | L | | |
+| C-03 | ~~**Modüller arası read-model mekanizması yok (O5)**~~ **✅ (P07)** | `ProjectionEntity` + `ProjectionHandler<TEvent>` + `IProjectionRebuilder`; ilk tüketici M14 öğretmen dashboard projeksiyonu | — | — | Eklendi 2026-09-04 | Canlı doğrulandı (ders planla/iptal → sayaç); BFF `dashboard-summary` liste döndürdüğü için taşınmadı |
 | C-04 | Gözlemlenebilirlik yok | OpenTelemetry / Serilog / Sentry / App Insights bağımlılığı **hiç yok**; yalnız `RequestContextLoggingMiddleware` | Prod'da hata/performans görünürlüğü yok | M | | |
 | C-05 | Sorgu authorizer'ları varlığı iki kez yüklüyor (O2) | Örn. `GetStudentProfileByIdQuery` | Her korumalı sorguda çift DB gidişi | S | | |
 | C-06 | `CommandDispatcher`/`QueryDispatcher` `dynamic` + reflection, cache yok (O4) | `Shared/Infrastructure/Application/` | Ölçekte CPU maliyeti; pipeline (validation/logging/tx) kancası yok | M | | |

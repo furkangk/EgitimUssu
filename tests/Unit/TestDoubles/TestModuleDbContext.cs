@@ -1,7 +1,6 @@
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
-using EgitimUssu.Shared.Infrastructure.Projections;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 

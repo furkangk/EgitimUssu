@@ -161,10 +161,10 @@ public static IServiceCollection AddIdentityModule(this IServiceCollection s, IC
 
 | Proje | İçerik | Örnek tipler |
 |-------|--------|--------------|
-| **Kernel** | Domain çekirdeği + ortak sözleşmeler | `Entity`, `AggregateRoot<TId>`, `ValueObject`, `DomainEvent`, `Result`/`Result<T>`/`Error`, `PagedResult`, `IClock`, `ICurrentUser`, `IIdGenerator` |
+| **Kernel** | Domain çekirdeği + ortak sözleşmeler | `Entity`, `AggregateRoot<TId>`, `ValueObject`, `DomainEvent`, `Result`/`Result<T>`/`Error`, `PagedResult`, `IClock`, `ICurrentUser`, `IIdGenerator`, `ProjectionEntity` |
 | **Application** | CQRS soyutlamaları | `ICommand`, `ICommandHandler`, `IQuery`, `IQueryHandler` (+ dispatcher/validator/authorizer sözleşmeleri) |
 | **Contracts** | Modüller-arası entegrasyon sözleşmesi | `IIntegrationEvent`, `IntegrationEvent` |
-| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), Push (`IPushSender`, `PushMessage`/`PushResult`, `LoggingPushSender`, `FcmPushSender` + `IFcmAccessTokenProvider`/Google.Apis.Auth), Depolama (`IFileStorage`, `StoredFile`, `FileValidation`, `LocalFileStorage`, `S3FileStorage`/AWSSDK.S3), Projeksiyon (`ProjectionEntity`, `ProjectionHandler<TEvent>`, `IProjectionRebuilder`), `SystemClock`, `GuidIdGenerator`, Configuration options |
+| **Infrastructure** | Çapraz-kesit altyapı | `ModuleDbContext`, Outbox (`OutboxMessage`, `EfOutboxStore`, `IOutboxStore`), Caching (`LazyRedisConnectionFactory`), Messaging (`IEventBus`, `IDomainEventMapper`), Auth (`HttpContextCurrentUser`), Modules (`IModule`, `ModuleDefinition`, kayıt uzantıları), Middleware, Health, E-posta (`IEmailSender`, `LoggingEmailSender`, `SmtpEmailSender` + `ISmtpClientFactory`/MailKit), Push (`IPushSender`, `PushMessage`/`PushResult`, `LoggingPushSender`, `FcmPushSender` + `IFcmAccessTokenProvider`/Google.Apis.Auth), Depolama (`IFileStorage`, `StoredFile`, `FileValidation`, `LocalFileStorage`, `S3FileStorage`/AWSSDK.S3), Projeksiyon (`ProjectionHandler<TEvent>`, `IProjectionRebuilder`), `SystemClock`, `GuidIdGenerator`, Configuration options |
 
 **`Result` deseni** (istisna yerine):
 ```csharp
@@ -214,13 +214,13 @@ veri, kaynak modülün yaydığı integration event'lerden beslenen bir **projek
 
 **Nerede yaşar:** Projeksiyon, **tüketen** modülün kendi şemasındadır. Kaynak modül yalnız event yayar, tüketicisini bilmez.
 
-**Yapı taşları** (`src/Shared/Infrastructure/Projections/`):
+**Yapı taşları:** `ProjectionEntity` `src/Shared/Kernel/`'dedir (Domain katmanı Infrastructure'a referans veremez — mimari test zorlar); handler ve rebuilder `src/Shared/Infrastructure/Projections/` altındadır.
 
 | Tip | Rol |
 |-----|-----|
-| `ProjectionEntity` | Projeksiyon satırlarının tabanı: `LastAppliedEventId`, `UpdatedOnUtc`, `MarkApplied(eventId, nowUtc)`. Satırın hangi event'e kadar beslendiğini taşır. |
-| `ProjectionHandler<TEvent>` | `IdempotentIntegrationEventHandler` üzerine kurulu taban. Zarfın JSON payload'ını `TEvent`'e çözer, `ProjectAsync(payload, envelope, ct)` çağırır. `TEvent` **payload sözleşmesidir**, `IIntegrationEvent` değil. |
-| `IProjectionRebuilder` | `Name` + `RebuildAsync(ct)`. Projeksiyonu kaynak veriden yeniden kurar; yönetim ucu (`POST /api/admin/projections/{name}/rebuild`) P12'de gelir. |
+| `ProjectionEntity` (Shared.**Kernel**) | Projeksiyon satırlarının tabanı: `LastAppliedEventId`, `UpdatedOnUtc`, `MarkApplied(eventId, nowUtc)`. Satırın hangi event'e kadar beslendiğini taşır. |
+| `ProjectionHandler<TEvent>` (Shared.Infrastructure) | `IdempotentIntegrationEventHandler` üzerine kurulu taban. Zarfın JSON payload'ını `TEvent`'e çözer, `ProjectAsync(payload, envelope, ct)` çağırır. `TEvent` **payload sözleşmesidir**, `IIntegrationEvent` değil. |
+| `IProjectionRebuilder` (Shared.Infrastructure) | `Name` + `RebuildAsync(ct)`. Projeksiyonu kaynak veriden yeniden kurar; yönetim ucu (`POST /api/admin/projections/{name}/rebuild`) P12'de gelir. |
 
 **Kurallar:**
 
@@ -232,6 +232,11 @@ veri, kaynak modülün yaydığı integration event'lerden beslenen bir **projek
 - **Okunamayan payload sessizce yutulmaz:** payload `null` çözülürse taban `false` döner, event işlenmiş sayılmaz.
 - **Yeniden kurulabilir:** Her projeksiyon `IProjectionRebuilder` ile sıfırdan inşa edilebilmelidir; projeksiyon
   şeması "türetilmiş veri"dir, kayıp durumunda kaynak modüllerden yeniden üretilir.
+
+**İlk gerçek tüketici:** M14 Reporting — `teacher_dashboard_projections` (`GET /api/reporting/teachers/{id}/dashboard`).
+Sayaçlar saklanmaz, **küme üyeliğinden türetilir** (her ders/ödev/ödeme/öğrenci bir satır): ekleme upsert, çıkarma
+"varsa sil" olduğu için "+1/−1 sayaç" deseninin kırıldığı durumlar (aynı ödev hem `Completed` hem `Approved` olur)
+sayacı bozmaz. Tarihe bağlı sayaç (bugünkü ders) **saklanmaz**, sorgu anında `IClock` ile hesaplanır.
 
 ```
 Kaynak modül aggregate → DomainEvent → Outbox → IEventBus

@@ -50,6 +50,9 @@
     <ProjectReference Include="..\..\src\Modules\Notifications\Domain\EgitimUssu.Modules.Notifications.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Notifications\Application\EgitimUssu.Modules.Notifications.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Notifications\Infrastructure\EgitimUssu.Modules.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Reporting\Domain\EgitimUssu.Modules.Reporting.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Reporting\Application\EgitimUssu.Modules.Reporting.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Reporting\Infrastructure\EgitimUssu.Modules.Reporting.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

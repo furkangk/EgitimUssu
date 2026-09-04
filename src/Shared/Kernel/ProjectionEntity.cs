@@ -1,4 +1,4 @@
-namespace EgitimUssu.Shared.Infrastructure.Projections;
+namespace EgitimUssu.Shared.Kernel;
 
 /// <summary>
 /// Event-beslemeli read-model (projeksiyon) satırlarının ortak tabanı (K-04).

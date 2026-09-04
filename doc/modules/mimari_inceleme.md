@@ -146,6 +146,8 @@ Her dispatch'te `MakeGenericType` + `dynamic` + `GetMethod(...).Invoke`. Cache/p
 ### O5 — Modüller arası okuma (read-model) mekanizması yok
 Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) birden çok modülün verisini birleştirecek. Şu an yalnız integration event var; **senkron sorgu/kontrat** yok. **Öneri:** `Shared/Contracts` read kontratları veya ACL/projeksiyon. (Bu, M09/M12/M14 için **kritik önkoşul**.)
 
+✅ _Düzeltildi (2026-09-04, P07):_ Kanonik **projeksiyon deseni** kuruldu — `ProjectionEntity` (Shared.Kernel) + `ProjectionHandler<TEvent>` + `IProjectionRebuilder` (Shared.Infrastructure/Projections), bkz. [`../architecture/backend.md`](../architecture/backend.md) §7.1. İlk gerçek tüketici: **M14 öğretmen dashboard projeksiyonu** (`teacher_dashboard_projections`, event-beslemeli, idempotent, canlı doğrulandı). Senkron çapraz-modül okuma **hâlâ yasak**.
+
 ### O6 — `LessonSchedule` durum yaşam döngüsü kısmen
 ✅ _Düzeltme (2026-06-24):_ **Ders çakışması kontrolü ASLINDA mevcut** — `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) ve `scheduling.invalid_range` (400) koddan doğrulandı; teacher-lesson liste endpoint'i `startAtUtc`/`endAtUtc` tarih filtresi alıyor.
 ✅ _Düzeltme (2026-06-26):_ **`Planned → Completed` geçişi eklendi** — `Complete(updatedOnUtc)` domain metodu, `CompleteLessonScheduleCommand`/handler, `POST /lessons/{id}/complete` endpoint ve mobil `completeLesson` cubit metodu + UI butonu eklendi.
@@ -206,7 +208,7 @@ Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya t
 4. **K2 + Y4** — Outbox hata izolasyonu/retry + idempotent handler.
 5. ✅ **Y2** — Sırları config'ten çıkar, prod fail-fast. *(JWT 2026-07-01, DB 2026-09-02)*
 6. **Y3** — Mobil refresh token akışı.
-7. **O5** — Modüller arası okuma (yeni modüllerin önkoşulu). *(O8 dosya depolama 2026-09-03'te kapatıldı.)*
+7. ~~**O5** — Modüller arası okuma (yeni modüllerin önkoşulu).~~ ✅ **(P07, 2026-09-04)** *(O8 dosya depolama 2026-09-03'te kapatıldı.)*
 8. **O7** — Regresyon testleri.
 
 ---
