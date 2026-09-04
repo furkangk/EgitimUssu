@@ -6,7 +6,7 @@ status: "🟢/🟡"
 authority: code
 code_refs:
   - src/Modules/Students/**
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # 🎓 Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım Dokümanı
@@ -184,9 +184,11 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 **`StudentParentInvite` aggregate (Veli V-D):** Öğretmenin bir öğrenci için ürettiği veli davet kodu (`InviteCode` 6 haneli, `TeacherStudentLink.GenerateInviteCode()` deseni). Alanlar: `Id, StudentId, TeacherUserId, InviteCode, ChildDisplayName?, Status (Pending→Claimed), ClaimedByParentUserId?, CreatedOnUtc, ClaimedOnUtc?`. `Claim(parentUserId, now)` yalnız `Pending`'den çalışır (tekrar → `InvalidOperationException`). Tablo `student_parent_invites`. Veli tarafı bu kodu **`IParentInviteDirectory`** (`ResolveAsync`/`MarkClaimedAsync`, Students uygular) ile çözer; claim, Parents'ta `ParentChildLink` oluşturup **onaylar** (öğretmen kodu = öğretmen onayı, veli kod girer = veli onayı).
 
 **Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
-`IStudentDirectory` (`GetOwnerUserIdAsync(studentId) → Guid?`) sözleşmesini `StudentDirectory` ile uygular
-(2026-07-07). Diğer modüller (ör. M04 Scheduling, öğrenci-kapsamlı ders listesi yetkilendirmesi) bu sözleşmeyi
-tüketerek sahiplik doğrular — M03'ün `DbContext`'ine doğrudan erişmeden, proje referansı olmadan (anti-corruption).
+`IStudentDirectory` sözleşmesini `StudentDirectory` ile uygular (2026-07-07):
+`GetOwnerUserIdAsync(studentId) → Guid?` ve **`GetAgreedLessonRateAsync(teacherUserId, studentId) → AgreedLessonRate?`**
+(M07-2, 2026-09-04 — B-07 ücretini `TeacherStudentLink`'ten okur; ücret girilmemişse `null`, çağıran tahmini tutar üretmez).
+Diğer modüller (ör. M04 Scheduling sahiplik doğrulaması, M07 Payments ders ücretlendirmesi) bu sözleşmeyi
+tüketerek okur — M03'ün `DbContext`'ine doğrudan erişmeden, proje referansı olmadan (anti-corruption).
 Aynı desenin M05'teki karşılığı `ILessonSessionAccessService`.
 
 **İstek/yanıt sözleşmeleri (koddan):**
@@ -376,4 +378,4 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 / M07-2: `IStudentDirectory`'ye `GetAgreedLessonRateAsync` eklendi — B-07 ücreti Payments'a açıldı) · 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

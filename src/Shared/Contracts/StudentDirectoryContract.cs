@@ -3,9 +3,28 @@ namespace EgitimUssu.Shared.Contracts;
 // Modüller-arası salt-okunur (read) sözleşme. Students bu sözleşmeyi uygular; diğer modüller
 // (ör. Scheduling) öğrenci↔kullanıcı sahipliğini doğrulamak için tüketir. Böylece modüller
 // birbirine doğrudan proje referansı vermez (anti-corruption / paylaşılan kontrat).
+/// <summary>
+/// B-07: Bir öğretmen↔öğrenci ikilisi için anlaşılan **ders başına** ücret
+/// (<c>TeacherStudentLink.AgreedRateAmount</c>/<c>Currency</c>).
+/// </summary>
+/// <param name="Amount">Ders başına tutar.</param>
+/// <param name="Currency">Para birimi (ör. "TRY").</param>
+public sealed record AgreedLessonRate(decimal Amount, string Currency);
+
 public interface IStudentDirectory
 {
     // Öğrenci profiline bağlı kullanıcının kimliği (Student.UserId).
     // Profil bulunamazsa veya bağlı kullanıcı yoksa null döner.
     Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// M07-2: Ders ücretlendirmesi için öğrenci bazlı anlaşılan ücreti okur (B-07).
+    /// Bağ yoksa ya da ücret hiç girilmemişse <c>null</c> döner — çağıran taraf
+    /// tahmini bir tutar üretmez.
+    /// </summary>
+    /// <param name="teacherUserId">Öğretmen kullanıcı kimliği.</param>
+    /// <param name="studentId">Öğrenci profili kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Anlaşılan ücret ya da <c>null</c>.</returns>
+    Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken);
 }

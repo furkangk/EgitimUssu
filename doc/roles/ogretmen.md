@@ -49,7 +49,7 @@ Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, il
 | 3.1 | Öğrenci erteleme taleplerini görüp kabul (mevcut erteleme çalışır) / red et | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 (backend Ö-F, 2026-07-18 — `GET /teachers/{id}/lesson-requests` + `/accept` + `/reject`; mobil ⚠️) |
 | 4 | Dersi işle/tamamla, katılım & not | [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | M05 | 🟢 (gelmedi→ücretlendirme ✅ Dilim A; not görünürlüğü ✅ Dilim B) |
 | 5 | Ders notu + **kaynak** + ödev ver/takip | [`m06_assignments`](../modules/m06_assignments.md) | M06 | 🟢 (ödev onay/geri gönder + geri bildirim + not görünürlüğü ✅ Dilim B; kaynak/öğrenci yükleme ⚠️) |
-| 6 | Ödeme/bakiye takibi (manuel) + veli paylaşımı | [`m07_payments`](../modules/m07_payments.md) | M07 | 🟢 (öğrenci bazlı ücret + veli paylaşımı ⚠️) |
+| 6 | Ödeme/bakiye takibi (manuel) + **otomatik ders ücreti + gecikme uyarısı** + veli paylaşımı | [`m07_payments`](../modules/m07_payments.md) | M07 | 🟢 (M07-1/M07-2 2026-09-04; veli paylaşımı ⚠️) |
 | 7 | Yaklaşan ders + ödev/ödeme hatırlatması | [`m11_notifications`](../modules/m11_notifications.md) | M11 | 🟡 |
 | 8 | Gelir istatistik & rapor | [`m14_reporting`](../modules/m14_reporting.md) | M14 | 🔴 |
 | 9 | Öğrenci gelişim takibi | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) | M10 | 🔴 |
@@ -84,6 +84,7 @@ Kayıt (Teacher) → Profil doldur (branş, şehir, ücret, uygunluk saatleri)
 5. **Çakışma kontrolü:** Aynı öğretmende zaman çakışan ders **engellenir** (`scheduling.teacher_conflict` — koddan doğrulandı 🟢).
 6. **Ders tamamlama:** Süre, gerçek başlangıç/bitişten **otomatik** hesaplanır; manuel girilmez.
 7. **Ödeme manuel:** Para sistem üzerinden **alınmaz**; öğretmen "X dersinin ödemesini aldım" şeklinde elle işaretler. Ödeme bilgisi veliyle **paylaşılabilir** (`IsSharedWithParent` ⚠️).
+   **Otomasyon (2026-09-04):** *kayıt açma* ve *gecikme uyarısı* otomatiktir — ücretli ders tamamlanınca vadesi 7 gün sonra olan bir `LessonFee` kaydı açılır (M07-2), vadesi geçen kayıt saatlik tarama ile `Overdue` olur ve öğretmene bildirim düşer (M07-1). **Tahsilat işaretlemesi hâlâ elle yapılır.**
 8. **Doğrulama rozeti:** Öğretmen kendini "doğrulanmış" yapamaz; yalnızca admin (güvenlik — bkz. [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) Y1).
 9. **Sahiplik:** Öğretmen yalnızca **kendi** eklediği/kendisine bağlı öğrencileri görebilir.
 
@@ -116,7 +117,7 @@ Rol, sınırlarıyla birlikte anlamlıdır. Aşağıdaki kısıtlar iş kuralı 
 `/dashboard` (öğretmen paneli), `/teacher-profile`, `/students` + `/students/:id`, `/scheduling` (takvim), `/lesson-sessions` + detay/not, `/assignments/...`, `/payments` + `/payments/new`, `/more`, `/account-info`.
 
 **Planlanan ⚠️:**
-- Dashboard zenginleştirme (bugünkü dersler, bekleyen ödev, geciken ödeme — tek özet endpoint).
+- Dashboard zenginleştirme (bugünkü dersler, bekleyen ödev, geciken ödeme — tek özet endpoint). *Geciken ödeme artık bildirim merkezine düşüyor (M07-1); dashboard rozeti ayrı iş.*
 - Kaynak paylaşma + öğrenci ödev yükleme görünümü.
 - Mesajlaşma ekranı (öğrenci/veli).
 - Gelir/öğrenci gelişim raporları, ilan verme, üyelik/paywall.
@@ -154,7 +155,7 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 | B-05 | **Not görünürlüğü** (özel/öğrenci/veli) | ✅ **yapıldı (Dilim B, 2026-07-18)** — `LessonNote.Visibility` enum (`Private`/`Student`/`StudentAndParent`); follow-up isteğinde seçilir, response'ta döner | — |
 | T-06.7/8 | **Ödev onay / geri gönder + geri bildirim** | ✅ **yapıldı (Dilim B, 2026-07-18)** — `Assignment.Approve()`/`ReturnForRevision()` + `Approved`/`ReturnedForRevision` statüleri + `TeacherFeedback`; `POST /assignments/{id}/approve`, `POST /assignments/{id}/return` (öğretmen sahiplik yetkisi); geri gönderilen ödev yeniden teslimde `InProgress`'e döner | — |
 | B-07 | **Öğrenci bazlı ücret** override | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.AgreedRateAmount`/`Currency` + `PUT /teachers/{id}/students/{sid}/rate`; ücret öğrenci-öğretmen ikilisine özel | — |
-| B-08 | **Gelmedi + ücretlendirme kararı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonSession.IsChargeable` + complete akışı (otomatik ödeme yok; audit/rapor için) | — |
+| B-08 | **Gelmedi + ücretlendirme kararı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `LessonSession.IsChargeable` + complete akışı. **2026-09-04 (M07-2):** artık otomatik ödeme kaydı da üretir — `IsChargeable=true` tamamlanan ders, B-07 ücretiyle `LessonFee` kaydı açar (ücret girilmemişse kayıt açılmaz) | — |
 | B-09 | **İptal nedeni + ücretlendirme + Sil ayrımı** | ✅ **yapıldı (Dilim A, 2026-07-18)** — `Cancel(reason, isChargeable, …)` + `CancellationReason` enum + `DELETE /lessons/{id}` (24s+gelecek kuralı) | — |
 | B-04 | **Öğrenci arşivleme + Free limit** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `TeacherStudentLink.IsArchived` + `POST .../archive\|unarchive` + liste `?includeArchived=`; Free limit=5 (`students.free_limit_reached`), arşivli link limite dâhil, premium bypass yok (`// TODO(M17)`) | — |
 | B-06 | **Öğrenci-öğretmen davet/bağlanma** | ✅ **yapıldı (Dilim C, 2026-07-18)** — `Invite` → `Accept`/`Reject` (`POST .../invite`, `POST /links/{linkId}/accept\|reject`); kabul eden `currentUser` profile `LinkUser` ile bağlanır. Identity'de e-posta araması yapılmaz (StudentId deseni) | — |
@@ -188,4 +189,4 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M02-3 + M02-4: öğretmen filtreli aramada listelenir; öğretmen kendi profilini `POST /profiles/{userId}/deactivate` ile aramadan çekebilir — veri silinmez) · 2026-08-19 (doküman temizliği: §5.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı; fonksiyonel doküman `_arsiv/`'e taşındı, linkler güncellendi) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 / M07-1 + M07-2: ücretli ders tamamlanınca otomatik `LessonFee` kaydı (vade +7 gün, ücret B-07'den) + vadesi geçen ödemede saatlik tarama → `Overdue` + öğretmene/Premium veliye bildirim; tahsilat işaretlemesi elle kalır) · 2026-09-04 (P06/M02-3 + M02-4: öğretmen filtreli aramada listelenir; öğretmen kendi profilini `POST /profiles/{userId}/deactivate` ile aramadan çekebilir — veri silinmez) · 2026-08-19 (doküman temizliği: §5.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı; fonksiyonel doküman `_arsiv/`'e taşındı, linkler güncellendi) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*

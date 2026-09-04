@@ -1,17 +1,17 @@
 ---
 title: "M07 — Ödeme Takibi (Payments)"
-summary: "Öğretmenin manuel ödeme takibi + veli 'ödedim' beyan akışı çalışır; vade hatırlatma bildirimi ve Overdue kalıcı otomasyonu eksik"
+summary: "Öğretmenin manuel ödeme takibi + veli 'ödedim' beyan akışı çalışır; vade taraması (kalıcı Overdue + bildirim) ve tamamlanan dersten otomatik ücret kaydı eklendi"
 tags: [modul, payments, odeme, faz-1]
 status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Payments/**
-updated: 2026-08-19
+updated: 2026-09-04
 ---
 
 # 💰 Ödeme Takibi (M07) — Detaylı Tasarım Dokümanı
 
-> **PRD: M07 Ödeme Takibi** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (manuel takip), ⚠️ veli paylaşımı + otomasyon bekliyor**
+> **PRD: M07 Ödeme Takibi** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (manuel takip + otomasyon), ⚠️ veli paylaşımı bekliyor**
 >
 > **Amaç:** Öğretmenin ders/paket ücretlerini **elle** takip etmesi. Ödeme **sistem üzerinden alınmaz**;
 > öğretmen "şu dersin ödemesini aldım" şeklinde işaretler (`promp.txt`: "ödemeyi sistem üzerinden
@@ -34,13 +34,15 @@ updated: 2026-08-19
 | Hesaplanan alanlar (kalan/gecikme/gösterim durumu) | ✅ Mevcut | `PaymentRecordMappings` (`GetOutstandingAmount`, `IsOverdue`, `GetDisplayStatus`) |
 | Para birimi bazında özet | ✅ Mevcut | `GetTeacherPaymentSummaryQuery` |
 | Veli ile paylaşım (`IsSharedWithParent`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
-| `Overdue` **kalıcı** otomasyonu | 🟡 **Kısmi** | Gecikme **çalışma zamanında** hesaplanır; kalıcı statü güncelleyen zamanlanmış iş yok |
-| Vade hatırlatma bildirimi | 🔴 **Yok** | Önerilen — m11 |
+| `Overdue` **kalıcı** otomasyonu (M07-1) | ✅ Mevcut | `PaymentOverdueScanner` / `PaymentOverdueScanProcessor` — saatte bir tarar, `PaymentRecord.MarkOverdue` uygular |
+| Vade hatırlatma bildirimi (M07-1) | ✅ Mevcut | `PaymentBecameOverdueDomainEvent` → m11 `PaymentOverdueNotificationHandler` |
+| Tamamlanan dersten otomatik ücret kaydı (M07-2) | ✅ Mevcut | `LessonSessionCompletedPaymentHandler` (integration event + `IStudentDirectory` ücreti) |
 | Mobil ödeme ekranları | ✅ Mevcut | `mobile/lib/features/payments` |
 
-> **Düzeltme:** Önceki dokümanda "vade geçince `Overdue`'a çeken job eksik" deniyordu. Kod gecikmeyi
-> **okuma anında** (`GetDisplayStatus(now)`) hesaplar; gerçek **kalıcı** statü değişimi (DB'de `Status=Overdue`)
-> ve **veliye/öğretmene bildirim** için zamanlanmış iş hâlâ gereklidir.
+> **Güncelleme (2026-09-04, P06 Task 5):** Kalıcı statü değişimi artık var. Okuma anındaki
+> `GetDisplayStatus(now)` hesabı **korunur** (tarama turu arasındaki kayıtlar da gecikmiş görünür);
+> `PaymentOverdueScanProcessor` bunun üstüne DB'deki `Status`'ü de `Overdue`'a çeker ve bildirim
+> zincirini başlatır. İkisi çelişmez: tarama yalnız zaten gecikmiş olanı kalıcı hâle getirir.
 
 ---
 
@@ -66,12 +68,19 @@ updated: 2026-08-19
 | `Status` | enum `PaymentStatus` | `Pending=1`, `PartiallyPaid=2`, `Paid=3`, `Overdue=4`, `Cancelled=5` |
 | `BillingPeriodStartUtc` / `EndUtc` | `DateTime?` | Aylık paket dönemi |
 | `Notes` | `string?` | Not |
+| `OverdueMarkedOnUtc` | `DateTime?` | **M07-1** — tarama turunun kaydı `Overdue` işaretlediği an; hiç işaretlenmediyse `null` |
 
 > **Not (kodda):** `CreatedOnUtc` constructor'a parametre olarak alınır ancak ayrı bir property olarak
 > set edilmez; oluşturma zamanı `PaymentRecordCreatedDomainEvent`'e taşınır.
 
 **Davranış:** `UpdateManualTracking(...)` → tüm izlenen alanları günceller ve
 `PaymentRecordUpdatedDomainEvent` yayar; olay **eski/yeni durum** ve **eski/yeni tahsil tutarını** taşır.
+
+**`MarkOverdue(nowUtc)` (M07-1, 2026-09-04):** Yalnız `Pending`/`PartiallyPaid` **ve** `DueDateUtc < now`
+olan kaydı `Overdue` yapar, `OverdueMarkedOnUtc` yazar ve `PaymentBecameOverdueDomainEvent` yayar.
+Geçiş yapılmaması hata değildir (tarama turu saatte bir koşar) — bu yüzden metot `Result` değil **`bool`**
+döner: `true` = durum değişti. Zaten `Overdue`/`Paid`/`Cancelled` olan ya da vadesi gelmemiş kayıt için
+`false` döner ve **ikinci bir olay üretilmez** (idempotent).
 
 **Hesaplanan değerler (Application katmanı — `PaymentRecordMappings`):**
 | Yöntem | Mantık |
@@ -99,6 +108,7 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 |-------|---------|
 | `PaymentRecordCreatedDomainEvent` | `PaymentRecordId, TeacherUserId, StudentId, RelatedLessonSessionId?, ExpectedAmount, Currency, Status, CreatedOnUtc` |
 | `PaymentRecordUpdatedDomainEvent` | `PaymentRecordId, TeacherUserId, StudentId, PreviousStatus, CurrentStatus, PreviousCollectedAmount, CurrentCollectedAmount, UpdatedOnUtc` |
+| `PaymentBecameOverdueDomainEvent` (M07-1) | `PaymentRecordId, TeacherUserId, StudentId, OutstandingAmount, Currency, DueDateUtc, MarkedOnUtc` — m11 tüketir (öğretmen + Premium veli bildirimi) |
 | `ParentPaymentDeclaredDomainEvent` (Veli V-G) | `DeclarationId, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, CreatedOnUtc` — öğretmene bildirim (teslim V-E) |
 | `ParentPaymentDeclarationResolvedDomainEvent` (Veli V-G) | `DeclarationId, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, Status, ResolvedOnUtc` |
 
@@ -117,7 +127,6 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 |-------|-------------|---------|
 | `IsSharedWithParent` | `bool` | **Ödeme bilgisi veliyle paylaşılır** (`promp.txt`: "Dersin ödeme bilgileri veli ile de paylaşılacak"). `true` ise bağlı veli (m09) ödemeyi görür. |
 | `SharedWithParentOnUtc` | `DateTime?` | Paylaşım zamanı (denetim/iz). |
-| Kalıcı `Overdue` geçişi | zamanlanmış iş | Vade geçen kayıtlarda DB'de `Status = Overdue` + bildirim (şu an yalnızca okuma anında hesaplanıyor). |
 | Tahsilat kalemi (`PaymentInstallment`) | yeni Entity (öneri) | Kısmi tahsilatların **dökümü** (tek `CollectedAmount` yerine her ödemenin tarihçesi). |
 
 ---
@@ -186,8 +195,9 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 7. **Filtre VEYA mantığı (🟢 kodda):** `outstanding`/`overdue`/`paid` bayraklarından herhangi biri eşleşen kayıt döner; tarih aralığı `DueDateUtc`'ye göre uygulanır; hiçbiri seçili değilse tarih aralığındaki tümü.
 8. **Güncellemede event (🟢 kodda):** `UpdateManualTracking()`, durum/tahsilat değişimini `PaymentRecordUpdatedDomainEvent` ile yayar (gelir özeti yeniden hesaplama tetikleyebilir).
 9. **⚠️ Veli paylaşımı:** `IsSharedWithParent = true` olduğunda yalnızca o ödeme bilgisi bağlı veliye (m09) açılır; mahremiyet sınırı korunur.
-10. **⚠️ Kalıcı gecikme + bildirim:** Zamanlanmış iş, vadesi geçen kayıtları `Overdue`'a çekmeli ve öğretmene (varsa veliye) bildirim göndermeli.
+10. **Kalıcı gecikme + bildirim (🟢 kodda, M07-1):** `PaymentOverdueScanner` saatte bir `PaymentOverdueScanProcessor.ScanAsync()` koşturur; vadesi geçmiş `Pending`/`PartiallyPaid` kayıtları (tur başına en fazla 200) `Overdue`'a çeker. Her geçiş bir `PaymentBecameOverdueDomainEvent` yayar → m11 öğretmene, Premium + "ödemeler" tercihi açık veliye in-app bildirim yazar. Push doğrudan gönderilmez; `NotificationDispatcher` turu gönderir.
 11. **Sahiplik (yetki):** Öğretmen yalnızca kendi kayıtlarını yönetir/görür (`PaymentPolicies.cs`); veli yalnızca paylaşılmış kayıtları görür.
+12. **Ders tamamlanınca otomatik ücret kaydı (🟢 kodda, M07-2):** `LessonSessions/LessonSessionCompletedDomainEvent` tüketilir. Kayıt **yalnız** oturum `IsCompleted` **ve** `IsChargeable` iken açılır; tutar `IStudentDirectory.GetAgreedLessonRateAsync(teacher, student)` (B-07, **ders başına** ücret) ile gelir. Ücret tanımlı değilse kayıt **açılmaz** (`LogInformation`) — sessizce yanlış tutar üretilmez. Vade = tamamlanma anı **+ 7 gün**. Oturum başına **tek** kayıt (`RelatedLessonSessionId` kontrolü) — ders yeniden tamamlanabildiği için ikinci olay kopya üretmez.
 
 ---
 
@@ -204,12 +214,18 @@ PUT /records/{id}
        → (öneri) m14 Reporting: gelir özeti yeniden hesaplanır
        → (öneri) m09 Parents: tahsilat durumu paylaşılıyorsa veli güncellenir
 
-(öneri) Vade geçti (zamanlanmış iş)
-   → Status = Overdue (kalıcı)
-   → m11 Notifications: öğretmene "geciken ödeme" + (paylaşımlıysa) veliye uyarı
+Vade geçti (PaymentOverdueScanner, saatte bir) — M07-1
+   → PaymentRecord.MarkOverdue(now) → Status = Overdue (kalıcı) + OverdueMarkedOnUtc
+   → PaymentBecameOverdueDomainEvent
+       → m11 PaymentOverdueNotificationHandler: öğretmene UserNotification (Kind=PaymentOverdue, route=/payments)
+                                                 + Premium & "ödemeler" tercihi açık veliye (route=/parent/payments)
+       → push: NotificationDispatcher turu (PushedOnUtc boş olanlar)
 
-(öneri) M05: LessonSessionCompletedDomainEvent
-   → LessonFee türünde ödeme kaydı otomatik oluşturulur/işaretlenir
+M05: LessonSessionCompletedDomainEvent — M07-2
+   → Payments/LessonSessionCompletedPaymentHandler (inbox idempotent)
+       → ILessonSessionAccessService: oturum tamamlandı mı + IsChargeable mi
+       → IStudentDirectory.GetAgreedLessonRateAsync: öğrenci bazlı ücret (B-07)
+       → LessonFee türünde PaymentRecord (Pending, vade = tamamlanma + 7 gün)
 ```
 
 > Olaylar **Outbox** ile yayılır (`Shared/Infrastructure/Messaging`).
@@ -249,10 +265,10 @@ PUT /records/{id}
 - [x] Para birimi bazında gelir özeti alınabilir.
 - [x] Kalan / geciken / ödenen filtreleri + tarih aralığı.
 - [ ] ⚠️ Veli ile paylaşım (`IsSharedWithParent`) + veli görünümü.
-- [ ] ⚠️ Kalıcı `Overdue` otomasyonu (zamanlanmış iş) + vade bildirimi.
+- [x] Kalıcı `Overdue` otomasyonu (`PaymentOverdueScanner`, saatlik) + vade bildirimi (m11) — **M07-1, 2026-09-04**.
 - [x] "Tahsil edildi" işaretleme + **kısmi tahsilat** (mobil `CollectPaymentSheet` → `PUT /records/{id}`).
 - [ ] ⚠️ M14 ile dönemsel gelir raporu/grafik.
-- [ ] ⚠️ M05 tamamlama → otomatik `LessonFee` kaydı.
+- [x] M05 tamamlama → otomatik `LessonFee` kaydı (`LessonSessionCompletedPaymentHandler`) — **M07-2, 2026-09-04**.
 
 ---
 
@@ -261,10 +277,10 @@ PUT /records/{id}
 > Öncelik sırasıyla:
 
 1. **Veli ile paylaşım (`IsSharedWithParent`)** — alan + paylaş endpoint'i + veli görünümü (m09).
-2. **Kalıcı `Overdue` otomasyonu** — zamanlanmış iş + öğretmen/veli bildirimi (m11).
+2. ~~**Kalıcı `Overdue` otomasyonu** — zamanlanmış iş + öğretmen/veli bildirimi (m11).~~ ✅ Yapıldı (2026-09-04, M07-1).
 3. ~~**"Tahsil edildi" hızlı işaretleme** + kısmi tahsilat akışı~~ ✅ Yapıldı (2026-07-06, `CollectPaymentSheet`; ayrı `PaymentInstallment` dökümü hâlâ öneri — bkz. §2.2).
 4. **M14 gelir raporu** — dönemsel özet + aylık trend grafiği.
-5. **M05 köprüsü** — ders tamamlanınca otomatik `LessonFee` ödeme kaydı.
+5. ~~**M05 köprüsü** — ders tamamlanınca otomatik `LessonFee` ödeme kaydı.~~ ✅ Yapıldı (2026-09-04, M07-2). Kalan: ücret tanımlı olmayan öğrenci için öğretmene "ücret gir" uyarısı (şu an yalnız log).
 6. **(Öneri) Tahsilat dökümü (`PaymentInstallment`)** — kısmi ödemelerin tarihçesi.
 7. **Yetkilendirme testleri** — öğretmen yalnızca kendi, veli yalnızca paylaşılan kayıtlar (`PaymentPolicies.cs`).
 
@@ -281,4 +297,4 @@ PUT /records/{id}
 
 ---
 
-*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
+*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*

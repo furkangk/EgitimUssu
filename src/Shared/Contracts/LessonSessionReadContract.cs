@@ -12,7 +12,9 @@ public sealed record LessonSessionDetails(
     DateTime? CompletedOnUtc,
     string TopicTitle,
     string? CoveredContent,
-    string? TeacherNotes);
+    string? TeacherNotes,
+    // M07-2: Ücretlendirilecek ders mi (Payments tüketir). Varsayılan false — mevcut çağrı yerleri değişmez.
+    bool IsChargeable = false);
 
 public interface ILessonSessionAccessService
 {

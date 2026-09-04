@@ -67,7 +67,7 @@ updated: 2026-09-04
 | `TopicTitle` | `string` | İşlenen konu başlığı |
 | `CoveredContent` | `string?` | İşlenen içerik detayı |
 | `TeacherNotes` | `string?` | Öğretmen notu |
-| `IsChargeable` | `bool` | **Ücretlendirme kararı (B-08, 2026-07-18).** Özellikle `Absent`'ta anlamlı: gelmedi→ücretlendirilecek mi. Alan audit + ileride rapor/desen içindir (bu dilimde otomatik ödeme oluşturmaz) |
+| `IsChargeable` | `bool` | **Ücretlendirme kararı (B-08, 2026-07-18).** Özellikle `Absent`'ta anlamlı: gelmedi→ücretlendirilecek mi. **2026-09-04'ten (M07-2) itibaren otomatik ödeme kaydı üretir:** `Complete()` sonrası `IsChargeable=true` ise Payments `LessonFee` kaydı açar (bkz. [m07](m07_payments.md) §4.12) |
 | `MeetingUrl` | `string?` | P06/M05-4: online dersin toplantı bağlantısı (maks. 512). Plandan türetmede (M05-2) `LessonSchedule.MeetingUrl`'den kopyalanacak |
 | `RecordingUrl` | `string?` | P06/M05-4: ders kaydı bağlantısı (maks. 512) |
 | `CancellationReason` | `string?` | P06/M05-1: iptal nedeni (maks. 500). Yalnız `Cancelled` durumunda anlamlı; boş/boşluk gönderilirse `null` yazılır |
@@ -214,9 +214,12 @@ M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
 > StartAtUtc, EndAtUtc, Subject, MeetingUrl?, Status }` döner. Öğrencinin **kendi** dersi (öğretmensiz, Ç-06)
 > bu sözleşmeden `null` döner → o plandan oturum türetilemez.
 >
-> **Çapraz-modül erişim:** Assignments modülü, oturum bilgisine `ILessonSessionAccessService`
-> (`LessonSessionAccess.cs`) üzerinden `LessonSessionDetails { IsCompleted, StudentId, TeacherUserId,
-> TopicTitle, CoveredContent, TeacherNotes }` projeksiyonuyla erişir — modül sınırı korunur.
+> **Çapraz-modül erişim:** Assignments (otomatik ders notu) ve **Payments** (M07-2 ders ücreti) modülleri
+> oturum bilgisine `ILessonSessionAccessService` (`LessonSessionAccess.cs`) üzerinden
+> `LessonSessionDetails { Id, LessonScheduleId?, TeacherUserId, StudentId, IsCompleted, CompletedOnUtc?,
+> TopicTitle, CoveredContent, TeacherNotes, IsChargeable }` projeksiyonuyla erişir — modül sınırı korunur.
+> `IsChargeable` alanı 2026-09-04'te (M07-2) eklendi; sözleşmede **varsayılan `false`** olduğundan mevcut
+> çağrı yerleri değişmedi.
 > Olaylar **Outbox** ile yayılır.
 
 ---
@@ -288,4 +291,4 @@ M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
 
 ---
 
-*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*
+*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 / M07-2: `LessonSessionDetails` sözleşmesine `IsChargeable` eklendi — tamamlanan ücretli ders Payments'ta ödeme kaydı üretir) · 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*

@@ -81,6 +81,9 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
 
     public string? Notes { get; private set; }
 
+    /// <summary>M07-1: Kaydın <see cref="PaymentStatus.Overdue"/> işaretlendiği an; hiç işaretlenmediyse <c>null</c>.</summary>
+    public DateTime? OverdueMarkedOnUtc { get; private set; }
+
     public void UpdateManualTracking(
         Guid? relatedLessonSessionId,
         BillingItemType itemType,
@@ -123,6 +126,42 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
             updatedOnUtc));
     }
 
+    /// <summary>
+    /// M07-1: Vadesi geçmiş ve hâlâ açık (<see cref="PaymentStatus.Pending"/> / <see cref="PaymentStatus.PartiallyPaid"/>)
+    /// bir kaydı <see cref="PaymentStatus.Overdue"/> işaretler ve <see cref="PaymentBecameOverdueDomainEvent"/> yayar.
+    /// Tarama turu her saat çalıştığı için işlem <b>idempotenttir</b>: zaten Overdue/Paid/Cancelled olan kayıt
+    /// ya da vadesi gelmemiş kayıt değişmez ve olay üretilmez. Geçiş yapılmaması bir hata değildir —
+    /// bu yüzden <c>Result</c> değil <c>bool</c> döner.
+    /// </summary>
+    /// <param name="nowUtc">Tarama anı (UTC).</param>
+    /// <returns>Durum değiştiyse <c>true</c>.</returns>
+    public bool MarkOverdue(DateTime nowUtc)
+    {
+        if (Status is not (PaymentStatus.Pending or PaymentStatus.PartiallyPaid))
+        {
+            return false;
+        }
+
+        if (DueDateUtc >= nowUtc)
+        {
+            return false;
+        }
+
+        Status = PaymentStatus.Overdue;
+        OverdueMarkedOnUtc = nowUtc;
+
+        Raise(new PaymentBecameOverdueDomainEvent(
+            Id,
+            TeacherUserId,
+            StudentId,
+            ExpectedAmount - CollectedAmount,
+            Currency,
+            DueDateUtc,
+            nowUtc));
+
+        return true;
+    }
+
     /// <summary>Veli beyanı öğretmence teyit edilince kaydı tam tahsil edilmiş işaretler (Veli V-G).</summary>
     public void MarkCollectedByParentConfirmation(DateTime nowUtc)
     {
@@ -162,6 +201,19 @@ public sealed record PaymentRecordCreatedDomainEvent(
     string Currency,
     PaymentStatus Status,
     DateTime CreatedOnUtc) : DomainEvent;
+
+/// <summary>
+/// M07-1: Bir ödeme kaydı vadesi geçtiği için <see cref="PaymentStatus.Overdue"/> oldu.
+/// Notifications tüketip öğretmene (ve Premium veliye) bildirim üretir.
+/// </summary>
+public sealed record PaymentBecameOverdueDomainEvent(
+    Guid PaymentRecordId,
+    Guid TeacherUserId,
+    Guid StudentId,
+    decimal OutstandingAmount,
+    string Currency,
+    DateTime DueDateUtc,
+    DateTime MarkedOnUtc) : DomainEvent;
 
 public sealed record PaymentRecordUpdatedDomainEvent(
     Guid PaymentRecordId,

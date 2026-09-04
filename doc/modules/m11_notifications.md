@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Notifications/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 🔔 Bildirim Modülü (M11) — Detaylı Tasarım Dokümanı
@@ -83,6 +83,15 @@ Veliye bildirim üretir; **yalnız Premium veliye** (PRD 9.3) ve velinin tercih 
   Her hedef için **`Tier == Premium`** kapısı + (varsa) tercih kapısı uygulanır; `IParentNotificationDirectory.GetApprovedParentsForStudentAsync`
   ile öğrencinin onaylı velileri + tier + tercih okunur. `EventId` ile idempotent. V-G'nin `ParentPaymentDeclaredDomainEvent`'i öğretmen hedefli
   olduğundan bu handler'da **veli bildirimi üretmez** (öğretmen bildirimi sonraki faz).
+- **`PaymentOverdueNotificationHandler : IdempotentIntegrationEventHandler`** (M07-1, 2026-09-04) — Payments/`PaymentBecameOverdueDomainEvent`
+  tüketir ve **`UserNotification`** yazar (veli-özel `ParentNotification` değil):
+  | Alıcı | Kapı | Kind / Route |
+  |---|---|---|
+  | Ödemeyi takip eden **öğretmen** (`TeacherUserId`) | **koşulsuz** (kendi tahsilat kaydı) | `PaymentOverdue` / `/payments` |
+  | Öğrencinin onaylı velileri | `Tier == Premium` **ve** `Prefs.Payments` | `PaymentOverdue` / `/parent/payments` |
+
+  Push burada gönderilmez — `NotificationDispatchProcessor` turu `PushedOnUtc == null` kayıtları toplu gönderir
+  (Öğrenilenler #40/#55). Gövde: vade tarihi + kalan tutar + para birimi (tr-TR biçimi).
 - **`ParentWeeklySummaryService : BackgroundService`** (6 saatte bir poll) → `ParentWeeklySummaryProcessor.RunAsync(now)` her Premium +
   `NotifyWeeklyProgressSummary` açık veliye **hafta başına bir** `WeeklySummary` üretir; hafta dedup anahtarı deterministik `Guid(parentUserId, isoYear, isoWeek)`
   (`ProcessedIntegrationEvent` ile). Metin MVP'de sabit; V-F study verisiyle zenginleşecek.
@@ -252,12 +261,22 @@ Scheduling: LessonScheduleCancelledDomainEvent  ──▶
         ↑ IPushSender ile aktif DeviceToken'lara gerçek push (P03 Task 3) ✅
 ```
 
+### 🟢 Mevcut — vade geçti (M07-1, 2026-09-04)
+
+```
+PaymentOverdueScanner (Payments, saatlik)
+  → PaymentRecord.MarkOverdue(now) → PaymentBecameOverdueDomainEvent (outbox)
+     → PaymentOverdueNotificationHandler (inbox idempotent)
+        → UserNotification(Kind=PaymentOverdue) → öğretmen (koşulsuz)
+        → UserNotification(Kind=PaymentOverdue) → Premium + Prefs.Payments açık veli
+           ↓ NotificationDispatchProcessor turu: PushedOnUtc boş olanları push eder
+```
+
 ### Önerilen (yeni türler)
 
 ```
 Assignments: AssignmentDueSoon / AssignmentMissed ──▶ Notification(Type=HomeworkDueSoon/Missed,
                                                        Recipient=Öğrenci) + Notification(Recipient=Veli)
-Payments:    PaymentOverdue                       ──▶ Notification(Type=PaymentOverdue, Öğretmen+Veli)
 Messaging:   MessageSent                          ──▶ Notification(Type=NewMessage, karşı taraf)
    ↓ her oluşturmada: UserSetting tercih kontrolü → kanal seçimi → DeviceToken'lara push
 ```
@@ -339,4 +358,4 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ---
 
-*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-03 (P05/M11-5: tercih kapısı gönderim turunda — `IUserNotificationPreferences` + §5.1 tür eşlemesi; P03 Task 4: `UserNotification` aggregate + `GET /users/{userId}/notifications` + `/unread-count` + `POST /{id}/read` + dispatcher'ın push turu; modül durumu 🟡 → 🟢; P03 Task 3: gerçek push gönderimi + `LessonReminder.MarkFailed`/`ReminderStatus.Failed` + geçersiz token kapatma; P03 Task 2: `IPushSender`/`FcmPushSender` + `PushOptions`/`PushOptionsGuard`; P03/M11-2: `DeviceToken` aggregate + `POST`/`DELETE /device-tokens`). Önceki not — 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*
+*Bildirim Modülü (M11) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 / M07-1: yeni tüketici `PaymentOverdueNotificationHandler` — `PaymentBecameOverdueDomainEvent` → öğretmene koşulsuz, Premium + "ödemeler" tercihi açık veliye `UserNotification(Kind=PaymentOverdue)`) · 2026-09-03 (P05/M11-5: tercih kapısı gönderim turunda — `IUserNotificationPreferences` + §5.1 tür eşlemesi; P03 Task 4: `UserNotification` aggregate + `GET /users/{userId}/notifications` + `/unread-count` + `POST /{id}/read` + dispatcher'ın push turu; modül durumu 🟡 → 🟢; P03 Task 3: gerçek push gönderimi + `LessonReminder.MarkFailed`/`ReminderStatus.Failed` + geçersiz token kapatma; P03 Task 2: `IPushSender`/`FcmPushSender` + `PushOptions`/`PushOptionsGuard`; P03/M11-2: `DeviceToken` aggregate + `POST`/`DELETE /device-tokens`). Önceki not — 2026-09-02 (F-06: kabul kriterleri kodla karşılaştırıldı — outbox/K1 ✅, push+cihaz token (P03), UserSetting (P05), sahiplik K3 (P13)) · 2026-08-19 (kod-senkron: API 2 endpoint doğrulandı — öğretmen `lesson-reminders` + veli `notifications`; `ParentNotificationType`/`NotificationChannel`/`ReminderStatus` enum değerleri koda eşit). Önceki not — 2026-07-19 (Veli V-E: veli bildirim motoru — `ParentNotification` + `ParentEventNotificationHandler` (Premium + tercih kapılı) + `ParentWeeklySummaryService` haftalık özet + `GET /parents/{id}/notifications`; `IParentNotificationDirectory`; olay kaynakları V-C bağlantı + V-G ödeme) · 2026-07-08 (öğrenci kişisel program hatırlatması: `StudyScheduleReminderIntegrationEventHandler` + `LessonReminder.Reschedule`)*

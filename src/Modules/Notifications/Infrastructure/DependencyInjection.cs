@@ -37,6 +37,8 @@ public static class DependencyInjection
         // ayrı StudyScheduleEntry hatırlatma handler'ı kaldırıldı.
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();
+        // M07-1: vadesi geçen ödeme → öğretmene (ve Premium veliye) in-app bildirim.
+        services.AddScoped<IIntegrationEventHandler, PaymentOverdueNotificationHandler>();
         services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
         services.AddHostedService<NotificationDispatcher>();
         services.AddHostedService<ParentWeeklySummaryService>();

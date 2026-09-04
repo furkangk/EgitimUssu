@@ -23,4 +23,17 @@ internal sealed class StudentDirectory : IStudentDirectory
             .Select(profile => profile.UserId)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        // B-07: Ücret öğretmen-öğrenci ikilisine özeldir. Ücret girilmemişse (null) tahmini bir tutar
+        // üretmeyiz — çağıran (Payments/M07-2) kayıt açmadan geçer.
+        return await _dbContext.TeacherStudentLinks
+            .AsNoTracking()
+            .Where(link => link.TeacherUserId == teacherUserId
+                && link.StudentId == studentId
+                && link.AgreedRateAmount != null)
+            .Select(link => new AgreedLessonRate(link.AgreedRateAmount!.Value, link.Currency))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

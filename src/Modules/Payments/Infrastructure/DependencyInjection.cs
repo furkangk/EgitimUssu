@@ -40,6 +40,13 @@ public static class DependencyInjection
         // Ö-C: profil birleştirmede kaynak öğrenciye ait ödeme kayıtlarını kanonik öğrenciye taşır.
         services.AddScoped<IIntegrationEventHandler, PaymentsStudentMergedHandler>();
 
+        // M07-2: tamamlanan ücretli dersten otomatik ödeme kaydı.
+        services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedPaymentHandler>();
+
+        // M07-1: vadesi geçen ödemeleri saatte bir işaretleyen tarama turu.
+        services.AddScoped<IPaymentOverdueScanProcessor, PaymentOverdueScanProcessor>();
+        services.AddHostedService<PaymentOverdueScanner>();
+
         // Veli "ödedim" beyanı (Veli V-G)
         services.AddScoped<IParentPaymentDeclarationRepository, ParentPaymentDeclarationRepository>();
         services.AddScoped<ICommandHandler<DeclarePaymentPaidCommand, Result<ParentPaymentDeclarationResponse>>, DeclarePaymentPaidCommandHandler>();

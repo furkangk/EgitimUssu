@@ -211,16 +211,27 @@ git commit -m "feat(lesson-sessions): planli dersten oturum turetme (M05-2)"
 - Create: `src/Modules/Payments/Infrastructure/PaymentOverdueScanner.cs` (BackgroundService)
 - Create: `src/Modules/Payments/Infrastructure/LessonSessionCompletedPaymentHandler.cs`
 - Modify: `src/Modules/Payments/Infrastructure/DependencyInjection.cs` + migration
-- Modify: `src/Modules/Notifications/Infrastructure/*` (yeni event tüketimi → `UserNotification`)
+- Create: `src/Modules/Notifications/Infrastructure/PaymentOverdueNotificationHandler.cs` + `DependencyInjection.cs` (yeni event tüketimi → `UserNotification`)
 - Test: `tests/Unit/PaymentOverdueScannerTests.cs`, `tests/Unit/LessonSessionCompletedPaymentHandlerTests.cs`
+- **Plan dışı ama gerekli (uygulandı):**
+  `src/Shared/Contracts/StudentDirectoryContract.cs` (`AgreedLessonRate` + `IStudentDirectory.GetAgreedLessonRateAsync`) ·
+  `src/Shared/Contracts/LessonSessionReadContract.cs` (`LessonSessionDetails.IsChargeable`, varsayılan `false`) ·
+  `src/Modules/Students/Infrastructure/StudentDirectory.cs` + `src/Modules/LessonSessions/Infrastructure/LessonSessionAccessService.cs` (sözleşme uygulamaları) ·
+  `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Payments.Infrastructure proje referansı — Öğrenilenler #5) ·
+  `tests/Unit/SelfLessonPolicyTests.cs` (arayüz büyüdü, sahte güncellendi — Öğrenilenler #46) ·
+  `tests/Unit/PaymentOverdueNotificationHandlerTests.cs` (Step 5'in testi)
 
 **Interfaces:**
 - Produces:
   - `PaymentRecord.MarkOverdue(DateTime nowUtc)` — yalnız `Pending`/`PartiallyPaid` ve `DueDate < now` iken; `Status = Overdue` + `PaymentBecameOverdueDomainEvent`.
   - `PaymentOverdueScanner : BackgroundService` — saatte bir tarar, `MarkOverdue` uygular (idempotent: zaten `Overdue` olanı atlar).
+    > **Plandan sapma (uygulandı):** tur mantığı `IPaymentOverdueScanProcessor`/`PaymentOverdueScanProcessor`'a ayrıldı; `BackgroundService` yalnız zamanlayıcıdır. Repodaki mevcut desen (`NotificationDispatcher`/`NotificationDispatchProcessor`) birebir izlendi — `BackgroundService`'in kendisi birim testinden koşturulamaz.
+    > `MarkOverdue` **`Result` değil `bool`** döner: geçiş yapılmaması bir hata değil, taramanın normal akışıdır (Öğrenilenler #58'in sınırı).
   - `LessonSessionCompletedPaymentHandler : IdempotentIntegrationEventHandler` — `IsChargeable == true` olan tamamlanan oturum için `PaymentRecord` (tutar = öğrenci bazlı ders ücreti) oluşturur.
+    > **Plandan sapma (gerekli):** olay yükü `IsChargeable` **taşımıyordu**; alan `LessonSessionDetails` sözleşmesine varsayılan `false` ile eklendi (Öğrenilenler #56 deseni — çağrı yerleri değişmedi).
+    > **Uygulama kararı:** ücret `IStudentDirectory`'ye eklenen `GetAgreedLessonRateAsync` ile okunur ve **ders başına** ücret kabul edilir (`m03_students.md`: "Öğrenci bazlı anlaşılan ders ücreti") — süreyle çarpılmaz. Vade = tamamlanma + **7 gün** (`LessonFeeDueDays`). Oturum başına tek kayıt (`RelatedLessonSessionId`) — ders yeniden tamamlanabildiği için EventId guard'ı tek başına yetmez.
 
-- [ ] **Step 1: Testleri yaz (kırmızı)**
+- [x] **Step 1: Testleri yaz (kırmızı)**
 ```csharp
 [Fact]
 public void MarkOverdue_Should_Only_Apply_To_Outstanding_Past_Due()
@@ -246,14 +257,14 @@ public async Task Non_Chargeable_Session_Should_Not_Create_Payment()
 {
 }
 ```
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Payment"`
-- [ ] **Step 3: Domain + migration** (`Status` zaten enum; `OverdueMarkedOnUtc` alanı ekle)
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Payment"` → derleme hatası (tipler yok), beklenen kırmızı.
+- [x] **Step 3: Domain + migration** (`Status` zaten enum; `OverdueMarkedOnUtc` alanı ekle)
   Run: `dotnet ef migrations add AddOverdueTracking --project src/Modules/Payments/Infrastructure --startup-project src/API.Host --context PaymentsDbContext`
-- [ ] **Step 4: Scanner + handler'ı yaz, DI'ya `AddHostedService<PaymentOverdueScanner>()` ekle.**
+- [x] **Step 4: Scanner + handler'ı yaz, DI'ya `AddHostedService<PaymentOverdueScanner>()` ekle.**
   > Ders ücreti: `Shared/Contracts/IStudentDirectory` üzerinden öğrenci bazlı ücret (`B-07` ile eklenen `rate`) okunur; yoksa öğretmenin `HourlyRateAmount`'u kullanılmaz — ücret yoksa kayıt **oluşturulmaz** ve `LogInformation` düşülür (sessiz yanlış tutar üretme).
-- [ ] **Step 5: Notifications tarafında vade bildirimi** — `PaymentBecameOverdue` integration event'i tüketilip öğretmene (ve veliye, tercihe bağlı) `UserNotification` + push üretir.
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 5: Notifications tarafında vade bildirimi** — `PaymentOverdueNotificationHandler`: öğretmene **koşulsuz**, öğrencinin onaylı velilerine **Premium + `Prefs.Payments`** kapılı `UserNotification(Kind=PaymentOverdue)`. Push burada gönderilmez; `NotificationDispatcher` turu gönderir (Öğrenilenler #40/#55).
+- [x] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari / 389 birim / 21 integration, **başarısız 0**; ayrıca `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 hata (CS8907 yakalandı ve düzeltildi).
+- [x] **Step 7: Doküman + commit**
 
 `doc/modules/m07_payments.md` (otomasyon + yeni event), `doc/modules/m11_notifications.md` (yeni tüketici), `doc/modules/veri_modeli.md`.
 ```bash
