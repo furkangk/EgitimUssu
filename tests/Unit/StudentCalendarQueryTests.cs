@@ -51,6 +51,61 @@ public sealed class StudentCalendarQueryTests
         Assert.Equal("#20A4A9", selfOcc.ColorHex);
     }
 
+    [Fact]
+    public async Task Flags_self_entry_that_overlaps_a_teacher_lesson()
+    {
+        var studentId = Guid.NewGuid();
+
+        var teacher = new LessonSchedule(
+            Guid.NewGuid(), Guid.NewGuid(), studentId, "İngilizce",
+            ScheduledLessonFormat.Online, TeacherStart, TeacherStart.AddHours(1), "Europe/Istanbul",
+            null, LessonScheduleStatus.Planned, 60, null, null, null, TeacherStart);
+
+        // Öğretmen dersinin ortasına denk gelen kendi planı (öğretmen dersi sonradan açılmış olabilir).
+        var overlapping = LessonSchedule.CreateSelfLesson(
+            Guid.NewGuid(), studentId, "Matematik", null,
+            TeacherStart.AddMinutes(30), TeacherStart.AddMinutes(90), "Europe/Istanbul", null, 30, null, null, TeacherStart);
+
+        var free = LessonSchedule.CreateSelfLesson(
+            Guid.NewGuid(), studentId, "Fizik", null,
+            SelfStart, SelfStart.AddHours(1), "Europe/Istanbul", null, 30, null, null, SelfStart);
+
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, overlapping, free), new FakeCompletionReader());
+
+        var result = await handler.Handle(new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var occurrences = result.Value!;
+
+        Assert.True(Assert.Single(occurrences, o => o.EntryId == overlapping.Id).ConflictsWithLesson);
+        Assert.False(Assert.Single(occurrences, o => o.EntryId == free.Id).ConflictsWithLesson);
+        // Bayrak yalnız bireysel plan öğelerinde anlamlıdır; öğretmen dersi kendisiyle çakışmaz.
+        Assert.False(Assert.Single(occurrences, o => o.EntryId == teacher.Id).ConflictsWithLesson);
+    }
+
+    [Fact]
+    public async Task Recurring_teacher_lesson_conflicts_with_later_self_occurrence()
+    {
+        var studentId = Guid.NewGuid();
+
+        // Haftalık öğretmen dersi; çakışma ikinci haftada oluşuyor.
+        var teacher = new LessonSchedule(
+            Guid.NewGuid(), Guid.NewGuid(), studentId, "İngilizce",
+            ScheduledLessonFormat.Online, TeacherStart, TeacherStart.AddHours(1), "Europe/Istanbul",
+            "FREQ=WEEKLY", LessonScheduleStatus.Planned, 60, null, null, null, TeacherStart);
+
+        var self = LessonSchedule.CreateSelfLesson(
+            Guid.NewGuid(), studentId, "Matematik", null,
+            TeacherStart.AddDays(7), TeacherStart.AddDays(7).AddHours(1), "Europe/Istanbul", null, 30, null, null, TeacherStart);
+
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, self), new FakeCompletionReader());
+
+        var result = await handler.Handle(
+            new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd.AddDays(7)), CancellationToken.None);
+
+        Assert.True(Assert.Single(result.Value!, o => o.EntryId == self.Id).ConflictsWithLesson);
+    }
+
     private sealed class FakeCompletionReader : IStudyPlanCompletionReader
     {
         private readonly PlanCompletion[] _completions;
@@ -74,6 +129,7 @@ public sealed class StudentCalendarQueryTests
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();

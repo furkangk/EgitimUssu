@@ -89,7 +89,8 @@ public sealed record LessonScheduleResponse(
     DateTime UpdatedOnUtc,
     DateTime? OriginalStartAtUtc,
     string? CancellationReason,
-    bool IsChargeable);
+    bool IsChargeable,
+    DateTime OccurrenceStartAtUtc);
 
 public interface ILessonScheduleRepository
 {
@@ -106,6 +107,13 @@ public interface ILessonScheduleRepository
     /// Tekrar kuralları uygulama katmanında genişletildiği için alt sınır uygulanmaz.
     /// </summary>
     Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Öğretmenin iptal edilmemiş dersleri; başlangıcı <paramref name="untilUtc"/>'ye kadar olanlar.
+    /// (M04-1) Tekrar kuralları uygulama katmanında genişletildiği için alt sınır uygulanmaz —
+    /// aylar önce başlamış haftalık bir seri de bu listeye girer.
+    /// </summary>
+    Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken);
 
     Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken);
 
@@ -453,13 +461,40 @@ public sealed class ListLessonSchedulesForTeacherQueryHandler : IQueryHandler<Li
 
     public async Task<Result<IReadOnlyCollection<LessonScheduleResponse>>> Handle(ListLessonSchedulesForTeacherQuery query, CancellationToken cancellationToken)
     {
-        var lessons = await _repository.ListForTeacherAsync(query.TeacherUserId, query.StartAtUtc, query.EndAtUtc, cancellationToken);
-        var payload = lessons
-            .OrderBy(lesson => lesson.StartAtUtc)
-            .Select(lesson => lesson.ToResponse())
-            .ToArray();
+        // M04-1: Takvim artık serileri değil somut oluşumları döner. Seri tek satır olarak gelir,
+        // occurrence istisnaları (iptal/atlama/erteleme) burada uygulanır.
+        var lessons = await _repository.ListActiveForTeacherUntilAsync(query.TeacherUserId, query.EndAtUtc, cancellationToken);
+        var exceptions = await _repository.ListExceptionsForTeacherAsync(query.TeacherUserId, cancellationToken);
+        var exceptionsByLesson = exceptions
+            .GroupBy(x => x.SeriesLessonScheduleId)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyCollection<OccurrenceOverride>)group
+                    .Select(x => new OccurrenceOverride(x.OriginalStartAtUtc, x.Action, x.OverrideStartAtUtc, x.OverrideEndAtUtc))
+                    .ToArray());
 
-        return Result<IReadOnlyCollection<LessonScheduleResponse>>.Success(payload);
+        var payload = new List<LessonScheduleResponse>();
+        foreach (var lesson in lessons)
+        {
+            var lessonExceptions = exceptionsByLesson.TryGetValue(lesson.Id, out var found)
+                ? found
+                : Array.Empty<OccurrenceOverride>();
+
+            foreach (var occurrence in RecurrenceExpander.Expand(
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, query.StartAtUtc, query.EndAtUtc, lessonExceptions))
+            {
+                // İptal edilen tek oluşum takvimde gösterilmez (öğrenci takvimiyle aynı kural).
+                if (occurrence.IsCancelled)
+                {
+                    continue;
+                }
+
+                payload.Add(lesson.ToResponse(occurrence));
+            }
+        }
+
+        return Result<IReadOnlyCollection<LessonScheduleResponse>>.Success(
+            payload.OrderBy(item => item.StartAtUtc).ToArray());
     }
 }
 
@@ -486,7 +521,11 @@ public sealed class ListLessonSchedulesForStudentQueryHandler : IQueryHandler<Li
 
 internal static class LessonScheduleMappings
 {
-    public static LessonScheduleResponse ToResponse(this LessonSchedule lesson)
+    /// <summary>
+    /// <paramref name="occurrence"/> verildiğinde yanıt somut oluşumun saatlerini taşır;
+    /// <c>OccurrenceStartAtUtc</c> ise istisna uçlarının (tek oluşum iptal/erteleme) hedef anahtarıdır.
+    /// </summary>
+    public static LessonScheduleResponse ToResponse(this LessonSchedule lesson, ScheduleOccurrence? occurrence = null)
     {
         return new LessonScheduleResponse(
             lesson.Id,
@@ -495,8 +534,8 @@ internal static class LessonScheduleMappings
             lesson.Subject,
             // Ç-06: self-lesson'da LessonFormat null; Nullable<T>.ToString() zaten "" döner — davranış aynı, uyarı susturuluyor.
             lesson.LessonFormat?.ToString() ?? string.Empty,
-            lesson.StartAtUtc,
-            lesson.EndAtUtc,
+            occurrence?.StartAtUtc ?? lesson.StartAtUtc,
+            occurrence?.EndAtUtc ?? lesson.EndAtUtc,
             lesson.TimeZone,
             lesson.RecurrenceRule,
             lesson.Status.ToString(),
@@ -508,6 +547,7 @@ internal static class LessonScheduleMappings
             lesson.UpdatedOnUtc,
             lesson.OriginalStartAtUtc,
             lesson.CancellationReason?.ToString(),
-            lesson.IsChargeable);
+            lesson.IsChargeable,
+            occurrence?.RecurrenceIdUtc ?? lesson.StartAtUtc);
     }
 }

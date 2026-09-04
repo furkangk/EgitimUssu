@@ -146,7 +146,18 @@ public sealed class TeacherWorkflowIntegrationTests
         var teacherLessonsResponse = await client.GetAsync($"/api/scheduling/teachers/{teacherUserId}/lessons?startAtUtc={Uri.EscapeDataString(startAtUtc.AddDays(-1).ToString("O"))}&endAtUtc={Uri.EscapeDataString(endAtUtc.AddDays(7).ToString("O"))}");
         teacherLessonsResponse.EnsureSuccessStatusCode();
         var teacherLessonsPayload = await ReadJsonAsync(teacherLessonsResponse);
-        Assert.Single(teacherLessonsPayload.EnumerateArray());
+        // M04-1: Liste artık seriyi değil somut oluşumları döner. Haftalık ders (COUNT=4) 8 günlük
+        // pencerede 2 kez görünür; her satır aynı seri kimliğini ama kendi saatini taşır.
+        var teacherOccurrences = teacherLessonsPayload.EnumerateArray().ToArray();
+        Assert.Equal(2, teacherOccurrences.Length);
+        Assert.All(teacherOccurrences, item => Assert.Equal(lessonId, item.GetProperty("id").GetGuid()));
+        Assert.Equal(
+            teacherOccurrences[0].GetProperty("startAtUtc").GetDateTime().AddDays(7),
+            teacherOccurrences[1].GetProperty("startAtUtc").GetDateTime());
+        // Tek oluşum iptal/erteleme uçlarının hedef anahtarı yanıtta taşınır.
+        Assert.All(teacherOccurrences, item => Assert.Equal(
+            item.GetProperty("startAtUtc").GetDateTime(),
+            item.GetProperty("occurrenceStartAtUtc").GetDateTime()));
 
         var conflictResponse = await client.PostAsJsonAsync("/api/scheduling/lessons", new
         {

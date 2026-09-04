@@ -66,6 +66,7 @@ class CalendarOccurrenceModel extends CalendarOccurrence {
     super.recurrenceRule,
     super.notes,
     super.completed,
+    super.conflictsWithLesson,
   });
 
   factory CalendarOccurrenceModel.fromJson(Map<String, dynamic> json) {
@@ -83,6 +84,7 @@ class CalendarOccurrenceModel extends CalendarOccurrence {
       notes: json['notes']?.toString(),
       isEditable: json['isEditable'] as bool? ?? false,
       completed: json['completed'] as bool? ?? false,
+      conflictsWithLesson: json['conflictsWithLesson'] as bool? ?? false,
     );
   }
 }

@@ -52,6 +52,35 @@ public sealed class RecurrenceExpanderTests
     }
 
     [Fact]
+    public void Count_LimitsSeriesLength_EvenWhenRangeIsWider()
+    {
+        // Haftalık 4 ders: 6, 13, 20, 27 Temmuz. Pencere 60 gün olsa da 5.'si üretilmemeli.
+        const string rule = "FREQ=WEEKLY;COUNT=4";
+
+        var result = RecurrenceExpander
+            .Expand(Monday, MondayEnd, rule, Monday, Monday.AddDays(60))
+            .ToArray();
+
+        Assert.Equal(4, result.Length);
+        Assert.Equal(Monday.AddDays(21), result[^1].StartAtUtc);
+    }
+
+    [Fact]
+    public void Count_IsMeasuredFromSeriesStart_NotFromWindowStart()
+    {
+        // Pencere 2. haftada açılsa bile seri 4 oluşumda biter → görünen 3 oluşum kalır.
+        const string rule = "FREQ=WEEKLY;COUNT=4";
+
+        var result = RecurrenceExpander
+            .Expand(Monday, MondayEnd, rule, Monday.AddDays(7), Monday.AddDays(60))
+            .ToArray();
+
+        Assert.Equal(3, result.Length);
+        Assert.Equal(Monday.AddDays(7), result[0].StartAtUtc);
+        Assert.Equal(Monday.AddDays(21), result[^1].StartAtUtc);
+    }
+
+    [Fact]
     public void Daily_ExpandsEveryDayWithinRange()
     {
         const string rule = "FREQ=DAILY;UNTIL=20260710T235900Z";

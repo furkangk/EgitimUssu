@@ -741,7 +741,10 @@ class _LessonListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isOwn = isOwnLesson(_occurrenceTeacherId(occ));
-    final Color color = occ.isTeacher
+    // M04-2/M08-1: Özel dersle çakışan bireysel plan uyarı rengiyle vurgulanır.
+    final Color color = occ.conflictsWithLesson
+        ? AppColors.warning
+        : occ.isTeacher
         ? AppColors.primary
         : SchedulingFormat.colorFromHex(occ.colorHex);
     final String title = occ.topic == null || occ.topic!.isEmpty
@@ -818,6 +821,14 @@ class _LessonListTile extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (occ.conflictsWithLesson) ...<Widget>[
+                      const SizedBox(height: 6),
+                      const _StatusBadge(
+                        icon: Icons.warning_amber_rounded,
+                        label: 'Bu saatte özel dersin var',
+                        color: AppColors.warning,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1009,7 +1020,10 @@ class _DayEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool teacher = occ.isTeacher;
-    final Color color = teacher
+    // M04-2/M08-1: Özel dersle çakışan bireysel plan uyarı rengiyle vurgulanır.
+    final Color color = occ.conflictsWithLesson
+        ? AppColors.warning
+        : teacher
         ? AppColors.primary
         : SchedulingFormat.colorFromHex(occ.colorHex);
     final String title = occ.topic == null || occ.topic!.isEmpty
@@ -1052,6 +1066,14 @@ class _DayEventTile extends StatelessWidget {
                   ..._buildStatusBadge(),
                 ],
               ),
+              if (occ.conflictsWithLesson) ...<Widget>[
+                const SizedBox(height: 5),
+                const _StatusBadge(
+                  icon: Icons.warning_amber_rounded,
+                  label: 'Bu saatte özel dersin var',
+                  color: AppColors.warning,
+                ),
+              ],
               const SizedBox(height: 5),
               Text(
                 title,

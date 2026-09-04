@@ -277,23 +277,29 @@ git commit -m "feat(payments): gecikme taramasi + ders tamamlaninca ucret kaydi 
 ### Task 6: Takvimde tekrar açılımı ve çakışma uyarısı (M04-1, M04-2/M08-1)
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (`GetTeacherLessonsQuery` handler)
-- Modify: `src/Modules/Scheduling/Application/StudentCalendarFeatures.cs` (çakışma bayrağı)
-- Test: `tests/Unit/RecurrenceExpanderTests.cs` (ekleme), `tests/Unit/StudentCalendarQueryTests.cs` (ekleme)
-- Modify: `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart`
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (`ListLessonSchedulesForTeacherQuery` handler + DTO + repo arayüzü)
+- Modify: `src/Modules/Scheduling/Application/StudentCalendarQuery.cs` (çakışma bayrağı) — *plandaki `StudentCalendarFeatures.cs` adı yanlıştı*
+- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (**plan dışı, gerekli:** `ScheduleOccurrence.OriginalStartAtUtc`/`RecurrenceIdUtc` + **COUNT** desteği)
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (**plan dışı, gerekli:** `ListActiveForTeacherUntilAsync`)
+- Test: `tests/Unit/TeacherLessonExpansionTests.cs` (**yeni** — plan bu testleri `RecurrenceExpanderTests`'e koyuyordu, ama bunlar handler testi), `tests/Unit/RecurrenceExpanderTests.cs` (COUNT), `tests/Unit/StudentCalendarQueryTests.cs` (çakışma)
+- Modify: `tests/Unit/{LessonScheduleTests,SelfLessonPolicyTests}.cs` + `tests/Integration/TeacherWorkflowIntegrationTests.cs` (**plan dışı, gerekli:** repo arayüzü büyüdü / yanıt sözleşmesi değişti — Öğrenilenler #46)
+- Modify: `mobile/lib/features/scheduling/{domain/scheduling_contracts.dart,data/models/study_schedule_models.dart}` + `mobile/test/features/scheduling/data/calendar_occurrence_model_test.dart`
 - Modify: `mobile/lib/features/study/presentation/pages/student_calendar_page.dart`
+- *`scheduling_page.dart` **değişmedi**: açılım tamamen backend'de yapıldığı ve yanıt `startAtUtc`'yi occurrence saatiyle doldurduğu için öğretmen takvimi kod değişikliği olmadan tekrarları gösterir.*
 
 **Interfaces:**
-- `GET /api/scheduling/teachers/{teacherUserId}/lessons` yanıtı artık **açılmış occurrence'lar** döner (aynı DTO, `occurrenceStartAtUtc` alanı eklenir); `LessonOccurrenceException` istisnaları uygulanır.
-- Öğrenci takvim yanıtındaki bireysel plan öğelerine `bool ConflictsWithLesson` alanı eklenir.
+- `GET /api/scheduling/teachers/{teacherUserId}/lessons` yanıtı artık **açılmış occurrence'lar** döner; `LessonOccurrenceException` istisnaları uygulanır, iptal edilen seri/oluşum listelenmez.
+  > **Uygulama kararı:** `StartAtUtc`/`EndAtUtc` **somut oluşumu** taşır (mobil kod değişmeden doğru saati gösterir), yeni `OccurrenceStartAtUtc` alanı ise iCal RECURRENCE-ID'dir — ertelenmiş oluşumda **orijinal** saati taşır, çünkü tek-oluşum iptal/erteleme uçları istisnayı bu anahtarla yazar.
+- Öğrenci takvim yanıtındaki bireysel plan öğelerine `bool ConflictsWithLesson` alanı eklenir (yalnız `Self` kaynaklı occurrence'larda hesaplanır).
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — haftalık tekrar eden ders 4 haftalık aralıkta 4 occurrence döner; iptal edilen occurrence çıkmaz; bireysel plan özel dersle çakışıyorsa `ConflictsWithLesson = true`.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~RecurrenceExpanderTests|FullyQualifiedName~StudentCalendarQueryTests"`
-- [ ] **Step 3: Öğretmen sorgusuna `RecurrenceExpander`'ı uygula** (öğrenci birleşik takviminde kullanılan kodun aynısı; kopyalama değil, ortak yardımcıyı çağır).
-- [ ] **Step 4: Çakışma bayrağını hesapla ve yanıta ekle.**
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Mobil** — Öğretmen takviminde tekrar eden dersler görünür; öğrenci takviminde çakışan bireysel plan kartı uyarı rengiyle ve "Bu saatte özel dersin var" etiketiyle gösterilir.
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — haftalık tekrar eden ders 4 occurrence döner; iptal edilen occurrence çıkmaz; ertelenen occurrence orijinal anahtarı korur; `UNTIL` ile kısaltılmış seri durur; bireysel plan özel dersle çakışıyorsa `ConflictsWithLesson = true` (tekrarlı öğretmen dersinin ikinci haftasıyla çakışma dahil).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj` → derleme hatası (yeni alanlar yok).
+- [x] **Step 3: Öğretmen sorgusuna `RecurrenceExpander`'ı uygula** — ortak yardımcı çağrıldı; istisnalar tek sorguda (`ListExceptionsForTeacherAsync`) yüklenip seriye göre gruplanır (öğrenci tarafındaki N+1 deseni tekrarlanmadı).
+- [x] **Step 4: Çakışma bayrağını hesapla ve yanıta ekle.**
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+  > **Plandan sapma (gerekçeli):** Bu adımda `TeacherWorkflowIntegrationTests` kırıldı ve **`RecurrenceExpander`'ın `COUNT` kuralını yok saydığını** ortaya çıkardı (`FREQ=WEEKLY;COUNT=4` sonsuza kadar açılıyordu). Açılım artık öğretmen takvimini beslediği için bu üretimde görünür bir hata olurdu; 2 birim testiyle kapatıldı. Integration iddiası yeni sözleşmeye göre güncellendi (1 satır → 2 occurrence + anahtar kontrolü).
+- [x] **Step 6: Mobil** — `CalendarOccurrence.conflictsWithLesson` + JSON eşlemesi + 2 test; öğrenci takviminde çakışan kart `AppColors.warning` rengine döner ve "Bu saatte özel dersin var" rozetini gösterir (takvim günü + liste modu). Öğretmen takviminde kod değişikliği gerekmedi (yukarıya bkz.).
+- [x] **Step 7: Doküman + commit**
 
 `doc/modules/m04_scheduling.md` (iki açık madde `- [x]`), `doc/modules/m08_study.md` (çakışma maddesi), `doc/pages/scheduling.md`, `doc/pages/study_student.md`.
 ```bash

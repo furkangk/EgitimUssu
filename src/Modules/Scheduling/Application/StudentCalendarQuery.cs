@@ -15,7 +15,11 @@ public sealed record GetStudentCalendarQuery(
     DateTime StartAtUtc,
     DateTime EndAtUtc) : IQuery<Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>>;
 
-/// <summary>Takvimde gösterilen tek bir somut oluşum. <c>Source</c>: "Teacher" (salt-okunur) veya "Self".</summary>
+/// <summary>
+/// Takvimde gösterilen tek bir somut oluşum. <c>Source</c>: "Teacher" (salt-okunur) veya "Self".
+/// <c>ConflictsWithLesson</c> (M04-2/M08-1) yalnız bireysel plan (Self) öğelerinde anlamlıdır:
+/// öğrencinin kendi planı bir özel dersle aynı saate denk geliyorsa <c>true</c> olur.
+/// </summary>
 public sealed record StudentCalendarOccurrenceResponse(
     Guid EntryId,
     string Source,
@@ -29,7 +33,8 @@ public sealed record StudentCalendarOccurrenceResponse(
     string? RecurrenceRule,
     string? Notes,
     bool IsEditable,
-    bool Completed);
+    bool Completed,
+    bool ConflictsWithLesson);
 
 public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCalendarQuery, Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>>
 {
@@ -60,6 +65,10 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
             cancellationToken);
         var completedSet = completions.Select(c => (c.LessonId, c.Date)).ToHashSet();
 
+        // M04-2/M08-1: Bireysel plan ile özel ders çakışması. Kendi planını oluştururken çakışma
+        // reddedilir (409), ama öğretmen sonradan ders açabilir/erteleyebilir — o durumda kart uyarılır.
+        var teacherOccurrences = new List<(DateTime StartAtUtc, DateTime EndAtUtc)>();
+
         foreach (var lesson in lessons)
         {
             var isSelf = lesson.TeacherUserId is null;
@@ -76,6 +85,11 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                     continue;
                 }
 
+                if (!isSelf)
+                {
+                    teacherOccurrences.Add((occurrence.StartAtUtc, occurrence.EndAtUtc));
+                }
+
                 occurrences.Add(new StudentCalendarOccurrenceResponse(
                     lesson.Id,
                     isSelf ? "Self" : "Teacher",
@@ -89,14 +103,24 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                     lesson.RecurrenceRule,
                     lesson.Notes,
                     IsEditable: isSelf,
-                    Completed: completedSet.Contains((lesson.Id, DateOnly.FromDateTime(occurrence.StartAtUtc)))));
+                    Completed: completedSet.Contains((lesson.Id, DateOnly.FromDateTime(occurrence.StartAtUtc))),
+                    ConflictsWithLesson: false));
             }
         }
 
         var payload = occurrences
+            .Select(occurrence => occurrence.Source == "Self" && OverlapsAnyLesson(occurrence, teacherOccurrences)
+                ? occurrence with { ConflictsWithLesson = true }
+                : occurrence)
             .OrderBy(occurrence => occurrence.StartAtUtc)
             .ToArray();
 
         return Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>.Success(payload);
     }
+
+    private static bool OverlapsAnyLesson(
+        StudentCalendarOccurrenceResponse candidate,
+        IReadOnlyCollection<(DateTime StartAtUtc, DateTime EndAtUtc)> teacherOccurrences)
+        => teacherOccurrences.Any(lesson =>
+            candidate.StartAtUtc < lesson.EndAtUtc && candidate.EndAtUtc > lesson.StartAtUtc);
 }

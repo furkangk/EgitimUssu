@@ -3,8 +3,20 @@ using EgitimUssu.Modules.Scheduling.Domain;
 
 namespace EgitimUssu.Modules.Scheduling.Application;
 
-/// <summary>Tekrar kuralından üretilmiş somut bir ders oluşumu (occurrence).</summary>
-public readonly record struct ScheduleOccurrence(DateTime StartAtUtc, DateTime EndAtUtc, bool IsCancelled = false);
+/// <summary>
+/// Tekrar kuralından üretilmiş somut bir ders oluşumu (occurrence).
+/// <see cref="OriginalStartAtUtc"/> yalnızca ertelenmiş (Rescheduled) oluşumlarda doludur; istisna
+/// kayıtlarının anahtarı için <see cref="RecurrenceIdUtc"/> kullanılır.
+/// </summary>
+public readonly record struct ScheduleOccurrence(
+    DateTime StartAtUtc,
+    DateTime EndAtUtc,
+    bool IsCancelled = false,
+    DateTime? OriginalStartAtUtc = null)
+{
+    /// <summary>iCal RECURRENCE-ID: bu oluşumu hedefleyen istisna kaydının anahtarı.</summary>
+    public DateTime RecurrenceIdUtc => OriginalStartAtUtc ?? StartAtUtc;
+}
 
 /// <summary>
 /// Tekrar serisindeki tek bir oluşuma uygulanan istisna (iCal RECURRENCE-ID/EXDATE deseni).
@@ -17,7 +29,7 @@ public readonly record struct OccurrenceOverride(
     DateTime? OverrideEndAtUtc);
 
 /// <summary>
-/// iCal benzeri <c>RecurrenceRule</c> (FREQ=DAILY/WEEKLY/MONTHLY, BYDAY, UNTIL) + ilk oluşumu alıp,
+/// iCal benzeri <c>RecurrenceRule</c> (FREQ=DAILY/WEEKLY/MONTHLY, BYDAY, UNTIL, COUNT) + ilk oluşumu alıp,
 /// verilen [rangeStart, rangeEnd] penceresine düşen somut oluşumları üretir. Kural boşsa tek oluşum döner.
 ///
 /// Not: Zaman aritmetiği UTC instant üzerinden yapılır. Türkiye (Europe/Istanbul) DST uygulamadığı için
@@ -54,6 +66,10 @@ public static class RecurrenceExpander
         var rule = ParseRule(recurrenceRule);
         var hardEnd = rule.Until.HasValue && rule.Until.Value < rangeEndUtc ? rule.Until.Value : rangeEndUtc;
 
+        // COUNT seri başlangıcından itibaren sayılır; pencerenin dışında kalan oluşumlar da sayıya dahildir.
+        // Bu yüzden hardEnd'e kadar ilerlerken üretilen oluşum sayısı ayrıca izlenir.
+        var produced = 0;
+
         switch (rule.Frequency)
         {
             case RecurrenceFrequency.Daily:
@@ -62,6 +78,12 @@ public static class RecurrenceExpander
                 var guard = 0;
                 while (cursor <= hardEnd && guard++ < MaxDayIterations)
                 {
+                    if (rule.Count.HasValue && produced >= rule.Count.Value)
+                    {
+                        break;
+                    }
+
+                    produced++;
                     if (cursor >= rangeStartUtc)
                     {
                         yield return new ScheduleOccurrence(cursor, cursor + duration);
@@ -82,9 +104,18 @@ public static class RecurrenceExpander
                 var guard = 0;
                 while (cursor <= hardEnd && guard++ < MaxDayIterations)
                 {
-                    if (cursor >= rangeStartUtc && days.Contains(cursor.DayOfWeek))
+                    if (days.Contains(cursor.DayOfWeek))
                     {
-                        yield return new ScheduleOccurrence(cursor, cursor + duration);
+                        if (rule.Count.HasValue && produced >= rule.Count.Value)
+                        {
+                            break;
+                        }
+
+                        produced++;
+                        if (cursor >= rangeStartUtc)
+                        {
+                            yield return new ScheduleOccurrence(cursor, cursor + duration);
+                        }
                     }
 
                     cursor = cursor.AddDays(1);
@@ -99,6 +130,12 @@ public static class RecurrenceExpander
                 var guard = 0;
                 while (cursor <= hardEnd && guard++ < MaxMonthIterations)
                 {
+                    if (rule.Count.HasValue && produced >= rule.Count.Value)
+                    {
+                        break;
+                    }
+
+                    produced++;
                     if (cursor >= rangeStartUtc)
                     {
                         yield return new ScheduleOccurrence(cursor, cursor + duration);
@@ -146,7 +183,7 @@ public static class RecurrenceExpander
                     var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
                     if (start <= rangeEndUtc && end >= rangeStartUtc)
                     {
-                        yield return new ScheduleOccurrence(start, end);
+                        yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc);
                     }
 
                     break;
@@ -159,6 +196,7 @@ public static class RecurrenceExpander
         var frequency = RecurrenceFrequency.Weekly;
         var byDay = new HashSet<DayOfWeek>();
         DateTime? until = null;
+        int? count = null;
 
         foreach (var part in rule.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -197,10 +235,18 @@ public static class RecurrenceExpander
                 case "UNTIL":
                     until = ParseUntil(value);
                     break;
+
+                case "COUNT":
+                    if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedCount) && parsedCount > 0)
+                    {
+                        count = parsedCount;
+                    }
+
+                    break;
             }
         }
 
-        return new ParsedRule(frequency, byDay, until);
+        return new ParsedRule(frequency, byDay, until, count);
     }
 
     private static DayOfWeek? MapDay(string token) => token.ToUpperInvariant() switch
@@ -241,5 +287,5 @@ public static class RecurrenceExpander
         Monthly
     }
 
-    private sealed record ParsedRule(RecurrenceFrequency Frequency, HashSet<DayOfWeek> ByDay, DateTime? Until);
+    private sealed record ParsedRule(RecurrenceFrequency Frequency, HashSet<DayOfWeek> ByDay, DateTime? Until, int? Count);
 }

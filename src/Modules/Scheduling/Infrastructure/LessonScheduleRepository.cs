@@ -58,6 +58,17 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken)
+    {
+        // M04-1: Alt sınır yok — tekrar kuralı uygulama katmanında genişletildiği için pencereden
+        // önce başlamış seriler de gerekir. İptal edilen seriler takvimde gösterilmez.
+        return await _dbContext.LessonSchedules
+            .Where(lesson => lesson.TeacherUserId == teacherUserId
+                && lesson.Status != LessonScheduleStatus.Cancelled
+                && lesson.StartAtUtc <= untilUtc)
+            .ToArrayAsync(cancellationToken);
+    }
+
     public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken)
     {
         return _dbContext.LessonSchedules.AddAsync(lessonSchedule, cancellationToken).AsTask();
