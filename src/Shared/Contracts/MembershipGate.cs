@@ -1,8 +1,10 @@
-using EgitimUssu.Shared.Contracts;
+namespace EgitimUssu.Shared.Contracts;
 
-namespace EgitimUssu.Modules.Study.Application;
-
-/// <summary>Premium'a özel (derinlik) öğrenci özellikleri (Ö-D §14.3).</summary>
+/// <summary>
+/// Premium'a özel (derinlik) özellikler (Ö-D §14.3). Başlangıçta yalnız Study modülünün öğrenci
+/// kapılarıydı; M14-4 (PDF rapor) ile Reporting de aynı kapıyı kullandığı için <c>Shared.Contracts</c>'a
+/// taşındı. <b>Geçici</b>: P09'da <c>IEntitlementDirectory</c> gelince bu tip tek satırda değiştirilir.
+/// </summary>
 public enum PremiumFeature
 {
     /// <summary>Aylık çalışma/deneme analizi.</summary>
@@ -22,7 +24,7 @@ public enum PremiumFeature
 }
 
 /// <summary>
-/// Öğrenci Free/Premium kapı mantığı — saf, birim testli. Free = çekirdek alışkanlık
+/// Free/Premium kapı mantığı — saf, birim testli. Free = çekirdek alışkanlık
 /// (kronometre, test, streak tam, son 30 gün geçmiş, temel haftalık analiz);
 /// Premium = derinlik (sınırsız geçmiş + tüm <see cref="PremiumFeature"/> özellikleri).
 /// </summary>

@@ -99,18 +99,21 @@ public sealed class TeacherScopedReportAuthorizer<TQuery> : IQueryAuthorizer<TQu
 }
 
 /// <summary>
-/// M14: Öğrenci-kapsamlı raporu öğrencinin kendisi, <b>bağlı</b> öğretmeni, <b>onaylı</b> velisi veya Admin okur.
+/// M14: "Bu kullanıcı bu öğrencinin raporunu görebilir mi?" sorusunun tek cevabı — öğrencinin kendisi,
+/// <b>bağlı</b> öğretmeni, <b>onaylı</b> velisi ya da Admin. Sorgu, komut ve dosya indirme uçları aynı
+/// kuralı kullanır; üç ayrı kopya yerine tek sınıf.
+/// <para>
 /// Bağ doğrulaması modül sınırını korur: <see cref="IStudentDirectory"/> ve <see cref="IParentAccessDirectory"/>
 /// sözleşmeleri kullanılır, Reporting başka bir modülün DbContext'ine bakmaz.
+/// </para>
 /// </summary>
-public sealed class StudentScopedReportAuthorizer<TQuery> : IQueryAuthorizer<TQuery>
-    where TQuery : IStudentScopedReportRequest
+public sealed class StudentReportAccessChecker
 {
     private readonly ICurrentUser _currentUser;
     private readonly IStudentDirectory _students;
     private readonly IParentAccessDirectory _parents;
 
-    public StudentScopedReportAuthorizer(
+    public StudentReportAccessChecker(
         ICurrentUser currentUser, IStudentDirectory students, IParentAccessDirectory parents)
     {
         _currentUser = currentUser;
@@ -118,7 +121,7 @@ public sealed class StudentScopedReportAuthorizer<TQuery> : IQueryAuthorizer<TQu
         _parents = parents;
     }
 
-    public async Task<Result> Authorize(TQuery query, CancellationToken cancellationToken)
+    public async Task<Result> CheckAsync(Guid studentId, CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated)
         {
@@ -135,19 +138,71 @@ public sealed class StudentScopedReportAuthorizer<TQuery> : IQueryAuthorizer<TQu
             return Result.Failure(ReportingErrors.Forbidden);
         }
 
-        var ownerUserId = await _students.GetOwnerUserIdAsync(query.StudentId, cancellationToken);
+        var ownerUserId = await _students.GetOwnerUserIdAsync(studentId, cancellationToken);
         if (ownerUserId == userId)
         {
             return Result.Success();
         }
 
-        if (await _students.IsLinkedTeacherOfStudentAsync(userId, query.StudentId, cancellationToken))
+        if (await _students.IsLinkedTeacherOfStudentAsync(userId, studentId, cancellationToken))
         {
             return Result.Success();
         }
 
-        return await _parents.IsApprovedParentOfStudentAsync(userId, query.StudentId, cancellationToken)
+        return await _parents.IsApprovedParentOfStudentAsync(userId, studentId, cancellationToken)
             ? Result.Success()
             : Result.Failure(ReportingErrors.Forbidden);
+    }
+}
+
+/// <summary>M14: Öğrenci-kapsamlı <b>sorgu</b> yetkisi (kural <see cref="StudentReportAccessChecker"/>'da).</summary>
+public sealed class StudentScopedReportAuthorizer<TQuery> : IQueryAuthorizer<TQuery>
+    where TQuery : IStudentScopedReportRequest
+{
+    private readonly StudentReportAccessChecker _access;
+
+    public StudentScopedReportAuthorizer(StudentReportAccessChecker access) => _access = access;
+
+    public Task<Result> Authorize(TQuery query, CancellationToken cancellationToken)
+        => _access.CheckAsync(query.StudentId, cancellationToken);
+}
+
+/// <summary>M14-4: Öğrenci-kapsamlı <b>komut</b> yetkisi (rapor üretimi) — sorguyla aynı kural.</summary>
+public sealed class StudentScopedReportCommandAuthorizer<TCommand> : ICommandAuthorizer<TCommand>
+    where TCommand : IStudentScopedReportRequest
+{
+    private readonly StudentReportAccessChecker _access;
+
+    public StudentScopedReportCommandAuthorizer(StudentReportAccessChecker access) => _access = access;
+
+    public Task<Result> Authorize(TCommand command, CancellationToken cancellationToken)
+        => _access.CheckAsync(command.StudentId, cancellationToken);
+}
+
+/// <summary>
+/// M14-4: PDF indirme yetkisi. Rota yalnız <c>reportId</c> taşır; raporun hangi öğrenciye ait olduğu
+/// ancak kayıttan bilinir — yetkilendirici bu yüzden kaydı okur (bulunamazsa 404 hatası döner ki
+/// var olmayan bir rapor "yetkisiz" gibi görünmesin).
+/// </summary>
+public sealed class StudentReportFileAuthorizer : IQueryAuthorizer<GetStudentReportFileQuery>
+{
+    private readonly IStudentReportRepository _repository;
+    private readonly StudentReportAccessChecker _access;
+
+    public StudentReportFileAuthorizer(IStudentReportRepository repository, StudentReportAccessChecker access)
+    {
+        _repository = repository;
+        _access = access;
+    }
+
+    public async Task<Result> Authorize(GetStudentReportFileQuery query, CancellationToken cancellationToken)
+    {
+        var report = await _repository.GetByIdAsync(query.ReportId, cancellationToken);
+        if (report is null)
+        {
+            return Result.Failure(ReportingErrors.ReportNotFound);
+        }
+
+        return await _access.CheckAsync(report.StudentId, cancellationToken);
     }
 }

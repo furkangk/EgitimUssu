@@ -53,4 +53,14 @@ internal sealed class StudentDirectory : IStudentDirectory
                         || link.Status == TeacherStudentLinkStatus.Linked),
                 cancellationToken);
     }
+
+    public async Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken)
+    {
+        // M14-4: Rapor başlığı için ad. Profil yoksa null döner; Reporting yer tutucu yazar.
+        return await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .Where(profile => profile.Id == studentId)
+            .Select(profile => profile.FullName)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

@@ -81,6 +81,19 @@ public interface IReportingProjectionReader
 
     Task<IReadOnlyList<StudentPerformanceProjection>> ListStudentPerformanceAsync(
         Guid studentId, string? subject, (int Year, int Month)? from, (int Year, int Month)? to, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// M14-4: Öğrencinin verilen ay aralığında tamamlanan ders sayısı. Ders sayacı öğretmen aylık
+    /// projeksiyonunun satırlarında durur (her tamamlanan ders bir <c>CompletedLesson</c> satırıdır);
+    /// öğrenci burada <b>tüm öğretmenleri</b> üzerinden sayılır.
+    /// </summary>
+    /// <param name="studentId">Öğrenci profili kimliği.</param>
+    /// <param name="from">Başlangıç ayı (dahil).</param>
+    /// <param name="to">Bitiş ayı (dahil).</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Tamamlanan ders sayısı.</returns>
+    Task<int> CountStudentCompletedLessonsAsync(
+        Guid studentId, (int Year, int Month) from, (int Year, int Month) to, CancellationToken cancellationToken);
 }
 
 internal static class ReportingErrors
@@ -89,6 +102,16 @@ internal static class ReportingErrors
 
     public static readonly Error InvalidRange = new(
         "reporting.invalid_range", "Rapor aralığı geçersiz (bitiş, başlangıçtan sonra olmalı).");
+
+    /// <summary>M14-4: Premium kapısı. P09'da <c>IEntitlementDirectory</c> ile aynı kod korunarak değişir.</summary>
+    public static readonly Error PremiumRequired = new(
+        "reporting.premium_required", "PDF rapor Premium üyelik gerektirir.");
+
+    public static readonly Error ReportNotShared = new(
+        "reporting.report_not_shared", "Öğrenci çalışma verisini paylaşmadığı için rapor üretilemez.");
+
+    public static readonly Error ReportNotFound = new(
+        "reporting.report_not_found", "Rapor bulunamadı.");
 }
 
 // ---- M14-1: öğretmen aylık ----

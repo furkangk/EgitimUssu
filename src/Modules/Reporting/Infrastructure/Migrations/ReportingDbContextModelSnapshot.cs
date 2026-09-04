@@ -80,6 +80,51 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
                     b.ToTable("student_performance_projections", "reporting");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "CreatedOnUtc");
+
+                    b.ToTable("student_reports", "reporting");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Reporting.Domain.StudentStudyItem", b =>
                 {
                     b.Property<Guid>("StudentId")

@@ -78,4 +78,18 @@ internal sealed class ReportingProjectionReader : IReportingProjectionReader
 
         return await query.ToArrayAsync(cancellationToken);
     }
+
+    public Task<int> CountStudentCompletedLessonsAsync(
+        Guid studentId, (int Year, int Month) from, (int Year, int Month) to, CancellationToken cancellationToken)
+    {
+        // Ders sayacı öğretmen aylık projeksiyonunun **satırlarındadır** (P07 Task 2 deseni: sayaç değil
+        // küme). Öğrenci için sayarken bu yüzden item tablosu doğrudan sorgulanır; öğretmen kırılımı
+        // olmadığı için birden fazla öğretmenle çalışan öğrencinin dersleri toplanır.
+        return _dbContext.Set<TeacherMonthlyItem>()
+            .AsNoTracking()
+            .Where(item => item.StudentId == studentId && item.Kind == TeacherMonthlyItemKind.CompletedLesson)
+            .Where(item => item.Year > from.Year || (item.Year == from.Year && item.Month >= from.Month))
+            .Where(item => item.Year < to.Year || (item.Year == to.Year && item.Month <= to.Month))
+            .CountAsync(cancellationToken);
+    }
 }

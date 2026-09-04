@@ -22,6 +22,7 @@ public static class DependencyInjection
         // M14-1/2/3/5: analitik uçlar
         services.AddScoped<IReportingProjectionReader, ReportingProjectionReader>();
         services.AddScoped<StudentReportPrivacyGate>();
+        services.AddScoped<StudentReportAccessChecker>();
 
         services.AddScoped<IQueryHandler<GetTeacherMonthlyReportQuery, Result<TeacherMonthlyReportResponse>>, GetTeacherMonthlyReportQueryHandler>();
         services.AddScoped<IQueryHandler<GetTeacherFreeSlotsQuery, Result<IReadOnlyCollection<FreeSlotResponse>>>, GetTeacherFreeSlotsQueryHandler>();
@@ -32,6 +33,16 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetTeacherFreeSlotsQuery>, TeacherScopedReportAuthorizer<GetTeacherFreeSlotsQuery>>();
         services.AddScoped<IQueryAuthorizer<GetStudentStudyAnalysisQuery>, StudentScopedReportAuthorizer<GetStudentStudyAnalysisQuery>>();
         services.AddScoped<IQueryAuthorizer<GetStudentPerformanceQuery>, StudentScopedReportAuthorizer<GetStudentPerformanceQuery>>();
+
+        // M14-4: PDF öğrenci raporu (premium kapılı üretim + yetkili indirme)
+        services.AddScoped<IStudentReportRepository, StudentReportRepository>();
+        services.AddScoped<IStudentReportPdfGenerator, StudentReportPdfGenerator>();
+        services.AddScoped<StudentReportAssembler>();
+        services.AddScoped<ReportEntitlementResolver>();
+        services.AddScoped<ICommandHandler<GenerateStudentReportCommand, Result<StudentReportResponse>>, GenerateStudentReportCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<GenerateStudentReportCommand>, StudentScopedReportCommandAuthorizer<GenerateStudentReportCommand>>();
+        services.AddScoped<IQueryHandler<GetStudentReportFileQuery, Result<StudentReportFileResponse>>, GetStudentReportFileQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetStudentReportFileQuery>, StudentReportFileAuthorizer>();
 
         // Read-model projeksiyon handler'ları (diğer modüllerin integration event'lerinden beslenir)
         services.AddScoped<IIntegrationEventHandler, LessonScheduleUpsertProjectionHandler>();

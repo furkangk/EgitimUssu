@@ -150,7 +150,10 @@ public sealed class LessonSessionCompletedPaymentHandlerTests
 
         public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult(false);
-    }
+    
+        public Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<string?>("Test Öğrenci");
+}
 
     private sealed class SequentialIdGenerator : IIdGenerator
     {

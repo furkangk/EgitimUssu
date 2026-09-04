@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetTeacherPhotoQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<ITeacherAvailabilityDirectory, TeacherAvailabilityDirectory>();
+        services.AddScoped<ITeacherDirectory, TeacherDirectory>();
 
         return services;
     }

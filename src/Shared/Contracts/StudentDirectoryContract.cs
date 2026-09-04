@@ -38,4 +38,13 @@ public interface IStudentDirectory
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Bağ varsa <c>true</c>.</returns>
     Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// M14-4: Rapor başlığında kullanılacak öğrenci adı. Profil yoksa <c>null</c> döner — çağıran taraf
+    /// yerine bir yer tutucu yazar, uydurma ad üretmez.
+    /// </summary>
+    /// <param name="studentId">Öğrenci profili kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Öğrencinin tam adı ya da <c>null</c>.</returns>
+    Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken);
 }

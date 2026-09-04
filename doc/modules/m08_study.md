@@ -396,7 +396,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
   (`student_calendar_page.dart` — hem takvim günü hem liste kartı).
 
 ### 4.7 Free/Premium kapıları (Ö-D — PRD §14.3 uyarlaması)
-Öğrencinin üyelik seviyesi `MembershipTier` (`Free=1` / `Premium=2`) M03 `StudentProfile`'da hafifçe tutulur (M17 tam modülü gelene kadar; [`m17_membership.md`](m17_membership.md)). Study, tier'ı modüller-arası `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okur (Students'a doğrudan referans vermez). Karar: **Free geniş** (streak tam + son 30 gün) — büyüme önce; **Premium yalnız derinlik**. Kapı mantığı saf + birim testlidir (`MembershipGate`).
+Öğrencinin üyelik seviyesi `MembershipTier` (`Free=1` / `Premium=2`) M03 `StudentProfile`'da hafifçe tutulur (M17 tam modülü gelene kadar; [`m17_membership.md`](m17_membership.md)). Study, tier'ı modüller-arası `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okur (Students'a doğrudan referans vermez). Karar: **Free geniş** (streak tam + son 30 gün) — büyüme önce; **Premium yalnız derinlik**. Kapı mantığı saf + birim testlidir (`MembershipGate`). ⚠️ **P08 Task 4:** `MembershipGate` ve `PremiumFeature` `Study.Application`'dan **`Shared.Contracts`'a taşındı** — M14-4 PDF raporu aynı kapıyı kullanıyor. Study'nin davranışı değişmedi; P09'da `IEntitlementDirectory` ikisini birden devralacak.
 
 | Yetenek | Free | Premium |
 |---------|------|---------|

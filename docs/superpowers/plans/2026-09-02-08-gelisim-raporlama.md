@@ -168,29 +168,46 @@ git commit -m "feat(reporting): ogretmen aylik + ogrenci calisma/performans + bo
 ### Task 4: PDF öğrenci raporu (M14-4)
 
 **Files:**
-- Modify: `src/Modules/Reporting/Infrastructure/EgitimUssu.Modules.Reporting.Infrastructure.csproj` (QuestPDF)
+- Modify: `src/Modules/Reporting/Infrastructure/EgitimUssu.Modules.Reporting.Infrastructure.csproj` (QuestPDF 2026.8.0)
 - Create: `src/Modules/Reporting/Infrastructure/StudentReportPdfGenerator.cs`
-- Modify: `src/Modules/Reporting/Application/*` (command + handler)
-- Modify: `src/Modules/Reporting/API/ReportingModule.cs` (2 endpoint)
+- Create: `src/Modules/Reporting/Application/StudentReportFeatures.cs` *(plan "Modify Application/*" diyordu)*
+- Modify: `src/Modules/Reporting/Application/ReportingPolicies.cs` + `ReportingAnalyticsFeatures.cs`
+- Modify: `src/Modules/Reporting/API/ReportingModule.cs` (2 endpoint + istek gövdesi)
+- Create: `src/Modules/Reporting/Domain/StudentReport.cs` + `Infrastructure/StudentReportRepository.cs` + migration `AddStudentReports` *(plan dışı, **zorunlu**: indirme ucu yalnız `reportId` taşır, raporun sahibi ancak kayıttan bilinir)*
+- Move: `src/Modules/Study/Application/MembershipGate.cs` → `src/Shared/Contracts/MembershipGate.cs` *(plandaki "genelleştirilmiş MembershipGate" gereği)*
+- Modify: `src/Shared/Contracts/StudentDirectoryContract.cs` (`GetDisplayNameAsync`) · Create: `TeacherDirectoryContract.cs`, `StudentAssignmentDigestContract.cs` + Students/Teachers/Assignments uygulamaları ve DI *(plan dışı, zorunlu: rapor içeriğinin kaynakları)*
 - Test: `tests/Unit/StudentReportPdfGeneratorTests.cs`
+- Test: `tests/Integration/RealStudentReportTests.cs` *(plan dışı, zorunlu — Öğrenilenler #81)*
+- Modify: `tests/Unit/{LessonSessionCompletedPaymentHandlerTests,SelfLessonPolicyTests,ProgressAccessTests}.cs` *(sözleşme genişleyince `IStudentDirectory` sahteleri)*
 
 **Interfaces:**
 - Produces:
   - `interface IStudentReportPdfGenerator { byte[] Generate(StudentReportData data); }`
   - `sealed record StudentReportData(string StudentName, string TeacherName, DateOnly PeriodStart, DateOnly PeriodEnd, int StudyMinutes, int LessonCount, int AssignmentCompletionPercent, IReadOnlyList<SubjectPerformanceRow> Subjects, string? Note)`
-  - `POST /api/reporting/students/{studentId}/report` → raporu üretir, `IFileStorage`'a `reporting/{studentId}/{reportId}.pdf` olarak yazar, `{ reportId, createdOnUtc }` döner.
+  - `static class StudentReportComposer` — saf biçimlendirme (süre, net %, tamamlama %, başlık/özet satırları, dosya adı).
+  - `static class ReportEntitlement` + `ReportEntitlementResolver` — premium kapısı.
+  - `POST /api/reporting/students/{studentId}/report` → `{ reportId, studentId, periodStart, periodEnd, fileName, sizeBytes, createdOnUtc }`
   - `GET /api/reporting/reports/{reportId}/file` → yetkili indirme.
+  - ⚠️ **Plan düzeltmesi (2026-09-04):** raporun **kalıcı bir kaydı** gerekiyor. Plan yalnız üretim + indirme
+    ucundan söz ediyordu; ama `GET /reports/{reportId}/file` rotasında öğrenci kimliği yok — yetki ancak
+    `student_reports` satırından çözülebilir. `StudentReport` aggregate + tablo + repository eklendi.
+  - ⚠️ **Plan düzeltmesi:** premium kapısı **öğretmen üyeliği olmadığı için** istek sahibinin tier'ına
+    bağlanamaz — `IMembershipDirectory` yalnız `StudentProfile`'a bakar, her öğretmene `Free` döner ve uç
+    ölü doğardı. Geçici kural: `ReportEntitlement.EffectiveTier` = Admin → Premium, aksi hâlde
+    **taraflardan biri (istek sahibi ya da rapor konusu öğrenci) Premium ise** Premium. P09'da
+    `IEntitlementDirectory` gelince yalnız bu fonksiyon değişir.
+  - ⚠️ **Plan düzeltmesi:** `LessonCount` ve `AssignmentCompletionPercent` Reporting'in projeksiyonlarında
+    yoktu. Ders sayısı `teacher_monthly_items` satırlarından (öğrenci bazlı, tüm öğretmenler) sayılıyor;
+    ödev tamamlama oranı yeni `IStudentAssignmentDigestDirectory` sözleşmesiyle Assignments'tan okunuyor.
+    Öğrenci/öğretmen adı için de `IStudentDirectory.GetDisplayNameAsync` ve `ITeacherDirectory` eklendi.
 
-- [ ] **Step 1: Testi yaz (kırmızı)** — üretilen bayt dizisi `%PDF` ile başlıyor; öğrenci adı ve dönem PDF metninde geçiyor (QuestPDF'in `Document.GeneratePdf()` çıktısını `PdfPig` gibi bir okuyucu olmadan doğrulamak için: en az boyut > 1 KB + `%PDF-` başlığı + üretimin exception atmaması yeterlidir; metin doğrulaması için `StudentReportData`'yı doğrudan biçimlendiren saf fonksiyonu ayrı test et).
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentReportPdfGeneratorTests"`
-- [ ] **Step 3: QuestPDF ekle ve üreticiyi yaz**
-  Run: `dotnet add src/Modules/Reporting/Infrastructure/EgitimUssu.Modules.Reporting.Infrastructure.csproj package QuestPDF`
-  Lisans: `QuestPDF.Settings.License = LicenseType.Community;` uygulama başlangıcında bir kez ayarlanır (`DependencyInjection` içinde).
-  Rapor düzeni: başlık (EğitimÜssü logosu yerine metin), öğrenci/dönem bilgisi, özet kutuları (çalışma süresi, ders sayısı, ödev tamamlama), ders bazlı tablo, öğretmen notu.
-- [ ] **Step 4: Premium kapısı** — handler başında entitlement kontrolü; free kullanıcıda `reporting.premium_required` (402/403 eşlemesi `ApiErrorHttpResults` ile).
-- [ ] **Step 5: Uçlar + yetkili indirme** (P04'teki ödev indirme deseni).
-- [ ] **Step 6: Yeşil gör + elle doğrula** — Bir öğrenci için rapor üret, dosyayı indir, PDF açılıyor mu bak.
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 1: Testi yaz (kırmızı)** — 22 test: saf biçimlendirme (süre/net/tamamlama/başlık/dosya adı), premium kapısının üç durumu, gerçek QuestPDF çıktısı (`%PDF-` + >1 KB), handler (depolama+kayıt sırası, premium reddi, gizlilik reddi, `Limited` kırılım gizleme, ters aralık, veri toplama), indirme sorgusu + üç yetki senaryosu.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentReportPdfGeneratorTests"` → **17 × CS0246**
+- [x] **Step 3: QuestPDF ekle ve üreticiyi yaz** — QuestPDF **2026.8.0**. Lisans `LicenseType.Community` olarak **statik kurucuda** ayarlandı (plan `DependencyInjection` diyordu; sınıf birim testinde DI'sız da kurulduğu için orası yetmezdi). Düzen: başlık + öğrenci/öğretmen/dönem, üç özet kutusu, ders tablosu (delta ile), öğretmen notu, sayfa altlığı.
+- [x] **Step 4: Premium kapısı** — `ReportEntitlementResolver` + `MembershipGate.Allows(tier, PremiumFeature.PdfReport)`; free ikilide `reporting.premium_required` → **402**.
+- [x] **Step 5: Uçlar + yetkili indirme** — `StudentReportAccessChecker` tek kural olarak çıkarıldı; sorgu, komut ve dosya yetkilendiricileri onu kullanıyor (P04 ödev eki deseni).
+- [x] **Step 6: Yeşil gör + elle doğrula** — Run: `./scripts/test-with-docker.sh` → 4 mimari + **556 birim** + **38 integration**, Başarısız 0, Atlanan 0 · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata · elle: örnek PDF üretildi, `file` → "PDF document, version 1.4, 1 pages", `qlmanage` ile render edilip **gözle doğrulandı** (Türkçe karakterler dahil düzen doğru).
+- [x] **Step 7: Doküman + commit**
 
 ```bash
 git add src/Modules/Reporting tests doc

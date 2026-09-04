@@ -1,6 +1,7 @@
 using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,6 +56,9 @@ public static class DependencyInjection
         // M06-4: odev puanlama.
         services.AddScoped<ICommandHandler<GradeAssignmentCommand, Result<AssignmentResponse>>, GradeAssignmentCommandHandler>();
         services.AddScoped<ICommandAuthorizer<GradeAssignmentCommand>, AssignmentTeacherAuthorizer>();
+
+        // M14-4: rapor ozeti icin odev tamamlama sayaci (Shared/Contracts okuma sozlesmesi).
+        services.AddScoped<IStudentAssignmentDigestDirectory, StudentAssignmentDigestDirectory>();
 
         // M06-3: son teslim uyarisi taramasi.
         services.AddScoped<IAssignmentDueScanProcessor, AssignmentDueScanProcessor>();

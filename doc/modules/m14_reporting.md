@@ -1,6 +1,6 @@
 ---
 title: "M14 — Raporlama ve Analiz (Reporting)"
-summary: "Read-model raporlama modülü: öğretmen dashboard + aylık özet, öğrenci haftalık çalışma ve aylık performans projeksiyonları, boş zaman analizi canlı; PDF rapor ve premium kapısı eksik"
+summary: "Read-model raporlama modülü: öğretmen dashboard + aylık özet, öğrenci haftalık çalışma ve aylık performans projeksiyonları, boş zaman analizi ve premium kapılı PDF öğrenci raporu canlı; mobil ekranlar eksik"
 tags: [modul, reporting, raporlama, read-model, projeksiyon, faz-5]
 status: "🟡"
 authority: code
@@ -12,7 +12,7 @@ updated: 2026-09-04
 # 📊 Raporlama ve Analiz Modülü (M14) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M14 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Reporting`) + Flutter mobil
-> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟡 Kısmi — dört read-model (öğretmen paneli, öğretmen aylık özeti, öğrenci haftalık çalışma, öğrenci aylık performansı) + boş zaman analizi çalışıyor; PDF rapor, veli özeti ve premium kapısı eksik
+> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟡 Kısmi — dört read-model (öğretmen paneli, öğretmen aylık özeti, öğrenci haftalık çalışma, öğrenci aylık performansı) + boş zaman analizi + **premium kapılı PDF öğrenci raporu** çalışıyor; mobil rapor ekranları eksik
 > **Mimari:** CQRS + Outbox + Integration Event; önerilen **read-model / projeksiyon** yaklaşımı, PostgreSQL (`reporting` şeması), Redis (rapor cache)
 > **Marka rengi (mobil):** `0xFF082B4F`
 
@@ -26,21 +26,24 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-### 🟡 Var olan (P07 Task 2 sonrası)
+### 🟡 Var olan (P08 Task 4 sonrası)
 
 | Bileşen | Konum | Durum |
 |---------|-------|-------|
-| Module tanımı | `src/Modules/Reporting/API/ReportingModule.cs` | `GET /status` (placeholder) + `dashboard` + **`monthly`**, **`free-slots`**, **`study-analysis`**, **`performance`** |
+| Module tanımı | `src/Modules/Reporting/API/ReportingModule.cs` | `GET /status` (placeholder) + `dashboard` + `monthly`, `free-slots`, `study-analysis`, `performance` + **`POST students/{id}/report`**, **`GET reports/{id}/file`** |
 | Domain (panel) | `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs` | `TeacherDashboardProjection` + `TeacherDashboardItem` + `TeacherDashboardItemKind` |
 | Domain (analitik) | `src/Modules/Reporting/Domain/ReportingProjections.cs` **(P08 Task 3)** | `TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection` (+ item tipleri) · `ReportingPeriods` (UTC ay / ISO hafta) · `ReportingDelta` |
-| DbContext | `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` | 8 tablo: panel 2 + analitik 6 (`reporting` şeması) |
+| Domain (rapor kaydı) | **`src/Modules/Reporting/Domain/StudentReport.cs`** (P08 Task 4) | `StudentReport` aggregate — üretilmiş PDF'in `IFileStorage` anahtarı + dönem + üreten kullanıcı |
+| DbContext | `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` | 9 tablo: panel 2 + analitik 6 + **`student_reports`** (`reporting` şeması) |
 | Projeksiyon handler'ları | `.../TeacherDashboardProjectionHandlers.cs` + **`.../ReportingProjectionHandlers.cs`** | 7 panel + **8 analitik** handler (Scheduling/Assignments/Payments/Students/LessonSessions/Study/ProgressTracking) |
-| Sorgu | `.../Application/ReportingFeatures.cs` + **`ReportingAnalyticsFeatures.cs`** | `GetTeacherDashboardQuery` + 4 analitik sorgu/handler |
-| Yetki + gizlilik | **`.../Application/ReportingPolicies.cs`** | `TeacherScopedReportAuthorizer<T>`, `StudentScopedReportAuthorizer<T>`, `StudentReportPrivacyGate` |
+| Sorgu | `.../Application/ReportingFeatures.cs` + `ReportingAnalyticsFeatures.cs` | `GetTeacherDashboardQuery` + 4 analitik sorgu/handler |
+| PDF raporu | **`.../Application/StudentReportFeatures.cs`** (P08 Task 4) | `GenerateStudentReportCommand` + `GetStudentReportFileQuery` · `StudentReportComposer` (saf metin) · `StudentReportAssembler` · `ReportEntitlement`/`ReportEntitlementResolver` (premium kapısı) |
+| PDF üretici | **`.../Infrastructure/StudentReportPdfGenerator.cs`** | QuestPDF (Community lisansı statik kurucuda ayarlanır) |
+| Yetki + gizlilik | `.../Application/ReportingPolicies.cs` | `TeacherScopedReportAuthorizer<T>`, **`StudentReportAccessChecker`** (tek kural), `StudentScopedReportAuthorizer<T>`, **`StudentScopedReportCommandAuthorizer<T>`**, **`StudentReportFileAuthorizer`**, `StudentReportPrivacyGate` |
 | Boş zaman | **`.../Application/FreeSlotCalculator.cs`** | Saf fonksiyon: haftalık uygunluk − dolu aralıklar |
 | Reader | `.../TeacherDashboardProjectionReader.cs` + **`ReportingProjectionReader.cs`** | `AsNoTracking` okuma |
 | DI | `src/Modules/Reporting/Infrastructure/DependencyInjection.cs` | `AddModuleDbContext<ReportingDbContext>` + handler/sorgu/yetki kayıtları |
-| Migration | `*_AddTeacherDashboardProjection.cs` + **`*_AddReportingProjections.cs`** | `reporting` şeması + outbox/inbox/module_states + 8 projeksiyon tablosu |
+| Migration | `*_AddTeacherDashboardProjection.cs` + `*_AddReportingProjections.cs` + **`*_AddStudentReports.cs`** | `reporting` şeması + outbox/inbox/module_states + 8 projeksiyon tablosu + `student_reports` |
 
 **Doğrulanmış gerçekler:**
 - Projeksiyon **yalnız integration event'lerden** beslenir; Reporting hiçbir modülün DbContext'ini okumaz (`Modules_Should_Not_Reference_Other_Modules` yeşil).
@@ -48,13 +51,15 @@ updated: 2026-09-04
 - Canlı doğrulandı: ders planlandı → `todayLessonCount = 1`, ders iptal edildi → `todayLessonCount = 0`.
 
 ### ⚠️ Hâlâ eksik
-- **PDF öğrenci raporu** (P08 Task 4) ve **premium kapısı** (M17 / P09).
 - **Veli özet/grafik raporu** — veli bugün çocuğunun analizini `students/{id}/study-analysis` ve
   `students/{id}/performance` uçlarından (onaylı bağ + gizlilik kapısıyla) okur; ayrı bir `parents/...` uç yok.
 - **Mobil rapor ekranları** (P08 Task 5).
 - `IProjectionRebuilder` implementasyonu ve `POST /api/admin/projections/{name}/rebuild` (P12).
 - ⚠️ **Geriye dönük besleme yok:** analitik projeksiyonlar yalnız kendilerinden **sonra** yayınlanan event'leri
   görür; geçmiş aylar rebuild yapılana kadar boş kalır (#93 → P12).
+- ⚠️ **Premium kapısı geçicidir:** M17 (öğretmen üyeliği) yokken `IMembershipDirectory` öğretmene daima `Free`
+  döner. Kapı bu yüzden "taraflardan biri Premium ise üretilebilir" kuralını uygular
+  (`ReportEntitlement.EffectiveTier`); P09'da `IEntitlementDirectory` gelince yalnız o fonksiyon değişir.
 
 ---
 
@@ -132,6 +137,8 @@ Modül sınırı kuralı gereği **başka modülün DB'sine doğrudan erişilmez
 | Boş zaman analizi (M14-5) | `GET /api/reporting/teachers/{teacherUserId}/free-slots?from=&to=` | öğretmenin kendisi veya Admin |
 | Öğrenci çalışma analizi (M14-2) | `GET /api/reporting/students/{studentId}/study-analysis?from=&to=` | öğrenci kendisi · bağlı öğretmen · onaylı veli · Admin |
 | Öğrenci performansı (M14-3) | `GET /api/reporting/students/{studentId}/performance?subject=&from=&to=` | aynı |
+| **PDF rapor üretimi (M14-4)** | `POST /api/reporting/students/{studentId}/report` | aynı + **premium kapısı** (402) |
+| **PDF rapor indirme (M14-4)** | `GET /api/reporting/reports/{reportId}/file` | raporun öğrencisi · bağlı öğretmen · onaylı veli · Admin |
 
 `dashboard` yanıtı: `teacherUserId`, `todayLessonCount`, `pendingAssignmentCount`, `overduePaymentCount`,
 `overdueAmountTotal`, `overdueCurrency`, `activeStudentCount`, `updatedOnUtc`.
@@ -150,6 +157,9 @@ monthly         → { teacherUserId, year, month, completedLessonCount, cancelle
 free-slots      → [ { startAtUtc, endAtUtc, durationMinutes } ]
 study-analysis  → [ { year, weekOfYear, weekStart, studyMinutes, sessionCount, testCount } ]
 performance     → [ { subject, year, month, masteryScore, averageNet, testCount, delta } ]
+report (POST)   → { reportId, studentId, periodStart, periodEnd, fileName, sizeBytes, createdOnUtc }
+                  gövde: { from?, to?, note? }
+report file     → application/pdf akışı (Content-Disposition: gelisim-raporu-<baslangic>_<bitis>.pdf)
 ```
 
 - **Tüm sorgu parametreleri opsiyoneldir** (Öğrenilenler #85): `monthly` yıl/ay verilmezse içinde bulunulan ayı,
@@ -161,13 +171,20 @@ performance     → [ { subject, year, month, masteryScore, averageNet, testCoun
   her güne yayıldığı için sınırsız pencere kabul edilmez).
 - `performance` yanıtındaki **`delta` saklanmaz**, dönen serideki bir önceki aydan üretilir; kırpılmış serinin
   ilk ayı 0 alır (Öğrenilenler #102, M10-1 trendiyle aynı kural).
+- **PDF raporu (M14-4):** dönem verilmezse son bir ay alınır, aralık en fazla **366 gün**
+  (`400 reporting.invalid_range`). Sıra: aralık → premium kapısı (**402 `reporting.premium_required`**) →
+  gizlilik kapısı (**403 `reporting.report_not_shared`**) → üretim → depo → kayıt; reddedilen istek depoya
+  hiçbir şey bırakmaz. `Limited` gizlilikte ders bazlı kırılım düşer, toplamlar kalır.
+- **İndirme yetkisi kayıttan çözülür:** rota yalnız `reportId` taşır, raporun hangi öğrenciye ait olduğu
+  `student_reports` satırından okunur; bilinmeyen rapor **404 `reporting.report_not_found`**.
+- PDF içeriği modülün projeksiyonlarından + üç okuma sözleşmesinden toplanır:
+  `IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory.GetDisplayNameAsync`,
+  `IStudentAssignmentDigestDirectory.GetCompletionAsync` (ödev tamamlama oranı).
 
 ### Eksik / Önerilen ⚠️
 
 ```
 GET  /api/reporting/teachers/{teacherUserId}/students-summary         → aktif / pasif öğrenci dağılımı
-POST /api/reporting/students/{studentId}/report                       → PDF öğrenci raporu (premium, P08 Task 4)
-GET  /api/reporting/reports/{reportId}/file                           → yetkili PDF indirme (P08 Task 4)
 ```
 
 > Yetki: öğretmen yalnızca **kendi** gelir/boş zaman raporlarını; öğrenci kendi analizini; bağlı öğretmen ve
@@ -255,8 +272,8 @@ Sorgu zamanı:
 - [x] Öğrenci performans raporu ders bazlı aylık değişimi ProgressTracking + Study'den gösteriyor. **(P08 Task 3)**
 - [x] Veli yalnızca **onaylı** bağlı çocuklarının analizini görebiliyor; gizlilik bayrakları uygulanıyor (M15). **(P08 Task 3)**
 - [x] Boş zaman analizi uygunluk şablonundan ders + izin bloklarını düşerek üretiliyor. **(P08 Task 3 / M14-5)**
-- [ ] PDF öğrenci raporu üretilip indirilebiliyor.
-- [ ] Premium özellikler üyelik kontrolünden geçiyor (M17); free kullanıcıda kilitli.
+- [x] PDF öğrenci raporu üretilip indirilebiliyor. **(P08 Task 4 / M14-4)**
+- [x] Premium özellikler üyelik kontrolünden geçiyor; free kullanıcıda **402** ile kilitli. **(P08 Task 4 — geçici kural, M17/P09'da devralınacak)**
 - [x] Aynı event tekrar gelse de projeksiyon sayaçları bozulmuyor (idempotent). **(P07 — inbox guard + küme üyeliği)**
 - [x] Sahiplik/rol guard'ı yetkisiz erişimi reddediyor (K3). **(P07 dashboard + P08 Task 3 dört analitik uç)**
 
@@ -271,9 +288,9 @@ Sorgu zamanı:
 3. ~~**Öğretmen aylık özet projeksiyonu** (Payments + Scheduling/LessonSession event'lerinden).~~ ✅ **(P08 Task 3)**
 4. ~~**Öğrenci çalışma/performans analizi** (Study M08 + ProgressTracking M10 verisinden).~~ ✅ **(P08 Task 3)**
 5. ~~**Boş zaman analizi** (Scheduling + Teachers uygunluk verisinden).~~ ✅ **(P08 Task 3 — `ITeacherAvailabilityDirectory` + `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync`)**
-6. **PDF rapor üretimi** (premium) — P08 Task 4.
+6. ~~**PDF rapor üretimi** (premium).~~ ✅ **(P08 Task 4 — QuestPDF + `IFileStorage` + yetkili indirme)**
 7. **Veli özet/grafik raporu** (m09) — bugün öğrenci uçları üzerinden karşılanıyor; ayrı bir veli ucu isteğe bağlı.
-8. **Premium kısıtlama** entegrasyonu (m17) — P08 Task 4 / P09.
+8. **Premium kısıtlama** entegrasyonu (m17) — kapı P08 Task 4'te kuruldu (`ReportEntitlement`), gerçek üyelik/entitlement sözleşmesi P09.
 9. ~~**İdempotent event tüketimi** (inbox/event-id) + CQRS query'leri~~ ✅; **mobil ekranlar** P08 Task 5.
 10. **Projeksiyon yeniden inşası** (`IProjectionRebuilder`) — geçmiş dönemler ancak bununla dolar (P12).
 
@@ -296,4 +313,4 @@ Sorgu zamanı:
 
 ---
 
-*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
+*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*

@@ -453,7 +453,10 @@ public sealed class ProgressAccessTests
 
         public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult(LinkedTeacherUserId == teacherUserId);
-    }
+    
+        public Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<string?>("Test Öğrenci");
+}
 
     private sealed class FakeParentAccessDirectory : IParentAccessDirectory
     {

@@ -24,6 +24,8 @@ public sealed class ReportingDbContext : ModuleDbContext
 
     public DbSet<StudentPerformanceProjection> StudentPerformanceProjections => Set<StudentPerformanceProjection>();
 
+    public DbSet<StudentReport> StudentReports => Set<StudentReport>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Reporting";
@@ -126,6 +128,19 @@ public sealed class ReportingDbContext : ModuleDbContext
             builder.Property(item => item.ItemKey).HasMaxLength(160);
             builder.Property(item => item.Kind).HasConversion<int>();
             builder.Property(item => item.Score).HasPrecision(8, 4);
+        });
+
+        // M14-4: üretilmiş PDF raporunun kaydı (projeksiyon değil, gerçek bir aggregate).
+        modelBuilder.Entity<StudentReport>(builder =>
+        {
+            builder.ToTable("student_reports");
+            builder.HasKey(report => report.Id);
+            // Id istemcide üretiliyor (Öğrenilenler #3) — EF'in OnAdd varsayımı yeni satırı Modified sanar.
+            builder.Property(report => report.Id).ValueGeneratedNever();
+            builder.Property(report => report.StorageKey).HasMaxLength(512).IsRequired();
+            builder.Property(report => report.FileName).HasMaxLength(256).IsRequired();
+            builder.Property(report => report.ContentType).HasMaxLength(128).IsRequired();
+            builder.HasIndex(report => new { report.StudentId, report.CreatedOnUtc });
         });
     }
 }
