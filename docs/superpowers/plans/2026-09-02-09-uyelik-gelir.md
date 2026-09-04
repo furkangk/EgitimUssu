@@ -378,10 +378,24 @@ git commit -m "feat(mobile): uyelik ekrani + paywall + premium kilitleri (D-10/M
 
 ### Task 7: Kapanış
 
-- [ ] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test` → yeşil.
-- [ ] **Step 2: Uçtan uca** — Free öğretmen 6. öğrenciyi ekleyemiyor → paywall → deneme başlat → 6. öğrenci eklenebiliyor → deneme bitince tekrar kilit.
-- [ ] **Step 3: Dokümanlar** — `doc/modules/m17_membership.md` (🔴 → 🟢), `doc/modules/00_genel_bakis.md`, `doc/INDEX.md`, `doc/roles/*.md` premium yetenekleri, PRD §9 ile kod arasındaki farklar, `doc/denetim/2026-09-02_eksik_analizi.md` M17-*, M03-4, D-10, D-15 → `✅ (P09)`.
-- [ ] **Step 4: Commit**
+> ⚠️ **Kısmi kapanış olarak yürütüldü (2026-09-04, kullanıcı kararı (b)).** Task 4 (ödeme, **Q1**) ve
+> Task 5 (reklam, **Q3**) hâlâ bloke olduğu için kabul kriterlerinden ikisi (*"premium hiç reklam
+> görmüyor"*, *webhook imza + idempotency*) **doğrulanamadı**. Bu yüzden Step 3'teki `🔴 → 🟢` hedefi
+> **uygulanmadı: M17 bilerek 🟡 bırakıldı**. Reklam ve ödeme kalemleri P09'un devamına kaldı.
+
+- [x] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test` → yeşil.
+      Sonuç: **4 mimari / 602 birim / 41 integration**, başarısız 0, atlanan 0 · mobil **170** test yeşil.
+- [x] **Step 2: Uçtan uca** — Free öğretmen 6. öğrenciyi ekleyemiyor → paywall → deneme başlat → 6. öğrenci eklenebiliyor → deneme bitince tekrar kilit.
+      ⚠️ **Plan düzeltmesi:** adım "elle koşulacak senaryo" olarak yazılmıştı; P06 Task 10'un dersi gereği
+      (elle koşum tekrarlanabilir değil, InMemory gerçek hataları göstermiyor) **gerçek Postgres regresyon
+      testine** çevrildi → `tests/Integration/RealMembershipEntitlementTests.cs` (2 test, 9 adım).
+      İkinci test "deneme kullanıcı başına bir kez" kuralını dönem kapandıktan sonra da doğrular.
+- [x] **Step 3: Dokümanlar** — `doc/modules/m17_membership.md` (**🟡 kaldı**, §1'e uçtan uca doğrulama tablosu
+      + §7 kabul kriterleri gerçeğe göre işaretlendi), `doc/modules/00_genel_bakis.md`, `doc/INDEX.md`,
+      `doc/roles/{ogretmen,ogrenci,veli}.md` premium kapanış kutusu,
+      `doc/denetim/2026-09-02_eksik_analizi.md`: M17-1 ✅, M17-3 ✅ (M03-4/M17-5/D-10/D-15 zaten işaretliydi);
+      **M17-2 ve M17-4 bilerek AÇIK**.
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -392,12 +406,15 @@ git commit -m "docs: P09 uyelik ve gelir kapanisi (M17-*/M03-4/D-10)"
 
 ## Kabul Kriterleri
 
-- [ ] Her rol için free + premium plan tanımlı; kullanıcı planını `GET /api/membership/me` ile görüyor
-- [ ] Premium kullanıcı hiç reklam görmüyor (`ad-placements` boş)
-- [ ] Free limitleri entitlement'tan geliyor; hiçbir modülde sabit limit kalmadı (`grep -rn "FreeStudentLimit" src/` boş)
-- [ ] İlk ay ücretsiz kullanıcı başına bir kez çalışıyor
-- [ ] Referans kodu iki tarafa da 1 ay veriyor; kendi kodu kullanılamıyor
-- [ ] Webhook imzasız istekte 401; aynı olay iki kez gelince abonelik iki kez uzamıyor
-- [ ] İptal edilen abonelik dönem sonuna kadar premium kalıyor, sonra Free'ye düşüyor
-- [ ] Mobilde paywall ve premium kilitleri PRD §9 ile birebir
-- [ ] Tam test paketi (Docker'lı) yeşil
+Durum: **7/9 karşılandı** (P09 Task 7 kısmi kapanışı, 2026-09-04). İki kriter Task 4/5 blokesi yüzünden açık.
+
+- [x] Her rol için free + premium plan tanımlı; kullanıcı planını `GET /api/membership/me` ile görüyor
+      *(fiyat değerleri Q2 ile onaylanmadı; tohumlama yalnız Development)*
+- [ ] Premium kullanıcı hiç reklam görmüyor (`ad-placements` boş) — **AÇIK: uç yok (Task 5 / Q3)**
+- [x] Free limitleri entitlement'tan geliyor; hiçbir modülde sabit limit kalmadı (`grep -rn "FreeStudentLimit" src/` boş)
+- [x] İlk ay ücretsiz kullanıcı başına bir kez çalışıyor *(dönem kapansa bile ikinci deneme reddediliyor)*
+- [x] Referans kodu iki tarafa da 1 ay veriyor; kendi kodu kullanılamıyor
+- [ ] Webhook imzasız istekte 401; aynı olay iki kez gelince abonelik iki kez uzamıyor — **AÇIK: sağlayıcı yok (Task 4 / Q1)**
+- [x] İptal edilen abonelik dönem sonuna kadar premium kalıyor, sonra Free'ye düşüyor
+- [x] Mobilde paywall ve premium kilitleri PRD §9 ile birebir *(uygulanan alt küme; uygulanmayan satırlar paywall'da "yakında" bölümünde)*
+- [x] Tam test paketi (Docker'lı) yeşil — 4 mimari / 602 birim / 41 integration / 170 mobil, başarısız 0
