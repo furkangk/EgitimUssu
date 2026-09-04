@@ -35,6 +35,12 @@ public sealed class LessonSessionsModule : ModuleDefinition
         group.MapPost("/{lessonSessionId:guid}/complete", CompleteLessonSessionAsync)
         .WithSummary("Ders oturumunu tamamlar");
 
+        group.MapPost("/{lessonSessionId:guid}/start", StartLessonSessionAsync)
+        .WithSummary("Planlı dersi başlatır — Planned → InProgress (M05-1)");
+
+        group.MapPost("/{lessonSessionId:guid}/cancel", CancelLessonSessionAsync)
+        .WithSummary("Planlı veya devam eden dersi iptal eder (M05-1)");
+
         group.MapGet("/{lessonSessionId:guid}", GetLessonSessionByIdAsync)
         .WithSummary("Ders oturumu detayını getirir");
 
@@ -81,6 +87,34 @@ public sealed class LessonSessionsModule : ModuleDefinition
     }
 
     /// <summary>
+    /// M05-1: Dersi başlatır. Yalnız <c>Planned</c> durumundaki oturum başlatılabilir; aksi halde 409.
+    /// </summary>
+    private static async Task<IResult> StartLessonSessionAsync(
+        HttpContext context,
+        Guid lessonSessionId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new StartLessonSessionCommand(lessonSessionId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// M05-1: Dersi iptal eder. Yalnız <c>Planned</c>/<c>InProgress</c> iptal edilebilir; aksi halde 409.
+    /// </summary>
+    private static async Task<IResult> CancelLessonSessionAsync(
+        HttpContext context,
+        Guid lessonSessionId,
+        CancelLessonSessionRequest? request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new CancelLessonSessionCommand(lessonSessionId, request?.Reason), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
     /// Ders oturumu detayını oturum kimliğiyle getirir.
     /// </summary>
     private static async Task<IResult> GetLessonSessionByIdAsync(
@@ -121,6 +155,8 @@ public sealed class LessonSessionsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "lesson_sessions.not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            // M05-1: gecersiz durum gecisi bir cakismadir (istek dogru, kaynagin durumu uygun degil).
+            "lesson_sessions.invalid_transition" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -149,6 +185,12 @@ public sealed record CreateLessonSessionRequest(
             TopicTitle);
     }
 }
+
+/// <summary>
+/// M05-1: Ders iptal isteği — gövde tümüyle opsiyoneldir.
+/// </summary>
+/// <param name="Reason">İptal nedeni (serbest metin, opsiyonel).</param>
+public sealed record CancelLessonSessionRequest(string? Reason);
 
 /// <summary>
 /// Ders oturumunu tamamlamak için gerçek süre, yoklama durumu ve ders içeriği bilgilerini taşır.

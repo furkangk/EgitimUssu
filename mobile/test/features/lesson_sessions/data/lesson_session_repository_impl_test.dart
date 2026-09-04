@@ -64,6 +64,50 @@ void main() {
       expect(session.status, 'Completed');
     },
   );
+
+  test('startSession posts to start endpoint and returns InProgress', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.startSession('session-1');
+
+    expect(apiClient.lastPath, '/api/lesson-sessions/session-1/start');
+    expect(session.status, 'InProgress');
+  });
+
+  test('cancelSession posts reason and returns Cancelled', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.cancelSession(
+      'session-1',
+      reason: 'Ogrenci hastalandi',
+    );
+
+    expect(apiClient.lastPath, '/api/lesson-sessions/session-1/cancel');
+    expect(apiClient.lastData?['reason'], 'Ogrenci hastalandi');
+    expect(session.status, 'Cancelled');
+    expect(session.cancellationReason, 'Ogrenci hastalandi');
+  });
+
+  test('session model reads meeting and recording urls', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.startSession('session-1');
+
+    expect(session.meetingUrl, 'https://meet.example.com/abc');
+    expect(session.recordingUrl, 'https://kayit.example.com/1');
+  });
 }
 
 const _config = AppConfig(
@@ -92,7 +136,15 @@ class _FakeApiClient extends ApiClient {
       'teacherUserId': 'teacher-1',
       'studentId': 'student-1',
       'subject': 'Matematik',
-      'status': path.endsWith('/complete') ? 'Completed' : 'Planned',
+      'status': switch (path) {
+        final String p when p.endsWith('/complete') => 'Completed',
+        final String p when p.endsWith('/start') => 'InProgress',
+        final String p when p.endsWith('/cancel') => 'Cancelled',
+        _ => 'Planned',
+      },
+      'meetingUrl': 'https://meet.example.com/abc',
+      'recordingUrl': 'https://kayit.example.com/1',
+      'cancellationReason': data?['reason'],
       'topicTitle': data?['topicTitle'] ?? 'Denklemler',
       'coveredContent': data?['coveredContent'],
       'actualStartAtUtc': data?['actualStartAtUtc'],

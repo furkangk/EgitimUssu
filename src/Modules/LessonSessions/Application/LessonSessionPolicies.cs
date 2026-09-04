@@ -35,6 +35,8 @@ public sealed class CompleteLessonSessionCommandValidator : ICommandValidator<Co
 public sealed class LessonSessionCommandAuthorizer :
     ICommandAuthorizer<CreateLessonSessionCommand>,
     ICommandAuthorizer<CompleteLessonSessionCommand>,
+    ICommandAuthorizer<StartLessonSessionCommand>,
+    ICommandAuthorizer<CancelLessonSessionCommand>,
     IQueryAuthorizer<GetLessonSessionByIdQuery>,
     IQueryAuthorizer<ListLessonSessionsQuery>
 {
@@ -57,6 +59,28 @@ public sealed class LessonSessionCommandAuthorizer :
     public async Task<Result> Authorize(CompleteLessonSessionCommand command, CancellationToken cancellationToken)
     {
         var session = await _repository.GetByIdAsync(command.LessonSessionId, cancellationToken);
+        return session is null
+            ? Result.Failure(NotFound)
+            : (CanManageTeacher(session.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    /// <summary>M05-1: Dersi yalnız sahibi öğretmen (veya Admin) başlatabilir.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public async Task<Result> Authorize(StartLessonSessionCommand command, CancellationToken cancellationToken)
+        => await AuthorizeSessionOwner(command.LessonSessionId, cancellationToken);
+
+    /// <summary>M05-1: Dersi yalnız sahibi öğretmen (veya Admin) iptal edebilir.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public async Task<Result> Authorize(CancelLessonSessionCommand command, CancellationToken cancellationToken)
+        => await AuthorizeSessionOwner(command.LessonSessionId, cancellationToken);
+
+    private async Task<Result> AuthorizeSessionOwner(Guid lessonSessionId, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetByIdAsync(lessonSessionId, cancellationToken);
         return session is null
             ? Result.Failure(NotFound)
             : (CanManageTeacher(session.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));

@@ -16,6 +16,9 @@ class LessonSessionModel extends LessonSession {
     super.plannedStartAtUtc,
     super.durationMinutes,
     super.attendanceStatus,
+    super.meetingUrl,
+    super.recordingUrl,
+    super.cancellationReason,
   });
 
   factory LessonSessionModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +37,9 @@ class LessonSessionModel extends LessonSession {
       plannedStartAtUtc: _parseDate(json['plannedStartAtUtc']),
       durationMinutes: json['durationMinutes'] as int?,
       attendanceStatus: json['attendanceStatus']?.toString(),
+      meetingUrl: json['meetingUrl']?.toString(),
+      recordingUrl: json['recordingUrl']?.toString(),
+      cancellationReason: json['cancellationReason']?.toString(),
     );
   }
 

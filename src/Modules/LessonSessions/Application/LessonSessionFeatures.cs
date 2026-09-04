@@ -22,6 +22,15 @@ public sealed record CompleteLessonSessionCommand(
     string? TeacherNotes,
     bool IsChargeable) : ICommand<Result<LessonSessionResponse>>;
 
+/// <summary>M05-1: Planlı dersi "devam ediyor" durumuna geçirir.</summary>
+/// <param name="LessonSessionId">Ders oturumu kimliği.</param>
+public sealed record StartLessonSessionCommand(Guid LessonSessionId) : ICommand<Result<LessonSessionResponse>>;
+
+/// <summary>M05-1: Planlı veya devam eden dersi iptal eder.</summary>
+/// <param name="LessonSessionId">Ders oturumu kimliği.</param>
+/// <param name="Reason">İptal nedeni (opsiyonel).</param>
+public sealed record CancelLessonSessionCommand(Guid LessonSessionId, string? Reason) : ICommand<Result<LessonSessionResponse>>;
+
 public sealed record GetLessonSessionByIdQuery(Guid LessonSessionId) : IQuery<Result<LessonSessionResponse>>;
 public sealed record ListLessonSessionsQuery(Guid? TeacherUserId, Guid? StudentId, DateTime? DateFromUtc, DateTime? DateToUtc) : IQuery<Result<IReadOnlyCollection<LessonSessionResponse>>>;
 
@@ -41,6 +50,9 @@ public sealed record LessonSessionResponse(
     string? CoveredContent,
     string? TeacherNotes,
     bool IsChargeable,
+    string? MeetingUrl,
+    string? RecordingUrl,
+    string? CancellationReason,
     DateTime CreatedOnUtc,
     DateTime? CompletedOnUtc);
 
@@ -155,7 +167,8 @@ public sealed class CompleteLessonSessionCommandHandler : ICommandHandler<Comple
             return Result<LessonSessionResponse>.Failure(NotFound);
         }
 
-        session.Complete(
+        // M05-3: durum/zaman kurallari domain'de; ihlalde kayit degismeden hata doner.
+        var completion = session.Complete(
             command.ActualStartAtUtc,
             command.ActualEndAtUtc,
             command.AttendanceStatus,
@@ -164,6 +177,89 @@ public sealed class CompleteLessonSessionCommandHandler : ICommandHandler<Comple
             command.TeacherNotes?.Trim(),
             command.IsChargeable,
             _clock.UtcNow);
+
+        if (completion.IsFailure)
+        {
+            return Result<LessonSessionResponse>.Failure(completion.Error);
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<LessonSessionResponse>.Success(session.ToResponse());
+    }
+}
+
+/// <summary>M05-1: Dersi başlatma komutunu karşılar.</summary>
+public sealed class StartLessonSessionCommandHandler : ICommandHandler<StartLessonSessionCommand, Result<LessonSessionResponse>>
+{
+    private static readonly Error NotFound = new("lesson_sessions.not_found", "Ders oturumu bulunamadı.");
+    private readonly ILessonSessionRepository _repository;
+    private readonly IClock _clock;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="repository">Ders oturumu deposu.</param>
+    /// <param name="clock">Saat.</param>
+    public StartLessonSessionCommandHandler(ILessonSessionRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    /// <summary>Komutu işler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Güncellenmiş oturum ya da hata.</returns>
+    public async Task<Result<LessonSessionResponse>> Handle(StartLessonSessionCommand command, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetByIdAsync(command.LessonSessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<LessonSessionResponse>.Failure(NotFound);
+        }
+
+        var transition = session.Start(_clock.UtcNow);
+        if (transition.IsFailure)
+        {
+            return Result<LessonSessionResponse>.Failure(transition.Error);
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<LessonSessionResponse>.Success(session.ToResponse());
+    }
+}
+
+/// <summary>M05-1: Dersi iptal etme komutunu karşılar.</summary>
+public sealed class CancelLessonSessionCommandHandler : ICommandHandler<CancelLessonSessionCommand, Result<LessonSessionResponse>>
+{
+    private static readonly Error NotFound = new("lesson_sessions.not_found", "Ders oturumu bulunamadı.");
+    private readonly ILessonSessionRepository _repository;
+    private readonly IClock _clock;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="repository">Ders oturumu deposu.</param>
+    /// <param name="clock">Saat.</param>
+    public CancelLessonSessionCommandHandler(ILessonSessionRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    /// <summary>Komutu işler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Güncellenmiş oturum ya da hata.</returns>
+    public async Task<Result<LessonSessionResponse>> Handle(CancelLessonSessionCommand command, CancellationToken cancellationToken)
+    {
+        var session = await _repository.GetByIdAsync(command.LessonSessionId, cancellationToken);
+        if (session is null)
+        {
+            return Result<LessonSessionResponse>.Failure(NotFound);
+        }
+
+        var transition = session.Cancel(command.Reason, _clock.UtcNow);
+        if (transition.IsFailure)
+        {
+            return Result<LessonSessionResponse>.Failure(transition.Error);
+        }
 
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<LessonSessionResponse>.Success(session.ToResponse());
@@ -209,6 +305,9 @@ internal static class LessonSessionMappings
             session.CoveredContent,
             session.TeacherNotes,
             session.IsChargeable,
+            session.MeetingUrl,
+            session.RecordingUrl,
+            session.CancellationReason,
             session.CreatedOnUtc,
             session.CompletedOnUtc);
     }

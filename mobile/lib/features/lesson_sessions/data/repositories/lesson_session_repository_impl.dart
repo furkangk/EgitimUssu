@@ -99,6 +99,26 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
     }
   }
 
+  @override
+  Future<LessonSession> startSession(String lessonSessionId) async {
+    final response = await _apiClient.post(
+      '/api/lesson-sessions/$lessonSessionId/start',
+    );
+    return LessonSessionModel.fromJson(response);
+  }
+
+  @override
+  Future<LessonSession> cancelSession(
+    String lessonSessionId, {
+    String? reason,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/lesson-sessions/$lessonSessionId/cancel',
+      data: <String, dynamic>{'reason': reason},
+    );
+    return LessonSessionModel.fromJson(response);
+  }
+
   LessonSessionModel _toModel(LessonSession lessonSession) {
     return LessonSessionModel(
       id: lessonSession.id,

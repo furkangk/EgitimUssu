@@ -19,12 +19,16 @@ public static class DependencyInjection
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudentLastLessonDirectory, StudentLastLessonDirectory>();
         services.AddScoped<ICommandHandler<CreateLessonSessionCommand, Result<LessonSessionResponse>>, CreateLessonSessionCommandHandler>();
         services.AddScoped<ICommandHandler<CompleteLessonSessionCommand, Result<LessonSessionResponse>>, CompleteLessonSessionCommandHandler>();
+        services.AddScoped<ICommandHandler<StartLessonSessionCommand, Result<LessonSessionResponse>>, StartLessonSessionCommandHandler>();
+        services.AddScoped<ICommandHandler<CancelLessonSessionCommand, Result<LessonSessionResponse>>, CancelLessonSessionCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionByIdQuery, Result<LessonSessionResponse>>, GetLessonSessionByIdQueryHandler>();
         services.AddScoped<IQueryHandler<ListLessonSessionsQuery, Result<IReadOnlyCollection<LessonSessionResponse>>>, ListLessonSessionsQueryHandler>();
         services.AddScoped<ICommandValidator<CreateLessonSessionCommand>, CreateLessonSessionCommandValidator>();
         services.AddScoped<ICommandValidator<CompleteLessonSessionCommand>, CompleteLessonSessionCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateLessonSessionCommand>, LessonSessionCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<CompleteLessonSessionCommand>, LessonSessionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<StartLessonSessionCommand>, LessonSessionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<CancelLessonSessionCommand>, LessonSessionCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetLessonSessionByIdQuery>, LessonSessionCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSessionsQuery>, LessonSessionCommandAuthorizer>();
 

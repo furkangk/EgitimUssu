@@ -78,7 +78,77 @@ public sealed class LessonSession : AggregateRoot<Guid>
 
     public bool IsChargeable { get; private set; }
 
-    public void Complete(
+    /// <summary>M05-4: Çevrimiçi dersin toplantı bağlantısı (Zoom/Meet vb.). Planlı dersten türetilirken kopyalanır.</summary>
+    public string? MeetingUrl { get; private set; }
+
+    /// <summary>M05-4: Ders kaydının bağlantısı (varsa). Ders sonrasında elle girilir.</summary>
+    public string? RecordingUrl { get; private set; }
+
+    /// <summary>M05-1: İptal nedeni (serbest metin, opsiyonel). Yalnız <see cref="LessonSessionStatus.Cancelled"/> durumunda anlamlıdır.</summary>
+    public string? CancellationReason { get; private set; }
+
+    /// <summary>
+    /// M05-1: Dersi başlatır — yalnız <see cref="LessonSessionStatus.Planned"/> durumundan
+    /// <see cref="LessonSessionStatus.InProgress"/> durumuna geçilebilir.
+    /// </summary>
+    /// <param name="actualStartAtUtc">Gerçek başlangıç zamanı (UTC).</param>
+    /// <returns>Geçiş geçerli değilse <c>lesson_sessions.invalid_transition</c>.</returns>
+    public Result Start(DateTime actualStartAtUtc)
+    {
+        if (Status != LessonSessionStatus.Planned)
+        {
+            return Result.Failure(InvalidTransition);
+        }
+
+        ActualStartAtUtc = actualStartAtUtc;
+        Status = LessonSessionStatus.InProgress;
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// M05-1: Dersi iptal eder — yalnız <see cref="LessonSessionStatus.Planned"/> veya
+    /// <see cref="LessonSessionStatus.InProgress"/> durumundan iptal edilebilir; tamamlanmış ders iptal edilemez.
+    /// </summary>
+    /// <param name="reason">İptal nedeni (boş/boşluk ise <c>null</c> yazılır).</param>
+    /// <param name="nowUtc">İşlem zamanı (UTC).</param>
+    /// <returns>Geçiş geçerli değilse <c>lesson_sessions.invalid_transition</c>.</returns>
+    public Result Cancel(string? reason, DateTime nowUtc)
+    {
+        if (Status is not (LessonSessionStatus.Planned or LessonSessionStatus.InProgress))
+        {
+            return Result.Failure(InvalidTransition);
+        }
+
+        _ = nowUtc;
+        Status = LessonSessionStatus.Cancelled;
+        CancellationReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        return Result.Success();
+    }
+
+    /// <summary>M05-4: Toplantı bağlantısını yazar; boş/boşluk değer bağlantıyı temizler.</summary>
+    /// <param name="meetingUrl">Toplantı bağlantısı.</param>
+    public void SetMeetingUrl(string? meetingUrl)
+        => MeetingUrl = string.IsNullOrWhiteSpace(meetingUrl) ? null : meetingUrl.Trim();
+
+    /// <summary>M05-4: Kayıt bağlantısını yazar; boş/boşluk değer bağlantıyı temizler.</summary>
+    /// <param name="recordingUrl">Kayıt bağlantısı.</param>
+    public void SetRecordingUrl(string? recordingUrl)
+        => RecordingUrl = string.IsNullOrWhiteSpace(recordingUrl) ? null : recordingUrl.Trim();
+
+    /// <summary>
+    /// Dersi tamamlanmış duruma getirir. İptal edilmiş ders tamamlanamaz; tamamlanmış ders
+    /// **yeniden** tamamlanabilir (öğretmenin konu/not düzeltmesi).
+    /// </summary>
+    /// <param name="actualStartAtUtc">Gerçek başlangıç (UTC).</param>
+    /// <param name="actualEndAtUtc">Gerçek bitiş (UTC) — başlangıçtan sonra olmalı.</param>
+    /// <param name="attendanceStatus">Yoklama durumu.</param>
+    /// <param name="topicTitle">İşlenen konu başlığı.</param>
+    /// <param name="coveredContent">İşlenen içerik.</param>
+    /// <param name="teacherNotes">Öğretmen notu.</param>
+    /// <param name="isChargeable">Ücretlendirilecek mi.</param>
+    /// <param name="completedOnUtc">Tamamlama zamanı (UTC).</param>
+    /// <returns><c>lesson_sessions.invalid_transition</c> · <c>lesson_sessions.invalid_time_range</c> ya da başarı.</returns>
+    public Result Complete(
         DateTime actualStartAtUtc,
         DateTime actualEndAtUtc,
         StudentAttendanceStatus attendanceStatus,
@@ -88,6 +158,16 @@ public sealed class LessonSession : AggregateRoot<Guid>
         bool isChargeable,
         DateTime completedOnUtc)
     {
+        if (Status == LessonSessionStatus.Cancelled)
+        {
+            return Result.Failure(InvalidTransition);
+        }
+
+        if (actualEndAtUtc <= actualStartAtUtc)
+        {
+            return Result.Failure(InvalidTimeRange);
+        }
+
         ActualStartAtUtc = actualStartAtUtc;
         ActualEndAtUtc = actualEndAtUtc;
         DurationMinutes = (int)Math.Ceiling((actualEndAtUtc - actualStartAtUtc).TotalMinutes);
@@ -100,7 +180,14 @@ public sealed class LessonSession : AggregateRoot<Guid>
         CompletedOnUtc = completedOnUtc;
 
         Raise(new LessonSessionCompletedDomainEvent(Id, LessonScheduleId, TeacherUserId, StudentId, completedOnUtc));
+        return Result.Success();
     }
+
+    private static readonly Error InvalidTransition =
+        new("lesson_sessions.invalid_transition", "Ders oturumunun mevcut durumu bu işleme izin vermiyor.");
+
+    private static readonly Error InvalidTimeRange =
+        new("lesson_sessions.invalid_time_range", "Ders bitiş saati başlangıç saatinden sonra olmalıdır.");
 }
 
 public enum StudentAttendanceStatus

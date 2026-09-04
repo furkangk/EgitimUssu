@@ -40,6 +40,10 @@ namespace EgitimUssu.Modules.LessonSessions.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<DateTime?>("CompletedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -59,8 +63,16 @@ namespace EgitimUssu.Modules.LessonSessions.Infrastructure.Migrations
                     b.Property<Guid?>("LessonScheduleId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("MeetingUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<DateTime>("PlannedStartAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RecordingUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("Status")
                         .IsRequired()

@@ -119,23 +119,30 @@ git commit -m "feat(teachers): profil arama/listeleme + pasiflestirme (M02-3/M02
 - Modify: `src/Modules/LessonSessions/API/LessonSessionsModule.cs`
 - Modify: `src/Modules/LessonSessions/Infrastructure/DependencyInjection.cs` + migration
 - Test: `tests/Unit/LessonSessionTests.cs` (mevcut dosyaya ekleme)
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (**plan dışı, gerekli:** handler/authorizer testleri için `LessonSessions.Application` proje referansı — Öğrenilenler #5 deseni)
+- Modify: `mobile/lib/features/lesson_sessions/{domain,data}/**` + `mobile/test/.../lesson_session_repository_impl_test.dart` (Step 6)
 
 **Interfaces:**
 - Produces:
   - `LessonSession.Start(DateTime actualStartUtc)` — yalnız `Planned` → `InProgress`; aksi halde `lesson_sessions.invalid_transition`.
+    > **Plandan sapma (uygulandı):** domain metotları `Shared.Kernel.Result` **döner** (fırlatmaz). Repodaki ilk örnek; geçiş kuralı domain'de kalır, handler hatayı taşır ve `SaveChanges` çağırmaz. `Complete()` de artık `Result` döner.
   - `LessonSession.Cancel(string? reason, DateTime nowUtc)` — `Planned`/`InProgress` → `Cancelled`.
   - `LessonSession.Complete(...)` içinde **`ActualEnd > ActualStart` doğrulaması** (`lesson_sessions.invalid_time_range`).
   - Yeni alanlar: `string? MeetingUrl`, `string? RecordingUrl`, `string? CancellationReason`.
-  - `POST /api/lesson-sessions/{id}/start` · `POST /api/lesson-sessions/{id}/cancel`
+  - `POST /api/lesson-sessions/{id}/start` · `POST /api/lesson-sessions/{id}/cancel` — sahibi öğretmen/Admin; geçersiz geçiş **409**.
+  - `CancelLessonSessionRequest(string? Reason)` — gövde opsiyonel.
 
-- [ ] **Step 1: Domain testlerini yaz (kırmızı)** — 5 test: geçerli start; ikinci start hata; complete'te ters zaman aralığı hata; cancel sonrası complete hata; `MeetingUrl` set edilebiliyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LessonSessionTests"`
-- [ ] **Step 3: Domain + alanlar + migration**
+- [x] **Step 1: Domain testlerini yaz (kırmızı)** — 5 test: geçerli start; ikinci start hata; complete'te ters zaman aralığı hata; cancel sonrası complete hata; `MeetingUrl` set edilebiliyor.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LessonSessionTests"`
+- [x] **Step 3: Domain + alanlar + migration**
   Run: `dotnet ef migrations add AddSessionLifecycleFields --project src/Modules/LessonSessions/Infrastructure --startup-project src/API.Host --context LessonSessionsDbContext`
-- [ ] **Step 4: Command/handler/authorizer + 2 endpoint.**
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Mobil** — `lesson_detail_page.dart`'a "Dersi başlat" / "İptal et" eylemleri; `MeetingUrl` varsa "Derse katıl" butonu (harici tarayıcı).
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 4: Command/handler/authorizer + 2 endpoint.**
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 6: Mobil (kapsam düzeltildi)** — `LessonSessionRepository.startSession/cancelSession` + model alanları (`meetingUrl`/`recordingUrl`/`cancellationReason`) + 3 test.
+  > **Plandan sapma (gerekçeli):** `lesson_detail_page.dart` bir **`LessonSchedule`** taşır, oturum kimliği taşımaz — start/cancel düğmeleri bağlanamaz.
+  > Köprü `POST /from-schedule/{id}` (Task 4) ile kurulur; **düğme bağlantısı Task 4 Step 5'e taşındı.**
+  > "Derse katıl" butonu (`MeetingUrl`, harici tarayıcı) **zaten vardı** (`_JoinMeetingCard`, Dilim A/M04) — yeni iş çıkmadı.
+- [x] **Step 7: Doküman + commit**
 
 `doc/modules/m05_lesson_sessions.md` (durum geçiş diyagramı + yeni uçlar), `doc/pages/lesson_detail.md`.
 ```bash
@@ -178,6 +185,7 @@ git commit -m "feat(lesson-sessions): baslat/iptal gecisleri + zaman dogrulamasi
   > `LessonSessions` **Scheduling'e proje referansı vermez**; yalnız `Shared.Contracts`'ı kullanır (mimari test bunu zorlar).
 - [ ] **Step 4: Endpoint + DI + yeşil test** — Run: `dotnet test EgitimUssu.slnx`
 - [ ] **Step 5: Mobil** — Takvimde bir dersi tamamlarken "Oturum aç ve not gir" tek adımda: `scheduling_page.dart`'taki ders kartına "Ders notu gir" eylemi → `POST /from-schedule/{id}` → dönen `lessonSessionId` ile `/lesson-notes/new`.
+  **+ Task 3'ten devralındı:** oturum kimliği elde edildiğinde `lesson_detail_page.dart`'a "Dersi başlat" / "İptal et" düğmelerini bağla (`startSession`/`cancelSession` veri katmanında hazır; 409 → "bu ders zaten başlamış/iptal edilmiş" mesajı).
 - [ ] **Step 6: Doküman + commit**
 
 ```bash

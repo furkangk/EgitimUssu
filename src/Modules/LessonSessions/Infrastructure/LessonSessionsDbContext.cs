@@ -44,6 +44,10 @@ internal sealed class LessonSessionConfiguration : IEntityTypeConfiguration<Less
         builder.Property(entity => entity.TeacherNotes).HasMaxLength(2000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.IsChargeable);
+        // M05-4 / M05-1: toplanti-kayit baglantisi ve iptal nedeni.
+        builder.Property(entity => entity.MeetingUrl).HasMaxLength(512);
+        builder.Property(entity => entity.RecordingUrl).HasMaxLength(512);
+        builder.Property(entity => entity.CancellationReason).HasMaxLength(500);
         builder.HasIndex(entity => entity.LessonScheduleId);
         builder.HasIndex(entity => new { entity.StudentId, entity.PlannedStartAtUtc });
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.PlannedStartAtUtc });
