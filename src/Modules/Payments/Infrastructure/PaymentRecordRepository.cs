@@ -15,7 +15,7 @@ internal sealed class PaymentRecordRepository : IPaymentRecordRepository
 
     public Task<PaymentRecord?> GetByIdAsync(Guid paymentRecordId, CancellationToken cancellationToken)
     {
-        return _dbContext.PaymentRecords.FirstOrDefaultAsync(record => record.Id == paymentRecordId, cancellationToken);
+        return _dbContext.PaymentRecords.FindAsync(new object?[] { paymentRecordId }, cancellationToken).AsTask();
     }
 
     public async Task<IReadOnlyCollection<PaymentRecord>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken cancellationToken)

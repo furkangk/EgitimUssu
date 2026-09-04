@@ -1,3 +1,4 @@
+using EgitimUssu.Modules.Payments.Domain;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Kernel;
 
@@ -97,11 +98,16 @@ public sealed class PaymentRecordAuthorizer :
     private static readonly Error NotFound = new("payments.record_not_found", "Odeme kaydi bulunamadi.");
     private readonly ICurrentUser _currentUser;
     private readonly IPaymentRecordRepository _repository;
+    private readonly IRequestEntityCache _entityCache;
 
-    public PaymentRecordAuthorizer(ICurrentUser currentUser, IPaymentRecordRepository repository)
+    public PaymentRecordAuthorizer(
+        ICurrentUser currentUser,
+        IPaymentRecordRepository repository,
+        IRequestEntityCache entityCache)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _entityCache = entityCache;
     }
 
     public Task<Result> Authorize(CreatePaymentRecordCommand command, CancellationToken cancellationToken)
@@ -111,7 +117,7 @@ public sealed class PaymentRecordAuthorizer :
 
     public async Task<Result> Authorize(UpdatePaymentRecordCommand command, CancellationToken cancellationToken)
     {
-        var paymentRecord = await _repository.GetByIdAsync(command.PaymentRecordId, cancellationToken);
+        var paymentRecord = await _entityCache.LoadPaymentRecordAsync(_repository, command.PaymentRecordId, cancellationToken);
         return paymentRecord is null
             ? Result.Failure(NotFound)
             : (CanManageTeacher(paymentRecord.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
@@ -119,7 +125,7 @@ public sealed class PaymentRecordAuthorizer :
 
     public async Task<Result> Authorize(GetPaymentRecordByIdQuery query, CancellationToken cancellationToken)
     {
-        var paymentRecord = await _repository.GetByIdAsync(query.PaymentRecordId, cancellationToken);
+        var paymentRecord = await _entityCache.LoadPaymentRecordAsync(_repository, query.PaymentRecordId, cancellationToken);
         return paymentRecord is null
             ? Result.Failure(NotFound)
             : (CanManageTeacher(paymentRecord.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
@@ -156,4 +162,30 @@ public sealed class PaymentRecordAuthorizer :
         var isTeacher = _currentUser.Roles.Contains("Teacher");
         return isAdmin || (isTeacher && Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == teacherUserId);
     }
+}
+
+/// <summary>
+/// O2: Ödeme kaydını istek kapsamında bir kez yükler; authorizer ve handler aynı örneği paylaşır.
+/// </summary>
+internal static class PaymentCacheKeys
+{
+    public static Task<PaymentRecord?> LoadPaymentRecordAsync(
+        this IRequestEntityCache cache,
+        IPaymentRecordRepository repository,
+        Guid paymentRecordId,
+        CancellationToken cancellationToken)
+        => cache.GetOrLoadAsync(
+            ("payments.record", paymentRecordId),
+            ct => repository.GetByIdAsync(paymentRecordId, ct),
+            cancellationToken);
+
+    public static Task<ParentPaymentDeclaration?> LoadDeclarationAsync(
+        this IRequestEntityCache cache,
+        IParentPaymentDeclarationRepository repository,
+        Guid declarationId,
+        CancellationToken cancellationToken)
+        => cache.GetOrLoadAsync(
+            ("payments.declaration", declarationId),
+            ct => repository.GetByIdAsync(declarationId, ct),
+            cancellationToken);
 }

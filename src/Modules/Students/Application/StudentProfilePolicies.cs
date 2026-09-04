@@ -205,22 +205,35 @@ public sealed class StudentProfileQueryAuthorizer :
     private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
     private readonly ICurrentUser _currentUser;
     private readonly IStudentProfileRepository _repository;
+    private readonly IRequestEntityCache _entityCache;
 
-    public StudentProfileQueryAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    public StudentProfileQueryAuthorizer(
+        ICurrentUser currentUser,
+        IStudentProfileRepository repository,
+        IRequestEntityCache entityCache)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _entityCache = entityCache;
     }
 
     public async Task<Result> Authorize(GetStudentProfileByIdQuery query, CancellationToken cancellationToken)
     {
-        var profile = await _repository.GetByIdAsync(query.StudentId, cancellationToken);
+        var profile = await _entityCache.GetOrLoadAsync(
+            StudentProfileCacheKeys.ById(query.StudentId),
+            ct => _repository.GetByIdAsync(query.StudentId, ct),
+            cancellationToken);
+
         return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
     }
 
     public async Task<Result> Authorize(GetStudentProfileByUserIdQuery query, CancellationToken cancellationToken)
     {
-        var profile = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
+        var profile = await _entityCache.GetOrLoadAsync(
+            StudentProfileCacheKeys.ByUserId(query.UserId),
+            ct => _repository.GetByUserIdAsync(query.UserId, ct),
+            cancellationToken);
+
         return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
     }
 
@@ -275,4 +288,15 @@ public sealed class StudentProfileQueryAuthorizer :
 
         return hasAccess ? Result.Success() : Result.Failure(Forbidden);
     }
+}
+
+/// <summary>
+/// O2: Öğrenci profilinin istek kapsamı önbellek anahtarları. Aynı profil iki farklı yoldan
+/// (id / kullanıcı id) aranabildiği için anahtarlar ayrıştırılır.
+/// </summary>
+internal static class StudentProfileCacheKeys
+{
+    public static object ById(Guid studentId) => ("students.profile.byId", studentId);
+
+    public static object ByUserId(Guid userId) => ("students.profile.byUserId", userId);
 }

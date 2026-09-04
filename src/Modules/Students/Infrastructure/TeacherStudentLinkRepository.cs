@@ -20,7 +20,7 @@ internal sealed class TeacherStudentLinkRepository : ITeacherStudentLinkReposito
 
     public Task<TeacherStudentLink?> GetByIdAsync(Guid linkId, CancellationToken cancellationToken)
     {
-        return _dbContext.TeacherStudentLinks.FirstOrDefaultAsync(link => link.Id == linkId, cancellationToken);
+        return _dbContext.TeacherStudentLinks.FindAsync(new object?[] { linkId }, cancellationToken).AsTask();
     }
 
     public Task<TeacherStudentLink?> GetByTeacherAndStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)

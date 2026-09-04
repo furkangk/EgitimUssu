@@ -14,7 +14,7 @@ internal sealed class ParentPaymentDeclarationRepository : IParentPaymentDeclara
         => _dbContext.ParentPaymentDeclarations.AddAsync(declaration, cancellationToken).AsTask();
 
     public Task<ParentPaymentDeclaration?> GetByIdAsync(Guid declarationId, CancellationToken cancellationToken)
-        => _dbContext.ParentPaymentDeclarations.FirstOrDefaultAsync(d => d.Id == declarationId, cancellationToken);
+        => _dbContext.ParentPaymentDeclarations.FindAsync(new object?[] { declarationId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyCollection<ParentPaymentDeclaration>> ListForTeacherAsync(Guid teacherUserId, bool onlyPending, CancellationToken cancellationToken)
     {

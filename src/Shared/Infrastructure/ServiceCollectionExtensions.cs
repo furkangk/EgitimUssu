@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidIdGenerator>();
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+        services.AddScoped<IRequestEntityCache, RequestEntityCache>();
         services.AddScoped<ICommandDispatcher, CommandDispatcher>();
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
         services.AddSingleton<IDomainEventMapper, JsonDomainEventMapper>();

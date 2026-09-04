@@ -15,7 +15,7 @@ internal sealed class AssignmentRepository : IAssignmentRepository
 
     public Task<Assignment?> GetAssignmentByIdAsync(Guid assignmentId, CancellationToken cancellationToken)
     {
-        return _dbContext.Assignments.FirstOrDefaultAsync(assignment => assignment.Id == assignmentId, cancellationToken);
+        return _dbContext.Assignments.FindAsync(new object?[] { assignmentId }, cancellationToken).AsTask();
     }
 
     public Task<LessonNote?> GetLessonNoteByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)

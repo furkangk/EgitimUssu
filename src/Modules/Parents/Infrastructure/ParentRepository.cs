@@ -20,7 +20,7 @@ internal sealed class ParentRepository : IParentRepository
 
     public Task<ParentChildLink?> GetLinkByIdAsync(Guid linkId, CancellationToken cancellationToken)
     {
-        return _dbContext.ParentChildLinks.FirstOrDefaultAsync(link => link.Id == linkId, cancellationToken);
+        return _dbContext.ParentChildLinks.FindAsync(new object?[] { linkId }, cancellationToken).AsTask();
     }
 
     public Task<ParentChildLink?> GetActiveLinkAsync(Guid parentUserId, Guid studentId, CancellationToken cancellationToken)

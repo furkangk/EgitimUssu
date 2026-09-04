@@ -32,7 +32,7 @@ internal sealed class ProgressRepository : IProgressRepository
         _dbContext.TopicMasteries.AddAsync(mastery, cancellationToken).AsTask();
 
     public Task<TopicGoal?> GetGoalAsync(Guid goalId, CancellationToken cancellationToken) =>
-        _dbContext.TopicGoals.FirstOrDefaultAsync(x => x.Id == goalId, cancellationToken);
+        _dbContext.TopicGoals.FindAsync(new object?[] { goalId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyList<TopicGoal>> ListGoalsAsync(Guid studentId, TopicGoalStatus? status, CancellationToken cancellationToken)
     {

@@ -246,6 +246,29 @@ Kaynak modül aggregate → DomainEvent → Outbox → IEventBus
          └─ taban: iş-yazımı + inbox satırı TEK transaction'da commit
 ```
 
+## 7.2 İstek Kapsamı Varlık Önbelleği (O2 — çift sorgu yok)
+
+Bir istekte **authorizer** ve **handler** çoğu zaman aynı varlığı yükler (authorizer sahipliği doğrular,
+handler işi yapar). Bu iki yükleme iki ayrı `SELECT` üretmemeli. İki mekanizma var; hangisinin geçerli
+olduğu **aramanın birincil anahtar üzerinden yapılıp yapılmadığına** bağlıdır:
+
+| Durum | Mekanizma | Nasıl |
+|-------|-----------|-------|
+| Birincil anahtarla arama (`GetByIdAsync`) | **EF kimlik haritası** | Repository `FindAsync(new object?[] { id }, ct)` kullanır. Varlık aynı `DbContext`'te zaten izleniyorsa DB'ye **hiç gidilmez**. |
+| Anahtar dışı arama veya `Include`'lu yükleme | **`IRequestEntityCache`** (scoped) | Authorizer ile handler `cache.GetOrLoadAsync(anahtar, ct => repo.…(ct), ct)` çağırır; hangisi önce koşarsa yükler. |
+
+Kurallar:
+- `IRequestEntityCache` **scoped**'dır — bir isteğin verisi başka bir isteğe sızmaz (`ServiceCollectionExtensions`).
+- Anahtar `(tip, key)` çiftidir; aynı anahtar farklı tiple istendiğinde eşleşme olmaz.
+- **Bulunamayan varlık saklanmaz** — yokluk kalıcı bir cevap değildir.
+- Aynı varlık iki farklı yoldan aranabiliyorsa (örn. öğrenci profili id / kullanıcı id) anahtarlar ayrıştırılır
+  (`StudentProfileCacheKeys`).
+- `FindAsync` yalnız **filtresiz, `Include`'suz** birincil anahtar aramasında kullanılır. `Include`'lu yükleme
+  (`StudentProfileRepository.GetByIdAsync`) `FindAsync`'e çevrilemez — orada önbellek kullanılır.
+
+Doğrulama InMemory'den alınamaz; gerçek Postgres'te EF'in `Executed DbCommand` günlükleri sayılır
+(`tests/Integration/RealSingleEntityLoadTests.cs`).
+
 ## 8. Güvenlik
 
 - **JWT Bearer:** access token; `refresh` ucu ile yenileme; `RefreshTokenSession` (cihaz başına) DB'de hash'li tutulur.
@@ -301,4 +324,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-04 (P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-04 (P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

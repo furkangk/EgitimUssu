@@ -3,6 +3,7 @@ using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Tests.Unit.TestDoubles;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -139,7 +140,8 @@ public sealed class StudentParentLinkTests
     {
         var authorizer = new StudentProfileQueryAuthorizer(
             new FakeCurrentUser(Guid.NewGuid().ToString(), "Parent"),
-            new FakeRepository(null));
+            new FakeRepository(null),
+            new FakeRequestEntityCache());
 
         var result = await authorizer.Authorize(new ListStudentsByParentQuery(ParentUserId), CancellationToken.None);
 
@@ -152,7 +154,8 @@ public sealed class StudentParentLinkTests
     {
         var authorizer = new StudentProfileQueryAuthorizer(
             new FakeCurrentUser(ParentUserId.ToString(), "Parent"),
-            new FakeRepository(null));
+            new FakeRepository(null),
+            new FakeRequestEntityCache());
 
         var result = await authorizer.Authorize(new ListStudentsByParentQuery(ParentUserId), CancellationToken.None);
 

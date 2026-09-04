@@ -132,8 +132,15 @@ Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegration
 
 ✅ _Çözüm (2026-07-01):_ Yerleşik `AddRateLimiter` yerine `DistributedRateLimitMiddleware` — Redis destekli, IP-partition'lı, **yol tabanlı** politika: `/api/identity/*` → `auth` (10/dk), diğer `/api/*` → `default` (120/dk), gerisi limitsiz. Böylece **tüm iş uçları** otomatik `default` limitine tabi. Redis erişilemezse **fail-open** (ADR-0004 kararı). Ayarlar `appsettings.json:RateLimiting`. Testler: `tests/Unit/DistributedRateLimitMiddlewareTests.cs` + ✅ gerçek Redis'e karşı `tests/Integration/RealRedisIntegrationTests.cs` (M14, 2026-07-06 — limit aşımında 429, fail-open değil).
 
-### O2 — Sorgu authorizer'ları varlığı iki kez yüklüyor (çift DB sorgusu)
+### ✅ O2 — Sorgu authorizer'ları varlığı iki kez yüklüyor (çift DB sorgusu) — **Düzeltildi 2026-09-04 (P07)**
 Örn. `GetStudentProfileByIdQuery`: authorizer profili yükler, handler **aynı** profili tekrar yükler. **Öneri:** request-context cache veya erişim kontrolünü handler'a entegre et.
+
+✅ _Düzeltildi (2026-09-04, P07 Task 3):_ İki mekanizma, bkz. [`../architecture/backend.md`](../architecture/backend.md) §7.2.
+(a) **Birincil anahtar aramaları** repository katmanında `FindAsync`'e çevrildi (19 metot, 14 dosya) — varlık aynı
+`DbContext`'te izleniyorsa ikinci `SELECT` hiç üretilmez. (b) **Anahtar dışı / `Include`'lu** yüklemeler için
+`IRequestEntityCache` (scoped) + `GetOrLoadAsync` eklendi; Students profil ve Payments kayıt yolları bağlandı.
+Ölçüm gerçek Postgres'te EF `Executed DbCommand` günlüğü sayılarak yapıldı (`tests/Integration/RealSingleEntityLoadTests.cs`):
+`student_profiles` → 1 `SELECT`, `lesson_schedules` → 2'den 1'e düştü.
 
 ### ✅ O3 — `MarkProcessedAsync` `DateTime.UtcNow` kullanıyor (IClock değil) — **Düzeltildi 2026-07-01**
 Kod tabanı test edilebilirlik için `IClock` kullanırken `EfOutboxStore` doğrudan `DateTime.UtcNow` çağırıyor — tutarsız.
@@ -213,4 +220,4 @@ Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya t
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-09-03 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

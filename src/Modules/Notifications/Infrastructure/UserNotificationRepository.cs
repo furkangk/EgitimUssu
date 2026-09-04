@@ -39,7 +39,7 @@ internal sealed class UserNotificationRepository : IUserNotificationRepository
             cancellationToken);
 
     public Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken)
-        => _dbContext.UserNotifications.FirstOrDefaultAsync(entity => entity.Id == notificationId, cancellationToken);
+        => _dbContext.UserNotifications.FindAsync(new object?[] { notificationId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken)
         => await _dbContext.UserNotifications

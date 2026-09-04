@@ -17,7 +17,7 @@ internal sealed class StudentParentInviteRepository : IStudentParentInviteReposi
         => _dbContext.StudentParentInvites.FirstOrDefaultAsync(i => i.InviteCode == inviteCode, cancellationToken);
 
     public Task<StudentParentInvite?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken)
-        => _dbContext.StudentParentInvites.FirstOrDefaultAsync(i => i.Id == inviteId, cancellationToken);
+        => _dbContext.StudentParentInvites.FindAsync(new object?[] { inviteId }, cancellationToken).AsTask();
 
     public Task SaveChangesAsync(CancellationToken cancellationToken)
         => _dbContext.SaveChangesAsync(cancellationToken);

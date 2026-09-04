@@ -11,7 +11,7 @@ internal sealed class LessonResourceRepository : ILessonResourceRepository
     public LessonResourceRepository(AssignmentsDbContext dbContext) => _dbContext = dbContext;
 
     public Task<LessonResource?> GetByIdAsync(Guid resourceId, CancellationToken cancellationToken)
-        => _dbContext.LessonResources.FirstOrDefaultAsync(entity => entity.Id == resourceId, cancellationToken);
+        => _dbContext.LessonResources.FindAsync(new object?[] { resourceId }, cancellationToken).AsTask();
 
     /// <summary>
     /// Yalniz aktif (arsivlenmemis) kaynaklari doner. Ogrenci filtresi verildiginde, o ogrenciye ozel

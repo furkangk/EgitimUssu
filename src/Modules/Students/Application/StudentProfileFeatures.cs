@@ -222,15 +222,22 @@ public sealed class GetStudentProfileByIdQueryHandler : IQueryHandler<GetStudent
 {
     private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
     private readonly IStudentProfileRepository _repository;
+    private readonly IRequestEntityCache _entityCache;
 
-    public GetStudentProfileByIdQueryHandler(IStudentProfileRepository repository)
+    public GetStudentProfileByIdQueryHandler(IStudentProfileRepository repository, IRequestEntityCache entityCache)
     {
         _repository = repository;
+        _entityCache = entityCache;
     }
 
+    /// <summary>O2: Authorizer profili yüklediyse istek kapsamından okur; yalnız yoksa DB'ye gider.</summary>
     public async Task<Result<StudentProfileResponse>> Handle(GetStudentProfileByIdQuery query, CancellationToken cancellationToken)
     {
-        var profile = await _repository.GetByIdAsync(query.StudentId, cancellationToken);
+        var profile = await _entityCache.GetOrLoadAsync(
+            StudentProfileCacheKeys.ById(query.StudentId),
+            ct => _repository.GetByIdAsync(query.StudentId, ct),
+            cancellationToken);
+
         return profile is null
             ? Result<StudentProfileResponse>.Failure(NotFound)
             : Result<StudentProfileResponse>.Success(profile.ToResponse());
@@ -241,15 +248,22 @@ public sealed class GetStudentProfileByUserIdQueryHandler : IQueryHandler<GetStu
 {
     private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
     private readonly IStudentProfileRepository _repository;
+    private readonly IRequestEntityCache _entityCache;
 
-    public GetStudentProfileByUserIdQueryHandler(IStudentProfileRepository repository)
+    public GetStudentProfileByUserIdQueryHandler(IStudentProfileRepository repository, IRequestEntityCache entityCache)
     {
         _repository = repository;
+        _entityCache = entityCache;
     }
 
+    /// <summary>O2: Authorizer profili yüklediyse istek kapsamından okur; yalnız yoksa DB'ye gider.</summary>
     public async Task<Result<StudentProfileResponse>> Handle(GetStudentProfileByUserIdQuery query, CancellationToken cancellationToken)
     {
-        var profile = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
+        var profile = await _entityCache.GetOrLoadAsync(
+            StudentProfileCacheKeys.ByUserId(query.UserId),
+            ct => _repository.GetByUserIdAsync(query.UserId, ct),
+            cancellationToken);
+
         return profile is null
             ? Result<StudentProfileResponse>.Failure(NotFound)
             : Result<StudentProfileResponse>.Success(profile.ToResponse());

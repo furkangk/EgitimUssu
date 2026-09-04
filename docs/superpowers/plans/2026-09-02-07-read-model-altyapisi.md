@@ -124,14 +124,20 @@ git commit -m "feat(reporting): ogretmen dashboard projeksiyonu (ilk read-model)
 
 ---
 
-### Task 3: Authorizer/handler çift sorgusunu gider (O2)
+### Task 3: Authorizer/handler çift sorgusunu gider (O2) ✅
 
 **Files:**
-- Create: `src/Shared/Application/IRequestEntityCache.cs`
+- Create: `src/Shared/Application/IRequestEntityCache.cs` (+ `RequestEntityCacheExtensions.GetOrLoadAsync`)
 - Create: `src/Shared/Infrastructure/Application/RequestEntityCache.cs`
 - Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs` (scoped kayıt)
 - Modify: `src/Modules/Students/Application/StudentProfilePolicies.cs` + `StudentProfileFeatures.cs` (ilk kullanım)
+- Modify: `src/Modules/Payments/Application/PaymentPolicies.cs` + `PaymentFeatures.cs`
 - Test: `tests/Unit/RequestEntityCacheTests.cs`
+- **Plan dışı, gerekliydi (bkz. Step 6 sapması):**
+  - Modify: 14 repository dosyası (`src/Modules/*/Infrastructure/*Repository.cs`) — 19 birincil-anahtar araması `FindAsync`'e çevrildi
+  - Create: `tests/Unit/StudentProfileRequestCacheTests.cs`, `tests/Unit/PaymentRequestCacheTests.cs`, `tests/Unit/TestDoubles/FakeRequestEntityCache.cs`
+  - Create: `tests/Integration/RealSingleEntityLoadTests.cs` (gerçek Postgres'te `SELECT` sayan ölçüm — Step 5)
+  - Modify: `tests/Unit/StudentParentLinkTests.cs` (authorizer ctor imzası değişti)
 
 **Interfaces:**
 - Produces:
@@ -144,16 +150,32 @@ git commit -m "feat(reporting): ogretmen dashboard projeksiyonu (ilk read-model)
     }
     ```
 
-- [ ] **Step 1: Testi yaz (kırmızı)** — `Set` sonrası `TryGet` aynı örneği döndürür; farklı tip/anahtar için `false`; kapsam (scope) dışına sızmaz.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~RequestEntityCacheTests"`
-- [ ] **Step 3: Implementasyonu yaz** (`Dictionary<(Type, object), object>` + scoped DI).
-- [ ] **Step 4: `GetStudentProfileByIdQuery` yolunda uygula**
+- [x] **Step 1: Testi yaz (kırmızı)** — `Set` sonrası `TryGet` aynı örneği döndürür; farklı tip/anahtar için `false`; kapsam (scope) dışına sızmaz.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~RequestEntityCacheTests"`
+- [x] **Step 3: Implementasyonu yaz** (`Dictionary<(Type, object), object>` + scoped DI).
+- [x] **Step 4: `GetStudentProfileByIdQuery` yolunda uygula**
   `StudentProfileQueryAuthorizer` profili yükledikten sonra `_cache.Set(query.StudentId, profile)`; handler önce `TryGet` dener, bulamazsa DB'ye gider.
-- [ ] **Step 5: Ölçüm** — Aynı sorgu için EF log'unda **tek** `SELECT` göründüğünü doğrula:
-  Run: `dotnet run --project src/API.Host` + `curl` ile bir profil çek + log'da `student_profiles` SELECT sayısını say.
-  Expected: 1.
-- [ ] **Step 6: Kalan çift-sorgu noktalarını listele ve dönüştür** — `grep -rn "Authorizer" src/Modules --include='*.cs' | grep -i "repository"` ile authorizer içinde repository kullanan tüm sınıfları çıkar; her biri için aynı deseni uygula (Payments, Assignments, Scheduling, Study).
-- [ ] **Step 7: Yeşil gör + commit**
+- [x] **Step 5: Ölçüm — plan düzeltmesi: elle `curl` yerine otomatik test**
+  Elle `dotnet run` + `curl` ölçümü tekrar edilemez ve regresyonu yakalamaz. Yerine
+  `tests/Integration/RealSingleEntityLoadTests.cs` yazıldı: gerçek Postgres'te (Testcontainers) EF'in
+  `Executed DbCommand` günlükleri bir `ILoggerProvider` ile toplanır, tablo başına `SELECT` sayılır.
+  Ölçüm: `student_profiles` → **1** (authorizer + handler), `lesson_schedules` → değişiklikten **önce 2**,
+  sonra **1**. Kırmızıyı gerçekten gördük.
+- [x] **Step 6: Kalan çift-sorgu noktalarını listele ve dönüştür — PLAN SAPMASI (bilinçli)**
+  Tarama sonucu: authorizer içinde repository kullanan **21 sınıf**, karşılık gelen handler'larla birlikte
+  **~40 çağrı noktası** ve **~50 constructor**. `IRequestEntityCache`'i hepsine enjekte etmek her handler'ın
+  ctor imzasını değiştirir; bu da onlarca mevcut birim testini kırar — davranış değiştirmeyen dev bir churn.
+  **Kök nedene bakıldığında bunların hepsi düz birincil-anahtar aramasıydı**
+  (`FirstOrDefaultAsync(x => x.Id == id)`, `Include` yok, global query filter yok — doğrulandı).
+  `FindAsync` tam olarak bu semantiktir ve varlık aynı `DbContext`'te izleniyorsa **DB'ye hiç gitmez**.
+  Bu yüzden 19 çağrı **repository katmanında** `FindAsync`'e çevrildi: ctor churn yok, test churn yok,
+  üstelik yalnız authorizer→handler değil, aynı istekteki **her** tekrar yükleme ucuzladı.
+  `IRequestEntityCache` ise gerçekten gerektiği yerde kaldı: **anahtar dışı** aramalar
+  (`GetStudentProfileByUserIdAsync`) ve **`Include`'lu** yüklemeler (`StudentProfileRepository.GetByIdAsync`
+  branşları da çeker → `FindAsync`'e çevrilemez). Payments kayıt yolu da örnek tüketici olarak bağlandı.
+  Dönüştürülen 14 dosya: Assignments (2), LessonSessions, Notifications, Parents, Payments (2),
+  ProgressTracking, Scheduling (3), Students (2), Study (6 metot).
+- [x] **Step 7: Yeşil gör + commit**
 
 ```bash
 dotnet test EgitimUssu.slnx
@@ -208,7 +230,7 @@ git commit -m "docs: P07 read-model altyapisi kapanisi (C-03/C-05/C-06)"
 - [x] Projeksiyon deseni testlerle sabitlendi (idempotent + atomik)
 - [~] Öğretmen dashboard **sayaçları** projeksiyondan okunuyor (`GET /api/reporting/teachers/{id}/dashboard`); projeksiyon yoksa 404. BFF `dashboard-summary` **taşınmadı** (liste alanları event'lerde yok — Task 2 Step 5)
 - [x] Aynı event iki kez geldiğinde dashboard sayaçları bozulmuyor
-- [ ] Korumalı sorguda varlık **bir kez** yükleniyor (EF log ile doğrulandı)
+- [x] Korumalı sorguda varlık **bir kez** yükleniyor (gerçek Postgres'te EF `Executed DbCommand` günlüğü sayıldı: 1 `SELECT`)
 - [ ] Dispatcher'da `dynamic` kullanımı kalmadı (`grep -rn "dynamic" src/Shared/Infrastructure/Application` boş)
 - [x] `Modules_Should_Not_Reference_Other_Modules` mimari testi hâlâ yeşil
 - [ ] Tam test paketi (Docker'lı) yeşil
