@@ -151,7 +151,10 @@ class _AssignmentCard extends StatelessWidget {
   final VoidCallback onComplete;
   final VoidCallback onUpload;
 
-  bool get _isCompleted => item.status == 'Completed' || item.status == 'Cancelled';
+  bool get _isCompleted =>
+      item.status == 'Completed' ||
+      item.status == 'Cancelled' ||
+      item.status == 'Approved';
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +180,10 @@ class _AssignmentCard extends StatelessWidget {
                       ),
                 ),
               ),
+              if (item.isGraded) ...<Widget>[
+                _StudentScoreBadge(score: item.score!),
+                const SizedBox(width: 6),
+              ],
               _StatusPill(status: item.status),
             ],
           ),
@@ -187,6 +194,24 @@ class _AssignmentCard extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondary,
                   ),
+            ),
+          ],
+          if (item.teacherFeedback != null &&
+              item.teacherFeedback!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Öğretmen: ${item.teacherFeedback!.trim()}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+              ),
             ),
           ],
           if (item.attachmentUrl != null &&
@@ -259,6 +284,8 @@ class _StatusPill extends StatelessWidget {
       'Completed' => ('Tamamlandı', AppColors.accentGreen),
       'InProgress' => ('Devam', AppColors.accentBlue),
       'Cancelled' => ('İptal', AppColors.textSecondary),
+      'Approved' => ('Onaylandı', AppColors.accentGreen),
+      'ReturnedForRevision' => ('Revizyon', AppColors.accentOrange),
       _ => ('Bekliyor', AppColors.accentOrange),
     };
     return Container(
@@ -270,6 +297,33 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),
+      ),
+    );
+  }
+}
+
+
+/// M06-4: Öğrenci ödev kartındaki puan rozeti (0–100).
+class _StudentScoreBadge extends StatelessWidget {
+  const _StudentScoreBadge({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$score puan',
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
       ),
     );
   }

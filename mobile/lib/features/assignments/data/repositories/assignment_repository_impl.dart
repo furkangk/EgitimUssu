@@ -87,6 +87,31 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
   }
 
   @override
+  Future<AssignmentItem> approveAssignment(
+    String assignmentId,
+    String? feedback,
+  ) async {
+    final response = await _apiClient.post(
+      '/api/assignments/$assignmentId/approve',
+      data: <String, dynamic>{'feedback': feedback},
+    );
+    return AssignmentItemModel.fromJson(response);
+  }
+
+  @override
+  Future<AssignmentItem> gradeAssignment(
+    String assignmentId,
+    int score,
+    String? feedback,
+  ) async {
+    final response = await _apiClient.post(
+      '/api/assignments/$assignmentId/grade',
+      data: <String, dynamic>{'score': score, 'feedback': feedback},
+    );
+    return AssignmentItemModel.fromJson(response);
+  }
+
+  @override
   Future<List<AssignmentItem>> listByTeacher(String teacherUserId) async {
     if (_config.isMockFallbackEnabled('assignments')) {
       return AssignmentItemModel.demoList();

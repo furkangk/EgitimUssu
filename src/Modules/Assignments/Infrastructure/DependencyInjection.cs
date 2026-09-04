@@ -52,6 +52,13 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<ReturnAssignmentCommand, Result<AssignmentResponse>>, ReturnAssignmentCommandHandler>();
         services.AddScoped<ICommandAuthorizer<ApproveAssignmentCommand>, AssignmentTeacherAuthorizer>();
         services.AddScoped<ICommandAuthorizer<ReturnAssignmentCommand>, AssignmentTeacherAuthorizer>();
+        // M06-4: odev puanlama.
+        services.AddScoped<ICommandHandler<GradeAssignmentCommand, Result<AssignmentResponse>>, GradeAssignmentCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<GradeAssignmentCommand>, AssignmentTeacherAuthorizer>();
+
+        // M06-3: son teslim uyarisi taramasi.
+        services.AddScoped<IAssignmentDueScanProcessor, AssignmentDueScanProcessor>();
+        services.AddHostedService<AssignmentDueScanner>();
         return services;
     }
 }

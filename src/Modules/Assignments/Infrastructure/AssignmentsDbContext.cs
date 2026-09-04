@@ -52,6 +52,8 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.StudentId, entity.Status });
         builder.HasIndex(entity => entity.LessonSessionId);
+        // M06-3: son teslim taramasi (AssignmentDueScanProcessor) bu indeksi kullanir.
+        builder.HasIndex(entity => new { entity.Status, entity.DueDateUtc });
     }
 }
 

@@ -10,6 +10,9 @@ public sealed record ApproveAssignmentCommand(Guid AssignmentId, string? Feedbac
 
 public sealed record ReturnAssignmentCommand(Guid AssignmentId, string Feedback) : ICommand<Result<AssignmentResponse>>;
 
+/// <summary>M06-4: Onaylanmış ödeve puan (0–100) ve isteğe bağlı geri bildirim verir.</summary>
+public sealed record GradeAssignmentCommand(Guid AssignmentId, int Score, string? Feedback) : ICommand<Result<AssignmentResponse>>;
+
 public sealed class ApproveAssignmentCommandHandler : ICommandHandler<ApproveAssignmentCommand, Result<AssignmentResponse>>
 {
     private static readonly Error NotFound = new("assignments.assignment_not_found", "Odev bulunamadi.");
@@ -69,12 +72,48 @@ public sealed class ReturnAssignmentCommandHandler : ICommandHandler<ReturnAssig
 }
 
 /// <summary>
+/// M06-4: Ödev puanlama. Aralık ve durum kuralı domain'de (<see cref="Assignment.Grade"/>);
+/// kural ihlalinde <c>SaveChanges</c> çağrılmaz — geçersiz istek DB'ye hiç dokunmaz (Öğrenilenler #58).
+/// </summary>
+public sealed class GradeAssignmentCommandHandler : ICommandHandler<GradeAssignmentCommand, Result<AssignmentResponse>>
+{
+    private static readonly Error NotFound = new("assignments.assignment_not_found", "Odev bulunamadi.");
+    private readonly IAssignmentRepository _repository;
+    private readonly IClock _clock;
+
+    public GradeAssignmentCommandHandler(IAssignmentRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result<AssignmentResponse>> Handle(GradeAssignmentCommand command, CancellationToken cancellationToken)
+    {
+        var assignment = await _repository.GetAssignmentByIdAsync(command.AssignmentId, cancellationToken);
+        if (assignment is null)
+        {
+            return Result<AssignmentResponse>.Failure(NotFound);
+        }
+
+        var graded = assignment.Grade(command.Score, command.Feedback, _clock.UtcNow);
+        if (graded.IsFailure)
+        {
+            return Result<AssignmentResponse>.Failure(graded.Error);
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result<AssignmentResponse>.Success(assignment.ToResponse());
+    }
+}
+
+/// <summary>
 /// Öğretmen ödev aksiyonlarının (onay/geri gönder) sahiplik yetkilendiricisi.
 /// Yalnızca ödevin öğretmeni (veya admin) işlem yapabilir.
 /// </summary>
 public sealed class AssignmentTeacherAuthorizer :
     ICommandAuthorizer<ApproveAssignmentCommand>,
-    ICommandAuthorizer<ReturnAssignmentCommand>
+    ICommandAuthorizer<ReturnAssignmentCommand>,
+    ICommandAuthorizer<GradeAssignmentCommand>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu odev uzerinde islem yapma yetkiniz yok.");
     private static readonly Error NotFound = new("assignments.assignment_not_found", "Odev bulunamadi.");
@@ -91,6 +130,9 @@ public sealed class AssignmentTeacherAuthorizer :
         => AuthorizeByAssignment(command.AssignmentId, cancellationToken);
 
     public Task<Result> Authorize(ReturnAssignmentCommand command, CancellationToken cancellationToken)
+        => AuthorizeByAssignment(command.AssignmentId, cancellationToken);
+
+    public Task<Result> Authorize(GradeAssignmentCommand command, CancellationToken cancellationToken)
         => AuthorizeByAssignment(command.AssignmentId, cancellationToken);
 
     private async Task<Result> AuthorizeByAssignment(Guid assignmentId, CancellationToken cancellationToken)

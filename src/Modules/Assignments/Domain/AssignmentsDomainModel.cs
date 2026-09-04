@@ -58,6 +58,21 @@ public sealed class Assignment : AggregateRoot<Guid>
 
     public string? TeacherFeedback { get; private set; }
 
+    /// <summary>M06-4: Öğretmenin verdiği puan (0–100). Puanlanmadıysa <c>null</c>.</summary>
+    public int? Score { get; private set; }
+
+    /// <summary>M06-4: Puanın verildiği an.</summary>
+    public DateTime? GradedOnUtc { get; private set; }
+
+    /// <summary>M06-3: "Teslime 24 saat kaldı" uyarısının üretildiği an (ödev başına bir kez).</summary>
+    public DateTime? DueSoonNotifiedOnUtc { get; private set; }
+
+    /// <summary>M06-3: "Teslim edilmedi" uyarısının üretildiği an (ödev başına bir kez).</summary>
+    public DateTime? MissedNotifiedOnUtc { get; private set; }
+
+    /// <summary>Hâlâ öğrenciden teslim bekleyen ödev mi? (Teslim/onay/iptal edilmiş ödev uyarılmaz.)</summary>
+    private bool IsOutstanding => Status is AssignmentStatus.Pending or AssignmentStatus.ReturnedForRevision;
+
     /// <summary>P04: Teslim dosyasının <c>IFileStorage</c> anahtarı (public URL değildir).</summary>
     public string? AttachmentStorageKey { get; private set; }
 
@@ -126,6 +141,74 @@ public sealed class Assignment : AggregateRoot<Guid>
         TeacherFeedback = feedback;
         Raise(new AssignmentReturnedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
     }
+
+    /// <summary>
+    /// M06-4: Onaylanmış ödeve 0–100 arası puan verir; geri bildirim verilmişse günceller.
+    /// Geçiş kuralı domain'de tek yerde durur (Öğrenilenler #58): geçersiz istek DB'ye hiç dokunmaz.
+    /// </summary>
+    /// <param name="score">0–100 arası puan.</param>
+    /// <param name="feedback">İsteğe bağlı geri bildirim; boşsa mevcut geri bildirim korunur.</param>
+    /// <param name="nowUtc">İşlem anı.</param>
+    public Result Grade(int score, string? feedback, DateTime nowUtc)
+    {
+        if (score is < 0 or > 100)
+        {
+            return Result.Failure(InvalidScore);
+        }
+
+        if (Status != AssignmentStatus.Approved)
+        {
+            return Result.Failure(GradeRequiresApproval);
+        }
+
+        Score = score;
+        GradedOnUtc = nowUtc;
+        if (!string.IsNullOrWhiteSpace(feedback))
+        {
+            TeacherFeedback = feedback.Trim();
+        }
+
+        Raise(new AssignmentGradedDomainEvent(Id, StudentId, TeacherUserId, score, nowUtc));
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// M06-3: "Son teslime az kaldı" uyarısını bir kez üretir. Teslim edilmiş, kapanmış, tarihsiz
+    /// ya da vadesi çoktan geçmiş ödev için hiçbir şey yapmaz (idempotent).
+    /// </summary>
+    /// <returns>Uyarı bu çağrıda üretildiyse <c>true</c>.</returns>
+    public bool MarkDueSoon(DateTime nowUtc)
+    {
+        if (DueSoonNotifiedOnUtc is not null || DueDateUtc is null || !IsOutstanding || DueDateUtc <= nowUtc)
+        {
+            return false;
+        }
+
+        DueSoonNotifiedOnUtc = nowUtc;
+        Raise(new AssignmentDueSoonDomainEvent(Id, StudentId, TeacherUserId, Title, DueDateUtc.Value, nowUtc));
+        return true;
+    }
+
+    /// <summary>
+    /// M06-3: Vadesi geçmiş ve hâlâ teslim edilmemiş ödev için "teslim edilmedi" uyarısını bir kez üretir.
+    /// </summary>
+    /// <returns>Uyarı bu çağrıda üretildiyse <c>true</c>.</returns>
+    public bool MarkMissed(DateTime nowUtc)
+    {
+        if (MissedNotifiedOnUtc is not null || DueDateUtc is null || !IsOutstanding || DueDateUtc > nowUtc)
+        {
+            return false;
+        }
+
+        MissedNotifiedOnUtc = nowUtc;
+        Raise(new AssignmentMissedDomainEvent(Id, StudentId, TeacherUserId, Title, DueDateUtc.Value, nowUtc));
+        return true;
+    }
+
+    private static readonly Error InvalidScore = new("assignments.invalid_score", "Puan 0 ile 100 arasinda olmalidir.");
+
+    private static readonly Error GradeRequiresApproval =
+        new("assignments.grade_requires_approval", "Yalnizca onaylanmis odev puanlanabilir.");
 }
 
 public sealed class LessonNote : AggregateRoot<Guid>
@@ -236,6 +319,32 @@ public sealed record AssignmentReturnedDomainEvent(
     Guid StudentId,
     Guid TeacherUserId,
     DateTime OnUtc) : DomainEvent;
+
+/// <summary>M06-4: Ödev puanlandı.</summary>
+public sealed record AssignmentGradedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    int Score,
+    DateTime GradedOnUtc) : DomainEvent;
+
+/// <summary>M06-3: Ödevin son teslimine az kaldı (ödev başına bir kez).</summary>
+public sealed record AssignmentDueSoonDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    string Title,
+    DateTime DueDateUtc,
+    DateTime NotifiedOnUtc) : DomainEvent;
+
+/// <summary>M06-3: Ödevin son teslim tarihi geçti, teslim edilmedi (ödev başına bir kez).</summary>
+public sealed record AssignmentMissedDomainEvent(
+    Guid AssignmentId,
+    Guid StudentId,
+    Guid TeacherUserId,
+    string Title,
+    DateTime DueDateUtc,
+    DateTime NotifiedOnUtc) : DomainEvent;
 
 public sealed record LessonNoteCreatedDomainEvent(
     Guid LessonNoteId,

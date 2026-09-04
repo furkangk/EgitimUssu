@@ -1,12 +1,12 @@
 ---
 title: "M06 — Ödev, Not & Kaynak (Assignments)"
-summary: "Ders sonrası not/ödev akışı, öğrenci teslim/tamamlama/onay-geri gönder, ders kaynağı (LessonResource) paylaşımı ve ortak IFileStorage depolaması çalışır"
+summary: "Ders sonrası not/ödev akışı, öğrenci teslim/tamamlama/onay-geri gönder, 0–100 puanlama, son teslim uyarısı taraması, ders kaynağı (LessonResource) paylaşımı ve ortak IFileStorage depolaması çalışır"
 tags: [modul, assignments, odev, not, faz-1]
 status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Assignments/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 📝 Ödev, Not & Kaynak (M06) — Detaylı Tasarım Dokümanı
@@ -30,7 +30,7 @@ updated: 2026-09-03
 |--------|-------|-------|
 | Domain (`Assignment`, `LessonNote`) | ✅ Mevcut | `src/Modules/Assignments/Domain/AssignmentsDomainModel.cs` |
 | Application (follow-up + listeleme) | ✅ Mevcut | `src/Modules/Assignments/Application/AssignmentFeatures.cs` |
-| API (follow-up POST/GET + liste + tamamla/teslim/indir/onayla/geri gönder) | ✅ Mevcut (8 endpoint) | `src/Modules/Assignments/API/AssignmentsModule.cs` |
+| API (follow-up POST/GET + liste + tamamla/teslim/indir/onayla/geri gönder/**puanla**) | ✅ Mevcut (9 endpoint + 4 kaynak ucu) | `src/Modules/Assignments/API/AssignmentsModule.cs` |
 | M05 tamamlama tüketimi | ✅ Mevcut | `Assignments/Infrastructure/LessonSessionCompletedIntegrationEventHandler.cs` |
 | Öğretmen eki (`AttachmentUrl`) | ✅ Mevcut | `Assignment.AttachmentUrl` (öğretmenin paylaştığı dosya linki) |
 | Ödev **tamamlandı** işaretleme | ✅ Endpoint | `Assignment.MarkCompleted()` + `POST /{id}/complete` (öğrenci) |
@@ -39,9 +39,10 @@ updated: 2026-09-03
 | Not **görünürlük** kontrolü | ✅ Mevcut | `LessonNote.Visibility` (`Private`/`Student`/`StudentAndParent`) — B-05 |
 | Ders **kaynağı** (`LessonResource`) | 🟢 **Var** (2026-09-03, P04/M06-1) | Dosya veya bağlantı; 4 uç + mobil bölüm |
 | Öğrenci ödev **yükleme** (`AssignmentSubmission`) | 🔴 **Yok** | Önerilen — öğrenci dosya yükler |
-| Son teslim uyarısı (veliye bildirim) | 🔴 **Yok** | Önerilen — m11 + m09 |
+| Ödev **puanlama** (0–100) | 🟢 **Var** (2026-09-04, P06/M06-4) | `Assignment.Grade()` + `POST /{id}/grade` (öğretmen) |
+| Son teslim uyarısı (öğrenci + veli bildirimi) | 🟢 **Var** (2026-09-04, P06/M06-3) | `AssignmentDueScanner` (saatlik) → `AssignmentDueSoon`/`AssignmentMissed` → M11 tüketicileri |
 | Öğrenci görünümü endpoint'leri | 🔴 **Kısmi** | `GET /assignments?studentId=` var; not/kaynak öğrenci görünümü eksik |
-| Dosya depolama altyapısı | 🔴 **Yok** | URL string saklanıyor; gerçek depolama yok (bkz. `mimari_inceleme.md`) |
+| Dosya depolama altyapısı | 🟢 **Var** (P04) | Ortak `IFileStorage` (yerel + S3-uyumlu) |
 
 ---
 
@@ -68,7 +69,11 @@ updated: 2026-09-03
 | `AttachmentSizeBytes` | `long?` | Dosya boyutu |
 | `CreatedOnUtc` | `DateTime` | Oluşturma |
 | `CompletedOnUtc` | `DateTime?` | Tamamlanma |
-| `TeacherFeedback` | `string?` | Öğretmenin onay/geri gönder geri bildirimi (T-06.7/8) |
+| `TeacherFeedback` | `string?` | Öğretmenin onay/geri gönder/puanlama geri bildirimi (T-06.7/8, M06-4) |
+| `Score` | `int?` | M06-4: öğretmen puanı **0–100**; puanlanmadıysa `null` |
+| `GradedOnUtc` | `DateTime?` | M06-4: puanın verildiği an |
+| `DueSoonNotifiedOnUtc` | `DateTime?` | M06-3: "teslime 24 saat kaldı" uyarısının üretildiği an (ödev başına bir kez) |
+| `MissedNotifiedOnUtc` | `DateTime?` | M06-3: "teslim edilmedi" uyarısının üretildiği an (ödev başına bir kez) |
 
 **Davranış:**
 - `MarkCompleted(completedOnUtc)` → `Status = Completed`, `AssignmentCompletedDomainEvent` yayılır.
@@ -76,6 +81,8 @@ updated: 2026-09-03
 - `AttachSubmission(storageKey, fileName, contentType, sizeBytes, nowUtc)` (2026-09-03, P04) → depolanmış teslim dosyasını bağlar (`AttachmentStorageKey`/`AttachmentFileName`/`AttachmentContentType`/`AttachmentSizeBytes`), `AttachmentUrl`'i indirme ucuna ayarlar ve `SubmitWork`'ü uygular. **Önceki anahtarı döndürür** — çağıran onu depodan siler (yetim dosya kalmaz).
 - `Approve(feedback?, nowUtc)` → `Status = Approved`, `TeacherFeedback` set edilir, `AssignmentApprovedDomainEvent` yayılır (T-06.7).
 - `ReturnForRevision(feedback, nowUtc)` → `Status = ReturnedForRevision`, `TeacherFeedback` set edilir, `AssignmentReturnedDomainEvent` yayılır (T-06.8).
+- `Grade(score, feedback?, nowUtc) : Result` (2026-09-04, P06/M06-4) → **yalnız `Approved`** durumundaki ödeve **0–100** puan verir; geri bildirim doluysa günceller, `AssignmentGradedDomainEvent` yayılır. Aralık dışı → `assignments.invalid_score`; durum uygun değilse → `assignments.grade_requires_approval`. Kural domain'de olduğu için geçersiz istek `SaveChanges`'e hiç ulaşmaz.
+- `MarkDueSoon(nowUtc) : bool` / `MarkMissed(nowUtc) : bool` (2026-09-04, P06/M06-3) → yalnız **teslim bekleyen** (`Pending`/`ReturnedForRevision`) ve tarihi olan ödevde çalışır; her biri ödev başına **bir kez** olay yayar (`DueSoonNotifiedOnUtc`/`MissedNotifiedOnUtc` ile idempotent). `MarkDueSoon` vadesi geçmiş ödevde, `MarkMissed` vadesi gelmemiş ödevde `false` döner.
 > Yeni ödev her zaman `Pending` ile oluşturulur (`CreateLessonSessionFollowUpCommandHandler`).
 
 **Ödev durum makinesi:** `Pending → InProgress` (teslim) `→ Completed` (öğrenci tamamlar) `→ Approved` (öğretmen onaylar) **veya** `→ ReturnedForRevision` (öğretmen geri gönderir) `→ InProgress` (öğrenci yeniden teslim eder).
@@ -109,6 +116,9 @@ LessonNoteVisibility : Private = 1, Student = 2, StudentAndParent = 3
 | `AssignmentSubmittedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, LessonSessionId?, SubmittedOnUtc` |
 | `AssignmentApprovedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, OnUtc` |
 | `AssignmentReturnedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, OnUtc` |
+| `AssignmentGradedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, Score, GradedOnUtc` |
+| `AssignmentDueSoonDomainEvent` | `AssignmentId, StudentId, TeacherUserId, Title, DueDateUtc, NotifiedOnUtc` |
+| `AssignmentMissedDomainEvent` | `AssignmentId, StudentId, TeacherUserId, Title, DueDateUtc, NotifiedOnUtc` |
 | `LessonNoteCreatedDomainEvent` | `LessonNoteId, LessonSessionId, TeacherUserId, StudentId, CreatedOnUtc` |
 
 ### 2.3 ⚠️ Önerilen (henüz kodda yok)
@@ -172,7 +182,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 
 **`LessonSessionFollowUpResponse` (koddan):** `LessonSessionId, Note: LessonNoteResponse, Assignments: AssignmentResponse[]`
 - `LessonNoteResponse`: `Id, LessonSessionId, TeacherUserId, StudentId, Summary, CoveredTopics?, Recommendations?, Visibility (string), CreatedOnUtc`
-- `AssignmentResponse`: `Id, StudentId, TeacherUserId, LessonSessionId?, Title, Description?, DueDateUtc?, Status (string), AttachmentUrl?, CreatedOnUtc, CompletedOnUtc?, TeacherFeedback?`
+- `AssignmentResponse`: `Id, StudentId, TeacherUserId, LessonSessionId?, Title, Description?, DueDateUtc?, Status (string), AttachmentUrl?, CreatedOnUtc, CompletedOnUtc?, TeacherFeedback?, Score?, GradedOnUtc?`
 
 **Hata kodu → HTTP eşlemesi (koddan):**
 | Kod | HTTP | Anlam |
@@ -183,6 +193,8 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | `assignments.lesson_session_not_completed` | `400` (varsayılan) | Oturum tamamlanmadan not/ödev oluşturulamaz |
 | `assignments.assignment_not_found` | `404` | Ödev yok (onay/geri gönder) |
 | `assignments.feedback_required` | `400` (varsayılan) | Geri gönderme için geri bildirim zorunlu |
+| `assignments.invalid_score` | `400` (varsayılan) | Puan 0–100 aralığında değil |
+| `assignments.grade_requires_approval` | `400` (varsayılan) | Yalnız onaylanmış ödev puanlanabilir |
 | `shared.forbidden` | `403` | Yetki yok |
 
 ### 3.2 ✅ Öğrenci ödev aksiyonları (2026-07-09 eklendi)
@@ -203,6 +215,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 |---------|----------|-------|-----|
 | Ödevi onayla | `POST /api/assignments/{assignmentId}/approve` | `ApproveAssignmentRequest { Feedback? }` | `Approve()`; `Status = Approved`, `TeacherFeedback` set edilir |
 | Ödevi geri gönder | `POST /api/assignments/{assignmentId}/return` | `ReturnAssignmentRequest { Feedback }` | `ReturnForRevision()`; `Status = ReturnedForRevision`; **geri bildirim zorunlu** (`assignments.feedback_required` → 400) |
+| Ödevi puanla (M06-4) | `POST /api/assignments/{assignmentId}/grade` | `GradeAssignmentRequest { Score, Feedback? }` | `Grade()`; **0–100** ve yalnız `Approved` durumunda; `Score`/`GradedOnUtc` set edilir, `AssignmentGradedDomainEvent` yayılır |
 
 > Sahiplik `AssignmentTeacherAuthorizer` ile: yalnızca ödevin öğretmeni (veya admin) onay/geri gönder yapabilir
 > (`assignment.TeacherUserId == currentUser`); aksi halde `shared.forbidden` (403). Her ikisi de `AssignmentResponse` döner.
@@ -214,7 +227,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 |---------|-------|---------|
 | Ödev güncelle/iptal | `PUT /api/assignments/{assignmentId}` | Başlık/açıklama/son teslim/iptal |
 | ~~Kaynak ekle/listele~~ ✅ **eklendi (2026-09-03, P04/M06-1)** | `POST /api/assignments/lesson-resources` (multipart: `title`, `description`, `url` **veya** `file`, `studentId?`, `lessonSessionId?`) · `GET /api/assignments/lesson-resources?teacherUserId=&studentId=&lessonSessionId=` · `GET /api/assignments/lesson-resources/{resourceId}/file` (yetkili indirme) · `DELETE /api/assignments/lesson-resources/{resourceId}` (arşivle) | — |
-| Yükleme değerlendir | `PUT /api/assignments/{assignmentId}/grade` | Öğretmen değerlendirmesi/notu |
+| ~~Yükleme değerlendir~~ ✅ **eklendi (2026-09-04, P06/M06-4)** | `POST /api/assignments/{assignmentId}/grade` | — |
 | Öğrenci not/kaynak görünümü | `GET /api/assignments/students/{studentId}/notes`, `.../resources` | Öğrenci kendi not/kaynaklarını görür |
 
 ---
@@ -227,7 +240,8 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 4. **Otomatik özet üretimi (🟢 kodda):** `GET follow-up` çağrıldığında not yoksa ama oturum tamamlanmışsa, sistem otomatik bir `LessonNote` üretir (`BuildAutoSummary`: önce `TeacherNotes`, yoksa `CoveredContent`, yoksa `"{TopicTitle} konusu tamamlandı."`).
 5. **Ödev başlangıç durumu (🟢 kodda):** Yeni ödev `Pending` ile başlar.
 6. **`AttachmentUrl` sahipliği (🟢 kodda):** Bu alan **öğretmen** tarafının ekidir (öğrencinin teslimi değil). Öğrenci teslimi 2026-09-03'te (P04) ayrı `Attachment*` alanlarına taşındı; tam ayrım için hâlâ ayrı bir `AssignmentSubmission` aggregate'i düşünülebilir (⚠️).
-7. **⚠️ Son teslim uyarısı:** `DueDateUtc` yaklaşınca/geçilince **öğrenciye ve veliye** bildirim gitmeli (`promp.txt`: "Son teslim tarihinden önce yüklemezse velisine bildirim gidebilir") → m11 + m09.
+7. **Son teslim uyarısı (🟢 kodda, 2026-09-04 / M06-3):** `AssignmentDueScanner` **saatte bir** koşar. Teslime **24 saat** kalan ve hâlâ teslim edilmemiş ödev için `AssignmentDueSoonDomainEvent`, vadesi geçip teslim edilmemiş ödev için `AssignmentMissedDomainEvent` üretir — her biri **ödev başına bir kez** (`DueSoonNotifiedOnUtc`/`MissedNotifiedOnUtc`). Teslim edilmiş (`InProgress`/`Completed`/`Approved`) ve iptal edilmiş ödevler taranmaz. Bildirim taramada gönderilmez; olaylar outbox → M11 tüketicilerine düşer.
+7a. **Puanlama (🟢 kodda, 2026-09-04 / M06-4):** Puan **0–100** ve yalnız `Approved` durumundaki ödeve verilir; tekrar puanlama serbesttir (son puan geçerlidir).
 8. **⚠️ Öğrenci yükleme zorunluluğu:** Öğrenci ödevini `AssignmentSubmission` ile yükler; geç teslim `Late` işaretlenir.
 9. **Sahiplik (yetki):** Öğretmen yalnızca kendi öğrencisine ödev/not verir; öğrenci yalnızca kendi ödev/not/kaynaklarını görür (`AssignmentPolicies.cs`).
 
@@ -246,9 +260,13 @@ POST follow-up → not + ödev(ler)
        → (öneri) m11 Notifications: öğrenciye "yeni ödev" bildirimi
        → (öneri) m09 Parents: veliye "çocuğunuza ödev verildi"
 
-(öneri) Ödev son teslim yaklaştı/geçti (zamanlanmış iş)
-   → m11 Notifications: öğrenciye hatırlatma
-   → m09 Parents: teslim edilmediyse veliye bildirim
+AssignmentDueScanner (saatlik, M06-3)
+   → AssignmentDueSoonDomainEvent  → m11 AssignmentDueSoonNotificationHandler → öğrenciye "teslime 24 saat kaldı"
+   → AssignmentMissedDomainEvent   → m11 AssignmentMissedNotificationHandler  → öğrenciye + onaylı Premium veliye
+                                      ("kaçırılan ödev" tercihi açıksa; M09-3)
+
+POST /assignments/{id}/grade (M06-4)
+   → AssignmentGradedDomainEvent
 
 (öneri) Öğrenci ödev yükledi (AssignmentSubmission)
    → AssignmentSubmittedDomainEvent → öğretmene bildirim
@@ -267,7 +285,8 @@ POST /assignments/{id}/complete
 ### ✅ Mevcut
 | Route | Sayfa | Açıklama |
 |-------|-------|----------|
-| `/assignments` | `AssignmentsPage` | Tüm ödevler listesi; filtre (Tümü/Bekleyen/Devam/Tamamlanan), özet kartı, shimmer yükleme |
+| `/assignments` | `AssignmentsPage` | Öğretmenin tüm ödevleri; filtre (Tümü/Bekleyen/Devam/Tamamlanan), özet kartı, shimmer yükleme. **Karta dokununca değerlendirme alt sayfası** (puan kaydırıcısı 0–100 + geri bildirim); ödev onaylı değilse önce `approve`, sonra `grade` çağrılır (M06-4). Puanlanmış ödevde puan rozeti görünür |
+| `/student/assignments` | `StudentAssignmentsPage` | Öğrencinin kendi ödevleri; çözüm yükleme + tamamlama, **puan rozeti + öğretmen geri bildirimi** (M06-4) |
 | `/assignments/new`, `/assignments/:lessonSessionId` | `AssignmentFollowUpPage` | Ders takibi: ders notu (özet + işlenen konular + öneriler) + çoklu ödev formu |
 | `/lesson-notes/new` | `LessonNoteFormPage` | Ders notu formu |
 | `/lesson-sessions/detail/note` | `LessonNoteViewPage` | Not görüntüleme |
@@ -277,9 +296,9 @@ POST /assignments/{id}/complete
 - `AssignmentFollowUpCubit` / `AssignmentFollowUpState` — mevcut (follow-up kaydetme/yükleme).
 
 **Domain:**
-- `AssignmentItem`: `id, title, description, studentId, dueDateUtc, attachmentUrl, status, createdOnUtc` eklendi.
+- `AssignmentItem`: `id, title, description, studentId, dueDateUtc, attachmentUrl, status, createdOnUtc, teacherFeedback, score, gradedOnUtc` (`isGraded` yardımcısı).
 - `LessonNote`: yeni domain sınıfı (`id, lessonSessionId, summary, coveredTopics, recommendations, createdOnUtc`).
-- `AssignmentRepository.listByTeacher(teacherUserId)`: yeni method.
+- `AssignmentRepository`: `listByTeacher(teacherUserId)`, `approveAssignment(id, feedback?)`, `gradeAssignment(id, score, feedback?)` (M06-4).
 
 > `mobile/lib/features/assignments`, `flutter_bloc` (Cubit).
 
@@ -304,9 +323,10 @@ POST /assignments/{id}/complete
 - [x] Ödev "tamamla" endpoint'i (`POST /{id}/complete` → `MarkCompleted`) — 2026-07-09 eklendi.
 - [x] `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü **(2026-09-03, P04/M06-1)**; mobilde `LessonResourcesSection` öğretmen ders detayında "Kaynaklar" sekmesi, öğrenci ders detayında liste olarak.
 - [x] **Öğrenci teslimi + değerlendirme** — `POST /{assignmentId}/submission` (dosya) → `Assignment.SubmitWork` + `AssignmentSubmittedDomainEvent`; öğretmen `approve`/`return` ile değerlendirir. (Ayrı `AssignmentSubmission` varlığı yok; teslim alanları `Assignment` üzerinde tutuluyor.)
-- [ ] ⚠️ Son teslim uyarısı (öğrenci + veli bildirimi).
+- [x] **Son teslim uyarısı** (öğrenci + veli bildirimi) — `AssignmentDueScanner` + iki M11 tüketicisi **(2026-09-04, P06/M06-3)**.
+- [x] **Ödev puanlama** (0–100, onaylı ödeve) + mobil değerlendirme akışı **(2026-09-04, P06/M06-4)**.
 - [x] **Öğrenci görünümü uçları** — `GET /` (`studentId` filtresi ile `ListAssignmentsQuery`) + `GET /{assignmentId}/attachment` + `GET /lesson-resources?studentId=` (2026-09-03, P04).
-- [ ] ⚠️ Dosya depolama altyapısı **(P04)** — şu an yalnız yerel disk (`LocalAssignmentFileStorage`); nesne depolama (S3/R2) bekliyor.
+- [x] Dosya depolama altyapısı **(P04)** — ortak `IFileStorage`: `LocalFileStorage` (dev) + `S3FileStorage` (S3/R2/MinIO).
 
 ---
 
@@ -314,11 +334,11 @@ POST /assignments/{id}/complete
 
 > Öncelik sırasıyla:
 
-1. **Dosya depolama altyapısı** — Diğer her şeyin ön koşulu (presigned URL / blob); bkz. [`mimari_inceleme.md`](mimari_inceleme.md).
+1. ✅ **Dosya depolama altyapısı** — ortak `IFileStorage` (P04); bkz. [`mimari_inceleme.md`](mimari_inceleme.md).
 2. **`AssignmentSubmission` (öğrenci yükleme)** + öğretmen değerlendirme + durum güncelleme.
 3. ✅ **`LessonResource` (ders kaynağı)** — aggregate + 4 endpoint + öğrenci görünümü **eklendi (2026-09-03, P04/M06-1)**.
 4. **Ödev güncelle/iptal endpoint'leri** (`PUT/DELETE /{id}`). Ödev "tamamla" (`POST /{id}/complete`) zaten mevcut (2026-07-09).
-5. **Son teslim uyarı otomasyonu** — zamanlanmış iş + m11 + m09 (veliye bildirim).
+5. ✅ **Son teslim uyarı otomasyonu** — `AssignmentDueScanner` + m11 tüketicileri (öğrenci + veli) **eklendi (2026-09-04, P06/M06-3)**.
 6. **Öğrenci görünümü endpoint'leri** (kendi ödev/not/kaynak) + yetkilendirme testleri.
 
 ---
@@ -334,4 +354,4 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P04/M06-1: `LessonResource` aggregate + 4 uç + mobil `LessonResourcesSection`; P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M06-3: `AssignmentDueScanner` — 24 saat kala "teslime az kaldı", vade geçince "teslim edilmedi", ödev başına bir kez; iki M11 tüketicisi (öğrenci + Premium veli). P06/M06-4: `Assignment.Grade` 0–100 + `POST /{id}/grade` + `Score`/`GradedOnUtc`; mobilde öğretmen değerlendirme alt sayfası ve öğrenci puan rozeti) · 2026-09-03 (P04/M06-1: `LessonResource` aggregate + 4 uç + mobil `LessonResourcesSection`; P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*

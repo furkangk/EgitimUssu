@@ -3,7 +3,7 @@ title: "Sayfa (Ekran) Dokümanları — İndeks"
 summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/More/Notifications/Parent)"
 tags: [sayfa-index, indeks, mobil]
 authority: derived
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
@@ -79,8 +79,9 @@ updated: 2026-09-03
 ## Assignments
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
+| Ödevler (öğretmen) | `/assignments` | — | 🟢 (liste + filtre; 2026-09-04: karta dokununca **değerlendirme alt sayfası** — puan 0–100 + geri bildirim, M06-4) |
 | Ödev/takip | `/assignments/new`, `/assignments/:lessonSessionId` | [assignment_follow_up](assignment_follow_up.md) | 🟢 |
-| Ödevlerim (öğrenci) | `/student/assignments` | — | 🟢 (2026-07-09: dosya yükleme + tamamlama) |
+| Ödevlerim (öğrenci) | `/student/assignments` | — | 🟢 (2026-07-09: dosya yükleme + tamamlama; 2026-09-04: **puan rozeti + öğretmen geri bildirimi**, M06-4) |
 
 ## Teacher Profile
 | Ekran | Route | md | Veri |

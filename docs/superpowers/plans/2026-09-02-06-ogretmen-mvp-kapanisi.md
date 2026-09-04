@@ -325,15 +325,15 @@ git commit -m "feat(scheduling): ogretmen takviminde tekrar acilimi + cakisma uy
   - `AssignmentDueScanner` — saatte bir: son teslime **24 saat** kalan ve teslim edilmemiş ödevler için `AssignmentDueSoonDomainEvent` (ödev başına bir kez, `DueSoonNotifiedOnUtc` alanıyla); vadesi geçmiş ve teslim edilmemişler için `AssignmentMissedDomainEvent` (bir kez).
   - `POST /api/assignments/{assignmentId}/grade` (öğretmen)
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — puan aralığı doğrulaması; scanner'ın aynı ödev için ikinci kez event üretmemesi; teslim edilmiş ödev için event üretmemesi.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Assignment"`
-- [ ] **Step 3: Domain + alanlar + migration**
+- [x] **Step 1: Testleri yaz (kırmızı)** — puan aralığı doğrulaması; scanner'ın aynı ödev için ikinci kez event üretmemesi; teslim edilmiş ödev için event üretmemesi.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Assignment"`
+- [x] **Step 3: Domain + alanlar + migration**
   Run: `dotnet ef migrations add AddAssignmentGradeAndDueTracking --project src/Modules/Assignments/Infrastructure --startup-project src/API.Host --context AssignmentsDbContext`
-- [ ] **Step 4: Scanner + puanlama komutu + endpoint + DI.**
-- [ ] **Step 5: Notifications tüketicileri (M09-3)** — öğrenciye "Ödev teslimine 24 saat kaldı", öğrenci+veliye "Ödev teslim edilmedi" (tercih kapısı P05'ten geçer). Veli tarafı M09-3'ü kapatır.
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 7: Mobil** — Öğretmen ödev detayında puan + geri bildirim alanı; öğrenci ödev kartında puan rozeti.
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 4: Scanner + puanlama komutu + endpoint + DI.**
+- [x] **Step 5: Notifications tüketicileri (M09-3)** — öğrenciye "Ödev teslimine 24 saat kaldı", öğrenci+veliye "Ödev teslim edilmedi" (tercih kapısı P05'ten geçer). Veli tarafı M09-3'ü kapatır.
+- [x] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 7: Mobil** — Öğretmen ödev detayında puan + geri bildirim alanı; öğrenci ödev kartında puan rozeti.
+- [x] **Step 8: Doküman + commit**
 
 ```bash
 git add src/Modules mobile tests doc

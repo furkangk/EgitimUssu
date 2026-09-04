@@ -4,7 +4,7 @@ summary: "Veli, çocuğun gelişimini ve öğretmen etkileşimlerini şeffaf gra
 tags: [rol, veli, read-model]
 status: "🟡"
 authority: derived
-updated: 2026-08-19
+updated: 2026-09-04
 ---
 
 # 👪 Veli Rolü — Detaylı Tasarım Dokümanı
@@ -15,7 +15,7 @@ updated: 2026-08-19
 > ödemeleri ve öğretmen etkileşimlerini izlesin.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`ogretmen.md`](ogretmen.md) · [`../modules/m09_parents.md`](../modules/m09_parents.md)
-> **Güncelleme:** 2026-08-19
+> **Güncelleme:** 2026-09-04
 
 ---
 
@@ -56,7 +56,7 @@ Veli, **kendi verisi üretmeyen**, çoğunlukla diğer modüllerin verisini veli
 | **"Ödedim" beyanı** (öğretmen teyitli mutabakat) | [`m07_payments`](../modules/m07_payments.md) | 🟢 (Veli V-G) |
 | Öğretmen-öğrenci **etkileşimleri** | [`m05`](../modules/m05_lesson_sessions.md)/[`m06`](../modules/m06_assignments.md) | 👁️ |
 | Öğretmenle **mesajlaşma** | [`m16_messaging`](../modules/m16_messaging.md) | 🔴 |
-| Bildirimler (ödev kaçırma vb.) | [`m11_notifications`](../modules/m11_notifications.md) | 🟡 |
+| Bildirimler (ödev kaçırma vb.) | [`m11_notifications`](../modules/m11_notifications.md) | 🟢 (M09-3 kapandı — 2026-09-04, P06/M06-3) |
 | **Veli bildirim motoru** (olay + haftalık özet, **Premium**) | [`m11_notifications`](../modules/m11_notifications.md) | 🟢 (Veli V-E) |
 | Profil/bildirim/üyelik | [`m15_settings`](../modules/m15_settings.md) / [`m17_membership`](../modules/m17_membership.md) | 🟡/🔴 |
 
@@ -81,7 +81,7 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 3. **Çoklu çocuk:** Bir veli birden çok öğrenciye bağlanabilir; panelde çocuk seçici bulunur.
 4. **Yalnız görüntüleme:** Veli ders/ödev/ödeme verisini **düzenleyemez**, yalnızca görüntüler.
 5. **Gizlilik:** Öğrenci, hangi verilerin veliye yansıyacağını kontrol edebilir (M15); ödeme yalnızca `IsSharedWithParent` ise görünür (M07). **(Veli V-B, 2026-07-19 — uygulandı)** Öğrenci `PUT /api/settings/users/{userId}/study-sharing` ile çalışma verisi paylaşımını kapatabilir; kapalıysa veli panelinde çalışma alanları (haftalık dakika, streak) **"paylaşılmıyor"** işaretiyle (`IsShared=false`, değer 0) döner — değer sızmaz. **Değişmez kural:** çocuğun kişisel seans notu veliye hiçbir koşulda açılmaz.
-6. **Ödev kaçırma bildirimi:** Öğrenci ödevini son tarihten önce yüklemezse veliye bildirim gider (M06 + M11).
+6. **Ödev kaçırma bildirimi (🟢 kodda, 2026-09-04 — M09-3):** Öğrenci ödevini son teslim tarihine kadar teslim etmezse, `AssignmentDueScanner` `AssignmentMissedDomainEvent` üretir; `AssignmentMissedNotificationHandler` **onaylı Premium** veliye (`Prefs.MissedAssignment` açıksa) hem `ParentNotification` hem `UserNotification(Kind=AssignmentMissed)` yazar (M06-3 + M11).
 7. **Sessizce bağlanma yok + birincil veli (Veli V-C, 2026-07-19 — uygulandı):** Bir bağ onaylandığında şeffaflık olayı (`ParentLinkConnectionNoticeDomainEvent`) yayılır — çocuk ve varsa mevcut birincil veli "X hesabı veli olarak bağlandı" bilgilendirilir (teslim V-E). Bir çocuğun tek **birincil velisi** olabilir; ikinci veli birincil olmak isterse mevcut birincil veli (veya admin) onaylamadıkça olamaz (`parents.primary_exists`, 409). Yani veli, çocuk/mevcut veli **haberdar edilmeden bağlanamaz**.
 8. **Öğretmen→veli davet kodu (Veli V-D, 2026-07-19 — uygulandı):** Öğretmen bir öğrenci için veli davet kodu üretir (`POST /api/students/profiles/{studentId}/parent-invite`); veli kaydolup kodu `POST /api/parents/children/claim-invite` ile girerek çocuğuna bağlanır. Kod girmek onay eylemidir → bağ doğrudan **Approved** (öğretmen kodu = öğretmen onayı, veli kod = veli onayı). İlk veli birincil olur. Telefon eşleştirme yok; kod modeli.
 9. **"Ödedim" beyanı (Veli V-G, 2026-07-19 — uygulandı):** Veli bir ödeme kaydı için "ödedim" beyan eder (`POST /api/payments/records/{id}/declare-paid`) → öğretmene bildirim gider (teslim V-E) → öğretmen **teyit** edince (`.../confirm`) kayıt tam tahsil edilmiş (`Paid`) işaretlenir; reddederse kayıt değişmez. **Para transferi değildir**, mutabakat kaydıdır (PRD "platform para tahsil etmez" korunur). Yetki: yalnız onaylı veli beyan eder, yalnız ilgili öğretmen teyit eder.
@@ -138,7 +138,7 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 **Faz 3 (öğretmen verisi):**
 - [ ] Son ders, ödevler, öğretmen notları, ödeme özeti.
-- [ ] Öğretmenle mesajlaşma + ödev kaçırma bildirimi.
+- [ ] Öğretmenle mesajlaşma. *(Ödev kaçırma bildirimi ✅ 2026-09-04, P06/M06-3.)*
 
 ## 11. İlişkili Dokümanlar
 - Çocuğun verisi → [`ogrenci.md`](ogrenci.md) · Öğretmen verisi → [`ogretmen.md`](ogretmen.md)
@@ -146,4 +146,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-08-19 (doküman temizliği: §6.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı) · 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M06-3 → M09-3 kapandı: ödev kaçırma bildirimi gerçek — `AssignmentDueScanner` → `AssignmentMissedNotificationHandler` → onaylı **Premium** veliye `Prefs.MissedAssignment` kapısıyla `ParentNotification` + `UserNotification`) · 2026-08-19 (doküman temizliği: §6.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı) · 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*

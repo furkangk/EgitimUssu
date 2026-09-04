@@ -36,6 +36,7 @@
     <ProjectReference Include="..\..\src\Modules\LessonSessions\Application\EgitimUssu.Modules.LessonSessions.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Assignments\Domain\EgitimUssu.Modules.Assignments.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Assignments\Application\EgitimUssu.Modules.Assignments.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Assignments\Infrastructure\EgitimUssu.Modules.Assignments.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Teachers\Domain\EgitimUssu.Modules.Teachers.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Teachers\Infrastructure\EgitimUssu.Modules.Teachers.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Students\Domain\EgitimUssu.Modules.Students.Domain.csproj" />

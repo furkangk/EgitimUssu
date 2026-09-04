@@ -55,6 +55,9 @@ public sealed class AssignmentsModule : ModuleDefinition
         group.MapPost("/{assignmentId:guid}/return", ReturnAssignmentAsync)
         .WithSummary("Öğretmen ödevi geri bildirimle geri gönderir");
 
+        group.MapPost("/{assignmentId:guid}/grade", GradeAssignmentAsync)
+        .WithSummary("Öğretmen onayladığı ödeve puan verir (M06-4)");
+
         group.MapPost("/lesson-resources", CreateLessonResourceAsync)
         .WithSummary("Ders kaynağı ekler — dosya veya bağlantı (M06-1)")
         .DisableAntiforgery();
@@ -220,6 +223,20 @@ public sealed class AssignmentsModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>Öğretmen onayladığı ödeve 0–100 arası puan verir (M06-4).</summary>
+    private static async Task<IResult> GradeAssignmentAsync(
+        HttpContext context,
+        Guid assignmentId,
+        GradeAssignmentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new GradeAssignmentCommand(assignmentId, request.Score, request.Feedback),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     /// <summary>Öğrenci kendi ödevini tamamlandı olarak işaretler.</summary>
     private static async Task<IResult> CompleteAssignmentAsync(
         HttpContext context,
@@ -378,6 +395,9 @@ public sealed record ApproveAssignmentRequest(string? Feedback);
 
 /// <summary>Öğretmen ödevi geri gönderirken zorunlu geri bildirim.</summary>
 public sealed record ReturnAssignmentRequest(string Feedback);
+
+/// <summary>M06-4: Ödev puanı (0–100) ve isteğe bağlı geri bildirim.</summary>
+public sealed record GradeAssignmentRequest(int Score, string? Feedback);
 
 /// <summary>
 /// Ders sonrası özet, işlenen konular, öneriler ve isteğe bağlı ödev listesini taşır.  

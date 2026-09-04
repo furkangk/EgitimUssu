@@ -61,8 +61,20 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                     b.Property<DateTime?>("DueDateUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DueSoonNotifiedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("GradedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("LessonSessionId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("MissedNotifiedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Score")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -87,6 +99,8 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LessonSessionId");
+
+                    b.HasIndex("Status", "DueDateUtc");
 
                     b.HasIndex("StudentId", "Status");
 

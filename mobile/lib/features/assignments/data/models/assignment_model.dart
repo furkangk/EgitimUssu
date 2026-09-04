@@ -10,6 +10,9 @@ class AssignmentItemModel extends AssignmentItem {
     super.attachmentUrl,
     super.status,
     super.createdOnUtc,
+    super.teacherFeedback,
+    super.score,
+    super.gradedOnUtc,
   });
 
   factory AssignmentItemModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +25,9 @@ class AssignmentItemModel extends AssignmentItem {
       attachmentUrl: json['attachmentUrl']?.toString(),
       status: json['status']?.toString(),
       createdOnUtc: _parseDate(json['createdOnUtc']),
+      teacherFeedback: json['teacherFeedback']?.toString(),
+      score: _parseInt(json['score']),
+      gradedOnUtc: _parseDate(json['gradedOnUtc']),
     );
   }
 
@@ -67,6 +73,12 @@ class AssignmentItemModel extends AssignmentItem {
   static DateTime? _parseDate(Object? value) {
     if (value == null) return null;
     return DateTime.tryParse(value.toString())?.toUtc();
+  }
+
+  static int? _parseInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
   }
 }
 

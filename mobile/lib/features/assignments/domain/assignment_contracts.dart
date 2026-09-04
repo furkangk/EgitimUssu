@@ -8,6 +8,9 @@ class AssignmentItem {
     this.attachmentUrl,
     this.status,
     this.createdOnUtc,
+    this.teacherFeedback,
+    this.score,
+    this.gradedOnUtc,
   });
 
   final String? id;
@@ -18,6 +21,17 @@ class AssignmentItem {
   final String? attachmentUrl;
   final String? status;
   final DateTime? createdOnUtc;
+
+  /// Öğretmenin onay/geri gönderme sırasında bıraktığı geri bildirim.
+  final String? teacherFeedback;
+
+  /// M06-4: Öğretmenin verdiği puan (0–100); puanlanmadıysa `null`.
+  final int? score;
+
+  /// M06-4: Puanın verildiği an.
+  final DateTime? gradedOnUtc;
+
+  bool get isGraded => score != null;
 }
 
 class LessonNote {
@@ -69,6 +83,16 @@ abstract interface class AssignmentRepository {
 
   /// Öğrenci ödev çözümünü (dosya) yükler; teslim sonrası ödev "devam ediyor"a geçer.
   Future<AssignmentItem> submitWork(String assignmentId, String filePath);
+
+  /// Öğretmen ödevi onaylar; isteğe bağlı geri bildirim bırakır.
+  Future<AssignmentItem> approveAssignment(String assignmentId, String? feedback);
+
+  /// M06-4: Öğretmen onayladığı ödeve 0–100 arası puan verir.
+  Future<AssignmentItem> gradeAssignment(
+    String assignmentId,
+    int score,
+    String? feedback,
+  );
 
   // ---- M06-1 (P04): ders kaynağı paylaşımı ----
 

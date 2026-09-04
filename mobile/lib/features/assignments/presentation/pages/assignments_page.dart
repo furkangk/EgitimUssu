@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/di/injector.dart';
+import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
@@ -63,6 +65,45 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
     super.dispose();
   }
 
+  /// M06-4: Ödev değerlendirme. Sunucu yalnız **onaylanmış** ödevi puanladığı için, ödev
+  /// henüz onaylı değilse önce onay çağrısı yapılır — öğretmen için tek bir "değerlendir" adımı.
+  Future<void> _openGradeSheet(AssignmentItem item) async {
+    final result = await showModalBottomSheet<_GradeInput>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GradeSheet(item: item),
+    );
+    if (result == null || !mounted) return;
+
+    final repository = injector<AssignmentRepository>();
+    try {
+      if (item.status != 'Approved') {
+        await repository.approveAssignment(item.id!, result.feedback);
+      }
+      await repository.gradeAssignment(item.id!, result.score, result.feedback);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Puan kaydedildi: ${result.score}'),
+          backgroundColor: AppColors.accentGreen,
+        ),
+      );
+      final userId = context.read<AuthCubit>().state.session?.userId;
+      if (userId != null) {
+        await _cubit.refresh(userId);
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: AppColors.accentRed,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AssignmentsListCubit>.value(
@@ -124,7 +165,12 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                       ...filtered.map(
                         (a) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: _AssignmentTile(item: a),
+                          child: _AssignmentTile(
+                            item: a,
+                            onGrade: a.id == null
+                                ? null
+                                : () => _openGradeSheet(a),
+                          ),
                         ),
                       ),
                   ],
@@ -316,16 +362,22 @@ class _FilterTabs extends StatelessWidget {
 }
 
 class _AssignmentTile extends StatelessWidget {
-  const _AssignmentTile({required this.item});
+  const _AssignmentTile({required this.item, this.onGrade});
 
   final AssignmentItem item;
+
+  /// M06-4: Değerlendirme sayfasını açar. `null` ise ödev henüz kaydedilmemiştir.
+  final VoidCallback? onGrade;
 
   @override
   Widget build(BuildContext context) {
     final (color, icon, label) = _statusMeta(item.status);
     final dueText = _dueLabel(item.dueDateUtc);
 
-    return Container(
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onGrade,
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -393,21 +445,35 @@ class _AssignmentTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
-            ),
+              if (item.isGraded) ...<Widget>[
+                const SizedBox(height: 6),
+                _ScoreBadge(score: item.score!),
+              ],
+            ],
           ),
         ],
+      ),
       ),
     );
   }
@@ -422,6 +488,16 @@ class _AssignmentTile extends StatelessWidget {
         'Tamamlandı',
       ),
       'Cancelled' => (AppColors.accentRed, Icons.cancel_outlined, 'İptal'),
+      'Approved' => (
+        AppColors.accentGreen,
+        Icons.verified_rounded,
+        'Onaylandı',
+      ),
+      'ReturnedForRevision' => (
+        AppColors.amber,
+        Icons.replay_rounded,
+        'Revizyon',
+      ),
       _ => (AppColors.purple, Icons.assignment_outlined, status ?? '-'),
     };
   }
@@ -560,6 +636,160 @@ class _ErrorCard extends StatelessWidget {
           const SizedBox(height: 14),
           TextButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
         ],
+      ),
+    );
+  }
+}
+
+
+/// M06-4: Ödev puan rozeti (0–100).
+class _ScoreBadge extends StatelessWidget {
+  const _ScoreBadge({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$score puan',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+/// Değerlendirme sayfasının çıktısı: puan + isteğe bağlı geri bildirim.
+class _GradeInput {
+  const _GradeInput({required this.score, this.feedback});
+
+  final int score;
+  final String? feedback;
+}
+
+/// M06-4: Öğretmenin puan (0–100) ve geri bildirim girdiği alt sayfa.
+class _GradeSheet extends StatefulWidget {
+  const _GradeSheet({required this.item});
+
+  final AssignmentItem item;
+
+  @override
+  State<_GradeSheet> createState() => _GradeSheetState();
+}
+
+class _GradeSheetState extends State<_GradeSheet> {
+  late double _score = (widget.item.score ?? 80).toDouble();
+  late final TextEditingController _feedback = TextEditingController(
+    text: widget.item.teacherFeedback ?? '',
+  );
+
+  @override
+  void dispose() {
+    _feedback.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Ödevi değerlendir',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.item.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: <Widget>[
+                Text(
+                  'Puan',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                _ScoreBadge(score: _score.round()),
+              ],
+            ),
+            Slider(
+              value: _score,
+              min: 0,
+              max: 100,
+              divisions: 100,
+              label: '${_score.round()}',
+              activeColor: AppColors.primary,
+              onChanged: (value) => setState(() => _score = value),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _feedback,
+              maxLines: 3,
+              maxLength: 2000,
+              decoration: const InputDecoration(
+                labelText: 'Geri bildirim (isteğe bağlı)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(
+                  _GradeInput(
+                    score: _score.round(),
+                    feedback: _feedback.text.trim().isEmpty
+                        ? null
+                        : _feedback.text.trim(),
+                  ),
+                ),
+                child: const Text('Puanı kaydet'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
