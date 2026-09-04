@@ -12,24 +12,36 @@ internal sealed class ParentNotificationDirectory : IParentNotificationDirectory
 
     public async Task<IReadOnlyCollection<ParentNotificationTarget>> GetApprovedParentsForStudentAsync(Guid studentId, CancellationToken cancellationToken)
     {
-        var rows = await Query()
-            .Where(x => x.link.StudentId == studentId)
+        // ⚠️ Filtre **projeksiyondan önce** uygulanır. Iki varligi kendi tanimladigimiz bir record'a
+        // projekte edip sonra `x.link.StudentId` ile filtrelemek EF Core'da cevrilemiyor
+        // (record'un icini goremez) → tum outbox zinciri gercek Postgres'te patliyordu.
+        var profiles = await ApprovedLinks()
+            .Where(link => link.StudentId == studentId)
+            .Join(
+                _dbContext.ParentProfiles,
+                link => link.ParentUserId,
+                profile => profile.UserId,
+                (link, profile) => profile)
             .ToArrayAsync(cancellationToken);
 
-        return rows.Select(x => ToTarget(x.profile)).ToArray();
+        return profiles.Select(ToTarget).ToArray();
     }
 
     public async Task<IReadOnlyCollection<ParentStudentNotificationTarget>> ListAllApprovedTargetsAsync(CancellationToken cancellationToken)
     {
-        var rows = await Query().ToArrayAsync(cancellationToken);
-        return rows.Select(x => new ParentStudentNotificationTarget(x.link.StudentId, ToTarget(x.profile))).ToArray();
+        var rows = await ApprovedLinks()
+            .Join(
+                _dbContext.ParentProfiles,
+                link => link.ParentUserId,
+                profile => profile.UserId,
+                (link, profile) => new { link.StudentId, Profile = profile })
+            .ToArrayAsync(cancellationToken);
+
+        return rows.Select(row => new ParentStudentNotificationTarget(row.StudentId, ToTarget(row.Profile))).ToArray();
     }
 
-    private IQueryable<LinkProfile> Query()
-        => from link in _dbContext.ParentChildLinks
-           where link.Status == ParentChildLinkStatus.Approved
-           join profile in _dbContext.ParentProfiles on link.ParentUserId equals profile.UserId
-           select new LinkProfile(link, profile);
+    private IQueryable<ParentChildLink> ApprovedLinks()
+        => _dbContext.ParentChildLinks.Where(link => link.Status == ParentChildLinkStatus.Approved);
 
     private static ParentNotificationTarget ToTarget(ParentProfile profile)
         => new(
@@ -41,6 +53,4 @@ internal sealed class ParentNotificationDirectory : IParentNotificationDirectory
                 profile.NotifyLessonReminders,
                 profile.NotifyTestResults,
                 profile.NotifyPayments));
-
-    private sealed record LinkProfile(ParentChildLink link, ParentProfile profile);
 }

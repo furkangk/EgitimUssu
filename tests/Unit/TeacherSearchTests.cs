@@ -1,3 +1,4 @@
+using System.Globalization;
 using EgitimUssu.Modules.Teachers.Application;
 using EgitimUssu.Modules.Teachers.Domain;
 using EgitimUssu.Shared.Kernel;
@@ -16,7 +17,7 @@ public sealed class TeacherSearchTests
     private static TeacherProfile Profile(
         string fullName = "Ahmet",
         string subject = "Matematik",
-        string city = "İstanbul",
+        string city = "Istanbul",
         string district = "Kadıköy",
         TeacherLessonFormat format = TeacherLessonFormat.Online,
         decimal rate = 400m,
@@ -61,17 +62,57 @@ public sealed class TeacherSearchTests
 
     // --- M02-3: filtreler ---
 
+    /// <remarks>
+    /// ⚠️ Bu test <b>LINQ-to-objects</b> üzerinde koşar: karşılaştırmanın sol tarafındaki
+    /// <c>ToLower()</c> ambient kültürü kullanır (üretimde ise Postgres'in <c>lower()</c>'ı çalışır).
+    /// Bu yüzden kültür sabitlenir ve veri ASCII tutulur; <b>Türkçe I/İ katlaması</b>
+    /// <c>RealTeacherSearchIntegrationTests</c> ile gerçek Postgres'e karşı doğrulanır.
+    /// </remarks>
     [Fact]
     public void Search_Should_Filter_By_City_And_Subject()
     {
-        var match = Profile(city: "İstanbul", subject: "Matematik");
-        var wrongCity = Profile(city: "Ankara", subject: "Matematik");
-        var wrongSubject = Profile(city: "İstanbul", subject: "Fizik");
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        try
+        {
+            var match = Profile(city: "Istanbul", subject: "Matematik");
+            var wrongCity = Profile(city: "Ankara", subject: "Matematik");
+            var wrongSubject = Profile(city: "Istanbul", subject: "Fizik");
 
-        var result = Apply(new[] { match, wrongCity, wrongSubject }, City: "İstanbul", Subject: "Matematik");
+            var result = Apply(new[] { match, wrongCity, wrongSubject }, City: "Istanbul", Subject: "Matematik");
 
-        Assert.Single(result);
-        Assert.Equal(match.UserId, result[0].UserId);
+            Assert.Single(result);
+            Assert.Equal(match.UserId, result[0].UserId);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
+    }
+
+    /// <summary>
+    /// M02-3 regresyon: arama girdisi Postgres'in <c>lower()</c> davranışıyla aynı sonucu vermeli.
+    /// Türkçe I varyantları (<c>'I'</c> ve <c>'İ'</c>) düz <c>'i'</c>'ye katlanır — aksi hâlde
+    /// tr-TR kültüründe "Istanbul" araması boş dönüyordu (P06 Task 10 canlı doğrulaması).
+    /// </summary>
+    [Theory]
+    [InlineData("Istanbul", "istanbul")]
+    [InlineData("İstanbul", "istanbul")]
+    [InlineData("ISTANBUL", "istanbul")]
+    [InlineData(" İzmir ", "izmir")]
+    [InlineData("Matematik", "matematik")]
+    public void NormalizeForSearch_Should_Match_Postgres_Lower(string typed, string expected)
+    {
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+        try
+        {
+            Assert.Equal(expected, TeacherSearchFilter.NormalizeForSearch(typed));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     [Fact]

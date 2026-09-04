@@ -257,6 +257,13 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
 
 ### 3.4 Tamamlayıcı uçlar (P06 Task 9, 2026-09-04)
 
+> ⚠️ **`StudentSubject.Id` `ValueGeneratedNever` olmalıdır (P06 Task 10, 2026-09-04).** Varsayılan
+> `ValueGeneratedOnAdd` ile EF, izlenen profilin `Subjects` koleksiyonuna eklenen yeni branşı
+> "anahtarı dolu → zaten var" sayıp `INSERT` yerine `UPDATE` üretiyor; gerçek Postgres'te 0 satır
+> etkileniyor ve `DbUpdateConcurrencyException` → **500** oluyordu. InMemory sağlayıcısı bu hatayı
+> üretmez; A-01'de Teachers için aynı düzeltme yapılmıştı. Regresyon: `RealStudentSubjectIntegrationTests`.
+> **Kural:** kimlikleri `IIdGenerator` üreten her çocuk koleksiyonunda anahtar `ValueGeneratedNever` olmalı.
+
 | Uç | Yetki | Davranış |
 |----|-------|----------|
 | `POST /profiles/{studentId}/link-parent` `{ parentUserId }` | Admin · profili oluşturan öğretmen · profilin sahibi öğrenci | Bağ **Parents**'ta `Pending` açılır; yanıt `{ studentId, parentUserId, status: "Pending" }`. Veli profili yoksa `students.parent_user_required` (400), açık bağ varsa `students.parent_link_exists` (409). |
@@ -405,4 +412,4 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 9 / M03-1+M03-2+M03-3: `link-parent` (Pending bağ, `IParentChildLinkRequestService`), branş ekle/sil uçları + `StudentSubjectResponse.Id`, `by-parent` onaylı çocuk listesi; mobil öğrenci detayında branş ekle/sil + veli bağla) · 2026-09-04 (P06 Task 5 / M07-2: `IStudentDirectory`'ye `GetAgreedLessonRateAsync` eklendi — B-07 ücreti Payments'a açıldı) · 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 10 canlı doğrulama: **branş ekleme gerçek Postgres'te 500 veriyordu** — `StudentSubject.Id` `ValueGeneratedNever` yapıldı, migration `StudentSubjectValueGeneratedNever`) · 2026-09-04 (P06 Task 9 / M03-1+M03-2+M03-3: `link-parent` (Pending bağ, `IParentChildLinkRequestService`), branş ekle/sil uçları + `StudentSubjectResponse.Id`, `by-parent` onaylı çocuk listesi; mobil öğrenci detayında branş ekle/sil + veli bağla) · 2026-09-04 (P06 Task 5 / M07-2: `IStudentDirectory`'ye `GetAgreedLessonRateAsync` eklendi — B-07 ücreti Payments'a açıldı) · 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

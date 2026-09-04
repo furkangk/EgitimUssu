@@ -94,11 +94,13 @@ public sealed class NotificationsModule : ModuleDefinition
     private static async Task<IResult> ListUserNotificationsAsync(
         HttpContext context,
         Guid userId,
-        bool onlyUnread,
-        int skip,
-        int take,
         IQueryDispatcher dispatcher,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        // Varsayilan degerler zorunlu: minimal API'de varsayilansiz bir query parametresi
+        // gonderilmezse BadHttpRequestException → **500** olur (istemci hatasi sunucu hatasi gibi gorunur).
+        bool onlyUnread = false,
+        int skip = 0,
+        int take = 20)
     {
         var result = await dispatcher.Dispatch(
             new ListUserNotificationsQuery(userId, onlyUnread, skip, take),

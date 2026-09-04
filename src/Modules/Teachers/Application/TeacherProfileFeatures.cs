@@ -589,6 +589,20 @@ public interface ITeacherProfileSearchRepository
 /// </summary>
 public static class TeacherSearchFilter
 {
+    /// <summary>
+    /// Arama girdisini Postgres'in <c>lower()</c> davranışıyla hizalar.
+    /// <para>
+    /// İki tuzak birden var: (1) <see cref="string.ToLower()"/> <b>kültüre bağlıdır</b> — tr-TR altında
+    /// <c>'I' → 'ı'</c> olur ve Postgres'in ürettiği <c>'i'</c> ile eşleşmez ("Istanbul" araması boş dönerdi).
+    /// (2) <c>ToLowerInvariant()</c> ise <c>'İ'</c>'yi <c>"i" + birleşen nokta</c> (2 kod noktası) yapar,
+    /// Postgres ise düz <c>"i"</c> üretir. Bu yüzden Türkçe I varyantları önce düz <c>'i'</c>'ye katlanır.
+    /// </para>
+    /// </summary>
+    /// <param name="value">Kullanıcının yazdığı ham arama metni.</param>
+    /// <returns>Postgres <c>lower()</c> ile aynı sonucu veren katlanmış metin.</returns>
+    public static string NormalizeForSearch(string value)
+        => value.Trim().Replace('İ', 'i').Replace('I', 'i').ToLowerInvariant();
+
     /// <summary>Sorgu filtrelerini uygular (sıralama: doğrulanmışlar önce, sonra ücret).</summary>
     /// <param name="source">Kaynak sorgu.</param>
     /// <param name="query">Filtreler.</param>
@@ -598,25 +612,28 @@ public static class TeacherSearchFilter
         // Pasif profiller hiçbir koşulda aramada görünmez (M02-4).
         source = source.Where(p => p.IsActive);
 
+        // ⚠️ Karşılaştırmanın sol tarafı SQL'e (`lower(...)`) çevrilir, sağ tarafı ise .NET'te
+        // **istemci tarafında** hesaplanıp parametre olarak gider. İki tarafın aynı sonucu
+        // vermesi için istemci tarafı `NormalizeForSearch` ile katlanır (bkz. metodun notu).
         if (!string.IsNullOrWhiteSpace(query.City))
         {
-            var city = query.City.Trim();
-            source = source.Where(p => p.City.ToLower() == city.ToLower());
+            var city = NormalizeForSearch(query.City);
+            source = source.Where(p => p.City.ToLower() == city);
         }
 
         if (!string.IsNullOrWhiteSpace(query.District))
         {
-            var district = query.District.Trim();
-            source = source.Where(p => p.District.ToLower() == district.ToLower());
+            var district = NormalizeForSearch(query.District);
+            source = source.Where(p => p.District.ToLower() == district);
         }
 
         if (!string.IsNullOrWhiteSpace(query.Subject))
         {
             // Birincil branş VEYA çoklu branş listesi (Dilim D ile eklenen `teacher_subjects`).
-            var subject = query.Subject.Trim();
+            var subject = NormalizeForSearch(query.Subject);
             source = source.Where(p =>
-                p.Subject.ToLower() == subject.ToLower() ||
-                p.Subjects.Any(s => s.Subject.ToLower() == subject.ToLower()));
+                p.Subject.ToLower() == subject ||
+                p.Subjects.Any(s => s.Subject.ToLower() == subject));
         }
 
         if (query.LessonFormat is { } format)

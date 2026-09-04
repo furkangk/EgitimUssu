@@ -134,6 +134,23 @@ Her madde şu alanlara sahip:
 | M02-4 | ~~Pasifleştirme / silme yok~~ **✅ (P06)** | `TeacherProfile.IsActive` + `POST /profiles/{userId}/deactivate` · `/activate` (sahibi veya Admin) | — | — | Eklendi 2026-09-04 | Silme **bilinçli olarak yok**: pasif profil aramada görünmez, ders/öğrenci geçmişi korunur |
 | M02-5 | ~~Uygunluk (availability) yönetimi yalnız upsert içinde~~ **✅ (P06)** | Ayrı uç **açılmadı**: mobil `AvailabilityEditor` slot listesini bütün halinde `PUT /profiles/{userId}` ile gönderir; sunucudaki merge semantiği (A-01) tekrar kaydetmeyi güvenli kılar | — | — | Kapatıldı 2026-09-04 | Çakışma engeli **yalnız istemcide**; sunucu kuralı hâlâ `EndTime > StartTime` |
 
+> ### ✅ Canlı saha doğrulaması (P06 Task 10, 2026-09-04)
+>
+> Öğretmen günlük akışı **gerçek Postgres + çalışan API** üzerinde uçtan uca koşuldu (41 adım, tamamı yeşil).
+> Tüm modüllerin migration'ları boş bir veritabanına temiz uygulandı (94 tablo / 15 modül) ve outbox
+> her modülde 0 bekleyen mesajla kapandı. Koşum, birim/InMemory testlerinin **göremediği 4 gerçek hata**
+> ortaya çıkardı; dördü de aynı görevde düzeltildi ve gerçek-Postgres regresyon testine bağlandı:
+>
+> | # | Hata | Etki | Neden InMemory yakalamadı |
+> |---|------|------|----------------------------|
+> | C-10 | `StudentSubject.Id` `ValueGeneratedOnAdd`'di; koleksiyona eklenen yeni branş EF tarafından **Added değil Modified** izleniyordu → `INSERT` yerine `UPDATE`, 0 satır → 500 | Branş ekleme ucu (M03-2) hiç çalışmıyordu | InMemory `DbUpdateConcurrencyException` üretmez (A-01'in aynısı) |
+> | C-11 | `TeacherSearchFilter` istemci tarafında kültüre bağlı `ToLower()` kullanıyordu; tr-TR'de `'I' → 'ı'`, Postgres ise `'i'` üretiyordu | Şehir/ilçe/branş araması (M02-3) **"Istanbul" için boş dönüyordu** | Birim testinde karşılaştırmanın iki tarafı da aynı .NET kültürünü kullanır |
+> | C-12 | `ParentNotificationDirectory` iki varlığı özel bir `record`'a projekte edip **sonra** filtreliyordu → `could not be translated` | **Tüm outbox zinciri** ölüydü: otomatik ders ücreti (M07-2) ve veli/öğrenci bildirimleri hiç işlenmiyordu | InMemory istemci tarafında değerlendirir, hata atmaz |
+> | C-13 | `GET /notifications/users/{id}/notifications` sorgu parametreleri varsayılansızdı → eksik parametre **500** | Bildirim merkezi ucu (M11-3) istemci hatasını sunucu hatası gibi gösteriyordu | Uç HTTP seviyesinde hiç test edilmemişti |
+>
+> Doğrulanamayan adımlar (kod dışı bağımlılık): gerçek e-posta gönderimi (**Q7**), gerçek cihaz push'u (**Q8**),
+> mobil ekranların cihazda elle gezilmesi.
+
 ### M03 — Students (🟢)
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
@@ -428,4 +445,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme, M05-1 ✅ başlat/iptal, M05-2 ✅ plandan türetme, M05-3 ✅ zaman aralığı, M05-4 ✅ alanlar) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (**P06 Task 10 canlı saha doğrulaması**: öğretmen günlük akışı gerçek Postgres'e karşı 41/41 yeşil; InMemory'nin göremediği **4 yeni hata (C-10…C-13)** bulundu ve düzeltildi — bkz. M03 bölümü üstündeki kutu) · 2026-09-04 (P06: M03-1 ✅ veli bağlama, M03-2 ✅ branş yönetimi, M03-3 ✅ veli çocuk listesi, D-04/M02-5 ✅ mobil uygunluk düzenleyici) · 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme, M05-1 ✅ başlat/iptal, M05-2 ✅ plandan türetme, M05-3 ✅ zaman aralığı, M05-4 ✅ alanlar) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **125** — A 6 · B 69 · C 14 · D 22 · E 7 · F 7 (C-10…C-13 canlı doğrulamada eklendi, dördü de kapalı)*

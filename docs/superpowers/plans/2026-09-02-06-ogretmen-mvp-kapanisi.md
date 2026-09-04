@@ -409,19 +409,25 @@ git commit -m "feat(students): veli baglama + brans yonetimi + veli listesi (M03
 
 ---
 
-### Task 10: Beta hazırlığı — kapanış ve saha doğrulaması
+### Task 10: Beta hazırlığı — kapanış ve saha doğrulaması ✅
 
-- [ ] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test` → başarısız 0, atlanan 0.
-- [ ] **Step 2: Öğretmen günlük akış senaryosunu baştan sona elle koş**
-  1. Kayıt → e-posta doğrulama (P02) → profil doldur + fotoğraf (P04) + uygunluk (Task 8)
-  2. Öğrenci ekle → davet gönder → öğrenci kabul
-  3. Haftalık tekrar eden ders planla → takvimde 4 hafta görünüyor (Task 6)
-  4. Ders saatinde "Dersi başlat" → "Tamamla" → oturum notu + ödev (Task 3, Task 4)
-  5. Ödev süresi geçince öğrenciye+veliye bildirim (Task 7 + P03)
-  6. Ödeme kaydı otomatik oluştu (Task 5) → vade geçince "geciken" bildirimi
-  Expected: her adım hatasız; kırılan adım varsa ilgili task'a geri dön.
-- [ ] **Step 3: Dokümanlar** — `doc/roles/ogretmen.md` kontrol listesi; `doc/yol_haritasi.md` Faz 1 durumu; `doc/modules/00_genel_bakis.md` endpoint envanteri (Teachers 3 → 8, LessonSessions 4 → 7, Assignments → +1); `doc/denetim/2026-09-02_eksik_analizi.md` ilgili maddeler `✅ (P06)`.
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test` → başarısız 0, atlanan 0.
+- [x] **Step 2: Öğretmen günlük akış senaryosunu baştan sona koş** — **script'le, gerçek Postgres + çalışan API üzerinde** (elle mobil gezinti yerine HTTP; 41 adım, tamamı yeşil). Koşum **4 gerçek hata** ortaya çıkardı ve dördü de bu görevde düzeltilip gerçek-Postgres regresyon testine bağlandı:
+  1. `StudentSubject.Id` `ValueGeneratedOnAdd` → branş ekleme `UPDATE` üretip 500 veriyordu (`ValueGeneratedNever` + `StudentSubjectValueGeneratedNever` migration)
+  2. `TeacherSearchFilter` kültüre bağlı `ToLower()` → tr-TR'de "Istanbul" araması boş dönüyordu (`NormalizeForSearch`)
+  3. `ParentNotificationDirectory` sorgusu SQL'e çevrilemiyordu → **tüm outbox zinciri ölüydü** (otomatik ders ücreti + bildirimler hiç işlenmiyordu)
+  4. Bildirim listesi ucunda sorgu parametresi varsayılanı yoktu → eksik parametre 500
+  ⚠️ **Doğrulanamayanlar:** gerçek e-posta gönderimi (Q7), gerçek cihaz push'u (Q8), mobil ekranların cihazda elle gezilmesi.
+
+  1. ✅ Kayıt → e-posta doğrulama **token'ı** (P02; *gerçek gönderim Q7'ye bağlı*) → profil + uygunluk (Task 8). *Fotoğraf yükleme (P04) canlıda koşulmadı — MinIO'ya karşı P04'te doğrulanmıştı.*
+  2. ✅ Öğrenci ekle → davet gönder → öğrenci 6 haneli kodla devraldı (claim)
+  3. ✅ Haftalık tekrar eden ders planla → takvimde 4 occurrence (Task 6)
+  4. ✅ "Dersi başlat" → "Tamamla" → oturum notu + ödev + 0–100 puanlama (Task 3, 4, 7)
+  5. ⚠️ Ödev son teslim uyarısı **canlıda koşulmadı** (saatlik tarama + geçmiş vade gerekiyor) — birim testiyle kapsanıyor. Aynı desendeki `PaymentOverdueScanner` zinciri canlıda uçtan uca doğrulandı.
+  6. ✅ Ödeme kaydı otomatik oluştu (500 TRY, vade +7 gün, oturuma bağlı) → vade geriye alınıp tarama koşuldu → `Overdue` + öğretmene in-app bildirim + rozet düşüşü
+  Expected: her adım hatasız; kırılan adım varsa ilgili task'a geri dön. → **4 adım kırıldı, dördü de düzeltildi.**
+- [x] **Step 3: Dokümanlar** — `doc/roles/ogretmen.md` kontrol listesi; `doc/yol_haritasi.md` Faz 1 durumu; `doc/modules/00_genel_bakis.md` endpoint envanteri (Teachers 3 → 8, LessonSessions 4 → 7, Assignments → +1); `doc/denetim/2026-09-02_eksik_analizi.md` ilgili maddeler `✅ (P06)`.
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -432,13 +438,13 @@ git commit -m "docs: P06 ogretmen MVP kapanisi"
 
 ## Kabul Kriterleri
 
-- [ ] Admin öğretmeni doğrulayabiliyor; öğretmen kendini doğrulayamıyor
-- [ ] `GET /api/teachers/profiles` filtreli, sayfalı ve yalnız aktif profilleri döndürüyor
-- [ ] Oturum `Planned → InProgress → Completed` ve `→ Cancelled` geçişleri çalışıyor; ters zaman aralığı reddediliyor
-- [ ] Planlı dersten tek çağrıyla oturum türetiliyor, ikinci çağrı yeni oturum açmıyor
-- [ ] Vadesi geçen ödeme otomatik `Overdue` oluyor ve bildirim gidiyor
-- [ ] Tamamlanan ücretli oturum için ödeme kaydı otomatik oluşuyor (tekrar eden event'te çift kayıt yok)
-- [ ] Öğretmen takviminde tekrar eden dersler görünüyor
-- [ ] Ödev son teslim uyarısı ve puanlama çalışıyor
-- [ ] Mobilde uygunluk düzenlenip kaydedilebiliyor
-- [ ] Tam test paketi (Docker'lı) yeşil
+- [x] Admin öğretmeni doğrulayabiliyor; öğretmen kendini doğrulayamıyor
+- [x] `GET /api/teachers/profiles` filtreli, sayfalı ve yalnız aktif profilleri döndürüyor
+- [x] Oturum `Planned → InProgress → Completed` ve `→ Cancelled` geçişleri çalışıyor; ters zaman aralığı reddediliyor — *canlıda başlat/tamamla + ters aralık (400) doğrulandı; `Cancelled` yolu birim testiyle*
+- [x] Planlı dersten tek çağrıyla oturum türetiliyor, ikinci çağrı yeni oturum açmıyor
+- [x] Vadesi geçen ödeme otomatik `Overdue` oluyor ve bildirim gidiyor
+- [x] Tamamlanan ücretli oturum için ödeme kaydı otomatik oluşuyor (tekrar eden event'te çift kayıt yok)
+- [x] Öğretmen takviminde tekrar eden dersler görünüyor
+- [x] Ödev son teslim uyarısı ve puanlama çalışıyor — *puanlama (0–100 + sınır reddi) canlıda doğrulandı; son teslim taraması birim testiyle (saatlik tarama + geçmiş vade gerektirir). Aynı sınıftaki `PaymentOverdueScanner` → bildirim zinciri canlıda uçtan uca doğrulandı*
+- [x] Mobilde uygunluk düzenlenip kaydedilebiliyor — *widget testi (16 test) + sunucu tarafı `availabilitySlots` yazımı canlıda doğrulandı; **cihazda elle gezinti yapılmadı***
+- [x] Tam test paketi (Docker'lı) yeşil

@@ -3,7 +3,7 @@ title: "Geliştirme Yol Haritası"
 summary: "Faz 0-5 geliştirme yol haritası: epic→faz eşlemesi, bağımlılıklar, milestone'lar"
 tags: [yol-haritasi, planlama, faz]
 authority: product
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # 🗺️ EğitimÜssü — Geliştirme Yol Haritası
@@ -15,7 +15,7 @@ updated: 2026-09-02
 >
 > **Temel strateji:** Önce rollerin **bireysel/ortak** kullanımını doldur, **eşleştirme/ilan**'ı en son aç (PRD §2).
 >
-> **Güncelleme:** 2026-09-02
+> **Güncelleme:** 2026-09-04
 
 ---
 
@@ -24,7 +24,7 @@ updated: 2026-09-02
 | Faz | Ad | Ana hedef | Durum |
 |-----|-----|-----------|-------|
 | **Faz 0** | Temel & Sertleştirme | Mimari/güvenlik açıklarını kapat + ortak altyapı (dosya depolama, read-model, push) | 🔴 Açık (kritik) |
-| **Faz 1** | Öğretmen Çekirdeği (MVP) | Öğretmen her gün kullanır: takvim, öğrenci, ders, ödev/kaynak, ödeme | 🟢 Büyük ölçüde hazır, eksikler var |
+| **Faz 1** | Öğretmen Çekirdeği (MVP) | Öğretmen her gün kullanır: takvim, öğrenci, ders, ödev/kaynak, ödeme | 🟢 **Backend tamam** — P06 ile öğretmen günlük akışı gerçek Postgres'e karşı uçtan uca doğrulandı (2026-09-04); kalan: beta öğretmen listesi (Q6), gerçek SMTP (Q7), Firebase (Q8) |
 | **Faz 2** | Öğrenci Bireysel Çalışma | Öğretmensiz öğrenci: kronometre, test/net, hedef, seri, başarım | 🟢 Büyük ölçüde hazır (M08 Study 38 uç) |
 | **Faz 3** | Gelişim, Bildirim & Veli | Konu gelişimi, veli paneli (tam), mesajlaşma, zengin bildirim | 🟡 Kısmen (veli paneli 🟢, M10 🟡, M16 🔴) |
 | **Faz 4** | Eşleştirme & Değerlendirme | İki taraflı ilan, keşif/filtre, puanlama/yorum, şikayet/moderasyon | 🔴 İskelet |
@@ -58,10 +58,19 @@ updated: 2026-09-02
 > Çoğu hazır (🟢). Hedef: 5–10 gerçek öğretmenle beta'ya hazır hale getirmek.
 
 **Epic:** `Öğretmen MVP Tamamlama` · İlgili roller/modüller: [`roles/ogretmen`](roles/ogretmen.md), M02–M07, M11.
-**Açık işler:**
-- Dashboard özet endpoint + zengin ana ekran · Ders güncelleme (PUT) · LessonSession yaşam döngüsü
-- Öğrenci düzenleme/pasifleştirme + branş & veli bağlama alanları · Push bildirim uçtan uca · Ödeme Overdue otomasyonu · Yetki testleri
-- **Yeni (promp.txt):** Online ders linki (`MeetingUrl`) · Tekrarlı ders açılımı · Takvim tatilleri (`ScheduleException`) · Ders **kaynağı** (`LessonResource`)
+**Açık işler:** ✅ **Tümü kapandı (P06, 2026-09-04)**
+- ~~Dashboard özet endpoint + zengin ana ekran · Ders güncelleme (PUT) · LessonSession yaşam döngüsü~~ (M05-1…M05-4)
+- ~~Öğrenci düzenleme/pasifleştirme + branş & veli bağlama alanları · Push bildirim uçtan uca · Ödeme Overdue otomasyonu · Yetki testleri~~ (M03-1/2/3, M07-1/2, M11)
+- ~~Online ders linki (`MeetingUrl`) · Tekrarlı ders açılımı · Takvim tatilleri (`ScheduleException`) · Ders **kaynağı** (`LessonResource`)~~ (M04-1, P04)
+
+**Saha doğrulaması (P06 Task 10, 2026-09-04):** Öğretmen günlük akışı gerçek Postgres + çalışan API üzerinde
+uçtan uca koşuldu (kayıt → profil+uygunluk → öğrenci → davet/claim → tekrarlı ders → oturum başlat/tamamla →
+ders notu+ödev → puanlama → otomatik ders ücreti → vade taraması → in-app bildirim). **41 adımın tamamı yeşil.**
+Bu koşum InMemory testlerinin göremediği **4 gerçek hata** ortaya çıkardı ve dördü de düzeltildi (bkz.
+[`denetim/2026-09-02_eksik_analizi.md`](denetim/2026-09-02_eksik_analizi.md) ve `docs/superpowers/ILERLEME.md`).
+
+**Kalan (kod dışı):** beta öğretmen listesi (Q6) · gerçek SMTP hesabı (Q7) · Firebase projesi (Q8) ·
+mobil ekranların cihazda elle gezilmesi.
 
 **Çıktı:** Öğretmen öğrencilerini/derslerini/ödev-kaynak/ödemelerini tek takvimde yönetir; beta test.
 
@@ -144,4 +153,4 @@ Faz 0 (sertleştirme + dosya depolama + read-model + push)
 
 ---
 
-*Geliştirme Yol Haritası | Güncelleme: 2026-09-02 (F-05: Faz 2 🟢, Faz 3 🟡 — koda göre)*
+*Geliştirme Yol Haritası | Güncelleme: 2026-09-04 (P06 Task 10: Faz 1 backend kapanışı — öğretmen günlük akışı gerçek Postgres'e karşı uçtan uca doğrulandı, 4 gerçek hata bulunup düzeltildi) · 2026-09-02 (F-05: Faz 2 🟢, Faz 3 🟡 — koda göre)*

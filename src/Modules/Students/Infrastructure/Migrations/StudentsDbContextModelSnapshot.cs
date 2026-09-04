@@ -162,7 +162,6 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Students.Domain.StudentSubject", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("StudentProfileId")
