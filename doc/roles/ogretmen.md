@@ -4,7 +4,7 @@ summary: "Öğretmenin günlük operasyon aracı — öğrenci/takvim/ders/ödev
 tags: [rol, ogretmen, gunluk-operasyon]
 status: "🟢"
 authority: derived
-updated: 2026-08-19
+updated: 2026-09-04
 ---
 
 # 👨‍🏫 Öğretmen Rolü — Detaylı Tasarım Dokümanı
@@ -43,7 +43,7 @@ Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, il
 | Adım | Yetenek | Modül | PRD | Durum |
 |------|---------|-------|-----|-------|
 | 0 | Giriş / kayıt / rol | [`m01_identity`](../modules/m01_identity.md) | M01 | 🟢 |
-| 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 (çoklu branş + sertifika ✅ Dilim D) |
+| 1 | Öğretmen profili (branş, şehir, ücret, uygunluk) | [`m02_teachers`](../modules/m02_teachers.md) | M02 | 🟢 (çoklu branş + sertifika ✅ Dilim D; profil fotoğrafı ✅ P04; **aramada görünürlük açma/kapama** ✅ P06/M02-4) |
 | 2 | Öğrenci ekle & listele | [`m03_students`](../modules/m03_students.md) | M03 | 🟢 (silme/arşiv/davet ⚠️ — bkz. §11) |
 | 3 | Takvimde ders planla (tek/tekrarlı, online/yüz yüze + link) | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 (Dilim A tamam: link+tatil+erteleme+iptal-nedeni/sil+occurrence-kapsamı, 2026-07-18) |
 | 3.1 | Öğrenci erteleme taleplerini görüp kabul (mevcut erteleme çalışır) / red et | [`m04_scheduling`](../modules/m04_scheduling.md) | M04 | 🟢 (backend Ö-F, 2026-07-18 — `GET /teachers/{id}/lesson-requests` + `/accept` + `/reject`; mobil ⚠️) |
@@ -100,7 +100,8 @@ Rol, sınırlarıyla birlikte anlamlıdır. Aşağıdaki kısıtlar iş kuralı 
 | 5 | Puanını değiştiremez, yorum yapacak öğrenciyi seçemez | M13 (yalnız ders alan öğrenci yorumlar) |
 | 6 | Platform üzerinden para tahsil edemez | M07 (yalnız manuel kayıt/mutabakat) |
 | 7 | Başka öğretmenin öğrencisini göremez | Sahiplik/rol izolasyonu (M03) |
-| 8 | Kendini "doğrulanmış" yapamaz | Yalnız admin (mimari_inceleme Y1) |
+| 8 | Kendini "doğrulanmış" yapamaz | Yalnız admin — `PUT /profiles/{userId}/verification` (mimari_inceleme Y1) |
+| 8.1 | Başka bir öğretmenin profilini aramada gizleyemez/açamaz | `TeacherActivationCommandAuthorizer` — yalnız sahibi veya Admin (M02-4) |
 | 9 | Free planda 5 aktif bağ üstünde öğrenci ekleyemez | `StudentLimits.FreeStudentLimit=5` (M03/M17) |
 | 10 | Rolünü değiştiremez | Identity |
 | 11 | Öğrencinin hesabını silemez — yalnız bağlantıyı arşivler/keser | M03 (`TeacherStudentLink`) |
@@ -187,4 +188,4 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 
 ---
 
-*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-08-19 (doküman temizliği: §5.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı; fonksiyonel doküman `_arsiv/`'e taşındı, linkler güncellendi) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*
+*Öğretmen Rolü — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M02-3 + M02-4: öğretmen filtreli aramada listelenir; öğretmen kendi profilini `POST /profiles/{userId}/deactivate` ile aramadan çekebilir — veri silinmez) · 2026-08-19 (doküman temizliği: §5.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı; fonksiyonel doküman `_arsiv/`'e taşındı, linkler güncellendi) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder T-06.7/8; Dilim C: çoklu öğretmen bağı + free limit=5 + arşiv B-04, öğrenci bazlı ücret B-07, davet/kabul B-06; Dilim D: M02 çoklu branş + sertifika)*

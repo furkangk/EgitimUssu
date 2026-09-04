@@ -24,6 +24,11 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<UploadTeacherPhotoCommand>, TeacherProfileCommandAuthorizer>();
         services.AddScoped<ICommandHandler<SetTeacherVerificationCommand, Result<TeacherProfileResponse>>, SetTeacherVerificationCommandHandler>();
         services.AddScoped<ICommandAuthorizer<SetTeacherVerificationCommand>, SetTeacherVerificationCommandAuthorizer>();
+        services.AddScoped<ITeacherProfileSearchRepository>(sp => (ITeacherProfileSearchRepository)sp.GetRequiredService<ITeacherProfileRepository>());
+        services.AddScoped<IQueryHandler<SearchTeacherProfilesQuery, Result<PagedResult<TeacherSummaryResponse>>>, SearchTeacherProfilesQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<SearchTeacherProfilesQuery>, TeacherSearchQueryAuthorizer>();
+        services.AddScoped<ICommandHandler<SetTeacherActivationCommand, Result<TeacherProfileResponse>>, SetTeacherActivationCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<SetTeacherActivationCommand>, TeacherActivationCommandAuthorizer>();
         services.AddScoped<IQueryHandler<GetTeacherPhotoQuery, Result<TeacherPhotoFileResponse>>, GetTeacherPhotoQueryHandler>();
         services.AddScoped<IQueryAuthorizer<GetTeacherPhotoQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();

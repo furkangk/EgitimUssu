@@ -3,7 +3,7 @@ title: "Eksik / Yapılmamış İşler Analizi (2026-09-02)"
 summary: "Backend (15 modül) + mobil (41 ekran) kod gerçeğine karşı çıkarılmış, madde madde eksik iş envanteri; her madde için kanıt, etki, efor ve karar sütunu"
 tags: [denetim, eksik-analizi, envanter, planlama]
 authority: derived
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 🔍 EğitimÜssü — Eksik / Yapılmamış İşler Analizi
@@ -128,10 +128,10 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M02-1 | **Admin doğrulama ucu yok** — `PUT /profiles/{userId}/verification` + `TeacherVerifiedDomainEvent` | Y1'de `IsVerified` upsert'ten çıkarıldı ama yerine admin ucu konmadı | **Hiç kimse doğrulama rozeti veremiyor**; güven altyapısı (M12/M13) bunsuz anlamsız | S | | |
+| M02-1 | ~~Admin doğrulama ucu yok~~ **✅ (P06)** | `PUT /api/teachers/profiles/{userId}/verification` (yalnız Admin) + `TeacherVerifiedDomainEvent`; aynı değer tekrar yazılırsa olay yayılmaz | — | — | Eklendi 2026-09-03 | Y1 tamamen kapandı |
 | M02-2 | ~~Profil fotoğrafı yükleme yok~~ **✅ (P04)** | `ProfilePhotoKey` + `POST`/`GET /api/teachers/profiles/{userId}/photo` | — | — | Eklendi 2026-09-03 | İstek gövdesinden `profilePhotoUrl` kaldırıldı — istemci yazamaz |
-| M02-3 | `GET /profiles` arama/listeleme yok | Şehir/ilçe/branş/format/ücret filtresi yok | **M12 eşleştirmenin doğrudan önkoşulu**; ayrıca admin listesi de yok | M | | |
-| M02-4 | Pasifleştirme / silme yok | Öğretmen ayrılış senaryosu tanımsız | Ayrılan öğretmen sistemde aktif görünüyor | S | | |
+| M02-3 | ~~`GET /profiles` arama/listeleme yok~~ **✅ (P06)** | `GET /api/teachers/profiles` — şehir/ilçe/branş/format/ücret + `onlyVerified` filtreleri, sayfalı (`take` ≤ 50), yalnız aktif profiller | — | — | Eklendi 2026-09-04 | M12 için **geçici okuma yüzeyi**; P11'de `TeacherSearchProjection`'a geçer, sözleşme korunur |
+| M02-4 | ~~Pasifleştirme / silme yok~~ **✅ (P06)** | `TeacherProfile.IsActive` + `POST /profiles/{userId}/deactivate` · `/activate` (sahibi veya Admin) | — | — | Eklendi 2026-09-04 | Silme **bilinçli olarak yok**: pasif profil aramada görünmez, ders/öğrenci geçmişi korunur |
 | M02-5 | Uygunluk (availability) yönetimi yalnız upsert içinde | Slot ekle/sil ayrı uç yok | Mobil uygunluk düzenleyici (D-05) bunu istiyor | S | | |
 
 ### M03 — Students (🟢)
@@ -428,4 +428,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*

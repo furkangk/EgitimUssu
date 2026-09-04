@@ -1,12 +1,12 @@
 ---
 title: "M02 — Öğretmen Profili (Teachers)"
-summary: "Öğretmen profili CRUD + haftalık uygunluk + çoklu branş/sertifika + profil fotoğrafı depolama çalışır durumda; öğretmen arama/listeleme eksik"
+summary: "Öğretmen profili CRUD + haftalık uygunluk + çoklu branş/sertifika + profil fotoğrafı depolama + admin doğrulama + filtreli arama/pasifleştirme çalışır durumda"
 tags: [modul, teachers, profil, uygunluk, faz-1]
 status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Teachers/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 👨‍🏫 Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım Dokümanı
@@ -43,10 +43,12 @@ updated: 2026-09-03
 | **`IsVerified`'in yalnız admin tarafından yazılması** | ✅ kapatıldı | `UpdateTeacherProfileCommand`/`UpsertTeacherProfileRequest`/`TeacherProfile.Update()` metodundan çıkarıldı; update akışı `IsVerified`'e dokunmuyor — bkz. mimari_inceleme **Y1** |
 | **`GET /profiles/{userId}` yetkilendirici** | ✅ kapatıldı (2026-06-26) | `TeacherProfileQueryAuthorizer` eklendi — kimlik doğrulanmış tüm roller okuyabilir; bkz. mimari_inceleme **K3** |
 | Profil fotoğrafı için dosya-depolama altyapısı | 🟢 var (2026-09-03, P04) | `ProfilePhotoKey` + `IFileStorage`; `POST`/`GET /profiles/{userId}/photo` |
-| Öğretmen listeleme / arama (şehir/branş filtresi) | 🔴 eksik | Yalnızca tekil `GET by userId` var (eşleştirme M12'de) |
+| Öğretmen listeleme / arama (şehir/ilçe/branş/format/ücret filtresi) | ✅ var (2026-09-04, P06/M02-3) | `SearchTeacherProfilesQueryHandler` + `TeacherSearchFilter`; `GET /profiles` sayfalı (`take` en fazla 50) |
+| **Profil pasifleştirme/aktifleştirme** | ✅ var (2026-09-04, P06/M02-4) | `TeacherProfile.IsActive` + `Deactivate()`/`Activate()`; `POST /profiles/{userId}/deactivate` · `/activate` |
+| **Admin doğrulama rozeti** | ✅ var (2026-09-03, P06/M02-1) | `SetTeacherVerificationCommandHandler` + `TeacherVerifiedDomainEvent` |
 | Tatil/izin istisnaları (ScheduleException) | 🔴 eksik | Modellenmedi → **M04 Scheduling**'de ele alınacak |
 
-> **Özet:** Profil CRUD + haftalık uygunluk + **Admin doğrulama ucu** (P06/M02-1) **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Profil fotoğrafı depolama 2026-09-03'te (P04/M02-2) eklendi. Kalan açık nokta listeleme/arama genişletmeleridir.
+> **Özet:** Profil CRUD + haftalık uygunluk + **Admin doğrulama ucu** (P06/M02-1) **çalışır durumdadır**. Y1 ve K3 kapatıldı: `IsVerified` update akışından çıkarıldı; profil okuma ucu (`GET /profiles/{userId}`) artık `TeacherProfileQueryAuthorizer` ile yetkilendirilir (Application `TeacherProfilePolicies.cs`, Infrastructure DI kaydı mevcut). Profil fotoğrafı depolama 2026-09-03'te (P04/M02-2), **filtreli arama (`GET /profiles`) ve pasifleştirme** 2026-09-04'te (P06/M02-3, M02-4) eklendi. Arama yalnız **aktif** profilleri döndürür ve sayfa boyutu 50 ile sınırlıdır. Kalan açık nokta tatil/izin istisnalarıdır (M04).
 
 ---
 
@@ -73,13 +75,14 @@ Tablolar: `teacher_profiles`, `teacher_availability_slots`, `teacher_subjects`, 
 | `HourlyRateAmount` | decimal | Saatlik ücret tutarı |
 | `Currency` | string | Para birimi (varsayılan `"TRY"`, `ToUpperInvariant` ile normalize) |
 | `IsVerified` | bool | Doğrulama rozeti (yalnızca admin akışıyla `true` olmalı — bkz. §4) |
+| `IsActive` | bool | P06/M02-4: profil aramada görünür mü (varsayılan `true`). Pasif profil **listelenmez ama silinmez** — ders/öğrenci geçmişi korunur |
 | `ProfilePhotoKey` | string? | P04: profil fotoğrafının `IFileStorage` anahtarı, **maks. 512** (public URL değil). Yanıtta `profilePhotoUrl` olarak `/api/teachers/profiles/{userId}/photo` rotası döner |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 | `AvailabilitySlots` | List&lt;`TeacherAvailabilitySlot`&gt; | Haftalık uygunluk |
 | `Subjects` | List&lt;`TeacherSubject`&gt; | Çoklu branş (§2.5) |
 | `Certificates` | List&lt;`TeacherCertificate`&gt; | Sertifika/deneyim (§2.6) |
 
-**Davranışlar:** Yapıcı `TeacherProfileCreatedDomainEvent` yayar. `Update(...)` tüm düzenlenebilir alanları (uygunluk slotları, **`Subjects` ve `Certificates`** koleksiyonlarını `Clear` + `AddRange` ile) günceller ve `TeacherProfileUpdatedDomainEvent` yayar. `Update()` imzası `isVerified` parametresi **içermez**; doğrulama durumu yalnızca admin/doğrulama akışıyla değişebilir.
+**Davranışlar:** Yapıcı `TeacherProfileCreatedDomainEvent` yayar. `Update(...)` tüm düzenlenebilir alanları (uygunluk slotları, **`Subjects` ve `Certificates`** koleksiyonlarını `Clear` + `AddRange` ile) günceller ve `TeacherProfileUpdatedDomainEvent` yayar. `Update()` imzası `isVerified` parametresi **içermez**; doğrulama durumu yalnızca admin/doğrulama akışıyla (`SetVerification()`) değişebilir. `SetVerification()` değer değişmediğinde olay yaymaz (idempotent). `Deactivate()`/`Activate()` yalnız `IsActive` + `UpdatedOnUtc` günceller, olay yaymaz.
 
 ### 2.2 🟢 Mevcut (koddan) — `TeacherAvailabilitySlot` (Entity&lt;Guid&gt;)
 
@@ -154,6 +157,10 @@ Tüm uçlar `RoutePrefix = /api/teachers` altında ve grup **`RequireAuthorizati
 | Profil oluştur | `POST /profiles` | `TeacherProfileCommandAuthorizer` (create) | `UpsertTeacherProfileRequest` | `TeacherProfileResponse` |
 | Profil güncelle | `PUT /profiles/{userId:guid}` | `TeacherProfileCommandAuthorizer` (update) | `UpsertTeacherProfileRequest` | `TeacherProfileResponse` |
 | Profil getir | `GET /profiles/{userId:guid}` | `TeacherProfileQueryAuthorizer` (K3 kapandı) | — | `TeacherProfileResponse` |
+| **Doğrulama rozeti ver/geri al** (M02-1) | `PUT /profiles/{userId:guid}/verification` | `SetTeacherVerificationCommandAuthorizer` (**yalnız Admin**) | `{ isVerified }` | `TeacherProfileResponse` |
+| **Profil ara/listele** (M02-3) | `GET /profiles?city=&district=&subject=&lessonFormat=&minRate=&maxRate=&onlyVerified=&skip=&take=` | `TeacherSearchQueryAuthorizer` (kimliği doğrulanmış her rol) | — | `PagedResult<TeacherSummaryResponse>` |
+| **Profili pasifleştir** (M02-4) | `POST /profiles/{userId:guid}/deactivate` | `TeacherActivationCommandAuthorizer` (sahibi veya Admin) | — | `TeacherProfileResponse` |
+| **Profili aktifleştir** (M02-4) | `POST /profiles/{userId:guid}/activate` | `TeacherActivationCommandAuthorizer` (sahibi veya Admin) | — | `TeacherProfileResponse` |
 
 **İstek/yanıt sözleşmeleri (koddan):**
 
@@ -180,7 +187,18 @@ TeacherProfileResponse(Guid Id, Guid UserId, string FullName, string Subject, st
                        DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
 
 TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year, string? FileUrl)
+
+// M02-3 arama yanıtı (hafif görünüm — biyografi/sertifika/uygunluk taşımaz)
+TeacherSummaryResponse(Guid UserId, string FullName, string Subject, IReadOnlyCollection<string> Subjects,
+                       string City, string District, string LessonFormat, decimal HourlyRateAmount,
+                       string Currency, bool IsVerified, bool IsActive, int ExperienceYears, string? Headline)
 ```
+
+> **Arama filtreleri (`TeacherSearchFilter.Apply`):** şehir/ilçe/branş büyük-küçük harf duyarsız tam eşleşme; branş hem birincil `Subject`
+> hem de çoklu `Subjects` listesinde aranır; `minRate`/`maxRate` sınırlar **dahil**; `onlyVerified=true` yalnız rozetlileri getirir.
+> Sıralama: **doğrulanmışlar önce**, sonra ücret artan, sonra ad. `take` 1–50 arasına çekilir (verilmezse 20), `skip` negatifse 0 sayılır.
+> **Pasif profiller hiçbir filtre kombinasyonunda dönmez.** Filtre ifadesi Application katmanında tek yerdedir; hem EF sorgusu hem birim testi
+> aynı ifadeyi kullanır (testte geçip üretimde farklı davranan filtre riski yok).
 > `Subjects` boş gönderilirse birincil `Subject`'ten tek elemanlı liste türetilir; `Certificates` içinde `Title` boş olanlar yok sayılır.
 
 > ✅ **Y1 kapatıldı:** `UpsertTeacherProfileRequest` artık `IsVerified` alanı **içermez**. Client'tan gelen JSON'da bu alan olsa dahi yok sayılır. `TeacherProfile.Update()` da `isVerified` parametresi almaz; doğrulama durumu update akışında hiç dokunulmaz.
@@ -200,8 +218,9 @@ TeacherCertificateResponse(Guid Id, string Title, string? Institution, int? Year
 - [x] **`GET /profiles/{userId}` için authorizer** — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı); kimlik doğrulanmış tüm roller okuyabilir. (Profilin herkese açık kısmı için ayrı "public" projeksiyon hâlâ düşünülebilir.)
 - [x] **`PUT /profiles/{userId}/verification`** — ✅ **(P06/M02-1)** yalnız **Admin**; `SetTeacherVerificationCommand` + `SetTeacherVerificationCommandAuthorizer` + `TeacherProfile.SetVerification()` + `TeacherVerifiedDomainEvent`. **Y1 tamamen kapandı.**
 - [x] **`POST /profiles/{userId}/photo`** (multipart, self/Admin) — dosya `IFileStorage`'a yazılır, `ProfilePhotoKey` **sunucuda** set edilir; yanıt `{ photoUrl }`. **`GET /profiles/{userId}/photo`** dosyayı yetkiyle akıtır. `UpsertTeacherProfileRequest`'ten `profilePhotoUrl` **kaldırıldı** — istemci fotoğrafı yazamaz (Y1 dersi). **(2026-09-03, P04/M02-2)**
-- [ ] **`GET /profiles` (arama/listeleme)** — şehir/ilçe/branş/format/ücret aralığı filtreleri (eşleştirme M12 ile koordineli).
-- [ ] **`DELETE /profiles/{userId}` / pasifleştirme** — öğretmen ayrılışı senaryosu.
+- [x] **`GET /profiles` (arama/listeleme)** — ✅ **(2026-09-04, P06/M02-3)** şehir/ilçe/branş/format/ücret aralığı + `onlyVerified` filtreleri, sayfalı.
+      Bu uç M12 (eşleştirme) için **geçici okuma yüzeyidir**: P11'de `TeacherSearchProjection` devreye girince handler projeksiyonu okuyacak, **dış sözleşme (URL + yanıt) korunacak**.
+- [x] **Pasifleştirme** — ✅ **(2026-09-04, P06/M02-4)** `POST /profiles/{userId}/deactivate` · `/activate`. Kayıt **silinmez** (`DELETE` yok): pasif profil aramada görünmez, verisi ve ders geçmişi durur.
 
 ---
 
@@ -272,7 +291,10 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 - [x] Profil yanıtı uygunluk slotlarını gün+saat sıralı döndürür.
 - [x] **`IsVerified` update akışından çıkarıldı** — client değeri artık yazılamaz; regresyon testi eklendi.
 - [x] **`GET /profiles/{userId}` yetkilendirildi** — `TeacherProfileQueryAuthorizer` (K3 kapandı).
-- [ ] **Profil fotoğrafı** güvenli depolamaya yüklenebilir.
+- [x] **Profil fotoğrafı** güvenli depolamaya yüklenebilir (2026-09-03, P04/M02-2).
+- [x] **Doğrulama rozetini yalnız Admin verebilir/geri alabilir** (2026-09-03, P06/M02-1); aynı değer tekrar yazılırsa olay yayılmaz.
+- [x] **Arama pasif profilleri döndürmez** ve `take` 50'nin üstüne çıkamaz (2026-09-04, P06/M02-3).
+- [x] **Profili yalnız sahibi öğretmen veya Admin pasifleştirebilir** (2026-09-04, P06/M02-4).
 
 ---
 
@@ -280,10 +302,10 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 1. ✅ ~~**`IsVerified` yazma yolunu kısıtla (Y1)**~~ — upsert'ten çıkarıldı **ve** admin-only `PUT /profiles/{userId}/verification` + `TeacherVerifiedDomainEvent` eklendi (P06/M02-1). **Kalan yok.**
 2. ✅ ~~**`GET /profiles/{userId}` yetkilendirmesi (K3)**~~ — `TeacherProfileQueryAuthorizer` eklendi (K3 kapandı). Kalan: herkese açık "public" projeksiyon ayrımı (opsiyonel).
-3. **Profil fotoğrafı dosya-depolama altyapısı** — yükleme ucu + güvenli saklama + format/boyut doğrulama.
+3. ✅ ~~**Profil fotoğrafı dosya-depolama altyapısı**~~ — **yapıldı (2026-09-03, P04/M02-2)**: `IFileStorage` + format/boyut doğrulama.
 4. ✅ ~~**Çoklu branş** — `TeacherSubject` koleksiyonu~~ — **yapıldı (Dilim D)**; birincil `Subject` korunur. Kalan: branş bazlı seviye (`Level`).
 5. **Tatil/izin istisnaları (ScheduleException)** — **M04 Scheduling** ile koordineli modelleme.
-6. **Öğretmen listeleme/arama** — şehir/branş/format/ücret filtreleri (M12 ile).
+6. ✅ ~~**Öğretmen listeleme/arama**~~ — **yapıldı (2026-09-04, P06/M02-3)**; kalıcı çözüm P11 `TeacherSearchProjection` (sözleşme korunur).
 7. **Puanlama özeti** — `AverageRating`/`ReviewCount` okuma alanları (M13 ile).
 
 ---
@@ -304,5 +326,5 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

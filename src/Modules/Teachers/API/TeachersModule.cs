@@ -48,6 +48,15 @@ public sealed class TeachersModule : ModuleDefinition
 
         group.MapPut("/profiles/{userId:guid}/verification", SetTeacherVerificationAsync)
         .WithSummary("Öğretmenin doğrulama rozetini verir/geri alır — yalnız Admin (M02-1)");
+
+        group.MapGet("/profiles", SearchTeacherProfilesAsync)
+        .WithSummary("Öğretmen profillerini filtreleyerek listeler — yalnız aktif profiller (M02-3)");
+
+        group.MapPost("/profiles/{userId:guid}/deactivate", DeactivateTeacherProfileAsync)
+        .WithSummary("Öğretmen profilini arama sonuçlarından çıkarır (M02-4)");
+
+        group.MapPost("/profiles/{userId:guid}/activate", ActivateTeacherProfileAsync)
+        .WithSummary("Öğretmen profilini tekrar aramaya açar (M02-4)");
     }
 
     /// <summary>
@@ -171,6 +180,48 @@ public sealed class TeachersModule : ModuleDefinition
     {
         var result = await dispatcher.Dispatch(
             new SetTeacherVerificationCommand(userId, request.IsVerified), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// M02-3: Öğretmen profillerini filtreleyerek listeler. Yalnız <c>IsActive</c> profiller döner;
+    /// sayfa boyutu handler tarafından en fazla 50'ye çekilir.
+    /// </summary>
+    private static async Task<IResult> SearchTeacherProfilesAsync(
+        HttpContext context,
+        string? city,
+        string? district,
+        string? subject,
+        TeacherLessonFormat? lessonFormat,
+        decimal? minRate,
+        decimal? maxRate,
+        bool? onlyVerified,
+        int? skip,
+        int? take,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch<Result<PagedResult<TeacherSummaryResponse>>>(
+            new SearchTeacherProfilesQuery(
+                city, district, subject, lessonFormat, minRate, maxRate, onlyVerified,
+                skip ?? 0, take ?? SearchTeacherProfilesQueryHandler.DefaultTake),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M02-4: Profili arama sonuçlarından çıkarır (sahibi öğretmen veya Admin).</summary>
+    private static async Task<IResult> DeactivateTeacherProfileAsync(
+        HttpContext context, Guid userId, ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new SetTeacherActivationCommand(userId, IsActive: false), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M02-4: Profili tekrar aramaya açar (sahibi öğretmen veya Admin).</summary>
+    private static async Task<IResult> ActivateTeacherProfileAsync(
+        HttpContext context, Guid userId, ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new SetTeacherActivationCommand(userId, IsActive: true), cancellationToken);
         return ToHttpResult(context, result);
     }
 

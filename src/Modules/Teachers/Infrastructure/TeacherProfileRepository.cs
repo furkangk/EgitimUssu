@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Teachers.Infrastructure;
 
-internal sealed class TeacherProfileRepository : ITeacherProfileRepository
+internal sealed class TeacherProfileRepository : ITeacherProfileRepository, ITeacherProfileSearchRepository
 {
     private readonly TeachersDbContext _dbContext;
 
@@ -30,5 +30,19 @@ internal sealed class TeacherProfileRepository : ITeacherProfileRepository
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    // M02-3: Filtre mantığı TeacherSearchFilter'da; burada yalnız Include + sayfalama var.
+    // Böylece birim testindeki filtre ile üretimdeki EF sorgusu aynı ifadeyi paylaşır.
+    public async Task<(IReadOnlyList<TeacherProfile> Items, int TotalCount)> SearchAsync(
+        SearchTeacherProfilesQuery query, int skip, int take, CancellationToken cancellationToken)
+    {
+        var filtered = TeacherSearchFilter.Apply(
+            _dbContext.TeacherProfiles.Include(profile => profile.Subjects), query);
+
+        var totalCount = await filtered.CountAsync(cancellationToken);
+        var items = await filtered.Skip(skip).Take(take).ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 }

@@ -86,18 +86,21 @@ git commit -m "feat(teachers): admin dogrulama ucu + TeacherVerified event (M02-
 **Interfaces:**
 - Produces:
   - `sealed record SearchTeacherProfilesQuery(string? City, string? District, string? Subject, TeacherLessonFormat? LessonFormat, decimal? MinRate, decimal? MaxRate, bool? OnlyVerified, int Skip, int Take) : IQuery<Result<PagedResult<TeacherSummaryResponse>>>`
-  - `sealed record TeacherSummaryResponse(Guid UserId, string FullName, string Subject, IReadOnlyCollection<string> Subjects, string City, string District, TeacherLessonFormat LessonFormat, decimal HourlyRateAmount, string Currency, bool IsVerified, bool IsActive)`
+  - `sealed record TeacherSummaryResponse(Guid UserId, string FullName, string Subject, IReadOnlyCollection<string> Subjects, string City, string District, string LessonFormat, decimal HourlyRateAmount, string Currency, bool IsVerified, bool IsActive, int ExperienceYears, string? Headline)`
+    > **Plandan sapma (uygulandı):** `LessonFormat` **string** döner — `TeacherProfileResponse` zaten enum'u `ToString()` ile taşıyor, iki uç arasında tutarsızlık olmasın diye. Liste kartı için `ExperienceYears` + `Headline` eklendi.
+  - `TeacherSearchFilter.Apply(IQueryable<TeacherProfile>, SearchTeacherProfilesQuery)` — **plan dışı, eklendi:** filtre ifadesi tek yerde; hem EF sorgusu hem birim testi aynı ifadeyi kullanır.
+  - `ITeacherProfileSearchRepository.SearchAsync(...)` — **plan dışı, eklendi:** arama için ayrı depo yüzeyi (`TeacherProfileRepository` her iki arayüzü de uygular).
   - `GET /api/teachers/profiles?city=&district=&subject=&lessonFormat=&minRate=&maxRate=&onlyVerified=&skip=&take=` (auth)
   - `TeacherProfile.Deactivate(DateTime)` / `Activate(DateTime)` + `bool IsActive` alanı
   - `POST /api/teachers/profiles/{userId}/deactivate` · `/activate` (sahibi veya Admin)
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — filtre kombinasyonları (şehir+branş, ücret aralığı, yalnız doğrulanmış), sayfalama (`Take` en fazla 50), pasif öğretmenin sonuçlarda çıkmaması.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherSearchTests"`
-- [ ] **Step 3: `IsActive` alanı + migration**
+- [x] **Step 1: Testleri yaz (kırmızı)** — filtre kombinasyonları (şehir+branş, ücret aralığı, yalnız doğrulanmış), sayfalama (`Take` en fazla 50), pasif öğretmenin sonuçlarda çıkmaması.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherSearchTests"`
+- [x] **Step 3: `IsActive` alanı + migration**
   Run: `dotnet ef migrations add AddTeacherIsActive --project src/Modules/Teachers/Infrastructure --startup-project src/API.Host --context TeachersDbContext`
-- [ ] **Step 4: Repository sorgusu + query handler + authorizer (kimliği doğrulanmış herkes arayabilir) + endpoint'ler.**
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 4: Repository sorgusu + query handler + authorizer (kimliği doğrulanmış herkes arayabilir) + endpoint'ler.**
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 6: Doküman + commit**
 
 > Not: Bu uç M12'nin (eşleştirme) **geçici** okuma yüzeyidir; P11'de `TeacherSearchProjection` devreye girince bu handler projeksiyonu okuyacak şekilde değiştirilir, dış sözleşme (URL + yanıt) korunur.
 ```bash

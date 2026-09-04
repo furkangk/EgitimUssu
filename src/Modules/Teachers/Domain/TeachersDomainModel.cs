@@ -74,6 +74,12 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
     public bool IsVerified { get; private set; }
 
     /// <summary>
+    /// M02-4: Profil arama sonuçlarında görünür mü. Pasif öğretmen listelenmez ama verisi silinmez
+    /// (öğrenci/ders geçmişi korunur) — kullanıcı istediğinde tekrar aktifleştirebilir.
+    /// </summary>
+    public bool IsActive { get; private set; } = true;
+
+    /// <summary>
     /// P04: Profil fotoğrafının <c>IFileStorage</c> anahtarı (public URL değil).
     /// Dosya yalnız <c>GET /api/teachers/profiles/{userId}/photo</c> üzerinden yetkiyle sunulur.
     /// </summary>
@@ -142,6 +148,32 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         IsVerified = isVerified;
         UpdatedOnUtc = updatedOnUtc;
         Raise(new TeacherVerifiedDomainEvent(Id, UserId, isVerified, updatedOnUtc));
+    }
+
+    /// <summary>M02-4: Profili arama sonuçlarından çıkarır (veri silinmez). Zaten pasifse hiçbir şey yapmaz.</summary>
+    /// <param name="updatedOnUtc">Güncelleme zamanı (UTC).</param>
+    public void Deactivate(DateTime updatedOnUtc)
+    {
+        if (!IsActive)
+        {
+            return;
+        }
+
+        IsActive = false;
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    /// <summary>M02-4: Profili tekrar aramaya açar. Zaten aktifse hiçbir şey yapmaz.</summary>
+    /// <param name="updatedOnUtc">Güncelleme zamanı (UTC).</param>
+    public void Activate(DateTime updatedOnUtc)
+    {
+        if (IsActive)
+        {
+            return;
+        }
+
+        IsActive = true;
+        UpdatedOnUtc = updatedOnUtc;
     }
 
     /// <summary>

@@ -141,3 +141,60 @@ public sealed class SetTeacherVerificationCommandAuthorizer : ICommandAuthorizer
                 ? Result.Success()
                 : Result.Failure(Forbidden));
 }
+
+/// <summary>
+/// M02-3: Öğretmen araması kimlik doğrulanmış her kullanıcıya açıktır (öğrenci/veli de arar).
+/// Anonim erişim yoktur — K3 gereği açık onay.
+/// </summary>
+public sealed class TeacherSearchQueryAuthorizer : IQueryAuthorizer<SearchTeacherProfilesQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    public TeacherSearchQueryAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="query">Sorgu.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public Task<Result> Authorize(SearchTeacherProfilesQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>
+/// M02-4: Profili yalnız sahibi öğretmen (veya Admin) pasifleştirip aktifleştirebilir.
+/// </summary>
+public sealed class TeacherActivationCommandAuthorizer : ICommandAuthorizer<SetTeacherActivationCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    public TeacherActivationCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public Task<Result> Authorize(SetTeacherActivationCommand command, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Task.FromResult(Result.Failure(Forbidden));
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        var isOwner = _currentUser.Roles.Contains("Teacher")
+            && Guid.TryParse(_currentUser.UserId, out var currentUserId)
+            && currentUserId == command.UserId;
+
+        return Task.FromResult(isOwner ? Result.Success() : Result.Failure(Forbidden));
+    }
+}
