@@ -56,6 +56,19 @@
   <Folder Name="/src/Modules/Matching/Infrastructure/">
     <Project Path="src/Modules/Matching/Infrastructure/EgitimUssu.Modules.Matching.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Membership/" />
+  <Folder Name="/src/Modules/Membership/API/">
+    <Project Path="src/Modules/Membership/API/EgitimUssu.Modules.Membership.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/Application/">
+    <Project Path="src/Modules/Membership/Application/EgitimUssu.Modules.Membership.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/Domain/">
+    <Project Path="src/Modules/Membership/Domain/EgitimUssu.Modules.Membership.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/Infrastructure/">
+    <Project Path="src/Modules/Membership/Infrastructure/EgitimUssu.Modules.Membership.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/" />
   <Folder Name="/src/Modules/Notifications/API/">
     <Project Path="src/Modules/Notifications/API/EgitimUssu.Modules.Notifications.API.csproj" />

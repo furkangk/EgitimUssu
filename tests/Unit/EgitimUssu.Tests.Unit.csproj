@@ -53,6 +53,7 @@
     <ProjectReference Include="..\..\src\Modules\ProgressTracking\Domain\EgitimUssu.Modules.ProgressTracking.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\ProgressTracking\Application\EgitimUssu.Modules.ProgressTracking.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\ProgressTracking\Infrastructure\EgitimUssu.Modules.ProgressTracking.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Membership\Domain\EgitimUssu.Modules.Membership.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Reporting\Domain\EgitimUssu.Modules.Reporting.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Reporting\Application\EgitimUssu.Modules.Reporting.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Reporting\Infrastructure\EgitimUssu.Modules.Reporting.Infrastructure.csproj" />

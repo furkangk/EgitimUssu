@@ -31,19 +31,34 @@
 - Create: `src/Modules/Membership/Application/EgitimUssu.Modules.Membership.Application.csproj` + `AssemblyReference.cs`
 - Create: `src/Modules/Membership/Infrastructure/EgitimUssu.Modules.Membership.Infrastructure.csproj` + `MembershipDbContext.cs` + `DependencyInjection.cs` + `MembershipDesignTimeDbContextFactory.cs`
 - Create: `src/Modules/Membership/API/EgitimUssu.Modules.Membership.API.csproj` + `MembershipModule.cs`
+- Create: `src/Modules/Membership/Infrastructure/Migrations/*_InitialCreate.*` + `MembershipDbContextModelSnapshot.cs`
 - Modify: `EgitimUssu.slnx` (4 proje girdisi), `src/API.Host/ModuleAssemblies.cs`
+- Modify: `src/API.Host/EgitimUssu.API.Host.csproj` *(plan dışı, zorunlu: `ModuleAssemblies.cs` yeni modülü ancak proje referansı varsa görebilir)*
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` *(plan dışı, zorunlu — Öğrenilenler #72 ile aynı: yeni modülün Domain referansı test projesine eklenmeli)*
 - Test: `tests/Unit/SubscriptionTests.cs`
 
 **Interfaces:**
 - Produces:
-  - `enum MembershipTier { Free = 1, Premium = 2 }`
+  - ⚠️ **Plan düzeltmesi (2026-09-04):** `enum MembershipTier { Free = 1, Premium = 2 }` **yazılmadı** —
+    aynı adlı ve aynı değerli enum `Shared/Contracts/MembershipDirectoryContract.cs`'te **zaten var** ve
+    Students/Parents/Study/Reporting hepsi onu kullanıyor. İkinci bir tanım, P09'un "üyeliği tek kaynağa
+    bağla" amacının tam tersi olurdu (Öğrenilenler #100 ile aynı tuzak). `Membership.Domain` bunun yerine
+    `Shared.Contracts`'a referans veriyor — `Students.Domain` ve `Parents.Domain` ile aynı desen,
+    mimari testler yeşil.
   - `enum SubscriptionStatus { Trialing = 1, Active = 2, PastDue = 3, Cancelled = 4, Expired = 5 }`
   - `enum BillingPeriod { Monthly = 1, Yearly = 2 }`
   - `sealed class SubscriptionPlan : AggregateRoot<Guid>` — `string Code` (ör. `teacher-premium-monthly`), `string Role` (`Teacher|Student|Parent`), `MembershipTier Tier`, `BillingPeriod Period`, `decimal Price`, `string Currency`, `bool IsActive`, `int TrialDays`.
   - `sealed class UserSubscription : AggregateRoot<Guid>` — `Guid UserId`, `Guid PlanId`, `SubscriptionStatus Status`, `DateTime StartedOnUtc`, `DateTime CurrentPeriodEndUtc`, `bool AutoRenew`, `string? ProviderSubscriptionId`, `DateTime? CancelledOnUtc`; metotlar `StartTrial(int days, DateTime now)`, `Activate(DateTime periodEnd, DateTime now)`, `Renew(DateTime newPeriodEnd, DateTime now)`, `MarkPastDue(DateTime now)`, `Cancel(DateTime now)`, `ExpireIfDue(DateTime now)`.
-  - Domain event: `MembershipChangedDomainEvent(Guid UserId, MembershipTier Tier, DateTime EffectiveUntilUtc, DateTime OccurredOnUtc)`.
+  - Domain event: `MembershipChangedDomainEvent(Guid UserId, MembershipTier Tier, DateTime EffectiveUntilUtc, DateTime ChangedOnUtc)`.
+    *(Son parametre `ChangedOnUtc` adını aldı: `DomainEvent` tabanı zaten bir `OccurredOnUtc` taşıyor, aynı adı
+    gölgelemek karışıklık üretirdi.)*
+  - Ek üretilenler *(plan listelemiyordu, kural için gerekli)*: `MembershipErrors` (hata kodları
+    `membership.*`), `UserSubscription.HasUsedTrial`, `HasAccess(now)`, `EffectiveTier(now)`,
+    `LinkProviderSubscription(id)`, `SubscriptionPlan.NextPeriodEnd(from)` (takvim ayı/yılı — 30/365 gün değil).
 
-- [ ] **Step 1: Domain testlerini yaz (kırmızı)**
+- [x] **Step 1: Domain testlerini yaz (kırmızı)** — planın 6 testi + 6 ek (geçmiş tarihli dönem reddi,
+  `ExpireIfDue` idempotency'si, sıfır/negatif deneme günü, `MarkPastDue`'da erişimin sürmesi, süresi dolmuş
+  aboneliğin ödemeyle canlanması, plan alanları + `NextPeriodEnd`) = **12 test**
 ```csharp
 [Fact] public void StartTrial_Should_Set_Trialing_And_PeriodEnd() { }
 [Fact] public void Activate_After_Trial_Should_Extend_Period() { }
@@ -52,19 +67,17 @@
 [Fact] public void Renew_Should_Raise_MembershipChanged() { }
 [Fact] public void Trial_Should_Be_Allowed_Once_Per_User() { }               // ikinci deneme reddedilir
 ```
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~SubscriptionTests"`
-- [ ] **Step 3: 4 projeyi oluştur**
-  Mevcut bir modülü şablon al (`Settings` en küçüğü): csproj referans zinciri `API → Application → Domain`, `Infrastructure → Application`, `Infrastructure → Shared.Infrastructure`.
-  Run: `dotnet sln EgitimUssu.slnx add src/Modules/Membership/*/*.csproj` (veya `.slnx` içine Settings bloğunun eşleniğini elle ekle)
-- [ ] **Step 4: Domain'i yaz** (yukarıdaki imzalar).
-- [ ] **Step 5: DbContext + migration**
-  `MembershipDbContext` — `SchemaName = "membership"`, `subscription_plans`, `user_subscriptions` (+ `HasIndex(UserId, Status)`).
-  `ModuleAssemblies.cs` → `typeof(MembershipModule).Assembly`.
-  Run: `dotnet ef migrations add InitialCreate --project src/Modules/Membership/Infrastructure --startup-project src/API.Host --context MembershipDbContext`
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` (mimari testler yeni modülü de denetler; ihlal varsa referansları düzelt).
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~SubscriptionTests"` → **CS0234** (`EgitimUssu.Modules.Membership` ad alanı yok) + **CS0246** (`UserSubscription` yok)
+- [x] **Step 3: 4 projeyi oluştur** — `Settings` şablon alındı; `.slnx`'e Membership bloğu alfabetik yere (Matching ↔ Notifications arası) elle eklendi. `Domain` ek olarak `Shared.Contracts`'a referans verir (yukarıdaki plan düzeltmesi).
+- [x] **Step 4: Domain'i yaz** — `SubscriptionPlan` + `UserSubscription` + iki enum + hata kodları + olay.
+  ⚠️ **Tasarım notu:** **erişim ile durum aynı şey değildir.** `Cancelled` ve `PastDue` durumlarında da kullanıcı `CurrentPeriodEndUtc`'a kadar Premium'dur (ödediği süreyi kaybetmez); tier'ı Free'ye düşüren **tek** geçiş `ExpireIfDue`'dur ve olay orada yayılır. `Cancel` bilinçli olarak **olay yaymaz**.
+- [x] **Step 5: DbContext + migration** — `MembershipDbContext` (`membership` şeması), `subscription_plans` (benzersiz `Code`, `(Role, IsActive)`), `user_subscriptions` (**benzersiz `UserId`**, `(Status, CurrentPeriodEndUtc)`, `ProviderSubscriptionId`).
+  ⚠️ **Plan düzeltmesi:** plan `HasIndex(UserId, Status)` diyordu; doğrusu **benzersiz `UserId`**. "Deneme kullanıcı başına bir kez" kuralı `HasUsedTrial` bayrağıyla taşınıyor ve bu ancak kullanıcı başına **tek** abonelik satırı varken anlamlı — bileşik, benzersiz olmayan bir indeks ikinci bir satıra (dolayısıyla ikinci bir denemeye) izin verirdi.
+  Run: `dotnet ef migrations add InitialCreate ...` ✅ **5 tablo** (2 domain + ortak outbox/inbox/module_states) + 6 indeks.
+- [x] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari + **568 birim** + **39 integration**, Başarısız 0, Atlanan 0 (öncesi 556 birim; +12) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata · Integration testleri host'u tüm modüllerle ayağa kaldırıp migration'ları **gerçek Postgres'e** uyguladığı için `membership` şemasının uygulanabilirliği de bu turda doğrulandı.
+- [x] **Step 7: Doküman + commit**
 
-`doc/modules/m17_membership.md` (🔴 → 🟡, domain + şema), `doc/modules/00_genel_bakis.md` (modül tablosu + backend sütunu artık `Membership`), `doc/INDEX.md`, `doc/modules/veri_modeli.md`.
+`doc/modules/m17_membership.md` (🔴 → 🟡, §1 "kodda olan / hâlâ olmayan" ikiye ayrıldı), `doc/modules/00_genel_bakis.md` (backend sütunu `_(yok)_` → `Membership`, durum 🔴 → 🟡), `doc/INDEX.md`, `doc/modules/veri_modeli.md` (M17 satırı + iki yeni enum).
 ```bash
 git add src/Modules/Membership EgitimUssu.slnx src/API.Host tests doc
 git commit -m "feat(membership): modul iskeleti + plan/abonelik domain (M17-1)"
