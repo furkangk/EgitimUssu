@@ -12,10 +12,10 @@
 | Alan | Değer |
 |------|-------|
 | **Aktif plan** | `P06 — Öğretmen MVP Kapanışı` (`plans/2026-09-02-06-ogretmen-mvp-kapanisi.md`) |
-| **Sıradaki görev** | **P06 Task 3** — Ders oturumu yaşam döngüsü (M05-1/M05-3/M05-4) |
+| **Sıradaki görev** | **P06 Task 4** — Planlı dersten oturum türetme (M05-2) + Task 3'ten devralınan mobil düğme bağlantısı |
 | **Dal** | `feat/p05-ayarlar` (P05 bitti; P06/P07 aynı oturumda sürüyor). **P01–P05 dallarının beşi de PR/merge bekliyor.** |
-| **Durum** | ✅ P01–P05 bitti · 🔄 P06 **2/10** (M02-1 doğrulama ucu, M02-3/M02-4 arama + pasifleştirme) |
-| **Son commit** | `3a23e1e` (feat(teachers): profil arama/listeleme + pasifleştirme — P06 Task 2) |
+| **Durum** | ✅ P01–P05 bitti · 🔄 P06 **3/10** (M02-1/M02-3/M02-4 kapandı → **M02'de açık yok**; M05-1/M05-3/M05-4 kapandı) |
+| **Son commit** | `61c6c77` (feat(lesson-sessions): başlat/iptal geçişleri — P06 Task 3) |
 | **Çalışma ağacı** | `mobile/pubspec.lock` kirli (beklenen — Öğrenilenler #44) + izlenmeyen `.claude/worktrees/` |
 
 ## 📋 Plan Durumu
@@ -27,7 +27,7 @@
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
 | P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (merge bekliyor) |
 | P05 Ayarlar | 6/6 | ✅ Bitti | M15-1/2/3 + M11-5 + D-14..D-17 kapandı, M15-4 kısmi (rol bazlı profil düzenleme kaldı); **M15 🟡 → 🟢** · dal: `feat/p05-ayarlar` |
-| P06 Öğretmen MVP | 2/10 | 🔄 Devam ediyor | Task 1 (M02-1) + Task 2 (M02-3/M02-4) bitti; **M02 modülünde açık kalmadı**. Sırada Task 3 (ders oturumu yaşam döngüsü) · dal: `feat/p05-ayarlar` |
+| P06 Öğretmen MVP | 3/10 | 🔄 Devam ediyor | Task 1 (M02-1) + Task 2 (M02-3/M02-4) + Task 3 (M05-1/3/4) bitti; **M02'de açık kalmadı**. Sırada Task 4 (plandan oturum türetme, M05-2) · dal: `feat/p05-ayarlar` |
 | P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
 | P08 Gelişim & raporlama | 0/6 | ⚪ Bekliyor | P07 sonrası |
 | P09 Üyelik & gelir | 0/7 | ⚪ Bekliyor | P07 sonrası · **Q1–Q3 kararı gerek** |
@@ -78,6 +78,7 @@
 | 2026-09-03 | P05 / Task 3 — M15-3 diğer oturumları sonlandır | `65b28a1` | `dotnet test`: 322 birim + 20 integration, **başarısız 0** · `-warnaserror` temiz |
 | 2026-09-03 | P05 / Task 4 — M15-4 gizlilik seviyesi matrisi | `25f868a` | `dotnet test`: 326 birim + 20 integration, **başarısız 0** · `-warnaserror` temiz |
 | 2026-09-03 | P05 / Task 5 — mobil ayar ekranları + sahte kart temizliği | `eed5053` | `flutter test`: **98 başarılı, başarısız 0** · `flutter analyze`: 4 info (P01 öncesinden 5'ti, biri düzeldi; yeni yok) |
+| 2026-09-04 | P06 / Task 3 — M05-1/M05-3/M05-4 başlat-iptal geçişleri + zaman invariant'ı + `MeetingUrl`/`RecordingUrl`/`CancellationReason` | `61c6c77` | `dotnet test EgitimUssu.slnx`: 4 mimari + **369 birim** + 21 integration, **Başarısız 0, Atlanan 0** (öncesi 349 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddSessionLifecycleFields` üretildi (3 nullable sütun) · `flutter test`: **101 başarılı, başarısız 0** (öncesi 98) · `flutter analyze`: **4 info** (önceden var olan, değişmedi) · `kb_healthcheck` temiz. **Canlı API doğrulaması yapılmadı** — Task 10 kapanışına bırakıldı |
 | 2026-09-04 | P06 / Task 2 — M02-3/M02-4 filtreli arama + pasifleştirme (`IsActive`) | `3a23e1e` | `dotnet test EgitimUssu.slnx`: 4 mimari + **349 birim** + 21 integration, **Başarısız 0, Atlanan 0** (öncesi 334 birim) · `dotnet build … -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddTeacherIsActive` üretildi (`IsActive` bool, `defaultValue: true`) · `kb_healthcheck` temiz. **Canlı API doğrulaması yapılmadı** — Task 10 kapanışına bırakıldı |
 | 2026-09-03 | P06 / Task 1 — M02-1 admin doğrulama ucu + `TeacherVerifiedDomainEvent` | `5c3ed46` | 8 yeni birim testi (334 birim), **Başarısız 0**. ⚠️ Bu görev bitince ILERLEME.md güncellenmemişti; 2026-09-04 oturumunda geriye dönük yazıldı (Öğrenilenler #56) |
 | 2026-09-03 | P05 / Task 6 — kapanış (uçtan uca + doküman) | `aa9c38e` | `dotnet test`: 4 mimari + 326 birim + **21** integration, **başarısız 0** · `-warnaserror` 0/0 · canlı API doğrulaması (403 / 401 / kalıcı PUT) |
@@ -144,6 +145,9 @@
 | 52 | **Minimal API'de aynı uçtan hem dosya hem JSON alanı almak için `HttpRequest.ReadFormAsync`** kullanılır (`IFormFile` + `[FromForm]` karışımı sorunlu). `POST /lesson-resources` böyle yazıldı; `postMultipart` istemci tarafındaki eşleniği. | P04/Task 4 |
 | 53 | Ders kaynağında **çapraz-modül bağ doğrulamasına gerek kalmadı**: kayıt zaten `TeacherUserId` + `StudentId` taşıyor, öğrenci yalnız `studentId = kendisi` filtresiyle listeliyor. Yeni bir `Shared/Contracts` bağımlılığı eklemeden yetki kapatıldı (O5 kuralı korundu). | P04/Task 4 |
 | 54 | ⚠️ **Dış sağlayıcıyı birim testi taklit edemez.** P04'ün S3 yolu tüm birim testlerinde yeşildi ama **gerçek bir S3 sunucusunda hiç çalışmıyordu**: (a) `DisablePayloadSigning` yalnız HTTPS'te geçerli, (b) `PutObjectAsync` `InputStream`'i kapattığı için sonradan `Length` okumak patlıyor. **Ticari hesap beklemeye gerek yok — `docker run minio/minio` ile S3-uyumlu bir sunucu 1 dakikada ayağa kalkıyor.** Yeni bir dış bağımlılıkta bu turu atlama. | P04/Task 5 |
+| 60 | **Bir ekranın "hangi aggregate'i taşıdığı" mobil işi bloke edebilir.** Task 3'ün mobil adımı `lesson_detail_page.dart`'a başlat/iptal düğmeleri koymayı istiyordu; ama o ekran `LessonSchedule` taşıyor, `LessonSession` **kimliği yok** — köprü `POST /from-schedule/{id}` (M05-2). Veri katmanı (`startSession`/`cancelSession`) şimdi yazıldı, düğme bağlantısı **Task 4 Step 5'e taşındı**. Mobil adım planlarken ekranın elindeki kimliği önce doğrula. | P06/Task 3 |
+| 59 | **`_JoinMeetingCard` zaten vardı:** "MeetingUrl varsa Derse katıl" mobil adımı Dilim A/M04 ile çoktan yapılmıştı. Plan yazılırken kod kontrol edilmediği için tekrar istendi. Mobil adıma başlamadan önce ilgili ekranda `grep` at. | P06/Task 3 |
+| 58 | **Domain metodu `Result` dönebilir** (`Shared.Kernel.Result` Domain katmanından erişilebilir) — `LessonSession.Start/Cancel/Complete` repodaki ilk örnek. Kazanç: geçiş kuralı domain'de tek yerde durur, handler yalnız hatayı taşır ve **`SaveChanges` çağırmaz** → geçersiz istek DB'ye hiç dokunmaz. Yeni durum-makinesi olan aggregate'ler bu deseni izlesin. | P06/Task 3 |
 | 57 | **Arama filtresini Application katmanında tek bir `IQueryable` ifadesinde tut** (`TeacherSearchFilter.Apply`). Repository yalnız `Include` + sayfalama yapar; böylece birim testi (bellek içi liste) ile üretim (EF/Postgres) **aynı** filtreyi çalıştırır — "testte geçen, üretimde farklı davranan filtre" sınıfı hatalar oluşmaz. Yeni filtreli arama uçları bu deseni izlesin. | P06/Task 2 |
 | 56 | ⚠️ **Görev commit'lendi ama ILERLEME.md güncellenmedi** (P06 Task 1, `5c3ed46`) → sonraki oturum "sıradaki görev Task 1" sanıp yapılmış işi tekrar edebilirdi. `/gorev-bitir` akışının **son** adımı bu dosyadır; commit tek başına görevi kapatmaz. Sapma yakalandığında kullanıcıya sorulmalı (bu oturumda soruldu). | P06/Task 2 |
 | 55 | **Tercih kapısını olay tüketicisine değil gönderim turuna koy.** `NotificationDispatchProcessor` tek noktadır: hem `LessonReminder` hem in-app kaynaklı push aynı tercihi görür, yeni bildirim üreticileri otomatik kapsanır ve inbox transaction'ına çapraz-modül okuma eklenmez (Öğrenilenler #40'ın devamı). Tür → bayrak eşlemesi `IsKindEnabled`'da; `MessageReceived`/`System` **koşulsuz** gönderilir. | P05/Task 2 |
@@ -187,4 +191,4 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-04 (**P06 2/10** — M02-1 + M02-3/M02-4 kapandı, M02 modülünde açık kalmadı. Sıradaki: **P06 Task 3** (ders oturumu yaşam döngüsü), dal `feat/p05-ayarlar`)*
+*İlerleme defteri | Son güncelleme: 2026-09-04 (**P06 3/10** — M02 tamam; M05-1/3/4 kapandı. Sıradaki: **P06 Task 4** (plandan oturum türetme M05-2 + devralınan mobil düğme bağlantısı), dal `feat/p05-ayarlar`)*
