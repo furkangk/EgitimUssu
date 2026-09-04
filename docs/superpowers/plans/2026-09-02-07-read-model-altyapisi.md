@@ -222,15 +222,16 @@ git commit -m "perf(shared): dispatcher delegate cache, dynamic kaldirildi (O4)"
 
 ---
 
-### Task 5: Kapanış
+### Task 5: Kapanış ✅
 
-- [ ] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh` → yeşil, atlanan 0.
-- [ ] **Step 2: Dokümanlar**
-  - `doc/architecture/backend.md`: projeksiyon deseni + `IRequestEntityCache` + dispatcher cache.
-  - `doc/modules/mimari_inceleme.md`: O2, O4, O5 maddeleri `✅ Düzeltildi 2026-09-02 (P07)`.
-  - `doc/modules/m14_reporting.md`: durum 🟡.
+- [x] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh` → çıkış kodu 0, **4 mimari / 485 birim / 28 integration, Başarısız 0, Atlanan 0**.
+  Not: makinede `docker compose` yok, script yerel altyapı yığınını atlayıp Testcontainers'a bıraktı (integration testleri gerçekten koştu, atlanmadı).
+- [x] **Step 2: Dokümanlar** — tarihler **2026-09-04** (plan `2026-09-02` yazıyordu; işin yapıldığı gün esas alındı).
+  - `doc/architecture/backend.md`: §7.1 projeksiyon deseni + §7.2 `IRequestEntityCache` + §4.2 dispatcher delegate önbelleği (üçü de ilgili görevlerde yazıldı).
+  - `doc/modules/mimari_inceleme.md`: O2, O4, O5 başlıkları `✅ … — Düzeltildi 2026-09-04 (P07)`; öncelik listesine not.
+  - `doc/modules/m14_reporting.md`: durum 🟡 (Task 2'de yapıldı) · `doc/modules/00_genel_bakis.md` + `doc/INDEX.md` 🟡 doğrulandı.
   - `doc/denetim/2026-09-02_eksik_analizi.md`: C-03, C-05, C-06 → `✅ (P07)`.
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add -A
@@ -247,4 +248,4 @@ git commit -m "docs: P07 read-model altyapisi kapanisi (C-03/C-05/C-06)"
 - [x] Korumalı sorguda varlık **bir kez** yükleniyor (gerçek Postgres'te EF `Executed DbCommand` günlüğü sayıldı: 1 `SELECT`)
 - [x] Dispatcher'da `dynamic` kullanımı kalmadı (`grep -rn "dynamic" src/Shared/Infrastructure/Application` boş — doğrulandı)
 - [x] `Modules_Should_Not_Reference_Other_Modules` mimari testi hâlâ yeşil
-- [ ] Tam test paketi (Docker'lı) yeşil
+- [x] Tam test paketi (Docker'lı) yeşil — `./scripts/test-with-docker.sh`: 4 mimari / 485 birim / 28 integration, **Başarısız 0, Atlanan 0**

@@ -147,10 +147,20 @@ Kod tabanı test edilebilirlik için `IClock` kullanırken `EfOutboxStore` doğr
 
 ✅ K5 refactor'ünde `MarkProcessedAsync` kaldırıldı; `EfOutboxStore` artık `IClock` enjekte ediyor (`clock.UtcNow`), böylece işleme zaman damgaları test edilebilir (`FixedClock` ile).
 
-### O4 — `CommandDispatcher`/`QueryDispatcher` ağır `dynamic` + reflection
+### ✅ O4 — `CommandDispatcher`/`QueryDispatcher` ağır `dynamic` + reflection — **Düzeltildi 2026-09-04 (P07)**
 Her dispatch'te `MakeGenericType` + `dynamic` + `GetMethod(...).Invoke`. Cache/pipeline yok. **Öneri:** tip başına derlenmiş delegate cache veya MediatR benzeri pipeline.
 
-### O5 — Modüller arası okuma (read-model) mekanizması yok
+✅ _Düzeltildi (2026-09-04, P07 Task 4):_ İstek tipi başına **derlenmiş delegate önbelleği** eklendi
+(`DispatcherInvokerCache`, `DispatcherHandlerInvokerCache<TResponse>`, `DispatcherFailureFactory<TResponse>` —
+`Shared/Infrastructure/Application`), bkz. [`../architecture/backend.md`](../architecture/backend.md) §4.2.
+`MakeGenericType` + `Expression.Compile` maliyeti tip başına **bir kez** ödenir; sonrası `ConcurrentDictionary` araması.
+`dynamic` üç yerden kalktı: validator/authorizer çağrısı, handler çağrısı ve hata sonucu üretimi
+(`GetMethod("Failure").Invoke(...)` → derlenmiş fabrika). Dış sözleşme (`ICommandDispatcher`/`IQueryDispatcher`) değişmedi;
+`grep -rn "dynamic" src/Shared/Infrastructure/Application` **boş**. Testler: `tests/Unit/DispatcherCacheTests.cs` (7 test —
+önbellek tip başına bir kez kuruluyor, validator → authorizer → handler sırası, hata durumunda kısa devre).
+**Hâlâ yok:** genel bir pipeline kancası (logging/transaction/behavior zinciri) — öneri parçası olarak açık.
+
+### ✅ O5 — Modüller arası okuma (read-model) mekanizması yok — **Düzeltildi 2026-09-04 (P07)**
 Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) birden çok modülün verisini birleştirecek. Şu an yalnız integration event var; **senkron sorgu/kontrat** yok. **Öneri:** `Shared/Contracts` read kontratları veya ACL/projeksiyon. (Bu, M09/M12/M14 için **kritik önkoşul**.)
 
 ✅ _Düzeltildi (2026-09-04, P07):_ Kanonik **projeksiyon deseni** kuruldu — `ProjectionEntity` (Shared.Kernel) + `ProjectionHandler<TEvent>` + `IProjectionRebuilder` (Shared.Infrastructure/Projections), bkz. [`../architecture/backend.md`](../architecture/backend.md) §7.1. İlk gerçek tüketici: **M14 öğretmen dashboard projeksiyonu** (`teacher_dashboard_projections`, event-beslemeli, idempotent, canlı doğrulandı). Senkron çapraz-modül okuma **hâlâ yasak**.
@@ -216,8 +226,8 @@ Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya t
 5. ✅ **Y2** — Sırları config'ten çıkar, prod fail-fast. *(JWT 2026-07-01, DB 2026-09-02)*
 6. **Y3** — Mobil refresh token akışı.
 7. ~~**O5** — Modüller arası okuma (yeni modüllerin önkoşulu).~~ ✅ **(P07, 2026-09-04)** *(O8 dosya depolama 2026-09-03'te kapatıldı.)*
-8. **O7** — Regresyon testleri.
+8. **O7** — Regresyon testleri. *(O2 ve O4 performans maddeleri 2026-09-04'te P07 ile kapatıldı.)*
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-04 (P07 kapanışı: **O5** read-model deseni + M14 ilk projeksiyon, **O2** authorizer/handler çift sorgusu, **O4** dispatcher delegate önbelleği — üçü de kapatıldı) · 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
