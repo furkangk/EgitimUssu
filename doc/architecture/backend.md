@@ -76,7 +76,7 @@ Host'un kurduğu çapraz-kesit servisler:
 |------|-------|
 | **Kimlik doğrulama** | JWT Bearer (`JwtOptions`: Issuer/Audience/SigningKey, ClockSkew 1 dk) |
 | **Yetkilendirme** | `AuthenticatedUser` politikası (oturum zorunlu uçlar için) |
-| **Rate limiting** | Sabit pencere: `auth` (10 istek/dk), `default` (120 istek/dk); aşımda 429 + ProblemDetails |
+| **Rate limiting** | Sabit pencere, Redis destekli (fail-open): `auth` (10/dk, `/api/identity/*`), `messaging` (30/dk, yalnız `POST /api/messaging/conversations/{id}/messages`), `default` (120/dk, diğer `/api/*`); aşımda 429 + ProblemDetails. **Partition:** `auth`/`default` istemci IP'si (`X-Forwarded-For` ilk girdi), `messaging` **oturum kullanıcı kimliği** — aynı ev/okul ağındaki kullanıcılar birbirinin mesaj kotasını tüketmesin diye. Bu yüzden `UseAuthentication()` limitleyiciden **önce** gelir (yalnız `HttpContext.User`'ı doldurur, hiçbir isteği reddetmez); sıra tersken partition sessizce IP'ye düşüyordu (M16-1, P10 Task 5'te gerçek Redis'e karşı yakalandı) |
 | **Hata** | `ProblemDetailsExceptionMiddleware` → tüm hatalar tutarlı ProblemDetails gövdesi |
 | **Loglama** | JSON console + `RequestContextLoggingMiddleware` (istek bağlamı) |
 | **Health** | `/health/live` (canlılık), `/health/ready` (configuration + database hazır mı) |
@@ -320,7 +320,7 @@ durum eşler. Beklenmeyen istisnalar `ProblemDetailsExceptionMiddleware` tarafı
 
 ### Testleri gerçek altyapıyla koşma
 
-Testcontainers tabanlı testler (`RealDatabase`, `RealOutbox`, `RealRedis`, `RealStudentMerge`) çalışan bir Docker
+Testcontainers tabanlı testler (`RealDatabase`, `RealOutbox`, `RealRedis`, `RealStudentMerge`, `RealMessagingChain` …) çalışan bir Docker
 daemon gerektirir; yoksa `Skipped` olurlar. Docker varken tam paketi koşmak için:
 
 ```bash
@@ -339,4 +339,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-04 (P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

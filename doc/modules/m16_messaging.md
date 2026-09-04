@@ -1,6 +1,6 @@
 ---
 title: "M16 — Mesajlaşma"
-summary: "Mesajlaşma modülü: domain + 8 uç + ilişki kapısı + hız sınırı + bildirim + mobil gelen kutusu/sohbet kodda (P10 Task 1-4); şikayet P12, gerçek zamanlı v2"
+summary: "Mesajlaşma modülü uçtan uca çalışıyor (P10 Task 1-5, gerçek Postgres+Redis'te doğrulandı); açık: karşı tarafın adı, veli sohbet başlatma, şikayet (P12), cihaza push (Q8), gerçek zamanlı (v2)"
 tags: [modul, messaging, faz-2, faz-3]
 status: "🟡"
 authority: code
@@ -9,7 +9,9 @@ updated: 2026-09-04
 
 # 💬 Mesajlaşma Modülü (M16) — Detaylı Tasarım Dokümanı
 
-> **PRD: M16** · **Faz 2-3** · **Durum: 🟡 Kısmi — modül iskeleti + domain kodda (P10 Task 1), uçlar/mobil sırada**
+> **PRD: M16** · **Faz 2-3** · **Durum: 🟡 Kısmi (bilerek)** — zincir uçtan uca çalışıyor ve gerçek
+> Postgres + Redis'te doğrulandı (P10 Task 1-5). **🟢 değil** çünkü: karşı tarafın **adı** sunucudan gelmiyor,
+> **veli sohbet başlatamıyor**, mesaj **şikayeti** (M18) P12'de ve cihaza **push** Q8'e bloke — bkz. §7-§8.
 >
 > **Amaç:** Öğretmen ile öğrenci/veli arasında, ders bağlamına bağlı, güvenli ve denetlenebilir
 > uygulama içi mesajlaşma. Bugün bu iletişim telefon/WhatsApp üzerinden, sistem dışında yürüyor
@@ -26,7 +28,7 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-🟡 **Modül iskeleti, domain, uçlar, bildirim ve mobil ekranlar kodda** (P10 Task 1-4, 2026-09-04):
+🟡 **Zincir uçtan uca çalışıyor** (P10 Task 1-5, 2026-09-04):
 
 - **Backend:** `src/Modules/Messaging/{Domain,Application,Infrastructure,API}` — 4 katman projesi, `MessagingDbContext`
   (`messaging` şeması), `MessagingModule : ModuleDefinition` (`/api/messaging`), `MessagingDesignTimeDbContextFactory`,
@@ -35,9 +37,6 @@ updated: 2026-09-04
   + `MessageSentDomainEvent` — bkz. §2.
 - **Şema:** PostgreSQL `messaging` şeması; tablolar `conversations`, `messages` (+ ortak `inbox_messages`,
   `outbox_messages`, `module_states`).
-- **Testler:** `tests/Unit/ConversationTests.cs` (17) + `tests/Unit/MessageTests.cs` (9) — izinli çift, normalizasyon,
-  engelleme, önizleme kırpma, okundu idempotansı, yumuşak silme.
-
 - **Uygulama katmanı (P10 Task 2):** `MessagingFeatures.cs` (5 komut + 2 sorgu + handler'lar + `IMessagingRepository`),
   `MessagingPolicies.cs` (`ConversationRelationshipPolicy`, `MessagingRoles`, `AuthenticatedMessagingAuthorizer`),
   `MessagingRepository.cs`, 8 uç (§3) ve kullanıcı başına 30/dk hız sınırı.
@@ -49,6 +48,8 @@ updated: 2026-09-04
 - **Testler:** `ConversationTests` (17) + `MessageTests` (9) + `MessagingAccessTests` (17) + `MessagePagingTests` (10)
   + `MessageSentNotificationHandlerTests` (6) + `DistributedRateLimitMiddlewareTests`'e 5 mesajlaşma testi;
   mobilde `messaging_cubit_test` (15) + `messaging_pages_test` (8).
+- **Doğrulama (P10 Task 5):** `tests/Integration/RealMessagingChainTests.cs` — **gerçek Postgres + Redis**,
+  3 test / 12 adım; kabul kriterleri ve doğrulamada çıkan hata için bkz. §7.
 
 ---
 
@@ -289,34 +290,51 @@ kökteki push dinleyicisi `data.route`'u olduğu gibi `push` eder (P03 Task 5).
 
 ---
 
-## 7. Kabul Kriterleri (⚠️ Önerilen)
+## 7. Kabul Kriterleri (P10 Task 5'te doğrulandı)
 
-- [ ] Yalnızca öğretmen↔öğrenci ve öğretmen↔veli sohbeti açılabiliyor; diğer çiftler domain tarafından reddediliyor.
-- [ ] İlişkisi olmayan taraflar sohbet başlatamıyor (öğretmen-öğrenci/veli bağı doğrulanıyor).
-- [ ] Aynı çift + öğrenci bağlamı için tek sohbet (get-or-create) çalışıyor.
-- [ ] Mesaj gönderme, listeleme (keyset sayfalama) ve okundu işareti çalışıyor.
-- [ ] Okunmamış sayacı ve son mesaj önizlemesi gelen kutusunda doğru.
-- [ ] Engelleme ile mesaj gönderimi durduruluyor; engel kaldırma geri açıyor.
-- [ ] Yeni mesajta alıcıya bildirim gidiyor (susturma/ayar tercihlerine saygı ile).
-- [ ] Mesaj şikayeti M18'de `AbuseReport` oluşturuyor; admin kaldırabiliyor.
-- [ ] Yumuşak silme: içerik gizleniyor, denetim kaydı kalıyor.
-- [ ] Hız sınırı aşımında `429` dönüyor.
+**Doğrulama:** `tests/Integration/RealMessagingChainTests.cs` — **gerçek Postgres + Redis** (Testcontainers),
+3 test / 12 adım. Doğrulanan zincir: öğretmen sohbeti açar → yazar → outbox → Notifications tüketicisi →
+öğrencinin bildirimi → öğrenci gelen kutusunda okunmamış görür → okur → **öğretmen tarafında "okundu" görünür**.
+
+| # | Kriter | Durum | Kanıt |
+|---|--------|-------|-------|
+| 1 | Yalnız öğretmen↔öğrenci ve öğretmen↔veli sohbeti açılabiliyor | ✅ | `ConversationTests` (yasak çiftlerin dördü de reddediliyor) |
+| 2 | İlişkisi olmayan taraflar sohbet başlatamıyor | ✅ | `Unrelated_Teacher_Cannot_Open_Conversation` (gerçek Postgres, 409) |
+| 3 | Aynı çift + öğrenci bağlamı için tek sohbet (get-or-create) | ✅ | Zincir testi adım 2 + UNIQUE indeks |
+| 4 | Keyset sayfalama tekrar/atlama üretmiyor | ✅ | `MessagePagingTests` + mobil `messaging_cubit_test` |
+| 5 | Okunmamış sayacı ve son mesaj önizlemesi gelen kutusunda doğru | ✅ | Zincir testi adım 6 ve 9 |
+| 6 | Engelleme gönderimi durduruyor, kaldırma geri açıyor | ✅ | Zincir testi adım 10-11 (karşı tarafın engelini öğretmen **kaldıramıyor**) |
+| 7 | Yeni mesajda alıcıya bildirim gidiyor (tercihe saygıyla) | 🟡 **kısmi** | In-app `UserNotification` gerçek Postgres'te doğrulandı (adım 4-5, idempotency dâhil). **Cihaza push doğrulanamadı** — Q8/Firebase hesabı yok; bu M11'in genel borcu, M16'ya özgü değil |
+| 8 | Yumuşak silmede içerik gizleniyor, satır kalıyor | ✅ | Zincir testi adım 12 (`isDeleted: true`, `body: null`) |
+| 9 | Dakikada 30 mesaj sınırı aşılınca 429 | ✅ | `Thirty_First_Message_In_A_Minute_Should_Be_Rate_Limited` — gerçek Redis; aynı IP'deki ikinci kullanıcı **etkilenmiyor** (kota kullanıcı başına) |
+| 10 | Tam test paketi (Docker'lı) yeşil | ✅ | 4 mimari / 665 birim / 44 integration (atlanan 0) / 193 mobil |
+
+> **Doğrulama bir hata ortaya çıkardı.** Kullanıcı başına kota, `UseAuthentication()` rate-limit
+> middleware'inden **sonra** çalıştığı için `HttpContext.User` boştu ve partition sessizce IP'ye
+> düşüyordu — yani "aynı ev/okul ağındaki kullanıcılar birbirinin kotasını tüketmesin" kuralı
+> fiilen çalışmıyordu. Sıra düzeltildi (`Program.cs`) ve kural gerçek Redis'e karşı regresyona bağlandı.
+> Bu tam olarak P06 Task 10'un dersidir: birim testi bu hatayı göremezdi.
 
 ---
 
-## 8. Eksikler ve Yapılacaklar (Öncelik Sırasıyla)
+## 8. Eksikler ve Yapılacaklar
 
-1. **Modül iskeleti** — `Messaging` modülü, `MessagingDbContext`, `messaging` şeması, DI + `ModuleDefinition` + ilk migration.
-2. **Domain** — `Conversation` + `ConversationParticipant` + `Message` + enum'lar + domain event'ler.
-3. **İzinli çift projeksiyonu** — Students/Parents/Matching event'lerini dinleyen read-model (çift doğrulaması).
-4. **CQRS feature'ları** — start/list/get/send/read/block/report (Command+Query+Handler+Policy).
-5. **API endpoint'leri** + katılımcı sahiplik authorizer'ı (varsayılan reddet).
-6. **Bildirim entegrasyonu (M11)** — `MessageSentIntegrationEvent` → push/in-app.
-7. **Şikayet entegrasyonu (M18)** — `MessageReportedIntegrationEvent` → `AbuseReport`.
-8. **Hız sınırı + spam koruması.**
-9. **Mobil feature** — gelen kutusu + sohbet ekranı + başlatma.
-10. **Gerçek zamanlı teslimat (sonraki sürüm)** — SignalR/WebSocket; ilk sürümde polling + push.
-11. **Premium farkları (M17)** — ek gönderimi, geçmiş derinliği, hız sınırı seviyeleri.
+**P10'da kapananlar:** modül iskeleti ✅ · domain ✅ · CQRS feature'ları ✅ · uçlar + katılımcı yetkisi ✅ ·
+bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu + sohbet ✅.
+
+**Açık kalanlar (öncelik sırasıyla):**
+
+| # | Eksik | Neden açık | Nerede |
+|---|-------|-----------|--------|
+| 1 | **Karşı tarafın adı** (`GET /conversations` yalnız `counterpartUserId` döner) | Ad, Identity/Teachers/Students'ın gerçeğidir; sözleşme genişletilmeli. Şimdilik rol etiketi gösteriliyor — **uydurma ad yazılmıyor** | M16 sonraki tur |
+| 2 | **Veli sohbeti başlatamıyor** | Veli paneli sözleşmesi (`ParentChildDashboard`) öğretmenin kullanıcı kimliğini taşımıyor; veli okur ve yanıtlar, öğretmen başlatır | M09 sözleşmesine `teacherUserId` |
+| 3 | **Şikayet entegrasyonu (M18)** — mesaj → `AbuseReport` | M18 uçları yok | **P12** |
+| 4 | **Cihaza push doğrulaması** | Q8 (Firebase projesi) cevaplanmadı — M11'in genel borcu | Q8 |
+| 5 | **Mesaj silme düğmesi (mobil)** | Uç var (`DELETE /messages/{id}`), UI tetikleyicisi yok | M16 sonraki tur |
+| 6 | **Gerçek zamanlı teslimat** | Karar **K-07**: v1 REST + push; ölçek yokken WebSocket operasyon maliyeti taşınmıyor | v2 |
+| 7 | **Premium farkları (M17)** — ek gönderimi, geçmiş derinliği, kota seviyeleri | Ek/dosya v1 kapsamında değil; kota şu an herkes için 30/dk | M17-2 sonrası |
+| 8 | **İzinli çift projeksiyonu** | **Bilerek yapılmadı**: ilişki `Shared/Contracts` üzerinden canlı sorulur. Yerel kopya, bağ koptuktan sonra mesajlaşmayı açık bırakırdı | — (karar) |
+| 9 | **Sohbet susturma** | Bildirim tercihlerine (M15) devredildi | — (karar) |
 
 ---
 
@@ -338,4 +356,4 @@ kökteki push dinleyicisi `data.route`'u olduğu gibi `push` eder (P03 Task 5).
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*

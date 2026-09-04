@@ -128,9 +128,13 @@ if (!app.Environment.IsDevelopment()
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
 app.UseMiddleware<RequestContextLoggingMiddleware>();
+// M16-1: Kimlik doğrulama rate limiting'ten ÖNCE gelir. `UseAuthentication` yalnız token'ı çözüp
+// `HttpContext.User`'ı doldurur (hiçbir isteği reddetmez); mesajlaşma kotası kullanıcı başına
+// sayıldığı için limitleyicinin bu kimliği görmesi şart. Sırası tersken partition sessizce IP'ye
+// düşüyordu — aynı ev/okul ağındaki kullanıcılar birbirinin kotasını tüketirdi.
+app.UseAuthentication();
 // Y4: Redis destekli dağıtık, partition'lı rate limiting (fail-open). Yol tabanlı politika.
 app.UseMiddleware<DistributedRateLimitMiddleware>();
-app.UseAuthentication();
 app.UseAuthorization();
 // Y4: Idempotency-Key ile mutasyon uçlarında tekrarlı istek koruması (auth sonrası — kullanıcıya göre kapsam).
 app.UseMiddleware<IdempotencyMiddleware>();
