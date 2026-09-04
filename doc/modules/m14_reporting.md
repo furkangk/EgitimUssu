@@ -1,8 +1,8 @@
 ---
 title: "M14 — Raporlama ve Analiz (Reporting)"
-summary: "Read-model raporlama modülü: öğretmen dashboard + aylık özet, öğrenci haftalık çalışma ve aylık performans projeksiyonları, boş zaman analizi ve premium kapılı PDF öğrenci raporu canlı; mobil rapor ekranları da canlı"
+summary: "Read-model raporlama modülü: öğretmen dashboard + aylık özet, öğrenci haftalık çalışma ve aylık performans projeksiyonları, boş zaman analizi ve premium kapılı PDF öğrenci raporu canlı; mobil rapor ekranları da canlı; modül 🟢 (P08)"
 tags: [modul, reporting, raporlama, read-model, projeksiyon, faz-5]
-status: "🟡"
+status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Reporting/**
@@ -12,7 +12,7 @@ updated: 2026-09-04
 # 📊 Raporlama ve Analiz Modülü (M14) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M14 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Reporting`) + Flutter mobil
-> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟡 Kısmi — dört read-model (öğretmen paneli, öğretmen aylık özeti, öğrenci haftalık çalışma, öğrenci aylık performansı) + boş zaman analizi + **premium kapılı PDF öğrenci raporu** çalışıyor; mobil rapor ekranları (öğretmen aylık + öğrenci analizi/PDF + veli gelişim bölümü) canlı
+> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟢 **Tamam** (P08 kapanışı, 2026-09-04) — dört read-model (öğretmen paneli, öğretmen aylık özeti, öğrenci haftalık çalışma, öğrenci aylık performansı) + boş zaman analizi + **premium kapılı PDF öğrenci raporu** + **mobil rapor ekranları** (öğretmen aylık + öğrenci analizi/PDF + veli gelişim bölümü). ⚠️ İki bilinen borç kapsam dışıdır: geçmiş dönem beslemesi `IProjectionRebuilder` ile gelecek (**P12**), premium kapısı gerçek entitlement gelene kadar geçicidir (**P09**)
 > **Mimari:** CQRS + Outbox + Integration Event; önerilen **read-model / projeksiyon** yaklaşımı, PostgreSQL (`reporting` şeması), Redis (rapor cache)
 > **Marka rengi (mobil):** `0xFF082B4F`
 
@@ -50,11 +50,18 @@ updated: 2026-09-04
 - Idempotency ortak `inbox_messages` guard'ından gelir; ayrıca sayaçlar **küme üyeliğinden türetilir** (aşağıya bkz.), bu yüzden aynı olay iki kez gelse de bozulmaz.
 - Canlı doğrulandı: ders planlandı → `todayLessonCount = 1`, ders iptal edildi → `todayLessonCount = 0`.
 
-### ⚠️ Hâlâ eksik
-- **Veli özet/grafik raporu** — veli bugün çocuğunun analizini `students/{id}/study-analysis` ve
-  `students/{id}/performance` uçlarından (onaylı bağ + gizlilik kapısıyla) okur; ayrı bir `parents/...` uç yok.
+### ⚠️ Kapsam dışına bırakılanlar (P08 kapandı, bunlar başka planlara ait)
+- **Veli özet/grafik raporu için ayrı `parents/...` ucu** — veli çocuğunun analizini `students/{id}/study-analysis`
+  ve `students/{id}/performance` uçlarından (onaylı bağ + gizlilik kapısıyla) okuyor; mobil veli çocuk detayı da
+  bunları kullanıyor. Ayrı uç **gereksiz**, isteğe bağlı.
 - ~~**Mobil rapor ekranları**~~ ✅ (P08 Task 5) — [`../pages/teacher_reports.md`](../pages/teacher_reports.md).
-- `IProjectionRebuilder` implementasyonu ve `POST /api/admin/projections/{name}/rebuild` (P12).
+- `IProjectionRebuilder` implementasyonu ve `POST /api/admin/projections/{name}/rebuild` (**P12**).
+  Arayüz modül içinde uygulanamaz: yeniden inşa kaynağı diğer modüllerin outbox'ı, Reporting onları okuyamaz
+  (modül sınırı) → host seviyesinde orkestre edilecek.
+  **P08 Task 6'da uygulamanın dayandığı özellik kanıtlandı:** `RealProjectionRebuildTests` gerçek Postgres'te
+  projeksiyon tablolarını **ve** Reporting inbox satırlarını boşaltıp aynı olay akışını (aynı `EventId`'lerle)
+  yeniden oynatıyor; sayaçlar birebir aynı çıkıyor, üçüncü teslimde değişmiyor. Yani projeksiyonlar olay
+  akışının saf bir katlaması — eksik olan yalnız geçmiş olayları çeken **plumbing**.
 - ⚠️ **Geriye dönük besleme yok:** analitik projeksiyonlar yalnız kendilerinden **sonra** yayınlanan event'leri
   görür; geçmiş aylar rebuild yapılana kadar boş kalır (#93 → P12).
 - ⚠️ **Premium kapısı geçicidir:** M17 (öğretmen üyeliği) yokken `IMembershipDirectory` öğretmene daima `Free`
@@ -308,7 +315,12 @@ Sorgu zamanı:
 7. **Veli özet/grafik raporu** (m09) — bugün öğrenci uçları üzerinden karşılanıyor; ayrı bir veli ucu isteğe bağlı.
 8. **Premium kısıtlama** entegrasyonu (m17) — kapı P08 Task 4'te kuruldu (`ReportEntitlement`), gerçek üyelik/entitlement sözleşmesi P09.
 9. ~~**İdempotent event tüketimi** (inbox/event-id) + CQRS query'leri~~ ✅; ~~mobil ekranlar~~ ✅ (P08 Task 5).
-10. **Projeksiyon yeniden inşası** (`IProjectionRebuilder`) — geçmiş dönemler ancak bununla dolar (P12).
+10. **Projeksiyon yeniden inşası** (`IProjectionRebuilder`) — geçmiş dönemler ancak bununla dolar (**P12**).
+    P08 Task 6'da **yeniden kurulabilirlik özelliği** integration testiyle doğrulandı (`RealProjectionRebuildTests`);
+    kalan iş yalnız geçmiş olayları besleyen host seviyesi orkestrasyon.
+
+> **P08 kapanışı (2026-09-04):** M14-1…M14-5 + mobil ekranlar bitti, modül 🟡 → 🟢. Kalan 7/8/10 maddeleri
+> sırasıyla *isteğe bağlı*, **P09** ve **P12** kapsamındadır.
 
 ---
 
@@ -329,4 +341,4 @@ Sorgu zamanı:
 
 ---
 
-*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
+*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 kapanış / Task 6: durum 🟡 → 🟢; projeksiyon yeniden-kurulabilirliği `RealProjectionRebuildTests` ile gerçek Postgres'te kanıtlandı (boşalt → aynı akışı oynat → aynı sayaçlar → üçüncü teslimde değişmiyor); kalan borçlar P09/P12 olarak etiketlendi. Önceki not — P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*

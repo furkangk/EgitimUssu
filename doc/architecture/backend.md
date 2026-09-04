@@ -239,6 +239,14 @@ veri, kaynak modülün yaydığı integration event'lerden beslenen bir **projek
 - **Okunamayan payload sessizce yutulmaz:** payload `null` çözülürse taban `false` döner, event işlenmiş sayılmaz.
 - **Yeniden kurulabilir:** Her projeksiyon `IProjectionRebuilder` ile sıfırdan inşa edilebilmelidir; projeksiyon
   şeması "türetilmiş veri"dir, kayıp durumunda kaynak modüllerden yeniden üretilir.
+  **Yeniden inşanın iki adımı vardır ve ikincisi kolayca atlanır:** projeksiyon satırları *ve* o modülün
+  `inbox_messages` satırları silinmelidir. Inbox bırakılırsa tekrar oynatma sessizce **boş** bir projeksiyon
+  üretir (guard "bu event zaten işlendi" der). Ayrıca rebuild **tek bir projeksiyon deposunu** hedefler:
+  olayları genel `IEventBus`'a yeniden yayınlamak diğer modüllerin tüketicilerini de tetikler ve yeniden
+  kurmayı amaçlamadığı veriyi bozar — yalnız hedef modülün handler'ları çağrılmalıdır.
+  Özellik `tests/Integration/RealProjectionRebuildTests.cs` ile gerçek Postgres'te doğrulanır (P08 Task 6):
+  boşalt → aynı akışı aynı `EventId`'lerle oynat → sayaçlar birebir aynı; üçüncü teslimde değişmiyor.
+  Eksik olan yalnız geçmiş olayları çeken **host seviyesi orkestrasyon** (P12).
 
 **İlk gerçek tüketici:** M14 Reporting — `teacher_dashboard_projections` (`GET /api/reporting/teachers/{id}/dashboard`).
 Sayaçlar saklanmaz, **küme üyeliğinden türetilir** (her ders/ödev/ödeme/öğrenci bir satır): ekleme upsert, çıkarma
@@ -331,4 +339,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-04 (P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-04 (P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

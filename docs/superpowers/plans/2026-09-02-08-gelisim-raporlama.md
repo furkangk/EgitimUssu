@@ -261,10 +261,26 @@ git commit -m "feat(mobile): gelisim grafikleri + rapor ekranlari"
 
 ### Task 6: Kapanış
 
-- [ ] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test` → yeşil.
-- [ ] **Step 2: Projeksiyon yeniden inşa doğrulaması** — Reporting projeksiyon tablolarını boşalt, `IProjectionRebuilder`'ı çalıştır, sayaçların aynı değerlere döndüğünü doğrula.
-- [ ] **Step 3: Dokümanlar** — `doc/modules/m10_progress_tracking.md` (🟡 → 🟢), `doc/modules/m14_reporting.md` (🔴 → 🟢), `doc/modules/00_genel_bakis.md`, `doc/INDEX.md`, `doc/roles/veli.md` + `doc/roles/ogretmen.md`, `doc/denetim/2026-09-02_eksik_analizi.md` (M10-*, M14-*, M09-1 → `✅ (P08)`).
-- [ ] **Step 4: Commit**
+**Files:**
+- Test: `tests/Integration/RealProjectionRebuildTests.cs` *(plan dışı, **zorunlu** — Step 2 aşağıdaki plan düzeltmesi gereği bir doğrulama testine dönüştü)*
+- Modify: `doc/modules/m10_progress_tracking.md`, `doc/modules/m14_reporting.md`, `doc/modules/00_genel_bakis.md`, `doc/INDEX.md`, `doc/architecture/backend.md`, `doc/roles/{ogretmen,veli,ogrenci}.md`, `doc/denetim/2026-09-02_eksik_analizi.md`
+
+- [x] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh` → **556 birim + 38 integration**, Başarısız 0, Atlanan 0 · `dotnet test tests/Architecture` → **4/4** · `cd mobile && flutter test` → **146/146**
+- [x] **Step 2: Projeksiyon yeniden inşa doğrulaması**
+  ⚠️ **Plan düzeltmesi (2026-09-04):** `IProjectionRebuilder`'ın **uygulaması yok** ve bu bilinçlidir — arayüz modül
+  içinde uygulanamaz (yeniden inşa kaynağı diğer modüllerin outbox'ı; Reporting onları okuyamaz, modül sınırı),
+  host seviyesinde orkestre edilmeli (Öğrenilenler #93 → **P12**). Bu yüzden adım, "arayüzü çalıştır"dan
+  **arayüzün dayandığı özelliği kanıtla**ya çevrildi: `RealProjectionRebuildTests` gerçek Postgres'te üç faz
+  koşuyor — (1) olay akışı işlenir → sayaçlar okunur, (2) projeksiyon tabloları **ve** Reporting `inbox_messages`
+  boşaltılıp **aynı** akış **aynı `EventId`'lerle** yeniden oynatılır → sayaçlar birebir aynı, (3) akış üçüncü kez
+  (inbox boşaltılmadan) teslim edilir → hiçbir sayaç değişmez. Yani projeksiyonlar olay akışının **saf bir
+  katlaması**; P12'ye kalan yalnız geçmiş olayları çeken plumbing.
+  Test ayırt ediciliği kanıtlandı: inbox temizliği kaldırılınca **kırmızıya döndü**.
+  ⚠️ **İkinci düzeltme:** ilk sürüm akışı genel `IEventBus`'a yayınlıyordu; bu diğer modüllerin tüketicilerini de
+  tetikleyip komşu testi (`RealProgressSnapshotTests`) kırdı. Doğrusu — ve rebuild'in gerçek modeli — **yalnız
+  hedef modülün handler'larını** oynatmaktır. Kural `doc/architecture/backend.md` §7.1'e yazıldı.
+- [x] **Step 3: Dokümanlar** — `m10_progress_tracking.md` (🟡 → **🟢**), `m14_reporting.md` (🟡 → **🟢**; plan "🔴 → 🟢" diyordu, P07 onu zaten 🟡'ye çıkarmıştı), `modules/00_genel_bakis.md` (durum tablosu + mobil feature tablosuna `reporting` satırı + ProgressTracking/Reporting envanter başlıkları), `doc/INDEX.md` (iki durum + iki yeni sayfa md'si), `architecture/backend.md` §7.1 (yeniden inşanın iki tuzağı), `roles/ogretmen.md` + `roles/veli.md` + `roles/ogrenci.md`, `denetim/2026-09-02_eksik_analizi.md` (M10-1…4, M14-1…5, M09-1, **M07-3**, D-16 → ✅).
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A
@@ -275,12 +291,14 @@ git commit -m "docs: P08 gelisim ve raporlama kapanisi (M10-*/M14-*/M09-1)"
 
 ## Kabul Kriterleri
 
-- [ ] Haftalık snapshot otomatik üretiliyor, aynı dönem için tekrarlanmıyor
-- [ ] Trend üç durumu doğru hesaplanıyor
-- [ ] Öğretmen bağlı öğrencisinin, veli onaylı çocuğunun gelişimini görüyor; gizlilik seviyesi uygulanıyor
-- [ ] Öğretmen aylık raporu doğru ders sayısı ve tahsil/beklenen tutarı gösteriyor
-- [ ] Boş zaman analizi uygunluk − planlı ders farkını döndürüyor
-- [ ] PDF rapor üretilip indirilebiliyor; free kullanıcıda kilitli
-- [ ] Aynı event tekrar geldiğinde projeksiyon sayaçları bozulmuyor
-- [ ] Mobilde gelişim ve rapor grafikleri gerçek veriyle çiziliyor
-- [ ] Tam test paketi (Docker'lı) yeşil
+- [x] Haftalık snapshot otomatik üretiliyor, aynı dönem için tekrarlanmıyor *(Task 1; unique index + iki tur idempotency gerçek Postgres'te)*
+- [x] Trend üç durumu doğru hesaplanıyor *(Task 1; `ProgressTrendCalculator` ±5 eşiği)*
+- [x] Öğretmen bağlı öğrencisinin, veli onaylı çocuğunun gelişimini görüyor; gizlilik seviyesi uygulanıyor *(Task 2; bağ yoksa 403, `Hidden` → boş, `Limited` → yalnız sayaç)*
+- [x] Öğretmen aylık raporu doğru ders sayısı ve tahsil/beklenen tutarı gösteriyor *(Task 3+5)*
+- [x] Boş zaman analizi uygunluk − planlı ders farkını döndürüyor *(Task 3; gerçek Postgres'te 180 dk boşluk)*
+- [x] PDF rapor üretilip indirilebiliyor; free kullanıcıda kilitli *(Task 4: 402 · Task 5: mobilde kilit kartı + cihazda açma)*
+- [x] Aynı event tekrar geldiğinde projeksiyon sayaçları bozulmuyor *(Task 3 birim + **Task 6 faz 3** gerçek Postgres'te)*
+- [x] Mobilde gelişim ve rapor grafikleri gerçek veriyle çiziliyor *(Task 5; mock fallback yok)*
+- [x] Tam test paketi (Docker'lı) yeşil *(Task 6 Step 1)*
+
+> **Kapsam dışı bırakılan, bilinçli borçlar:** `IProjectionRebuilder` host uygulaması + `POST /api/admin/projections/{name}/rebuild` → **P12**; premium kapısının gerçek `IEntitlementDirectory`'ye bağlanması → **P09**. İkisi de ilgili modül dokümanlarında etiketlendi.

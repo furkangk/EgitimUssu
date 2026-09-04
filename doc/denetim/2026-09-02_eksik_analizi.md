@@ -191,7 +191,7 @@ Her madde şu alanlara sahip:
 |----|-------|-------------|------|------|-------|-----|
 | M07-1 | Kalıcı `Overdue` otomasyonu yok | `PaymentFeatures.cs:275-283` — `IsOverdue(now)` **sorgu anında** hesaplanıyor, zamanlanmış iş yok | Vade bildirimi tetiklenemiyor; "geciken" durumu event üretmiyor | M | | |
 | M07-2 | Ders tamamlanınca otomatik ücret kaydı yok | M05 `complete` → Payments akışı yok (`IsChargeable` alanı var) | Öğretmen her ödemeyi elle giriyor | M | | |
-| M07-3 | Dönemsel gelir raporu/grafik yok | M14'e bağlı | Premium "gelir analizi" özelliği yok | — | | |
+| M07-3 | ~~Dönemsel gelir raporu/grafik yok~~ **✅ (P08 Task 3+5)** | `GET /api/reporting/teachers/{id}/monthly` (beklenen/tahsil/oran) + mobil `/teacher/reports` ay seçicili özet | — | — | ✅ | Tahsilat **farkla** birikir; kayıt açılış ayı ile tahsilat ayı doğru ayrışır |
 
 ### M08 — Study (🟢 en zengin modül, 38 endpoint)
 
@@ -203,18 +203,18 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M09-1 | Gelişim grafiği/raporu veli panelinde yok | M10-1/M14'e bağlı | Premium veli değer önerisi eksik | — | | |
+| M09-1 | ~~Gelişim grafiği/raporu veli panelinde yok~~ **✅ (P08 Task 5)** | Veli çocuk detayında haftalık çalışma çubuk grafiği + ders bazlı net (M14-2/M14-3 uçları, onaylı bağ + gizlilik kapılı) | — | — | ✅ | Ayrı `parents/...` rapor ucu **açılmadı** — öğrenci uçları zaten onaylı veliye açık; gizlilik kapalıysa boş liste döner (403 değil) |
 | M09-2 | Veli↔öğretmen mesajlaşma yok | M16'ya bağlı | Veli iletişim kuramıyor | — | | |
 | M09-3 | Ödev kaçırma bildirimi yok | M06-3 + A-04'e bağlı | Velinin en çok istediği bildirim yok | — | | |
 
-### M10 — ProgressTracking (🟡 çalışır çekirdek)
+### M10 — ProgressTracking (🟢 — P08 kapanışı, 2026-09-04)
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M10-1 | `ProgressSnapshot` (haftalık/aylık zaman serisi) yok | 8 endpoint var; snapshot üretimi ve trend hesabı yok | Gelişim **grafiği** çizilemiyor (veli/öğretmen/rapor hepsi buna bağlı) | M | | |
-| M10-2 | Öğretmen ve veli gelişim görünümü uçları yok | Yalnız öğrenci kapsamlı sorgular | Öğretmen öğrencisinin konu hâkimiyetini göremiyor | M | | |
-| M10-3 | Hedefe ulaşınca otomatik `Achieved` + bildirim yok | `topic-goals` var, otomatik kapanış yok | Hedef motivasyon döngüsü tamamlanmıyor | S | | |
-| M10-4 | M05 ders tamamlanması tüketilmiyor | Yalnız Study event'leri tüketiliyor | Öğretmenli ders, konu hâkimiyetini beslemiyor | S | | |
+| M10-1 | ~~`ProgressSnapshot` (haftalık/aylık zaman serisi) yok~~ **✅ (P08 Task 1)** | `progress_snapshots` + `ProgressSnapshotService` günlük tur + `GET /students/{id}/snapshots`; trend ±5 eşiği | — | M | ✅ | Geriye doldurma **bilinçli olarak yapılmadı** (kümülatif veriden sahte düz trend üretirdi); mobil çizgi grafiği P08 Task 5 |
+| M10-2 | ~~Öğretmen ve veli gelişim görünümü uçları yok~~ **✅ (P08 Task 2)** | `teachers/{id}/students/{id}/overview` + `parents/{id}/children/{id}/overview`; iki katmanlı yetki (IDOR + bağ) + `ProgressPrivacyFilter` | — | M | ✅ | Snapshot ucu bu rollere **kapalı** kaldı (öğrenci + Admin) |
+| M10-3 | ~~Hedefe ulaşınca otomatik `Achieved` + bildirim yok~~ **✅ (P08 Task 2)** | Seviye **ve** net eşiği birlikte aranıyor; `TopicGoalAchievedDomainEvent` → M11 `TopicGoalAchievedNotificationHandler` | — | S | ✅ | `TargetNetRatio` daha önce hiç değerlendirilmiyordu |
+| M10-4 | ~~M05 ders tamamlanması tüketilmiyor~~ **✅ (P08 Task 2)** | `LessonSessionCompletedProgressHandler` (idempotent) → `TopicMastery.RegisterLessonAttendance` (`AttendedLessonCount`/`TotalLessonMinutes`) | — | S | ✅ | Branş/süre `ILessonScheduleDirectory`, konu `ILessonSessionAccessService` sözleşmesinden okunuyor |
 
 ### M11 — Notifications (🟡 → gerçekte en zayıf 🟢-olmayan)
 
@@ -248,15 +248,15 @@ Her madde şu alanlara sahip:
 | M13-5 | `TeacherReviewPublished` → M12 projeksiyon güncellemesi | Sıralama puanı beslenemiyor | S | | |
 | M13-6 | **Erken açılış:** Faz 1-2'de "öğretmene özel geri bildirim" (TeacherOnly, ortalamaya girmez) | Düşük maliyetli erken değer | S | | |
 
-### M14 — Reporting (🔴 iskelet)
+### M14 — Reporting (🟢 — P08 kapanışı, 2026-09-04)
 
 | ID | Eksik | Etki | Efor | Karar | Not |
 |----|-------|------|------|-------|-----|
-| M14-1 | Öğretmen aylık özeti (ders sayısı, tahsil/beklenen gelir, aktif öğrenci) | Premium öğretmen özelliği yok | M | | |
-| M14-2 | Öğrenci çalışma analizi (M08 verisinden haftalık/aylık) | — | M | | |
-| M14-3 | Öğrenci performans raporu (M10'dan konu bazlı değişim) | M10-1'e bağlı | M | | |
-| M14-4 | PDF rapor üretimi + indirme | PRD premium maddesi; PDF kütüphanesi de yok | M | | |
-| M14-5 | Boş zaman analizi (öğretmen) | — | S | | |
+| M14-1 | ~~Öğretmen aylık özeti~~ **✅ (P08 Task 3+5)** | — | M | ✅ | `TeacherMonthlyProjection` + `GET /teachers/{id}/monthly` + mobil `/teacher/reports` |
+| M14-2 | ~~Öğrenci çalışma analizi (M08 verisinden haftalık)~~ **✅ (P08 Task 3+5)** | — | M | ✅ | `StudentStudyProjection` (ISO hafta) + `study-analysis` ucu + `WeeklyStudyBarChart` |
+| M14-3 | ~~Öğrenci performans raporu (ders bazlı aylık değişim)~~ **✅ (P08 Task 3+5)** | M10-1'e bağlıydı | M | ✅ | `delta` **saklanmıyor**, sorgu anında hesaplanıyor; `SubjectNetChart` |
+| M14-4 | ~~PDF rapor üretimi + indirme~~ **✅ (P08 Task 4+5)** | QuestPDF 2026.8.0 (Community) | M | ✅ | `student_reports` kaydı + yetkili indirme + premium kapısı 402; mobilde `open_filex` ile cihazda açılıyor |
+| M14-5 | ~~Boş zaman analizi (öğretmen)~~ **✅ (P08 Task 3+5)** | — | S | ✅ | Saf `FreeSlotCalculator` + `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync`; mobilde her zaman bugünden 7 gün |
 
 ### M15 — Settings (🟡 etiketli ama gerçekte neredeyse boş)
 
@@ -325,7 +325,7 @@ Her madde şu alanlara sahip:
 |----|-------|-------|------|------|-------|-----|
 | D-14 | ~~**`more_page` ayar sayfalarının tamamı sahte**~~ **✅ (P05)** | `settings` feature + `/settings/notifications` + `/settings/privacy`; sahte sheet'ler silindi | — | — | Eklendi 2026-09-03 | İyimser kayıt + hata geri alma; mock fallback yok; `more_page` 1166 → 750 satır |
 | D-15 | ~~**Abonelik kartı hardcoded**~~ **✅ (P05)** | Sahte sheet kaldırıldı; "Üyelik" satırı **pasif + "Yakında"** rozeti | — | — | Eklendi 2026-09-03 | Gerçek üyelik ucu P09'da gelince aktifleşecek |
-| D-16 | ~~**Raporlar kartı hardcoded**~~ **✅ (P05)** | Sahte sheet kaldırıldı; "Raporlar" satırı **pasif + "Yakında"** rozeti | — | — | Eklendi 2026-09-03 | Gerçek rapor ucu P08'de gelince aktifleşecek |
+| D-16 | ~~**Raporlar kartı hardcoded**~~ **✅ (P05 + P08 Task 5)** | P05: sahte sheet kaldırıldı, satır pasifleşti. P08: satır **aktif** → `/teacher/reports` (gerçek projeksiyon verisi) | — | — | ✅ Kapandı 2026-09-04 | — |
 | D-17 | ~~Auth yokken `'mock-teacher-user'` / `'mock-parent-user'` sentinel~~ **✅ (P05)** | `SessionRequiredView` — **5** veli ekranında sentinel kaldırıldı (`notifications_page` P03'te düzelmişti) | — | — | Eklendi 2026-09-03 | `dashboard_page.dart`'taki `mock-teacher-user` sentinel'i duruyor — aday: P06 |
 
 ### D.3 Teknik hijyen
@@ -445,4 +445,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (**P07 kapanışı**: C-03 ✅ read-model deseni + M14 ilk projeksiyon, C-05 ✅ authorizer/handler çift sorgusu, C-06 ✅ dispatcher delegate önbelleği) · 2026-09-04 (**P06 Task 10 canlı saha doğrulaması**: öğretmen günlük akışı gerçek Postgres'e karşı 41/41 yeşil; InMemory'nin göremediği **4 yeni hata (C-10…C-13)** bulundu ve düzeltildi — bkz. M03 bölümü üstündeki kutu) · 2026-09-04 (P06: M03-1 ✅ veli bağlama, M03-2 ✅ branş yönetimi, M03-3 ✅ veli çocuk listesi, D-04/M02-5 ✅ mobil uygunluk düzenleyici) · 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme, M05-1 ✅ başlat/iptal, M05-2 ✅ plandan türetme, M05-3 ✅ zaman aralığı, M05-4 ✅ alanlar) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **125** — A 6 · B 69 · C 14 · D 22 · E 7 · F 7 (C-10…C-13 canlı doğrulamada eklendi, dördü de kapalı)*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (**P08 kapanışı**: M10-1…M10-4 ✅, M14-1…M14-5 ✅, M09-1 ✅, M07-3 ✅, D-16 ✅; M10 🟡 → 🟢 ve M14 🔴 → 🟢. Kalan borçlar başka planlara etiketlendi: projeksiyon yeniden inşası **P12**, premium entitlement **P09**) · 2026-09-04 (**P07 kapanışı**: C-03 ✅ read-model deseni + M14 ilk projeksiyon, C-05 ✅ authorizer/handler çift sorgusu, C-06 ✅ dispatcher delegate önbelleği) · 2026-09-04 (**P06 Task 10 canlı saha doğrulaması**: öğretmen günlük akışı gerçek Postgres'e karşı 41/41 yeşil; InMemory'nin göremediği **4 yeni hata (C-10…C-13)** bulundu ve düzeltildi — bkz. M03 bölümü üstündeki kutu) · 2026-09-04 (P06: M03-1 ✅ veli bağlama, M03-2 ✅ branş yönetimi, M03-3 ✅ veli çocuk listesi, D-04/M02-5 ✅ mobil uygunluk düzenleyici) · 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme, M05-1 ✅ başlat/iptal, M05-2 ✅ plandan türetme, M05-3 ✅ zaman aralığı, M05-4 ✅ alanlar) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **125** — A 6 · B 69 · C 14 · D 22 · E 7 · F 7 (C-10…C-13 canlı doğrulamada eklendi, dördü de kapalı)*

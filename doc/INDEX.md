@@ -3,7 +3,7 @@ title: "Doküman Haritası (INDEX)"
 summary: "doc/ altındaki tüm dokümanların tek listesi ve kanonik gerçekler; hangi konuda hangi dokümana bakılacağını gösterir"
 tags: [index, harita, kanonik]
 authority: derived
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 📚 EğitimÜssü — Doküman Haritası (INDEX)
@@ -13,7 +13,7 @@ updated: 2026-09-03
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-09-03 (P03: M11 durumu 🟡 → 🟢 — gerçek FCM push + bildirim merkezi; §5'e `pages/notifications.md` eklendi). Önceki: 2026-09-02 (§6'ya `denetim/2026-09-02_eksik_analizi.md` eklendi — 121 maddelik eksik envanteri). Önceki: 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
+> **Son güncelleme:** 2026-09-04 (P08 kapanışı: **M10 🟡 → 🟢** ve **M14 🟡 → 🟢**; §5'e `pages/progress_overview.md` + `pages/teacher_reports.md` eklendi). Önceki: 2026-09-03 (P03: M11 durumu 🟡 → 🟢 — gerçek FCM push + bildirim merkezi; §5'e `pages/notifications.md` eklendi). Önceki: 2026-09-02 (§6'ya `denetim/2026-09-02_eksik_analizi.md` eklendi — 121 maddelik eksik envanteri). Önceki: 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -75,11 +75,11 @@ updated: 2026-09-03
 
 | M | Dosya | Durum | M | Dosya | Durum |
 |---|-------|-------|---|-------|-------|
-| M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🟡 |
+| M01 | [`m01_identity`](modules/m01_identity.md) | 🟢 | M10 | [`m10_progress_tracking`](modules/m10_progress_tracking.md) | 🟢 |
 | M02 | [`m02_teachers`](modules/m02_teachers.md) | 🟢 | M11 | [`m11_notifications`](modules/m11_notifications.md) | 🟢 |
 | M03 | [`m03_students`](modules/m03_students.md) | 🟢/🟡 | M12 | [`m12_matching`](modules/m12_matching.md) | 🔴 |
 | M04 | [`m04_scheduling`](modules/m04_scheduling.md) | 🟢 | M13 | [`m13_reviews`](modules/m13_reviews.md) | 🔴 |
-| M05 | [`m05_lesson_sessions`](modules/m05_lesson_sessions.md) | 🟢 | M14 | [`m14_reporting`](modules/m14_reporting.md) | 🟡 |
+| M05 | [`m05_lesson_sessions`](modules/m05_lesson_sessions.md) | 🟢 | M14 | [`m14_reporting`](modules/m14_reporting.md) | 🟢 |
 | M06 | [`m06_assignments`](modules/m06_assignments.md) | 🟢 | M15 | [`m15_settings`](modules/m15_settings.md) | 🟢 |
 | M07 | [`m07_payments`](modules/m07_payments.md) | 🟢 | M16 | [`m16_messaging`](modules/m16_messaging.md) | 🔴 yeni |
 | M08 | [`m08_study`](modules/m08_study.md) | 🟢 | M17 | [`m17_membership`](modules/m17_membership.md) | 🔴 yeni |
@@ -99,6 +99,8 @@ updated: 2026-09-03
 ## 5. Sayfa (Ekran) Dokümanları (`doc/pages/`)
 
 > Kodda **var olan** her Flutter ekranı için birer md. İndeks → [`pages/00_pages_index.md`](pages/00_pages_index.md). Öğretmen, **öğrenci** (4-sekme çalışma paneli) ve **veli** (parent paneli) ekranları kodda mevcuttur; yalnızca yeni özellik (mesajlaşma/ilan/üyelik/paywall) ekranları **planlanandır**.
+>
+> P08 ile gelen ekran dokümanları: [`pages/progress_overview.md`](pages/progress_overview.md) (M10 gelişim + snapshot çizgi grafiği) ve [`pages/teacher_reports.md`](pages/teacher_reports.md) (M14 öğretmen aylık raporu · öğrenci analizi + PDF · veli gelişim bölümü).
 
 ## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
 
