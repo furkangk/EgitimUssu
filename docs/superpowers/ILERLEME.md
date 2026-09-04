@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | 🔄 `P07 — Read-model` (`plans/2026-09-02-07-read-model-altyapisi.md`) — **4/5** |
-| **Sıradaki görev** | **P07 Task 5 (kapanış)** — `./scripts/test-with-docker.sh` (atlanan 0) + doküman kapanışı: `doc/architecture/backend.md`, `doc/modules/mimari_inceleme.md` (O2/O4/O5 → ✅), `doc/modules/m14_reporting.md` (🟡), `doc/denetim/2026-09-02_eksik_analizi.md` (C-03/C-05/C-06 → ✅) |
-| **Dal** | `feat/p07-read-model` (P06 sonrası `feat/p05-ayarlar`'dan açıldı). **P01–P06 dallarının hepsi PR/merge bekliyor.** |
-| **Durum** | ✅ **P01–P06 bitti** · 🔄 **P07 4/5**: projeksiyon deseni + ilk tüketicisi canlı (M14 🟡) · **O2/C-05 kapandı** (korumalı sorguda varlık bir kez yükleniyor) · **O4 kapandı** — dispatcher'lar tip başına derlenmiş delegate kullanıyor, `src/Shared/Infrastructure/Application` içinde `dynamic` kalmadı |
-| **Son commit** | `982f8e9` (perf(shared): dispatcher delegate cache, dynamic kaldirildi (O4) — P07 Task 4) |
+| **Aktif plan** | ⏳ `P08 — Gelişim & raporlama` (`plans/2026-09-02-08-gelisim-raporlama.md`) — **0/6** · *(P07 ✅ 5/5 bitti)* |
+| **Sıradaki görev** | **P08 Task 1** — `ProgressSnapshot` + trend (M10-1): `ProgressSnapshot` aggregate'i, haftalık/aylık snapshot `BackgroundService`'i (idempotent), `ProgressTrend` (±5 eşiği) ve `GET /api/progress-tracking/students/{id}/snapshots` ucu |
+| **Dal** | P08 için yeni dal açılacak: `git checkout -b feat/p08-gelisim-raporlama` (`feat/p07-read-model`'den). **P01–P07 dallarının hepsi PR/merge bekliyor.** |
+| **Durum** | ✅ **P01–P07 bitti** · P07 üç mimari açığı kapattı: **O5/C-03** (event-beslemeli projeksiyon deseni + ilk tüketici M14 🟡), **O2/C-05** (korumalı sorguda varlık bir kez yükleniyor), **O4/C-06** (dispatcher delegate önbelleği, `dynamic` kalmadı). Kalan bilinen borç: BFF `dashboard-summary` projeksiyona taşınmadı (Öğrenilenler #91) ve `IProjectionRebuilder` host seviyesinde uygulanacak (#93 → P12) |
+| **Son commit** | `399e339` (docs: P07 read-model altyapisi kapanisi (C-03/C-05/C-06) — P07 Task 5) |
 | **Çalışma ağacı** | `mobile/pubspec.lock` kirli (beklenen — Öğrenilenler #44) + izlenmeyen `.claude/worktrees/` |
 
 ## 📋 Plan Durumu
@@ -28,8 +28,8 @@
 | P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (merge bekliyor) |
 | P05 Ayarlar | 6/6 | ✅ Bitti | M15-1/2/3 + M11-5 + D-14..D-17 kapandı, M15-4 kısmi (rol bazlı profil düzenleme kaldı); **M15 🟡 → 🟢** · dal: `feat/p05-ayarlar` |
 | P06 Öğretmen MVP | 10/10 | ✅ Bitti | M02-1/3/4/5 + M03-1/2/3 + M05-1/2/3/4 + M07-1/2 + M04-1/2 + M08-1 + M06-3/4 + M09-3 + D-04. **Canlı saha doğrulaması yapıldı** (41/41), 4 gerçek hata bulunup düzeltildi (C-10…C-13). Kalan kod-dışı: Q6 beta listesi, Q7 SMTP, Q8 Firebase, cihazda mobil gezinti · dal: `feat/p05-ayarlar` (merge bekliyor) |
-| P07 Read-model | 4/5 | 🔄 Devam ediyor | Task 1–4 bitti: projeksiyon deseni + M14 öğretmen dashboard read-model'i (**O5/C-03 kapandı**, M14 🟡) + authorizer/handler çift sorgusu (**O2/C-05 kapandı**) + dispatcher delegate önbelleği (**O4 kapandı**). Sırada Task 5 (kapanış: Docker'lı tam test + doküman) · dal: `feat/p07-read-model` |
-| P08 Gelişim & raporlama | 0/6 | ⚪ Bekliyor | P07 sonrası |
+| P07 Read-model | 5/5 | ✅ Bitti | C-03/O5 (projeksiyon deseni + M14 ilk read-model, M14 🔴→🟡), C-05/O2 (çift sorgu), C-06/O4 (dispatcher delegate önbelleği) kapandı. Docker'lı tam paket: 4/485/28, atlanan 0 · dal: `feat/p07-read-model` (merge bekliyor) |
+| P08 Gelişim & raporlama | 0/6 | ⏳ Sırada | P07 bitti — başlanabilir. Task 1: `ProgressSnapshot` + trend (M10-1) · dal açılacak: `feat/p08-gelisim-raporlama` |
 | P09 Üyelik & gelir | 0/7 | ⚪ Bekliyor | P07 sonrası · **Q1–Q3 kararı gerek** |
 | P10 Mesajlaşma | 0/5 | ⚪ Bekliyor | P03+P05 sonrası |
 | P11 Eşleştirme & yorum | 0/6 | ⚪ Bekliyor | P07+P09 sonrası |
@@ -47,6 +47,7 @@
 
 | Tarih | Plan / Görev | Commit | Doğrulama |
 |-------|--------------|--------|-----------|
+| 2026-09-04 | P07 / Task 5 — kapanış (C-03/C-05/C-06 dokümante edildi) | `399e339` | `./scripts/test-with-docker.sh` (çıkış kodu **0**): 4 mimari + **485 birim** + **28 integration**, **Başarısız 0, Atlanan 0** · Makinede `docker compose` yok → script yerel yığını atladı, Testcontainers kendi container'larını kaldırdı (integration testleri gerçekten koştu) · Doküman: `mimari_inceleme.md` O4+O5 başlıkları ✅, `eksik_analizi.md` C-06 ✅ |
 | 2026-09-04 | P07 / Task 4 — dispatcher delegate önbelleği (O4) | `982f8e9` | `dotnet test EgitimUssu.slnx`: 4 mimari + **485 birim** + 28 integration, **Başarısız 0, Atlanan 0** (öncesi 478 birim; +7 yeni test) · `dotnet build EgitimUssu.slnx -warnaserror`: **0 uyarı / 0 hata** · Kabul kriteri doğrulandı: `grep -rn "dynamic" src/Shared/Infrastructure/Application` **boş** · Kırmızı gerçekten görüldü (CS0103: `DispatcherInvokerCache` yok) · migration **gerekmedi** |
 | 2026-09-04 | P07 / Task 3 — authorizer/handler çift sorgusu (O2/C-05) | `21a0fd6` | `dotnet test EgitimUssu.slnx`: 4 mimari + **478 birim** + **28 integration**, **Başarısız 0, Atlanan 0** (öncesi 462 birim / 26 integration; +16 birim, +2 integration) · **Ölçüm (gerçek Postgres, Testcontainers):** EF `Executed DbCommand` günlükleri sayıldı — `student_profiles` **1 SELECT** (authorizer + handler), `lesson_schedules` değişiklikten **önce 2**, sonra **1** (kırmızı gerçekten görüldü) |
 | 2026-09-04 | P07 / Task 2 — M14 öğretmen dashboard projeksiyonu (ilk gerçek read-model, C-03/O5 kapandı) | `0d8ec07` | `dotnet test EgitimUssu.slnx`: 4 mimari + **462 birim** + 26 integration, **Başarısız 0, Atlanan 0** (öncesi 444 birim; +18 yeni test) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `dotnet ef migrations add AddTeacherDashboardProjection` üretildi (`reporting` şeması + outbox/inbox/module_states + 2 projeksiyon tablosu) · `kb_healthcheck` temiz · **CANLI (InMemory + çalışan API):** tokensiz **401**, başkasının paneli **403**, beslenmemiş projeksiyon **404 `reporting.dashboard_not_ready`**; ders planlandı → outbox → `todayLessonCount=1`, ders iptal → `todayLessonCount=0` |
@@ -243,7 +244,9 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-04 (**P07 Task 3 bitti — 3/5**. O2/C-05 kapandı: korumalı sorguda varlık bir kez yükleniyor. İki mekanizma — PK aramalarında `FindAsync` (19 metot, 14 repository, ctor churn'ü yok) + anahtar dışı/`Include`'lu yüklemelerde `IRequestEntityCache` (scoped, `GetOrLoadAsync`). Ölçüm gerçek Postgres'te EF günlüğü sayılarak yapıldı: `student_profiles` 1 SELECT, `lesson_schedules` 2→1. 478 birim + 28 integration + 4 mimari yeşil. Sıradaki: **P07 Task 4** (O4 dispatcher delegate cache), dal `feat/p07-read-model`)*
+*İlerleme defteri | Son güncelleme: 2026-09-04 (**P07 BİTTİ — 5/5**. Üç mimari açık kapandı: **O5/C-03** event-beslemeli projeksiyon deseni + ilk tüketici M14 öğretmen dashboard'u (M14 🔴→🟡), **O2/C-05** authorizer/handler çift sorgusu, **O4/C-06** dispatcher delegate önbelleği (`dynamic` kalmadı). Docker'lı tam paket: 4 mimari / 485 birim / 28 integration, atlanan 0. Sıradaki: **P08 Task 1** (`ProgressSnapshot` + trend, M10-1) — yeni dal `feat/p08-gelisim-raporlama` açılacak)*
+
+*Önceki not — 2026-09-04 (**P07 Task 3 bitti — 3/5**. O2/C-05 kapandı: korumalı sorguda varlık bir kez yükleniyor. İki mekanizma — PK aramalarında `FindAsync` (19 metot, 14 repository, ctor churn'ü yok) + anahtar dışı/`Include`'lu yüklemelerde `IRequestEntityCache` (scoped, `GetOrLoadAsync`). Ölçüm gerçek Postgres'te EF günlüğü sayılarak yapıldı: `student_profiles` 1 SELECT, `lesson_schedules` 2→1. 478 birim + 28 integration + 4 mimari yeşil. Sıradaki: **P07 Task 4** (O4 dispatcher delegate cache), dal `feat/p07-read-model`)*
 
 *Önceki not — 2026-09-04 (**P07 Task 1 bitti — 1/5**. Projeksiyon (read-model) deseni kuruldu: `ProjectionEntity` (LastAppliedEventId/UpdatedOnUtc/MarkApplied), `ProjectionHandler<TEvent>` (payload'ı tipli çözer, idempotency+atomiklik inbox tabanından), `IProjectionRebuilder`. 4 yeni birim testi; 444 birim + 26 integration + 4 mimari yeşil, `-warnaserror` 0/0. Sıradaki: **P07 Task 2** (öğretmen dashboard'unu projeksiyona taşı — Reporting iskeletten çıkar), dal `feat/p07-read-model`)*
 
