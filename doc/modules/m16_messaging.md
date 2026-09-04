@@ -1,6 +1,6 @@
 ---
 title: "M16 — Mesajlaşma"
-summary: "Mesajlaşma modülü: Conversation/Message domain'i + messaging şeması kodda (P10 Task 1); uçlar ve mobil sırada"
+summary: "Mesajlaşma modülü: domain + 8 uç + ilişki kapısı + hız sınırı kodda (P10 Task 1-2); bildirim ve mobil sırada"
 tags: [modul, messaging, faz-2, faz-3]
 status: "🟡"
 authority: code
@@ -26,7 +26,7 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-🟡 **Modül iskeleti ve domain kodda** (P10 Task 1, 2026-09-04):
+🟡 **Modül iskeleti, domain ve uçlar kodda** (P10 Task 1-2, 2026-09-04):
 
 - **Backend:** `src/Modules/Messaging/{Domain,Application,Infrastructure,API}` — 4 katman projesi, `MessagingDbContext`
   (`messaging` şeması), `MessagingModule : ModuleDefinition` (`/api/messaging`), `MessagingDesignTimeDbContextFactory`,
@@ -38,8 +38,13 @@ updated: 2026-09-04
 - **Testler:** `tests/Unit/ConversationTests.cs` (17) + `tests/Unit/MessageTests.cs` (9) — izinli çift, normalizasyon,
   engelleme, önizleme kırpma, okundu idempotansı, yumuşak silme.
 
-**Henüz yok (sırada):** uygulama katmanı uçları (§3), ilişki doğrulaması, hız sınırı → P10 Task 2 ·
-yeni mesaj bildirimi → P10 Task 3 · `mobile/lib/features/messaging/` → P10 Task 4.
+- **Uygulama katmanı (P10 Task 2):** `MessagingFeatures.cs` (5 komut + 2 sorgu + handler'lar + `IMessagingRepository`),
+  `MessagingPolicies.cs` (`ConversationRelationshipPolicy`, `MessagingRoles`, `AuthenticatedMessagingAuthorizer`),
+  `MessagingRepository.cs`, 8 uç (§3) ve kullanıcı başına 30/dk hız sınırı.
+- **Testler:** `ConversationTests` (17) + `MessageTests` (9) + `MessagingAccessTests` (14) + `MessagePagingTests` (10)
+  + `DistributedRateLimitMiddlewareTests`'e 5 mesajlaşma testi.
+
+**Henüz yok (sırada):** yeni mesaj bildirimi → P10 Task 3 · `mobile/lib/features/messaging/` → P10 Task 4.
 
 ---
 
@@ -140,49 +145,66 @@ yeni mesaj bildirimi → P10 Task 3 · `mobile/lib/features/messaging/` → P10 
 
 ---
 
-## 3. API Sözleşmesi (⚠️ Önerilen — `/api/messaging`)
+## 3. API Sözleşmesi (🟢 Kodda — `/api/messaging`)
 
 ```
-GET  /api/messaging/conversations?userId={id}&status=          → kullanıcının gelen kutusu (rol fark etmez)
-POST /api/messaging/conversations                              → sohbet başlat/bul (çift kuralını doğrular)
-GET  /api/messaging/conversations/{conversationId}             → sohbet başlığı + katılımcılar
-GET  /api/messaging/conversations/{conversationId}/messages?before={msgId}&take=30
-                                                               → mesaj geçmişi (keyset sayfalama)
-POST /api/messaging/conversations/{conversationId}/messages    → mesaj gönder
-PUT  /api/messaging/conversations/{conversationId}/read        → okundu işaretle (LastReadAtUtc)
-POST /api/messaging/conversations/{conversationId}/mute        → bu sohbeti sustur/aç
-POST /api/messaging/conversations/{conversationId}/block       → karşı tarafı engelle / engeli kaldır
-POST /api/messaging/conversations/{conversationId}/messages/{messageId}/report
-                                                               → mesajı şikayet et → m18 AbuseReport
-DELETE /api/messaging/conversations/{conversationId}/messages/{messageId}
-                                                               → kendi mesajını sil (yumuşak silme)
+GET  /api/messaging/status                                              → modül durumu (anonim)
+
+POST   /api/messaging/conversations                        (auth) → { counterpartUserId, counterpartRole, studentId }
+                                                                    → sohbeti aç; varsa mevcudu dön (get-or-create)
+GET    /api/messaging/conversations?skip=&take=             (auth) → gelen kutusu: karşı taraf + son önizleme
+                                                                    + okunmamış sayısı + engel bayrağı
+GET    /api/messaging/conversations/{id}/messages?beforeUtc=&take=
+                                                            (auth) → mesaj geçmişi (keyset, yeniden eskiye)
+POST   /api/messaging/conversations/{id}/messages           (auth) → { body } · dakikada 30 mesaj sınırı
+POST   /api/messaging/conversations/{id}/read               (auth) → gelen mesajları okundu işaretle (204)
+POST   /api/messaging/conversations/{id}/block              (auth) → sohbeti engelle
+POST   /api/messaging/conversations/{id}/unblock            (auth) → kendi engelini kaldır
+DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak sil (gönderen veya Admin, 204)
 ```
 
-> **Yetki:** Her endpoint, çağıran kullanıcının ilgili sohbetin **katılımcısı** olmasını zorunlu kılar
-> ("varsayılan reddet" guard'ı — bkz. [`mimari_inceleme.md`](mimari_inceleme.md) K3). Admin yalnızca
-> moderasyon/şikayet bağlamında erişir (bkz. [`../roles/admin.md`](../roles/admin.md)).
-> Gerçek zamanlı teslimat ileride SignalR/WebSocket ile; ilk sürümde polling + push bildirimi yeterlidir.
+**HTTP eşlemesi** (`MessagingModule.MapError`):
+
+| Hata kodu | Durum | Neden |
+|-----------|-------|-------|
+| `shared.forbidden`, `messaging.not_participant` | 403 | Oturum yok / sohbetin tarafı değilsin |
+| `messaging.conversation_not_found`, `messaging.message_not_found` | 404 | Kayıt yok |
+| `messaging.pair_not_allowed`, `messaging.self_conversation`, `messaging.relationship_required`, `messaging.blocked` | 409 | Kural çakışması |
+| `messaging.empty_body`, `messaging.body_too_long`, `messaging.invalid_role` | 400 | Geçersiz istek |
+
+> **Yetki:** Bütün uçlar `RequireAuthorization("AuthenticatedUser")`. Authorizer yalnız "oturum açık mı"
+> sorusunu sorar; **kayıt bazlı** yetki (katılımcı mısın, gönderen misin) handler'ın içinde, veriyi
+> görerek yapılır — authorizer o veriye sahip değildir.
+>
+> **Keyset sayfalama:** İmleç son görülen mesajın `sentOnUtc` değeridir; sunucu ondan **eski** mesajları
+> yeniden eskiye döner. Offset kullanılsaydı, sayfalar arasında yeni mesaj geldiğinde satırlar kayar ve
+> kullanıcı bir mesajı iki kez görürdü. `take` sunucuda kırpılır (varsayılan 30, en fazla 100).
+
+> ⚠️ **Uygulanmayanlar:** `mute` (sohbet susturma) ve mesaj `report` (şikayet) uçları **yok** —
+> şikayet M18 (P12) ile gelecek, susturma ise bildirim tercihlerine (M15) devredilmiştir.
+> Mesaj **düzenleme** de yoktur: v1'de mesaj gönderildikten sonra değişmez.
 
 ---
 
 ## 4. İş Kuralları
 
-1. **Çift kuralı (en kritik):** Sohbet yalnızca `TeacherStudent` veya `TeacherParent` türünde kurulur.
-   `Conversation.Start` çağrısında bir taraf **öğretmen** değilse veya tür bu ikisinden biri değilse domain `Result.Failure` döner.
-   Öğrenci↔veli, öğrenci↔öğrenci, öğretmen↔öğretmen sohbeti **hiçbir koşulda** açılamaz.
-2. **İlişki önkoşulu:**
-   - `TeacherStudent`: öğretmen ile öğrenci arasında kurulu bir ilişki olmalı (öğretmen öğrenciyi eklemiş/eşleşmiş — bkz. [`m03_students.md`](m03_students.md)).
-   - `TeacherParent`: veli, o öğretmenin bir öğrencisine bağlı bir veli olmalı (bkz. [`m09_parents.md`](m09_parents.md)).
-   - Eşleştirme (M12) ile kurulan yeni ilişkiler de geçerli sayılır (bkz. [`m12_matching.md`](m12_matching.md)).
-3. **Tekillik:** Aynı `(TeacherUserId, CounterpartUserId, StudentId, ConversationType)` için en fazla bir aktif sohbet bulunur; "başlat" çağrısı varsa mevcut sohbeti döndürür (get-or-create).
-4. **Gönderim:** Yalnızca sohbetin katılımcısı, sohbet `Active` iken mesaj gönderebilir. `Blocked`/`Closed` sohbete mesaj gönderilemez.
-5. **Engelleme (KVKK/kötüye kullanım):** Taraflardan biri diğerini engelleyebilir → sohbet `Blocked`, yeni mesaj reddedilir. Engel kaldırılınca tekrar `Active` olur. Engel durumu karşı tarafa nötr gösterilir.
-6. **Okundu bilgisi:** Okundu durumu `ConversationParticipant.LastReadAtUtc` üzerinden hesaplanır; bir mesaj, karşı tarafın `LastReadAtUtc`'sinden eski/eşitse `Read` kabul edilir.
-7. **Silme/düzenleme:** Kullanıcı yalnızca **kendi** mesajını silebilir/düzenleyebilir. Silme **yumuşak silmedir** (içerik gizlenir; moderasyon ve KVKK denetimi için kayıt saklanır).
-8. **Hız sınırı / spam:** Kullanıcı başına dakikalık mesaj sınırı (free için daha düşük — bkz. [`m17_membership.md`](m17_membership.md)). Aşımda `429`.
-9. **Moderasyon:** Bir mesaj şikayet edildiğinde M18'de `AbuseReport(TargetType=Message)` oluşur; admin sohbeti/mesajı inceleyip kaldırabilir (bkz. [`m18_feedback.md`](m18_feedback.md)).
-10. **Bildirim:** Yeni mesajta, alıcı sohbeti susturmadıysa ve ayarları izin veriyorsa push/in-app bildirim üretilir (bkz. [`m11_notifications.md`](m11_notifications.md), [`m15_settings.md`](m15_settings.md)).
-11. **Premium farkı:** Free kullanıcıda ek/dosya gönderimi ve geçmiş derinliği sınırlı; premium sınırsız (bkz. [`m17_membership.md`](m17_membership.md) §rol bazlı özellikler).
+| # | Kural | Nerede zorlanıyor | Durum |
+|---|-------|-------------------|-------|
+| 1 | **Çift kuralı (en kritik):** yalnız öğretmen↔öğrenci ve öğretmen↔veli. Tam olarak bir taraf öğretmen olmalı | `Conversation.Create` → `messaging.pair_not_allowed` | 🟢 |
+| 2 | **İlişki önkoşulu:** öğretmenin o öğrenciyle yaşayan bağı olmalı; karşı taraf öğrenciyse o profilin **sahibi**, veliyse **onaylı** veli olmalı | `ConversationRelationshipPolicy` (`IStudentDirectory` + `IParentAccessDirectory`) → `messaging.relationship_required` | 🟢 |
+| 3 | **Tekillik:** aynı `(TeacherUserId, CounterpartUserId, StudentId)` için tek sohbet; "aç" çağrısı varsa mevcudu döner | `OpenConversationCommandHandler` (get-or-create) + UNIQUE indeks | 🟢 |
+| 4 | **Gönderim:** yalnız katılımcı gönderebilir | `Conversation.SendMessage` → `messaging.not_participant` | 🟢 |
+| 5 | **Engelleme:** taraflardan biri engellerse gönderim **iki taraf için de** kapanır; engeli yalnız koyan taraf kaldırır | `Conversation.CanSend` / `Block` / `Unblock` → `messaging.blocked` | 🟢 |
+| 6 | **Okundu bilgisi:** mesaj başına `ReadOnUtc`; ilk okumada sabitlenir, sonraki çağrılar değiştirmez | `Message.MarkRead` + `MarkConversationReadCommandHandler` | 🟢 |
+| 7 | **Silme:** yalnız **gönderen** ya da Admin siler; silme **yumuşaktır** (satır ve `Body` kalır, API `null` döner) | `DeleteMessageCommandHandler` + `Message.SoftDelete` | 🟢 |
+| 8 | **Hız sınırı:** kullanıcı başına dakikada **30** mesaj; aşımda `429` | `DistributedRateLimitMiddleware` `messaging` politikası (`RateLimiting:Messaging`) | 🟢 |
+| 9 | **Moderasyon:** mesaj şikayeti → M18 `AbuseReport` | — | 🔴 P12 |
+| 10 | **Bildirim:** yeni mesajda alıcıya in-app + push (tercihe saygıyla) | Notifications tüketicisi | 🟡 P10 Task 3 |
+| 11 | **Premium farkı:** ek/dosya gönderimi, geçmiş derinliği | — | 🔴 kapsam dışı (v1'de ek yok) |
+
+> **Hız sınırı neden kullanıcı başına?** Diğer politikalar istemci IP'sine göre sayar; mesaj gönderimi
+> kullanıcı kimliğine göre sayılır. IP'ye göre sayılsaydı aynı ev veya okul ağındaki iki öğrenci
+> birbirinin mesaj kotasını tüketirdi. Oturum kimliği yoksa (olmaması gerekir) kota IP'ye düşer.
 
 ---
 
@@ -283,4 +305,4 @@ Students/Parents/Matching modüllerinden:
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*

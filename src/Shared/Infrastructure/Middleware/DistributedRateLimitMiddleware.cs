@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Http;
@@ -26,7 +27,7 @@ public sealed class DistributedRateLimitMiddleware(
         if (selection is not null)
         {
             var (policyName, rule) = selection.Value;
-            var partitionKey = $"{policyName}:{ResolveClientId(context)}";
+            var partitionKey = $"{policyName}:{ResolvePartitionId(context, policyName)}";
             var allowed = await rateLimiter.TryAcquireAsync(partitionKey, rule.PermitLimit, rule.Window, context.RequestAborted);
             if (!allowed)
             {
@@ -38,7 +39,7 @@ public sealed class DistributedRateLimitMiddleware(
         await next(context);
     }
 
-    /// <summary>Yol tabanlı politika seçimi: kimlik uçları sıkı, diğer API uçları varsayılan, gerisi limitsiz.</summary>
+    /// <summary>Yol tabanlı politika seçimi: kimlik uçları sıkı, mesaj gönderimi spam'e karşı, diğer API uçları varsayılan, gerisi limitsiz.</summary>
     internal static (string PolicyName, RateLimitRule Rule)? ResolvePolicy(HttpContext context, RateLimitOptions settings)
     {
         var path = context.Request.Path;
@@ -47,12 +48,53 @@ public sealed class DistributedRateLimitMiddleware(
             return ("auth", settings.Auth);
         }
 
+        if (IsSendMessage(context))
+        {
+            return ("messaging", settings.Messaging);
+        }
+
         if (path.StartsWithSegments("/api"))
         {
             return ("default", settings.Default);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// M16-1: Yalnız <c>POST /api/messaging/conversations/{id}/messages</c> mesaj gönderimidir.
+    /// Gelen kutusu okuma ya da okundu işaretleme bu sıkı kotaya girmez.
+    /// </summary>
+    internal static bool IsSendMessage(HttpContext context)
+    {
+        if (!HttpMethods.IsPost(context.Request.Method)
+            || !context.Request.Path.StartsWithSegments("/api/messaging/conversations", out _, out var remaining))
+        {
+            return false;
+        }
+
+        // Kalan yol "/{conversationId}/messages" olmalı — üç parça: "", id, "messages".
+        var segments = remaining.Value?.Split('/', StringSplitOptions.RemoveEmptyEntries) ?? [];
+        return segments.Length == 2
+            && segments[1].Equals("messages", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Partition anahtarı: mesajlaşma kotası <b>kullanıcı</b> başınadır (aynı ağdaki kullanıcılar
+    /// birbirinin kotasını tüketmesin), diğer politikalar istemci IP'si başına.
+    /// </summary>
+    internal static string ResolvePartitionId(HttpContext context, string policyName)
+    {
+        if (policyName == "messaging")
+        {
+            var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                return userId;
+            }
+        }
+
+        return ResolveClientId(context);
     }
 
     /// <summary>Ters-proxy arkasında (Render) gerçek istemci IP'si <c>X-Forwarded-For</c>'un ilk girdisidir.</summary>
