@@ -14,6 +14,8 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/pages/register_pag
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/role_selection_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:egitim_ussu_mobile/features/membership/presentation/pages/membership_page.dart';
+import 'package:egitim_ussu_mobile/features/membership/presentation/pages/paywall_page.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_child_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_children_page.dart';
@@ -300,6 +302,16 @@ class AppRouter {
           builder: (context, state) => const TeacherProfilePage(),
         ),
         GoRoute(path: '/more', builder: (context, state) => const MorePage()),
+        // D-10/D-15 (M17): Üyelik yönetimi + paywall. `MembershipCubit` uygulama
+        // kökünde sağlanır, bu yüzden rotalar kendi provider'ını kurmaz.
+        GoRoute(
+          path: '/membership',
+          builder: (context, state) => const MembershipPage(),
+        ),
+        GoRoute(
+          path: '/membership/paywall',
+          builder: (context, state) => const PaywallPage(),
+        ),
         GoRoute(
           path: '/settings/notifications',
           builder: (context, state) => const NotificationSettingsPage(),

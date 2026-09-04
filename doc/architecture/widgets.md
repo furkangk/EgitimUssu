@@ -88,6 +88,8 @@ updated: 2026-09-04
 | ErrorState | `ErrorStateView` @ `state_views.dart` | `message, onRetry?` | errorContainer kart + "Tekrar dene" | 🟢 |
 | EmptyState | `EmptyStateView` @ `state_views.dart` | `title, subtitle` | İkon + başlık + açıklama | 🟢 |
 | SessionRequired | `SessionRequiredView` @ `session_required_view.dart` | `title?, subtitle?` | Oturum yokken sahte kullanıcı uydurmak yerine kilit ikonu + "Giriş yap" (D-17) | 🟢 |
+| PremiumLock | `PremiumLock` @ `premium_lock.dart` | `child, message?` | Premium'da `child` doğrudan; Free'de bulanık + `IgnorePointer` önizleme (`premiumLockPreviewKey`) + kilit kartı. Kararı **kökteki `MembershipCubit`** verir (K-09) — ekran kendi tier'ını hesaplamaz (D-10) | 🟢 |
+| PremiumLockCard | `PremiumLockCard` @ `premium_lock.dart` | `message, title?` | Cubit'e bağlı **değil**; sunucudan `402 *_premium_required` alan ekranlar kendi mesajıyla gösterir. "Premium'a geç" → `kPaywallRoute` (`/membership/paywall`) | 🟢 |
 
 ## 4. Önerilen Tamamlama Sırası (🔴/🟡)
 
@@ -144,6 +146,21 @@ ihtiyaç duyduğunda taşınmalıdır.
 - Slot bazlı "Online" / "Yüz yüze" anahtarları seçiliyken de **ikon + metin** taşır — renk tek başına durum göstergesi olmaz ([`accessibility.md`](accessibility.md)).
 - Renk/gölge/radius token'ları `AppColors` + `AppShadows.soft`; hata kutusu `errorSurface`/`errorBorder`/`error` semantik token'ları.
 
+### 3.4 Üyelik / paywall bileşenleri (P09, `features/membership/presentation/widgets/membership_widgets.dart`)
+
+`membership` feature'ına özeldirler; premium kilidi ise **ortak** olduğu için `shared/widgets/premium_lock.dart`'tadır (§3 tablosu).
+
+| Bileşen | API | Kural |
+|---------|-----|-------|
+| `MembershipScaffold` | `title, child` | Üyelik + paywall ekranlarının ortak kabuğu (`AppColors.background` + `AppBar`) |
+| `MembershipPanel` | `child, padding?` | Beyaz, 20 radius, `AppColors.border` kenarlıklı bölüm kartı |
+| `MembershipSectionTitle` | `text` | Bölüm başlığı |
+| `MembershipTierBadge` | `isPremium` | Free/Premium rozeti; renk `textSecondary` / `amber` |
+| `PlanCard` | `plan, canStartTrial, isBusy, onStartTrial` | Fiyat + periyot + deneme rozeti; **satın alma düğmesi `onPressed: null`** (checkout ucu P09 Task 4) |
+| `FeatureComparisonTable` | `rows` | PRD §9'dan türeyen üç sütunlu tablo; satırlar `premium_features.dart`'tan gelir ve **yalnız sunucunun uyguladığı farkları** taşır |
+
+---
+
 ### 3.3 Gelişim ve rapor grafikleri (P08, `features/progress/...` + `features/reporting/...`)
 
 İlgili feature'lara özeldirler; üçüncü bir feature aynı grafiğe ihtiyaç duyduğunda `shared/`'a taşınmalıdır.
@@ -163,4 +180,4 @@ kullanılıyor — `shared/`'a taşıma adayı.)
 
 ---
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-09-04 (P08: gelişim/rapor grafikleri) · 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*
+*Ortak Widget Kataloğu | Güncelleme: 2026-09-04 (P09: `PremiumLock` + `PremiumLockCard`) · 2026-09-04 (P08: gelişim/rapor grafikleri) · 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*

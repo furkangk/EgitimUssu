@@ -13,6 +13,8 @@ import 'package:egitim_ussu_mobile/features/dashboard/data/repositories/dashboar
 import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/data/repositories/lesson_session_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/membership/data/repositories/membership_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/membership/domain/membership_contracts.dart';
 import 'package:egitim_ussu_mobile/features/notifications/data/repositories/device_token_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
@@ -125,6 +127,9 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
     )
     ..registerLazySingleton<ProgressRepository>(
       () => ProgressRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<MembershipRepository>(
+      () => MembershipRepositoryImpl(apiClient: injector<ApiClient>()),
     )
     ..registerLazySingleton<ReportingRepository>(
       () => ReportingRepositoryImpl(apiClient: injector<ApiClient>()),

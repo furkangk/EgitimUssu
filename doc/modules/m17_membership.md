@@ -1,15 +1,24 @@
 ---
 title: "M17 — Üyelik ve Para Kazanma"
-summary: "Üyelik/gelir modülü: 4 katmanlı iskelet + SubscriptionPlan/UserSubscription/ReferralCode domain'i + membership şeması + IEntitlementDirectory (tek hak kaynağı) + plan kataloğu, ücretsiz deneme ve referans kampanyası uçları kodda (P09 Task 1-3); ödeme ve reklam hâlâ planlanan"
+summary: "Üyelik/gelir modülü: 4 katmanlı iskelet + SubscriptionPlan/UserSubscription/ReferralCode domain'i + membership şeması + IEntitlementDirectory (tek hak kaynağı) + plan kataloğu, ücretsiz deneme ve referans kampanyası uçları + mobil üyelik/paywall ekranları kodda (P09 Task 1-3 ve Task 6); ödeme ve reklam hâlâ planlanan"
 tags: [modul, membership, uyelik, planlanan, faz-5]
 status: "🟡"
 authority: code
+code_refs:
+  - src/Modules/Membership/API/MembershipModule.cs
+  - src/Modules/Membership/Application/MembershipFeatures.cs
+  - src/Modules/Membership/Domain/MembershipDomainModel.cs
+  - src/Modules/Membership/Infrastructure/EntitlementDirectory.cs
+  - src/Modules/Membership/Infrastructure/MembershipPlanSeeder.cs
+  - src/Shared/Contracts/EntitlementContract.cs
+  - mobile/lib/features/membership/presentation/cubit/membership_cubit.dart
+  - mobile/lib/shared/widgets/premium_lock.dart
 updated: 2026-09-04
 ---
 
 # 💳 Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım Dokümanı
 
-> **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🟡 İskelet + domain + entitlement + plan/kampanya uçları kodda (P09 Task 1-3, 2026-09-04)**
+> **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🟡 Domain + entitlement + plan/kampanya uçları + mobil üyelik/paywall kodda (P09 Task 1-3 ve Task 6, 2026-09-04); ödeme (Task 4/Q1) ve reklam (Task 5/Q3) yok**
 > — `src/Modules/Membership` (4 katman) + `membership` şeması + `SubscriptionPlan`/`UserSubscription`/`ReferralCode`/`ReferralRedemption`
 > aggregate'leri, `MembershipChangedDomainEvent`, **K-09 entitlement sözleşmesi** (`IEntitlementDirectory` + `GET /api/membership/me`)
 > ve **plan kataloğu + ücretsiz deneme + referans kampanyası uçları** **kodda**; Study/Students/Reporting/Parents kapıları
@@ -28,7 +37,7 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-### 🟢 Kodda olan (P09 Task 1-3, 2026-09-04)
+### 🟢 Kodda olan (P09 Task 1-3 + Task 6, 2026-09-04)
 
 - **Backend:** `src/Modules/Membership/{Domain,Application,Infrastructure,API}` — 4 csproj, `EgitimUssu.slnx`
   girdileri, `ModuleAssemblies.cs` kaydı, `MembershipModule` (`/api/membership`: `/status`, `GET /me`,
@@ -73,6 +82,20 @@ updated: 2026-09-04
     `codex/03_paket_fiyatlandirma.md` §4 lansman aralığının **alt sınırıdır** ve **hipotezdir**;
     nihai liste **Q2** ile onaylanmadan üretime çıkmaz (üretimde planlar Admin ucundan girilir).
   - 23 birim testi (`tests/Unit/TrialTests.cs`, `ReferralTests.cs`, `SubscriptionPlanTests.cs`).
+- **Mobil üyelik ekranı ve paywall (D-10 / D-15 — P09 Task 6):**
+  - `mobile/lib/features/membership/{domain,data,presentation}` + `shared/widgets/premium_lock.dart`.
+  - `MembershipCubit` **uygulama kökünde** (`app/app.dart`) tek örnektir ve oturum değişince
+    `GET /me` + `GET /plans?role=` çağırır. K-09'un mobil karşılığı: premium kararı tek yerde.
+  - `MembershipRepository`: `me()`, `listPlans(role)`, `startTrial(code)`, `cancel()`,
+    `referralCode()`, `redeemReferral(code)`. ⚠️ `checkout()` **bilinçli olarak yok** — uç Task 4'te
+    gelecek, olmayan uca istek atan metot "sessiz başarısızlık yok" ilkesini çiğnerdi.
+  - Ekranlar: `/membership` (durum, iptal, referans kodu, kod kullan) ve `/membership/paywall`
+    (rol bazlı karşılaştırma, plan kartları, deneme, kampanyalar). `/more` "Uyelik" satırı aktif;
+    profil kartındaki "Plus üye" rozeti artık gerçek üyelikten geliyor (sabit `true` sahtesi silindi).
+  - `PremiumLock` / `PremiumLockCard` sunucunun **gerçekten uyguladığı** kapıların önünde:
+    hedef net alanı (`study.premium_required`) ve PDF rapor kartı (`reporting.premium_required`).
+  - 24 mobil test (`membership_cubit_test.dart` 12, `premium_lock_test.dart` 4,
+    `membership_pages_test.dart` 8).
 - ⚠️ **Geçiş köprüsü (P12'de silinecek):** abonelik kaydı yokken eski profil alanları
   (`StudentProfile.MembershipTier`, `ParentProfile.MembershipTier`) hâlâ okunur — `IMembershipDirectory`
   artık **yalnız** bu köprünün sözleşmesidir (Students + Parents uygular, tek tüketicisi
@@ -89,13 +112,16 @@ updated: 2026-09-04
   taze hesaplanıyor, tüketici-tarafı önbellek/tazeleme yok (Task 4).
 - **Uçlar:** ücretli abonelik **başlatma** (ödeme jetonuyla) — deneme/iptal/referans kodda,
   satın alma Task 4'te.
-- **Mobil:** abonelik/paywall/reklam feature'ı **yok** (Task 6).
+- **Mobil:** reklam yerleşimi (`AdSlot`) **yok** (Task 5 — Q3 bloke). Üyelik ekranı ve paywall
+  Task 6'da geldi (yukarı bak); mobilde eksik kalan tek şey **satın alma akışı** (Task 4).
 - **Ödeme:** Herhangi bir ödeme sağlayıcısı entegrasyonu (iyzico vb.) **yok** (Task 4 — **Q1 bloke**).
 - **Reklam:** `ad-placements` ucu **yok** (Task 5 — **Q3 bloke**).
 - **Kısıtlama uygulaması (kısmen):** Kapılar tek kaynağa bağlandı (yukarı), ama uygulanan kısıt kümesi
   hâlâ dar: Free geçmiş 30 güne kısılı + hedef net/puan Premium (`study.premium_required` → 402),
-  öğretmen öğrenci limiti 5, PDF raporu Premium (402). PRD §9'daki tam özellik matrisi (reklam,
-  mesajlaşma limitleri, profil öne çıkarma) hâlâ uygulanmadı.
+  öğretmen öğrenci limiti 5, PDF raporu Premium (402), veli zengin bildirimleri. PRD §9'daki tam
+  özellik matrisi (reklam, mesajlaşma limitleri, profil öne çıkarma, streak/motivasyon) hâlâ
+  uygulanmadı. **Bu yüzden mobil paywall tablosu PRD §9'un tamamını göstermez**: uygulanmayan
+  satırlar ayrı bir "yakında" bölümünde durur (bkz. [`../pages/paywall.md`](../pages/paywall.md) §2).
 
 > ⚠️ §2'den itibaren içerik **önerilen / planlanan**dır; kodda olan kısım yukarıda §1'de listelenmiştir.
 > §2.1/§2.2'deki alan adları ile kodun **birebir aynı olmadığına** dikkat: kodda `Tier` doğrudan
@@ -350,15 +376,19 @@ POST /webhooks/payment (imza doğrulanır)
 
 ---
 
-## 6. Mobil Ekranlar (Planlanan)
+## 6. Mobil Ekranlar
 
-`mobile/lib/features/membership/`:
+`mobile/lib/features/membership/` — **P09 Task 6'da yazıldı** (D-10/D-15).
+Ayrıntı: [`../pages/membership.md`](../pages/membership.md) · [`../pages/paywall.md`](../pages/paywall.md).
 
-- **paywall / upgrade** — rol bazlı premium özellik vitrini (PRD §9 tablolarından), fiyat, "ilk ay ücretsiz" rozeti, satın al.
-- **subscription-manage** — mevcut plan, dönem bitişi, otomatik yenileme aç/kapa, iptal.
-- **referral-invite** — kullanıcının davet kodu/linki, paylaş, "arkadaşını getir → 1 ay ücretsiz" durumu.
-- **redeem-code** — kampanya/referans kodu girişi (kayıt akışında da).
-- **ad-slot widget** — free kullanıcıda banner/native reklam (premium'da gizli) — `AdPlacement` konfigine göre.
+| Ekran / bileşen | Rota | Durum |
+|-----------------|------|-------|
+| **Paywall** — rol bazlı karşılaştırma, plan kartları, "ilk ay ücretsiz" rozeti, kampanyalar | `/membership/paywall` | 🟡 **kodda** — satın alma düğmesi pasif (checkout ucu Task 4) |
+| **Üyelik yönetimi** — mevcut plan, dönem bitişi, iptal | `/membership` | 🟡 **kodda** — otomatik yenileme anahtarı yok (`AutoRenew` ne dönülüyor ne değiştirilebiliyor) |
+| **Referans** — kod, kopyala, kaç kişi kullandı | `/membership` içinde bölüm | 🟢 **kodda** |
+| **Kod kullan** — referans/kampanya kodu girişi | `/membership` içinde bölüm | 🟢 **kodda** (kayıt akışına henüz bağlı değil) |
+| **`PremiumLock` / `PremiumLockCard`** — premium kilidi + paywall köprüsü | `shared/widgets/premium_lock.dart` | 🟢 **kodda** |
+| **`AdSlot`** — free kullanıcıda banner reklam | — | 🔴 **yok** (Task 5, Q3 bloke) |
 
 > Premium vitrini ve reklam dışı yüzeyler kurumsal renk `0xFF082B4F` ile. Reklam SDK entegrasyonu (örn. AdMob) istemci tarafındadır.
 
@@ -392,7 +422,7 @@ POST /webhooks/payment (imza doğrulanır)
 6. **Yenileme/expire BackgroundService.**
 7. **Ödeme sağlayıcı entegrasyonu (Faz 5.1)** — store abonelikleri + imzalı webhook; backend kart verisi tutmaz.
 8. **Reklam politikası + mobil SDK** — `AdPlacement` + istemci reklam gösterimi (premium gizli).
-9. **Mobil paywall/abonelik/referans/reklam ekranları.**
+9. 🟡 **Mobil paywall/abonelik/referans ekranları** (P09 Task 6) — üyelik ekranı, paywall, referans akışları ve `PremiumLock` **kodda**; satın alma (Task 4) ve reklam yerleşimi (Task 5) kaldı.
 10. 🟡 **Admin paneli** — plan CRUD uçları (`POST/PUT /plans`) **kodda** (Task 3); kampanya yönetimi ve gelir/dönüşüm raporu (M14 ile) kaldı.
 11. **KVKK + mağaza uyumu** — abonelik şeffaflığı, iptal kolaylığı, veri saklama.
 

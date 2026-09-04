@@ -1,6 +1,7 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/reporting/presentation/cubit/student_report_cubit.dart';
 import 'package:egitim_ussu_mobile/features/reporting/presentation/widgets/report_charts.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/premium_lock.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -129,32 +130,11 @@ class _ReportActionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           if (locked) ...<Widget>[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.amber.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.workspace_premium_outlined,
-                    color: AppColors.amber,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      state.errorMessage ??
-                          'PDF rapor premium üyelik gerektirir.',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            // P09 Task 6: Kilit artık paywall'a çıkıyor — kullanıcı sebebi
+            // görüyor ve yapabileceği bir şey buluyor (ortak `PremiumLockCard`).
+            PremiumLockCard(
+              message:
+                  state.errorMessage ?? 'PDF rapor premium üyelik gerektirir.',
             ),
             const SizedBox(height: 12),
           ],

@@ -1,6 +1,7 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/membership_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_state.dart';
@@ -24,6 +25,11 @@ class _MorePageState extends State<MorePage> {
         ? session!.fullName
         : 'Ogretmen';
     final userId = session?.userId ?? '';
+    // D-15: Rozet artık gerçek üyelikten gelir (`GET /api/membership/me`),
+    // P05'teki sabit `true` sahtesi kaldırıldı.
+    final isPremium = context.select(
+      (MembershipCubit cubit) => cubit.state.isPremium,
+    );
 
     return BlocProvider<TeacherProfileCubit>(
       create: (_) => TeacherProfileCubit.create()..load(userId),
@@ -48,7 +54,7 @@ class _MorePageState extends State<MorePage> {
                     profile: profile,
                     rating: 4.8,
                     reviewCount: 126,
-                    isPlusMember: true,
+                    isPlusMember: isPremium,
                     onTap: () => context.push('/teacher-profile'),
                   ),
                   const SizedBox(height: 22),
@@ -70,15 +76,17 @@ class _MorePageState extends State<MorePage> {
                         onTap: () => context.push('/account-info'),
                       ),
                       _DividerLine(),
-                      // D-15: Gercek uyelik ucu yok (P09). Sahte "Plus" karti kaldirildi;
-                      // satir "Yakinda" etiketiyle pasif duruyor — yaniltici veri gosterilmiyor.
+                      // D-10/D-15: P09'da gercek uyelik uclari geldi (M17-1/M17-3);
+                      // satir artik aktif ve `GET /api/membership/me`den beslenen
+                      // uyelik ekranina gidiyor.
                       _MenuTile(
                         icon: Icons.workspace_premium_outlined,
                         title: 'Uyelik',
-                        subtitle: 'Paket ve fatura bilgileri',
+                        subtitle: isPremium
+                            ? 'Premium plan, donem sonu ve referans kodu'
+                            : 'Plani gor, ucretsiz dene ve referans kodunu kullan',
                         color: AppColors.amber,
-                        enabled: false,
-                        badge: 'Yakinda',
+                        onTap: () => context.push('/membership'),
                       ),
                       _DividerLine(),
                       // D-16: P08'de gercek rapor uclari geldi (M14-1/M14-5);
@@ -100,7 +108,8 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.shield_outlined,
                         title: 'Gizlilik ve guvenlik',
-                        subtitle: 'Calisma verisi paylasimi ve oturum politikasi',
+                        subtitle:
+                            'Calisma verisi paylasimi ve oturum politikasi',
                         color: AppColors.accentBlue,
                         onTap: () => context.push('/settings/privacy'),
                       ),
@@ -347,7 +356,6 @@ class _MorePageState extends State<MorePage> {
       },
     );
   }
-
 }
 
 class _TopBar extends StatelessWidget {
@@ -583,8 +591,6 @@ class _MenuTile extends StatelessWidget {
     required this.color,
     this.onTap,
     this.titleColor,
-    this.enabled = true,
-    this.badge,
   });
 
   final IconData icon;
@@ -594,72 +600,44 @@ class _MenuTile extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? titleColor;
 
-  /// D-15/D-16: Karsiligi henuz olmayan satir pasif gosterilir (sahte veri yerine).
-  final bool enabled;
-
-  /// Pasif satirin sagindaki kucuk etiket (or. "Yakinda").
-  final String? badge;
-
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.55,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-          child: Row(
-            children: <Widget>[
-              _TintedIcon(icon: icon, color: color, size: 42),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: titleColor ?? AppColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+        child: Row(
+          children: <Widget>[
+            _TintedIcon(icon: icon, color: color, size: 42),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: titleColor ?? AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.tabBackground,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    badge!,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                )
-              else
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textSecondary,
-                ),
-            ],
-          ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
+            ),
+          ],
         ),
       ),
     );

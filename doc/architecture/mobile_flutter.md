@@ -449,6 +449,18 @@ bugünkü çalışma süresi (koyu lacivert büyük kart + progress/circular), h
 **Amaç:** Ders/ödev/not/ödeme hatırlatmaları. **UI:** segment (Tümü/Okunmamış/Önemli), bildirim kartı (ikon+başlık+açıklama+tarih).
 Tipler: Ders mor/pembe · Ödev yeşil · Not mavi · Ödeme kırmızı.
 
+### 13.19b Üyelik ve Paywall (P09 Task 6)
+**Amaç:** Üyelik durumu, iptal, referans kampanyası ve premium vitrini.
+**UI:** `/membership` — seviye rozeti + dönem sonu kartı, referans kodu (kopyala) ve kod kullanma alanı;
+`/membership/paywall` — rol bazlı Free/Premium tablosu, plan kartları, kampanyalar, "yakında" listesi.
+→ `pages/membership.md`, `pages/paywall.md`
+
+**Kural (K-09'un mobil karşılığı):** premium kararı **tek** kaynaktan gelir — `MembershipCubit`
+uygulama kökünde (`app/app.dart`) `AuthCubit`/`NotificationsCubit` ile birlikte sağlanır ve oturum
+değişince tazelenir. Ekranlar kendi tier alanını taşımaz; kilit için ortak `PremiumLock` /
+`PremiumLockCard` kullanılır (bkz. [`widgets.md`](widgets.md) §3). Kilit yalnız **sunucunun gerçekten
+uyguladığı** kapıların önüne konur; uygulanmayan bir kısıtı istemcide taklit etmek yasaktır.
+
 ### 13.20 Profil
 **Amaç:** Hesap/güvenlik/bildirim/yardım/çıkış. **UI:** avatar+ad+rol, menü (Kişisel Bilgiler, Şifre Değiştir,
 Bildirim Ayarları, Gizlilik, Yardım & Destek, Çıkış Yap — kırmızı), bottom nav. → `pages/more.md`, `pages/account_info.md`
@@ -497,6 +509,7 @@ her test dosyasındaki kopya sessizce eskiyor ve **testler derlenmeyip "atlanıy
 |-------|-------|----------------|
 | `FakeAuthRepository` | `test/helpers/fake_auth_repository.dart` | `session` (restore/login/register dönüşü), `hangOnRestore` (restore hiç tamamlanmaz), `loginCallCount` / `logoutCount` sayaçları, `FakeAuthRepository.defaultSession(...)` |
 | `FakeSchedulingRepository` | `test/helpers/fake_scheduling_repository.dart` | `teacherLessons`, `studentLessons`, `studentCalendar`; yazma metotları `UnimplementedError` atar |
+| `FakeMembershipRepository` | `test/helpers/fake_membership_repository.dart` | `snapshot`, `plans`, `referral`; **çağrı başına ayrı hata alanı** (`meError`/`trialError`/…) ve komut sonrası durum (`afterTrial`/`afterCancel`/`afterRedeem`) + çağrı kayıtları |
 
 Kural: **arayüz imzası değişince yalnız `test/helpers/` altındaki sahte güncellenir.** Yeni bir repository için
 ikinci kez yerel sahte yazmak yerine buraya bir `Fake*` eklenir.
@@ -519,4 +532,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

@@ -1,6 +1,6 @@
 ---
 title: "Sayfa (Ekran) Dokümanları — İndeks"
-summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/Progress/Reporting/More/Notifications/Parent)"
+summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/Progress/Reporting/Membership/More/Notifications/Parent)"
 tags: [sayfa-index, indeks, mobil]
 authority: derived
 updated: 2026-09-04
@@ -11,7 +11,7 @@ updated: 2026-09-04
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-09-04 (P08 Task 5: `progress_overview` + `teacher_reports` sayfa md'leri eklendi; `/student/reports` ve `/teacher/reports` rotaları; `/more` "Raporlar" aktif; veli çocuk detayına gelişim grafikleri) · 2026-09-03 (P05/D-14..D-17: `/settings/notifications` + `/settings/privacy` eklendi; `/more` sahte kartlardan temizlendi; veli ekranlarındaki `mock-parent-user` sentinel'i kaldırıldı) · 2026-09-03 (P04/M06-1: ders detayına "Kaynaklar" sekmesi — 🔴 → 🟡) · 2026-09-03 (P03/D-11: `/notifications` bildirim merkezine dönüştü — sayfa md'si eklendi, 🟡 → 🟢) · 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
+> **Son güncelleme:** 2026-09-04 (P09 Task 6: `membership` + `paywall` sayfa md'leri eklendi; `/membership` ve `/membership/paywall` rotaları; `/more` "Uyelik" aktif — D-10/D-15) · 2026-09-04 (P08 Task 5: `progress_overview` + `teacher_reports` sayfa md'leri eklendi; `/student/reports` ve `/teacher/reports` rotaları; `/more` "Raporlar" aktif; veli çocuk detayına gelişim grafikleri) · 2026-09-03 (P05/D-14..D-17: `/settings/notifications` + `/settings/privacy` eklendi; `/more` sahte kartlardan temizlendi; veli ekranlarındaki `mock-parent-user` sentinel'i kaldırıldı) · 2026-09-03 (P04/M06-1: ders detayına "Kaynaklar" sekmesi — 🔴 → 🟡) · 2026-09-03 (P03/D-11: `/notifications` bildirim merkezine dönüştü — sayfa md'si eklendi, 🟡 → 🟢) · 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -98,7 +98,9 @@ updated: 2026-09-04
 ## More / Settings
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Diğer/Ayarlar | `/more` | [more](more.md) | 🟢 (sahte sheet'ler kaldırıldı — D-14/D-15; **"Raporlar" satırı P08'de aktifleşti** → `/teacher/reports`, D-16 kapandı) |
+| Diğer/Ayarlar | `/more` | [more](more.md) | 🟢 (sahte sheet'ler kaldırıldı — D-14/D-15; **"Raporlar" P08'de**, **"Uyelik" P09 Task 6'da aktifleşti** → `/membership`; "Plus üye" rozeti artık gerçek üyelikten gelir) |
+| Üyelik | `/membership` | [membership](membership.md) | 🟢 |
+| Paywall | `/membership/paywall` | [paywall](paywall.md) | 🟡 (katalog + deneme gerçek; satın alma P09 Task 4'e bloke) |
 | Bildirim ayarları | `/settings/notifications` | [settings_notifications](settings_notifications.md) | 🟢 |
 | Gizlilik ve güvenlik | `/settings/privacy` | [settings_privacy](settings_privacy.md) | 🟢 |
 | Hesap bilgileri | `/account-info` (+ `/account-info-preview` alias) | [account_info](account_info.md) | 🔴 |

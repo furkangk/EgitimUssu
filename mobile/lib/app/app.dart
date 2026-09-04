@@ -6,6 +6,8 @@ import 'package:egitim_ussu_mobile/core/routing/app_router.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_theme.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
+import 'package:egitim_ussu_mobile/features/membership/domain/membership_contracts.dart';
+import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/membership_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,12 +20,16 @@ class EgitimUssuApp extends StatefulWidget {
     this.authCubit,
     this.appRouter,
     this.notificationsCubit,
+    this.membershipCubit,
     this.pushTaps,
   });
 
   final AuthCubit? authCubit;
   final AppRouter? appRouter;
   final NotificationsCubit? notificationsCubit;
+
+  /// D-10: Premium kilidinin tek doğruluk kaynağı; uygulama kökünde tek örnek yaşar.
+  final MembershipCubit? membershipCubit;
 
   /// A-04: bildirime dokunma akışı. Verilmezse DI'daki [PushService] kullanılır
   /// (testlerde Firebase'e bağlanmamak için dışarıdan verilebilir).
@@ -37,6 +43,7 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
   late final AuthCubit _authCubit;
   late final AppRouter _appRouter;
   late final NotificationsCubit _notificationsCubit;
+  late final MembershipCubit _membershipCubit;
   StreamSubscription<PushTap>? _pushTapSubscription;
 
   @override
@@ -46,6 +53,7 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
     _appRouter = widget.appRouter ?? AppRouter(authCubit: _authCubit);
     _notificationsCubit =
         widget.notificationsCubit ?? NotificationsCubit.create();
+    _membershipCubit = widget.membershipCubit ?? MembershipCubit.create();
     _authCubit.restoreSession();
     _listenToPushTaps();
   }
@@ -78,6 +86,9 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
     if (widget.notificationsCubit == null) {
       _notificationsCubit.close();
     }
+    if (widget.membershipCubit == null) {
+      _membershipCubit.close();
+    }
     super.dispose();
   }
 
@@ -87,14 +98,18 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
       providers: <BlocProvider<dynamic>>[
         BlocProvider<AuthCubit>.value(value: _authCubit),
         BlocProvider<NotificationsCubit>.value(value: _notificationsCubit),
+        BlocProvider<MembershipCubit>.value(value: _membershipCubit),
       ],
       child: BlocListener<AuthCubit, AuthState>(
         listenWhen: (previous, current) =>
             previous.session?.userId != current.session?.userId,
         listener: (context, state) {
-          final userId = state.session?.userId;
-          if (userId != null) {
-            _notificationsCubit.load(userId);
+          final session = state.session;
+          if (session != null) {
+            _notificationsCubit.load(session.userId);
+            // D-10: Oturum değişince üyelik ve rolün plan kataloğu tazelenir;
+            // `PremiumLock` kararını buradan okur.
+            _membershipCubit.load(role: membershipRoleFor(session.roles));
           }
         },
         child: MaterialApp.router(

@@ -265,7 +265,9 @@ git commit -m "feat(membership): plan yonetimi + deneme + referans kampanyasi (M
   Run: `dotnet add src/Modules/Membership/Infrastructure/EgitimUssu.Modules.Membership.Infrastructure.csproj package Iyzipay`
   Sırlar: `Payment__ApiKey`, `Payment__SecretKey`, `Payment__BaseUrl` (env; `appsettings.json`'da boş).
 - [ ] **Step 4: Webhook handler'ı yaz** — `ProviderEventId` daha önce işlendiyse `200 OK` döner ve **hiçbir şey yapmaz** (idempotent). Durum eşlemesi: ödeme başarılı → `Activate`/`Renew`; başarısız → `MarkPastDue`; iptal → `Cancel`.
-- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari + **602 birim** + **39 integration**, Başarısız 0, Atlanan 0 (öncesi 579 birim; +23) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata
+- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+  ⚠️ **Plan düzeltmesi (2026-09-04, P09 Task 6 sırasında):** bu kutu yanlışlıkla işaretliydi ve satırın
+  içeriği Task 3 Step 5'in kopyasıydı. Task 4 hiç başlamadı (Q1 bloke); kutu geri alındı.
 - [ ] **Step 6: Sandbox'ta uçtan uca dene** — iyzico sandbox kartıyla checkout → callback → abonelik `Active` → `GET /api/membership/me` premium döner.
 - [ ] **Step 7: Doküman + commit**
 
@@ -311,28 +313,64 @@ git commit -m "feat(membership): reklam yerlesimleri, premium'da kapali (M17-2)"
 ### Task 6: Mobil — üyelik ekranı ve paywall (D-10/D-15)
 
 **Files:**
-- Create: `mobile/lib/features/membership/**` (data/domain/presentation)
-- Modify: `mobile/lib/features/more/presentation/pages/more_page.dart` ("Üyelik" satırı aktif — P05'te pasifleştirilmişti)
+- Create: `mobile/lib/features/membership/**` — `domain/membership_contracts.dart`, `domain/premium_features.dart` *(plan dışı: paywall karşılaştırma tablosunun verisi)*, `data/repositories/membership_repository_impl.dart`, `presentation/cubit/membership_cubit.dart`, `presentation/pages/{membership_page,paywall_page}.dart`, `presentation/widgets/membership_widgets.dart`
+- Modify: `mobile/lib/features/more/presentation/pages/more_page.dart` ("Üyelik" satırı aktif + "Plus üye" rozeti gerçek üyelikten; kullanılmaz kalan `_MenuTile.enabled`/`.badge` silindi)
 - Modify: `mobile/lib/core/routing/app_router.dart` (`/membership`, `/membership/paywall`)
-- Create: `mobile/lib/shared/widgets/premium_lock.dart`
-- Test: `mobile/test/features/membership/membership_cubit_test.dart`, `mobile/test/shared/premium_lock_test.dart`
+- Create: `mobile/lib/shared/widgets/premium_lock.dart` (`PremiumLock` + `PremiumLockCard` + `kPaywallRoute`)
+- Modify: `mobile/lib/core/di/injector.dart` *(plan dışı, zorunlu: `MembershipRepository` kaydı)*
+- Modify: `mobile/lib/app/app.dart` *(plan dışı, zorunlu: `MembershipCubit` uygulama kökünde tek örnek — `PremiumLock` kararını buradan okur; oturum değişince `load(role:)`)*
+- Modify: `mobile/lib/features/study/presentation/pages/study_goals_page.dart` + `mobile/lib/features/reporting/presentation/pages/student_analysis_page.dart` *(plan dışı, Step 6'nın gereği: kilidin uygulanacağı iki gerçek sunucu kapısı)*
+- Test: `mobile/test/features/membership/membership_cubit_test.dart`, `mobile/test/features/membership/membership_pages_test.dart` *(plan dışı: Step 4-5 ekranlarının sözleşmesi)*, `mobile/test/shared/premium_lock_test.dart`, `mobile/test/helpers/fake_membership_repository.dart` *(plan dışı, zorunlu — §17.1 "sahteler tek noktada")*, `mobile/test/widget_test.dart` *(plan dışı, zorunlu: kök cubit testte DI'ya gitmemeli)*
 - Create: `doc/pages/membership.md`, `doc/pages/paywall.md`
 
 **Interfaces:**
-- `MembershipRepository`: `me()`, `plans(role)`, `startTrial()`, `checkout(planCode)`, `cancel()`, `referralCode()`, `redeemReferral(code)`.
-- `PremiumLock` widget'ı: `child` premium ise gösterilir; değilse bulanık/kilitli görünüm + "Premium'a geç" → `/membership/paywall`.
+- `MembershipRepository`: `me()`, `listPlans(role)`, `startTrial(planCode)`, `cancel()`, `referralCode()`, `redeemReferral(code)`.
+  - ⚠️ **Plan düzeltmesi — `checkout(planCode)` YAZILMADI.** `POST /api/membership/checkout` ucu yok
+    (Task 4, Q1 bloke). Var olmayan bir uca istek atan metot "sessiz başarısızlık yok" ilkesini
+    çiğnerdi; satın alma düğmesi `onPressed: null` ile "Satın al (yakında)" der.
+  - ⚠️ Metot adı `plans(role)` değil **`listPlans({role})`**: `plans` aynı zamanda durumun alan adı,
+    ikisi tek sınıfta çakışıyordu.
+- `PremiumLock` widget'ı: premium ise `child`; değilse bulanık + `IgnorePointer` önizleme (`premiumLockPreviewKey`) + `PremiumLockCard`. Kararı **kökteki `MembershipCubit`** verir (K-09'un mobil karşılığı).
+- `PremiumLockCard(message, title?)`: cubit'e bağlı **değil** — sunucudan `402 *_premium_required` alan ekranlar kendi mesajıyla gösterir.
+- `membershipRoleFor(roles)`: rol filtresi; öncelik `AppRouter`'ın rol yönlendirmesiyle birebir (veli > yalnız-öğrenci > öğretmen).
 
-- [ ] **Step 1: Cubit ve widget testlerini yaz (kırmızı)** — premium kullanıcıda `PremiumLock` içeriği doğrudan gösteriyor; free'de kilit + yönlendirme; `startTrial` sonrası durum premium'a dönüyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/membership test/shared/premium_lock_test.dart`
-- [ ] **Step 3: Repository + cubit'i yaz.**
-- [ ] **Step 4: Üyelik ekranı** — mevcut plan, dönem sonu, otomatik yenileme anahtarı, iptal, referans kodu paylaşma.
-- [ ] **Step 5: Paywall ekranı** — PRD §9 tablosundan rol bazlı özellik karşılaştırması, plan kartları, "İlk ay ücretsiz" rozeti, checkout yönlendirmesi (harici tarayıcı + geri dönüş derin bağlantısı `egitimussu://membership/callback`).
-- [ ] **Step 6: `PremiumLock`'u premium özelliklere uygula** — PDF rapor (P08), detaylı analiz, veli zengin bildirim, öğrenci geçmiş/streak (PRD §9.1–9.3 tablosu esas alınır).
-- [ ] **Step 7: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 1: Cubit ve widget testlerini yaz (kırmızı)** — 12 cubit + 4 widget testi
+- [x] **Step 2: Kırmızı gör** — Run: `flutter test test/features/membership test/shared/premium_lock_test.dart` → `Error when reading 'lib/features/membership/domain/membership_contracts.dart': No such file or directory` + `Type 'MembershipRepository' not found` (+ `MembershipSnapshot`/`MembershipPlan`/`ReferralCode`)
+- [x] **Step 3: Repository + cubit'i yaz.** Fail-safe: `/me` okunamazsa durum Free kalır **ama** `status = failure` olur (sessizce yutulmaz). Komut reddedilirse (409/400) mevcut üyelik durumu **korunur**, yalnız hata mesajı eklenir.
+- [x] **Step 4: Üyelik ekranı** — mevcut plan, dönem sonu, iptal (onay diyaloğu), referans kodu paylaşma (`Clipboard`, yeni paket **yok**) + kod kullanma.
+  ⚠️ **Plan düzeltmesi — "otomatik yenileme anahtarı" yapılmadı:** `UserSubscription.AutoRenew` domainde
+  var ama `GET /me` onu **döndürmüyor** ve değiştiren bir uç **yok**. Anahtar koymak, hiçbir yere
+  yazmayan bir toggle olurdu (P05'te temizlenen sahte anahtarların tekrarı). Yerine gerçek olan
+  `status` gösteriliyor: "İptal edildi — erişimin \<tarih\> tarihine kadar sürüyor".
+  ⚠️ İptal düğmesi **yalnız yürüyen abonelikte** çıkar; yoksa sunucudan `404 subscription_not_found` gelirdi.
+- [x] **Step 5: Paywall ekranı** — rol bazlı karşılaştırma, plan kartları, "İlk ay ücretsiz" rozeti, kampanya bölümü.
+  ⚠️ **Plan düzeltmesi — checkout yönlendirmesi ve `egitimussu://membership/callback` derin bağlantısı
+  yapılmadı:** çağrılacak uç yok (Task 4). Geri dönülecek bir akış olmadan derin bağlantı kaydetmek
+  ölü kod olurdu; ikisi de Task 4'e taşındı.
+  ⚠️ **Plan düzeltmesi — karşılaştırma tablosu PRD §9'un tamamı değil.** Tablo yalnız sunucunun
+  **gerçekten uyguladığı** farkları taşır (`MaxStudents`, `PdfReports`, `TargetTracking`,
+  `HistoryWindowDays`, `RichNotifications`). PRD §9'un kalan satırları (reklamsız kullanım, gelir/boş
+  zaman analizi, streak, motivasyon, profil öne çıkarma) kodda **kısıtlanmıyor**; bunları "Premium'a
+  özel" diye satmak, kullanıcıya bedava kullandığı şeyi satmak olurdu. Ayrı bir **"Yakında Premium
+  kapsamında"** bölümünde duruyorlar ve kapı yazıldıkça tabloya taşınacaklar. İki yerde PRD'den
+  **kod gerçeği yönünde** sapıldı: öğrenci geçmişi Free'de "yok" değil **son 30 gün**; öğretmen limiti
+  "5–10" değil, canlı `entitlement.maxStudents`.
+- [x] **Step 6: `PremiumLock`'u premium özelliklere uygula** — hedef net alanı (`study.premium_required`) ve PDF rapor kartı (`reporting.premium_required`); ikisi de artık paywall'a çıkıyor.
+  ⚠️ **Plan düzeltmesi — "veli zengin bildirim" ve "öğrenci geçmiş/streak" kilitlenmedi.** Veli
+  bildirimi sunucuda **sessizce filtrelenir** (istemciye kilitlenecek bir yüzey dönmez); geçmiş
+  penceresi sessizce kırpılır; streak ise kodda **hiç kısıtlanmıyor** (`MembershipGate` yorumu: "Free =
+  streak tam"). Uygulanmayan bir kısıtı istemcide taklit etmek, olmayan bir kuralı uydurmak olurdu.
+- [x] **Step 7: Testler** — Run: `cd mobile && flutter test` → **170 başarılı, başarısız 0** (öncesi 146; +24) · `flutter analyze` → **4 info** (baseline ile aynı, yeni uyarı yok) · Backend regresyonu: `dotnet test EgitimUssu.slnx` → 4 mimari + 602 birim + 39 integration, Başarısız 0
+- [x] **Step 8: Doküman + commit**
+
+`doc/pages/membership.md` + `doc/pages/paywall.md` (yeni), `doc/pages/00_pages_index.md`, `doc/pages/more.md`,
+`doc/architecture/widgets.md` (§3 `PremiumLock`/`PremiumLockCard` + §3.4 üyelik bileşenleri),
+`doc/architecture/mobile_flutter.md` (§13.19b + §17.1), `doc/modules/m17_membership.md` (§1 mobil bloğu + §6 yeniden yazıldı + §8),
+`doc/modules/00_genel_bakis.md`, `doc/INDEX.md`, `doc/roles/{ogretmen,ogrenci,veli}.md`,
+`doc/denetim/2026-09-02_eksik_analizi.md` (D-15 ✅ tam, D-10 ✅ kısmi).
 
 ```bash
-git add mobile doc
+git add mobile doc docs
 git commit -m "feat(mobile): uyelik ekrani + paywall + premium kilitleri (D-10/M17-5)"
 ```
 
