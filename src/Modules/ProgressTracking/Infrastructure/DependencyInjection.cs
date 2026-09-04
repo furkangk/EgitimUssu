@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IProgressRepository, ProgressRepository>();
         services.AddScoped<ProgressOwnershipGuard>();
         services.AddScoped<MasteryService>();
+        services.AddScoped<ProgressOverviewReader>();
 
         // Öğrenci-kapsamlı istekleri koruyan kapalı-generik sahiplik yetkilendiricileri
         AddStudentScopedQueryAuthorizer<ListTopicMasteryQuery>(services);
@@ -27,6 +28,10 @@ public static class DependencyInjection
         AddStudentScopedCommandAuthorizer<CreateTopicGoalCommand>(services);
         services.AddScoped<ICommandAuthorizer<CancelTopicGoalCommand>, CancelTopicGoalAuthorizer>();
 
+        // M10-2: öğretmen/veli görünümü — bağ doğrulaması sahiplikten ayrıdır (bkz. ProgressTrackingPolicies)
+        services.AddScoped<IQueryAuthorizer<GetTeacherStudentProgressOverviewQuery>, TeacherStudentProgressAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetParentChildProgressOverviewQuery>, ParentChildProgressAuthorizer>();
+
         // Sorgu / komut handler'ları
         services.AddScoped<IQueryHandler<ListTopicMasteryQuery, Result<IReadOnlyCollection<TopicMasteryResponse>>>, ListTopicMasteryQueryHandler>();
         services.AddScoped<IQueryHandler<ListWeakSpotsQuery, Result<IReadOnlyCollection<TopicMasteryResponse>>>, ListWeakSpotsQueryHandler>();
@@ -34,12 +39,17 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetProgressOverviewQuery, Result<ProgressOverviewResponse>>, GetProgressOverviewQueryHandler>();
         services.AddScoped<IQueryHandler<ListTopicGoalsQuery, Result<IReadOnlyCollection<TopicGoalResponse>>>, ListTopicGoalsQueryHandler>();
         services.AddScoped<IQueryHandler<ListProgressSnapshotsQuery, Result<IReadOnlyCollection<ProgressSnapshotResponse>>>, ListProgressSnapshotsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetTeacherStudentProgressOverviewQuery, Result<ProgressOverviewResponse>>, GetTeacherStudentProgressOverviewQueryHandler>();
+        services.AddScoped<IQueryHandler<GetParentChildProgressOverviewQuery, Result<ProgressOverviewResponse>>, GetParentChildProgressOverviewQueryHandler>();
         services.AddScoped<ICommandHandler<CreateTopicGoalCommand, Result<TopicGoalResponse>>, CreateTopicGoalCommandHandler>();
         services.AddScoped<ICommandHandler<CancelTopicGoalCommand, Result<bool>>, CancelTopicGoalCommandHandler>();
 
         // M08 çalışma/test olaylarını tüketen (idempotent) gelişim besleme handler'ları
         services.AddScoped<IIntegrationEventHandler, StudySessionCompletedProgressHandler>();
         services.AddScoped<IIntegrationEventHandler, TestResultRecordedProgressHandler>();
+
+        // M10-4: tamamlanan ders → konuya katılım katkısı
+        services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedProgressHandler>();
 
         // M10-1: kapanmış hafta/ay için gelişim anlık görüntüsü üreten günlük tur
         services.AddScoped<IProgressSnapshotProcessor, ProgressSnapshotProcessor>();

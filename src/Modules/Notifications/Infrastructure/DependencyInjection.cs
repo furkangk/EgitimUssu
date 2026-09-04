@@ -42,6 +42,7 @@ public static class DependencyInjection
         // M06-3: son teslim uyarilari → ogrenciye (kacirilan odev ayrica Premium veliye).
         services.AddScoped<IIntegrationEventHandler, AssignmentDueSoonNotificationHandler>();
         services.AddScoped<IIntegrationEventHandler, AssignmentMissedNotificationHandler>();
+        services.AddScoped<IIntegrationEventHandler, TopicGoalAchievedNotificationHandler>();
         services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
         services.AddHostedService<NotificationDispatcher>();
         services.AddHostedService<ParentWeeklySummaryService>();

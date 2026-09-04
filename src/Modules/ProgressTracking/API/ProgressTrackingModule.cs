@@ -38,6 +38,10 @@ public sealed class ProgressTrackingModule : ModuleDefinition
         secure.MapGet("/students/{studentId:guid}/strengths", ListStrengthsAsync).WithSummary("Güçlü konuları listeler");
         secure.MapGet("/students/{studentId:guid}/overview", GetOverviewAsync).WithSummary("Gelişim genel bakışını getirir");
         secure.MapGet("/students/{studentId:guid}/snapshots", ListSnapshotsAsync).WithSummary("Gelişim anlık görüntülerini (haftalık/aylık) listeler");
+        secure.MapGet("/teachers/{teacherUserId:guid}/students/{studentId:guid}/overview", GetTeacherStudentOverviewAsync)
+            .WithSummary("Öğretmenin bağlı olduğu öğrencinin gelişim özetini getirir (gizlilik filtreli)");
+        secure.MapGet("/parents/{parentUserId:guid}/children/{studentId:guid}/overview", GetParentChildOverviewAsync)
+            .WithSummary("Velinin onaylı çocuğunun gelişim özetini getirir (gizlilik filtreli)");
         secure.MapGet("/students/{studentId:guid}/topic-goals", ListGoalsAsync).WithSummary("Konu hedeflerini listeler");
         secure.MapPost("/students/{studentId:guid}/topic-goals", CreateGoalAsync).WithSummary("Konu hedefi oluşturur");
         secure.MapPost("/topic-goals/{goalId:guid}/cancel", CancelGoalAsync).WithSummary("Konu hedefini iptal eder");
@@ -72,6 +76,14 @@ public sealed class ProgressTrackingModule : ModuleDefinition
         IQueryDispatcher dispatcher,
         CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListProgressSnapshotsQuery(studentId, subject, period, from, to), ct));
+
+    private static async Task<IResult> GetTeacherStudentOverviewAsync(
+        HttpContext ctx, Guid teacherUserId, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new GetTeacherStudentProgressOverviewQuery(teacherUserId, studentId), ct));
+
+    private static async Task<IResult> GetParentChildOverviewAsync(
+        HttpContext ctx, Guid parentUserId, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
+        => ToHttpResult(ctx, await dispatcher.Dispatch(new GetParentChildProgressOverviewQuery(parentUserId, studentId), ct));
 
     private static async Task<IResult> ListGoalsAsync(HttpContext ctx, Guid studentId, string? status, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new ListTopicGoalsQuery(studentId, status), ct));

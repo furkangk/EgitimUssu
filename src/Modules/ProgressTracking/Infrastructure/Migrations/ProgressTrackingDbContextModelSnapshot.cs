@@ -134,6 +134,9 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AttendedLessonCount")
+                        .HasColumnType("integer");
+
                     b.Property<decimal?>("AverageNetRatio")
                         .HasPrecision(6, 4)
                         .HasColumnType("numeric(6,4)");
@@ -188,6 +191,9 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
+
+                    b.Property<int>("TotalLessonMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<int>("TotalStudyMinutes")
                         .HasColumnType("integer");

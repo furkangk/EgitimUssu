@@ -25,6 +25,14 @@ public sealed record ListTopicGoalsQuery(Guid StudentId, string? Status)
 public sealed record ListProgressSnapshotsQuery(Guid StudentId, string? Subject, string? Period, DateOnly? From, DateOnly? To)
     : IQuery<Result<IReadOnlyCollection<ProgressSnapshotResponse>>>, IStudentScopedProgressRequest;
 
+/// <summary>M10-2: Öğretmenin, bağlı olduğu öğrencinin gelişim özetini okuması (gizlilik filtreli).</summary>
+public sealed record GetTeacherStudentProgressOverviewQuery(Guid TeacherUserId, Guid StudentId)
+    : IQuery<Result<ProgressOverviewResponse>>;
+
+/// <summary>M10-2: Velinin, onaylı çocuğunun gelişim özetini okuması (gizlilik filtreli).</summary>
+public sealed record GetParentChildProgressOverviewQuery(Guid ParentUserId, Guid StudentId)
+    : IQuery<Result<ProgressOverviewResponse>>;
+
 public sealed record CreateTopicGoalCommand(
     Guid StudentId, string Subject, string Topic, string TargetMasteryLevel, decimal? TargetNetRatio, DateOnly? TargetDate)
     : ICommand<Result<TopicGoalResponse>>, IStudentScopedProgressRequest;
@@ -83,6 +91,14 @@ public sealed class MasteryService
         await EvaluateGoalsAsync(mastery, cancellationToken);
     }
 
+    /// <summary>M10-4: Tamamlanan dersten konuya katılım katkısı yazar (M05 beslemesi).</summary>
+    public async Task ApplyLessonAttendanceAsync(Guid studentId, string subject, string? topic, int lessonMinutes, CancellationToken cancellationToken)
+    {
+        var mastery = await ResolveAsync(studentId, subject, topic, cancellationToken);
+        mastery.RegisterLessonAttendance(lessonMinutes, _clock.UtcNow);
+        await EvaluateGoalsAsync(mastery, cancellationToken);
+    }
+
     private async Task<TopicMastery> ResolveAsync(Guid studentId, string subject, string? topic, CancellationToken cancellationToken)
     {
         var normalizedTopic = string.IsNullOrWhiteSpace(topic) ? GeneralTopic : topic.Trim();
@@ -101,12 +117,22 @@ public sealed class MasteryService
         var goals = await _repository.ListActiveGoalsForTopicAsync(mastery.StudentId, mastery.Subject, mastery.Topic, cancellationToken);
         foreach (var goal in goals)
         {
-            if (mastery.MasteryLevel >= goal.TargetMasteryLevel)
+            if (IsGoalMet(mastery, goal))
             {
+                // M10-3: Hedef kendiliğinden kapanır ve TopicGoalAchievedDomainEvent yayınlanır
+                // (outbox → Notifications, öğrenciye bildirim).
                 goal.MarkAchieved(_clock.UtcNow);
             }
         }
     }
+
+    /// <summary>
+    /// M10-3: Hedef, <b>hem</b> seviye <b>hem de</b> (verilmişse) net oranı tuttuğunda kapanır.
+    /// Net hedefi opsiyoneldir; verilmişse gevşetmez, sıkılaştırır.
+    /// </summary>
+    private static bool IsGoalMet(TopicMastery mastery, TopicGoal goal) =>
+        mastery.MasteryLevel >= goal.TargetMasteryLevel
+        && (goal.TargetNetRatio is not { } targetNet || (mastery.AverageNetRatio ?? 0m) >= targetNet);
 }
 
 // ---- Handler'lar ----
@@ -168,31 +194,146 @@ public sealed class ListStrengthsQueryHandler
     }
 }
 
-public sealed class GetProgressOverviewQueryHandler
-    : IQueryHandler<GetProgressOverviewQuery, Result<ProgressOverviewResponse>>
+/// <summary>
+/// Gelişim özetini kuran ortak okuma yolu. Üç uç (öğrenci kendi, öğretmen, veli) aynı gövdeyi
+/// üretir; aralarındaki tek fark <see cref="ProgressPrivacyFilter"/> ile uygulanan gizlilik kapısıdır.
+/// </summary>
+public sealed class ProgressOverviewReader
 {
+    private const int DetailTake = 5;
     private readonly IProgressRepository _repository;
 
-    public GetProgressOverviewQueryHandler(IProgressRepository repository) => _repository = repository;
+    public ProgressOverviewReader(IProgressRepository repository) => _repository = repository;
 
-    public async Task<Result<ProgressOverviewResponse>> Handle(GetProgressOverviewQuery query, CancellationToken cancellationToken)
+    public async Task<ProgressOverviewResponse> BuildAsync(Guid studentId, CancellationToken cancellationToken)
     {
-        var list = await _repository.ListMasteryAsync(query.StudentId, null, cancellationToken);
-        var activeGoals = await _repository.ListGoalsAsync(query.StudentId, TopicGoalStatus.Active, cancellationToken);
+        var list = await _repository.ListMasteryAsync(studentId, null, cancellationToken);
+        var activeGoals = await _repository.ListGoalsAsync(studentId, TopicGoalStatus.Active, cancellationToken);
 
-        var overview = new ProgressOverviewResponse(
-            query.StudentId,
+        return new ProgressOverviewResponse(
+            studentId,
             list.Count(m => m.MasteryLevel == MasteryLevel.Mastered),
             list.Count(m => m.MasteryLevel == MasteryLevel.Proficient),
             list.Count(m => m.MasteryLevel == MasteryLevel.Developing),
             list.Count(m => m.MasteryLevel == MasteryLevel.Weak),
             list.Count(m => m.MasteryLevel == MasteryLevel.NotStarted),
             activeGoals.Count,
-            list.Where(m => m.IsWeakSpot).OrderBy(m => m.MasteryScore).Take(5).Select(m => m.ToResponse()).ToArray(),
-            list.Where(m => m.IsStrength).OrderByDescending(m => m.MasteryScore).Take(5).Select(m => m.ToResponse()).ToArray());
-
-        return Result<ProgressOverviewResponse>.Success(overview);
+            list.Where(m => m.IsWeakSpot).OrderBy(m => m.MasteryScore).Take(DetailTake).Select(m => m.ToResponse()).ToArray(),
+            list.Where(m => m.IsStrength).OrderByDescending(m => m.MasteryScore).Take(DetailTake).Select(m => m.ToResponse()).ToArray());
     }
+}
+
+public sealed class GetProgressOverviewQueryHandler
+    : IQueryHandler<GetProgressOverviewQuery, Result<ProgressOverviewResponse>>
+{
+    private readonly ProgressOverviewReader _reader;
+
+    public GetProgressOverviewQueryHandler(ProgressOverviewReader reader) => _reader = reader;
+
+    public async Task<Result<ProgressOverviewResponse>> Handle(GetProgressOverviewQuery query, CancellationToken cancellationToken)
+        => Result<ProgressOverviewResponse>.Success(await _reader.BuildAsync(query.StudentId, cancellationToken));
+}
+
+/// <summary>M10-2: Gelişim özetini kimin okuduğu — gizlilik ayarının hangi bayrağa bakacağını belirler.</summary>
+public enum ProgressAudience
+{
+    Teacher = 1,
+    Parent = 2
+}
+
+/// <summary>
+/// M10-2 / M15-4 gizlilik kapısı. <b>En kısıtlayıcı kazanır</b> (Parents'taki çocuk panosuyla aynı kural):
+/// <list type="bullet">
+///   <item>İlgili paylaşım bayrağı kapalı <b>veya</b> <c>Hidden</c> → tamamen boş özet.</item>
+///   <item><c>Limited</c> → sayaçlar görünür, konu kırılımı (zayıf/güçlü listeleri) gizlenir.</item>
+///   <item><c>Standard</c> → tam özet.</item>
+/// </list>
+/// Öğrencinin kendi ucu bu filtreden geçmez; kendi verisini her zaman tam görür.
+/// </summary>
+public static class ProgressPrivacyFilter
+{
+    private static readonly IReadOnlyCollection<TopicMasteryResponse> NoTopics = Array.Empty<TopicMasteryResponse>();
+
+    public static ProgressOverviewResponse Apply(
+        ProgressOverviewResponse overview, StudentPrivacy privacy, ProgressAudience audience)
+    {
+        var isShared = audience == ProgressAudience.Teacher
+            ? privacy.ShareStudyDataWithTeacher
+            : privacy.ShareStudyDataWithParent;
+
+        if (!isShared || privacy.Level == StudyPrivacyLevel.Hidden)
+        {
+            return Empty(overview.StudentId);
+        }
+
+        return privacy.Level == StudyPrivacyLevel.Limited
+            ? overview with { WeakSpots = NoTopics, Strengths = NoTopics }
+            : overview;
+    }
+
+    public static ProgressOverviewResponse Empty(Guid studentId) =>
+        new(studentId, 0, 0, 0, 0, 0, 0, NoTopics, NoTopics);
+}
+
+/// <summary>M10-2: Öğretmen ve veli görünümünün ortak gövdesi — okuma + gizlilik filtresi.</summary>
+public abstract class SharedProgressOverviewHandler
+{
+    private readonly ProgressOverviewReader _reader;
+    private readonly IStudentDirectory _students;
+    private readonly IStudentPrivacyDirectory _privacy;
+
+    protected SharedProgressOverviewHandler(
+        ProgressOverviewReader reader, IStudentDirectory students, IStudentPrivacyDirectory privacy)
+    {
+        _reader = reader;
+        _students = students;
+        _privacy = privacy;
+    }
+
+    protected async Task<Result<ProgressOverviewResponse>> ReadAsync(
+        Guid studentId, ProgressAudience audience, CancellationToken cancellationToken)
+    {
+        var overview = await _reader.BuildAsync(studentId, cancellationToken);
+
+        // Ayar kaydı öğrencinin login kullanıcısına bağlıdır. Bağlı kullanıcı yoksa (öğretmenin
+        // elle açtığı, henüz devralınmamış öğrenci) ayar da yoktur → sözleşme gereği paylaşım açık.
+        var studentUserId = await _students.GetOwnerUserIdAsync(studentId, cancellationToken);
+        if (studentUserId is not { } userId)
+        {
+            return Result<ProgressOverviewResponse>.Success(overview);
+        }
+
+        var privacy = await _privacy.GetForUserAsync(userId, cancellationToken);
+        return Result<ProgressOverviewResponse>.Success(ProgressPrivacyFilter.Apply(overview, privacy, audience));
+    }
+}
+
+public sealed class GetTeacherStudentProgressOverviewQueryHandler
+    : SharedProgressOverviewHandler, IQueryHandler<GetTeacherStudentProgressOverviewQuery, Result<ProgressOverviewResponse>>
+{
+    public GetTeacherStudentProgressOverviewQueryHandler(
+        IProgressRepository repository, IStudentDirectory students, IStudentPrivacyDirectory privacy)
+        : base(new ProgressOverviewReader(repository), students, privacy)
+    {
+    }
+
+    public Task<Result<ProgressOverviewResponse>> Handle(
+        GetTeacherStudentProgressOverviewQuery query, CancellationToken cancellationToken)
+        => ReadAsync(query.StudentId, ProgressAudience.Teacher, cancellationToken);
+}
+
+public sealed class GetParentChildProgressOverviewQueryHandler
+    : SharedProgressOverviewHandler, IQueryHandler<GetParentChildProgressOverviewQuery, Result<ProgressOverviewResponse>>
+{
+    public GetParentChildProgressOverviewQueryHandler(
+        IProgressRepository repository, IStudentDirectory students, IStudentPrivacyDirectory privacy)
+        : base(new ProgressOverviewReader(repository), students, privacy)
+    {
+    }
+
+    public Task<Result<ProgressOverviewResponse>> Handle(
+        GetParentChildProgressOverviewQuery query, CancellationToken cancellationToken)
+        => ReadAsync(query.StudentId, ProgressAudience.Parent, cancellationToken);
 }
 
 public sealed class ListTopicGoalsQueryHandler

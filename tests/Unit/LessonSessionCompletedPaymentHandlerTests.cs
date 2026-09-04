@@ -147,6 +147,9 @@ public sealed class LessonSessionCompletedPaymentHandlerTests
 
         public Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult(_rate);
+
+        public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 
     private sealed class SequentialIdGenerator : IIdGenerator

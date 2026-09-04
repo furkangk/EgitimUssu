@@ -77,11 +77,18 @@ git commit -m "feat(progress): haftalik/aylik snapshot + trend (M10-1)"
 
 **Files:**
 - Modify: `src/Modules/ProgressTracking/Application/ProgressTrackingFeatures.cs`
-- Modify: `src/Modules/ProgressTracking/Application/ProgressTrackingPolicies.cs`
+- **Create** (plan "Modify" diyordu, dosya yoktu): `src/Modules/ProgressTracking/Application/ProgressTrackingPolicies.cs`
 - Modify: `src/Modules/ProgressTracking/API/ProgressTrackingModule.cs`
 - Create: `src/Modules/ProgressTracking/Infrastructure/LessonSessionCompletedProgressHandler.cs`
-- Modify: `src/Modules/Parents/Application/ParentFeatures.cs` (çocuk dashboard'una gelişim özeti)
+- ~~Modify: `src/Modules/Parents/Application/ParentFeatures.cs`~~ **yapılmadı** — gerekçe Step 3 notunda
+- Modify: `src/Modules/ProgressTracking/Infrastructure/DependencyInjection.cs` *(plan dışı, zorunlu: yeni handler/authorizer kayıtları)*
+- Modify: `src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs` + migration `AddLessonAttendanceToTopicMastery` *(plan dışı, zorunlu: M10-4 katılım alanları)*
+- Modify: `src/Shared/Contracts/StudentDirectoryContract.cs` + `src/Modules/Students/Infrastructure/StudentDirectory.cs` *(plan dışı, zorunlu: öğretmen–öğrenci bağı sözleşmesi)*
+- Create: `src/Modules/Notifications/Infrastructure/TopicGoalAchievedNotificationHandler.cs` + Notifications DI *(plan dışı, zorunlu: "→ Notifications" gereği)*
+- Modify: `src/Modules/ProgressTracking/Infrastructure/*.csproj` (`InternalsVisibleTo`, Öğrenilenler #101)
 - Test: `tests/Unit/ProgressAccessTests.cs`
+- Test: `tests/Integration/RealProgressAccessTests.cs` *(plan dışı, zorunlu — Öğrenilenler #81)*
+- Modify: `tests/Unit/LessonSessionCompletedPaymentHandlerTests.cs`, `tests/Unit/SelfLessonPolicyTests.cs` *(sözleşme genişleyince `IStudentDirectory` sahteleri)*
 
 **Interfaces:**
 - Produces:
@@ -90,13 +97,15 @@ git commit -m "feat(progress): haftalik/aylik snapshot + trend (M10-1)"
   - `LessonSessionCompletedProgressHandler : IdempotentIntegrationEventHandler` — tamamlanan ders, ilgili konuya **katılım** katkısı yazar (M10-4).
   - Hedefe ulaşınca otomatik `Achieved` + `TopicGoalAchievedDomainEvent` → Notifications (M10-3).
 
-- [ ] **Step 1: Yetki testlerini yaz (kırmızı)** — bağlı olmayan öğretmen 403; onaysız veli 403; `PrivacyLevel.Hidden` iken veli boş özet alır; öğrenci kendisi 200.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ProgressAccessTests"`
-- [ ] **Step 3: Query + authorizer + endpoint'leri yaz.**
-- [ ] **Step 4: Ders tamamlanma tüketicisini yaz** (idempotent taban sınıf).
-- [ ] **Step 5: Hedef otomatik kapanışı + event + bildirim tüketicisi.**
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 1: Yetki testlerini yaz (kırmızı)** — 20 test: bağlı olmayan öğretmen 403, başka öğretmenin rotası 403 (IDOR), onaysız veli 403, Admin serbest; `Hidden`/paylaşım kapalı → boş özet, `Limited` → yalnız sayaç, `Standard` → tam; ders katılımı + idempotency + plansız oturum; hedef otomatik kapanışı (seviye + net eşiği).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test ... --filter "FullyQualifiedName~ProgressAccessTests"` → **CS0246** (`GetTeacherStudentProgressOverviewQuery`/`ParentChildProgressAuthorizer`/`RegisterLessonAttendance` yok)
+- [x] **Step 3: Query + authorizer + endpoint'leri yaz.**
+  Yetki **iki katmanlıdır**: rotadaki kimlik = oturumdaki kullanıcı (IDOR), sonra bağ (`IStudentDirectory.IsLinkedTeacherOfStudentAsync` / `IParentAccessDirectory.IsApprovedParentOfStudentAsync`). Gizlilik `ProgressPrivacyFilter` ile handler'da uygulanır — üç uç (öğrenci/öğretmen/veli) aynı `ProgressOverviewReader` gövdesini paylaşır.
+  ⚠️ **Plan düzeltmesi:** `ParentFeatures.cs`'e gelişim özeti gömülmedi. Parents'ın ProgressTracking verisini okuması **yeni bir `Shared/Contracts` sözleşmesi** ister ve gizlilik kapısını iki yerde çoğaltırdı; veli aynı veriyi yeni `parents/.../overview` ucundan alıyor. Mobil (Task 5) bu ucu çağıracak. Not `m10_progress_tracking.md` §1 🔴 listesine yazıldı.
+- [x] **Step 4: Ders tamamlanma tüketicisini yaz** (idempotent taban sınıf) — `LessonSessionCompletedProgressHandler`. Olay yükü branş/konu taşımadığı için branş+süre `ILessonScheduleDirectory`, konu `ILessonSessionAccessService` sözleşmesinden okunur. `TopicMastery.RegisterLessonAttendance` yeni `AttendedLessonCount`/`TotalLessonMinutes` alanlarını yazar; ders süresi **çalışma bileşenine** eklenir (ağırlıklar değişmedi, ders yoksa davranış aynı). Plansız oturum işlenmiş sayılır ama satır üretmez.
+- [x] **Step 5: Hedef otomatik kapanışı + event + bildirim tüketicisi.** `MarkAchieved` + `TopicGoalAchievedDomainEvent` zaten vardı; eksik olan (a) `TargetNetRatio`'nun **hiç değerlendirilmemesi** — artık seviye **ve** net birlikte aranıyor, (b) olayın tüketicisi — M11 `TopicGoalAchievedNotificationHandler` eklendi.
+- [x] **Step 6: Yeşil gör** — Run: `./scripts/test-with-docker.sh` → **514 birim** + **33 integration**, Başarısız 0, Atlanan 0 · `dotnet test tests/Architecture` → 4/4 · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata
+- [x] **Step 7: Doküman + commit**
 
 ```bash
 git add src/Modules tests doc

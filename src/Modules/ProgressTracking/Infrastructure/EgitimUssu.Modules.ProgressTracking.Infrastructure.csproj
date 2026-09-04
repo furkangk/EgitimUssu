@@ -15,5 +15,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <!-- Öğrenilenler #101: internal integration-event handler'ları beyaz kutu test etmek için. -->
+    <InternalsVisibleTo Include="EgitimUssu.Tests.Unit" />
+  </ItemGroup>
+
 </Project>
 

@@ -27,4 +27,15 @@ public interface IStudentDirectory
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Anlaşılan ücret ya da <c>null</c>.</returns>
     Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// M10-2: Öğretmenin bu öğrenciyle <b>yaşayan</b> bir bağı var mı (<c>TeacherStudentLink</c>)?
+    /// Reddedilmiş/koparılmış/arşivlenmiş bağ <c>false</c> döner — öğretmen görünümü yetkisi
+    /// bu cevaba dayanır (varsayılan-deny).
+    /// </summary>
+    /// <param name="teacherUserId">Öğretmen kullanıcı kimliği.</param>
+    /// <param name="studentId">Öğrenci profili kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Bağ varsa <c>true</c>.</returns>
+    Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken);
 }

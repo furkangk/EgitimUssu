@@ -85,6 +85,9 @@ public sealed class SelfLessonPolicyTests
 
         public Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult<AgreedLessonRate?>(null);
+
+        public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 
     private sealed class StubLessonRepository : ILessonScheduleRepository

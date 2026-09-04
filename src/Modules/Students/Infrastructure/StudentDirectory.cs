@@ -1,3 +1,4 @@
+using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,5 +36,21 @@ internal sealed class StudentDirectory : IStudentDirectory
                 && link.AgreedRateAmount != null)
             .Select(link => new AgreedLessonRate(link.AgreedRateAmount!.Value, link.Currency))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        // M10-2: Yaşayan bağ = Manual (öğretmenin kendi açtığı kayıt), InviteSent (davet yolda) veya
+        // Linked (öğrenci devraldı). Rejected/Disconnected ve arşivlenmiş kayıt erişim vermez.
+        return _dbContext.TeacherStudentLinks
+            .AsNoTracking()
+            .AnyAsync(
+                link => link.TeacherUserId == teacherUserId
+                    && link.StudentId == studentId
+                    && !link.IsArchived
+                    && (link.Status == TeacherStudentLinkStatus.Manual
+                        || link.Status == TeacherStudentLinkStatus.InviteSent
+                        || link.Status == TeacherStudentLinkStatus.Linked),
+                cancellationToken);
     }
 }

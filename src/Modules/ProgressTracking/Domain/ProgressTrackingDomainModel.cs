@@ -37,6 +37,12 @@ public sealed class TopicMastery : AggregateRoot<Guid>
 
     public int TestAttemptCount { get; private set; }
 
+    /// <summary>M10-4: Bu konuda tamamlanmış ders sayısı (M05 <c>LessonSessionCompleted</c> beslemesi).</summary>
+    public int AttendedLessonCount { get; private set; }
+
+    /// <summary>M10-4: Tamamlanan derslerin toplam süresi (dakika); çalışma bileşenine eklenir.</summary>
+    public int TotalLessonMinutes { get; private set; }
+
     public decimal? AverageNetRatio { get; private set; }
 
     /// <summary>Net oranı toplamı (ortalama = / TestAttemptCount). Yeniden hesaplama için tutulur.</summary>
@@ -77,18 +83,43 @@ public sealed class TopicMastery : AggregateRoot<Guid>
         Recalculate(nowUtc);
     }
 
-    // M08 (çalışma + test) beslemesi. M05 ders beslemesi eklenirse LessonOnly/Combined ayrımı genişler.
-    private void UpdateSource() => Source = MasterySource.StudyOnly;
+    /// <summary>
+    /// M10-4: Tamamlanan bir dersten katılım katkısı yazar. Ders süresi çalışma bileşenine eklenir —
+    /// öğretmenle geçirilen süre de bu konudaki hâkimiyeti besler, ama <b>test bileşenine</b> dokunmaz
+    /// (ders katılımı başarı ölçmez, yalnız maruziyet gösterir).
+    /// </summary>
+    public void RegisterLessonAttendance(int lessonMinutes, DateTime nowUtc)
+    {
+        AttendedLessonCount += 1;
+        TotalLessonMinutes += Math.Max(0, lessonMinutes);
+        UpdateSource();
+        Recalculate(nowUtc);
+    }
+
+    // Kaynak, hangi beslemelerin katkı verdiğini gösterir (M08 çalışma/test + M05 ders katılımı).
+    private void UpdateSource()
+    {
+        var hasStudy = TotalStudyMinutes > 0 || TestAttemptCount > 0;
+        var hasLesson = AttendedLessonCount > 0;
+        Source = (hasStudy, hasLesson) switch
+        {
+            (true, true) => MasterySource.Combined,
+            (false, true) => MasterySource.LessonOnly,
+            _ => MasterySource.StudyOnly
+        };
+    }
 
     private void Recalculate(DateTime nowUtc)
     {
         // Skor (0–100): çalışma bileşeni (maks 30, 3 saatte doyar) + test bileşeni (maks 70, ort. net oranı).
-        var studyComponent = Math.Min(TotalStudyMinutes / 180m, 1m) * 30m;
+        // M10-4: ders katılım süresi çalışma bileşenine eklenir; ağırlıklar değişmez, ders yoksa davranış aynıdır.
+        var engagementMinutes = TotalStudyMinutes + TotalLessonMinutes;
+        var studyComponent = Math.Min(engagementMinutes / 180m, 1m) * 30m;
         var testComponent = (AverageNetRatio ?? 0m) * 70m;
         var score = Math.Round(studyComponent + testComponent, 2);
         MasteryScore = Math.Clamp(score, 0m, 100m);
 
-        var hasData = TotalStudyMinutes > 0 || TestAttemptCount > 0;
+        var hasData = TotalStudyMinutes > 0 || TestAttemptCount > 0 || AttendedLessonCount > 0;
         MasteryLevel = !hasData ? MasteryLevel.NotStarted
             : MasteryScore < 20m ? MasteryLevel.Weak
             : MasteryScore < 45m ? MasteryLevel.Developing
