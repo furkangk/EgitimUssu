@@ -126,6 +126,13 @@ public sealed class IdentityModule : ModuleDefinition
 - **Validator** (`ICommandValidator<T>`) ve **Authorizer** (`IQueryAuthorizer<T>`) opsiyonel ek halkalar.
 - Handler'lar repository **arayüzlerine** bağımlıdır (Infrastructure'daki impl'e değil) → bağımlılık içe doğru.
 - Dispatcher (`ICommandDispatcher` / `IQueryDispatcher`) handler'ı bulur ve çalıştırır.
+  Boru hattı sırası **validator → authorizer → handler**; ilk hatada kısa devre olur ve
+  `Result` / `Result<T>` hata örneği döner.
+- **Delegate önbelleği (O4).** Dispatcher'lar istek tipi başına derlenmiş çağrı delegeleri kullanır
+  (`DispatcherInvokerCache`, `DispatcherHandlerInvokerCache<TResponse>`, `DispatcherFailureFactory<TResponse>`
+  — `Shared/Infrastructure/Application`). `MakeGenericType` + `Expression.Compile` maliyeti tip başına **bir kez**
+  ödenir, sonrası `ConcurrentDictionary` araması olur; sıcak yolda çalışma-zamanı bağlayıcısına (C# `dynamic`)
+  ve `MethodInfo.Invoke` yansımasına gerek kalmaz. Dış sözleşme değişmez.
 
 ### 4.3 Domain — saf iş modeli
 `AggregateRoot<TId>` davranışı kapsüller ve `Raise(domainEvent)` ile olay üretir; dışa bağımlılığı yoktur.
@@ -324,4 +331,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-04 (P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-04 (P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

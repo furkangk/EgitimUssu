@@ -185,21 +185,35 @@ git commit -m "perf(shared): authorizer/handler cift sorgusunu gider (O2)"
 
 ---
 
-### Task 4: Dispatcher reflection maliyetini gider (O4)
+### Task 4: Dispatcher reflection maliyetini gider (O4) ✅
 
 **Files:**
 - Modify: `src/Shared/Infrastructure/Application/CommandDispatcher.cs`
 - Modify: `src/Shared/Infrastructure/Application/QueryDispatcher.cs`
 - Test: `tests/Unit/DispatcherCacheTests.cs`
+- **Plan dışı, gerekliydi:**
+  - Create: `src/Shared/Infrastructure/Application/DispatcherInvokerCache.cs` — iki dispatcher'ın boru hattı
+    birebir aynı şekilde; önbellek + derlenmiş delegate mantığını iki dosyaya kopyalamak yerine tek dosyada
+    toplandı (`DispatcherInvokerCache`, `DispatcherHandlerInvokerCache<TResponse>`, `DispatcherFailureFactory<TResponse>`).
+  - Modify: `src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj` — `InternalsVisibleTo` (`EgitimUssu.Tests.Unit`).
+    Dispatcher'lar `internal`; testin hem örnek kurabilmesi hem **önbellek boyutunu** görebilmesi için gerekli.
+    Alternatifi (tipleri `public` yapmak) gereksiz genel yüzey açardı.
+  - Modify: `doc/architecture/backend.md` — §4.2'ye delegate önbelleği maddesi (kök `CLAUDE.md`: doküman aynı turda).
 
 **Interfaces:**
 - Dış sözleşme **değişmez** (`ICommandDispatcher.Dispatch`, `IQueryDispatcher.Dispatch`). İçeride tip başına `Func<object, object, CancellationToken, Task<object>>` derlenip `ConcurrentDictionary` içinde önbelleklenir; `dynamic` kaldırılır.
 
-- [ ] **Step 1: Testi yaz (kırmızı)** — aynı komut tipi 100 kez dispatch edildiğinde delegate cache 1 kez üretiliyor (sayaçlı sahte ile); validator → authorizer → handler sırası korunuyor; authorizer başarısızsa handler **hiç çağrılmıyor**.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~DispatcherCacheTests"`
-- [ ] **Step 3: Dispatcher'ları derlenmiş delegate'e çevir.**
-- [ ] **Step 4: Tüm paketi koştur** — Run: `dotnet test EgitimUssu.slnx` → yeşil (bu değişiklik tüm modülleri etkiler, tam paket şart).
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Testi yaz (kırmızı)** — 7 test: komut/sorgu için "100 dispatch → önbellekte tek yeni giriş" (izli sahtelerle 300 adım),
+  validator → authorizer → handler sırası, authorizer hatasında handler **hiç çağrılmıyor**, validator hatasında authorizer da atlanıyor,
+  `Result<T>` hatasının tipi korunuyor.
+  **Plan notu:** Önbellek sayımını ölçen testler yalnız **kendilerine ait** istek tipini gönderir; ilk sürümde tip diğer testlerle
+  paylaşılıyordu ve xUnit'in metot sırası deltayı belirsizleştiriyordu (test kırmızı verdi, düzeltildi).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~DispatcherCacheTests"` → `DispatcherInvokerCache` yok (CS0103).
+- [x] **Step 3: Dispatcher'ları derlenmiş delegate'e çevir.** `dynamic` üç yerden kalktı: validator/authorizer çağrısı,
+  handler çağrısı, hata sonucu üretimi (`GetMethod().Invoke()` → `Expression.Compile`'lı `DispatcherFailureFactory<TResponse>`).
+- [x] **Step 4: Tüm paketi koştur** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari / 485 birim / 28 integration, başarısız 0.
+  Ayrıca `dotnet build EgitimUssu.slnx -warnaserror` → 0 uyarı, 0 hata.
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/Shared/Infrastructure/Application tests
@@ -231,6 +245,6 @@ git commit -m "docs: P07 read-model altyapisi kapanisi (C-03/C-05/C-06)"
 - [~] Öğretmen dashboard **sayaçları** projeksiyondan okunuyor (`GET /api/reporting/teachers/{id}/dashboard`); projeksiyon yoksa 404. BFF `dashboard-summary` **taşınmadı** (liste alanları event'lerde yok — Task 2 Step 5)
 - [x] Aynı event iki kez geldiğinde dashboard sayaçları bozulmuyor
 - [x] Korumalı sorguda varlık **bir kez** yükleniyor (gerçek Postgres'te EF `Executed DbCommand` günlüğü sayıldı: 1 `SELECT`)
-- [ ] Dispatcher'da `dynamic` kullanımı kalmadı (`grep -rn "dynamic" src/Shared/Infrastructure/Application` boş)
+- [x] Dispatcher'da `dynamic` kullanımı kalmadı (`grep -rn "dynamic" src/Shared/Infrastructure/Application` boş — doğrulandı)
 - [x] `Modules_Should_Not_Reference_Other_Modules` mimari testi hâlâ yeşil
 - [ ] Tam test paketi (Docker'lı) yeşil

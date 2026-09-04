@@ -31,5 +31,10 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- O4: dispatcher delegate önbelleği internal; birim testleri beyaz kutu olarak doğrular. -->
+    <InternalsVisibleTo Include="EgitimUssu.Tests.Unit" />
+  </ItemGroup>
+
 </Project>
 
