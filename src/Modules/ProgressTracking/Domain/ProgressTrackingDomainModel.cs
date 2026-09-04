@@ -212,3 +212,107 @@ public sealed record TopicGoalAchievedDomainEvent(
     string Subject,
     string Topic,
     DateTime AchievedOnUtc) : DomainEvent;
+
+/// <summary>M10-1: Anlık görüntü dönemi. Hafta başlangıcı Pazartesi, ay başlangıcı ayın 1'i (UTC).</summary>
+public enum SnapshotPeriod { Weekly = 1, Monthly = 2 }
+
+/// <summary>
+/// M10-1: Bir öğrencinin bir ders için belirli bir dönem sonundaki gelişim fotoğrafı.
+/// <see cref="TopicMastery"/> kümülatif tutulduğu için anlık görüntü, dönem <b>kapandıktan sonra</b>
+/// o dersin konularının o andaki toplamını dondurur; böylece zaman serisi ve trend elde edilir.
+/// Benzersizlik <c>(StudentId, Subject, Period, PeriodStart)</c> ile korunur — aynı dönem iki kez yazılmaz.
+/// </summary>
+public sealed class ProgressSnapshot : AggregateRoot<Guid>
+{
+    private ProgressSnapshot()
+    {
+    }
+
+    public ProgressSnapshot(
+        Guid id,
+        Guid studentId,
+        string subject,
+        SnapshotPeriod period,
+        DateOnly periodStart,
+        int masteryScore,
+        int studyMinutes,
+        int testCount,
+        decimal averageNet,
+        DateTime createdOnUtc)
+    {
+        Id = id;
+        StudentId = studentId;
+        Subject = subject.Trim();
+        Period = period;
+        PeriodStart = periodStart;
+        MasteryScore = Math.Clamp(masteryScore, 0, 100);
+        StudyMinutes = Math.Max(0, studyMinutes);
+        TestCount = Math.Max(0, testCount);
+        AverageNet = Math.Clamp(averageNet, 0m, 1m);
+        CreatedOnUtc = createdOnUtc;
+    }
+
+    public Guid StudentId { get; private set; }
+
+    public string Subject { get; private set; } = string.Empty;
+
+    public SnapshotPeriod Period { get; private set; }
+
+    /// <summary>Dönemin ilk günü (haftalık: Pazartesi, aylık: ayın 1'i).</summary>
+    public DateOnly PeriodStart { get; private set; }
+
+    /// <summary>Dersin konularının hâkimiyet skoru ortalaması (0–100, tam sayıya yuvarlanmış).</summary>
+    public int MasteryScore { get; private set; }
+
+    public int StudyMinutes { get; private set; }
+
+    public int TestCount { get; private set; }
+
+    /// <summary>Ders konularının ortalama net <b>oranı</b> (0–1); test yoksa 0.</summary>
+    public decimal AverageNet { get; private set; }
+
+    public DateTime CreatedOnUtc { get; private set; }
+}
+
+/// <summary>M10-1: Dönem sınırı hesapları — hafta başlangıcı <b>Pazartesi</b>, tüm hesaplar UTC.</summary>
+public static class SnapshotPeriods
+{
+    /// <summary>Verilen günün içinde bulunduğu dönemin ilk günü.</summary>
+    public static DateOnly StartOf(SnapshotPeriod period, DateOnly date) => period switch
+    {
+        SnapshotPeriod.Weekly => date.AddDays(-(((int)date.DayOfWeek + 6) % 7)),
+        SnapshotPeriod.Monthly => new DateOnly(date.Year, date.Month, 1),
+        _ => date
+    };
+
+    /// <summary>Verilen dönem başlangıcından bir önceki dönemin başlangıcı.</summary>
+    public static DateOnly Previous(SnapshotPeriod period, DateOnly periodStart) => period switch
+    {
+        SnapshotPeriod.Weekly => periodStart.AddDays(-7),
+        SnapshotPeriod.Monthly => periodStart.AddMonths(-1),
+        _ => periodStart
+    };
+}
+
+/// <summary>
+/// M10-1: İki ardışık anlık görüntünün hâkimiyet skoru farkından trend üretir.
+/// Eşik ±<see cref="Threshold"/> puandır; önceki dönem yoksa trend <see cref="ProgressTrend.Stable"/>.
+/// </summary>
+public static class ProgressTrendCalculator
+{
+    /// <summary>Trend eşiği (puan).</summary>
+    public const int Threshold = 5;
+
+    public static ProgressTrend FromScores(int? previousScore, int currentScore)
+    {
+        if (previousScore is not { } previous)
+        {
+            return ProgressTrend.Stable;
+        }
+
+        var delta = currentScore - previous;
+        return delta >= Threshold ? ProgressTrend.Improving
+            : delta <= -Threshold ? ProgressTrend.Declining
+            : ProgressTrend.Stable;
+    }
+}

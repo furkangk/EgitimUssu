@@ -23,6 +23,7 @@ public static class DependencyInjection
         AddStudentScopedQueryAuthorizer<ListStrengthsQuery>(services);
         AddStudentScopedQueryAuthorizer<GetProgressOverviewQuery>(services);
         AddStudentScopedQueryAuthorizer<ListTopicGoalsQuery>(services);
+        AddStudentScopedQueryAuthorizer<ListProgressSnapshotsQuery>(services);
         AddStudentScopedCommandAuthorizer<CreateTopicGoalCommand>(services);
         services.AddScoped<ICommandAuthorizer<CancelTopicGoalCommand>, CancelTopicGoalAuthorizer>();
 
@@ -32,12 +33,17 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListStrengthsQuery, Result<IReadOnlyCollection<TopicMasteryResponse>>>, ListStrengthsQueryHandler>();
         services.AddScoped<IQueryHandler<GetProgressOverviewQuery, Result<ProgressOverviewResponse>>, GetProgressOverviewQueryHandler>();
         services.AddScoped<IQueryHandler<ListTopicGoalsQuery, Result<IReadOnlyCollection<TopicGoalResponse>>>, ListTopicGoalsQueryHandler>();
+        services.AddScoped<IQueryHandler<ListProgressSnapshotsQuery, Result<IReadOnlyCollection<ProgressSnapshotResponse>>>, ListProgressSnapshotsQueryHandler>();
         services.AddScoped<ICommandHandler<CreateTopicGoalCommand, Result<TopicGoalResponse>>, CreateTopicGoalCommandHandler>();
         services.AddScoped<ICommandHandler<CancelTopicGoalCommand, Result<bool>>, CancelTopicGoalCommandHandler>();
 
         // M08 çalışma/test olaylarını tüketen (idempotent) gelişim besleme handler'ları
         services.AddScoped<IIntegrationEventHandler, StudySessionCompletedProgressHandler>();
         services.AddScoped<IIntegrationEventHandler, TestResultRecordedProgressHandler>();
+
+        // M10-1: kapanmış hafta/ay için gelişim anlık görüntüsü üreten günlük tur
+        services.AddScoped<IProgressSnapshotProcessor, ProgressSnapshotProcessor>();
+        services.AddHostedService<ProgressSnapshotService>();
 
         return services;
     }

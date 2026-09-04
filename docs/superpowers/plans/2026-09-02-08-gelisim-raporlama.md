@@ -27,33 +27,44 @@
 - Modify: `src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs`
 - Create: `src/Modules/ProgressTracking/Infrastructure/ProgressSnapshotService.cs` (BackgroundService)
 - Modify: `src/Modules/ProgressTracking/Application/ProgressTrackingFeatures.cs` (query + handler)
+- Modify: `src/Modules/ProgressTracking/Application/ProgressTrackingContracts.cs` (response + repo arayüzü) *(plan dışı, zorunlu: yanıt kayıtları ve `IProgressRepository` bu dosyada)*
 - Modify: `src/Modules/ProgressTracking/API/ProgressTrackingModule.cs`
 - Modify: `src/Modules/ProgressTracking/Infrastructure/*` (DbContext + repository + DI + migration)
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` *(plan dışı, zorunlu — Öğrenilenler #72: ProgressTracking Domain/Application/Infrastructure referansı yoktu)*
 - Test: `tests/Unit/ProgressSnapshotTests.cs`
+- Test: `tests/Integration/RealProgressSnapshotTests.cs` *(plan dışı, zorunlu — Öğrenilenler #81: yeni depo/sorgu/uç yazan görev en az bir Testcontainers testi bırakır)*
 
 **Interfaces:**
 - Produces:
   - `enum SnapshotPeriod { Weekly = 1, Monthly = 2 }`
   - `sealed class ProgressSnapshot : AggregateRoot<Guid>` — `Guid StudentId`, `string Subject`, `SnapshotPeriod Period`, `DateOnly PeriodStart`, `int MasteryScore` (0–100), `int StudyMinutes`, `int TestCount`, `decimal AverageNet`, `DateTime CreatedOnUtc`.
-  - `enum ProgressTrend { Rising = 1, Flat = 2, Falling = 3 }` — iki ardışık snapshot arası `MasteryScore` farkı: `>= +5` Rising, `<= -5` Falling, aksi Flat.
+  - ⚠️ **Plan düzeltmesi (2026-09-04):** `enum ProgressTrend { Rising, Flat, Falling }` **yazılamaz** — `ProgressTracking.Domain`'de aynı adlı enum zaten var (`Improving = 1, Stable = 2, Declining = 3`, `TopicMastery.Trend` kullanıyor). İkinci bir tanım derlenmez, yenidenadlandırma mevcut API yanıtını kırardı. Mevcut enum yeniden kullanıldı; eşik mantığı `ProgressTrendCalculator.FromScores(int? previous, int current)` içinde: fark `>= +5` → `Improving`, `<= -5` → `Declining`, aksi → `Stable`, önceki dönem yoksa `Stable`.
+  - `static class SnapshotPeriods` — `StartOf(period, date)` (haftalık: Pazartesi, aylık: ayın 1'i) + `Previous(period, periodStart)`.
+  - `ProgressSnapshot.MasteryScore` **`int`** (0–100), `AverageNet` 0–1 net **oranı** — `TopicMastery.AverageNetRatio` ile aynı ölçek.
   - `GET /api/progress-tracking/students/{studentId}/snapshots?subject=&period=&from=&to=` → `IReadOnlyList<ProgressSnapshotResponse>` (her öğede `Trend`).
 
-- [ ] **Step 1: Testleri yaz (kırmızı)**
+- [x] **Step 1: Testleri yaz (kırmızı)** — 9 birim testi (adlar mevcut enum'a göre `Improving`/`Stable`/`Declining`):
 ```csharp
-[Fact] public void Trend_Should_Be_Rising_When_Score_Increases_By_Five_Or_More() { }
-[Fact] public void Trend_Should_Be_Flat_Within_Threshold() { }
-[Fact] public void Trend_Should_Be_Falling_When_Score_Drops() { }
+[Fact] public void Trend_Should_Be_Improving_When_Score_Increases_By_Five_Or_More() { }
+[Fact] public void Trend_Should_Be_Stable_Within_Threshold() { }
+[Fact] public void Trend_Should_Be_Declining_When_Score_Drops() { }
 [Fact] public void Week_Start_Should_Be_Monday_In_Utc() { }
+[Fact] public void Month_Start_Should_Be_First_Day_And_Previous_Should_Step_One_Period_Back() { }
 [Fact] public async Task Snapshot_Service_Should_Be_Idempotent_For_Same_Period() { /* iki tur → tek satır */ }
+[Fact] public async Task Snapshot_Should_Cover_The_Last_Closed_Period() { }
+[Fact] public async Task Snapshot_Should_Aggregate_Topics_Of_The_Same_Subject() { }
+[Fact] public async Task Query_Should_Attach_Trend_Per_Subject_Series() { }
 ```
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ProgressSnapshotTests"`
-- [ ] **Step 3: Domain + migration**
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~ProgressSnapshotTests"` → **CS0246** (`ProgressSnapshot`/`SnapshotPeriod`/`ProgressTrendCalculator`/`SnapshotPeriods` yok)
+- [x] **Step 3: Domain + migration**
   Run: `dotnet ef migrations add AddProgressSnapshots --project src/Modules/ProgressTracking/Infrastructure --startup-project src/API.Host --context ProgressTrackingDbContext`
-  Benzersizlik: `(StudentId, Subject, Period, PeriodStart)` unique index.
-- [ ] **Step 4: `ProgressSnapshotService`'i yaz** — günde bir kez çalışır; kapanmış (geçmiş) haftalar/aylar için eksik snapshot'ları üretir. Veri kaynağı **modül içi** `TopicMastery` + Study'den gelen event'lerle beslenmiş sayaçlardır (çapraz-modül DB okuması yok).
-- [ ] **Step 5: Sorgu ucu + authorizer** — öğrenci kendisi; öğretmen bağlı öğrencisi; veli onaylı+paylaşıma açık çocuğu (gizlilik filtresi zorunlu).
-- [ ] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 7: Doküman + commit**
+  Benzersizlik: `(StudentId, Subject, Period, PeriodStart)` unique index. ✅ Üretildi (`progress_snapshots` tablosu + 2 indeks).
+- [x] **Step 4: `ProgressSnapshotService`'i yaz** — Veri kaynağı **modül içi** `TopicMastery` (çapraz-modül DB okuması yok); ders bazında `GROUP BY` → skor ortalaması, süre/test toplamı, net ortalaması.
+  ⚠️ **Plan düzeltmesi:** plan "kapanmış (geçmiş) haftalar/aylar için eksik snapshot'ları üretir" diyordu — **geriye doldurma yapılmadı**. `TopicMastery` kümülatiftir; geçmiş bir haftanın o günkü değeri yeniden kurulamaz, bugünkü toplamı 3 eski haftaya yazmak **sahte düz trend** üretirdi. Tur yalnız **en son kapanmış** hafta ve ayı üretir; servis günde bir koştuğu için kapanan dönem en geç bir günde yakalanır. Yapı: `ProgressSnapshotProcessor` (test edilebilir tur) + `ProgressSnapshotService : BackgroundService` (5 dk açılış gecikmesi, 24 sa periyot) — `AssignmentDueScanner`/`PaymentOverdueScanner` deseni.
+- [x] **Step 5: Sorgu ucu + authorizer** — `GET /students/{id}/snapshots`, mevcut açık-generik `ProgressOwnershipQueryAuthorizer` ile korundu (öğrenci kendisi + Admin).
+  ⚠️ **Kapsam notu:** öğretmen/veli erişimi ve gizlilik filtresi bu görevde **yapılmadı** — `ProgressOwnershipGuard`'ın genişletilmesi ve `IStudentPrivacyDirectory` filtresi **Task 2'nin** konusudur (Task 2 `Files:` listesi `ProgressTrackingPolicies.cs`'i zaten kapsıyor).
+- [x] **Step 6: Yeşil gör** — Run: `./scripts/test-with-docker.sh` → 4 mimari + **494 birim** + **31 integration**, Başarısız 0, Atlanan 0 · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata
+- [x] **Step 7: Doküman + commit**
 
 ```bash
 git add src/Modules/ProgressTracking tests doc

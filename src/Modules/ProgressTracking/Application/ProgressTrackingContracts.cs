@@ -36,6 +36,20 @@ public sealed record TopicGoalResponse(
     DateTime? AchievedOnUtc,
     DateTime CreatedOnUtc);
 
+/// <summary>M10-1: Bir dönemin gelişim fotoğrafı; <c>Trend</c> serideki bir önceki dönemle farktan gelir.</summary>
+public sealed record ProgressSnapshotResponse(
+    Guid Id,
+    Guid StudentId,
+    string Subject,
+    string Period,
+    DateOnly PeriodStart,
+    int MasteryScore,
+    int StudyMinutes,
+    int TestCount,
+    decimal AverageNet,
+    string Trend,
+    DateTime CreatedOnUtc);
+
 public sealed record ProgressOverviewResponse(
     Guid StudentId,
     int MasteredCount,
@@ -65,6 +79,14 @@ public interface IProgressRepository
     Task<IReadOnlyList<TopicGoal>> ListActiveGoalsForTopicAsync(Guid studentId, string subject, string topic, CancellationToken cancellationToken);
 
     Task AddGoalAsync(TopicGoal goal, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ProgressSnapshot>> ListSnapshotsAsync(
+        Guid studentId,
+        string? subject,
+        SnapshotPeriod? period,
+        DateOnly? from,
+        DateOnly? to,
+        CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

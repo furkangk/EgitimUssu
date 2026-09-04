@@ -22,6 +22,9 @@ public sealed record GetProgressOverviewQuery(Guid StudentId)
 public sealed record ListTopicGoalsQuery(Guid StudentId, string? Status)
     : IQuery<Result<IReadOnlyCollection<TopicGoalResponse>>>, IStudentScopedProgressRequest;
 
+public sealed record ListProgressSnapshotsQuery(Guid StudentId, string? Subject, string? Period, DateOnly? From, DateOnly? To)
+    : IQuery<Result<IReadOnlyCollection<ProgressSnapshotResponse>>>, IStudentScopedProgressRequest;
+
 public sealed record CreateTopicGoalCommand(
     Guid StudentId, string Subject, string Topic, string TargetMasteryLevel, decimal? TargetNetRatio, DateOnly? TargetDate)
     : ICommand<Result<TopicGoalResponse>>, IStudentScopedProgressRequest;
@@ -40,6 +43,10 @@ internal static class ProgressMappings
         m.Id, m.StudentId, m.Subject, m.Topic, m.MasteryLevel.ToString(), m.MasteryScore,
         m.TotalStudyMinutes, m.TestAttemptCount, m.AverageNetRatio, m.Trend.ToString(),
         m.IsWeakSpot, m.IsStrength, m.LastEvaluatedOnUtc);
+
+    public static ProgressSnapshotResponse ToResponse(this ProgressSnapshot s, ProgressTrend trend) => new(
+        s.Id, s.StudentId, s.Subject, s.Period.ToString(), s.PeriodStart, s.MasteryScore,
+        s.StudyMinutes, s.TestCount, s.AverageNet, trend.ToString(), s.CreatedOnUtc);
 
     public static TopicGoalResponse ToResponse(this TopicGoal g) => new(
         g.Id, g.StudentId, g.Subject, g.Topic, g.TargetMasteryLevel.ToString(), g.TargetNetRatio,
@@ -254,6 +261,45 @@ public sealed class CancelTopicGoalCommandHandler : ICommandHandler<CancelTopicG
         goal.Cancel();
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<bool>.Success(true);
+    }
+}
+
+public sealed class ListProgressSnapshotsQueryHandler
+    : IQueryHandler<ListProgressSnapshotsQuery, Result<IReadOnlyCollection<ProgressSnapshotResponse>>>
+{
+    private readonly IProgressRepository _repository;
+
+    public ListProgressSnapshotsQueryHandler(IProgressRepository repository) => _repository = repository;
+
+    public async Task<Result<IReadOnlyCollection<ProgressSnapshotResponse>>> Handle(
+        ListProgressSnapshotsQuery query, CancellationToken cancellationToken)
+    {
+        SnapshotPeriod? period = Enum.TryParse<SnapshotPeriod>(query.Period, ignoreCase: true, out var parsed) ? parsed : null;
+        var snapshots = await _repository.ListSnapshotsAsync(
+            query.StudentId, query.Subject, period, query.From, query.To, cancellationToken);
+
+        // Trend, dönen serideki bir önceki dönemle karşılaştırılarak üretilir; her (ders, dönem türü)
+        // kendi serisidir ve serinin ilk öğesinin trendi Stable'dır (karşılaştıracağı dönem yok).
+        var payload = snapshots
+            .GroupBy(snapshot => (snapshot.Subject, snapshot.Period))
+            .OrderBy(series => series.Key.Subject)
+            .ThenBy(series => series.Key.Period)
+            .SelectMany(series =>
+            {
+                int? previousScore = null;
+                return series
+                    .OrderBy(snapshot => snapshot.PeriodStart)
+                    .Select(snapshot =>
+                    {
+                        var trend = ProgressTrendCalculator.FromScores(previousScore, snapshot.MasteryScore);
+                        previousScore = snapshot.MasteryScore;
+                        return snapshot.ToResponse(trend);
+                    })
+                    .ToArray();
+            })
+            .ToArray();
+
+        return Result<IReadOnlyCollection<ProgressSnapshotResponse>>.Success(payload);
     }
 }
 
