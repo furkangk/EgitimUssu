@@ -41,6 +41,16 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<AcceptTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<ICommandAuthorizer<RejectTeacherStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
         services.AddScoped<ICommandAuthorizer<ClaimStudentLinkCommand>, TeacherStudentLinkResponseAuthorizer>();
+        // M03-1/M03-2/M03-3: branş yönetimi, veli bağlama ve veli çocuk listesi
+        services.AddScoped<ICommandHandler<AddStudentSubjectCommand, Result<StudentSubjectResponse>>, AddStudentSubjectCommandHandler>();
+        services.AddScoped<ICommandHandler<RemoveStudentSubjectCommand, Result>, RemoveStudentSubjectCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<AddStudentSubjectCommand>, StudentSubjectCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RemoveStudentSubjectCommand>, StudentSubjectCommandAuthorizer>();
+        services.AddScoped<ICommandHandler<LinkStudentParentCommand, Result<StudentParentLinkResponse>>, LinkStudentParentCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<LinkStudentParentCommand>, LinkStudentParentCommandAuthorizer>();
+        services.AddScoped<IQueryHandler<ListStudentsByParentQuery, Result<IReadOnlyCollection<ParentChildSummaryResponse>>>, ListStudentsByParentQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<ListStudentsByParentQuery>, StudentProfileQueryAuthorizer>();
+
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
 
         // Veli davet kodu (Veli V-D)

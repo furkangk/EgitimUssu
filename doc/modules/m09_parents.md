@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Parents/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 👪 M09 — Veli (Parents) Modülü — Detaylı Tasarım Dokümanı
@@ -218,6 +218,18 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 
 ---
 
+### 3.1 Dışa açtığı modüller-arası sözleşmeler (Shared.Contracts)
+
+| Sözleşme | Tüketen | Amaç |
+|----------|---------|------|
+| `IParentAccessDirectory.IsApprovedParentOfStudentAsync` | Payments | Veli bir öğrencinin **onaylı** velisi mi? |
+| `IParentAccessDirectory.ListApprovedStudentIdsAsync` | Students | Velinin **onaylı** çocuk kimlikleri (M03-3, 2026-09-04) |
+| `IParentChildLinkRequestService.RequestPendingLinkAsync` | Students | Öğretmenin doğrudan veli bağlama talebi (M03-1, 2026-09-04) — `ParentProfile` yoksa `ParentNotRegistered`, açık bağ varsa `AlreadyLinked`, aksi halde `Pending` bağ açılır. İlk onaylı birincil veli yoksa yeni bağ `IsPrimaryContact = true` başlar (V-C tekilliği korunur). |
+
+> **Not (M03-1):** Bu yol, davet kodu akışının (V-D) **yerine geçmez**; ikinci bir giriş kapısıdır. Kod akışında veli kodu
+> girerek onayı kendisi verir (`Approved` doğrudan), doğrudan bağlamada ise bağ `Pending` kalır ve
+> `POST /children/{linkId}/approve` (öğrenci/öğretmen/Admin) ile onaylanır.
+
 ## 4. İş Kuralları
 
 ### 4.1 Veli yalnızca gerçek kullanıcı olabilir (PRD kuralı)
@@ -368,4 +380,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-09-03 (P05/M15-4: gizlilik seviyesi matrisi dashboard'a bağlandı — Standard/Limited/Hidden) · 2026-09-02 (F-06: Faz 3 kabul kriterleri kodla karşılaştırıldı — dashboard ✅, ödev-kaçırma ~ (P03), gelişim ⬜ (P08)). Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-09-04 (P06 Task 9 / M03-1 + M03-3: iki modüller-arası sözleşme — `IParentChildLinkRequestService` (yeni, Pending bağ açar) ve `IParentAccessDirectory.ListApprovedStudentIdsAsync`; bkz. §3.1) · 2026-09-03 (P05/M15-4: gizlilik seviyesi matrisi dashboard'a bağlandı — Standard/Limited/Hidden) · 2026-09-02 (F-06: Faz 3 kabul kriterleri kodla karşılaştırıldı — dashboard ✅, ödev-kaçırma ~ (P03), gelişim ⬜ (P08)). Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*

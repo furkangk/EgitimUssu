@@ -138,9 +138,9 @@ Her madde şu alanlara sahip:
 
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
-| M03-1 | `POST /profiles/{studentId}/link-parent` yok | Veli davet kodu akışı var (`parent-invite`), doğrudan bağlama yok | Öğretmen mevcut veli kullanıcısını doğrudan bağlayamıyor | S | | |
-| M03-2 | Branş ekleme/çıkarma uçları yok | Yalnız create/update içinde | Öğrenci branşı sonradan yönetilemiyor | S | | |
-| M03-3 | `GET /profiles/by-parent/{parentUserId}` yok | Veli tarafı `Parents` üzerinden dolaşıyor | M09/M14 için doğrudan liste yok | S | | |
+| M03-1 | ~~`POST /profiles/{studentId}/link-parent` yok~~ **✅ (P06)** | Uç eklendi; bağ **Parents**'ta `Pending` açılır (`IParentChildLinkRequestService`), onay mevcut `children/{linkId}/approve` akışında | — | — | Eklendi 2026-09-04 | `ParentUserId` ancak onay olayıyla dolar — modül sınırı korundu |
+| M03-2 | ~~Branş ekleme/çıkarma uçları yok~~ **✅ (P06)** | `POST /profiles/{id}/subjects` + `DELETE /profiles/{id}/subjects/{subjectId}`; aynı branş harf duyarsız reddedilir (409) | — | — | Eklendi 2026-09-04 | `StudentSubjectResponse` artık `Id` taşır (silme kimlikle) |
+| M03-3 | ~~`GET /profiles/by-parent/{parentUserId}` yok~~ **✅ (P06)** | Uç eklendi; onaylı bağ listesi `IParentAccessDirectory.ListApprovedStudentIdsAsync` ile Parents'tan okunur, yalnız o veli veya Admin erişir | — | — | Eklendi 2026-09-04 | Onaysız (Pending) bağ listeye girmez |
 | M03-4 | `FreeStudentLimit = 5` sabit, premium bağlantısı yok | `StudentProfileFeatures.cs:9` → `// TODO(M17): premium sınırsız` | Üyelik gelmeden limit kaldırılamıyor (M17'ye bağlı) | S | | |
 
 ### M04 — Scheduling (🟢 en olgun modül, 20 endpoint)

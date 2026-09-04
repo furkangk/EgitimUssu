@@ -14,4 +14,11 @@ internal sealed class ParentAccessDirectory : IParentAccessDirectory
         => _dbContext.ParentChildLinks.AnyAsync(
             l => l.ParentUserId == parentUserId && l.StudentId == studentId && l.Status == ParentChildLinkStatus.Approved,
             cancellationToken);
+
+    public async Task<IReadOnlyCollection<Guid>> ListApprovedStudentIdsAsync(Guid parentUserId, CancellationToken cancellationToken)
+        => await _dbContext.ParentChildLinks
+            .Where(l => l.ParentUserId == parentUserId && l.Status == ParentChildLinkStatus.Approved)
+            .Select(l => l.StudentId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
 }

@@ -371,15 +371,19 @@ git commit -m "feat(mobile): ogretmen uygunluk duzenleyici (D-04/M02-5)"
 
 ---
 
-### Task 9: Öğrenci profili tamamlayıcı uçlar (M03-1/M03-2/M03-3)
+### Task 9: Öğrenci profili tamamlayıcı uçlar (M03-1/M03-2/M03-3) ✅
 
 **Files:**
 - Modify: `src/Modules/Students/Application/StudentProfileFeatures.cs`
 - Modify: `src/Modules/Students/Application/StudentProfilePolicies.cs`
 - Modify: `src/Modules/Students/API/StudentsModule.cs`
-- Modify: `src/Modules/Students/Infrastructure/{StudentProfileRepository,DependencyInjection}.cs`
-- Modify: `mobile/lib/features/students/presentation/pages/student_detail_page.dart`
-- Test: `tests/Unit/StudentProfileSubjectsTests.cs`, `tests/Unit/StudentParentLinkTests.cs`
+- Modify: `src/Modules/Students/Domain/StudentsDomainModel.cs` *(plan sonradan düzeltildi: `AddSubject`/`RemoveSubject` + `StudentErrors`)*
+- Modify: `src/Modules/Students/Infrastructure/DependencyInjection.cs` — ~~`StudentProfileRepository.cs`~~ **gerekmedi** (EF izleme + zorunlu FK cascade sayesinde yeni depo metodu gerekmedi)
+- Create: `src/Shared/Contracts/ParentChildLinkRequestContract.cs` · Modify: `src/Shared/Contracts/ParentAccessContract.cs` *(plan sonradan düzeltildi)*
+- Create: `src/Modules/Parents/Infrastructure/ParentChildLinkRequestService.cs` · Modify: `ParentAccessDirectory.cs`, `DependencyInjection.cs` *(plan sonradan düzeltildi: bağ Parents'ta yaşıyor)*
+- Modify: `mobile/lib/features/students/{domain/student_contracts,data/models/student_model,data/repositories/student_repository_impl,presentation/cubit/student_detail_cubit,presentation/pages/student_detail_page}.dart` *(plan yalnız sayfayı listeliyordu)*
+- Test: `tests/Unit/StudentProfileSubjectsTests.cs`, `tests/Unit/StudentParentLinkTests.cs`, `mobile/test/features/students/student_subject_link_test.dart`
+- Modify: `doc/modules/{m03_students,m09_parents,00_genel_bakis}.md`, `doc/pages/students_detail.md`, `doc/roles/{ogretmen,veli}.md`
 
 **Interfaces:**
 - Produces:
@@ -387,12 +391,15 @@ git commit -m "feat(mobile): ogretmen uygunluk duzenleyici (D-04/M02-5)"
   - `POST /api/students/profiles/{studentId}/subjects` — `{ subject, targetLevel }` · `DELETE /api/students/profiles/{studentId}/subjects/{subjectId}` (M03-2)
   - `GET /api/students/profiles/by-parent/{parentUserId}` — velinin **onaylı** çocukları (`IParentAccessDirectory` ile doğrulanır) (M03-3)
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — kayıtlı olmayan veli kimliğiyle bağlama reddediliyor; aynı branş iki kez eklenemiyor (`students.duplicate_subject`); `by-parent` yalnız **onaylı** bağları döndürüyor; başka velinin kimliğiyle sorgu 403.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentProfileSubjectsTests|FullyQualifiedName~StudentParentLinkTests"`
-- [ ] **Step 3: Command/query + handler + authorizer + uçları yaz.**
-- [ ] **Step 4: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 5: Mobil** — Öğrenci detayında "Branş ekle/çıkar" ve "Veli bağla" (veli e-postasıyla arama → bağlama) bölümleri.
-- [ ] **Step 6: Doküman + commit**
+- **Uygulanan (plandan sapma):** `link-parent` ucu `StudentProfile.ParentUserId`'yi **doldurmaz**. Bağın sahibi Parents modülüdür; Students yeni `IParentChildLinkRequestService` sözleşmesi üzerinden `Pending` bağ açar, onay mevcut `POST /api/parents/children/{linkId}/approve` ucundadır, `ParentUserId` ancak `ParentChildLinkApproved` olayıyla dolar. Aksi hâlde Students, Parents'ın DbContext'ine yazmış olurdu (modül sınırı ihlali).
+- **Uygulanan:** `StudentSubjectResponse` `Id` alanı kazandı (silme ucu kimlikle çalışır); `IParentAccessDirectory` `ListApprovedStudentIdsAsync` ile büyüdü; `by-parent` için ayrı hafif yanıt `ParentChildSummaryResponse`.
+
+- [x] **Step 1: Testleri yaz (kırmızı)** — kayıtlı olmayan veli kimliğiyle bağlama reddediliyor; aynı branş iki kez eklenemiyor (`students.duplicate_subject`); `by-parent` yalnız **onaylı** bağları döndürüyor; başka velinin kimliğiyle sorgu 403.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentProfileSubjectsTests|FullyQualifiedName~StudentParentLinkTests"`
+- [x] **Step 3: Command/query + handler + authorizer + uçları yaz.**
+- [x] **Step 4: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 5: Mobil** — Öğrenci detayında "Branş ekle/çıkar" ve "Veli bağla" bölümleri. ⚠️ **Veli e-postasıyla arama yapılamadı:** Identity'de kullanıcı arama ucu yok; alan şimdilik **veli kullanıcı kimliği** alıyor (ILERLEME Öğrenilenler #79).
+- [x] **Step 6: Doküman + commit**
 
 `doc/modules/m03_students.md` (§ eksik uçlar `- [x]`), `doc/modules/00_genel_bakis.md` (Students bloğu 13 → 16 uç).
 ```bash

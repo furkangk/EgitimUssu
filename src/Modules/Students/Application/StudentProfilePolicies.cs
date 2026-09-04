@@ -115,10 +115,91 @@ public sealed class UpdateStudentProfileCommandAuthorizer : ICommandAuthorizer<U
     }
 }
 
+/// <summary>
+/// M03-1/M03-2: Öğrenci profilinin alt kaynaklarını (branş, veli bağı) değiştirme yetkisi.
+/// Admin · profili oluşturan öğretmen · profilin sahibi öğrenci. Sahibi öğrenciyi de kapsar,
+/// çünkü self-register profillerin <c>CreatedByTeacherUserId</c>'si yoktur.
+/// </summary>
+public sealed class StudentSubjectCommandAuthorizer :
+    ICommandAuthorizer<AddStudentSubjectCommand>,
+    ICommandAuthorizer<RemoveStudentSubjectCommand>
+{
+    private readonly ICurrentUser _currentUser;
+    private readonly IStudentProfileRepository _repository;
+
+    public StudentSubjectCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    {
+        _currentUser = currentUser;
+        _repository = repository;
+    }
+
+    public Task<Result> Authorize(AddStudentSubjectCommand command, CancellationToken cancellationToken)
+        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+
+    public Task<Result> Authorize(RemoveStudentSubjectCommand command, CancellationToken cancellationToken)
+        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+}
+
+/// <summary>M03-1: Veli bağlama yetkisi — Admin · profili oluşturan öğretmen · profilin sahibi öğrenci.</summary>
+public sealed class LinkStudentParentCommandAuthorizer : ICommandAuthorizer<LinkStudentParentCommand>
+{
+    private readonly ICurrentUser _currentUser;
+    private readonly IStudentProfileRepository _repository;
+
+    public LinkStudentParentCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    {
+        _currentUser = currentUser;
+        _repository = repository;
+    }
+
+    public Task<Result> Authorize(LinkStudentParentCommand command, CancellationToken cancellationToken)
+        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+}
+
+/// <summary>Öğrenci profili alt kaynaklarının ortak yetki kuralı (tek yerde durur).</summary>
+internal static class StudentProfileAccess
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+
+    public static async Task<Result> AuthorizeManage(
+        ICurrentUser currentUser,
+        IStudentProfileRepository repository,
+        Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        if (!currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var profile = await repository.GetByIdAsync(studentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        if (!Guid.TryParse(currentUser.UserId, out var userId))
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        var isOwningTeacher = currentUser.Roles.Contains("Teacher") && profile.CreatedByTeacherUserId == userId;
+        var isOwningStudent = profile.UserId == userId;
+        return isOwningTeacher || isOwningStudent ? Result.Success() : Result.Failure(Forbidden);
+    }
+}
+
 public sealed class StudentProfileQueryAuthorizer :
     IQueryAuthorizer<GetStudentProfileByIdQuery>,
     IQueryAuthorizer<GetStudentProfileByUserIdQuery>,
-    IQueryAuthorizer<ListStudentsByTeacherQuery>
+    IQueryAuthorizer<ListStudentsByTeacherQuery>,
+    IQueryAuthorizer<ListStudentsByParentQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
     private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
@@ -141,6 +222,23 @@ public sealed class StudentProfileQueryAuthorizer :
     {
         var profile = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
         return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
+    }
+
+    /// <summary>M03-3: Veli yalnız <b>kendi</b> çocuk listesini sorgulayabilir; Admin hepsini.</summary>
+    public Task<Result> Authorize(ListStudentsByParentQuery query, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Task.FromResult(Result.Failure(Forbidden));
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        var ownsList = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == query.ParentUserId;
+        return Task.FromResult(ownsList ? Result.Success() : Result.Failure(Forbidden));
     }
 
     public Task<Result> Authorize(ListStudentsByTeacherQuery query, CancellationToken cancellationToken)

@@ -84,22 +84,89 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
     }
   }
 
+  /// M03-2: Profili baştan güncellemeden tek branş ekler. Sunucu aynı branşı
+  /// ikinci kez kabul etmez (`students.duplicate_subject`) — hata kullanıcıya gösterilir.
+  Future<void> addSubject({required String subject, String? targetLevel}) async {
+    final current = state.student;
+    if (isClosed || current == null) return;
+    emit(state.copyWith(isSaving: true, clearMessages: true));
+    try {
+      final added = await _studentRepository.addSubject(
+        studentId: current.id,
+        subject: subject,
+        targetLevel: targetLevel,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isSaving: false,
+          student: current.copyWith(
+            subjects: <StudentSubjectTarget>[...current.subjects, added],
+          ),
+          successMessage: 'Brans eklendi.',
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isSaving: false, errorMessage: error.message));
+    }
+  }
+
+  /// M03-2: Branşı kimliğiyle siler.
+  Future<void> removeSubject(String subjectId) async {
+    final current = state.student;
+    if (isClosed || current == null) return;
+    emit(state.copyWith(isSaving: true, clearMessages: true));
+    try {
+      await _studentRepository.removeSubject(
+        studentId: current.id,
+        subjectId: subjectId,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isSaving: false,
+          student: current.copyWith(
+            subjects: current.subjects
+                .where((subject) => subject.id != subjectId)
+                .toList(),
+          ),
+          successMessage: 'Brans silindi.',
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isSaving: false, errorMessage: error.message));
+    }
+  }
+
+  /// M03-1: Kayıtlı veli kullanıcısını öğrenciye bağlama talebi açar.
+  /// Bağ **onay bekler**; bu yüzden profil hemen değişmez, yalnız bilgi mesajı verilir.
+  Future<void> linkParent(String parentUserId) async {
+    final current = state.student;
+    if (isClosed || current == null) return;
+    emit(state.copyWith(isSaving: true, clearMessages: true));
+    try {
+      await _studentRepository.linkParent(
+        studentId: current.id,
+        parentUserId: parentUserId,
+      );
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          isSaving: false,
+          successMessage: 'Veli baglama talebi olusturuldu; onay bekliyor.',
+        ),
+      );
+    } on ApiException catch (error) {
+      if (isClosed) return;
+      emit(state.copyWith(isSaving: false, errorMessage: error.message));
+    }
+  }
+
   Future<void> setIsActive({required bool isActive}) async {
     final current = state.student;
     if (current == null) return;
-    final updated = StudentProfile(
-      id: current.id,
-      fullName: current.fullName,
-      gradeLevel: current.gradeLevel,
-      origin: current.origin,
-      subjects: current.subjects,
-      teacherUserId: current.teacherUserId,
-      contactEmail: current.contactEmail,
-      contactPhone: current.contactPhone,
-      goalSummary: current.goalSummary,
-      levelNotes: current.levelNotes,
-      isActive: isActive,
-    );
-    await updateStudent(updated);
+    await updateStudent(current.copyWith(isActive: isActive));
   }
 }

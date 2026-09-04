@@ -67,6 +67,18 @@ public sealed class StudentsModule : ModuleDefinition
 
         group.MapPost("/profiles/{studentId:guid}/parent-invite", CreateParentInviteAsync)
         .WithSummary("Öğrenci için veli davet kodu üretir (öğretmen) (Veli V-D)");
+
+        group.MapPost("/profiles/{studentId:guid}/link-parent", LinkStudentParentAsync)
+        .WithSummary("Mevcut bir veli kullanıcısını öğrenciye bağlama talebi açar (M03-1)");
+
+        group.MapPost("/profiles/{studentId:guid}/subjects", AddStudentSubjectAsync)
+        .WithSummary("Öğrenciye branş ekler (M03-2)");
+
+        group.MapDelete("/profiles/{studentId:guid}/subjects/{subjectId:guid}", RemoveStudentSubjectAsync)
+        .WithSummary("Öğrencinin branşını siler (M03-2)");
+
+        group.MapGet("/profiles/by-parent/{parentUserId:guid}", ListStudentsByParentAsync)
+        .WithSummary("Velinin onaylı çocuklarını listeler (M03-3)");
     }
 
     /// <summary>
@@ -82,6 +94,62 @@ public sealed class StudentsModule : ModuleDefinition
         var result = await dispatcher.Dispatch(
             new CreateParentInviteCommand(studentId, request.TeacherUserId, request.ChildDisplayName),
             cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// M03-1: Öğretmen (veya Admin / öğrencinin kendisi) mevcut bir veli kullanıcısını öğrenciye bağlar.
+    /// Bağ <c>Pending</c> açılır; onay Parents tarafındaki <c>children/{linkId}/approve</c> ucundadır.
+    /// </summary>
+    private static async Task<IResult> LinkStudentParentAsync(
+        HttpContext context,
+        Guid studentId,
+        LinkStudentParentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new LinkStudentParentCommand(studentId, request.ParentUserId),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M03-2: Öğrenciye tek bir branş ekler (profili baştan güncellemeden).</summary>
+    private static async Task<IResult> AddStudentSubjectAsync(
+        HttpContext context,
+        Guid studentId,
+        AddStudentSubjectRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new AddStudentSubjectCommand(studentId, request.Subject, request.TargetLevel),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M03-2: Öğrencinin tek bir branşını siler.</summary>
+    private static async Task<IResult> RemoveStudentSubjectAsync(
+        HttpContext context,
+        Guid studentId,
+        Guid subjectId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new RemoveStudentSubjectCommand(studentId, subjectId),
+            cancellationToken);
+        return result.IsSuccess ? Results.NoContent() : MapStudentError(context, result);
+    }
+
+    /// <summary>M03-3: Velinin onaylı bağa sahip olduğu çocukları listeler.</summary>
+    private static async Task<IResult> ListStudentsByParentAsync(
+        HttpContext context,
+        Guid parentUserId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ListStudentsByParentQuery(parentUserId), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -272,6 +340,16 @@ public sealed class StudentsModule : ModuleDefinition
         return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
     }
 
+    /// <summary>Gövdesiz (204) uçların hata eşlemesi; <see cref="ToHttpResult{T}"/> ile aynı kodları kullanır.</summary>
+    private static IResult MapStudentError(HttpContext context, Result result)
+        => result.Error.Code switch
+        {
+            "students.profile_not_found" or "students.subject_not_found"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
+
     private static IResult MapLinkError(HttpContext context, Result result)
         => result.Error.Code switch
         {
@@ -293,7 +371,8 @@ public sealed class StudentsModule : ModuleDefinition
         {
             "students.user_profile_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "students.free_limit_reached" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
-            "students.profile_not_found" or "students.student_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "students.duplicate_subject" or "students.parent_link_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "students.profile_not_found" or "students.student_not_found" or "students.subject_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -324,6 +403,12 @@ public sealed record ClaimLinkRequest(string InviteCode);
 /// Öğretmenin bir öğrenci için veli davet kodu üretmesini taşır (Veli V-D). Çocuğun görünen adı opsiyonel.
 /// </summary>
 public sealed record CreateParentInviteRequest(Guid TeacherUserId, string? ChildDisplayName);
+
+/// <summary>M03-1: Öğrenciye bağlanacak <b>kayıtlı</b> veli kullanıcısının kimliğini taşır.</summary>
+public sealed record LinkStudentParentRequest(Guid ParentUserId);
+
+/// <summary>M03-2: Öğrenciye eklenecek tek branşı ve hedef seviyesini taşır.</summary>
+public sealed record AddStudentSubjectRequest(string Subject, string? TargetLevel);
 
 /// <summary>
 /// Mevcut öğrenci profilini güncellemek için gerekli alanları ve aktiflik durumunu taşır.

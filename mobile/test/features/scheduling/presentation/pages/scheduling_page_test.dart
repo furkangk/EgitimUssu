@@ -66,6 +66,30 @@ class _FakeStudentRepository implements StudentRepository {
   }) {
     throw UnimplementedError();
   }
+  @override
+  Future<StudentSubjectTarget> addSubject({
+    required String studentId,
+    required String subject,
+    String? targetLevel,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> removeSubject({
+    required String studentId,
+    required String subjectId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> linkParent({
+    required String studentId,
+    required String parentUserId,
+  }) {
+    throw UnimplementedError();
+  }
 
   @override
   Future<List<StudentProfile>> listByTeacher(String teacherUserId) async {

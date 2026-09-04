@@ -4,10 +4,12 @@ class StudentSubjectTargetModel extends StudentSubjectTarget {
   const StudentSubjectTargetModel({
     required super.subject,
     required super.targetLevel,
+    super.id,
   });
 
   factory StudentSubjectTargetModel.fromJson(Map<String, dynamic> json) {
     return StudentSubjectTargetModel(
+      id: json['id']?.toString() ?? '',
       subject: json['subject']?.toString() ?? '',
       targetLevel: json['targetLevel']?.toString() ?? '',
     );

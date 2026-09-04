@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
@@ -45,7 +46,34 @@ public sealed record UpdateStudentProfileCommand(
     TargetExam TargetExam = TargetExam.None,
     DateTime? DateOfBirth = null) : ICommand<Result<StudentProfileResponse>>;
 
-public sealed record StudentSubjectResponse(string Subject, string? TargetLevel);
+/// <summary>M03-2: Profili baştan güncellemeden tek branş ekler.</summary>
+public sealed record AddStudentSubjectCommand(Guid StudentId, string Subject, string? TargetLevel)
+    : ICommand<Result<StudentSubjectResponse>>;
+
+/// <summary>M03-2: Tek branş siler.</summary>
+public sealed record RemoveStudentSubjectCommand(Guid StudentId, Guid SubjectId) : ICommand<Result>;
+
+/// <summary>M03-1: Mevcut bir veli kullanıcısını öğrenciye bağlama talebi (bağ Pending başlar).</summary>
+public sealed record LinkStudentParentCommand(Guid StudentId, Guid ParentUserId)
+    : ICommand<Result<StudentParentLinkResponse>>;
+
+/// <summary>M03-3: Velinin onaylı çocuklarını listeler.</summary>
+public sealed record ListStudentsByParentQuery(Guid ParentUserId)
+    : IQuery<Result<IReadOnlyCollection<ParentChildSummaryResponse>>>;
+
+/// <summary>Veli bağlama talebinin sonucu. <c>Status</c> her zaman <c>Pending</c>'dir — onay Parents'ta verilir.</summary>
+public sealed record StudentParentLinkResponse(Guid StudentId, Guid ParentUserId, string Status);
+
+/// <summary>Velinin çocuk listesi için hafif görünüm (öğretmen bağı alanlarını taşımaz).</summary>
+public sealed record ParentChildSummaryResponse(
+    Guid Id,
+    string FullName,
+    string GradeLevel,
+    string TargetExam,
+    bool IsActive,
+    DateTime CreatedOnUtc);
+
+public sealed record StudentSubjectResponse(Guid Id, string Subject, string? TargetLevel);
 
 public sealed record StudentProfileSummaryResponse(
     Guid Id,
@@ -315,6 +343,158 @@ public sealed class UpdateStudentProfileCommandHandler : ICommandHandler<UpdateS
     }
 }
 
+public sealed class AddStudentSubjectCommandHandler : ICommandHandler<AddStudentSubjectCommand, Result<StudentSubjectResponse>>
+{
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+    private readonly IStudentProfileRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+
+    public AddStudentSubjectCommandHandler(IStudentProfileRepository repository, IIdGenerator idGenerator, IClock clock)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+        _clock = clock;
+    }
+
+    public async Task<Result<StudentSubjectResponse>> Handle(AddStudentSubjectCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetByIdAsync(command.StudentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<StudentSubjectResponse>.Failure(NotFound);
+        }
+
+        var added = profile.AddSubject(_idGenerator.New(), command.Subject, command.TargetLevel, _clock.UtcNow);
+        if (added.IsFailure)
+        {
+            return Result<StudentSubjectResponse>.Failure(added.Error);
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        var subject = added.Value!;
+        return Result<StudentSubjectResponse>.Success(
+            new StudentSubjectResponse(subject.Id, subject.Subject, subject.TargetLevel));
+    }
+}
+
+public sealed class RemoveStudentSubjectCommandHandler : ICommandHandler<RemoveStudentSubjectCommand, Result>
+{
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+    private readonly IStudentProfileRepository _repository;
+    private readonly IClock _clock;
+
+    public RemoveStudentSubjectCommandHandler(IStudentProfileRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result> Handle(RemoveStudentSubjectCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetByIdAsync(command.StudentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        var removed = profile.RemoveSubject(command.SubjectId, _clock.UtcNow);
+        if (removed.IsFailure)
+        {
+            return removed;
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+}
+
+/// <summary>
+/// M03-1: Öğretmen mevcut bir veli kullanıcısını öğrenciye bağlar. Bağın kendisi <b>Parents</b>
+/// modülünde yaşar; burada yalnız onay bekleyen talep açılır. <c>StudentProfile.ParentUserId</c>
+/// bu adımda doldurulmaz — onay sonrası <c>ParentChildLinkApproved</c> olayıyla dolar.
+/// </summary>
+public sealed class LinkStudentParentCommandHandler : ICommandHandler<LinkStudentParentCommand, Result<StudentParentLinkResponse>>
+{
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+    private static readonly Error ParentUserRequired = new("students.parent_user_required", "Veli kayıtlı bir kullanıcı olmalıdır.");
+    private static readonly Error LinkExists = new("students.parent_link_exists", "Bu veli zaten bu öğrenciye bağlı veya onay bekliyor.");
+    private readonly IStudentProfileRepository _repository;
+    private readonly IParentChildLinkRequestService _linkRequestService;
+
+    public LinkStudentParentCommandHandler(
+        IStudentProfileRepository repository,
+        IParentChildLinkRequestService linkRequestService)
+    {
+        _repository = repository;
+        _linkRequestService = linkRequestService;
+    }
+
+    public async Task<Result<StudentParentLinkResponse>> Handle(LinkStudentParentCommand command, CancellationToken cancellationToken)
+    {
+        var profile = await _repository.GetByIdAsync(command.StudentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<StudentParentLinkResponse>.Failure(NotFound);
+        }
+
+        if (command.ParentUserId == Guid.Empty)
+        {
+            return Result<StudentParentLinkResponse>.Failure(ParentUserRequired);
+        }
+
+        var outcome = await _linkRequestService.RequestPendingLinkAsync(
+            command.ParentUserId,
+            profile.Id,
+            profile.FullName,
+            cancellationToken);
+
+        return outcome switch
+        {
+            ParentLinkRequestOutcome.Created => Result<StudentParentLinkResponse>.Success(
+                new StudentParentLinkResponse(profile.Id, command.ParentUserId, "Pending")),
+            ParentLinkRequestOutcome.AlreadyLinked => Result<StudentParentLinkResponse>.Failure(LinkExists),
+            _ => Result<StudentParentLinkResponse>.Failure(ParentUserRequired)
+        };
+    }
+}
+
+/// <summary>M03-3: Velinin <b>onaylı</b> çocuklarını listeler; onay bilgisi Parents'tan okunur.</summary>
+public sealed class ListStudentsByParentQueryHandler : IQueryHandler<ListStudentsByParentQuery, Result<IReadOnlyCollection<ParentChildSummaryResponse>>>
+{
+    private readonly IStudentProfileRepository _repository;
+    private readonly IParentAccessDirectory _parentAccess;
+
+    public ListStudentsByParentQueryHandler(IStudentProfileRepository repository, IParentAccessDirectory parentAccess)
+    {
+        _repository = repository;
+        _parentAccess = parentAccess;
+    }
+
+    public async Task<Result<IReadOnlyCollection<ParentChildSummaryResponse>>> Handle(ListStudentsByParentQuery query, CancellationToken cancellationToken)
+    {
+        var studentIds = await _parentAccess.ListApprovedStudentIdsAsync(query.ParentUserId, cancellationToken);
+        if (studentIds.Count == 0)
+        {
+            return Result<IReadOnlyCollection<ParentChildSummaryResponse>>.Success([]);
+        }
+
+        var profiles = await _repository.ListByIdsAsync(studentIds, cancellationToken);
+        var payload = profiles
+            .OrderBy(profile => profile.FullName)
+            .Select(profile => new ParentChildSummaryResponse(
+                profile.Id,
+                profile.FullName,
+                profile.GradeLevel,
+                profile.TargetExam.ToString(),
+                profile.IsActive,
+                profile.CreatedOnUtc))
+            .ToArray();
+
+        return Result<IReadOnlyCollection<ParentChildSummaryResponse>>.Success(payload);
+    }
+}
+
 internal static class StudentProfileMappings
 {
     public static StudentProfileResponse ToResponse(this StudentProfile profile)
@@ -339,7 +519,7 @@ internal static class StudentProfileMappings
             profile.IsActive,
             profile.TargetExam.ToString(),
             profile.DateOfBirth,
-            subjects.Select(subject => new StudentSubjectResponse(subject.Subject, subject.TargetLevel)).ToArray(),
+            subjects.Select(subject => new StudentSubjectResponse(subject.Id, subject.Subject, subject.TargetLevel)).ToArray(),
             profile.CreatedOnUtc,
             profile.UpdatedOnUtc);
     }

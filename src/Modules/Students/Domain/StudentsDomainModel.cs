@@ -146,6 +146,43 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     }
 
     /// <summary>
+    /// M03-2: Profili baştan güncellemeden tek bir branş ekler. Aynı branş (büyük/küçük harf
+    /// duyarsız) zaten ekliyse <c>students.duplicate_subject</c> döner — kural burada, tek yerde durur.
+    /// </summary>
+    public Result<StudentSubject> AddSubject(Guid subjectId, string subject, string? targetLevel, DateTime updatedOnUtc)
+    {
+        var normalized = subject?.Trim() ?? string.Empty;
+        if (normalized.Length == 0)
+        {
+            return Result<StudentSubject>.Failure(StudentErrors.InvalidSubject);
+        }
+
+        if (Subjects.Any(existing => string.Equals(existing.Subject, normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Result<StudentSubject>.Failure(StudentErrors.DuplicateSubject);
+        }
+
+        var entity = new StudentSubject(subjectId, Id, normalized, targetLevel?.Trim());
+        Subjects.Add(entity);
+        UpdatedOnUtc = updatedOnUtc;
+        return Result<StudentSubject>.Success(entity);
+    }
+
+    /// <summary>M03-2: Tek bir branşı kaldırır. Branş bu profile ait değilse <c>students.subject_not_found</c>.</summary>
+    public Result RemoveSubject(Guid subjectId, DateTime updatedOnUtc)
+    {
+        var existing = Subjects.FirstOrDefault(subject => subject.Id == subjectId);
+        if (existing is null)
+        {
+            return Result.Failure(StudentErrors.SubjectNotFound);
+        }
+
+        Subjects.Remove(existing);
+        UpdatedOnUtc = updatedOnUtc;
+        return Result.Success();
+    }
+
+    /// <summary>
     /// Bu (manuel) profili, öğrencinin mevcut kanonik self-profil'ine birleştirir (Ö-C claim/merge).
     /// Profil pasifleştirilir ve modüller-arası <c>StudentId</c> yeniden atamasını tetikleyecek
     /// <see cref="StudentProfilesMergedDomainEvent"/> yayılır (Outbox → integration event).
@@ -158,6 +195,14 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
         Raise(new StudentProfilesMergedDomainEvent(Id, canonicalStudentId, updatedOnUtc));
     }
+}
+
+/// <summary>Students modülünün domain kuralı hataları (Application ve API aynı kodları taşır).</summary>
+public static class StudentErrors
+{
+    public static readonly Error InvalidSubject = new("students.invalid_subject", "Branş adı boş olamaz.");
+    public static readonly Error DuplicateSubject = new("students.duplicate_subject", "Bu branş zaten ekli.");
+    public static readonly Error SubjectNotFound = new("students.subject_not_found", "Branş bulunamadı.");
 }
 
 public sealed class StudentSubject : Entity<Guid>
