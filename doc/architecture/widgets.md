@@ -17,7 +17,7 @@ updated: 2026-09-04
 > **Otorite:** Bir widget kodda varsa **kod doğruluk kaynağıdır** (sınıf adı, parametreler buradan alınır). Token
 > değerleri → [`design_system.md`](design_system.md). Karmaşık widget'ın derin tasarımı kendi dosyasındadır (ör. tab → [`../tab_widget.md`](../tab_widget.md)).
 >
-> **Güncelleme:** 2026-08-20 (kod-drift düzeltmesi: StudentBottomNav girişi gerçek 4-sekmeye/rotaya güncellendi (🟢), `StudentPlaceholderPage` yok; AppTextField API'sine `textCapitalization` eklendi)
+> **Güncelleme:** 2026-09-04 (P10 Task 4 / D-08: §2c mesajlaşma bileşenleri — `MessagingHeader`/`ConversationTile`/`MessageBubble`/`MessageComposer`; `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı). Önceki not — 2026-08-20 (kod-drift düzeltmesi: StudentBottomNav girişi gerçek 4-sekmeye/rotaya güncellendi (🟢), `StudentPlaceholderPage` yok; AppTextField API'sine `textCapitalization` eklendi)
 
 ---
 
@@ -79,6 +79,22 @@ updated: 2026-09-04
 | StudyQuickAccessCard | `StudyQuickAccessCard` @ `study_tab_widgets.dart` | `icon, color, label, onTap` | Dashboard hızlı erişim kartı: `StudyPressable` + `StudyCard` + `StudyIconChip` + etiket | 🟢 |
 | StudyProgressBar | `StudyProgressBar` @ `study_tab_widgets.dart` | `value (0..1), color?, trailingLabel?` | Hedef ilerleme barı; `value` `0..1` aralığına kırpılır, varsayılan renk `accentTeal`, zemin `tabBackground` | 🟢 |
 | StudyOwnershipBadge | `StudyOwnershipBadge` @ `study_tab_widgets.dart` | `isOwn` | Kendi (öğrenci) / öğretmen dersi ayrım rozeti: `👤 Kendi` (teal) / `👨‍🏫 Öğretmen` (accentBlue) | 🟢 |
+
+## 2c. Mesajlaşma Ekranı Ortak Bileşenleri (`messaging_widgets.dart`)
+
+> Konum: `mobile/lib/features/messaging/presentation/widgets/messaging_widgets.dart`
+> (P10 Task 4 / D-08). **`flutter_chat_ui` paketi kullanılmadı ve pubspec'ten kaldırıldı** — paket
+> kendi teması, kendi girdi alanı ve kendi model tipleriyle geliyor, `AppColors`/`AppShadows`
+> token'larına oturmuyordu; kullanılmayan ağır bağımlılık bırakmak da D-18'in ta kendisiydi.
+
+| Katalog | Kod (sınıf @ dosya) | API (özet) | Kural / Varyant | Durum |
+|---------|---------------------|------------|-----------------|-------|
+| MessagingHeader | `MessagingHeader` @ `messaging_widgets.dart` | `title, subtitle?, trailing?` | Geri düğmeli üst bar (bildirim merkezindekiyle aynı dil); `trailing` engelleme menüsünü taşır | 🟢 |
+| ConversationTile | `ConversationTile` @ `messaging_widgets.dart` | `conversation, title, onTap` | Gelen kutusu satırı: baş-harf avatarı + ad + önizleme + göreli zaman + okunmamış rozeti + engel ikonu. Min yükseklik 56 (ux_rules §6), `splashColor: primaryLight` | 🟢 |
+| MessageBubble | `MessageBubble` @ `messaging_widgets.dart` | `message, isMine, onRetry` | Kendi mesajı sağda `primary` zeminde, karşı taraf solda `surface`; silinmişte `tabBackground` + italik "Bu mesaj silindi"; altında saat / "Gönderiliyor…" / hata + "Tekrar dene". Okundu ✓✓ **yalnız kendi** mesajında | 🟢 |
+| MessageComposer | `MessageComposer` @ `messaging_widgets.dart` | `enabled, onSend, disabledHint?` | 1-5 satır büyüyen alan + 48px yuvarlak gönder düğmesi. `enabled: false` iken alan **hiç çizilmez**, yerine `errorSurface` zeminli açıklama gelir — boşuna yazdırmak yerine neden söylenir | 🟢 |
+
+Yardımcılar: `initialsOf(name)` (baş harfler), `relativeTime(utc)` (bugün→saat, dün→"Dün", <7 gün→gün kısaltması, öncesi→`gg.aa`), `clockTime(utc)`.
 
 ## 3. Durum Görünümleri
 

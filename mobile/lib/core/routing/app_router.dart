@@ -16,6 +16,8 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/pages/welcome_page
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/pages/membership_page.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/pages/paywall_page.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/chat_page.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/messaging_inbox_page.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_child_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_children_page.dart';
@@ -311,6 +313,19 @@ class AppRouter {
         GoRoute(
           path: '/membership/paywall',
           builder: (context, state) => const PaywallPage(),
+        ),
+        // D-08 (M16): Gelen kutusu + sohbet. Sohbet rotası push bildiriminin
+        // `route` alanıyla birebir aynıdır (`/messages/{conversationId}`), böylece
+        // bildirime dokunmak doğrudan doğru sohbeti açar.
+        GoRoute(
+          path: '/messages',
+          builder: (context, state) => const MessagingInboxPage(),
+        ),
+        GoRoute(
+          path: '/messages/:conversationId',
+          builder: (context, state) => ChatPage(
+            conversationId: state.pathParameters['conversationId'] ?? '',
+          ),
         ),
         GoRoute(
           path: '/settings/notifications',

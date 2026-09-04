@@ -231,14 +231,18 @@ Backend push gövdesine `data.route` koyar (ders hatırlatması → `/scheduling
 - **Veli:** Ana Sayfa · Çocuklar · Bildirim · Profil — kodda **uygulandı**: `ParentBottomNav` + `/parent` rota grubu (`parent_home`/`children`/`child_detail`/`notifications`/`profile`). Redirect: `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir; veli öğretmen ekranlarına ya da öğretmen veli ekranlarına düşerse geri alınır. `role_selection_page` 'Veli' kartı `/register?role=veli`'ye gider.
 - **Öğrenci:** kodda **uygulandı** — dedike alt navigasyon `StudentBottomNav` (`lib/features/study/presentation/widgets/student_bottom_nav.dart`, `study` feature). **4 sekme** (`StudentNavTab`): 🏠 Çalışma (`/student-home`) · 📚 Derslerim (`/student/lessons`) · 📊 Performans (`/student/performance`) · 👤 Profil (`/student/profile`). Sekme dışı push sayfalar: ⏱️ Kronometre (`/study/timer`, Çalışmaya Başla girişinden açılır) · 📖 Ders Detayı (`/student/lessons/:id`, ders kartından açılır). Eski **Keşfet** sekmesi kaldırıldı — `/student/discover` artık `/student/lessons`'a redirect eder; **Öğretmenlerim** (`/student/teacher`) artık sekme değil, Profil'in Ayarlar menüsünden erişilir. Redirect: `session.roles` içinde `'Student'` (ve `'Teacher'` yok) ise `/student-home`'a yönlendirir; öğrenci öğretmene özel ekranlara (`/dashboard`, `/students`, `/scheduling`, `/lesson-sessions`, `/assignments`, `/payments`, `/teacher-profile`) düşerse geri alınır. Öğrenci StudentId'si M03 `by-user` ile çözülür; profil yoksa `SelfRegistered` olarak otomatik oluşturulur.
 
-Feature klasörü **uygulandı:** `parent` (M09), `study` (M08), `progress` (M10). Planlanan: `messaging` (M16),
-`listings` (M12), `reviews` (M13), `membership` (M17 — paywall + reklam yerleşimi), `feedback` (M18).
+Feature klasörü **uygulandı:** `parent` (M09), `study` (M08), `progress` (M10), `membership` (M17 — üyelik + paywall),
+`messaging` (M16 — gelen kutusu + sohbet). Planlanan: `listings` (M12), `reviews` (M13), `feedback` (M18),
+`membership`in reklam yerleşimi (P09 Task 5).
 Detay: [`../roles/`](../roles/00_roller_genel_bakis.md).
 
 ## 10. Paketler
 
 ```yaml
 dependencies:
+  # NOT (P10 Task 4 / D-18): `flutter_chat_ui` KALDIRILDI — sohbet balonları
+  # tasarım sistemi token'larıyla yazıldı; kullanılmayan ağır bağımlılık bırakmak
+  # D-18'in ta kendisiydi.
   flutter_bloc: ^8        # state (Cubit)  ← kanonik
   go_router: ^14          # routing
   dio: ^5                 # ağ
@@ -461,6 +465,25 @@ değişince tazelenir. Ekranlar kendi tier alanını taşımaz; kilit için orta
 `PremiumLockCard` kullanılır (bkz. [`widgets.md`](widgets.md) §3). Kilit yalnız **sunucunun gerçekten
 uyguladığı** kapıların önüne konur; uygulanmayan bir kısıtı istemcide taklit etmek yasaktır.
 
+### 13.19c Mesajlaşma (P10 Task 4)
+**Amaç:** Öğretmen↔öğrenci ve öğretmen↔veli sohbeti.
+**UI:** `/messages` — sohbet listesi (avatar baş harfi, son mesaj önizlemesi, göreli zaman, okunmamış rozeti);
+`/messages/:conversationId` — balonlar (kendi sağda primary zeminde), 1-5 satır büyüyen yazma alanı, engelleme menüsü.
+→ `pages/messaging_inbox.md`, `pages/messaging_chat.md`
+
+**Kurallar:**
+- **Keyset sayfalama.** Liste `reverse: true` çizilir; geçmişe kaydırma imleci son görülen mesajın
+  `sentOnUtc`'sidir. Offset kullanılsaydı yeni mesaj geldiğinde satırlar kayar, kullanıcı bir mesajı
+  iki kez görürdü. Sonsuz scroll — "daha fazla yükle" düğmesi yok (ux_rules §6).
+- **İyimser gönderim.** Mesaj sunucu yanıtı beklenmeden listeye girer; hata olursa **kaybolmaz**,
+  "Tekrar dene" aynı metni yeniden gönderir (ux_rules §4 optimistik güncelleme).
+- **Sohbet balonları paket değil, token.** `flutter_chat_ui` bağımlılığı **kaldırıldı** (D-18):
+  paket kendi teması, kendi girdi alanı ve kendi model tipleriyle geliyordu ve tasarım sistemine
+  uymuyordu. Balonlar `features/messaging/presentation/widgets/messaging_widgets.dart` içinde
+  `AppColors`/`AppShadows` token'larıyla yazıldı.
+- **Push'tan derin bağlantı ek kod istemez:** sunucu bildirimi `route = "/messages/{conversationId}"`
+  ile yazar, kökteki push dinleyicisi bu rotayı olduğu gibi `push` eder.
+
 ### 13.20 Profil
 **Amaç:** Hesap/güvenlik/bildirim/yardım/çıkış. **UI:** avatar+ad+rol, menü (Kişisel Bilgiler, Şifre Değiştir,
 Bildirim Ayarları, Gizlilik, Yardım & Destek, Çıkış Yap — kırmızı), bottom nav. → `pages/more.md`, `pages/account_info.md`
@@ -510,6 +533,7 @@ her test dosyasındaki kopya sessizce eskiyor ve **testler derlenmeyip "atlanıy
 | `FakeAuthRepository` | `test/helpers/fake_auth_repository.dart` | `session` (restore/login/register dönüşü), `hangOnRestore` (restore hiç tamamlanmaz), `loginCallCount` / `logoutCount` sayaçları, `FakeAuthRepository.defaultSession(...)` |
 | `FakeSchedulingRepository` | `test/helpers/fake_scheduling_repository.dart` | `teacherLessons`, `studentLessons`, `studentCalendar`; yazma metotları `UnimplementedError` atar |
 | `FakeMembershipRepository` | `test/helpers/fake_membership_repository.dart` | `snapshot`, `plans`, `referral`; **çağrı başına ayrı hata alanı** (`meError`/`trialError`/…) ve komut sonrası durum (`afterTrial`/`afterCancel`/`afterRedeem`) + çağrı kayıtları |
+| `FakeMessagingRepository` | `test/helpers/fake_messaging_repository.dart` | `inbox`, `store` (sunucudaki mesajlar), `detail`; çağrı başına ayrı hata alanı (`inboxError`/`sendError`/…). **`sendError` değiştirilebilir** — "önce hata, sonra başarı" (tekrar dene) senaryosu tek sahteyle kurulur. Sayfalama **gerçek keyset semantiğini** taşır (`beforeUtc`'den eski, yeniden eskiye, `take` kadar): aksi hâlde sayfalama testi yalnız çağrının yapıldığını doğrular, doğruluğunu değil |
 
 Kural: **arayüz imzası değişince yalnız `test/helpers/` altındaki sahte güncellenir.** Yeni bir repository için
 ikinci kez yerel sahte yazmak yerine buraya bir `Fake*` eklenir.
@@ -532,4 +556,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

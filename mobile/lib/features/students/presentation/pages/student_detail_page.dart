@@ -1,6 +1,8 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/open_conversation_action.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
@@ -762,6 +764,18 @@ class _OverviewTab extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // D-08 (M16): Ogrenciyle sohbet. Ogrencinin KULLANICI kimligi bu ekranda yok
+        // (profil kimligi var); karsi tarafi sunucu studentId'den cozer.
+        _ActionButton(
+          label: 'Mesaj Gonder',
+          icon: Icons.chat_bubble_outline_rounded,
+          onTap: () => openConversationAndGo(
+            context,
+            counterpartRole: kParticipantRoleStudent,
+            studentId: student.id,
+          ),
         ),
       ],
     );

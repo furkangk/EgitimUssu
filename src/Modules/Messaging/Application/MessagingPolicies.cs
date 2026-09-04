@@ -47,6 +47,16 @@ public interface IConversationRelationshipPolicy
         ParticipantRole counterpartRole,
         Guid studentId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Öğrenci profiline bağlı kullanıcı kimliği. İstemci bunu <b>bilmez</b> — öğrenci listesi
+    /// yalnız profil kimliği taşır — bu yüzden "öğretmen öğrenciye yazıyor" akışında karşı tarafı
+    /// sunucu çözer. Bağlı kullanıcı yoksa (öğrenci hesabını henüz devralmadı) <c>null</c> döner.
+    /// </summary>
+    /// <param name="studentId">Öğrenci profili kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Kullanıcı kimliği ya da <c>null</c>.</returns>
+    Task<Guid?> ResolveStudentUserIdAsync(Guid studentId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -97,6 +107,10 @@ public sealed class ConversationRelationshipPolicy : IConversationRelationshipPo
 
         return allowed ? Result.Success() : Result.Failure(MessagingErrors.RelationshipRequired);
     }
+
+    /// <inheritdoc />
+    public Task<Guid?> ResolveStudentUserIdAsync(Guid studentId, CancellationToken cancellationToken)
+        => _students.GetOwnerUserIdAsync(studentId, cancellationToken);
 }
 
 /// <summary>

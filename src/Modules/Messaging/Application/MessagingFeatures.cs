@@ -198,7 +198,11 @@ public static class MessagingResponseFactory
 }
 
 /// <summary>M16-1: Sohbeti açar; aynı çift + öğrenci bağlamı için varsa mevcudu döner (get-or-create).</summary>
-/// <param name="CounterpartUserId">Karşı tarafın kullanıcı kimliği.</param>
+/// <param name="CounterpartUserId">
+/// Karşı tarafın kullanıcı kimliği. Öğretmen bir <b>öğrenciye</b> yazıyorsa boş (<c>Guid.Empty</c>)
+/// bırakılabilir: istemci öğrencinin kullanıcı kimliğini bilmez, sunucu onu
+/// <paramref name="StudentId"/>'den çözer.
+/// </param>
 /// <param name="CounterpartRole">Karşı tarafın rolü (<c>Teacher</c> | <c>Student</c> | <c>Parent</c>).</param>
 /// <param name="StudentId">Sohbetin bağlamı olan öğrenci profili.</param>
 public sealed record OpenConversationCommand(Guid CounterpartUserId, string CounterpartRole, Guid StudentId)
@@ -293,6 +297,21 @@ public sealed class OpenConversationCommandHandler
             return Result<ConversationResponse>.Failure(MessagingApplicationErrors.InvalidRole);
         }
 
+        var counterpartUserId = command.CounterpartUserId;
+        if (counterpartUserId == Guid.Empty && counterpartRole == ParticipantRole.Student)
+        {
+            // Öğrenci listesi yalnız profil kimliği taşır; karşı tarafı burada çözeriz.
+            // Çözülemezse (öğrenci hesabını henüz devralmadı) sohbet açılamaz.
+            var resolved = await _relationshipPolicy.ResolveStudentUserIdAsync(
+                command.StudentId, cancellationToken);
+            if (resolved is null)
+            {
+                return Result<ConversationResponse>.Failure(MessagingErrors.RelationshipRequired);
+            }
+
+            counterpartUserId = resolved.Value;
+        }
+
         // Domain önce çalışır: çift yasaksa ilişkiyi sormaya gerek yok ve normalize edilmiş
         // (öğretmen, karşı taraf) ikilisini yalnız domain üretebilir.
         var created = Conversation.Create(
@@ -300,7 +319,7 @@ public sealed class OpenConversationCommandHandler
             callerRole.Value,
             callerUserId,
             counterpartRole,
-            command.CounterpartUserId,
+            counterpartUserId,
             command.StudentId,
             _clock.UtcNow);
 

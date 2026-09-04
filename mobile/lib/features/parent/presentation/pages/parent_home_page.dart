@@ -36,6 +36,20 @@ class ParentHomePage extends StatelessWidget {
               ParentHeader(
                 title: 'Merhaba, ${fullName.split(' ').first}',
                 subtitle: 'Çocuğunuzun bu haftaki gelişimi',
+                // D-08 (M16): Öğretmenle sohbet. Veli sohbeti **başlatamaz** —
+                // veli panelinde öğretmenin kullanıcı kimliği yok; öğretmen
+                // yazınca sohbet burada görünür ve veli yanıtlar.
+                trailing: Semantics(
+                  button: true,
+                  label: 'Mesajlar',
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppColors.primary,
+                    ),
+                    onPressed: () => context.push('/messages'),
+                  ),
+                ),
               ),
               Expanded(
                 child: BlocBuilder<ParentCubit, ParentState>(

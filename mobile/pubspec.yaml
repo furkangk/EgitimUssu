@@ -37,8 +37,12 @@ dependencies:
   # Bildirim
   firebase_messaging: ^15.2.4
   flutter_local_notifications: ^18.0.1
-  # Chat & medya
-  flutter_chat_ui: ^1.6.15
+  # Medya
+  # NOT (P10 Task 4 / D-18): `flutter_chat_ui` KALDIRILDI. Sohbet balonları
+  # `features/messaging/presentation/widgets/messaging_widgets.dart` içinde
+  # `AppColors`/`AppShadows` token'larıyla yazıldı — paket kendi teması, kendi
+  # girdi alanı ve kendi model tipleriyle geliyor ve tasarım sistemine uymuyordu.
+  # Kullanılmayan ağır bağımlılık bırakmak D-18'in ta kendisiydi.
   image_picker: ^1.1.2
   firebase_core: ^3.15.2
   url_launcher: ^6.3.2

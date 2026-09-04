@@ -66,6 +66,36 @@ public sealed class MessagingAccessTests
         Assert.Equal("messaging.relationship_required", result.Error.Code);
     }
 
+    /// <summary>
+    /// Öğretmen ekranı öğrencinin <b>kullanıcı</b> kimliğini bilmez (öğrenci listesi yalnız profil
+    /// kimliği taşır); karşı tarafı sunucu <c>studentId</c>'den çözer.
+    /// </summary>
+    [Fact]
+    public async Task Teacher_May_Omit_Counterpart_User_Id_For_Student()
+    {
+        var fixture = new Fixture(TeacherUserId, "Teacher");
+        fixture.LinkTeacherToStudent();
+
+        var result = await fixture.OpenAsync(Guid.Empty, nameof(ParticipantRole.Student), StudentId);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(StudentUserId, result.Value!.CounterpartUserId);
+    }
+
+    /// <summary>Öğrenci hesabını henüz devralmadıysa çözülecek bir kullanıcı yoktur.</summary>
+    [Fact]
+    public async Task Omitted_Counterpart_Fails_When_Student_Has_No_User_Account()
+    {
+        var fixture = new Fixture(TeacherUserId, "Teacher");
+        fixture.Students.Links.Add((TeacherUserId, StudentId));
+        fixture.Students.Owners[StudentId] = null;
+
+        var result = await fixture.OpenAsync(Guid.Empty, nameof(ParticipantRole.Student), StudentId);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("messaging.relationship_required", result.Error.Code);
+    }
+
     [Fact]
     public async Task Teacher_Can_Open_Conversation_With_Approved_Parent()
     {

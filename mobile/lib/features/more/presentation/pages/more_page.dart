@@ -76,6 +76,16 @@ class _MorePageState extends State<MorePage> {
                         onTap: () => context.push('/account-info'),
                       ),
                       _DividerLine(),
+                      // D-08: P10'da mesajlasma uclari geldi (M16-1); satir
+                      // gercek gelen kutusuna gidiyor.
+                      _MenuTile(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        title: 'Mesajlar',
+                        subtitle: 'Ogrenci ve velilerle sohbet',
+                        color: AppColors.accentTeal,
+                        onTap: () => context.push('/messages'),
+                      ),
+                      _DividerLine(),
                       // D-10/D-15: P09'da gercek uyelik uclari geldi (M17-1/M17-3);
                       // satir artik aktif ve `GET /api/membership/me`den beslenen
                       // uyelik ekranina gidiyor.

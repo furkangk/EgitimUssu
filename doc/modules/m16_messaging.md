@@ -1,6 +1,6 @@
 ---
 title: "M16 — Mesajlaşma"
-summary: "Mesajlaşma modülü: domain + 8 uç + ilişki kapısı + hız sınırı + yeni mesaj bildirimi kodda (P10 Task 1-3); mobil sırada"
+summary: "Mesajlaşma modülü: domain + 8 uç + ilişki kapısı + hız sınırı + bildirim + mobil gelen kutusu/sohbet kodda (P10 Task 1-4); şikayet P12, gerçek zamanlı v2"
 tags: [modul, messaging, faz-2, faz-3]
 status: "🟡"
 authority: code
@@ -26,7 +26,7 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-🟡 **Modül iskeleti, domain, uçlar ve bildirim kodda** (P10 Task 1-3, 2026-09-04):
+🟡 **Modül iskeleti, domain, uçlar, bildirim ve mobil ekranlar kodda** (P10 Task 1-4, 2026-09-04):
 
 - **Backend:** `src/Modules/Messaging/{Domain,Application,Infrastructure,API}` — 4 katman projesi, `MessagingDbContext`
   (`messaging` şeması), `MessagingModule : ModuleDefinition` (`/api/messaging`), `MessagingDesignTimeDbContextFactory`,
@@ -44,10 +44,11 @@ updated: 2026-09-04
 - **Bildirim (P10 Task 3):** `Notifications/Infrastructure/MessageSentNotificationHandler.cs` —
   `Messaging/MessageSentDomainEvent` tüketip alıcıya `UserNotification(Kind=MessageReceived,
   Route="/messages/{conversationId}")` yazar; push turunu `NotificationDispatcher` üstlenir.
-- **Testler:** `ConversationTests` (17) + `MessageTests` (9) + `MessagingAccessTests` (14) + `MessagePagingTests` (10)
-  + `MessageSentNotificationHandlerTests` (6) + `DistributedRateLimitMiddlewareTests`'e 5 mesajlaşma testi.
-
-**Henüz yok (sırada):** `mobile/lib/features/messaging/` → P10 Task 4.
+- **Mobil (P10 Task 4):** `mobile/lib/features/messaging/` — `ConversationsCubit` + `ChatCubit`,
+  `MessagingRepositoryImpl`, gelen kutusu ve sohbet ekranları, üç rolde giriş noktaları (§6).
+- **Testler:** `ConversationTests` (17) + `MessageTests` (9) + `MessagingAccessTests` (17) + `MessagePagingTests` (10)
+  + `MessageSentNotificationHandlerTests` (6) + `DistributedRateLimitMiddlewareTests`'e 5 mesajlaşma testi;
+  mobilde `messaging_cubit_test` (15) + `messaging_pages_test` (8).
 
 ---
 
@@ -251,17 +252,40 @@ Uç yok; mesaj şikayeti M18 AbuseReport ile gelecek.
 
 ---
 
-## 6. Mobil Ekranlar (Planlanan)
+## 6. Mobil Ekranlar (🟢 Kodda — P10 Task 4)
 
-`mobile/lib/features/messaging/` (Flutter, `flutter_bloc`/Cubit, `go_router`, `dio`):
+`mobile/lib/features/messaging/` (`flutter_bloc`/Cubit, `go_router`, `dio`):
 
-- **conversation-list** — gelen kutusu: karşı taraf adı, son mesaj önizlemesi, okunmamış rozeti, sohbet türü etiketi (öğrenci/veli).
-- **conversation-thread** — mesaj balonları, gönder kutusu, okundu işareti, "engelle/sustur/şikayet et" menüsü; keyset sayfalama ile geçmiş yükleme.
-- **new-conversation** — öğretmen için: öğrenci/veli seçerek sohbet başlatma (yalnızca izinli çiftler listelenir).
-- **conversation-info** — katılımcılar, ilgili öğrenci bağlamı, engelleme/sustur ayarları.
+| Ekran | Rota | State | md |
+|-------|------|-------|-----|
+| Gelen kutusu | `/messages` | `ConversationsCubit` | [`../pages/messaging_inbox.md`](../pages/messaging_inbox.md) |
+| Sohbet | `/messages/:conversationId` | `ChatCubit` | [`../pages/messaging_chat.md`](../pages/messaging_chat.md) |
 
-> Renk/temaya `0xFF082B4F` kurumsal rengi uygulanır. Premium olmayan kullanıcıya gelen kutusunda reklam yerleşimi
-> (bkz. [`m17_membership.md`](m17_membership.md) `AdPlacement`).
+**Giriş noktaları:** öğretmen `/more` → "Mesajlar" ve öğrenci detayında "Mesaj Gonder" ·
+öğrenci `/student/profile` → "Mesajlar" ve `/student/teacher` kartında "Mesaj gönder" ·
+veli ana sayfa başlığındaki mesaj ikonu.
+
+**Push'tan derin bağlantı ek kod istemez:** bildirim `Route = "/messages/{conversationId}"` taşır,
+kökteki push dinleyicisi `data.route`'u olduğu gibi `push` eder (P03 Task 5).
+
+> **Sohbet balonları paket değil, token.** Planın öngördüğü `flutter_chat_ui` **kullanılmadı ve
+> pubspec'ten kaldırıldı** (D-18): paket kendi teması, kendi girdi alanı ve kendi model tipleriyle
+> geliyor, `AppColors`/`AppShadows` token'larına oturmuyordu. Balonlar
+> `presentation/widgets/messaging_widgets.dart` içinde yazıldı — bkz.
+> [`../architecture/widgets.md`](../architecture/widgets.md) §2c.
+
+**Uygulanmayan ekranlar:**
+
+| Planlanmıştı | Neden yok |
+|--------------|-----------|
+| `new-conversation` (öğrenci/veli seçme ekranı) | Sohbet, zaten bağlam taşıyan ekranlardan ("Mesaj gönder" düğmeleri) açılır; ayrı bir seçici, aynı listeyi ikinci kez kurmak olurdu |
+| `conversation-info` | v1 sohbeti sabit iki taraflıdır; gösterilecek katılımcı listesi yok. Engelleme sohbetin kendi menüsünde |
+| "sustur" ve "şikayet et" | Uçları yok — susturma bildirim tercihlerine (M15) devredildi, şikayet M18 (P12) |
+| Gelen kutusunda reklam yerleşimi | `AdPlacement` hâlâ yok (M17-2 / P09 Task 5, Q3'e bloke) |
+
+> ⚠️ **Karşı tarafın adı gösterilemiyor:** `GET /conversations` yalnız `counterpartUserId` döner.
+> Uydurma ad yazmak yerine rol etiketi ("Öğrenci"/"Veli"/"Öğretmen") gösterilir; ad alanı sunucuya
+> eklenene kadar bu böyle kalır.
 
 ---
 
@@ -314,4 +338,4 @@ Uç yok; mesaj şikayeti M18 AbuseReport ile gelecek.
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
