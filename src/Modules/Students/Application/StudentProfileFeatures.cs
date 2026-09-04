@@ -5,11 +5,6 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
 
-internal static class StudentLimits
-{
-    public const int FreeStudentLimit = 5; // TODO(M17): premium sınırsız
-}
-
 public sealed record StudentSubjectRequest(string Subject, string? TargetLevel);
 
 public sealed record CreateStudentProfileCommand(
@@ -131,17 +126,20 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
     private static readonly Error FreeLimitReached = new("students.free_limit_reached", "Free planda en fazla 5 ogrenci ekleyebilirsiniz. Premium'a gecin.");
     private readonly IStudentProfileRepository _repository;
     private readonly ITeacherStudentLinkRepository _linkRepository;
+    private readonly IEntitlementDirectory _entitlements;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateStudentProfileCommandHandler(
         IStudentProfileRepository repository,
         ITeacherStudentLinkRepository linkRepository,
+        IEntitlementDirectory entitlements,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
         _linkRepository = linkRepository;
+        _entitlements = entitlements;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -169,8 +167,10 @@ public sealed class CreateStudentProfileCommandHandler : ICommandHandler<CreateS
 
         if (command.Origin == StudentOrigin.TeacherManaged && command.CreatedByTeacherUserId is { } teacherId)
         {
+            // K-09: sınır artık Students'ın kendi sabiti değil, öğretmenin üyelik hakkı.
+            var entitlement = await _entitlements.GetAsync(teacherId, cancellationToken);
             var count = await _linkRepository.CountByTeacherAsync(teacherId, cancellationToken);
-            if (count >= StudentLimits.FreeStudentLimit)
+            if (count >= entitlement.MaxStudents)
             {
                 return Result<StudentProfileResponse>.Failure(FreeLimitReached);
             }

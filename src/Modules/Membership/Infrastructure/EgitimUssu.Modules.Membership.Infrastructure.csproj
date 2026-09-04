@@ -9,6 +9,11 @@
     <ProjectReference Include="..\..\..\Shared\Infrastructure\EgitimUssu.Shared.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- EntitlementDirectory internal; birim testleri beyaz kutu olarak doğrular (Öğrenilenler #101). -->
+    <InternalsVisibleTo Include="EgitimUssu.Tests.Unit" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

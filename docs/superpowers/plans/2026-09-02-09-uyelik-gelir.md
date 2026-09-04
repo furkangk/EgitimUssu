@@ -85,16 +85,27 @@ git commit -m "feat(membership): modul iskeleti + plan/abonelik domain (M17-1)"
 
 ---
 
-### Task 2: Entitlement sözleşmesi ve yayılımı (D-09)
+### Task 2: Entitlement sözleşmesi ve yayılımı (K-09 / M17-5 / M03-4)
+
+> ⚠️ **Plan düzeltmesi (2026-09-04):** başlıktaki **`D-09` etiketi yanlıştı.** Eksik envanterinde
+> (`doc/denetim/2026-09-02_eksik_analizi.md`) `D-09` = *"Puanlama / yorum ekranları"* ve **P11**'e ait.
+> Bu görevin doğru kimlikleri: karar **K-09** (master tasarım §2) + envanter **M17-5** (entitlement yayılımı)
+> ve **M03-4** (öğretmen öğrenci limiti). Kod yorumları ve dokümanlar K-09 ile etiketlendi.
 
 **Files:**
 - Create: `src/Shared/Contracts/EntitlementContract.cs`
 - Create: `src/Modules/Membership/Infrastructure/EntitlementDirectory.cs`
 - Create: `src/Modules/Membership/Application/MembershipFeatures.cs` (query + handler)
-- Modify: `src/Modules/Study/Application/MembershipGate.cs` (yeni sözleşmeye devret)
-- Modify: `src/Modules/Students/Application/StudentProfileFeatures.cs:9` (`FreeStudentLimit` → entitlement)
-- Modify: `src/Modules/Parents/**`, `src/Modules/Notifications/**` (tier okumaları)
-- Test: `tests/Unit/EntitlementDirectoryTests.cs`, `tests/Unit/MembershipGateTests.cs` (mevcut dosyayı güncelle)
+- Modify: `src/Modules/Membership/API/MembershipModule.cs` + `Infrastructure/DependencyInjection.cs` *(plan dışı, zorunlu: `GET /me` ucu ve DI kayıtları)*
+- Modify: `src/Modules/Study/Application/StudyPolicies.cs` (`StudyMembershipResolver` — plan `MembershipGate.cs` diyordu; o dosya P08'de `Shared/Contracts`'a taşındı ve **saf** kaldı, devredilen yer resolver'dır)
+- Modify: `src/Modules/Students/Application/StudentProfileFeatures.cs` (`FreeStudentLimit` → entitlement)
+- Modify: `src/Modules/Parents/Infrastructure/ParentNotificationDirectory.cs` + `DependencyInjection.cs`
+- Create: `src/Modules/Parents/Infrastructure/ParentMembershipDirectory.cs` *(plan dışı — geçiş köprüsü, aşağıya bak)*
+- Modify: `src/Modules/Reporting/Application/StudentReportFeatures.cs` *(plan dışı, zorunlu: Öğrenilenler #113'ün kapatılacağı tek yer burasıydı — aksi hâlde öğretmen PDF'i kalıcı 402 kalırdı)*
+- Modify: `src/Shared/Contracts/MembershipDirectoryContract.cs` (LEGACY belgesi), `src/Modules/Students/{Domain,Infrastructure}` (LEGACY işaretleri)
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (+Membership Application/Infrastructure), `src/Modules/Membership/Infrastructure/*.csproj` (`InternalsVisibleTo`), `tests/Architecture/ProjectArchitectureTests.cs` (`Membership` modül listesine eklendi — Task 1'de unutulmuştu)
+- Test: `tests/Unit/EntitlementDirectoryTests.cs`, `tests/Unit/TestDoubles/FakeEntitlementDirectory.cs` (ortak sahte), `StudentFreeLimitTests.cs`, `MembershipGateHandlerTests.cs`, `StudentReportPdfGeneratorTests.cs`
+- **Notifications'a dokunulmadı:** handler'lar seviyeyi `ParentNotificationTarget.Tier` üzerinden okuyor; kaynağı Parents'ın directory'si doldurduğu için tek satır değişmeden doğru kaynağa bağlandı.
 
 **Interfaces:**
 - Produces:
@@ -102,7 +113,7 @@ git commit -m "feat(membership): modul iskeleti + plan/abonelik domain (M17-1)"
     namespace EgitimUssu.Shared.Contracts;
 
     public sealed record Entitlement(
-        MembershipTierContract Tier,
+        MembershipTier Tier,        // ⚠️ plandaki MembershipTierContract YAZILMADI — bkz. aşağıdaki düzeltme
         DateTime? EffectiveUntilUtc,
         int MaxStudents,          // Free: 5, Premium: int.MaxValue
         bool CanSeeAds,           // Free: true, Premium: false
@@ -110,30 +121,50 @@ git commit -m "feat(membership): modul iskeleti + plan/abonelik domain (M17-1)"
         bool PdfReports,
         bool RichNotifications);
 
-    public enum MembershipTierContract { Free = 1, Premium = 2 }
-
-    /// <summary>Kullanıcının hak ettiği özellikler. Tek kaynak: Membership modülü.</summary>
     public interface IEntitlementDirectory
     {
         Task<Entitlement> GetAsync(Guid userId, CancellationToken cancellationToken);
+
+        // ⚠️ Plan dışı, zorunlu: haftalık veli özeti TÜM onaylı velileri tarıyor; tekil çağrı N sorgu ederdi.
+        Task<IReadOnlyDictionary<Guid, Entitlement>> GetManyAsync(
+            IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
     }
     ```
-  - `GET /api/membership/me` → `{ tier, effectiveUntilUtc, plan, entitlement }`
-  - `MembershipChangedIntegrationEvent` (outbox) — tüketiciler kendi önbelleklerini tazeler.
+  - ⚠️ **Plan düzeltmesi:** `enum MembershipTierContract` **yazılmadı** — aynı anlamı taşıyan
+    `Shared.Contracts.MembershipTier` zaten var ve tüm modüller onu kullanıyor (Task 1'deki aynı
+    tuzak, Öğrenilenler #100). İkinci bir enum "tek kaynak" amacının tersi olurdu.
+  - `GET /api/membership/me` (auth) → `{ tier, effectiveUntilUtc, planCode, status, entitlement }`
+  - `MembershipChangedIntegrationEvent` (outbox) — **bu görevde yazılmadı**: entitlement her okumada
+    taze hesaplandığı için tüketici-tarafı önbellek yok, dolayısıyla tazelenecek bir şey de yok.
+    Olay, önbellek/projeksiyon gerektiğinde (Task 3-4) eklenecek.
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — abonesi olmayan kullanıcı `Free` + `MaxStudents = 5`; aktif premium `MaxStudents = int.MaxValue` + `CanSeeAds = false`; süresi geçmiş abonelik `Free`; `Cancelled` ama dönem sonu gelmemiş abonelik **hâlâ Premium**.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EntitlementDirectoryTests"`
-- [ ] **Step 3: Sözleşme + directory + `GET /me` ucunu yaz.**
-- [ ] **Step 4: Tüketicileri devret**
-  - `Study/MembershipGate.cs` artık `IEntitlementDirectory` kullanır (imza korunur, iç gövde değişir).
-  - `Students`: `FreeStudentLimit` sabiti kaldırılır; öğrenci ekleme handler'ı `entitlement.MaxStudents` ile karşılaştırır.
-  - `Parents`/`Notifications`: `MembershipTier` alanına bakan yerler sözleşmeye geçer. **Alanlar hemen silinmez**; `[Obsolete]` işaretlenir ve P12'de temizlenir (veri göçü riski).
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — plandaki 4 senaryo + 6 ek (abonelik legacy'yi yener, `GetManyAsync`
+  her kimliği yanıtlar, fail-safe, `/me` anlık görüntüsü plan kodu + durum taşır, `/me` handler'ı) = **10 test**
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EntitlementDirectoryTests"` → **CS0246** (`EntitlementDirectory`, `IMembershipReader`, `UserMembershipSnapshot` yok)
+- [x] **Step 3: Sözleşme + directory + `GET /me` ucunu yaz.** `EntitlementPolicy` (seviye→hak eşlemesinin tek yeri) `Membership.Application`'a kondu — `Shared.Contracts`'a konsaydı her modül entitlement'ı kendi hesaplayabilirdi.
+- [x] **Step 4: Tüketicileri devret**
+  - `StudyMembershipResolver` → `IEntitlementDirectory` (imza korundu, gövde değişti).
+  - `Students`: `StudentLimits.FreeStudentLimit` **silindi**; handler öğretmenin `entitlement.MaxStudents`'ini okuyor.
+  - `Reporting`: geçici `ReportEntitlement.EffectiveTier` ("taraflardan biri Premium") **silindi**; kural
+    artık **istek sahibinin** `entitlement.PdfReports` hakkı (Admin muaf) — Öğrenilenler #113 kapandı.
+  - `Parents`: `ParentNotificationDirectory` seviyeyi `GetManyAsync` ile okuyor.
+  - ⚠️ **Plan düzeltmesi — `[Obsolete]` attribute'u kullanılmadı:** repo `-warnaserror` ile derleniyor;
+    attribute, alanı **okumak zorunda olan geçiş köprüsünde** derleme hatası üretir ve her satıra
+    `#pragma warning disable CS0618` gerektirirdi. Yerine XML doküman başlıklarına
+    **⚠️ LEGACY (P12'de silinecek)** notu kondu. Gerçek koruma zaten attribute değil, kararın tek
+    noktaya taşınmış olmasıdır.
+  - ⚠️ **Plan dışı — geçiş köprüsü:** plan eski alanların "okunmaz" hâle gelmesini varsayıyordu; ama
+    bugün Premium olmanın **tek** yolu admin'in `PUT .../membership-tier` çağrısı ve abonelik akışı
+    Task 3-4'te geliyor. Köprüsüz bırakmak, Task 2 ile Task 4 arasında premium'u sessizce kapatırdı.
+    Bu yüzden `IMembershipDirectory` **LEGACY köprü sözleşmesine** indirildi (Students + yeni
+    `ParentMembershipDirectory`), tek tüketicisi `EntitlementDirectory` ve `IEnumerable<>` olarak çözülüyor.
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari + **579 birim** + **39 integration**, Başarısız 0, Atlanan 0 (öncesi 568 birim) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 uyarı / 0 hata · migration **gerekmedi** (şema değişmedi)
+- [x] **Step 6: Doküman + commit**
 
+`doc/modules/m17_membership.md` (§1 entitlement bloğu + §3 kodda olan uç), `00_genel_bakis.md` (M17 satırı + sözleşme envanteri), `m03_students.md` (limit→entitlement), `m14_reporting.md` (kapı devri, #113 kapandı), `m08_study.md`, `m09_parents.md`, `m11_notifications.md`, `veri_modeli.md` (LEGACY alanlar), `doc/INDEX.md`.
 ```bash
 git add src/Shared/Contracts src/Modules tests doc
-git commit -m "feat(membership): entitlement sozlesmesi + tum modullerin devri (D-09/M03-4)"
+git commit -m "feat(membership): entitlement sozlesmesi + tum modullerin devri (K-09/M17-5/M03-4)"
 ```
 
 ---

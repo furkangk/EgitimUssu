@@ -150,12 +150,12 @@ public sealed class StudyLinkResolver
 public sealed class StudyMembershipResolver
 {
     private readonly ICurrentUser _currentUser;
-    private readonly IMembershipDirectory _directory;
+    private readonly IEntitlementDirectory _entitlements;
 
-    public StudyMembershipResolver(ICurrentUser currentUser, IMembershipDirectory directory)
+    public StudyMembershipResolver(ICurrentUser currentUser, IEntitlementDirectory entitlements)
     {
         _currentUser = currentUser;
-        _directory = directory;
+        _entitlements = entitlements;
     }
 
     public async Task<MembershipTier> CurrentTierAsync(CancellationToken cancellationToken)
@@ -165,8 +165,9 @@ public sealed class StudyMembershipResolver
             return MembershipTier.Premium;
         }
 
+        // K-09: seviye artık Study'nin bildiği bir alandan değil, tek kaynaktan (Membership) okunur.
         return Guid.TryParse(_currentUser.UserId, out var userId)
-            ? await _directory.GetTierAsync(userId, cancellationToken)
+            ? (await _entitlements.GetAsync(userId, cancellationToken)).Tier
             : MembershipTier.Free;
     }
 }

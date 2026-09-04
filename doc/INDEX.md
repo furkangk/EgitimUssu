@@ -13,7 +13,7 @@ updated: 2026-09-04
 >
 > **Bu dosya her zaman güncel tutulmalıdır** (yeni doküman eklenince/silinince/amacı değişince) — bkz. kökteki `CLAUDE.md` → "Doküman bakımı".
 >
-> **Son güncelleme:** 2026-09-04 (P09 Task 1: **M17 🔴 → 🟡** — Membership modülü açıldı). Önceki: 2026-09-04 (P08 kapanışı: **M10 🟡 → 🟢** ve **M14 🟡 → 🟢**; §5'e `pages/progress_overview.md` + `pages/teacher_reports.md` eklendi). Önceki: 2026-09-03 (P03: M11 durumu 🟡 → 🟢 — gerçek FCM push + bildirim merkezi; §5'e `pages/notifications.md` eklendi). Önceki: 2026-09-02 (§6'ya `denetim/2026-09-02_eksik_analizi.md` eklendi — 121 maddelik eksik envanteri). Önceki: 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
+> **Son güncelleme:** 2026-09-04 (P09 Task 2: **K-09 entitlement** — `IEntitlementDirectory` üyelik haklarının tek kaynağı; Study/Students/Reporting/Parents kapıları devredildi, `GET /api/membership/me` açıldı). Önceki: 2026-09-04 (P09 Task 1: **M17 🔴 → 🟡** — Membership modülü açıldı). Önceki: 2026-09-04 (P08 kapanışı: **M10 🟡 → 🟢** ve **M14 🟡 → 🟢**; §5'e `pages/progress_overview.md` + `pages/teacher_reports.md` eklendi). Önceki: 2026-09-03 (P03: M11 durumu 🟡 → 🟢 — gerçek FCM push + bildirim merkezi; §5'e `pages/notifications.md` eklendi). Önceki: 2026-09-02 (§6'ya `denetim/2026-09-02_eksik_analizi.md` eklendi — 121 maddelik eksik envanteri). Önceki: 2026-08-20 (Bilgi Tabanı Dilim A — frontmatter + health-check; Dilim B — Obsidian görünümü; Dilim C — `raw/` + `kaynaklar/` iskeleti + `/kb-ingest`; Dilim D — `/kb-ask` Q&A + `_cevaplar/` + Marp; `/kb-lint` üretken öneri turu (Linting paritesi); Faz 1 tamam — m01–m18 + mimari/sayfa/rol/INDEX koddan doğrulandı)
 
 ---
 
@@ -82,7 +82,7 @@ updated: 2026-09-04
 | M05 | [`m05_lesson_sessions`](modules/m05_lesson_sessions.md) | 🟢 | M14 | [`m14_reporting`](modules/m14_reporting.md) | 🟢 |
 | M06 | [`m06_assignments`](modules/m06_assignments.md) | 🟢 | M15 | [`m15_settings`](modules/m15_settings.md) | 🟢 |
 | M07 | [`m07_payments`](modules/m07_payments.md) | 🟢 | M16 | [`m16_messaging`](modules/m16_messaging.md) | 🔴 yeni |
-| M08 | [`m08_study`](modules/m08_study.md) | 🟢 | M17 | [`m17_membership`](modules/m17_membership.md) | 🟡 iskelet+domain |
+| M08 | [`m08_study`](modules/m08_study.md) | 🟢 | M17 | [`m17_membership`](modules/m17_membership.md) | 🟡 iskelet+domain+entitlement |
 | M09 | [`m09_parents`](modules/m09_parents.md) | 🟢 | M18 | [`m18_feedback`](modules/m18_feedback.md) | 🔴 yeni |
 
 **Çapraz-kesit:** [`modules/00_genel_bakis.md`](modules/00_genel_bakis.md) (indeks + tech stack + endpoint envanteri) · [`modules/mimari_inceleme.md`](modules/mimari_inceleme.md) (hata/güvenlik/öncelik) · [`modules/veri_modeli.md`](modules/veri_modeli.md) (ER şeması).

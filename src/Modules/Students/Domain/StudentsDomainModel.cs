@@ -77,7 +77,11 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     /// <summary>Öğrencinin hedeflediği sınav; net formülü ve deneme türetimlerinde kullanılır (S-03.9).</summary>
     public TargetExam TargetExam { get; private set; }
 
-    /// <summary>Öğrencinin üyelik seviyesi (Free/Premium). Free/Premium kapılarını belirler (Ö-D §14.3).</summary>
+    /// <summary>
+    /// ⚠️ <b>LEGACY (P12'de silinecek)</b> — üyelik seviyesi. K-09'dan (P09 Task 2) sonra hak kararları
+    /// bu alandan <b>okunmaz</b>; tek kaynak Membership modülü (<c>IEntitlementDirectory</c>). Alan yalnız
+    /// geçiş köprüsünün girdisidir (veri göçü riski nedeniyle henüz silinmedi).
+    /// </summary>
     public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
 
     /// <summary>Öğrencinin doğum tarihi (opsiyonel). Yaş türetimi + veli claim eşleşmesi için temel (Veli V-A).</summary>

@@ -90,58 +90,45 @@ public static class StudentReportComposer
     private static string Format(DateOnly date) => date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
 }
 
-// ---- Premium kapısı (P09'da IEntitlementDirectory ile değişecek) ----
+// ---- Premium kapısı (K-09: tek kaynak IEntitlementDirectory) ----
 
 /// <summary>
-/// M14-4 premium kapısının <b>saf</b> kuralı. Öğretmen üyeliği (M17) henüz yok —
-/// <see cref="IMembershipDirectory"/> yalnız öğrenci profiline bakar, öğretmene daima
-/// <see cref="MembershipTier.Free"/> döner. Bu yüzden geçici kural "taraflardan biri Premium ise
-/// rapor üretilebilir"dir: Premium bir öğrencinin öğretmeni onun raporunu alabilir, Free–Free ikilisi
-/// alamaz. P09'da <c>IEntitlementDirectory</c> gelince yalnız bu fonksiyon değişir.
+/// M14-4 premium kapısı: PDF raporu <b>isteği yapanın</b> üyelik hakkıdır.
+/// <para>
+/// P08'de geçici bir kural vardı ("taraflardan biri Premium ise geçer"), çünkü o günün
+/// <c>IMembershipDirectory</c>'si yalnız öğrenci profiline bakıyor ve öğretmene daima Free
+/// dönüyordu (Öğrenilenler #113). P09/K-09 ile üyelik role bakmaksızın kullanıcı başına
+/// tutulduğu için kural sadeleşti: <b>istek sahibinin</b> hakkı belirler, Admin daima geçer.
+/// </para>
 /// </summary>
-public static class ReportEntitlement
-{
-    public static MembershipTier EffectiveTier(bool isAdmin, MembershipTier requester, MembershipTier subject)
-    {
-        if (isAdmin)
-        {
-            return MembershipTier.Premium;
-        }
-
-        return requester == MembershipTier.Premium || subject == MembershipTier.Premium
-            ? MembershipTier.Premium
-            : MembershipTier.Free;
-    }
-}
-
-/// <summary>İstek sahibinin ve rapor konusu öğrencinin üyeliğini okuyup kapıyı uygular.</summary>
 public sealed class ReportEntitlementResolver
 {
     private readonly ICurrentUser _currentUser;
-    private readonly IStudentDirectory _students;
-    private readonly IMembershipDirectory _memberships;
+    private readonly IEntitlementDirectory _entitlements;
 
-    public ReportEntitlementResolver(
-        ICurrentUser currentUser, IStudentDirectory students, IMembershipDirectory memberships)
+    public ReportEntitlementResolver(ICurrentUser currentUser, IEntitlementDirectory entitlements)
     {
         _currentUser = currentUser;
-        _students = students;
-        _memberships = memberships;
+        _entitlements = entitlements;
     }
 
-    public async Task<bool> AllowsAsync(Guid studentId, PremiumFeature feature, CancellationToken cancellationToken)
+    public async Task<bool> AllowsAsync(PremiumFeature feature, CancellationToken cancellationToken)
     {
-        var isAdmin = _currentUser.Roles.Contains("Admin");
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return true;
+        }
 
-        var requester = Guid.TryParse(_currentUser.UserId, out var userId)
-            ? await _memberships.GetTierAsync(userId, cancellationToken)
-            : MembershipTier.Free;
+        if (!Guid.TryParse(_currentUser.UserId, out var userId))
+        {
+            return false;
+        }
 
-        var subject = await _students.GetOwnerUserIdAsync(studentId, cancellationToken) is { } ownerUserId
-            ? await _memberships.GetTierAsync(ownerUserId, cancellationToken)
-            : MembershipTier.Free;
+        var entitlement = await _entitlements.GetAsync(userId, cancellationToken);
 
-        return MembershipGate.Allows(ReportEntitlement.EffectiveTier(isAdmin, requester, subject), feature);
+        return feature == PremiumFeature.PdfReport
+            ? entitlement.PdfReports
+            : MembershipGate.Allows(entitlement.Tier, feature);
     }
 }
 
@@ -345,7 +332,7 @@ public sealed class GenerateStudentReportCommandHandler
             return Result<StudentReportResponse>.Failure(ReportingErrors.InvalidRange);
         }
 
-        if (!await _entitlement.AllowsAsync(command.StudentId, PremiumFeature.PdfReport, cancellationToken))
+        if (!await _entitlement.AllowsAsync(PremiumFeature.PdfReport, cancellationToken))
         {
             return Result<StudentReportResponse>.Failure(ReportingErrors.PremiumRequired);
         }

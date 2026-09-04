@@ -18,6 +18,9 @@ public static class DependencyInjection
         services.AddScoped<EgitimUssu.Shared.Contracts.IParentChildLinkRequestService, ParentChildLinkRequestService>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IParentNotificationDirectory, ParentNotificationDirectory>();
 
+        // ⚠️ Geçici köprü (P12): eski ParentProfile.MembershipTier alanını EntitlementDirectory okusun diye.
+        services.AddScoped<EgitimUssu.Shared.Contracts.IMembershipDirectory, ParentMembershipDirectory>();
+
         // Command handler'ları
         services.AddScoped<ICommandHandler<CreateParentProfileCommand, Result<ParentProfileResponse>>, CreateParentProfileCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateNotificationPreferencesCommand, Result<ParentProfileResponse>>, UpdateNotificationPreferencesCommandHandler>();

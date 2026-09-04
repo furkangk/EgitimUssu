@@ -1,4 +1,7 @@
+using EgitimUssu.Modules.Membership.Application;
 using EgitimUssu.Modules.Membership.Infrastructure;
+using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -26,7 +29,11 @@ public sealed class MembershipModule : ModuleDefinition
         group.MapGet("/status", GetStatus)
             .WithSummary("Üyelik modül durumunu getirir");
 
-        // Plan listesi, abonelik ve entitlement uçları P09 Task 2–3'te eklenecek.
+        group.MapGet("/me", GetMyMembershipAsync)
+            .WithSummary("Oturumdaki kullanıcının üyelik durumunu ve haklarını getirir")
+            .RequireAuthorization("AuthenticatedUser");
+
+        // Plan listesi, deneme ve abonelik uçları P09 Task 3'te eklenecek.
     }
 
     /// <summary>
@@ -40,5 +47,22 @@ public sealed class MembershipModule : ModuleDefinition
             route = RoutePrefix,
             state = "placeholder"
         });
+    }
+
+    /// <summary>
+    /// K-09: Oturumdaki kullanıcının etkin üyelik seviyesini, dönemini ve haklarını döner.
+    /// İstemci (mobil paywall / reklam yerleşimi) bu ucu tek doğruluk kaynağı olarak okur.
+    /// </summary>
+    private static async Task<IResult> GetMyMembershipAsync(
+        HttpContext context, IQueryDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetMyMembershipQuery(), cancellationToken);
+        return result.IsSuccess
+            ? Results.Ok(result.Value)
+            : result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
     }
 }

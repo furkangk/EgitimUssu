@@ -1,6 +1,6 @@
 ---
 title: "M17 — Üyelik ve Para Kazanma"
-summary: "Üyelik/gelir modülü: 4 katmanlı iskelet + SubscriptionPlan/UserSubscription domain'i + membership şeması kodda (P09 Task 1); entitlement yayılımı, ödeme, reklam ve kampanyalar hâlâ planlanan"
+summary: "Üyelik/gelir modülü: 4 katmanlı iskelet + SubscriptionPlan/UserSubscription domain'i + membership şeması + IEntitlementDirectory (tek hak kaynağı) ve GET /me kodda (P09 Task 1-2); ödeme, reklam ve kampanyalar hâlâ planlanan"
 tags: [modul, membership, uyelik, planlanan, faz-5]
 status: "🟡"
 authority: code
@@ -9,10 +9,11 @@ updated: 2026-09-04
 
 # 💳 Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım Dokümanı
 
-> **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🟡 İskelet + domain çekirdeği kodda (P09 Task 1, 2026-09-04)**
-> — `src/Modules/Membership` (4 katman) + `membership` şeması + `SubscriptionPlan`/`UserSubscription` aggregate'leri
-> ve `MembershipChangedDomainEvent` **kodda**. Entitlement yayılımı (Task 2), plan yönetimi/kampanya (Task 3),
-> ödeme (Task 4), reklam (Task 5) ve mobil paywall (Task 6) **hâlâ planlanan**.
+> **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🟡 İskelet + domain + entitlement kodda (P09 Task 1-2, 2026-09-04)**
+> — `src/Modules/Membership` (4 katman) + `membership` şeması + `SubscriptionPlan`/`UserSubscription` aggregate'leri,
+> `MembershipChangedDomainEvent` ve **K-09 entitlement sözleşmesi** (`IEntitlementDirectory` + `GET /api/membership/me`)
+> **kodda**; Study/Students/Reporting/Parents kapıları bu tek kaynağa devredildi.
+> Plan yönetimi/kampanya (Task 3), ödeme (Task 4), reklam (Task 5) ve mobil paywall (Task 6) **hâlâ planlanan**.
 >
 > **Amaç:** Platformun gelir modelini taşımak. PRD: **ücretsiz ve ücretli (premium) üyelik** vardır; gelir
 > **reklam + üyelik** ikilisinden gelir. **Ücretli üyeler reklam görmez, kısıtlamalara takılmaz ve ekstra
@@ -27,28 +28,51 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-### 🟢 Kodda olan (P09 Task 1, 2026-09-04)
+### 🟢 Kodda olan (P09 Task 1-2, 2026-09-04)
 
 - **Backend:** `src/Modules/Membership/{Domain,Application,Infrastructure,API}` — 4 csproj, `EgitimUssu.slnx`
-  girdileri, `ModuleAssemblies.cs` kaydı, `MembershipModule` (`/api/membership`, şimdilik yalnız `/status`).
+  girdileri, `ModuleAssemblies.cs` kaydı, `MembershipModule` (`/api/membership`: `/status`, `GET /me`).
 - **Şema:** `membership` — `subscription_plans`, `user_subscriptions` + ortak `outbox_messages` /
   `inbox_messages` / `module_states` (migration `InitialCreate`).
 - **Domain:** `SubscriptionPlan` (kod/rol/tier/periyot/fiyat/deneme + `NextPeriodEnd` takvim-ayı hesabı),
   `UserSubscription` (yaşam döngüsü + erişim kuralı), `SubscriptionStatus`, `BillingPeriod`,
   `MembershipChangedDomainEvent`. 12 birim testi (`tests/Unit/SubscriptionTests.cs`).
+- **Entitlement (K-09 / M17-5 / M03-4 — P09 Task 2):**
+  - `Shared/Contracts/EntitlementContract.cs` → `record Entitlement(Tier, EffectiveUntilUtc, MaxStudents,
+    CanSeeAds, DetailedAnalytics, PdfReports, RichNotifications)` + `IEntitlementDirectory`
+    (`GetAsync`, toplu tarama için `GetManyAsync`).
+  - `Membership.Application/MembershipFeatures.cs` → `EntitlementPolicy` (seviye → hak eşlemesinin **tek**
+    yeri: Free = 5 öğrenci + reklam, Premium = sınırsız + reklamsız + PDF/analiz/zengin bildirim),
+    `IMembershipReader`, `GetMyMembershipQuery` + handler + authorizer.
+  - `Membership.Infrastructure/EntitlementDirectory.cs` → aboneliğe bakar; `HasAccess` dönemi açıksa Premium.
+    **Fail-safe:** kaynak okunamazsa `LogWarning` + Free (fail-closed değil).
+  - `GET /api/membership/me` (auth) → `{ tier, effectiveUntilUtc, planCode, status, entitlement }`.
+  - **Devralınan kapılar:** `Study/StudyMembershipResolver`, `Students` öğretmen öğrenci limiti
+    (`entitlement.MaxStudents`), `Reporting/ReportEntitlementResolver` (PDF), `Parents`
+    `ParentNotificationDirectory` (veli bildirim seviyesi). 11 birim testi
+    (`tests/Unit/EntitlementDirectoryTests.cs`).
+- ⚠️ **Geçiş köprüsü (P12'de silinecek):** abonelik kaydı yokken eski profil alanları
+  (`StudentProfile.MembershipTier`, `ParentProfile.MembershipTier`) hâlâ okunur — `IMembershipDirectory`
+  artık **yalnız** bu köprünün sözleşmesidir (Students + Parents uygular, tek tüketicisi
+  `EntitlementDirectory`). Köprü olmasaydı admin'in `PUT .../membership-tier` ile verdiği premium,
+  abonelik akışı (Task 3-4) gelene kadar sessizce kaybolurdu. Karar noktası yine tek: hiçbir modül
+  o alanları kendisi okumaz.
 - ⚠️ **`MembershipTier` burada yeniden tanımlanmadı:** kanonik tanım `Shared/Contracts`'tadır
-  (`MembershipDirectoryContract.cs`) ve Students/Parents/Study/Reporting onu kullanır. İkinci bir enum,
-  P09'un "üyeliği tek kaynağa bağla" amacının tam tersi olurdu; `Membership.Domain` bu yüzden
-  `Shared.Contracts`'a referans verir (Students/Parents Domain'leriyle aynı desen).
+  (`MembershipDirectoryContract.cs`) ve Students/Parents/Study/Reporting onu kullanır. Aynı gerekçeyle
+  plandaki `MembershipTierContract` enum'u da **yazılmadı**.
 
 ### 🔴 Hâlâ kodda olmayan
 
-- **Entitlement yayılımı:** `IEntitlementDirectory` + `MembershipChangedIntegrationEvent` (Task 2).
+- **Olay yayılımı:** `MembershipChangedIntegrationEvent` (outbox) — bugün entitlement her okumada
+  taze hesaplanıyor, tüketici-tarafı önbellek/tazeleme yok (Task 3-4).
 - **Uçlar:** plan listesi, abonelik başlatma/iptal, deneme, referans (Task 3).
 - **Mobil:** abonelik/paywall/reklam feature'ı **yok** (Task 6).
 - **Ödeme:** Herhangi bir ödeme sağlayıcısı entegrasyonu (iyzico vb.) **yok** (Task 4 — **Q1 bloke**).
 - **Reklam:** `ad-placements` ucu **yok** (Task 5 — **Q3 bloke**).
-- **Kısıtlama uygulaması:** Tam entitlement altyapısı henüz yok. **İstisna (Ö-D, 2026-07-19):** Study modülü hafif bir Free/Premium kapısı uygular — öğrencinin `MembershipTier`'ı (Free/Premium) M03 `StudentProfile`'da tutulur ve `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okunur. Bugün zorlanan: Free geçmiş/net-trend son 30 güne kısılı, hedef net/puan takibi Premium'a özel (`study.premium_required` → 402). Bu, M17 tam modülü gelene kadar geçici bir çekirdektir; M17 açılınca tier depolama + entitlement bu modüle taşınır (bkz. [`m08_study.md`](m08_study.md) §4.7).
+- **Kısıtlama uygulaması (kısmen):** Kapılar tek kaynağa bağlandı (yukarı), ama uygulanan kısıt kümesi
+  hâlâ dar: Free geçmiş 30 güne kısılı + hedef net/puan Premium (`study.premium_required` → 402),
+  öğretmen öğrenci limiti 5, PDF raporu Premium (402). PRD §9'daki tam özellik matrisi (reklam,
+  mesajlaşma limitleri, profil öne çıkarma) hâlâ uygulanmadı.
 
 > ⚠️ §2'den itibaren içerik **önerilen / planlanan**dır; kodda olan kısım yukarıda §1'de listelenmiştir.
 > §2.1/§2.2'deki alan adları ile kodun **birebir aynı olmadığına** dikkat: kodda `Tier` doğrudan
@@ -185,7 +209,18 @@ Her modülün "bu kullanıcı premium mu / limiti ne?" sorusunu ucuz yanıtlamas
 
 ---
 
-## 3. API Sözleşmesi (⚠️ Önerilen — `/api/membership`)
+## 3. API Sözleşmesi (`/api/membership`)
+
+**Kodda olan (P09 Task 2):**
+
+```
+GET  /api/membership/me                                 → { tier, effectiveUntilUtc, planCode, status,
+     (auth)                                                 entitlement: { maxStudents, canSeeAds,
+                                                             detailedAnalytics, pdfReports,
+                                                             richNotifications } }
+```
+
+**⚠️ Önerilen (henüz kodda değil):**
 
 ```
 # Planlar & abonelik
@@ -333,4 +368,4 @@ POST /webhooks/payment (imza doğrulanır)
 
 ---
 
-*Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Durum: 🟡 İskelet + domain | Güncelleme: 2026-09-04 (P09 Task 1 / M17-1: `src/Modules/Membership` 4 katman + `membership` şeması (`subscription_plans`, `user_subscriptions`, `InitialCreate`) + `SubscriptionPlan`/`UserSubscription` domain'i + `MembershipChangedDomainEvent`; `MembershipTier` **yeniden tanımlanmadı**, `Shared.Contracts`'taki kanonik enum kullanıldı. İptal ≠ anında kapanma: erişim dönem sonuna kadar sürer, Free'ye düşüş yalnız `ExpireIfDue`'da. Önceki not — 2026-08-19 (Ö-D: Study'de hafif Free/Premium çekirdeği — `StudentProfile.MembershipTier` + `IMembershipDirectory` — kalıcı; M17 modül klasörü hâlâ kodda yok)*
+*Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Durum: 🟡 İskelet + domain + entitlement | Güncelleme: 2026-09-04 (P09 Task 2 / K-09+M17-5+M03-4: `IEntitlementDirectory` + `Entitlement` sözleşmesi (`Shared.Contracts`), `EntitlementPolicy` (seviye→hak eşlemesinin tek yeri), `EntitlementDirectory` (fail-safe, aboneliğe bakar), `GET /api/membership/me`; Study/Students/Reporting/Parents kapıları devralındı; eski `MembershipTier` alanları **geçici köprüye** indirildi (`IMembershipDirectory` artık yalnız köprü sözleşmesi, P12'de silinecek). Plandaki `MembershipTierContract` enum'u yazılmadı; plandaki `D-09` etiketi yanlıştı (doğrusu K-09/M17-5/M03-4). Önceki not — P09 Task 1 / M17-1: `src/Modules/Membership` 4 katman + `membership` şeması (`subscription_plans`, `user_subscriptions`, `InitialCreate`) + `SubscriptionPlan`/`UserSubscription` domain'i + `MembershipChangedDomainEvent`; `MembershipTier` **yeniden tanımlanmadı**, `Shared.Contracts`'taki kanonik enum kullanıldı. İptal ≠ anında kapanma: erişim dönem sonuna kadar sürer, Free'ye düşüş yalnız `ExpireIfDue`'da. Önceki not — 2026-08-19 (Ö-D: Study'de hafif Free/Premium çekirdeği — `StudentProfile.MembershipTier` + `IMembershipDirectory` — kalıcı; M17 modül klasörü hâlâ kodda yok)*

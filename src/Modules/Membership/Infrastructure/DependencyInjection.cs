@@ -1,4 +1,8 @@
+using EgitimUssu.Modules.Membership.Application;
+using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,7 +14,15 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<MembershipDbContext>(configuration, "Membership", MembershipDbContext.SchemaName);
 
-        // Sorgu/komut kayıtları P09 Task 2–3'te eklenecek; bu görev yalnız domain + şema kuruyor.
+        // Tek örnek iki sözleşmeyi karşılar: modüller-arası IEntitlementDirectory ve modül-içi IMembershipReader.
+        services.AddScoped<EntitlementDirectory>();
+        services.AddScoped<IEntitlementDirectory>(provider => provider.GetRequiredService<EntitlementDirectory>());
+        services.AddScoped<IMembershipReader>(provider => provider.GetRequiredService<EntitlementDirectory>());
+
+        services.AddScoped<IQueryHandler<GetMyMembershipQuery, Result<MembershipStatusResponse>>, GetMyMembershipQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetMyMembershipQuery>, GetMyMembershipQueryAuthorizer>();
+
+        // Plan yönetimi, deneme ve abonelik komutları P09 Task 3'te eklenecek.
         return services;
     }
 }

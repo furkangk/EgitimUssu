@@ -4,6 +4,7 @@ using EgitimUssu.Modules.Reporting.Infrastructure;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 using EgitimUssu.Shared.Kernel.Storage;
+using EgitimUssu.Tests.Unit.TestDoubles;
 using Xunit;
 
 namespace EgitimUssu.Tests.Unit;
@@ -96,33 +97,38 @@ public sealed class StudentReportPdfGeneratorTests
         Assert.Contains("2026-08-31", name, StringComparison.Ordinal);
     }
 
-    // --- Premium kapısı (saf kural) ------------------------------------------------------------
+    // --- Premium kapısı (K-09: istek sahibinin hakkı) ------------------------------------------
 
     [Fact]
-    public void Effective_Tier_Should_Be_Premium_For_Admin()
+    public async Task Admin_Should_Always_Pass_The_Pdf_Gate()
     {
-        Assert.Equal(
-            MembershipTier.Premium,
-            ReportEntitlement.EffectiveTier(isAdmin: true, MembershipTier.Free, MembershipTier.Free));
+        var resolver = new ReportEntitlementResolver(
+            new FakeCurrentUser(TeacherUserId, "Admin"),
+            new FakeEntitlementDirectory(MembershipTier.Free));
+
+        Assert.True(await resolver.AllowsAsync(PremiumFeature.PdfReport, CancellationToken.None));
     }
 
     [Fact]
-    public void Effective_Tier_Should_Inherit_Student_Premium_When_Requester_Is_Free()
+    public async Task Premium_Requester_Should_Pass_The_Pdf_Gate()
     {
-        // Öğretmen üyeliği M17/P09'a kadar yok (IMembershipDirectory yalnız öğrenci profiline bakar);
-        // öğretmen premium bir öğrencisi için rapor üretebilmeli.
-        Assert.Equal(
-            MembershipTier.Premium,
-            ReportEntitlement.EffectiveTier(isAdmin: false, MembershipTier.Free, MembershipTier.Premium));
+        var resolver = new ReportEntitlementResolver(
+            new FakeCurrentUser(TeacherUserId, "Teacher"),
+            new FakeEntitlementDirectory(MembershipTier.Premium));
+
+        Assert.True(await resolver.AllowsAsync(PremiumFeature.PdfReport, CancellationToken.None));
     }
 
     [Fact]
-    public void Free_On_Both_Sides_Should_Not_Allow_Pdf_Report()
+    public async Task Free_Requester_Should_Not_Pass_The_Pdf_Gate()
     {
-        var tier = ReportEntitlement.EffectiveTier(isAdmin: false, MembershipTier.Free, MembershipTier.Free);
+        // P08'in geçici kuralı ("taraflardan biri Premium ise geçer") K-09 ile kalktı:
+        // öğretmen üyeliği artık gerçekten var, kapı istek sahibinin hakkına bakar (Öğrenilenler #113).
+        var resolver = new ReportEntitlementResolver(
+            new FakeCurrentUser(TeacherUserId, "Teacher"),
+            new FakeEntitlementDirectory(MembershipTier.Free));
 
-        Assert.Equal(MembershipTier.Free, tier);
-        Assert.False(MembershipGate.Allows(tier, PremiumFeature.PdfReport));
+        Assert.False(await resolver.AllowsAsync(PremiumFeature.PdfReport, CancellationToken.None));
     }
 
     // --- (b) Gerçek PDF üretimi ----------------------------------------------------------------
@@ -173,7 +179,7 @@ public sealed class StudentReportPdfGeneratorTests
     {
         var storage = new FakeFileStorage();
         var repository = new FakeStudentReportRepository();
-        var handler = CreateHandler(storage, repository, studentTier: MembershipTier.Free);
+        var handler = CreateHandler(storage, repository, requesterTier: MembershipTier.Free);
 
         var result = await handler.Handle(
             new GenerateStudentReportCommand(StudentId, null, null, null), CancellationToken.None);
@@ -342,7 +348,7 @@ public sealed class StudentReportPdfGeneratorTests
     private static GenerateStudentReportCommandHandler CreateHandler(
         FakeFileStorage storage,
         FakeStudentReportRepository repository,
-        MembershipTier studentTier = MembershipTier.Premium,
+        MembershipTier requesterTier = MembershipTier.Premium,
         StudentPrivacy? privacy = null,
         IStudentReportPdfGenerator? generator = null)
     {
@@ -353,7 +359,7 @@ public sealed class StudentReportPdfGeneratorTests
 
         return new GenerateStudentReportCommandHandler(
             new StudentReportPrivacyGate(currentUser, students, privacyDirectory),
-            new ReportEntitlementResolver(currentUser, students, new FakeMembershipDirectory(studentTier)),
+            new ReportEntitlementResolver(currentUser, new FakeEntitlementDirectory(requesterTier)),
             new StudentReportAssembler(
                 new FakeProjectionReader(),
                 students,
@@ -497,12 +503,6 @@ public sealed class StudentReportPdfGeneratorTests
     {
         public Task<StudentPrivacy> GetForUserAsync(Guid userId, CancellationToken cancellationToken)
             => Task.FromResult(privacy);
-    }
-
-    private sealed class FakeMembershipDirectory(MembershipTier tier) : IMembershipDirectory
-    {
-        public Task<MembershipTier> GetTierAsync(Guid userId, CancellationToken cancellationToken)
-            => Task.FromResult(userId == StudentUserId ? tier : MembershipTier.Free);
     }
 
     private sealed class FakeCurrentUser(Guid userId, params string[] roles) : ICurrentUser

@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Students.Infrastructure;
 
-// Ö-D: Students, öğrenci üyelik (Free/Premium) seviyesinin otoritesidir.
-// IMembershipDirectory sözleşmesini uygulayarak Study gibi modüllerin Free/Premium
-// kapılarını DbContext'e doğrudan erişmeden okumasını sağlar (modül izolasyonu).
+// ⚠️ GEÇİCİ KÖPRÜ (P12'de silinecek): K-09'dan sonra üyeliğin otoritesi Students değil Membership'tir.
+// Bu sınıf yalnız eski StudentProfile.MembershipTier alanını EntitlementDirectory'ye taşır;
+// kapılar artık IEntitlementDirectory okur, bu sözleşmeyi değil.
 internal sealed class MembershipDirectory : IMembershipDirectory
 {
     private readonly StudentsDbContext _dbContext;

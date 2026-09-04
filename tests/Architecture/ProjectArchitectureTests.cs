@@ -21,7 +21,8 @@ public sealed class ProjectArchitectureTests
         "Matching",
         "Reviews",
         "Reporting",
-        "Settings"
+        "Settings",
+        "Membership"
     ];
 
     /// <summary>

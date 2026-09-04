@@ -63,7 +63,11 @@ public sealed class ParentProfile : AggregateRoot<Guid>
 
     public ParentNotificationChannel NotificationChannel { get; private set; }
 
-    /// <summary>Velinin üyelik seviyesi (Free/Premium). Veli bildirimleri yalnız Premium'a gider (Veli V-E, PRD 9.3).</summary>
+    /// <summary>
+    /// ⚠️ <b>LEGACY (P12'de silinecek)</b> — üyelik seviyesi. K-09'dan (P09 Task 2) sonra hak kararları
+    /// bu alandan <b>okunmaz</b>; tek kaynak Membership modülü (<c>IEntitlementDirectory</c>). Alan yalnız
+    /// geçiş köprüsünün girdisidir (veri göçü riski nedeniyle henüz silinmedi).
+    /// </summary>
     public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
 
     public bool IsActive { get; private set; }
