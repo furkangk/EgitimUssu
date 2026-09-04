@@ -1,15 +1,15 @@
 ---
 title: "M16 — Mesajlaşma"
-summary: "Planlanan mesajlaşma modülü; backend klasörü henüz yok (Faz 2-3, tüm domain önerilen)"
-tags: [modul, messaging, planlanan, faz-2, faz-3]
-status: "🔴"
-authority: product
-updated: 2026-08-19
+summary: "Mesajlaşma modülü: Conversation/Message domain'i + messaging şeması kodda (P10 Task 1); uçlar ve mobil sırada"
+tags: [modul, messaging, faz-2, faz-3]
+status: "🟡"
+authority: code
+updated: 2026-09-04
 ---
 
 # 💬 Mesajlaşma Modülü (M16) — Detaylı Tasarım Dokümanı
 
-> **PRD: M16 (YENİ)** · **Faz 2-3** · **Durum: 🔴 YENİ — kodda HİÇ YOK (tüm domain ⚠️ Önerilen, planlanan)**
+> **PRD: M16** · **Faz 2-3** · **Durum: 🟡 Kısmi — modül iskeleti + domain kodda (P10 Task 1), uçlar/mobil sırada**
 >
 > **Amaç:** Öğretmen ile öğrenci/veli arasında, ders bağlamına bağlı, güvenli ve denetlenebilir
 > uygulama içi mesajlaşma. Bugün bu iletişim telefon/WhatsApp üzerinden, sistem dışında yürüyor
@@ -17,7 +17,8 @@ updated: 2026-08-19
 
 > **KESİN KURAL (PRD — kapsam):** Mesajlaşma **yalnızca** iki çift arasında kurulur:
 > **öğretmen ↔ öğrenci** ve **öğretmen ↔ veli**.
-> **öğrenci ↔ veli**, **öğrenci ↔ öğrenci** ve **öğretmen ↔ öğretmen** mesajlaşması **YASAKTIR** ve domain seviyesinde reddedilir.
+> **öğrenci ↔ veli**, **öğrenci ↔ öğrenci** ve **öğretmen ↔ öğretmen** mesajlaşması **YASAKTIR** ve domain seviyesinde reddedilir
+> (`Conversation.Create` → `messaging.pair_not_allowed`).
 >
 > İlgili: yeni mesaj bildirimi → [`m11_notifications.md`](m11_notifications.md) · mesaj şikayeti / moderasyon → [`m18_feedback.md`](m18_feedback.md) · gizlilik/engelleme tercihleri → [`m15_settings.md`](m15_settings.md).
 
@@ -25,95 +26,117 @@ updated: 2026-08-19
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-🔴 **Kodda hiçbir karşılığı yoktur.** Bu modül tamamen planlama aşamasındadır:
+🟡 **Modül iskeleti ve domain kodda** (P10 Task 1, 2026-09-04):
 
-- **Backend:** `src/Modules/Messaging/` **yok** — `MessagingDbContext` yok, `ModuleDefinition` yok, DI kaydı yok, EF migration yok, hatta `/status` placeholder endpoint'i bile yok.
-- **Mobil:** `mobile/lib/features/messaging/` **yok**.
-- **Şema:** PostgreSQL'de `messaging` şeması **yok**.
-- **Olay:** Diğer modüller henüz hiçbir mesajlaşma integration event'i yayınlamıyor/dinlemiyor.
+- **Backend:** `src/Modules/Messaging/{Domain,Application,Infrastructure,API}` — 4 katman projesi, `MessagingDbContext`
+  (`messaging` şeması), `MessagingModule : ModuleDefinition` (`/api/messaging`), `MessagingDesignTimeDbContextFactory`,
+  `InitialCreate` migration. `EgitimUssu.slnx` + `src/API.Host/ModuleAssemblies.cs` kayıtları yapıldı.
+- **Domain:** `Conversation` (AggregateRoot) + `Message` (AggregateRoot) + `ParticipantRole` + `MessagingErrors`
+  + `MessageSentDomainEvent` — bkz. §2.
+- **Şema:** PostgreSQL `messaging` şeması; tablolar `conversations`, `messages` (+ ortak `inbox_messages`,
+  `outbox_messages`, `module_states`).
+- **Testler:** `tests/Unit/ConversationTests.cs` (17) + `tests/Unit/MessageTests.cs` (9) — izinli çift, normalizasyon,
+  engelleme, önizleme kırpma, okundu idempotansı, yumuşak silme.
 
-> ⚠️ Bu dokümandaki **tüm** domain modeli, API, iş kuralı ve ekranlar **önerilen / planlanan**dır.
-> Sıfırdan modül oluşturma deseni için bkz. [`00_genel_bakis.md`](00_genel_bakis.md) §"Backend modül katman yapısı".
+**Henüz yok (sırada):** uygulama katmanı uçları (§3), ilişki doğrulaması, hız sınırı → P10 Task 2 ·
+yeni mesaj bildirimi → P10 Task 3 · `mobile/lib/features/messaging/` → P10 Task 4.
 
 ---
 
-## 2. Domain Modeli (⚠️ Önerilen)
+## 2. Domain Modeli (🟢 Kodda)
 
 **Şema:** `messaging` · **DbContext:** `MessagingDbContext` · **Route prefix:** `/api/messaging`
-**Aggregate kökü:** `Conversation` (içinde `ConversationParticipant` ve `Message` entity'leri).
+**Aggregate kökleri:** `Conversation` ve `Message` (ikisi de `AggregateRoot<Guid>`).
+
+> **Neden `Message` ayrı bir aggregate?** Sohbet on binlerce mesaj biriktirir; mesajlar `Conversation`'ın
+> çocuk koleksiyonu olsaydı her gönderim bütün geçmişi belleğe yüklerdi. Sohbet yalnız **özet** durumu
+> (son mesaj önizlemesi/zamanı, engel bayrakları) taşır, mesajlar keyset sayfalamayla ayrı okunur.
 
 > Modül sınırı kuralı: `Messaging`, `Identity`/`Students`/`Parents` tablolarına **doğrudan erişmez**.
-> Katılımcı doğrulaması (öğretmen-öğrenci/veli ilişkisi) integration event'lerle beslenen yerel projeksiyon
-> üzerinden yapılır (bkz. §4 ve §5).
+> İlişki doğrulaması `Shared/Contracts` üzerinden yapılır: öğretmen↔öğrenci bağı `IStudentDirectory`,
+> veli↔öğrenci onaylı bağı `IParentAccessDirectory` (P10 Task 2).
 
-### 2.1 `Conversation` (AggregateRoot)
+### 2.1 `Conversation` (AggregateRoot) — 🟢 kodda
 
 | Alan | Tip | Açıklama |
 |------|-----|----------|
 | `Id` | Guid | Birincil anahtar |
-| `ConversationType` | enum `ConversationType` | `TeacherStudent=1`, `TeacherParent=2` (başka tür yasak) |
 | `TeacherUserId` | Guid | Sohbetin öğretmen tarafı (Identity kullanıcısı) |
 | `CounterpartUserId` | Guid | Karşı taraf — öğrenci **veya** veli kullanıcısı (Identity) |
-| `StudentId` | Guid | Sohbetin **bağlamı** olan öğrenci profili (hangi öğrenci hakkında) |
-| `Status` | enum `ConversationStatus` | `Active=1`, `Archived=2`, `Blocked=3`, `Closed=4` |
-| `LastMessageAtUtc` | DateTime? | Son mesaj zamanı (liste sıralaması için) |
-| `LastMessagePreview` | string? | Son mesajın kısa önizlemesi (maks. 140) |
-| `BlockedByUserId` | Guid? | Sohbeti engelleyen taraf (varsa) |
+| `CounterpartRole` | enum `ParticipantRole` | `Student` veya `Parent` (öğretmen tarafı zaten sabittir) |
+| `StudentId` | Guid | Sohbetin **bağlamı** olan öğrenci profili (veli sohbetinde de dolu: hangi çocuk) |
 | `CreatedOnUtc` | DateTime | |
-| `UpdatedOnUtc` | DateTime | |
+| `LastMessageOnUtc` | DateTime | Gelen kutusu sıralaması; mesaj yokken sohbetin açılış anı |
+| `LastMessagePreview` | string? | Son mesajın kısaltılmış önizlemesi (maks. `PreviewMaxLength` = 140) |
+| `IsBlockedByTeacher` | bool | Öğretmen engelledi |
+| `IsBlockedByCounterpart` | bool | Öğrenci/veli engelledi |
+| `BlockedOnUtc` | DateTime? | Son engelleme anı; engel tamamen kalkınca `null` |
+
+> **Normalizasyon:** `Create` sohbeti kim başlatırsa başlatsın öğretmeni her zaman `TeacherUserId`'ye yazar.
+> Aksi hâlde `(TeacherUserId, CounterpartUserId, StudentId)` benzersiz indeksi aynı çift için iki satıra izin verirdi.
+
+> **Enum yerine iki bool:** `ConversationStatus` yerine `IsBlockedByTeacher`/`IsBlockedByCounterpart` tutulur.
+> Tek bir "Blocked" durumu, engeli **kimin** koyduğunu kaybederdi; o bilgi olmadan `Unblock` doğru tarafa
+> bağlanamaz ve öğretmen, öğrencinin koyduğu engeli kaldırabilirdi.
 
 **Davranışlar (metotlar):**
-- `Start(...)` → katılımcıları oluşturur, çifti doğrular → `ConversationStartedDomainEvent`.
-- `AppendMessage(senderUserId, body, attachmentUrl, utcNow)` → gönderenin katılımcı olduğunu ve sohbetin `Active` olduğunu doğrular; `LastMessageAtUtc`/`LastMessagePreview` günceller; karşı tarafın `UnreadCount`'unu artırır → `MessageSentDomainEvent`.
-- `MarkRead(readerUserId, utcNow)` → okuyanın `LastReadAtUtc`/`UnreadCount` değerlerini günceller → `ConversationReadDomainEvent`.
-- `Block(byUserId, utcNow)` / `Unblock(byUserId)` → `Status = Blocked/Active` → `ConversationBlockedDomainEvent`.
-- `Archive(byUserId)` / `Close(utcNow)`.
 
-**Domain event'leri:** `ConversationStartedDomainEvent`, `MessageSentDomainEvent`, `ConversationReadDomainEvent`, `ConversationBlockedDomainEvent`.
+| Metot | Döner | Kural |
+|-------|-------|-------|
+| `static Create(id, initiatorRole, initiatorUserId, counterpartRole, counterpartUserId, studentId, nowUtc)` | `Result<Conversation>` | Tam olarak **bir** taraf `Teacher` olmalı → değilse `messaging.pair_not_allowed`; aynı kullanıcı iki tarafta olamaz → `messaging.self_conversation`; taraflar normalize edilir |
+| `SendMessage(messageId, senderUserId, body, nowUtc)` | `Result<Message>` | Katılımcı değilse `messaging.not_participant`; engelliyse `messaging.blocked`; boş gövde `messaging.empty_body`; 4000 karakteri aşan `messaging.body_too_long`. Gövde `Trim`'lenir, önizleme tazelenir, `MessageSentDomainEvent` yayılır |
+| `Block(byUserId, nowUtc)` / `Unblock(byUserId, nowUtc)` | `Result` | Katılımcı değilse `messaging.not_participant`. Engeli **yalnız koyan taraf** kaldırabilir |
+| `CanSend(senderUserId)` | `bool` | Engel **çift yönlüdür**: taraflardan biri engellediyse hiçbir taraf gönderemez |
+| `HasParticipant(userId)` / `RecipientOf(senderUserId)` | `bool` / `Guid?` | Yetki kontrolleri ve bildirim alıcısı için |
+
+**Domain event'i:** `MessageSentDomainEvent(ConversationId, MessageId, SenderUserId, RecipientUserId, Preview, SentOnUtc)`
+— alıcıyı yalnız sohbet bilir, bu yüzden olay `Conversation`'dan yayılır (Notifications bunu tüketir, P10 Task 3).
 
 **DB:** tablo `conversations`; index'ler:
-- `(TeacherUserId, CounterpartUserId, StudentId, ConversationType)` → **UNIQUE** (aynı çift + öğrenci bağlamı için tek sohbet).
-- `(TeacherUserId, LastMessageAtUtc DESC)`, `(CounterpartUserId, LastMessageAtUtc DESC)` → gelen kutusu listeleme.
+- `(TeacherUserId, CounterpartUserId, StudentId)` → **UNIQUE** (aynı çift + öğrenci bağlamı için tek sohbet; get-or-create yarışını veritabanı da keser).
+- `(TeacherUserId, LastMessageOnUtc)`, `(CounterpartUserId, LastMessageOnUtc)` → gelen kutusu listeleme.
 
-### 2.2 `ConversationParticipant` (Entity — `Conversation` çocuğu)
-
-| Alan | Tip | Açıklama |
-|------|-----|----------|
-| `Id` | Guid | |
-| `ConversationId` | Guid | Üst sohbet (FK) |
-| `UserId` | Guid | Identity kullanıcısı |
-| `Role` | enum `ParticipantRole` | `Teacher=2`, `Student=3`, `Parent=4` (Identity `UserRole` ile hizalı) |
-| `LastReadAtUtc` | DateTime? | **Okundu bilgisi** — bu ana kadar olan mesajları okudu |
-| `UnreadCount` | int | Okunmamış mesaj sayısı (rozet için) |
-| `IsMuted` | bool | Bu sohbet için bildirim sustur |
-| `JoinedOnUtc` | DateTime | |
-
-**DB:** tablo `conversation_participants`; index `(ConversationId, UserId)` UNIQUE, `(UserId)`.
-
-### 2.3 `Message` (Entity — `Conversation` çocuğu)
+### 2.2 `Message` (AggregateRoot) — 🟢 kodda
 
 | Alan | Tip | Açıklama |
 |------|-----|----------|
 | `Id` | Guid | |
-| `ConversationId` | Guid | Üst sohbet (FK) |
+| `ConversationId` | Guid | Üst sohbet |
 | `SenderUserId` | Guid | Gönderen (katılımcı olmalı) |
-| `Body` | string | Mesaj metni (maks. 4000; boş olamaz) |
-| `AttachmentUrl` | string? | Ek/dosya bağlantısı (premium — bkz. [`m17_membership.md`](m17_membership.md)) |
-| `Status` | enum `MessageStatus` | `Sent=1`, `Delivered=2`, `Read=3`, `Deleted=4` |
-| `SentAtUtc` | DateTime | |
-| `EditedAtUtc` | DateTime? | Düzenlendi (kısıtlı süre içinde) |
-| `DeletedAtUtc` | DateTime? | Yumuşak silme (içerik gizlenir, denetim için kayıt kalır) |
+| `Body` | string | Ham metin (maks. `MaxBodyLength` = 4000; boş olamaz, `Trim`'lenir) |
+| `SentOnUtc` | DateTime | |
+| `ReadOnUtc` | DateTime? | İlk okumada sabitlenir (idempotent) |
+| `IsDeleted` | bool | Yumuşak silme bayrağı |
+| `DeletedOnUtc` | DateTime? | |
+| `VisibleBody` | string? (türetilmiş) | API'ye giden içerik — silinmişse `null` |
 
-**DB:** tablo `messages`; index `(ConversationId, SentAtUtc DESC)` → sayfalama (keyset/`before` imleci).
+**Davranışlar:** `MarkRead(nowUtc)` (idempotent; silinmiş mesajda etkisiz), `SoftDelete(nowUtc)` (idempotent).
 
-### 2.4 Enum'lar (⚠️ Önerilen)
+> **Yumuşak silme içeriği silmez:** `Body` satırda kalır, yalnız `VisibleBody` `null` olur. Şikayet/moderasyon
+> (M18) silinmiş bir mesajı incelemek zorunda kalabilir; içerik gerçekten silinseydi inceleme imkânsız olurdu.
+
+**DB:** tablo `messages`; index'ler `(ConversationId, SentOnUtc)` → keyset sayfalama, `(ConversationId, ReadOnUtc)` → okunmamış sayacı.
+
+### 2.3 Enum ve hata kodları — 🟢 kodda
 
 | Enum | Değerler |
 |------|----------|
-| `ConversationType` | `TeacherStudent=1`, `TeacherParent=2` |
-| `ConversationStatus` | `Active=1`, `Archived=2`, `Blocked=3`, `Closed=4` |
-| `ParticipantRole` | `Teacher=2`, `Student=3`, `Parent=4` |
-| `MessageStatus` | `Sent=1`, `Delivered=2`, `Read=3`, `Deleted=4` |
+| `ParticipantRole` | `Teacher=1`, `Student=2`, `Parent=3` |
+
+| Hata kodu | Anlam |
+|-----------|-------|
+| `messaging.pair_not_allowed` | Rol çifti öğretmen↔öğrenci/veli değil |
+| `messaging.self_conversation` | Kullanıcı kendisiyle sohbet başlatamaz |
+| `messaging.not_participant` | İstek sahibi sohbetin tarafı değil |
+| `messaging.blocked` | Sohbet engellenmiş, gönderim kapalı |
+| `messaging.empty_body` | Mesaj boş |
+| `messaging.body_too_long` | Mesaj 4000 karakteri aşıyor |
+| `messaging.relationship_required` | Taraflar arasında aktif bağ yok (P10 Task 2'de kullanılır) |
+| `messaging.conversation_not_found` / `messaging.message_not_found` | Kayıt yok (P10 Task 2'de kullanılır) |
+
+> ⚠️ Önceki tasarımdaki `ConversationParticipant` entity'si, `ConversationStatus`/`MessageStatus` enum'ları ve
+> `AttachmentUrl` alanı **uygulanmadı**: v1 iki katılımcılı sabit bir çifttir (ayrı katılımcı tablosu kazanç
+> getirmezdi), durum bilgisi engel bayraklarıyla taşınır ve ek/dosya paylaşımı kapsam dışıdır.
 
 ---
 
@@ -260,4 +283,4 @@ Students/Parents/Matching modüllerinden:
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-08-19*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
