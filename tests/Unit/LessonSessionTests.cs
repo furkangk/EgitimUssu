@@ -309,6 +309,9 @@ public sealed class LessonSessionTests
         public Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
             => Task.FromResult(_session is not null && _session.Id == lessonSessionId ? _session : null);
 
+        public Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
+            => Task.FromResult(_session is not null && _session.LessonScheduleId == lessonScheduleId ? _session : null);
+
         public Task<IReadOnlyCollection<LessonSession>> ListAsync(
             Guid? teacherUserId, Guid? studentId, DateTime? dateFromUtc, DateTime? dateToUtc, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<LessonSession>>(_session is null ? [] : [_session]);

@@ -155,7 +155,7 @@ Her madde şu alanlara sahip:
 | ID | Eksik | Kanıt / Not | Etki | Efor | Karar | Not |
 |----|-------|-------------|------|------|-------|-----|
 | M05-1 | ~~`InProgress` / `Cancelled` geçişleri yok~~ **✅ (P06)** | `LessonSession.Start()`/`Cancel(reason)` + `POST /{id}/start` · `/cancel`; geçersiz geçiş **409** `lesson_sessions.invalid_transition` | — | — | Eklendi 2026-09-04 | `Cancelled` son durum; `CancellationReason` alanı eklendi |
-| M05-2 | **Planlı dersten oturum türetme yok** | `LessonScheduleId` alanı var ama otomasyon/tek-tık yok | Öğretmen her ders için oturumu **elle** açıyor → günlük kullanımda sürtünme | M | | |
+| M05-2 | ~~Planlı dersten oturum türetme yok~~ **✅ (P06)** | `POST /api/lesson-sessions/from-schedule/{id}` + `ILessonScheduleDirectory`; idempotent (bir plandan bir oturum) | — | — | Eklendi 2026-09-04 | **Tek tık** var, ders günü **otomatik** türetme yok; mobil "Dersi başlat/iptal" bu köprüyü kullanıyor |
 | M05-3 | ~~`ActualEnd > ActualStart` doğrulaması yok~~ **✅ (P06)** | `Complete()` invariant'ı → `lesson_sessions.invalid_time_range`; ihlalde kayıt değişmez | — | — | Eklendi 2026-09-04 | Validator ile çift savunma |
 | M05-4 | ~~`MeetingUrl` / `RecordingUrl` yok~~ **✅ alan (P06)** | Alanlar + `SetMeetingUrl()`/`SetRecordingUrl()` + yanıtta döner | — | — | Eklendi 2026-09-04 | **Yazma yolu kısmi:** `MeetingUrl` M05-2 ile plandan kopyalanacak; `RecordingUrl` için uç henüz yok |
 
@@ -428,4 +428,4 @@ Bu envanterden türetilen uygulama planları: **master tasarım** → [`docs/sup
 
 ---
 
-*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme, M05-1 ✅ başlat/iptal, M05-3 ✅ zaman aralığı, M05-4 ✅ alanlar) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*
+*Eksik/Yapılmamış İşler Analizi | Güncelleme: 2026-09-04 (P06: M02-1 ✅ admin doğrulama, M02-3 ✅ filtreli arama, M02-4 ✅ pasifleştirme, M05-1 ✅ başlat/iptal, M05-2 ✅ plandan türetme, M05-3 ✅ zaman aralığı, M05-4 ✅ alanlar) · 2026-09-03 (P05 kapanışı: M15-1/2/3, M11-5, D-14/D-15/D-16/D-17 ✅; M15-4 kısmi ✅) · 2026-09-03 (P04 kapanışı: C-02, M06-1, M06-2, M02-2, D-05 ✅; E-03 teknik kısmı ✅) · 2026-09-03 (P03 kapanışı: A-04, M11-1/2/3/4, D-11 ✅; D-18 kısmen) | Toplam madde: **121** — A 6 · B 69 · C 10 · D 22 · E 7 · F 7*

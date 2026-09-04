@@ -160,6 +160,11 @@ git commit -m "feat(lesson-sessions): baslat/iptal gecisleri + zaman dogrulamasi
 - Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs` (yeni)
 - Modify: `src/Modules/Scheduling/Infrastructure/*` (contract implementasyonu)
 - Test: `tests/Unit/CreateSessionFromScheduleTests.cs`
+- **Plan dışı ama gerekli (uygulandı):** `src/Modules/LessonSessions/Application/LessonSessionPolicies.cs` (authorizer) ·
+  `src/Modules/LessonSessions/Infrastructure/{LessonSessionRepository,DependencyInjection}.cs` ·
+  `src/Modules/Scheduling/Infrastructure/DependencyInjection.cs` (sözleşme kaydı) ·
+  `tests/Integration/LessonSessionListAuthorizationTests.cs` (arayüz büyüdü, sahte güncellendi — Öğrenilenler #46) ·
+  `mobile/lib/features/lesson_sessions/**` + `mobile/test/.../lesson_session_repository_impl_test.dart`
 
 **Interfaces:**
 - Produces:
@@ -177,16 +182,20 @@ git commit -m "feat(lesson-sessions): baslat/iptal gecisleri + zaman dogrulamasi
     }
     ```
   - `sealed record CreateSessionFromScheduleCommand(Guid LessonScheduleId) : ICommand<Result<LessonSessionResponse>>`
+  - `ILessonSessionRepository.GetByScheduleIdAsync(Guid, CancellationToken)` — **plan dışı, eklendi:** idempotency anahtarı.
+  - `CreateSessionFromScheduleCommandAuthorizer` — **plan dışı, eklendi:** oturum henüz yok, yetki **planın** öğretmenine bakar.
+  - Hata kodları: `lesson_sessions.schedule_not_found` (**404**) · `lesson_sessions.schedule_not_derivable` (**409**, iptal/tamamlanmış plan).
+  > **Not (uygulama kararı):** `LessonScheduleDetails` sözleşmesinde `Topic` yok; türetilen oturumun `TopicTitle`'ı **`Subject`**'ten doldurulur (öğretmen tamamlarken düzeltir). Öğretmensiz (self, Ç-06) plan sözleşmeden `null` döner → türetilemez.
   - `POST /api/lesson-sessions/from-schedule/{lessonScheduleId}` (öğretmen)
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — plandan oturum üretilir (öğrenci/öğretmen/saat/`MeetingUrl` kopyalanır); aynı plan için ikinci çağrı **yeni oturum açmaz**, mevcut oturumu döndürür (idempotent); iptal edilmiş plandan oturum üretilemez.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~CreateSessionFromScheduleTests"`
-- [ ] **Step 3: Sözleşmeyi + Scheduling implementasyonunu + handler'ı yaz.**
+- [x] **Step 1: Testleri yaz (kırmızı)** — plandan oturum üretilir (öğrenci/öğretmen/saat/`MeetingUrl` kopyalanır); aynı plan için ikinci çağrı **yeni oturum açmaz**, mevcut oturumu döndürür (idempotent); iptal edilmiş plandan oturum üretilemez.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~CreateSessionFromScheduleTests"`
+- [x] **Step 3: Sözleşmeyi + Scheduling implementasyonunu + handler'ı yaz.**
   > `LessonSessions` **Scheduling'e proje referansı vermez**; yalnız `Shared.Contracts`'ı kullanır (mimari test bunu zorlar).
-- [ ] **Step 4: Endpoint + DI + yeşil test** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 5: Mobil** — Takvimde bir dersi tamamlarken "Oturum aç ve not gir" tek adımda: `scheduling_page.dart`'taki ders kartına "Ders notu gir" eylemi → `POST /from-schedule/{id}` → dönen `lessonSessionId` ile `/lesson-notes/new`.
-  **+ Task 3'ten devralındı:** oturum kimliği elde edildiğinde `lesson_detail_page.dart`'a "Dersi başlat" / "İptal et" düğmelerini bağla (`startSession`/`cancelSession` veri katmanında hazır; 409 → "bu ders zaten başlamış/iptal edilmiş" mesajı).
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 4: Endpoint + DI + yeşil test** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 5: Mobil (kısmen taşındı)** — `createSessionFromSchedule` repository ucu + **Task 3'ten devralınan düğmeler bağlandı**: `lesson_detail_page.dart`'ta "Dersi Başlat" / "Dersi İptal Et" (iptalde neden sorulur), akış `from-schedule` → `start`/`cancel`; **409** → "Bu ders zaten başlamış veya iptal edilmiş."
+  > **Plandan sapma (gerekçeli):** "Ders notu gir → `/lesson-notes/new`" tek adımı **yapılmadı**. `LessonNoteFormPage` hâlâ sabit öğrenci/ders listeleriyle çalışan **demo** ekrandır ve `lessonSessionId` almaz — backend'e bağlanması M06 işidir (P06 Task 6 / M06-3-4 adayı). Köprü (`from-schedule`) hazır; not formu bağlanınca tek adım kolayca eklenir.
+- [x] **Step 6: Doküman + commit**
 
 ```bash
 git add src/Shared/Contracts src/Modules mobile tests doc

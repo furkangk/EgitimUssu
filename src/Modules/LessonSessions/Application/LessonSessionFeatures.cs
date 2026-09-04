@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.LessonSessions.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.LessonSessions.Application;
@@ -31,6 +32,10 @@ public sealed record StartLessonSessionCommand(Guid LessonSessionId) : ICommand<
 /// <param name="Reason">İptal nedeni (opsiyonel).</param>
 public sealed record CancelLessonSessionCommand(Guid LessonSessionId, string? Reason) : ICommand<Result<LessonSessionResponse>>;
 
+/// <summary>M05-2: Planlı dersten (M04) ders oturumu türetir. Aynı plan için **idempotent**.</summary>
+/// <param name="LessonScheduleId">Planlı ders kimliği.</param>
+public sealed record CreateSessionFromScheduleCommand(Guid LessonScheduleId) : ICommand<Result<LessonSessionResponse>>;
+
 public sealed record GetLessonSessionByIdQuery(Guid LessonSessionId) : IQuery<Result<LessonSessionResponse>>;
 public sealed record ListLessonSessionsQuery(Guid? TeacherUserId, Guid? StudentId, DateTime? DateFromUtc, DateTime? DateToUtc) : IQuery<Result<IReadOnlyCollection<LessonSessionResponse>>>;
 
@@ -59,6 +64,12 @@ public sealed record LessonSessionResponse(
 public interface ILessonSessionRepository
 {
     Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);
+
+    /// <summary>M05-2: Bir planlı dersten türetilmiş oturumu döner (idempotency anahtarı).</summary>
+    /// <param name="lessonScheduleId">Planlı ders kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Varsa oturum, yoksa <c>null</c>.</returns>
+    Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<LessonSession>> ListAsync(Guid? teacherUserId, Guid? studentId, DateTime? dateFromUtc, DateTime? dateToUtc, CancellationToken cancellationToken);
 
     Task AddAsync(LessonSession lessonSession, CancellationToken cancellationToken);
@@ -262,6 +273,93 @@ public sealed class CancelLessonSessionCommandHandler : ICommandHandler<CancelLe
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
+        return Result<LessonSessionResponse>.Success(session.ToResponse());
+    }
+}
+
+/// <summary>
+/// M05-2: Planlı dersten oturum türetir. Plan bulunamazsa <c>schedule_not_found</c>;
+/// <c>Cancelled</c>/<c>Completed</c> plandan türetilemez (<c>schedule_not_derivable</c>).
+/// Aynı plan için ikinci çağrı **yeni oturum açmaz**, mevcut oturumu döner.
+/// </summary>
+public sealed class CreateSessionFromScheduleCommandHandler
+    : ICommandHandler<CreateSessionFromScheduleCommand, Result<LessonSessionResponse>>
+{
+    private static readonly Error ScheduleNotFound =
+        new("lesson_sessions.schedule_not_found", "Planlı ders bulunamadı.");
+
+    private static readonly Error ScheduleNotDerivable =
+        new("lesson_sessions.schedule_not_derivable", "Bu planlı dersten oturum açılamaz.");
+
+    private readonly ILessonSessionRepository _repository;
+    private readonly ILessonScheduleDirectory _scheduleDirectory;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="repository">Ders oturumu deposu.</param>
+    /// <param name="scheduleDirectory">Scheduling okuma sözleşmesi.</param>
+    /// <param name="idGenerator">Kimlik üreteci.</param>
+    /// <param name="clock">Saat.</param>
+    public CreateSessionFromScheduleCommandHandler(
+        ILessonSessionRepository repository,
+        ILessonScheduleDirectory scheduleDirectory,
+        IIdGenerator idGenerator,
+        IClock clock)
+    {
+        _repository = repository;
+        _scheduleDirectory = scheduleDirectory;
+        _idGenerator = idGenerator;
+        _clock = clock;
+    }
+
+    /// <summary>Komutu işler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Türetilen (veya mevcut) oturum.</returns>
+    public async Task<Result<LessonSessionResponse>> Handle(CreateSessionFromScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var schedule = await _scheduleDirectory.GetAsync(command.LessonScheduleId, cancellationToken);
+        if (schedule is null)
+        {
+            return Result<LessonSessionResponse>.Failure(ScheduleNotFound);
+        }
+
+        // Idempotency: ayni plan icin ikinci cagri yeni oturum acmaz.
+        var existing = await _repository.GetByScheduleIdAsync(command.LessonScheduleId, cancellationToken);
+        if (existing is not null)
+        {
+            return Result<LessonSessionResponse>.Success(existing.ToResponse());
+        }
+
+        if (schedule.Status is "Cancelled" or "Completed")
+        {
+            return Result<LessonSessionResponse>.Failure(ScheduleNotDerivable);
+        }
+
+        var session = new LessonSession(
+            _idGenerator.New(),
+            schedule.LessonScheduleId,
+            schedule.TeacherUserId,
+            schedule.StudentId,
+            schedule.Subject,
+            schedule.StartAtUtc,
+            null,
+            null,
+            null,
+            StudentAttendanceStatus.Unknown,
+            LessonSessionStatus.Planned,
+            schedule.Subject,
+            null,
+            null,
+            _clock.UtcNow,
+            null);
+
+        session.SetMeetingUrl(schedule.MeetingUrl);
+
+        await _repository.AddAsync(session, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
+
         return Result<LessonSessionResponse>.Success(session.ToResponse());
     }
 }

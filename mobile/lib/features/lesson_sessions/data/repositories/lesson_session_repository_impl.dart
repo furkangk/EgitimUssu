@@ -119,6 +119,14 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
     return LessonSessionModel.fromJson(response);
   }
 
+  @override
+  Future<LessonSession> createSessionFromSchedule(String lessonScheduleId) async {
+    final response = await _apiClient.post(
+      '/api/lesson-sessions/from-schedule/$lessonScheduleId',
+    );
+    return LessonSessionModel.fromJson(response);
+  }
+
   LessonSessionModel _toModel(LessonSession lessonSession) {
     return LessonSessionModel(
       id: lessonSession.id,

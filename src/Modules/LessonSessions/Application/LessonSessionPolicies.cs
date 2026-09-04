@@ -1,4 +1,5 @@
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.LessonSessions.Application;
@@ -147,5 +148,55 @@ public sealed class LessonSessionCommandAuthorizer :
         var isAdmin = _currentUser.Roles.Contains("Admin");
         var isTeacher = _currentUser.Roles.Contains("Teacher");
         return isAdmin || (isTeacher && Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == teacherUserId);
+    }
+}
+
+/// <summary>
+/// M05-2: Planlı dersten oturumu yalnız o dersin öğretmeni (veya Admin) türetebilir.
+/// Yetki planın **kendi** öğretmenine bakar; oturum henüz yoktur.
+/// </summary>
+public sealed class CreateSessionFromScheduleCommandAuthorizer : ICommandAuthorizer<CreateSessionFromScheduleCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error ScheduleNotFound = new("lesson_sessions.schedule_not_found", "Planlı ders bulunamadı.");
+    private readonly ICurrentUser _currentUser;
+    private readonly ILessonScheduleDirectory _scheduleDirectory;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    /// <param name="scheduleDirectory">Scheduling okuma sözleşmesi.</param>
+    public CreateSessionFromScheduleCommandAuthorizer(ICurrentUser currentUser, ILessonScheduleDirectory scheduleDirectory)
+    {
+        _currentUser = currentUser;
+        _scheduleDirectory = scheduleDirectory;
+    }
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public async Task<Result> Authorize(CreateSessionFromScheduleCommand command, CancellationToken cancellationToken)
+    {
+        var schedule = await _scheduleDirectory.GetAsync(command.LessonScheduleId, cancellationToken);
+        if (schedule is null)
+        {
+            return Result.Failure(ScheduleNotFound);
+        }
+
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var isOwner = _currentUser.Roles.Contains("Teacher")
+            && Guid.TryParse(_currentUser.UserId, out var currentUserId)
+            && currentUserId == schedule.TeacherUserId;
+
+        return isOwner ? Result.Success() : Result.Failure(Forbidden);
     }
 }

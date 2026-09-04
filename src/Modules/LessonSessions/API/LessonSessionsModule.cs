@@ -41,6 +41,9 @@ public sealed class LessonSessionsModule : ModuleDefinition
         group.MapPost("/{lessonSessionId:guid}/cancel", CancelLessonSessionAsync)
         .WithSummary("Planlı veya devam eden dersi iptal eder (M05-1)");
 
+        group.MapPost("/from-schedule/{lessonScheduleId:guid}", CreateSessionFromScheduleAsync)
+        .WithSummary("Planlı dersten oturum türetir — aynı plan için idempotent (M05-2)");
+
         group.MapGet("/{lessonSessionId:guid}", GetLessonSessionByIdAsync)
         .WithSummary("Ders oturumu detayını getirir");
 
@@ -115,6 +118,19 @@ public sealed class LessonSessionsModule : ModuleDefinition
     }
 
     /// <summary>
+    /// M05-2: Planlı dersten (M04) oturum türetir. Aynı plan için ikinci çağrı mevcut oturumu döner.
+    /// </summary>
+    private static async Task<IResult> CreateSessionFromScheduleAsync(
+        HttpContext context,
+        Guid lessonScheduleId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new CreateSessionFromScheduleCommand(lessonScheduleId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
     /// Ders oturumu detayını oturum kimliğiyle getirir.
     /// </summary>
     private static async Task<IResult> GetLessonSessionByIdAsync(
@@ -155,6 +171,9 @@ public sealed class LessonSessionsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "lesson_sessions.not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "lesson_sessions.schedule_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            // M05-2: plan iptal/tamamlanmis -> istek dogru, kaynagin durumu uygun degil.
+            "lesson_sessions.schedule_not_derivable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             // M05-1: gecersiz durum gecisi bir cakismadir (istek dogru, kaynagin durumu uygun degil).
             "lesson_sessions.invalid_transition" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),

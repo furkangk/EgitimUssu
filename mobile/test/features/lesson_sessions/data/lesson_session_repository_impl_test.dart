@@ -96,6 +96,21 @@ void main() {
     expect(session.cancellationReason, 'Ogrenci hastalandi');
   });
 
+  test('createSessionFromSchedule posts to from-schedule endpoint', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.createSessionFromSchedule('lesson-1');
+
+    expect(apiClient.lastPath, '/api/lesson-sessions/from-schedule/lesson-1');
+    expect(session.id, 'session-1');
+    expect(session.status, 'Planned');
+    expect(session.meetingUrl, 'https://meet.example.com/abc');
+  });
+
   test('session model reads meeting and recording urls', () async {
     final apiClient = _FakeApiClient();
     final repository = LessonSessionRepositoryImpl(

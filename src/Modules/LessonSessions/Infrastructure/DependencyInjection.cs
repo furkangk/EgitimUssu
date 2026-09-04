@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CompleteLessonSessionCommand, Result<LessonSessionResponse>>, CompleteLessonSessionCommandHandler>();
         services.AddScoped<ICommandHandler<StartLessonSessionCommand, Result<LessonSessionResponse>>, StartLessonSessionCommandHandler>();
         services.AddScoped<ICommandHandler<CancelLessonSessionCommand, Result<LessonSessionResponse>>, CancelLessonSessionCommandHandler>();
+        services.AddScoped<ICommandHandler<CreateSessionFromScheduleCommand, Result<LessonSessionResponse>>, CreateSessionFromScheduleCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionByIdQuery, Result<LessonSessionResponse>>, GetLessonSessionByIdQueryHandler>();
         services.AddScoped<IQueryHandler<ListLessonSessionsQuery, Result<IReadOnlyCollection<LessonSessionResponse>>>, ListLessonSessionsQueryHandler>();
         services.AddScoped<ICommandValidator<CreateLessonSessionCommand>, CreateLessonSessionCommandValidator>();
@@ -29,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<CompleteLessonSessionCommand>, LessonSessionCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<StartLessonSessionCommand>, LessonSessionCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<CancelLessonSessionCommand>, LessonSessionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<CreateSessionFromScheduleCommand>, CreateSessionFromScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetLessonSessionByIdQuery>, LessonSessionCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSessionsQuery>, LessonSessionCommandAuthorizer>();
 

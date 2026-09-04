@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Scheduling/**
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # 📅 Takvim & Planlama (M04) — Detaylı Tasarım Dokümanı
@@ -353,6 +353,13 @@ POST /lesson-requests/{id}/reject
 
 > Olaylar **Outbox** ile güvenilir yayılır (`Shared/Infrastructure/Messaging`).
 
+> **Dışa açılan okuma sözleşmeleri (Shared.Contracts):** Scheduling iki sözleşme uygular —
+> `IStudentUpcomingLessonsDirectory` (veli paneli, V-F) ve **`ILessonScheduleDirectory`**
+> (`LessonScheduleDirectory.cs`, **2026-09-04 P06/M05-2**): LessonSessions planlı dersten oturum türetirken
+> (`POST /api/lesson-sessions/from-schedule/{id}`) planı bu sözleşmeyle okur. Öğrencinin **kendi** dersi
+> (öğretmensiz, Ç-06) bu sözleşmeden `null` döner — self dersten ders oturumu türetilemez.
+> Tüketici modül Scheduling'e proje referansı vermez.
+
 ---
 
 ## 6. Mobil Ekranlar
@@ -425,4 +432,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*

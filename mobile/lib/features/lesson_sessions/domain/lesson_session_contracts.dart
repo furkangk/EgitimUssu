@@ -54,4 +54,8 @@ abstract interface class LessonSessionRepository {
 
   /// M05-1: Planli veya devam eden dersi iptal eder.
   Future<LessonSession> cancelSession(String lessonSessionId, {String? reason});
+
+  /// M05-2: Planli dersten (M04) oturum turetir. Ayni plan icin idempotent:
+  /// ikinci cagri yeni oturum acmaz, mevcut oturumu doner.
+  Future<LessonSession> createSessionFromSchedule(String lessonScheduleId);
 }
