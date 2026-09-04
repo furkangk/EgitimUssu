@@ -43,6 +43,9 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, AssignmentDueSoonNotificationHandler>();
         services.AddScoped<IIntegrationEventHandler, AssignmentMissedNotificationHandler>();
         services.AddScoped<IIntegrationEventHandler, TopicGoalAchievedNotificationHandler>();
+
+        // M16-1: yeni mesajda alıcıya in-app bildirim (push turunu dispatcher üstlenir).
+        services.AddScoped<IIntegrationEventHandler, MessageSentNotificationHandler>();
         services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
         services.AddHostedService<NotificationDispatcher>();
         services.AddHostedService<ParentWeeklySummaryService>();

@@ -1,6 +1,6 @@
 ---
 title: "M16 — Mesajlaşma"
-summary: "Mesajlaşma modülü: domain + 8 uç + ilişki kapısı + hız sınırı kodda (P10 Task 1-2); bildirim ve mobil sırada"
+summary: "Mesajlaşma modülü: domain + 8 uç + ilişki kapısı + hız sınırı + yeni mesaj bildirimi kodda (P10 Task 1-3); mobil sırada"
 tags: [modul, messaging, faz-2, faz-3]
 status: "🟡"
 authority: code
@@ -26,7 +26,7 @@ updated: 2026-09-04
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-🟡 **Modül iskeleti, domain ve uçlar kodda** (P10 Task 1-2, 2026-09-04):
+🟡 **Modül iskeleti, domain, uçlar ve bildirim kodda** (P10 Task 1-3, 2026-09-04):
 
 - **Backend:** `src/Modules/Messaging/{Domain,Application,Infrastructure,API}` — 4 katman projesi, `MessagingDbContext`
   (`messaging` şeması), `MessagingModule : ModuleDefinition` (`/api/messaging`), `MessagingDesignTimeDbContextFactory`,
@@ -41,10 +41,13 @@ updated: 2026-09-04
 - **Uygulama katmanı (P10 Task 2):** `MessagingFeatures.cs` (5 komut + 2 sorgu + handler'lar + `IMessagingRepository`),
   `MessagingPolicies.cs` (`ConversationRelationshipPolicy`, `MessagingRoles`, `AuthenticatedMessagingAuthorizer`),
   `MessagingRepository.cs`, 8 uç (§3) ve kullanıcı başına 30/dk hız sınırı.
+- **Bildirim (P10 Task 3):** `Notifications/Infrastructure/MessageSentNotificationHandler.cs` —
+  `Messaging/MessageSentDomainEvent` tüketip alıcıya `UserNotification(Kind=MessageReceived,
+  Route="/messages/{conversationId}")` yazar; push turunu `NotificationDispatcher` üstlenir.
 - **Testler:** `ConversationTests` (17) + `MessageTests` (9) + `MessagingAccessTests` (14) + `MessagePagingTests` (10)
-  + `DistributedRateLimitMiddlewareTests`'e 5 mesajlaşma testi.
+  + `MessageSentNotificationHandlerTests` (6) + `DistributedRateLimitMiddlewareTests`'e 5 mesajlaşma testi.
 
-**Henüz yok (sırada):** yeni mesaj bildirimi → P10 Task 3 · `mobile/lib/features/messaging/` → P10 Task 4.
+**Henüz yok (sırada):** `mobile/lib/features/messaging/` → P10 Task 4.
 
 ---
 
@@ -199,7 +202,7 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 | 7 | **Silme:** yalnız **gönderen** ya da Admin siler; silme **yumuşaktır** (satır ve `Body` kalır, API `null` döner) | `DeleteMessageCommandHandler` + `Message.SoftDelete` | 🟢 |
 | 8 | **Hız sınırı:** kullanıcı başına dakikada **30** mesaj; aşımda `429` | `DistributedRateLimitMiddleware` `messaging` politikası (`RateLimiting:Messaging`) | 🟢 |
 | 9 | **Moderasyon:** mesaj şikayeti → M18 `AbuseReport` | — | 🔴 P12 |
-| 10 | **Bildirim:** yeni mesajda alıcıya in-app + push (tercihe saygıyla) | Notifications tüketicisi | 🟡 P10 Task 3 |
+| 10 | **Bildirim:** yeni mesajda alıcıya in-app + push (tercihe saygıyla) | `MessageSentNotificationHandler` + `NotificationDispatcher` tercih kapısı | 🟢 |
 | 11 | **Premium farkı:** ek/dosya gönderimi, geçmiş derinliği | — | 🔴 kapsam dışı (v1'de ek yok) |
 
 > **Hız sınırı neden kullanıcı başına?** Diğer politikalar istemci IP'sine göre sayar; mesaj gönderimi
@@ -208,37 +211,43 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 
 ---
 
-## 5. Olay Akışı (⚠️ Önerilen)
+## 5. Olay Akışı
 
 ```
-[Sohbet başlatma]
-İstemci → POST /conversations (teacherUserId, counterpartUserId, studentId, type)
-   → Conversation.Start() çift + ilişki kuralını doğrular
-      → UNIQUE çakışırsa mevcut sohbet döner (get-or-create)
-      → yeni ise ConversationStartedDomainEvent
+[Sohbet açma] — 🟢 kodda
+İstemci → POST /conversations { counterpartUserId, counterpartRole, studentId }
+   → Conversation.Create() izinli çift kuralını doğrular + tarafları normalize eder
+      → varsa mevcut satır döner (get-or-create; UNIQUE indeks yarışı da keser)
+      → yoksa ConversationRelationshipPolicy ilişkiyi sorar (IStudentDirectory / IParentAccessDirectory)
+         → izin varsa yeni Conversation
 
-[Mesaj gönderme]
-İstemci → POST /conversations/{id}/messages (body)
-   → Conversation.AppendMessage()  → MessageSentDomainEvent
-      → (Outbox) MessageSentIntegrationEvent
-         → Notifications (M11): alıcıya "Yeni mesaj" bildirimi
-            (alıcı IsMuted=false ve UserSetting izin veriyorsa)
+[Mesaj gönderme] — 🟢 kodda
+İstemci → POST /conversations/{id}/messages { body }        (kullanıcı başına 30/dk)
+   → Conversation.SendMessage() → MessageSentDomainEvent(ConversationId, MessageId,
+                                     SenderUserId, RecipientUserId, Preview, SentOnUtc)
+      → (ortak Outbox; JsonDomainEventMapper) SourceModule="Messaging", Name="MessageSentDomainEvent"
+         → Notifications: MessageSentNotificationHandler (IdempotentIntegrationEventHandler)
+            → UserNotification(Kind=MessageReceived, Route="/messages/{conversationId}")
+               → NotificationDispatcher turu push'u gönderir; tercih kapısı ORADA uygulanır
+                  (push kapalıysa in-app kayıt yine de durur)
 
-[Okundu]
-Alıcı sohbeti açar → PUT /conversations/{id}/read
-   → katılımcının LastReadAtUtc/UnreadCount güncellenir → ConversationReadDomainEvent
+[Okundu] — 🟢 kodda
+Alıcı sohbeti açar → POST /conversations/{id}/read
+   → gelen mesajların Message.ReadOnUtc'si ilk okumada damgalanır (idempotent) → 204
 
-[Şikayet]
-Kullanıcı → POST /conversations/{id}/messages/{msgId}/report (reason)
-   → (Outbox) MessageReportedIntegrationEvent
-      → Feedback (M18): AbuseReport(TargetType=Message, TargetId=msgId) oluştur
-         → Admin moderasyonu (M18) → gerekirse mesaj/sohbet kaldırma
-
-[İlişki beslemesi — read-model]
-Students/Parents/Matching modüllerinden:
-   StudentLinkedToTeacher / ParentLinkedToStudent / MatchRequestAccepted (integration event)
-      → Messaging: "izinli çift" projeksiyonunu günceller (çift doğrulaması için)
+[Şikayet] — 🔴 P12 (M18)
+Uç yok; mesaj şikayeti M18 AbuseReport ile gelecek.
 ```
+
+> **Neden ayrı bir `MessageSentIntegrationEvent` sınıfı yok?** Ortak `JsonDomainEventMapper` her domain
+> olayını olduğu gibi seri hâle getirip `(SourceModule, Name)` çiftiyle outbox'a yazar; diğer modüllerin
+> tüketicileri de (ör. `TopicGoalAchievedNotificationHandler`) doğrudan domain olayının adını dinler.
+> Ayrı bir sözleşme sınıfı, aynı alanların ikinci bir kopyası olurdu.
+
+> **İlişki için projeksiyon beslemesi de yok.** Önceki tasarım Students/Parents olaylarından beslenen
+> yerel bir "izinli çift" projeksiyonu öngörüyordu; bunun yerine ilişki her sohbet açılışında
+> `Shared/Contracts` dizinlerine **canlı** sorulur. Yerel kopya, bağ koptuktan sonra mesajlaşmayı
+> açık bırakma riskini taşırdı — ilişki bilgisinin sahibi Students ve Parents'tır.
 
 ---
 
@@ -305,4 +314,4 @@ Students/Parents/Matching modüllerinden:
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
