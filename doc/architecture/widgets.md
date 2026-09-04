@@ -5,7 +5,7 @@ tags: [mimari, widget, flutter]
 authority: code
 code_refs:
   - mobile/lib/shared/widgets/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 🧩 Ortak Widget Kataloğu (Shared Widgets)
@@ -130,4 +130,20 @@ ihtiyaç duyduğunda taşınmalıdır.
 | `SettingsHint` | `text` | Panel altı açıklama metni |
 | `settingsErrorListener` | `BlocConsumer` listener'ı | Kaydetme hatasını SnackBar ile bildirir; yükleme hatası `ErrorStateView`'e bırakılır |
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*
+### 3.2 Öğretmen uygunluk düzenleyici (P06, `features/teacher_profile/presentation/widgets/availability_editor.dart`)
+
+`teacher_profile` feature'ına özeldir; başka bir feature haftalık ızgaraya ihtiyaç duyduğunda `shared/`'a taşınmalıdır.
+
+| Bileşen | API | Kural |
+|---------|-----|-------|
+| `AvailabilityEditor` | `slots, onChanged, onSave, isSaving` | **Kontrollü** widget — listeyi sahiplenmez; 7 gün kartı + gün başına "+" düğmesi |
+| `availabilitySlotOverlaps` | `(slots, candidate, {ignore})` | Aynı günde kesişme testi; **bitişik** aralık (`18:00-20:00` + `20:00-21:00`) çakışma değildir |
+| `availabilitySlotError` | `(existing, candidate, {ignore})` | Görünen hata metni ya da `null`; kural UI'dan bağımsız olduğu için dropdown sürmeden test edilir |
+| `availabilityDayNames` / `availabilityTimeOptions` | sabit | Pazartesi=`dayOfWeek 1` (ISO-8601) · 06:00–23:30, 30 dk adım |
+
+- Slot bazlı "Online" / "Yüz yüze" anahtarları seçiliyken de **ikon + metin** taşır — renk tek başına durum göstergesi olmaz ([`accessibility.md`](accessibility.md)).
+- Renk/gölge/radius token'ları `AppColors` + `AppShadows.soft`; hata kutusu `errorSurface`/`errorBorder`/`error` semantik token'ları.
+
+---
+
+*Ortak Widget Kataloğu | Güncelleme: 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*

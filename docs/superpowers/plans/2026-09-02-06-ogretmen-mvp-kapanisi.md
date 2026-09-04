@@ -342,24 +342,27 @@ git commit -m "feat(assignments): son teslim uyarisi + odev puanlama (M06-3/M06-
 
 ---
 
-### Task 8: Mobil — öğretmen uygunluk düzenleyici (D-04) ve M02-5
+### Task 8: Mobil — öğretmen uygunluk düzenleyici (D-04) ve M02-5 ✅
 
 **Files:**
 - Create: `mobile/lib/features/teacher_profile/presentation/widgets/availability_editor.dart`
 - Modify: `mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart`
-- Modify: `mobile/lib/features/teacher_profile/data/repositories/teacher_repository_impl.dart`
+- Modify: `mobile/lib/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart` *(plan sonradan düzeltildi: `saveAvailability` burada yaşıyor)*
+- Modify: `mobile/lib/features/teacher_profile/domain/teacher_profile_contracts.dart` *(plan sonradan düzeltildi: `TeacherProfile.copyWith`)*
+- ~~Modify: `mobile/lib/features/teacher_profile/data/repositories/teacher_repository_impl.dart`~~ **gerekmedi** — `toCreatePayload()/toUpdatePayload()` zaten `availabilitySlots` taşıyor
 - Test: `mobile/test/features/teacher_profile/availability_editor_test.dart`
-- Modify: `doc/pages/teacher_profile.md`, `doc/architecture/widgets.md`
+- Modify: `doc/pages/teacher_profile.md`, `doc/architecture/widgets.md`, `doc/modules/m02_teachers.md`
 
 **Interfaces:**
 - `AvailabilityEditor` widget'ı: haftanın 7 günü × saat aralıkları ızgarası; slot ekle/sil, her slotta "Online"/"Yüz yüze" anahtarları. Değişiklik `TeacherProfileCubit.saveAvailability(List<AvailabilitySlot>)` ile `PUT /api/teachers/profiles/{userId}` gövdesindeki `availabilitySlots` alanına yazılır (P01 Task 1'deki merge sayesinde tekrar kaydetme güvenli).
+- **Uygulanan:** `AvailabilityEditor` **kontrollü** (controlled) widget'tır — listeyi sahiplenmez, `onChanged` ile yukarı verir; sayfa state'i tutar. Doğrulama UI'dan ayrı: `availabilitySlotOverlaps` + `availabilitySlotError`. `saveAvailability` yüklü profili `copyWith(availabilitySlots:)` ile kopyalar (PUT gövdesi profilin tamamını ister).
 
-- [ ] **Step 1: Widget testini yaz (kırmızı)** — slot ekleme sonrası listede görünmesi, çakışan slot eklenememesi (aynı gün + kesişen saat), silme.
-- [ ] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/teacher_profile/availability_editor_test.dart`
-- [ ] **Step 3: Widget'ı yaz** — `doc/architecture/design_system.md` token'ları + mevcut ortak widget'lar; yeni renk/spacing icat etme.
-- [ ] **Step 4: Profil sayfasına yerleştir + kaydetme akışını bağla.**
-- [ ] **Step 5: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 1: Widget testini yaz (kırmızı)** — slot ekleme sonrası listede görünmesi, çakışan slot eklenememesi (aynı gün + kesişen saat), silme.
+- [x] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/teacher_profile/availability_editor_test.dart`
+- [x] **Step 3: Widget'ı yaz** — `doc/architecture/design_system.md` token'ları + mevcut ortak widget'lar; yeni renk/spacing icat etme.
+- [x] **Step 4: Profil sayfasına yerleştir + kaydetme akışını bağla.**
+- [x] **Step 5: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
+- [x] **Step 6: Doküman + commit**
 
 ```bash
 git add mobile doc

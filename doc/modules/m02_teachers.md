@@ -270,13 +270,20 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 | Route | Sayfa | Durum | Açıklama |
 |-------|-------|-------|----------|
-| `/teacher-profile` | `TeacherProfilePage` | ✅ | Profil oluştur/düzenle (branş, şehir, ücret, biyografi, uygunluk) |
+| `/teacher-profile` | `TeacherProfilePage` | ✅ | Profil oluştur/düzenle (branş, şehir, ücret, biyografi, uygunluk ızgarası) |
 | `/teacher-panel-preview` | önizleme | ✅ | Giriş yapmadan öğretmen paneli önizlemesi |
 | `/` (dashboard) | `DashboardPage` | ✅ | Bugünkü dersler + bekleyen ödevler + geciken ödemeler (BFF endpoint; `dashboard` feature) |
 
+**Uygunluk düzenleyici (D-04/M02-5, 2026-09-04):** `AvailabilityEditor` widget'ı haftanın 7 gününü ayrı satırlarda
+listeler; her güne saat aralığı eklenir/silinir ve **her aralık kendi** `isOnlineAvailable` / `isInPersonAvailable`
+bayrağını taşır (eskiden profil geneli iki anahtardan türetiliyordu). Kesişme kontrolü istemcide
+(`availabilitySlotError`) yapılır; sunucudaki tek kural `EndTime > StartTime` olduğu için çakışma **yalnız** mobilde
+engellenir. Kaydetme `TeacherProfileCubit.saveAvailability(...)` → `PUT /api/teachers/profiles/{userId}` (gövde profilin
+tamamını taşır; §5 madde 8'deki merge semantiği sayesinde tekrar kaydetme güvenlidir).
+
 ### Eksik / planlanan mobil ekranlar ⚠️
-- [ ] **Uygunluk düzenleyici** — haftalık ızgara üzerinde slot ekle/sil + online/yüz yüze işaretleme (görsel).
-- [ ] **Profil fotoğrafı yükleme** — kamera/galeri seçimi + sunucu yükleme akışı.
+- [x] **Uygunluk düzenleyici** — haftalık ızgara üzerinde slot ekle/sil + online/yüz yüze işaretleme (2026-09-04, P06/D-04/M02-5; `presentation/widgets/availability_editor.dart`).
+- [x] **Profil fotoğrafı yükleme** — kamera/galeri seçimi + sunucu yükleme akışı (2026-09-03, P04/M02-2).
 - [ ] **Doğrulama rozeti** göstergesi — yalnız okunur; sunucudan gelen `isVerified` değeri gösterilir, formda alan olmamalı ✅ (Y1 backend'de kapatıldı).
 - [ ] **Önizleme:** öğrencinin profili nasıl gördüğü (public görünüm).
 
@@ -295,6 +302,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 - [x] **Doğrulama rozetini yalnız Admin verebilir/geri alabilir** (2026-09-03, P06/M02-1); aynı değer tekrar yazılırsa olay yayılmaz.
 - [x] **Arama pasif profilleri döndürmez** ve `take` 50'nin üstüne çıkamaz (2026-09-04, P06/M02-3).
 - [x] **Profili yalnız sahibi öğretmen veya Admin pasifleştirebilir** (2026-09-04, P06/M02-4).
+- [x] **Uygunluk mobilden düzenlenebilir** (2026-09-04, P06/D-04/M02-5): haftanın 7 günü ızgarası, aralık ekle/sil, **slot bazlı** online/yüz yüze bayrağı; aynı gün içinde **kesişen** aralık istemcide engellenir (bitişik aralık — `18:00-20:00` + `20:00-21:00` — geçerlidir).
 
 ---
 
@@ -326,5 +334,5 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06/D-04/M02-5: mobil uygunluk düzenleyici — `AvailabilityEditor`, slot bazlı online/yüz yüze + çakışma engeli) · 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

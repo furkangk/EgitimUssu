@@ -132,7 +132,7 @@ Her madde şu alanlara sahip:
 | M02-2 | ~~Profil fotoğrafı yükleme yok~~ **✅ (P04)** | `ProfilePhotoKey` + `POST`/`GET /api/teachers/profiles/{userId}/photo` | — | — | Eklendi 2026-09-03 | İstek gövdesinden `profilePhotoUrl` kaldırıldı — istemci yazamaz |
 | M02-3 | ~~`GET /profiles` arama/listeleme yok~~ **✅ (P06)** | `GET /api/teachers/profiles` — şehir/ilçe/branş/format/ücret + `onlyVerified` filtreleri, sayfalı (`take` ≤ 50), yalnız aktif profiller | — | — | Eklendi 2026-09-04 | M12 için **geçici okuma yüzeyi**; P11'de `TeacherSearchProjection`'a geçer, sözleşme korunur |
 | M02-4 | ~~Pasifleştirme / silme yok~~ **✅ (P06)** | `TeacherProfile.IsActive` + `POST /profiles/{userId}/deactivate` · `/activate` (sahibi veya Admin) | — | — | Eklendi 2026-09-04 | Silme **bilinçli olarak yok**: pasif profil aramada görünmez, ders/öğrenci geçmişi korunur |
-| M02-5 | Uygunluk (availability) yönetimi yalnız upsert içinde | Slot ekle/sil ayrı uç yok | Mobil uygunluk düzenleyici (D-05) bunu istiyor | S | | |
+| M02-5 | ~~Uygunluk (availability) yönetimi yalnız upsert içinde~~ **✅ (P06)** | Ayrı uç **açılmadı**: mobil `AvailabilityEditor` slot listesini bütün halinde `PUT /profiles/{userId}` ile gönderir; sunucudaki merge semantiği (A-01) tekrar kaydetmeyi güvenli kılar | — | — | Kapatıldı 2026-09-04 | Çakışma engeli **yalnız istemcide**; sunucu kuralı hâlâ `EndTime > StartTime` |
 
 ### M03 — Students (🟢)
 
@@ -291,7 +291,7 @@ Her madde şu alanlara sahip:
 | D-01 | ~~**Şifremi unuttum** ekranı~~ **✅ (P02)** | `/password-reset` + `/password-reset/confirm`, `PasswordResetCubit` | — | S | Eklendi 2026-09-02 | [`../pages/auth_password_reset.md`](../pages/auth_password_reset.md) |
 | D-02 | ~~**E-posta doğrulama** ekranı / deep link~~ **✅ (P02)** | `/verify-email` + `egitimussu://` şeması (Android manifest, iOS `CFBundleURLTypes`), `normalizeDeepLink` | — | M | Eklendi 2026-09-02 | [`../pages/auth_email_verification.md`](../pages/auth_email_verification.md) |
 | D-03 | Cihaz oturumları ekranı | M01-4'e bağlı | Güvenlik özelliği yok | S | | |
-| D-04 | Öğretmen **uygunluk (haftalık slot) düzenleyici** | `teacher_profile_page.dart` içinde görsel ızgara yok | Uygunluk verisi girilemiyor → M12 eşleştirme beslenemez | M | | |
+| D-04 | ~~Öğretmen **uygunluk (haftalık slot) düzenleyici**~~ **✅ (P06)** | `presentation/widgets/availability_editor.dart`: 7 gün ızgarası, aralık ekle/sil, **slot bazlı** online/yüz yüze, çakışma engeli; `TeacherProfileCubit.saveAvailability` | — | — | Eklendi 2026-09-04 | [`../pages/teacher_profile.md`](../pages/teacher_profile.md) |
 | D-05 | ~~Profil fotoğrafı yükleme (kamera/galeri)~~ **✅ (P04)** | `teacher_profile_page.dart`: `image_picker` ile kamera/galeri → yükleme → `Image.memory` ile gösterim | — | — | Eklendi 2026-09-03 | Sahte `i.pravatar.cc` görseli kaldırıldı (A-05) |
 | D-06 | Public öğretmen profili / "öğrenci nasıl görüyor" önizlemesi | Ekran yok | — | M | | |
 | D-07 | **Keşif / öğretmen arama** ekranları | `/student/discover` rotası var ama M12 API'si yok | Öğrenci öğretmen bulamıyor | L | | |

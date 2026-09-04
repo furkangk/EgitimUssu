@@ -28,7 +28,32 @@ class TeacherProfileCubit extends Cubit<TeacherProfileState> {
     }
   }
 
-  Future<void> save(TeacherProfile profile) async {
+  /// D-04/M02-5: Yalniz uygunluk slotlarini kaydeder.
+  ///
+  /// Sunucu `PUT /api/teachers/profiles/{userId}` govdesindeki slot listesini
+  /// **bastan yazar**; bu yuzden profilin geri kalani yuklenmis haliyle birlikte
+  /// gonderilir. Profil henuz yuklenmediyse kaydetme denenmez.
+  Future<void> saveAvailability(List<TeacherAvailability> slots) async {
+    if (isClosed) return;
+    final current = state.profile;
+    if (current == null) {
+      emit(
+        state.copyWith(
+          errorMessage: 'Profil yüklenmeden uygunluk kaydedilemez.',
+        ),
+      );
+      return;
+    }
+    await save(
+      current.copyWith(availabilitySlots: slots),
+      successMessage: 'Uygunluk saatleri kaydedildi.',
+    );
+  }
+
+  Future<void> save(
+    TeacherProfile profile, {
+    String successMessage = 'Öğretmen profili kaydedildi.',
+  }) async {
     if (isClosed) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
@@ -41,7 +66,7 @@ class TeacherProfileCubit extends Cubit<TeacherProfileState> {
         state.copyWith(
           isSaving: false,
           profile: saved,
-          successMessage: 'Öğretmen profili kaydedildi.',
+          successMessage: successMessage,
         ),
       );
     } on ApiException catch (error) {

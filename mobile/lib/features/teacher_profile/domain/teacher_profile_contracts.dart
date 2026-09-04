@@ -52,6 +52,30 @@ class TeacherProfile {
   final bool isVerified;
   final String? profilePhotoUrl;
   final List<TeacherAvailability> availabilitySlots;
+
+  /// Tek alani degistirip geri kalanini koruyan kopya. PUT govdesi profilin
+  /// **tamamini** tasidigi icin (sunucu slot listesini bastan yazar) kismi
+  /// kaydetmelerde kullanilir.
+  TeacherProfile copyWith({List<TeacherAvailability>? availabilitySlots}) {
+    return TeacherProfile(
+      id: id,
+      userId: userId,
+      fullName: fullName,
+      subject: subject,
+      city: city,
+      district: district,
+      biography: biography,
+      headline: headline,
+      lessonFormat: lessonFormat,
+      experienceYears: experienceYears,
+      educationLevel: educationLevel,
+      hourlyRateAmount: hourlyRateAmount,
+      currency: currency,
+      isVerified: isVerified,
+      profilePhotoUrl: profilePhotoUrl,
+      availabilitySlots: availabilitySlots ?? this.availabilitySlots,
+    );
+  }
 }
 
 abstract interface class TeacherRepository {

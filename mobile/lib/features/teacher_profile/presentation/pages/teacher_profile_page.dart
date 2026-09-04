@@ -8,6 +8,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_state.dart';
+import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/widgets/availability_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -28,11 +29,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
   late _TeacherProfileData _profile;
   late List<String> _expertise;
-  late List<_AvailabilitySlot> _availability;
+  late List<TeacherAvailability> _availability;
 
   bool _profileVisible = true;
-  bool _onlineAvailable = true;
-  bool _inPersonAvailable = true;
 
   /// P04/M02-2: fotoğraf yetkili uçtan bayt olarak indirilir (public URL yok).
   Uint8List? _photoBytes;
@@ -50,10 +49,28 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       'Geometri',
       'Haftalık takip',
     ];
-    _availability = <_AvailabilitySlot>[
-      const _AvailabilitySlot(day: 'Pazartesi', start: '18:00', end: '20:00'),
-      const _AvailabilitySlot(day: 'Çarşamba', start: '19:00', end: '21:00'),
-      const _AvailabilitySlot(day: 'Cumartesi', start: '10:00', end: '13:00'),
+    _availability = <TeacherAvailability>[
+      const TeacherAvailability(
+        dayOfWeek: 1,
+        startTime: '18:00:00',
+        endTime: '20:00:00',
+        isOnlineAvailable: true,
+        isInPersonAvailable: true,
+      ),
+      const TeacherAvailability(
+        dayOfWeek: 3,
+        startTime: '19:00:00',
+        endTime: '21:00:00',
+        isOnlineAvailable: true,
+        isInPersonAvailable: true,
+      ),
+      const TeacherAvailability(
+        dayOfWeek: 6,
+        startTime: '10:00:00',
+        endTime: '13:00:00',
+        isOnlineAvailable: true,
+        isInPersonAvailable: true,
+      ),
     ];
   }
 
@@ -375,24 +392,20 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   _PreferencePanel(
                     onlineAvailable: _onlineAvailable,
                     inPersonAvailable: _inPersonAvailable,
-                    onOnlineChanged: (value) =>
-                        setState(() => _onlineAvailable = value),
+                    onOnlineChanged: (value) => _setLessonFormat(online: value),
                     onInPersonChanged: (value) =>
-                        setState(() => _inPersonAvailable = value),
+                        _setLessonFormat(inPerson: value),
                   ),
                   const SizedBox(height: 22),
-                  _SectionHeader(
-                    title: 'Müsaitlik durumu',
-                    actionLabel: 'Ekle',
-                    onAction: _editAvailability,
-                  ),
+                  const _SectionTitle(title: 'Müsaitlik durumu'),
                   const SizedBox(height: 10),
-                  _AvailabilityPanel(
-                    items: _availability,
-                    onEdit: (slot) => _editAvailability(slot: slot),
-                    onDelete: (slot) {
-                      setState(() => _availability.remove(slot));
-                    },
+                  // D-04/M02-5: haftanin 7 gunu × saat araliklari; her aralik kendi
+                  // "Online"/"Yuz yuze" bayragini tasir, cakisan aralik eklenemez.
+                  AvailabilityEditor(
+                    slots: _availability,
+                    isSaving: state.isSaving,
+                    onChanged: (slots) => setState(() => _availability = slots),
+                    onSave: () => _cubit.saveAvailability(_availability),
                   ),
                   const SizedBox(height: 22),
                   _SaveButton(
@@ -432,25 +445,30 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       biography: profile.biography ?? '',
       parentNote: '',
     );
-    _onlineAvailable =
-        profile.lessonFormat == 'Online' ||
-        profile.lessonFormat == 'OnlineAndInPerson';
-    _inPersonAvailable =
-        profile.lessonFormat == 'InPerson' ||
-        profile.lessonFormat == 'OnlineAndInPerson';
-    _availability = profile.availabilitySlots
-        .map(
-          (slot) => _AvailabilitySlot(
-            day: _dayIntToName(slot.dayOfWeek),
-            start: slot.startTime.length >= 5
-                ? slot.startTime.substring(0, 5)
-                : slot.startTime,
-            end: slot.endTime.length >= 5
-                ? slot.endTime.substring(0, 5)
-                : slot.endTime,
-          ),
-        )
-        .toList();
+    _availability = List<TeacherAvailability>.of(profile.availabilitySlots);
+  }
+
+  /// "Ders tercihleri" anahtarlari profil geneli `lessonFormat` alanini surer;
+  /// slot bazli online/yuz yuze bayraklari [AvailabilityEditor] icindedir.
+  bool get _onlineAvailable =>
+      _profile.lessonFormat == 'Online' ||
+      _profile.lessonFormat == 'Online + Yüz yüze';
+
+  bool get _inPersonAvailable =>
+      _profile.lessonFormat == 'Yüz yüze' ||
+      _profile.lessonFormat == 'Online + Yüz yüze';
+
+  void _setLessonFormat({bool? online, bool? inPerson}) {
+    final bool nextOnline = online ?? _onlineAvailable;
+    final bool nextInPerson = inPerson ?? _inPersonAvailable;
+    if (!nextOnline && !nextInPerson) {
+      _showSavedMessage('En az bir ders şekli seçili olmalı.');
+      return;
+    }
+    final String format = nextOnline && nextInPerson
+        ? 'Online + Yüz yüze'
+        : (nextOnline ? 'Online' : 'Yüz yüze');
+    setState(() => _profile = _profile.copyWith(lessonFormat: format));
   }
 
   void _saveToCubit(BuildContext context) {
@@ -474,17 +492,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       educationLevel: _profile.education,
       hourlyRateAmount: _parseHourlyRate(_profile.hourlyRate),
       currency: 'TRY',
-      availabilitySlots: _availability
-          .map(
-            (slot) => TeacherAvailability(
-              dayOfWeek: _dayNameToInt(slot.day),
-              startTime: '${slot.start}:00',
-              endTime: '${slot.end}:00',
-              isOnlineAvailable: _onlineAvailable,
-              isInPersonAvailable: _inPersonAvailable,
-            ),
-          )
-          .toList(),
+      availabilitySlots: _availability,
     );
     _cubit.save(profile);
   }
@@ -497,31 +505,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   static double _parseHourlyRate(String hourlyRate) {
     final match = RegExp(r'[\d.]+').firstMatch(hourlyRate);
     return match != null ? double.tryParse(match.group(0) ?? '0') ?? 0 : 0;
-  }
-
-  static String _dayIntToName(int dayOfWeek) {
-    const days = <String>[
-      'Pazartesi',
-      'Salı',
-      'Çarşamba',
-      'Perşembe',
-      'Cuma',
-      'Cumartesi',
-      'Pazar',
-    ];
-    return dayOfWeek >= 1 && dayOfWeek <= 7 ? days[dayOfWeek - 1] : 'Pazartesi';
-  }
-
-  static int _dayNameToInt(String day) {
-    return switch (day) {
-      'Salı' => 2,
-      'Çarşamba' => 3,
-      'Perşembe' => 4,
-      'Cuma' => 5,
-      'Cumartesi' => 6,
-      'Pazar' => 7,
-      _ => 1,
-    };
   }
 
   void _showPhotoOptions() {
@@ -835,137 +818,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     );
   }
 
-  void _editAvailability({_AvailabilitySlot? slot}) {
-    final days = <String>[
-      'Pazartesi',
-      'Salı',
-      'Çarşamba',
-      'Perşembe',
-      'Cuma',
-      'Cumartesi',
-      'Pazar',
-    ];
-    final times = <String>[
-      '08:00',
-      '09:00',
-      '10:00',
-      '11:00',
-      '12:00',
-      '13:00',
-      '14:00',
-      '15:00',
-      '16:00',
-      '17:00',
-      '18:00',
-      '19:00',
-      '20:00',
-      '21:00',
-    ];
-    var selectedDay = slot?.day ?? 'Pazartesi';
-    var start = slot?.start ?? '18:00';
-    var end = slot?.end ?? '20:00';
-
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _SheetTitle(
-                    title: slot == null
-                        ? 'Müsaitlik ekle'
-                        : 'Müsaitlik düzenle',
-                  ),
-                  const SizedBox(height: 14),
-                  Text('Gün', style: _sheetLabelStyle(context)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: days.map((day) {
-                      final selected = day == selectedDay;
-                      return ChoiceChip(
-                        selected: selected,
-                        label: Text(day),
-                        onSelected: (_) {
-                          setModalState(() => selectedDay = day);
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _TimeDropdown(
-                          label: 'Başlangıç',
-                          value: start,
-                          values: times,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setModalState(() => start = value);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _TimeDropdown(
-                          label: 'Bitiş',
-                          value: end,
-                          values: times,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setModalState(() => end = value);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  _SheetActions(
-                    onCancel: () => Navigator.of(context).pop(),
-                    onSave: () {
-                      final updated = _AvailabilitySlot(
-                        day: selectedDay,
-                        start: start,
-                        end: end,
-                      );
-                      setState(() {
-                        if (slot == null) {
-                          _availability.add(updated);
-                        } else {
-                          final index = _availability.indexOf(slot);
-                          if (index >= 0) {
-                            _availability[index] = updated;
-                          }
-                        }
-                      });
-                      Navigator.of(context).pop();
-                      _showSavedMessage('Müsaitlik güncellendi.');
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _showChoiceSheet({
     required String title,
     required List<String> values,
@@ -1039,13 +891,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.primary),
       ),
-    );
-  }
-
-  TextStyle? _sheetLabelStyle(BuildContext context) {
-    return Theme.of(context).textTheme.labelLarge?.copyWith(
-      color: AppColors.textPrimary,
-      fontWeight: FontWeight.w800,
     );
   }
 
@@ -1638,140 +1483,6 @@ class _SwitchRow extends StatelessWidget {
   }
 }
 
-class _AvailabilityPanel extends StatelessWidget {
-  const _AvailabilityPanel({
-    required this.items,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final List<_AvailabilitySlot> items;
-  final ValueChanged<_AvailabilitySlot> onEdit;
-  final ValueChanged<_AvailabilitySlot> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: items.isEmpty
-            ? <Widget>[const _EmptyAvailability()]
-            : items
-                  .map(
-                    (item) => Padding(
-                      padding: EdgeInsets.only(
-                        bottom: item == items.last ? 0 : 10,
-                      ),
-                      child: Row(
-                        children: <Widget>[
-                          Container(
-                            width: 10,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.accentBlue,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  item.day,
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(
-                                        color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${item.start} - ${item.end}',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => onEdit(item),
-                            icon: const Icon(Icons.edit_outlined),
-                          ),
-                          IconButton(
-                            onPressed: () => onDelete(item),
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            color: AppColors.accentRed,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-      ),
-    );
-  }
-}
-
-class _EmptyAvailability extends StatelessWidget {
-  const _EmptyAvailability();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Text(
-        'Henüz müsaitlik eklenmedi.',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppColors.textSecondary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _TimeDropdown extends StatelessWidget {
-  const _TimeDropdown({
-    required this.label,
-    required this.value,
-    required this.values,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final List<String> values;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      items: values
-          .map(
-            (item) => DropdownMenuItem<String>(value: item, child: Text(item)),
-          )
-          .toList(),
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: AppColors.background,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-    );
-  }
-}
-
 class _SheetActions extends StatelessWidget {
   const _SheetActions({required this.onCancel, required this.onSave});
 
@@ -2049,18 +1760,6 @@ class _TeacherProfileData {
       parentNote: parentNote ?? this.parentNote,
     );
   }
-}
-
-class _AvailabilitySlot {
-  const _AvailabilitySlot({
-    required this.day,
-    required this.start,
-    required this.end,
-  });
-
-  final String day;
-  final String start;
-  final String end;
 }
 
 String _initials(String value) {
