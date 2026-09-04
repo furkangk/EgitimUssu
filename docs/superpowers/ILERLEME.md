@@ -14,7 +14,7 @@
 | **Aktif plan** | ✅ `P10 — Mesajlaşma` (`plans/2026-09-02-10-mesajlasma.md`) — **5/5 BİTTİ** · *(P09 5/7, kalan 2 görev Q1/Q3'e bloke)* |
 | **Sıradaki görev** | **P11 Task 1** (`plans/2026-09-02-11-eslestirme-yorum.md`) — yeni dal `feat/p11-eslestirme-yorum` açılacak. ⚠️ P11 planı "P07+P09 sonrası" diyor; P09'un bloke iki görevi (iyzico Q1 / AdMob Q3) **eşleştirmeyi bloke etmiyor** — premium sıralama entitlement'tan okunuyor, ödeme gerekmiyor. Alternatif: **P13 (operasyon & hijyen)** — P01 sonrası paralel yürüyebilir ve `flutter_local_notifications` (D-18 kalanı) orada kapanıyor. Kullanıcı Q1/Q3'ü cevaplarsa **P09 Task 4-5**'e dönülür ve M17 🟢 olur |
 | **Dal** | `feat/p10-mesajlasma` (`feat/p09-uyelik-gelir`'den açıldı). **P01–P10 dallarının hepsi PR/merge bekliyor.** |
-| **Son commit** | `<P10 Task 5 kapanış commit'i>` |
+| **Son commit** | `d80d631` (docs: P10 mesajlasma kapanisi — M16-1/M09-2/D-08) |
 | **Çalışma ağacı** | `mobile/pubspec.lock` kirli (beklenen — Öğrenilenler #44; P10'da `flutter_chat_ui` kaldırıldığı için içeriği de değişti) + izlenmeyen `.claude/worktrees/` (gömülü git deposu; **commit'lenmemeli**, `.gitignore` adayı → Öğrenilenler #103) |
 
 ## 📋 Plan Durumu
@@ -46,7 +46,7 @@
 
 | Tarih | Plan / Görev | Commit | Doğrulama |
 |-------|--------------|--------|-----------|
-| 2026-09-04 | P10 / Task 5 — **KAPANIŞ**: mesajlaşma zincirinin gerçek Postgres+Redis doğrulaması + doküman kapanışı (M16-1/M09-2/D-08) | `<kapanış>` | `./scripts/test-with-docker.sh`: 4 mimari + **665 birim** + **44 integration**, **Başarısız 0, Atlanan 0** (öncesi 41; +3 → `RealMessagingChainTests`) · `cd mobile && flutter test`: **193 başarılı, başarısız 0** · ⚠️ Doğrulama **1 gerçek hata** çıkardı: kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu (`Program.cs` düzeltildi) · ⚠️ **10 kabul kriterinden 9'u tam**; cihaza push (Q8) doğrulanamadı, **M16 🟡 kaldı** |
+| 2026-09-04 | P10 / Task 5 — **KAPANIŞ**: mesajlaşma zincirinin gerçek Postgres+Redis doğrulaması + doküman kapanışı (M16-1/M09-2/D-08) | `d80d631` | `./scripts/test-with-docker.sh`: 4 mimari + **665 birim** + **44 integration**, **Başarısız 0, Atlanan 0** (öncesi 41; +3 → `RealMessagingChainTests`) · `cd mobile && flutter test`: **193 başarılı, başarısız 0** · ⚠️ Doğrulama **1 gerçek hata** çıkardı: kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu (`Program.cs` düzeltildi) · ⚠️ **10 kabul kriterinden 9'u tam**; cihaza push (Q8) doğrulanamadı, **M16 🟡 kaldı** |
 | 2026-09-04 | P10 / Task 4 — D-08 mobil gelen kutusu + sohbet ekranı | `14b9cc6` | `cd mobile && flutter test`: **193 başarılı** (öncesi 170; +23) · `flutter analyze`: **4 info** (hepsi önceden var olan) · `dotnet test EgitimUssu.slnx`: 4 / **665** / 41, başarısız 0 · `flutter_chat_ui` pubspec'ten kaldırıldı |
 | 2026-09-04 | P10 / Task 3 — M16-1/M09-2 yeni mesajda bildirim | `2a98160` | `dotnet test EgitimUssu.slnx`: 4 mimari + **663 birim** + 41 integration, başarısız 0 (öncesi 657) |
 | 2026-09-04 | P10 / Task 2 — M16-1 sohbet/mesaj uçları + yetki + hız sınırı | `5bdd1f5` | `dotnet test EgitimUssu.slnx`: 4 mimari + **657 birim** + 41 integration, başarısız 0 (öncesi 628) |
