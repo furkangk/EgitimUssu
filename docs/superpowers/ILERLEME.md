@@ -11,11 +11,11 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | ✅ P06 bitti → sırada `P07 — Read-model` (`plans/2026-09-02-07-*.md`) |
-| **Sıradaki görev** | **P07 Task 1** — read-model planının ilk görevi (P06 bitti; yeni dal açılmalı: `feat/p07-read-model`) |
-| **Dal** | `feat/p05-ayarlar` (P05 bitti; P06/P07 aynı oturumda sürüyor). **P01–P05 dallarının beşi de PR/merge bekliyor.** |
-| **Durum** | ✅ **P01–P06 bitti** · P06 **10/10**: öğretmen günlük akışı gerçek Postgres + çalışan API üzerinde uçtan uca doğrulandı (**41/41 adım**); koşum InMemory'nin göremediği **4 gerçek hata** çıkardı, dördü de düzeltilip regresyon testine bağlandı |
-| **Son commit** | `ebc91a0` (fix: canli saha dogrulamasinda cikan 4 gercek hata — P06 Task 10) |
+| **Aktif plan** | 🔄 `P07 — Read-model` (`plans/2026-09-02-07-read-model-altyapisi.md`) — **1/5** |
+| **Sıradaki görev** | **P07 Task 2** — ilk tüketici: öğretmen dashboard'unu projeksiyona taşı (Reporting modülü iskeletten çıkar, `teacher_dashboard_projections` + migration + BFF fallback) |
+| **Dal** | `feat/p07-read-model` (P06 sonrası `feat/p05-ayarlar`'dan açıldı). **P01–P06 dallarının hepsi PR/merge bekliyor.** |
+| **Durum** | ✅ **P01–P06 bitti** · 🔄 **P07 1/5**: projeksiyon (read-model) deseni kuruldu — `ProjectionEntity` + `ProjectionHandler<TEvent>` + `IProjectionRebuilder`; idempotency ve atomiklik inbox tabanından geliyor, 4 yeni birim testiyle sabitlendi |
+| **Son commit** | `f298fc6` (feat(shared): projeksiyon (read-model) deseni (C-03) — P07 Task 1) |
 | **Çalışma ağacı** | `mobile/pubspec.lock` kirli (beklenen — Öğrenilenler #44) + izlenmeyen `.claude/worktrees/` |
 
 ## 📋 Plan Durumu
@@ -28,7 +28,7 @@
 | P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (merge bekliyor) |
 | P05 Ayarlar | 6/6 | ✅ Bitti | M15-1/2/3 + M11-5 + D-14..D-17 kapandı, M15-4 kısmi (rol bazlı profil düzenleme kaldı); **M15 🟡 → 🟢** · dal: `feat/p05-ayarlar` |
 | P06 Öğretmen MVP | 10/10 | ✅ Bitti | M02-1/3/4/5 + M03-1/2/3 + M05-1/2/3/4 + M07-1/2 + M04-1/2 + M08-1 + M06-3/4 + M09-3 + D-04. **Canlı saha doğrulaması yapıldı** (41/41), 4 gerçek hata bulunup düzeltildi (C-10…C-13). Kalan kod-dışı: Q6 beta listesi, Q7 SMTP, Q8 Firebase, cihazda mobil gezinti · dal: `feat/p05-ayarlar` (merge bekliyor) |
-| P07 Read-model | 0/5 | ⚪ Bekliyor | P01 sonrası |
+| P07 Read-model | 1/5 | 🔄 Devam ediyor | Task 1 bitti: `Shared/Infrastructure/Projections` deseni (C-03 kısmi). Sırada Task 2 (öğretmen dashboard projeksiyonu) · dal: `feat/p07-read-model` |
 | P08 Gelişim & raporlama | 0/6 | ⚪ Bekliyor | P07 sonrası |
 | P09 Üyelik & gelir | 0/7 | ⚪ Bekliyor | P07 sonrası · **Q1–Q3 kararı gerek** |
 | P10 Mesajlaşma | 0/5 | ⚪ Bekliyor | P03+P05 sonrası |
@@ -47,6 +47,7 @@
 
 | Tarih | Plan / Görev | Commit | Doğrulama |
 |-------|--------------|--------|-----------|
+| 2026-09-04 | P07 / Task 1 — projeksiyon deseni (`ProjectionEntity` + `ProjectionHandler<TEvent>` + `IProjectionRebuilder`) | `f298fc6` | `dotnet test EgitimUssu.slnx`: 4 mimari + **444 birim** + 26 integration, **Başarısız 0, Atlanan 0** (öncesi 440 birim; +4 yeni test) · `dotnet build EgitimUssu.slnx -warnaserror --no-incremental`: **0 uyarı / 0 hata** · `kb_healthcheck` temiz · migration **gerekmedi** (yalnız soyut tipler, DB şeması değişmedi) |
 | 2026-09-02 | P01 / Task 1 — A-01 öğretmen profil güncelleme 500'ü | `a835eba` | `dotnet test EgitimUssu.slnx`: 158 birim + 4 mimari + 13 integration, **başarısız 0** (5 atlandı: Docker yok) |
 | 2026-09-02 | P01 / Task 2 — A-02 derlenmeyen 5 mobil test dosyası | `5fa58ea` | `flutter test`: **47 başarılı, başarısız 0** (önce 41 +, 5 dosya yüklenemiyordu) · `flutter analyze`: 5 info, hepsi `lib/` içinde önceden var olan (bu görevin dosyaları temiz) · backend yeşil kaldı |
 | 2026-09-02 | P01 / Task 3 — A-05 mock fallback varsayılanı kapatıldı | `fa875e7` | `flutter test`: **48 başarılı, başarısız 0** · `flutter analyze`: aynı 5 önceden var olan info, yeni yok · `dotnet test EgitimUssu.slnx`: 158 birim + 4 mimari + 13 integration, **başarısız 0** (5 atlandı: Docker yok) |
@@ -153,6 +154,9 @@
 | 53 | Ders kaynağında **çapraz-modül bağ doğrulamasına gerek kalmadı**: kayıt zaten `TeacherUserId` + `StudentId` taşıyor, öğrenci yalnız `studentId = kendisi` filtresiyle listeliyor. Yeni bir `Shared/Contracts` bağımlılığı eklemeden yetki kapatıldı (O5 kuralı korundu). | P04/Task 4 |
 | 54 | ⚠️ **Dış sağlayıcıyı birim testi taklit edemez.** P04'ün S3 yolu tüm birim testlerinde yeşildi ama **gerçek bir S3 sunucusunda hiç çalışmıyordu**: (a) `DisablePayloadSigning` yalnız HTTPS'te geçerli, (b) `PutObjectAsync` `InputStream`'i kapattığı için sonradan `Length` okumak patlıyor. **Ticari hesap beklemeye gerek yok — `docker run minio/minio` ile S3-uyumlu bir sunucu 1 dakikada ayağa kalkıyor.** Yeni bir dış bağımlılıkta bu turu atlama. | P04/Task 5 |
 | 85 | ⚠️ **Bir uç HTTP seviyesinde hiç çağrılmamışsa çalıştığını varsayma.** Bildirim listesi ucunun (`M11-3`) sorgu parametreleri varsayılansızdı; eksik parametre gönderen istemci minimal API'nin `BadHttpRequestException`'ı yüzünden **500** alıyordu. Mobil hep üçünü de gönderdiği için hata görünmüyordu. Kural: liste/filtre uçlarında **her** query parametresi varsayılanlı olsun; aksi hâlde istemci hatası sunucu hatası gibi görünür. | P06/Task 10 |
+| 86 | **Plan `ProjectionHandler<TEvent>` için `where TEvent : IIntegrationEvent` yazıyordu — yanlış.** `TEvent` zarf değil **payload sözleşmesidir** (mevcut `ParentReadModelProjections` deseninde payload'lar düz `record`). Kısıt `where TEvent : class` olarak düzeltildi, plan da güncellendi. | P07/Task 1 |
+| 87 | **Projeksiyon testi için `TestModuleDbContext` genişletildi** (plan `Files:`inde yoktu): `TestCounterProjection : ProjectionEntity` + `DbSet` + `ValueGeneratedNever()`. Öğrenilen #3'teki EF/istemci-Id tuzağı projeksiyonlarda da geçerli — projeksiyon entity konfigürasyonlarında PK'ya `ValueGeneratedNever()` verilmeli. | P07/Task 1 |
+| 88 | `ProjectionHandler` payload `null` çözülürse `false` döner → inbox satırı yazılmaz, mesaj yeniden denenebilir kalır (sessiz yutma yok). Task 2'de gerçek handler'lar yazılırken bu davranışa güvenilebilir. | P07/Task 1 |
 | 84 | ⚠️ **Kültüre bağlı `ToLower()`, EF sorgusunda iki tarafı ayrıştırır.** Karşılaştırmanın sol tarafı SQL'e (`lower(...)`), sağ tarafı .NET'e derlenir. tr-TR sunucuda `'I' → 'ı'` olunca Postgres'in `'i'`'siyle eşleşmiyor, "Istanbul" araması **boş dönüyordu**. `ToLowerInvariant()` de tek başına yetmez: `'İ'`'yi `"i"+birleşen nokta` (2 kod noktası) yapar, Postgres düz `"i"` üretir. Çözüm: Türkçe I varyantlarını düz `'i'`'ye katlayan açık bir normalizasyon (`NormalizeForSearch`). **Bu sınıf hata birim testiyle görülemez** — LINQ-to-objects'te karşılaştırmanın iki tarafı da aynı .NET kültürünü kullanır (Öğrenilenler #57'nin kör noktası). | P06/Task 10 |
 | 83 | ⚠️ **Özel bir `record`'a projekte edip sonra filtrelemek EF'de çevrilemez.** `ParentNotificationDirectory` `select new LinkProfile(link, profile)` sonrası `x.link.StudentId` ile filtreliyordu; EF kendi tanımladığımız record'un içini göremiyor. Etki devasaydı: veli bildirimi arayan **her** outbox mesajı kalıcı başarısız → **otomatik ders ücreti ve tüm bildirim zinciri canlıda hiç çalışmıyordu**, ama bütün birim/InMemory testleri yeşildi. Kural: **filtreyi projeksiyondan önce** uygula; projeksiyon gerekiyorsa anonim tip kullan. | P06/Task 10 |
 | 82 | ⚠️ **`IIdGenerator` ile kimlik üreten çocuk koleksiyonlarında anahtar `ValueGeneratedNever` olmalı.** Varsayılan `ValueGeneratedOnAdd` ile EF, izlenen aggregate'in koleksiyonuna eklenen yeni varlığı "anahtarı dolu → zaten var" sayıp `INSERT` yerine `UPDATE` üretiyor; gerçek Postgres'te 0 satır etkileniyor ve `DbUpdateConcurrencyException` → 500. Teachers'ta A-01 ile düzeltilmişti, Students'ta atlanmıştı (branşlar o güne dek yalnız `AddRangeAsync` ile yazıldığı için görünmüyordu). | P06/Task 10 |
@@ -223,7 +227,9 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-04 (**P06 ✅ BİTTİ — 10/10**. Öğretmen günlük akışı gerçek Postgres + çalışan API üzerinde uçtan uca doğrulandı: 41/41 adım yeşil, 94 tablo temiz migrate, outbox her modülde 0 bekleyen. Koşum InMemory'nin göremediği **4 gerçek hata** çıkardı (branş ekleme 500 · Türkçe 'I' araması · veli bildirim sorgusu çevrilemiyordu → tüm otomasyon zinciri ölüydü · bildirim ucu 500) ve dördü de düzeltilip gerçek-Postgres regresyon testine bağlandı. Sıradaki: **P07 Task 1** (read-model), yeni dal `feat/p07-read-model`)*
+*İlerleme defteri | Son güncelleme: 2026-09-04 (**P07 Task 1 bitti — 1/5**. Projeksiyon (read-model) deseni kuruldu: `ProjectionEntity` (LastAppliedEventId/UpdatedOnUtc/MarkApplied), `ProjectionHandler<TEvent>` (payload'ı tipli çözer, idempotency+atomiklik inbox tabanından), `IProjectionRebuilder`. 4 yeni birim testi; 444 birim + 26 integration + 4 mimari yeşil, `-warnaserror` 0/0. Sıradaki: **P07 Task 2** (öğretmen dashboard'unu projeksiyona taşı — Reporting iskeletten çıkar), dal `feat/p07-read-model`)*
+
+*Önceki not — 2026-09-04 (**P06 ✅ BİTTİ — 10/10**. Öğretmen günlük akışı gerçek Postgres + çalışan API üzerinde uçtan uca doğrulandı: 41/41 adım yeşil, 94 tablo temiz migrate, outbox her modülde 0 bekleyen. Koşum InMemory'nin göremediği **4 gerçek hata** çıkardı (branş ekleme 500 · Türkçe 'I' araması · veli bildirim sorgusu çevrilemiyordu → tüm otomasyon zinciri ölüydü · bildirim ucu 500) ve dördü de düzeltilip gerçek-Postgres regresyon testine bağlandı. Sıradaki: **P07 Task 1** (read-model), yeni dal `feat/p07-read-model`)*
 
 *Önceki not — 2026-09-04 (**P06 9/10** — M03-1/M03-2/M03-3 kapandı; öğretmen kayıtlı veliyi öğrenciye bağlayabiliyor (bağ Pending, onay Parents'ta), branş profil güncellemesinden bağımsız ekleniyor/siliniyor, veli kendi onaylı çocuklarını listeleyebiliyor. Sıradaki: **P06 Task 10** (beta kapanışı + saha doğrulaması), dal `feat/p05-ayarlar`)*
 
