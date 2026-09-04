@@ -22,6 +22,9 @@ import 'package:egitim_ussu_mobile/features/payments/data/repositories/payment_r
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/progress/data/repositories/progress_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/progress/domain/progress_contracts.dart';
+import 'package:egitim_ussu_mobile/features/reporting/data/repositories/reporting_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/reporting/data/services/device_report_file_opener.dart';
+import 'package:egitim_ussu_mobile/features/reporting/domain/reporting_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/repositories/scheduling_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/settings/data/repositories/settings_repository_impl.dart';
@@ -122,6 +125,12 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
     )
     ..registerLazySingleton<ProgressRepository>(
       () => ProgressRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<ReportingRepository>(
+      () => ReportingRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<ReportFileOpener>(
+      () => const DeviceReportFileOpener(),
     )
     ..registerLazySingleton<SchedulingRepository>(
       () => SchedulingRepositoryImpl(

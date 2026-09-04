@@ -4,6 +4,8 @@ import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart'
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_cubit.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_state.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/widgets/parent_widgets.dart';
+import 'package:egitim_ussu_mobile/features/reporting/presentation/cubit/student_report_cubit.dart';
+import 'package:egitim_ussu_mobile/features/reporting/presentation/widgets/report_charts.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/session_required_view.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -49,7 +51,10 @@ class ParentChildDetailPage extends StatelessWidget {
                       'gerekir.',
                 );
               }
-              return _DetailBody(dashboard: dashboard);
+              return _DetailBody(
+                dashboard: dashboard,
+                studentId: studentId,
+              );
             },
           ),
         ),
@@ -59,9 +64,10 @@ class ParentChildDetailPage extends StatelessWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.dashboard});
+  const _DetailBody({required this.dashboard, required this.studentId});
 
   final ChildDashboard dashboard;
+  final String studentId;
 
   @override
   Widget build(BuildContext context) {
@@ -117,6 +123,8 @@ class _DetailBody extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+        _ChildProgressSection(studentId: studentId),
         const SizedBox(height: 14),
         ParentCard(
           title: 'Dersler',
@@ -259,6 +267,80 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// M10/M14 (P08): Velinin çocuğuna ait gelişim grafiği.
+///
+/// Veriler `/api/reporting` uçlarından gelir; yetki **onaylı veli bağı**yla,
+/// gizlilik ise öğrencinin paylaşım ayarıyla sunucuda uygulanır. Paylaşım
+/// kapalıysa sunucu 403 değil **boş seri** döner — bu yüzden boş durum metni
+/// iki olasılığı birden söyler (istemci ikisini ayırt edemez).
+class _ChildProgressSection extends StatelessWidget {
+  const _ChildProgressSection({required this.studentId});
+
+  final String studentId;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<StudentReportCubit>(
+      create: (_) => StudentReportCubit.create()..load(studentId),
+      child: BlocBuilder<StudentReportCubit, StudentReportState>(
+        builder: (context, state) {
+          if (state.isLoading || state.status == ReportingStatus.initial) {
+            return const ParentCard(
+              title: 'Gelişim',
+              icon: Icons.insights_rounded,
+              iconColor: AppColors.accentTeal,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+
+          if (state.status == ReportingStatus.failure || state.isEmpty) {
+            return ParentCard(
+              title: 'Gelişim',
+              icon: Icons.insights_rounded,
+              iconColor: AppColors.accentTeal,
+              child: Text(
+                state.status == ReportingStatus.failure
+                    ? (state.errorMessage ?? 'Gelişim verisi alınamadı.')
+                    : 'Gelişim verisi henüz yok. Öğrenci veli paylaşımını '
+                        'kapatmış da olabilir.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            children: <Widget>[
+              if (state.weeks.isNotEmpty)
+                ParentCard(
+                  title: 'Haftalık çalışma',
+                  icon: Icons.timeline_rounded,
+                  iconColor: AppColors.accentTeal,
+                  child: WeeklyStudyBarChart(weeks: state.weeks),
+                ),
+              if (state.performance.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 14),
+                ParentCard(
+                  title: 'Ders bazlı net',
+                  icon: Icons.school_rounded,
+                  iconColor: AppColors.accentBlue,
+                  child: SubjectNetChart(performance: state.performance),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

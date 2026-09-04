@@ -42,6 +42,8 @@ dependencies:
   image_picker: ^1.1.2
   firebase_core: ^3.15.2
   url_launcher: ^6.3.2
+  # PDF raporu cihazin sistem goruntuleyicisiyle acmak icin (P08 / M14-4).
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:

@@ -219,24 +219,38 @@ git commit -m "feat(reporting): PDF ogrenci raporu (M14-4)"
 ### Task 5: Mobil — gelişim ve rapor ekranları
 
 **Files:**
-- Modify: `mobile/lib/features/progress/**` (repository + cubit + sayfa)
-- Create: `mobile/lib/features/reporting/**` (data/domain/presentation)
+- Modify: `mobile/lib/features/progress/**` (repository + **yeni** `presentation/cubit/progress_cubit.dart` + `presentation/widgets/progress_snapshot_chart.dart` + sayfa)
+- Create: `mobile/lib/features/reporting/**` (domain sözleşmeleri, repository, `DeviceReportFileOpener`, iki cubit, iki sayfa, grafik widget'ları)
 - Modify: `mobile/lib/features/parent/presentation/pages/parent_child_detail_page.dart` (gelişim grafiği)
 - Modify: `mobile/lib/features/more/presentation/pages/more_page.dart` ("Raporlar" satırını aktifleştir — P05'te pasifleştirilmişti)
+- Modify: `mobile/lib/core/di/injector.dart` + `mobile/lib/core/routing/app_router.dart` *(plan dışı, zorunlu: yeni repository/opener kaydı + `/student/reports` ve `/teacher/reports` rotaları)*
+- Modify: `mobile/pubspec.yaml` (`open_filex`) *(Step 5'te öngörülmüştü)*
 - Test: `mobile/test/features/reporting/reporting_cubit_test.dart`
-- Create: `doc/pages/progress_overview.md`, `doc/pages/teacher_reports.md`
+- Test: `mobile/test/features/progress/progress_cubit_test.dart` + `mobile/test/helpers/fake_{reporting,progress}_repository.dart` *(plan dışı, zorunlu — "testsiz kod yok" çıtası + Öğrenilenler #8: sahteler `test/helpers/` altında)*
+- Create: `doc/pages/progress_overview.md`, `doc/pages/teacher_reports.md` · Modify: `doc/pages/00_pages_index.md`, `doc/architecture/mobile_flutter.md`, `doc/architecture/widgets.md`, `doc/modules/m10_progress_tracking.md`, `doc/modules/m14_reporting.md`
 
 **Interfaces:**
-- `ProgressRepository.snapshots({studentId, subject, period, from, to})`, `ReportingRepository.teacherMonthly({teacherUserId, year, month})`, `studentStudyAnalysis(...)`, `generateStudentReport(studentId)`, `downloadReport(reportId)`.
+- `ProgressRepository.listSnapshots(studentId, {subject, period, from, to})` + `getTeacherStudentOverview(...)` + `getParentChildOverview(...)`, `ReportingRepository.teacherMonthly({teacherUserId, year, month})`, `teacherFreeSlots(...)`, `studentStudyAnalysis(...)`, `studentPerformance(...)`, `generateStudentReport(studentId)`, `downloadReport(reportId)`.
+- ⚠️ **Plan düzeltmesi (2026-09-04):** plan `ProgressRepository.snapshots(...)` diyordu; ad `listSnapshots` yapıldı (mevcut `listMastery` ile aynı desen).
+- ⚠️ **Plan düzeltmesi:** **snapshot serisi öğretmen/veli kapsamında çekilemez.** `GET /students/{id}/snapshots`
+  Task 1'de `ProgressOwnershipQueryAuthorizer` ile korundu (öğrenci + Admin). Bu yüzden `ProgressCubit`
+  öğretmen/veli kapsamında snapshot isteği **atmıyor** ve çizgi grafiği gizleniyor; velinin "gelişim grafiği"
+  M14-2/M14-3 uçlarından (haftalık çalışma + ders bazlı net) çiziliyor.
+- ⚠️ **Plan düzeltmesi:** plandaki `"Veli paylaşımı kapalı"` boş durum metni **birebir yazılamaz.** Sunucu
+  gizlilik kapalıyken 403 değil **boş liste/özet** döndürüyor (`StudentReportPrivacyGate`, `ProgressPrivacyFilter`);
+  istemci "veri yok" ile "paylaşım kapalı"yı ayırt edemiyor. Metin iki olasılığı birden söylüyor
+  ("… Öğrenci paylaşımını kapatmış da olabilir") — kesin bilgi uydurmak yerine.
+- `ReportFileOpener` soyutlaması: cubit dosya sistemine dokunmadan test edilebilsin diye eklendi
+  (`DeviceReportFileOpener` = geçici dizin + `open_filex`).
 
-- [ ] **Step 1: Cubit testlerini yaz (kırmızı)** — yükleme/başarı/hata; premium gerektiren uçta `402/403` → `PremiumRequired` durumu.
-- [ ] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/reporting/reporting_cubit_test.dart`
-- [ ] **Step 3: Repository + cubit'leri yaz** (mock fallback yok).
-- [ ] **Step 4: Grafikler** — `fl_chart` ile: gelişim çizgi grafiği (snapshot serisi), haftalık çalışma süresi çubuk grafiği, ders bazlı net dağılımı. Renkler `doc/architecture/design_system.md` token'larından; `doc/architecture/animations.md`'deki geçiş kuralları.
-- [ ] **Step 5: PDF indirme** — "Rapor oluştur" → ilerleme → dosya indirilip cihazda açılır (`open_filex` benzeri bir paket gerekiyorsa önce `pubspec`'e ekle ve gerekçesini `doc/architecture/mobile_flutter.md`'ye yaz).
-- [ ] **Step 6: Veli çocuğu detayına gelişim grafiği** (gizlilik seviyesine göre boş durum metni: "Veli paylaşımı kapalı").
-- [ ] **Step 7: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 1: Cubit testlerini yaz (kırmızı)** — 19 test: `TeacherReportsCubit` (yükleme/hata/ay geçişi ×2), `StudentReportCubit` (yükleme/hata/boş, üret-indir-aç, `402` ve `403` → `premiumRequired`, boş dosya, açılamama, `isGenerating` akışı), `ProgressCubit` (üç kapsam, seri gruplama/sıralama, hata, boş).
+- [x] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/reporting/reporting_cubit_test.dart test/features/progress/progress_cubit_test.dart` → **`Method not found` / `Undefined name`** (cubit'ler, `ProgressScope`, `ProgressStatus`, `ProgressSnapshot` yok)
+- [x] **Step 3: Repository + cubit'leri yaz** (mock fallback yok) — `ProgressRepositoryImpl` üç uçla genişletildi, `ReportingRepositoryImpl` altı uç, `ProgressCubit` + `TeacherReportsCubit` + `StudentReportCubit`; DI'ya `ReportingRepository` + `ReportFileOpener` kaydedildi.
+- [x] **Step 4: Grafikler** — `ProgressSnapshotChart` (ders başına çizgi, y 0–100), `WeeklyStudyBarChart` (son 12 hafta, tooltip'li), `SubjectNetChart` (ders başına en güncel ay, % + delta). Renkler `AppColors` token'ları; geçişler **250 ms / `Curves.easeOut`** (`animations.md`).
+- [x] **Step 5: PDF indirme** — `open_filex ^4.7.0` eklendi; gerekçe `doc/architecture/mobile_flutter.md` §10'a yazıldı (`url_launcher` `file://` adresini Android/iOS'ta güvenilir açamıyor). Akış: `POST .../report` → yetkili `GET /reports/{id}/file` (bayt) → geçici dizin → sistem görüntüleyici. Üç adım ayrı ayrı hata verebilir; kısmi başarı korunuyor.
+- [x] **Step 6: Veli çocuğu detayına gelişim grafiği** — `_ChildProgressSection` (`StudentReportCubit` + iki grafik); boş durum metni yukarıdaki plan düzeltmesine göre yazıldı.
+- [x] **Step 7: Testler** — Run: `cd mobile && flutter test` → **146/146 geçti** (önce 127) · `flutter analyze` → **4 info** (önce 5; hepsi P08 öncesinden — 3× `deprecated_member_use` + 1× `directives_ordering`; biri import yerleşimiyle kapandı)
+- [x] **Step 8: Doküman + commit**
 
 ```bash
 git add mobile doc

@@ -144,6 +144,23 @@ ihtiyaç duyduğunda taşınmalıdır.
 - Slot bazlı "Online" / "Yüz yüze" anahtarları seçiliyken de **ikon + metin** taşır — renk tek başına durum göstergesi olmaz ([`accessibility.md`](accessibility.md)).
 - Renk/gölge/radius token'ları `AppColors` + `AppShadows.soft`; hata kutusu `errorSurface`/`errorBorder`/`error` semantik token'ları.
 
+### 3.3 Gelişim ve rapor grafikleri (P08, `features/progress/...` + `features/reporting/...`)
+
+İlgili feature'lara özeldirler; üçüncü bir feature aynı grafiğe ihtiyaç duyduğunda `shared/`'a taşınmalıdır.
+(`WeeklyStudyBarChart` ve `SubjectNetChart` bugün `reporting` ekranlarından **ve** veli çocuk detayından
+kullanılıyor — `shared/`'a taşıma adayı.)
+
+| Bileşen | Dosya | API | Kural |
+|---------|-------|-----|-------|
+| `ProgressSnapshotChart` | `progress/presentation/widgets/progress_snapshot_chart.dart` | `seriesBySubject` | Ders başına `LineChart` çizgisi, y 0–100 sabit; renkler aksan token'larından **deterministik** sırayla; tek noktalı seri de çizilir (nokta görünür) |
+| `ReportCard` | `reporting/presentation/widgets/report_charts.dart` | `title, subtitle?, trailing?, child` | 20 radius + `AppShadows.soft` + `skyBorder` — rapor ekranlarının ortak kabuğu |
+| `WeeklyStudyBarChart` | aynı dosya | `weeks` | Son **12** hafta (daha uzun seri okunmaz); dokununca dakika + oturum sayısı tooltip'i |
+| `SubjectNetChart` | aynı dosya | `performance` | Ders başına **en güncel ay**; % net metni + delta oku; renk tek başına gösterge değil |
+
+- Grafik geçişleri `250 ms` / `Curves.easeOut` ([`animations.md`](animations.md)); `Curves.linear` kullanılmaz.
+- Boş seri geldiğinde grafik `SizedBox.shrink()` döner — çağıran ekran boş durum metnini kendisi yazar
+  (sunucu gizlilik kapalıyken 403 değil boş liste döndürdüğü için metin iki olasılığı birden söyler).
+
 ---
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*
+*Ortak Widget Kataloğu | Güncelleme: 2026-09-04 (P08: gelişim/rapor grafikleri) · 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*

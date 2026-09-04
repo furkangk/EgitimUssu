@@ -17,7 +17,7 @@ updated: 2026-09-04
 > olay tüketicileri, hâkimiyet skoru motoru, mastery/weak-spots/strengths/overview + konu hedefi API'leri,
 > mobil "Gelişimim" ekranı, haftalık/aylık `ProgressSnapshot` zaman serisi + trend + `snapshots` ucu (P08 Task 1),
 > **öğretmen/veli gelişim görünümü + gizlilik filtresi + hedef otomatik kapanış bildirimi — P08 Task 2, 2026-09-04**).
-> Mobil gelişim/rapor ekranları (P08 Task 5) ve M14 entegrasyonu henüz yok.
+> Mobil gelişim ekranı snapshot çizgi grafiğiyle birlikte canlı (P08 Task 5); M14 rapor ekranlarına köprü var.
 > **Platform:** EğitimÜssü (EgitimUssu) — .NET 9 modüler monolit · PostgreSQL · Redis · Flutter
 >
 > **Amaç:** Öğrencinin **konu bazlı gelişimini** ölçmek: hangi konularda eksik/güçlü, konu hedeflerine
@@ -65,10 +65,10 @@ updated: 2026-09-04
   koşturan `ProgressSnapshotService : BackgroundService` (açılışta 5 dk gecikme). Sorgu ucu §3.3.
 - **Persistence**: `ProgressTrackingDbContext` (TopicMastery/TopicGoal/**ProgressSnapshot** + paylaşılan `InboxMessage`)
   + `progress_tracking` şeması migration'ları (`AddProgressSnapshots`, 2026-09-04).
-- **Mobil**: `mobile/lib/features/progress/` — "Gelişimim" ekranı (dağılım + eksik/güçlü + tüm konular).
+- **Mobil**: `mobile/lib/features/progress/` — "Gelişimim" ekranı (dağılım + **dönemsel snapshot çizgi grafiği** + eksik/güçlü + tüm konular); `ProgressCubit` üç kapsamı (öğrenci/öğretmen/veli) yönetir.
 
 ### 🔴 Kalan (önerilen)
-- **M14 Reporting entegrasyonu** (P08 Task 3) ve **mobil gelişim/rapor ekranları** (P08 Task 5).
+- ~~**M14 Reporting entegrasyonu** (P08 Task 3)~~ ✅ ve ~~**mobil gelişim/rapor ekranları** (P08 Task 5)~~ ✅.
 - **Veli çocuk panosuna gömülü gelişim özeti** — bugün veli, gelişimi ayrı `parents/.../overview` ucundan okur;
   M09 `ChildDashboardResponse` içine gömmek yeni bir `Shared/Contracts` okuma sözleşmesi ister (P08 Task 5'te değerlendirilecek).
 - **Konu bazlı** anlık görüntü (bugün yalnız ders bazında toplanıyor) ve snapshot'ta `LessonCount` alanı.
@@ -323,7 +323,7 @@ M08 TestResultRecordedDomainEvent     ──┘
 
 ---
 
-## 6. Mobil Ekranlar (Planlanan)
+## 6. Mobil Ekranlar
 
 > Birincil renk `0xFF082B4F`. Gelişim ekranları **öğrenci**, **öğretmen** ve **veli** rollerinde farklı bağlamla
 > kullanılır (rol bazlı navigasyon; bkz. `../roles/ogretmen.md`, `../roles/veli.md`, `../roles/ogrenci.md`).
@@ -338,6 +338,18 @@ M08 TestResultRecordedDomainEvent     ──┘
 - (Öğretmen) `student_progress` — bağlı öğrencinin eksik/güçlü konuları, hedef önerme.
 - (Veli) `child_progress` — çocuğun gelişim grafikleri (M09 paneli içinden).
 
+### 6.1 Uygulanan (2026-09-04, P08 Task 5) — `mobile/lib/features/progress/`
+
+`ProgressOverviewPage` + `ProgressCubit` + `ProgressSnapshotChart`; rota `/student/progress?studentId=`.
+Ekran dokümanı: [`../pages/progress_overview.md`](../pages/progress_overview.md).
+
+- Tek gövde **üç kapsamda** çalışır (`ProgressScope.self/teacher/parent`) ve kapsamına göre ilgili ucu çağırır.
+- ⚠️ **Snapshot serisi yalnız `self` kapsamında yüklenir:** `GET /students/{id}/snapshots` öğrenci + Admin ile
+  sınırlıdır; öğretmen/veli kapsamında istek atılmaz ve çizgi grafiği gizlenir.
+- Gizlilik kapalıyken sunucu 403 değil **boş özet** döndürdüğü için istemci "veri yok" ile "paylaşım kapalı"yı
+  ayırt edemez; boş durum metni öğretmen/veli kapsamında iki olasılığı birden söyler.
+- Ekrandan `StudentAnalysisPage`'e köprü var (M14-2/3 grafikleri + M14-4 PDF).
+
 ---
 
 ## 7. Kabul Kriterleri (Faz 3)
@@ -347,7 +359,7 @@ M08 TestResultRecordedDomainEvent     ──┘
 - [ ] **Eksik** (`weak-spots`) ve **güçlü** konular listelenir.
 - [ ] Konu bazlı **trend** (artış/sabit/azalış) hesaplanır ve gösterilir.
 - [x] Öğrenci/öğretmen **konu hedefi** koyabilir; hedefe ulaşınca otomatik `Achieved` + bildirim (P08 Task 2).
-- [x] Haftalık/aylık **ProgressSnapshot** üretilir (P08 Task 1); gelişim **zaman serisi grafiği** mobilde P08 Task 5'te sunulacak.
+- [x] Haftalık/aylık **ProgressSnapshot** üretilir (P08 Task 1); gelişim **zaman serisi grafiği** mobilde `ProgressSnapshotChart` ile çizilir (P08 Task 5).
 - [x] **Öğretmen** bağlı öğrencisinin, **veli** onaylı+paylaşıma açık çocuğunun gelişimini görür (P08 Task 2).
 - [ ] Çıktı M14 (Raporlama) ve M09 (Veli paneli) tarafından tüketilebilir.
 
@@ -393,4 +405,4 @@ M08 TestResultRecordedDomainEvent     ──┘
 
 ---
 
-*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+ProgressSnapshot+besleme+API+öğretmen/veli görünümü+mobil) | Güncelleme: 2026-09-04 (P08 Task 2 / M10-2+M10-3+M10-4: öğretmen ve veli `overview` uçları + `ProgressTrackingPolicies` yetkilendiricileri + `ProgressPrivacyFilter` gizlilik kapısı + `LessonSessionCompletedProgressHandler` (M05 ders katılımı → `TopicMastery.RegisterLessonAttendance`, yeni `AttendedLessonCount`/`TotalLessonMinutes` alanları + `AddLessonAttendanceToTopicMastery` migration) + hedefte net-oranı koşulu + M11 `TopicGoalAchievedNotificationHandler`; `IStudentDirectory.IsLinkedTeacherOfStudentAsync` sözleşmeye eklendi. Önceki not — P08 Task 1 / M10-1: `ProgressSnapshot` + `SnapshotPeriod` + `SnapshotPeriods` + `ProgressTrendCalculator` (±5) + günlük `ProgressSnapshotService` turu + `GET /students/{id}/snapshots`; §2.3 önerilen tablo koda göre düzeltildi — `Daily`/`Topic`/`LessonCount` kodda yok. Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedEvent`/`processed_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; önceki not — 2026-08-19 kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*
+*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟡 Çalışır çekirdek (TopicMastery+TopicGoal+ProgressSnapshot+besleme+API+öğretmen/veli görünümü+mobil) | Güncelleme: 2026-09-04 (P08 Task 5: mobil `ProgressCubit` + `ProgressSnapshotChart` — üç kapsam (öğrenci/öğretmen/veli) tek gövdede; snapshot serisi yalnız öğrenci kapsamında yükleniyor. Önceki not — P08 Task 2 / M10-2+M10-3+M10-4: öğretmen ve veli `overview` uçları + `ProgressTrackingPolicies` yetkilendiricileri + `ProgressPrivacyFilter` gizlilik kapısı + `LessonSessionCompletedProgressHandler` (M05 ders katılımı → `TopicMastery.RegisterLessonAttendance`, yeni `AttendedLessonCount`/`TotalLessonMinutes` alanları + `AddLessonAttendanceToTopicMastery` migration) + hedefte net-oranı koşulu + M11 `TopicGoalAchievedNotificationHandler`; `IStudentDirectory.IsLinkedTeacherOfStudentAsync` sözleşmeye eklendi. Önceki not — P08 Task 1 / M10-1: `ProgressSnapshot` + `SnapshotPeriod` + `SnapshotPeriods` + `ProgressTrendCalculator` (±5) + günlük `ProgressSnapshotService` turu + `GET /students/{id}/snapshots`; §2.3 önerilen tablo koda göre düzeltildi — `Daily`/`Topic`/`LessonCount` kodda yok. Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedEvent`/`processed_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; önceki not — 2026-08-19 kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*

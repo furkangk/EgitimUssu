@@ -30,6 +30,8 @@ import 'package:egitim_ussu_mobile/features/more/presentation/pages/more_page.da
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payment_form_page.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payments_page.dart';
+import 'package:egitim_ussu_mobile/features/reporting/presentation/pages/student_analysis_page.dart';
+import 'package:egitim_ussu_mobile/features/reporting/presentation/pages/teacher_reports_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
 import 'package:egitim_ussu_mobile/features/settings/presentation/pages/notification_settings_page.dart';
 import 'package:egitim_ussu_mobile/features/settings/presentation/pages/privacy_settings_page.dart';
@@ -371,6 +373,19 @@ class AppRouter {
           builder: (context, state) => ProgressOverviewPage(
             studentId: state.uri.queryParameters['studentId'] ?? '',
           ),
+        ),
+        // M14-2/3/4: Çalışma analizi + PDF rapor. Öğrenci kendi kimliğiyle, öğretmen/veli
+        // bağlı öğrencinin kimliğiyle açar; yetki ve gizlilik sunucuda uygulanır.
+        GoRoute(
+          path: '/student/reports',
+          builder: (context, state) => StudentAnalysisPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        // M14-1/5: Öğretmenin aylık ders/tahsilat özeti + boş zaman analizi.
+        GoRoute(
+          path: '/teacher/reports',
+          builder: (context, state) => const TeacherReportsPage(),
         ),
         GoRoute(
           path: '/assignments/new',

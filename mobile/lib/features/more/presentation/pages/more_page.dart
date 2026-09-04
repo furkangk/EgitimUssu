@@ -81,14 +81,14 @@ class _MorePageState extends State<MorePage> {
                         badge: 'Yakinda',
                       ),
                       _DividerLine(),
-                      // D-16: Rapor ucu yok (P08). Sahte 42/%94/%81 karti kaldirildi.
+                      // D-16: P08'de gercek rapor uclari geldi (M14-1/M14-5);
+                      // satir artik aktif ve projeksiyondan beslenen ekrana gidiyor.
                       _MenuTile(
                         icon: Icons.bar_chart_rounded,
                         title: 'Raporlar',
-                        subtitle: 'Ders, devam ve tahsilat ozetleri',
+                        subtitle: 'Aylik ders/tahsilat ozeti ve bos zamanlar',
                         color: AppColors.amber,
-                        enabled: false,
-                        badge: 'Yakinda',
+                        onTap: () => context.push('/teacher/reports'),
                       ),
                     ],
                   ),

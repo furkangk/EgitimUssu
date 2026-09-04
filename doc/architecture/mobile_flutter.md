@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -257,7 +257,16 @@ dependencies:
   firebase_messaging      # FCM push (A-04)
   flutter_local_notifications  # ön planda yerel bildirim
   flutter_animate         # mikro animasyon
+  url_launcher            # dış bağlantı / toplantı linki
+  open_filex              # indirilen dosyayı cihazın sistem görüntüleyicisinde açma (P08 / M14-4)
 ```
+
+> **`open_filex` neden eklendi (2026-09-04, P08 Task 5):** PDF gelişim raporu yetkili uçtan **bayt olarak**
+> indiriliyor (public URL yok), geçici dizine yazılıyor ve kullanıcıya açılması gerekiyor. `url_launcher`
+> bir `file://` adresini Android/iOS'ta güvenilir biçimde açamaz (Android `content://` + FileProvider
+> bekler); `open_filex` platform başına doğru mekanizmayı kullanır. Kullanım tek noktada:
+> `features/reporting/data/services/device_report_file_opener.dart` — `ReportFileOpener` arayüzünün
+> arkasında, böylece cubit dosya sistemine dokunmadan test edilebiliyor.
 
 > Sürümleri `mobile/pubspec.yaml` belirler (burada anlamsal/yön gösterici). `pubspec.lock` `main`'e commit edilmez (bkz. `CLAUDE.md`).
 
@@ -414,8 +423,12 @@ bugünkü çalışma süresi (koyu lacivert büyük kart + progress/circular), h
 **Flutter:** `Timer.periodic`; arka plan için lifecycle yönetimi; local cache + backend sync. _(planlanan, M08)_
 
 ### 13.13 Gelişim Analizi
-**Amaç:** Çalışma süresi + test başarısı + ders performansı. **UI:** segment (Haftalık/Aylık), ders dağılımı donut,
-test başarı kartı (`%82`), haftalık line chart. **Paket:** `fl_chart` (`PieChart`/`LineChart`). _(planlanan, M10)_
+**Amaç:** Çalışma süresi + test başarısı + ders performansı. **UI:** konu dağılımı sayaçları, ders başına
+**snapshot çizgi grafiği** (0–100 hâkimiyet skoru), haftalık çalışma **çubuk grafiği**, ders bazlı **net oranı**
+çubukları. **Paket:** `fl_chart` (`LineChart`/`BarChart`).
+**Uygulandı (2026-09-04, P08 Task 5):** `features/progress` (`ProgressCubit` + `ProgressSnapshotChart`) ve
+`features/reporting` (`WeeklyStudyBarChart`, `SubjectNetChart`, `ReportCard`).
+→ `pages/progress_overview.md` · `pages/teacher_reports.md`
 
 ### 13.14 Veli Paneli
 **Amaç:** Velinin sade takibi. **UI:** karşılama, çocuk kartı, 3 metrik (Bu Hafta Çalışma `08:45`, Ders Saati `03`, Ortalama `%88`), haftalık bar chart. _(planlanan, M09)_
@@ -506,4 +519,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

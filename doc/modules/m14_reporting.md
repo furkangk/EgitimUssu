@@ -1,6 +1,6 @@
 ---
 title: "M14 — Raporlama ve Analiz (Reporting)"
-summary: "Read-model raporlama modülü: öğretmen dashboard + aylık özet, öğrenci haftalık çalışma ve aylık performans projeksiyonları, boş zaman analizi ve premium kapılı PDF öğrenci raporu canlı; mobil ekranlar eksik"
+summary: "Read-model raporlama modülü: öğretmen dashboard + aylık özet, öğrenci haftalık çalışma ve aylık performans projeksiyonları, boş zaman analizi ve premium kapılı PDF öğrenci raporu canlı; mobil rapor ekranları da canlı"
 tags: [modul, reporting, raporlama, read-model, projeksiyon, faz-5]
 status: "🟡"
 authority: code
@@ -12,7 +12,7 @@ updated: 2026-09-04
 # 📊 Raporlama ve Analiz Modülü (M14) — Detaylı Tasarım Dokümanı
 
 > **Modül kodu:** M14 · **Proje:** EğitimÜssü (EgitimUssu) · **Platform:** .NET 9 modüler monolit (`src/Modules/Reporting`) + Flutter mobil
-> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟡 Kısmi — dört read-model (öğretmen paneli, öğretmen aylık özeti, öğrenci haftalık çalışma, öğrenci aylık performansı) + boş zaman analizi + **premium kapılı PDF öğrenci raporu** çalışıyor; mobil rapor ekranları eksik
+> **PRD:** M14 · **Faz:** 5 (Premium & Analitik) · **Durum:** 🟡 Kısmi — dört read-model (öğretmen paneli, öğretmen aylık özeti, öğrenci haftalık çalışma, öğrenci aylık performansı) + boş zaman analizi + **premium kapılı PDF öğrenci raporu** çalışıyor; mobil rapor ekranları (öğretmen aylık + öğrenci analizi/PDF + veli gelişim bölümü) canlı
 > **Mimari:** CQRS + Outbox + Integration Event; önerilen **read-model / projeksiyon** yaklaşımı, PostgreSQL (`reporting` şeması), Redis (rapor cache)
 > **Marka rengi (mobil):** `0xFF082B4F`
 
@@ -53,7 +53,7 @@ updated: 2026-09-04
 ### ⚠️ Hâlâ eksik
 - **Veli özet/grafik raporu** — veli bugün çocuğunun analizini `students/{id}/study-analysis` ve
   `students/{id}/performance` uçlarından (onaylı bağ + gizlilik kapısıyla) okur; ayrı bir `parents/...` uç yok.
-- **Mobil rapor ekranları** (P08 Task 5).
+- ~~**Mobil rapor ekranları**~~ ✅ (P08 Task 5) — [`../pages/teacher_reports.md`](../pages/teacher_reports.md).
 - `IProjectionRebuilder` implementasyonu ve `POST /api/admin/projections/{name}/rebuild` (P12).
 - ⚠️ **Geriye dönük besleme yok:** analitik projeksiyonlar yalnız kendilerinden **sonra** yayınlanan event'leri
   görür; geçmiş aylar rebuild yapılana kadar boş kalır (#93 → P12).
@@ -262,6 +262,22 @@ Sorgu zamanı:
 - **Veli — Çocuk özeti:** grafik + rapor görünümü, premium kapısı ([`../roles/veli.md`](../roles/veli.md)).
 - Free vs. premium: premium ekranlar üyelik durumu ile kilitli/önizlemeli gösterilir ([`m17_membership.md`](m17_membership.md)).
 
+### 6.1 Uygulanan (2026-09-04, P08 Task 5) — `mobile/lib/features/reporting/`
+
+| Ekran / bileşen | Rota | Kaynak uç |
+|-----------------|------|-----------|
+| `TeacherReportsPage` — aylık ders/tahsilat + boş zamanlar | `/teacher/reports` (`/more` → "Raporlar") | `monthly` (M14-1) + `free-slots` (M14-5) |
+| `StudentAnalysisPage` — haftalık çalışma çubuk + ders bazlı net + PDF | `/student/reports?studentId=` | `study-analysis` (M14-2) + `performance` (M14-3) + `report`/`file` (M14-4) |
+| Veli çocuk detayı — `_ChildProgressSection` | `/parent/child-detail` | `study-analysis` + `performance` |
+
+- **Premium kilidi istemcide:** `402` **ve** `403` → `ReportingStatus.premiumRequired`; ekran hata değil kilit
+  kartı gösterir, grafikler görünmeye devam eder (analiz durumu ile rapor durumu ayrı taşınır).
+- **PDF:** `POST .../report` → `GET /reports/{id}/file` (bayt) → geçici dizin → `open_filex` ile açılır
+  (`DeviceReportFileOpener`; `ReportFileOpener` arayüzü sayesinde cubit dosya sistemine dokunmadan test edilir).
+- **Boş zaman analizi mobilde her zaman bugünden itibaren 7 gün** sorgulanır — geçmiş bir ayın boş saatleri
+  planlanamayacağı için anlamsızdır.
+- Ekran dokümanı: [`../pages/teacher_reports.md`](../pages/teacher_reports.md).
+
 ---
 
 ## 7. Kabul Kriterleri
@@ -291,7 +307,7 @@ Sorgu zamanı:
 6. ~~**PDF rapor üretimi** (premium).~~ ✅ **(P08 Task 4 — QuestPDF + `IFileStorage` + yetkili indirme)**
 7. **Veli özet/grafik raporu** (m09) — bugün öğrenci uçları üzerinden karşılanıyor; ayrı bir veli ucu isteğe bağlı.
 8. **Premium kısıtlama** entegrasyonu (m17) — kapı P08 Task 4'te kuruldu (`ReportEntitlement`), gerçek üyelik/entitlement sözleşmesi P09.
-9. ~~**İdempotent event tüketimi** (inbox/event-id) + CQRS query'leri~~ ✅; **mobil ekranlar** P08 Task 5.
+9. ~~**İdempotent event tüketimi** (inbox/event-id) + CQRS query'leri~~ ✅; ~~mobil ekranlar~~ ✅ (P08 Task 5).
 10. **Projeksiyon yeniden inşası** (`IProjectionRebuilder`) — geçmiş dönemler ancak bununla dolar (P12).
 
 ---
@@ -313,4 +329,4 @@ Sorgu zamanı:
 
 ---
 
-*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
+*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
