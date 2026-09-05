@@ -29,7 +29,7 @@ tags: [ops, environment, staging, seeding, render, E-06]
 | Push | `Logging` (göndermez) | `Logging` (göndermez) | `Fcm` *(Q8 bekliyor)* |
 | Dosya depolama | `Local` (disk) | `Local` | `S3` *(Q4 bekliyor)* |
 | JWT imzalama anahtarı | Sabit dev anahtarı | Render üretir (**üretimden ayrı**) | Render üretir |
-| Gözlemlenebilirlik | Kapalı | Kapalı (OTLP adresi girilince açılır) | Kapalı (aynı) |
+| Gözlemlenebilirlik | Kapalı (yerelde Jaeger ile açılır) | Kapalı — anahtarlar tanımlı, toplayıcı bekliyor (**§5**) | Kapalı — aynı (**§5**) |
 | Yedekleme | Yok | Yok | **Günlük**, 30 gün saklama ([`backup_restore.md`](backup_restore.md)) |
 | Kime açık | Yalnız geliştirici | Ekip + beta öğretmenler | Herkes |
 
@@ -138,10 +138,65 @@ Blueprint: [`render.yaml`](../../render.yaml) — iki web servisi + iki veritaba
 > **Sürüm kontrolü:** Deploy sonrası `curl <url>/api/meta/version` → `apiVersion` (sözleşme) ve
 > `version` (derleme) birlikte döner. Sözleşme kuralları: [`api_versioning.md`](api_versioning.md).
 
+## 5. Gözlemlenebilirlik (C-04 / K-10)
+
+`render.yaml` her iki serviste de üç anahtarı **tanımlar**, ama `Observability__Enabled` bilerek
+`"false"` durur:
+
+| Anahtar | Production | Staging |
+|---------|------------|---------|
+| `Observability__Enabled` | `"false"` | `"false"` |
+| `Observability__OtlpEndpoint` | `sync: false` (panelden girilir) | `sync: false` |
+| `Observability__ServiceName` | `egitimussu-api` | `egitimussu-api-staging` |
+
+**Neden kapalı:** `OtlpEndpoint` boşken kod sessizce hiçbir şey yapmak yerine **konsol exporter'a
+düşer** — Render'da bu, her SQL komutunun servis log'una akması demektir. Ücretsiz planda log
+penceresi bununla dolar ve gerçek hata satırları görünmez olur. Bu yüzden sıra şu:
+
+1. Bir toplayıcı seç (Grafana Cloud / Honeycomb / self-hosted `otelcol`) — **açık soru Q9**
+2. `Observability__OtlpEndpoint`'i Render panelinden gir
+3. `Observability__Enabled` → `"true"`
+
+**Yerelde denemek** (P13 Task 8'in koştuğu düzenek):
+
+```bash
+docker run -d --name jaeger -e COLLECTOR_OTLP_ENABLED=true -p 16686:16686 -p 4317:4317 \
+  jaegertracing/all-in-one:1.57
+Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
+  ASPNETCORE_ENVIRONMENT=Staging dotnet run --project src/API.Host/EgitimUssu.API.Host.csproj
+# Jaeger arayüzü: http://localhost:16686
+```
+
+### Bugün ne görünüyor, ne görünmüyor
+
+| Zincir parçası | Durum |
+|----------------|-------|
+| HTTP isteği → EF/Npgsql SQL komutları | ✅ **Tek trace içinde**, ebeveyn-çocuk ilişkisiyle |
+| Her log satırında `TraceId` + `CorrelationId` | ✅ |
+| Hata gövdelerinde `traceId` | ✅ |
+| Metrikler (`egitimussu.outbox.pending/dispatched`, `email.sent`, `push.sent`) | ✅ Gerçek OTLP toplayıcısında okundu |
+| Sorgu dizesindeki sır (`?token=…`) | ✅ `SensitiveDataMask` ile `***` |
+| CQRS komut/sorgu adımı ayrı span | ❌ Yok |
+| Outbox → handler işinin **isteğin trace'ine bağlanması** | ❌ Yok |
+
+> ⚠️ **Bilinen açık (P13 Task 9):** Outbox/inbox yoklayıcıları arka planda çalışır ve `Activity`
+> açmaz; Npgsql enstrümantasyonu her SQL komutunu **ebeveynsiz kök trace** olarak yayar. Task 8
+> ölçümünde 1500 trace'in **1488'i** bu gürültüydü (yalnız 12'si gerçek HTTP isteği) ve trace'in
+> adı veritabanı adı (`egitimussu_staging`) olarak göründü. Zinciri gerçekten uçtan uca görmek için
+> (a) dispatch/handler adımlarına kendi span'ları, (b) `outbox_messages`'a `TraceParent` sütunu
+> gerekiyor — (b) **her modülde bir migration** demek olduğu için ayrı görev açıldı.
+
+> ⚠️ **`Logging` e-posta sağlayıcısı PII yazar.** Development ve Staging'de `Email__Provider=Logging`
+> olduğu için doğrulama e-postasının **alıcısı ve jetonu** servis log'una düşer. Bu bilinçli bir
+> geliştirme kolaylığıdır (staging'de gerçek e-posta gönderilmiyor) ama staging log'u bu yüzden
+> **kişisel veri içerir** ve paylaşılmamalıdır. Üretimde sağlayıcı `Smtp` olduğu için bu satır oluşmaz.
+
+---
+
 ---
 
 > İlgili: backend mimari → [`backend.md`](backend.md) · API sürümleme → [`api_versioning.md`](api_versioning.md) ·
 > yedekleme/geri yükleme → [`backup_restore.md`](backup_restore.md) ·
 > gözlemlenebilirlik → [`backend.md` §11](backend.md)
 
-*Ortamlar | Güncelleme: 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*
+*Ortamlar | Güncelleme: 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*

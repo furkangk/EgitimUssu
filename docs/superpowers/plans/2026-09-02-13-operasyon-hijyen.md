@@ -531,27 +531,72 @@ git commit -m "feat(identity): cihaz oturumlari listesi + iptal (M01-4/D-03)"
 
 ### Task 8: Kapanış
 
-- [ ] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test --coverage` → yeşil.
-- [ ] **Step 2: Gözlemlenebilirlik doğrulaması** — staging'de bir uçtan uca akış koş, Jaeger/OTLP toplayıcısında tam zinciri gör (HTTP → command → EF → outbox → handler).
-- [ ] **Step 3: Yedekten geri yükleme tatbikatı** — staging'i yedekten geri yükle, uygulama açılıyor mu doğrula.
-- [ ] **Step 4: Dokümanlar** — `doc/INDEX.md`'ye yeni mimari dokümanları ekle (`api_versioning.md`, `environments.md`, `backup_restore.md`, `kvkk.md`); `doc/denetim/2026-09-02_eksik_analizi.md` C-04, C-10, E-05, E-06, E-07, D-18..D-22 → `✅ (P13)`.
-- [ ] **Step 5: Commit**
+**Files:** `render.yaml`, `doc/INDEX.md`, `doc/denetim/2026-09-02_eksik_analizi.md`, `doc/architecture/environments.md`
+
+> **Plandan sapma (2026-09-05, yürütülürken düzeltildi):**
+> 1. **"Staging'de" değil, "staging profilinde" koşuldu.** Render'a hiç deploy edilmedi (Task 3'ten
+>    devreden durum) ve deploy bir **operasyon kararı** — kod değil. Bunun yerine `ASPNETCORE_ENVIRONMENT=Staging`
+>    + gerçek Postgres + gerçek OTLP toplayıcısı ile **aynı kod yolu** yerelde koşuldu. Doğrulanan şey
+>    kodun davranışıdır; doğrulanmayan tek şey Render'ın kendisidir.
+> 2. **`render.yaml` bu görevde değişti.** Step 2 "staging'de gözlemlenebilirliği doğrula" diyordu; blueprint'te
+>    **hiç `Observability__*` anahtarı yoktu** — yani deploy edilseydi telemetri kapalı gelecekti. Task 1'in işi
+>    dağıtıma bağlanmamıştı; anahtarlar (varsayılan `false`, gerekçesiyle) eklendi.
+> 3. **`doc/INDEX.md`'ye 4 değil 9 doküman eklendi.** Plan yalnız yeni 4'ünü istiyordu, ama `doc/architecture/`
+>    klasörünün **9 dokümanı** hiç indekslenmemişti (`ux_rules`, `anti_patterns`, `animations`, `accessibility`,
+>    `figma_references` dahil). Kök `CLAUDE.md` kuralı INDEX'in tam olmasını şart koşuyor.
+> 4. **`git add -A` kullanılmadı.** Çalışma ağacında **paralel bir oturumun** commit'lenmemiş rakip analizi
+>    değişiklikleri duruyor; `-A` onları bu commit'e karıştırırdı. Dosyalar tek tek eklendi.
+> 5. **Step 2 tam geçmedi → Task 9 açıldı.** Ayrıntı aşağıda.
+
+- [x] **Step 1: Tam testler** — `./scripts/test-with-docker.sh`: 4 mimari / **724 birim** / **62 integration**, başarısız 0, atlanan 0. `flutter test --coverage`: **212 başarılı**, satır kapsamı **%17,1** (3.466/20.240).
+- [~] **Step 2: Gözlemlenebilirlik doğrulaması** — staging profili + Jaeger + gerçek `otelcol` ile koşuldu. **Geçen:** HTTP → EF/Npgsql zinciri tek trace'te (`POST /api/scheduling/lessons` → conflict `SELECT` → `INSERT`); her log satırında `TraceId`; `X-Api-Version: v1` canlı; metrikler toplayıcıda okundu (`outbox.pending`=0, `outbox.dispatched{event=LessonScheduledDomainEvent,outcome=success}`=1, `email.sent{outcome=success}`=1). **Geçmeyen:** `command` adımının kendi span'ı yok ve **outbox → handler işi isteğin trace'ine bağlanmıyor** — 1500 trace'in **1488'i** ebeveynsiz arka plan SQL span'ı. → **Task 9**.
+- [x] **Step 3: Yedekten geri yükleme tatbikatı** — staging profilinin veritabanında: yedek (256 KB, 123 tablo) → **tüm şemalar düşürüldü (123 → 0 tablo)** → `restore-db.sh --yes` → **123 tablo / 812 satır birebir aynı** (`diff` farksız). Ardından uygulama geri yüklenen DB'ye karşı açıldı: `/health/ready` + `/health/live` **Healthy**, demo öğretmen girişi **200**, ders listesi **200** (elle oluşturulan ders yedeği atlatmış), tekrar tohumlama **idempotent** (öğrenci 5'te kaldı). `--yes` olmadan **çıkış 1**.
+- [x] **Step 4: Dokümanlar** — `doc/INDEX.md` §1.1'e **9 satır** + §7'ye 3 soru; `doc/denetim/2026-09-02_eksik_analizi.md`'de **10 satır** güncellendi (C-10 · D-18 · D-20 · D-22 · E-05 · E-07 ✅ tam; C-04 · D-19 · D-21 · E-06 `[~]` kısmi, her biri gerekçesiyle); `doc/architecture/environments.md`'ye §5 Gözlemlenebilirlik.
+- [x] **Step 5: Commit**
 
 ```bash
-git add -A
+git add render.yaml doc/INDEX.md doc/denetim/2026-09-02_eksik_analizi.md doc/architecture/environments.md docs/superpowers
 git commit -m "docs: P13 operasyon ve hijyen kapanisi"
 ```
 
 ---
 
+### Task 9: Outbox/handler trace zinciri (Task 8 Step 2'nin kalanı)
+
+> **Neden ayrı görev:** Zincirin asenkron hopu ancak `outbox_messages`'a bir `TraceParent` sütunu
+> eklenirse bağlanabilir; o sütun **15 modülün her birinde bir migration** demektir. P13'ün Global
+> Constraints'i "başka planların dosyalarını değiştirmez" diyor — bu görev o kuralı bilerek deler,
+> o yüzden ayrı ve açıkça karar verilerek yürütülür.
+
+**Files:**
+- Modify: `src/Shared/Infrastructure/Observability/ObservabilityExtensions.cs` (yeni `ActivitySource` kaydı)
+- Create: `src/Shared/Infrastructure/Observability/EgitimUssuActivitySource.cs`
+- Modify: `src/Shared/Infrastructure/Messaging/{OutboxProcessor,OutboxDispatcher}.cs`, `src/Shared/Infrastructure/Persistence/{OutboxMessage,EfOutboxStore}.cs`
+- Modify: `src/Shared/Application/Dispatching/*Dispatcher*.cs` (komut/sorgu span'ı)
+- Create: `src/Modules/*/Infrastructure/Migrations/*_AddOutboxTraceParent.cs` (**15 modül**)
+- Test: `tests/Unit/OutboxTracePropagationTests.cs`
+
+**Interfaces:**
+- `OutboxMessage.TraceParent` (`string?`, W3C `traceparent` biçimi) — yazarken `Activity.Current` varsa doldurulur
+- Dispatch sırasında span: `outbox.dispatch` (kök) + **span link** ile üreten isteğe bağlanır; handler başına `handler.<EventName>` span'ı
+
+- [ ] **Step 1: Testleri yaz (kırmızı)** — outbox'a yazarken `traceparent` saklanıyor mu; dispatch span'ı link taşıyor mu; `Activity.Current` yokken null kalıyor mu.
+- [ ] **Step 2: Kırmızı gör**
+- [ ] **Step 3: `ActivitySource` + dispatcher/outbox/handler span'ları** (şema değişikliği olmadan — gürültü burada biter)
+- [ ] **Step 4: `TraceParent` sütunu + 15 migration** (`check-migration-down.sh` yeşil kalmalı)
+- [ ] **Step 5: Yeşil gör + Jaeger'da tek trace'te HTTP → command → EF → outbox → handler**
+- [ ] **Step 6: Doküman** — `doc/architecture/environments.md` §5 tablosundaki iki ❌ satırı ✅'ye çevir; `doc/denetim/2026-09-02_eksik_analizi.md` C-04 → tam ✅
+
+---
+
 ## Kabul Kriterleri
 
-- [ ] Trace zinciri uçtan uca görünüyor; her log satırında `TraceId` var
-- [ ] PII hiçbir log/trace alanında yok (örnek istek incelenerek doğrulandı)
-- [ ] Outbox kuyruk derinliği ve push/e-posta başarı oranı metrik olarak yayınlanıyor
-- [ ] Her `/api/*` yanıtında `X-Api-Version` başlığı var
-- [ ] Staging ortamı ayrı DB ile çalışıyor, demo veri idempotent
-- [ ] Yedek alma + geri yükleme tatbikatı başarılı
-- [ ] Hesap silme talebi 30 gün sonra kişisel veriyi anonimleştiriyor, ticari kaydı koruyor
-- [ ] Mobilde kullanıcıya görünen tüm metinler ARB'den geliyor, Türkçe karakterler doğru
-- [ ] Mobil satır kapsamı %50+; CI analiz + test koşuyor
+- [~] Trace zinciri uçtan uca görünüyor; her log satırında `TraceId` var — **`TraceId` ✅**, **HTTP → EF ✅**, **outbox → handler ❌** (Task 9)
+- [x] PII hiçbir log/trace alanında yok (örnek istek incelenerek doğrulandı) — istek/trace hattında yok; ⚠️ `Email__Provider=Logging` **bilerek** alıcı + doğrulama jetonunu log'a yazar (dev/staging kolaylığı, üretimde `Smtp`)
+- [x] Outbox kuyruk derinliği ve push/e-posta başarı oranı metrik olarak yayınlanıyor — gerçek OTLP toplayıcısında okundu (`push.sent` tanımlı ama tetiklenmedi: cihaz jetonu yok, **Q8**)
+- [x] Her `/api/*` yanıtında `X-Api-Version` başlığı var — canlı doğrulandı (200 ve 404 dahil)
+- [~] Staging ortamı ayrı DB ile çalışıyor, demo veri idempotent — **kod ✅** (staging profili yerelde uçtan uca koşuldu, tohumlama idempotent); **Render'a deploy edilmedi**
+- [x] Yedek alma + geri yükleme tatbikatı başarılı — 123 tablo / 812 satır birebir; uygulama geri yüklenen DB'de `Healthy`
+- [x] Hesap silme talebi 30 gün sonra kişisel veriyi anonimleştiriyor, ticari kaydı koruyor — Task 5'te gerçek Postgres'te doğrulandı
+- [~] Mobilde kullanıcıya görünen tüm metinler ARB'den geliyor, Türkçe karakterler doğru — **Türkçe karakter ✅ (188 → 0, testle kilitli)**; **ARB taşıması ~50 ekranda sürüyor** (Task 6b)
+- [~] Mobil satır kapsamı %50+; CI analiz + test koşuyor — **CI ✅** (`--fatal-infos` + `test --coverage` + eşik adımı); **kapsam %17,1** — eşik CI'da uyarı üretiyor

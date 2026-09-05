@@ -50,6 +50,19 @@ services:
       - key: Outbox__PollIntervalSeconds
         value: "15"
 
+      # C-04 / K-10: Gozlemlenebilirlik (OpenTelemetry). Anahtarlar burada TANIMLI ama
+      # "Enabled" bilerek "false": OtlpEndpoint bos birakilirsa kod konsol exporter'a duser
+      # ve her SQL komutu servis log'una akar (Render stdout'u ucretsiz planda bogar).
+      # Bir toplayici (Grafana Cloud / Honeycomb / self-hosted otelcol) secilince:
+      #   1) OtlpEndpoint'i Render panelinden gir  2) Enabled -> "true"
+      # Ayrinti: doc/architecture/environments.md §Gozlemlenebilirlik
+      - key: Observability__Enabled
+        value: "false"
+      - key: Observability__OtlpEndpoint
+        sync: false
+      - key: Observability__ServiceName
+        value: egitimussu-api
+
   # ---------------------------------------------------------------------------
   # E-06: Staging — üretimin provasi. Ayri servis, AYRI VERITABANI.
   # Uretim verisine hicbir bicimde dokunmaz; demo veri yalniz burada tohumlanir.
@@ -110,6 +123,15 @@ services:
         value: "20"
       - key: Outbox__PollIntervalSeconds
         value: "15"
+
+      # C-04 / K-10: Gozlemlenebilirlik. Uretimden AYRI servis adi — trace'ler karismasin.
+      # Acma yordami ve varsayilanin neden "false" oldugu icin uretim servisindeki nota bakin.
+      - key: Observability__Enabled
+        value: "false"
+      - key: Observability__OtlpEndpoint
+        sync: false
+      - key: Observability__ServiceName
+        value: egitimussu-api-staging
 
 databases:
   - name: egitimussu-db
