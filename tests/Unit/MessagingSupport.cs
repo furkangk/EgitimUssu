@@ -102,6 +102,9 @@ internal sealed class FakeMessagingRepository : IMessagingRepository
 /// <summary>Öğretmen↔öğrenci bağı ve öğrenci sahipliği için sahte dizin.</summary>
 internal sealed class FakeMessagingStudentDirectory : IStudentDirectory
 {
+
+    public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyCollection<Guid>>([]);
     public Dictionary<Guid, Guid?> Owners { get; } = [];
 
     public HashSet<(Guid TeacherUserId, Guid StudentId)> Links { get; } = [];

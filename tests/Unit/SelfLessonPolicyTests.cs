@@ -75,6 +75,9 @@ public sealed class SelfLessonPolicyTests
 
     private sealed class FakeStudentDirectory : IStudentDirectory
     {
+
+        public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<Guid>>([]);
         private readonly Guid _ownerUserId;
         public Guid? StudentId { get; init; }
 

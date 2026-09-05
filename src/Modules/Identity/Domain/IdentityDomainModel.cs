@@ -78,6 +78,47 @@ public sealed class UserAccount : AggregateRoot<Guid>
     }
 
     /// <summary>
+    /// E-07: Hesabı kimliksizleştirir ve kapatır.
+    /// <para>
+    /// Kimlik bilgileri <b>silinmez, üzerine yazılır</b>: satır kalır çünkü ders ve ödeme kayıtları
+    /// ona referans verir; kişiyi gösteren her alan kaybolur. Oturumlar ve güvenlik jetonları
+    /// tamamen atılır — kimlik bilgisi olarak saklanmalarının artık hiçbir amacı yoktur.
+    /// </para>
+    /// <para>
+    /// <b>İdempotenttir:</b> zaten kapatılmış hesapta çağrılırsa yeni bir vekil adres yazmaz.
+    /// </para>
+    /// </summary>
+    /// <param name="surrogateEmail">
+    /// Kaynağıyla <b>ilişkisiz</b> vekil e-posta (<c>PersonalDataPlaceholder.DeletedEmail</c>).
+    /// Silinen adresten türetilmiş bir değer (ör. hash) verilmemelidir.
+    /// </param>
+    /// <param name="unusablePasswordHash">Hiçbir parolayla eşleşmeyen özet.</param>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool Anonymize(string surrogateEmail, string unusablePasswordHash, DateTime nowUtc)
+    {
+        if (Status == UserAccountStatus.Closed)
+        {
+            return false;
+        }
+
+        Email = surrogateEmail;
+        NormalizedEmail = surrogateEmail.ToUpperInvariant();
+        PasswordHash = unusablePasswordHash;
+        FirstName = "Silinmiş";
+        LastName = "Kullanıcı";
+        PhoneNumber = null;
+        IsEmailConfirmed = false;
+        IsProfileVerified = false;
+        Status = UserAccountStatus.Closed;
+        UpdatedOnUtc = nowUtc;
+
+        RefreshSessions.Clear();
+        SecurityTokens.Clear();
+        return true;
+    }
+
+    /// <summary>
     /// M15-3: Korunacak oturum dışındaki tüm aktif refresh oturumlarını iptal eder
     /// ("diğer oturumları sonlandır"). Zaten iptal edilmiş kayıtların zaman damgası korunur.
     /// </summary>
@@ -231,3 +272,97 @@ public enum UserRole
 }
 
 public sealed record UserRegisteredDomainEvent(Guid UserId, string Email, DateTime RegisteredOnUtc) : DomainEvent;
+
+/// <summary>
+/// E-07: Hesap silme talebinin politikası.
+/// <para>
+/// Bekleme süresi tek yerde tanımlıdır: silme <b>geri alınamaz</b>, bu yüzden kullanıcıya fikir
+/// değiştirme penceresi bırakılır. Süre boyunca hesap kapatılmaz — talep sadece bekler.
+/// Dayanak: <c>doc/legal/kvkk_saklama_imha_politikasi.md</c> §3.
+/// </para>
+/// </summary>
+public static class AccountDeletionPolicy
+{
+    /// <summary>Talep ile uygulama arasındaki bekleme süresi.</summary>
+    public static readonly TimeSpan WaitingPeriod = TimeSpan.FromDays(30);
+}
+
+/// <summary>
+/// E-07: Kullanıcının "hesabımı sil" talebi.
+/// <para>
+/// Talep bir <b>zamanlayıcıdır</b>, silmenin kendisi değildir: <see cref="ScheduledForUtc"/> gelene
+/// kadar hiçbir veri değişmez ve kullanıcı talebi iptal edebilir.
+/// </para>
+/// </summary>
+public sealed class AccountDeletionRequest : AggregateRoot<Guid>
+{
+    private AccountDeletionRequest()
+    {
+    }
+
+    /// <summary>Yeni bir silme talebi açar; uygulama anı otomatik olarak 30 gün sonrasıdır.</summary>
+    /// <param name="id">Talep kimliği.</param>
+    /// <param name="userAccountId">Talebi açan kullanıcı.</param>
+    /// <param name="requestedOnUtc">Talep anı (UTC).</param>
+    public AccountDeletionRequest(Guid id, Guid userAccountId, DateTime requestedOnUtc)
+    {
+        Id = id;
+        UserAccountId = userAccountId;
+        RequestedOnUtc = requestedOnUtc;
+        ScheduledForUtc = requestedOnUtc.Add(AccountDeletionPolicy.WaitingPeriod);
+        Status = AccountDeletionRequestStatus.Pending;
+    }
+
+    public Guid UserAccountId { get; private set; }
+
+    public DateTime RequestedOnUtc { get; private set; }
+
+    /// <summary>Anonimleştirmenin uygulanabileceği en erken an.</summary>
+    public DateTime ScheduledForUtc { get; private set; }
+
+    public AccountDeletionRequestStatus Status { get; private set; }
+
+    public DateTime? CancelledOnUtc { get; private set; }
+
+    public DateTime? CompletedOnUtc { get; private set; }
+
+    /// <summary>Talep uygulanabilir mi? İptal edilmiş ya da süresi dolmamışsa <c>false</c>.</summary>
+    /// <param name="nowUtc">Şimdiki zaman (UTC).</param>
+    public bool IsDue(DateTime nowUtc)
+        => Status == AccountDeletionRequestStatus.Pending && nowUtc >= ScheduledForUtc;
+
+    /// <summary>Talebi iptal eder. Zaten iptal/tamamlanmışsa hiçbir şey yapmaz ve <c>false</c> döner.</summary>
+    /// <param name="nowUtc">İptal anı (UTC).</param>
+    public bool Cancel(DateTime nowUtc)
+    {
+        if (Status != AccountDeletionRequestStatus.Pending)
+        {
+            return false;
+        }
+
+        Status = AccountDeletionRequestStatus.Cancelled;
+        CancelledOnUtc = nowUtc;
+        return true;
+    }
+
+    /// <summary>Talebi tamamlanmış işaretler (anonimleştirme başarıyla bittikten <b>sonra</b>).</summary>
+    /// <param name="nowUtc">Tamamlanma anı (UTC).</param>
+    public bool Complete(DateTime nowUtc)
+    {
+        if (Status != AccountDeletionRequestStatus.Pending)
+        {
+            return false;
+        }
+
+        Status = AccountDeletionRequestStatus.Completed;
+        CompletedOnUtc = nowUtc;
+        return true;
+    }
+}
+
+public enum AccountDeletionRequestStatus
+{
+    Pending = 1,
+    Cancelled = 2,
+    Completed = 3
+}

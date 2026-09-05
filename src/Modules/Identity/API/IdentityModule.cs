@@ -64,6 +64,16 @@ public sealed class IdentityModule : ModuleDefinition
 
         authorizedGroup.MapPost("/users/{userId:guid}/roles", AssignRolesAsync)
         .WithSummary("Kullanıcıya rol atar (yalnızca yönetici)");
+
+        // E-07 (KVKK): Hesap silme. Talep anında hiçbir veri değişmez — 30 günlük bekleme başlar.
+        authorizedGroup.MapPost("/account/deletion-request", RequestAccountDeletionAsync)
+        .WithSummary("Hesap silme talebi açar (30 gün sonra uygulanır)");
+
+        authorizedGroup.MapDelete("/account/deletion-request", CancelAccountDeletionAsync)
+        .WithSummary("Bekleyen hesap silme talebini iptal eder");
+
+        authorizedGroup.MapGet("/account/deletion-request", GetAccountDeletionAsync)
+        .WithSummary("Bekleyen hesap silme talebini döndürür");
     }
 
     /// <summary>
@@ -271,6 +281,39 @@ public sealed class IdentityModule : ModuleDefinition
         };
     }
 
+    /// <summary>
+    /// E-07: Hesap silme talebi açar. Talep <b>30 gün</b> sonra uygulanır; o ana kadar hiçbir veri
+    /// değişmez ve talep iptal edilebilir. Aynı talebi ikinci kez açmak bekleme süresini sıfırlamaz.
+    /// </summary>
+    private static async Task<IResult> RequestAccountDeletionAsync(
+        HttpContext context,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RequestAccountDeletionCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>E-07: Bekleyen hesap silme talebini iptal eder.</summary>
+    private static async Task<IResult> CancelAccountDeletionAsync(
+        HttpContext context,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new CancelAccountDeletionCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>E-07: Bekleyen hesap silme talebini döndürür (yoksa <c>pending=false</c>).</summary>
+    private static async Task<IResult> GetAccountDeletionAsync(
+        HttpContext context,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetAccountDeletionQuery(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     private static IResult ToHttpResult(HttpContext context, Result result)
     {
         if (result.IsSuccess)
@@ -281,6 +324,7 @@ public sealed class IdentityModule : ModuleDefinition
         return result.Error.Code switch
         {
             "identity.invalid_refresh_token" => ApiErrorHttpResults.FromError(context, StatusCodes.Status401Unauthorized, result.Error),
+            "identity.deletion_request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };

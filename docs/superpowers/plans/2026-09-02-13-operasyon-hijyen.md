@@ -284,12 +284,58 @@ git commit -m "feat(ops): yedekleme/geri yukleme prosedürü + migration geri al
 > Yayına alma koşulları ve **R-1…R-6** riskleri `doc/legal/00_legal_index.md` §3–§4'tedir.
 
 **Files:**
-- Modify: `src/Modules/Identity/Application/IdentityFeatures.cs` (`RequestAccountDeletionCommand`)
-- Create: `src/Modules/Identity/Infrastructure/AccountDeletionService.cs` (BackgroundService)
-- Create: `src/Shared/Contracts/PersonalDataContract.cs`
-- Create her modülde: `PersonalDataAnonymizer` implementasyonu (Students, Teachers, Parents, Study, Messaging, Feedback)
-- Modify: `src/API.Host/Admin/AdminEndpoints.cs` (silme taleplerini görme)
-- Test: `tests/Unit/AccountDeletionTests.cs`
+- Create: `src/Modules/Identity/Application/AccountDeletionFeatures.cs` *(plan `IdentityFeatures.cs` diyordu — sapma notu #6)*
+- Modify: `src/Modules/Identity/Application/IdentityPolicies.cs` (3 authorizer), `API/IdentityModule.cs` (3 uç), `Infrastructure/{IdentityDbContext,IdentityRepositoryAndSecurity,DependencyInjection}.cs`
+- Modify: `src/Modules/Identity/Domain/IdentityDomainModel.cs` (`AccountDeletionRequest`, `AccountDeletionPolicy`, `UserAccount.Anonymize`)
+- Create: `src/Modules/Identity/Infrastructure/AccountDeletionService.cs` (processor + BackgroundService)
+- Create: `src/Modules/Identity/Infrastructure/Migrations/*_AddAccountDeletionRequests.cs`
+- Create: `src/Shared/Contracts/PersonalDataContract.cs` + `src/Shared/Kernel/PersonalDataPlaceholder.cs` *(sapma notu #4)*
+- Modify: `src/Shared/Contracts/StudentDirectoryContract.cs` (`GetStudentIdsForUserAsync`) *(sapma notu #2)*
+- Create: **11 modülde** `*PersonalDataAnonymizer.cs` + domain `AnonymizePersonalData` metotları — Teachers, Students, Parents, Study, Messaging, **Notifications, Settings, Assignments, LessonSessions, Payments, Reporting** *(sapma notu #1)*
+- Create: `src/Shared/Infrastructure/Persistence/DataRetentionService.cs` *(sapma notu #8)*
+- Create: `doc/architecture/kvkk.md` · Modify: `doc/modules/{m01_identity,00_genel_bakis,veri_modeli}.md`, `doc/legal/kvkk_saklama_imha_politikasi.md` §7
+- Test: `tests/Unit/AccountDeletionTests.cs`, `tests/Unit/DataRetentionTests.cs` *(ikincisi plan dışı)*, `tests/Integration/RealAccountDeletionTests.cs` *(sapma notu #7)*, 5 mevcut test sahtesi *(sapma notu #9)*
+- **Yazılmadı:** `src/API.Host/Admin/AdminEndpoints.cs` *(sapma notu #5)*
+
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **6 modül değil, 11 modül.** Plan Students/Teachers/Parents/Study/Messaging/**Feedback** diyordu. Feedback
+>    (M18) **modülü yok**. Buna karşılık, [veri envanteri](../../../doc/legal/kvkk_veri_envanteri.md) §2'ye göre
+>    kişisel veri **altı modülde daha** duruyordu: Notifications (cihaz push jetonu — silinmezse silinmiş hesabın
+>    telefonuna push gitmeye devam eder), Settings, Assignments (ödev/ders notu serbest metinleri + ek dosyalar),
+>    LessonSessions (öğretmen notları), Payments (açıklama/not) ve Reporting (PDF raporlar). Yalnız planın altı
+>    modülü yazılsaydı silme talebi **sessizce eksik** kalırdı — ki bu, teknik bir eksik değil, yerine
+>    getirilmemiş bir hukuki talep olurdu.
+> 2. **Sözleşme `Guid userId` değil `PersonalDataSubject(UserId, StudentIds)` alıyor.** Study, Assignments,
+>    LessonSessions ve Reporting kayıtlarını **`StudentId`** ile tutar ve modül sınırı yüzünden bunu `UserId`'den
+>    kendisi çözemez (bilinen asimetri, `veri_modeli.md` §2). Çözüm `IStudentDirectory`'ye ters yön eşlemesi
+>    (`GetStudentIdsForUserAsync`) eklemek oldu — o arayüz zaten `GetOwnerUserIdAsync` ile düz yönü tutuyor.
+> 3. **Anonimleştirme hash ile yapılmıyor** (yukarıdaki bloklayıcı notu): vekil e-posta `IIdGenerator`'dan gelen
+>    **rastgele** bir kimlikten üretiliyor, silinen adresten türetilmiyor.
+> 4. **`PersonalDataPlaceholder` `Shared/Kernel`'e kondu**, `Shared/Contracts`'a değil. Yer tutucuları domain
+>    sınıfları kullanıyor (`AnonymizePersonalData`), domain projeleri ise **yalnız Kernel'e** referans veriyor;
+>    Contracts'ta kalsaydı 11 domain projesine yeni bir referans eklemek gerekirdi. Arayüz (`IPersonalDataAnonymizer`)
+>    modüller-arası sözleşme olduğu için Contracts'ta kaldı.
+> 5. **Admin ucu yazılmadı.** Plan `src/API.Host/Admin/AdminEndpoints.cs`'i "modify" diyor ama **o dosya yok**:
+>    `/api/admin/*` uç grubu K-08 kararıyla **P12**'nin işi. Silme taleplerinin admin görünümü oraya bırakıldı;
+>    `doc/architecture/kvkk.md` §5 bunu açıkça yazıyor.
+> 6. **Yeni dosya `AccountDeletionFeatures.cs`.** Plan `IdentityFeatures.cs`'i genişletmeyi öngörüyordu; o dosya
+>    zaten 310 satır ve 11 command/query barındırıyor. Ayrıca **`GET /account/deletion-request` eklendi** (plan
+>    yalnız POST/DELETE diyordu): bu uç olmadan mobil uygulama "silme talebin var, X tarihinde uygulanacak"
+>    bilgisini gösteremez ve kullanıcı iptal edeceğini bilemez.
+> 7. **Integration testi eklendi** (`RealAccountDeletionTests`). Plan yalnız `tests/Unit` öngörüyordu, ama birim
+>    testi burada **yanlış güvence** verir: sahte anonimleştiricilerle koşar ve bir modülün DI kaydı unutulmuşsa
+>    ya da yanlış kimliğe bakıyorsa yeşil kalır. Gerçek Postgres'te on şemanın gerçekten temizlendiği okunuyor.
+>    (`tests/Unit` 10 modülün Infrastructure projesine referans vermiyor ve verseydi de bu bir birim testi olmazdı.)
+> 8. **`FeedbackRetentionService`/`AdminAuditLog` yazılamadı; yerine `DataRetentionService`.** Her ikisinin
+>    modülü de yok (M18 ve admin API'si → P12). Yazılabilen kural — işlenmiş outbox + inbox **90 gün** — tüm modül
+>    şemalarında koşan ortak bir servise alındı. Yazılamayanlar `kvkk_saklama_imha_politikasi.md` §7'de
+>    "🔴 modülü yok" olarak **tablolandı**, sessizce atlanmadı.
+> 9. **5 mevcut test sahtesi güncellendi.** `IStudentDirectory`'yi genişletmek onu uygulayan sahteleri kırdı
+>    (`MessagingSupport`, `ProgressAccessTests`, `SelfLessonPolicyTests`, `StudentReportPdfGeneratorTests`,
+>    `LessonSessionCompletedPaymentHandlerTests`). Ayrı bir dar arayüz açmak bu kırılmayı önlerdi ama aynı
+>    eşlemeyi iki sözleşmeye bölerdi — arayüz zaten bu eşlemenin sahibi.
+> 10. **`Message.SoftDelete` yetmiyor.** Mevcut yumuşak silme `Body`'yi veritabanında **bırakıyor** (yalnız
+>    `VisibleBody`'yi gizliyor). Silme talebi için ayrı bir `AnonymizePersonalData` yazıldı: gövde gerçekten boşalır.
 
 **Interfaces:**
 - Produces:
@@ -307,12 +353,12 @@ git commit -m "feat(ops): yedekleme/geri yukleme prosedürü + migration geri al
   - `AccountDeletionService` — süresi dolan talepler için tüm `IPersonalDataAnonymizer` implementasyonlarını çağırır, sonra hesabı `Closed` + kişisel alanları anonimleştirir.
 - **Anonimleştirme kuralı:** Ad → "Silinmiş Kullanıcı", e-posta → `deleted-{hash}@egitimussu.local`, telefon → `null`, foto/dosya → `IFileStorage.DeleteAsync`. Ders/ödeme kayıtları **silinmez** (ticari kayıt), yalnız kimliksizleşir.
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — talep 30 gün dolmadan uygulanmıyor; iptal edilebiliyor; anonimleştirme sonrası e-posta ile giriş yapılamıyor; ödeme kayıtlarının tutarı korunuyor; iki kez çalıştırma güvenli (idempotent).
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~AccountDeletionTests"`
-- [ ] **Step 3: Sözleşme + 6 modül implementasyonu + servis + uçları yaz.**
-- [ ] **Step 4: Saklama süreleri** — `FeedbackRetentionService` (2 yıl), `AdminAuditLog` (5 yıl), `outbox_messages` işlenmişleri (90 gün) temizleyen bakım servisi.
-- [ ] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — 13 test: 30 gün kuralı (0/29/30/45 gün tablosu), iptal, giriş yapılamaması, ödeme tutarının korunması, idempotency, **bir modül patlarsa talebin Pending kalması** ve vekil e-postanın türetilmemesi.
+- [x] **Step 2: Kırmızı gör** — **CS0246** (`AccountDeletionProcessor` yok). Yeşile geçerken bir beklenti hatası da çıktı: `AnonymizedRecordCount` 5 değil **6** — Identity'nin kendi kaydı da sayılıyor; test gerçeğe göre düzeltildi.
+- [x] **Step 3: Sözleşme + 11 modül + servis + uçlar** (bkz. sapma #1, #2, #5, #6). Migration: `AddAccountDeletionRequests`; `scripts/check-migration-down.sh` (Task 4) yeni migration'ı doğruladı.
+- [x] **Step 4: Saklama süreleri** — `DataRetentionService` (günde bir): işlenmiş outbox + inbox **90 gün**, tüm modül şemalarında. **İşlenmemiş outbox'a dokunulmaz** (test bunu ayrıca doğruluyor). Feedback/AdminAuditLog modülleri yok → sapma #8.
+- [x] **Step 5: Yeşil gör** — `dotnet test EgitimUssu.slnx`: 4 mimari / **716 birim** / **62 integration**, başarısız 0, atlanan 0.
+- [x] **Step 6: Doküman + commit**
 
 `doc/architecture/kvkk.md`: hangi veri nerede, saklama süreleri, silme akışı, veri sahibi hakları.
 ```bash

@@ -81,6 +81,31 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
 
     public string? Notes { get; private set; }
 
+    /// <summary>
+    /// E-07: Ödeme kaydını kimliksizleştirir — <b>tutar, para birimi, vade ve durum korunur</b>.
+    /// Ticari kayıt yasal saklama süresince (TTK m.82) durmalıdır; silinen yalnız serbest metin
+    /// alanlarıdır, çünkü oraya kişi adı yazılmış olabilir.
+    /// </summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        var changed = false;
+
+        if (Description != PersonalDataPlaceholder.RemovedContent)
+        {
+            Description = PersonalDataPlaceholder.RemovedContent;
+            changed = true;
+        }
+
+        if (Notes is not null)
+        {
+            Notes = null;
+            changed = true;
+        }
+
+        return changed;
+    }
+
     /// <summary>M07-1: Kaydın <see cref="PaymentStatus.Overdue"/> işaretlendiği an; hiç işaretlenmediyse <c>null</c>.</summary>
     public DateTime? OverdueMarkedOnUtc { get; private set; }
 
@@ -255,6 +280,19 @@ public sealed class ParentPaymentDeclaration : AggregateRoot<Guid>
     public Guid StudentId { get; private set; }
     public decimal DeclaredAmount { get; private set; }
     public string? Note { get; private set; }
+
+    /// <summary>E-07: Veli beyanındaki serbest metni siler; tutar ve durum korunur.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (Note is null)
+        {
+            return false;
+        }
+
+        Note = null;
+        return true;
+    }
     public ParentPaymentDeclarationStatus Status { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }
     public DateTime? ResolvedOnUtc { get; private set; }

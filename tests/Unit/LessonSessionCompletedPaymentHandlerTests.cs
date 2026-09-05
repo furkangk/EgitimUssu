@@ -138,6 +138,9 @@ public sealed class LessonSessionCompletedPaymentHandlerTests
 
     private sealed class FakeStudentDirectory : IStudentDirectory
     {
+
+        public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<Guid>>([]);
         private readonly AgreedLessonRate? _rate;
 
         public FakeStudentDirectory(AgreedLessonRate? rate) => _rate = rate;

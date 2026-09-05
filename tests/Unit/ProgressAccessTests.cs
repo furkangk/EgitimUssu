@@ -441,6 +441,9 @@ public sealed class ProgressAccessTests
 
     private sealed class FakeStudentDirectory : IStudentDirectory
     {
+
+        public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<Guid>>([]);
         public Guid? OwnerUserId { get; init; }
 
         public Guid? LinkedTeacherUserId { get; init; }

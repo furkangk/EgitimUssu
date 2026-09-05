@@ -460,6 +460,9 @@ public sealed class StudentReportPdfGeneratorTests
 
     private sealed class FakeStudentDirectory : IStudentDirectory
     {
+
+        public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<Guid>>([]);
         public Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult<Guid?>(StudentUserId);
 

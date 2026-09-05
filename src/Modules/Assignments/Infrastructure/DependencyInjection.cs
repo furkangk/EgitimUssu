@@ -63,6 +63,9 @@ public static class DependencyInjection
         // M06-3: son teslim uyarisi taramasi.
         services.AddScoped<IAssignmentDueScanProcessor, AssignmentDueScanProcessor>();
         services.AddHostedService<AssignmentDueScanner>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, AssignmentsPersonalDataAnonymizer>();
+
         return services;
     }
 }

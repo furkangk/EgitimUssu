@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-09-03
+updated: 2026-09-05
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -55,7 +55,7 @@ updated: 2026-09-03
 ## 2. Domain Modeli
 
 Tüm kaynak: `src/Modules/Identity/Domain/IdentityDomainModel.cs`. Şema: **`identity`** (`IdentityDbContext.SchemaName`).
-Tablolar: `user_accounts`, `user_role_memberships`, `refresh_token_sessions`, `user_security_tokens`.
+Tablolar: `user_accounts`, `user_role_memberships`, `refresh_token_sessions`, `user_security_tokens`, **`account_deletion_requests`** (E-07).
 
 ### 2.1 🟢 Mevcut (koddan) — `UserAccount` (AggregateRoot&lt;Guid&gt;)
 
@@ -142,6 +142,27 @@ UserRegisteredDomainEvent(Guid UserId, string Email, DateTime RegisteredOnUtc)
 
 ---
 
+### 2.5 🟢 `AccountDeletionRequest` (E-07, AggregateRoot&lt;Guid&gt;)
+
+KVKK "hesabımı sil" talebi. **Bir zamanlayıcıdır, silmenin kendisi değildir**: `ScheduledForUtc`
+gelene kadar hiçbir veri değişmez ve talep iptal edilebilir.
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `UserAccountId` | Guid | Talebi açan kullanıcı |
+| `RequestedOnUtc` | DateTime | Talep anı |
+| `ScheduledForUtc` | DateTime | `RequestedOnUtc + AccountDeletionPolicy.WaitingPeriod` (**30 gün**) |
+| `Status` | enum | `Pending` / `Cancelled` / `Completed` |
+| `CancelledOnUtc`, `CompletedOnUtc` | DateTime? | Sonuç damgaları |
+
+Davranış: `IsDue(now)` · `Cancel(now)` · `Complete(now)` — üçü de idempotent.
+
+`UserAccount.Anonymize(surrogateEmail, unusablePasswordHash, now)` hesabı kimliksizleştirir:
+ad/e-posta/telefon üzerine yazılır, oturum ve güvenlik jetonları **silinir**, `Status = Closed`.
+Vekil e-posta silinen adresten **türetilmez** (hash kullanılmaz — bkz.
+[`../architecture/kvkk.md`](../architecture/kvkk.md) §3).
+
+
 ## 3. API Sözleşmesi
 
 Tüm uçlar `RoutePrefix = /api/identity` altında ve `DistributedRateLimitMiddleware` tarafından **yol tabanlı `auth` politikasıyla** (IP-partition, Redis, fail-open) sınırlandırılmıştır (2026-07-01, Y4).
@@ -158,6 +179,9 @@ Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToH
 | Şifre sıfırlama onayı | `POST /password-reset/confirm` | herkese açık | `PasswordResetConfirmRequest` | `200 OK` |
 | E-posta doğrulama isteği | `POST /email-verification/request` | herkese açık | `EmailVerificationRequest` | `200 OK` |
 | E-posta doğrulama onayı | `POST /email-verification/confirm` | herkese açık | `EmailVerificationConfirmRequest` | `200 OK` |
+| **Hesap silme talebi (E-07)** | `POST /account/deletion-request` | oturum | — | `AccountDeletionResponse` |
+| **Silme talebini iptal (E-07)** | `DELETE /account/deletion-request` | oturum | — | `200 OK` · yoksa `404` |
+| **Silme talebini oku (E-07)** | `GET /account/deletion-request` | oturum | — | `AccountDeletionResponse` |
 | Oturum açmış kullanıcı | `GET /me` | **AuthenticatedUser** | — | `CurrentUserResponse` |
 | Oturum kapat | `POST /logout` | **AuthenticatedUser** | `LogoutRequest` | `200 OK` |
 | Kullanıcı getir | `GET /users/{userId:guid}` | **AuthenticatedUser** | — | `UserAccountResponse` |
@@ -327,4 +351,4 @@ Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOth
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

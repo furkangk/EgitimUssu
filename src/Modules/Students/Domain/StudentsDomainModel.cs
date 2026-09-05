@@ -87,6 +87,34 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     /// <summary>Öğrencinin doğum tarihi (opsiyonel). Yaş türetimi + veli claim eşleşmesi için temel (Veli V-A).</summary>
     public DateTime? DateOfBirth { get; private set; }
 
+    /// <summary>
+    /// E-07: Öğrenci profilini kimliksizleştirir.
+    /// <para>
+    /// Satır silinmez — ders, ödev ve ödeme kayıtları bu <c>StudentId</c>'ye bağlıdır ve bir kısmı
+    /// yasal saklama süresince durmak zorundadır. Kişiyi gösteren alanlar temizlenir; sınıf düzeyi
+    /// gibi kişiyi tek başına göstermeyen alanlar istatistik bütünlüğü için kalır.
+    /// </para>
+    /// </summary>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData(DateTime nowUtc)
+    {
+        if (FullName == PersonalDataPlaceholder.FullName && ContactEmail is null && ContactPhone is null
+            && GoalSummary is null && LevelNotes is null && DateOfBirth is null)
+        {
+            return false;
+        }
+
+        FullName = PersonalDataPlaceholder.FullName;
+        ContactEmail = null;
+        ContactPhone = null;
+        GoalSummary = null;
+        LevelNotes = null;
+        DateOfBirth = null;
+        UpdatedOnUtc = nowUtc;
+        return true;
+    }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -394,6 +422,19 @@ public sealed class StudentParentInvite : AggregateRoot<Guid>
     public Guid TeacherUserId { get; private set; }
     public string InviteCode { get; private set; } = string.Empty;
     public string? ChildDisplayName { get; private set; }
+
+    /// <summary>E-07: Davetteki çocuk adını siler; davet kaydının kendisi (durum/tarih) kalır.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (ChildDisplayName is null)
+        {
+            return false;
+        }
+
+        ChildDisplayName = null;
+        return true;
+    }
     public ParentInviteStatus Status { get; private set; }
     public Guid? ClaimedByParentUserId { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }

@@ -12,6 +12,34 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace EgitimUssu.Modules.Identity.Infrastructure;
 
+/// <summary>E-07: Hesap silme taleplerinin kalıcılığı.</summary>
+internal sealed class AccountDeletionRequestRepository : IAccountDeletionRequestRepository
+{
+    private readonly IdentityDbContext _dbContext;
+
+    public AccountDeletionRequestRepository(IdentityDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public Task<AccountDeletionRequest?> GetPendingAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return _dbContext.AccountDeletionRequests
+            .FirstOrDefaultAsync(
+                request => request.UserAccountId == userId
+                    && request.Status == AccountDeletionRequestStatus.Pending,
+                cancellationToken);
+    }
+
+    public async Task AddAsync(AccountDeletionRequest request, CancellationToken cancellationToken)
+    {
+        await _dbContext.AccountDeletionRequests.AddAsync(request, cancellationToken);
+    }
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken)
+        => _dbContext.SaveChangesAsync(cancellationToken);
+}
+
 internal sealed class UserAccountRepository : IUserAccountRepository
 {
     private readonly IdentityDbContext _dbContext;

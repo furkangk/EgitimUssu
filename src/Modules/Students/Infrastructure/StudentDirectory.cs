@@ -16,6 +16,16 @@ internal sealed class StudentDirectory : IStudentDirectory
         _dbContext = dbContext;
     }
 
+    public async Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        // E-07: Birleştirilmiş (IsMerged) profiller de döner — kişisel verisi hâlâ orada durur.
+        return await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .Where(profile => profile.UserId == userId)
+            .Select(profile => profile.Id)
+            .ToArrayAsync(cancellationToken);
+    }
+
     public async Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken)
     {
         return await _dbContext.StudentProfiles

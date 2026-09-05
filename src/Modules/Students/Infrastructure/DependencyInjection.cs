@@ -59,6 +59,9 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CreateParentInviteCommand, Result<ParentInviteResponse>>, CreateParentInviteCommandHandler>();
         services.AddScoped<ICommandValidator<CreateParentInviteCommand>, CreateParentInviteCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateParentInviteCommand>, CreateParentInviteCommandAuthorizer>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, StudentsPersonalDataAnonymizer>();
+
 
         return services;
     }

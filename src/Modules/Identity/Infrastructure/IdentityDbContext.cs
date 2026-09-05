@@ -24,6 +24,9 @@ public sealed class IdentityDbContext : ModuleDbContext
     public DbSet<RefreshTokenSession> RefreshTokenSessions => Set<RefreshTokenSession>();
     public DbSet<UserSecurityToken> UserSecurityTokens => Set<UserSecurityToken>();
 
+    /// <summary>E-07: Bekleyen/iptal edilen/tamamlanan hesap silme talepleri.</summary>
+    public DbSet<AccountDeletionRequest> AccountDeletionRequests => Set<AccountDeletionRequest>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Identity";
@@ -98,5 +101,26 @@ internal sealed class UserSecurityTokenConfiguration : IEntityTypeConfiguration<
         builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
         builder.Property(entity => entity.UsedOnUtc);
         builder.HasIndex(entity => new { entity.UserAccountId, entity.Purpose, entity.ExpiresOnUtc });
+    }
+}
+
+/// <summary>E-07: Hesap silme talebi eşlemesi.</summary>
+internal sealed class AccountDeletionRequestConfiguration : IEntityTypeConfiguration<AccountDeletionRequest>
+{
+    public void Configure(EntityTypeBuilder<AccountDeletionRequest> builder)
+    {
+        builder.ToTable("account_deletion_requests");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.UserAccountId).IsRequired();
+        builder.Property(entity => entity.RequestedOnUtc).IsRequired();
+        builder.Property(entity => entity.ScheduledForUtc).IsRequired();
+        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+
+        // Bir kullanıcının aynı anda birden çok BEKLEYEN talebi olamaz; geçmiş talepler (iptal/tamamlanmış)
+        // kayıt olarak kalır, çünkü "ne zaman istedi, ne zaman vazgeçti" hesap verebilirliğin parçasıdır.
+        builder.HasIndex(entity => new { entity.UserAccountId, entity.Status });
+
+        // Bakım servisi "süresi dolan bekleyenler" sorgusunu bu indeksle koşar.
+        builder.HasIndex(entity => new { entity.Status, entity.ScheduledForUtc });
     }
 }

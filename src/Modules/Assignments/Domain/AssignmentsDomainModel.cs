@@ -81,6 +81,29 @@ public sealed class Assignment : AggregateRoot<Guid>
 
     public string? AttachmentContentType { get; private set; }
 
+    /// <summary>
+    /// E-07: Ödevin kişisel/serbest metin alanlarını ve ek dosya bağlarını siler.
+    /// Kayıt satırı kalır (ders geçmişinin parçası); dosyayı depolamadan silmek çağıranın işidir.
+    /// </summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (Title == PersonalDataPlaceholder.RemovedContent && Description is null
+            && TeacherFeedback is null && AttachmentStorageKey is null && AttachmentUrl is null)
+        {
+            return false;
+        }
+
+        Title = PersonalDataPlaceholder.RemovedContent;
+        Description = null;
+        TeacherFeedback = null;
+        AttachmentUrl = null;
+        AttachmentStorageKey = null;
+        AttachmentFileName = null;
+        AttachmentContentType = null;
+        return true;
+    }
+
     public long? AttachmentSizeBytes { get; private set; }
 
     public void MarkCompleted(DateTime completedOnUtc)
@@ -253,6 +276,22 @@ public sealed class LessonNote : AggregateRoot<Guid>
 
     public string? Recommendations { get; private set; }
 
+    /// <summary>E-07: Ders notundaki serbest metinleri siler.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (Summary == PersonalDataPlaceholder.RemovedContent
+            && CoveredTopics is null && Recommendations is null)
+        {
+            return false;
+        }
+
+        Summary = PersonalDataPlaceholder.RemovedContent;
+        CoveredTopics = null;
+        Recommendations = null;
+        return true;
+    }
+
     public LessonNoteVisibility Visibility { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
@@ -421,6 +460,25 @@ public sealed class LessonResource : AggregateRoot<Guid>
 
     /// <summary><see cref="LessonResourceKind.Link"/> için dış bağlantı.</summary>
     public string? Url { get; private set; }
+
+    /// <summary>E-07: Ders kaynağının başlığını, açıklamasını ve dosya bağını siler.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (Title == PersonalDataPlaceholder.RemovedContent && Description is null
+            && StorageKey is null && Url is null)
+        {
+            return false;
+        }
+
+        Title = PersonalDataPlaceholder.RemovedContent;
+        Description = null;
+        StorageKey = null;
+        FileName = null;
+        ContentType = null;
+        Url = null;
+        return true;
+    }
 
     public bool IsActive { get; private set; }
 

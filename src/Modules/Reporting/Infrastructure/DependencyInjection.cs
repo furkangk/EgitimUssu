@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Modules.Reporting.Infrastructure;
 
@@ -62,6 +63,9 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, StudentStudyTestProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, StudentPerformanceTestProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, StudentPerformanceMasteryProjectionHandler>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, ReportingPersonalDataAnonymizer>();
+
 
         return services;
     }

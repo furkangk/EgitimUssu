@@ -36,6 +36,9 @@ public static class DependencyInjection
 
         // Ö-C: profil birleştirmede kaynak öğrenciye ait ders seanslarını kanonik öğrenciye taşır.
         services.AddScoped<IIntegrationEventHandler, LessonSessionsStudentMergedHandler>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, LessonSessionsPersonalDataAnonymizer>();
+
         return services;
     }
 }

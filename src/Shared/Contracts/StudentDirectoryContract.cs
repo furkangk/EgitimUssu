@@ -13,6 +13,18 @@ public sealed record AgreedLessonRate(decimal Amount, string Currency);
 
 public interface IStudentDirectory
 {
+    /// <summary>
+    /// E-07: Bir kullanıcıya ait <b>tüm</b> öğrenci profillerinin kimlikleri.
+    /// <para>
+    /// <c>GetOwnerUserIdAsync</c>'in tersidir. Hesap silme akışı buna muhtaçtır: Study, Assignments,
+    /// LessonSessions ve Reporting kayıtlarını <c>StudentId</c> ile tutar ve modül sınırı yüzünden
+    /// bunu <c>UserId</c>'den kendisi çözemez. Profili yoksa <b>boş liste</b> döner.
+    /// </para>
+    /// </summary>
+    /// <param name="userId">Kullanıcı kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken);
+
     // Öğrenci profiline bağlı kullanıcının kimliği (Student.UserId).
     // Profil bulunamazsa veya bağlı kullanıcı yoksa null döner.
     Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken);

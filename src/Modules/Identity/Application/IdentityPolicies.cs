@@ -143,3 +143,39 @@ public sealed class GetCurrentUserQueryAuthorizer : IQueryAuthorizer<GetCurrentU
     public Task<Result> Authorize(GetCurrentUserQuery query, CancellationToken cancellationToken)
         => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
 }
+
+/// <summary>E-07: Hesap silme talebi yalnız oturum açmış kullanıcının <b>kendisi</b> içindir.</summary>
+public sealed class RequestAccountDeletionCommandAuthorizer : ICommandAuthorizer<RequestAccountDeletionCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public RequestAccountDeletionCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(RequestAccountDeletionCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>E-07: Silme talebini yalnız sahibi iptal edebilir.</summary>
+public sealed class CancelAccountDeletionCommandAuthorizer : ICommandAuthorizer<CancelAccountDeletionCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public CancelAccountDeletionCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(CancelAccountDeletionCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>E-07: Silme talebini yalnız sahibi görebilir.</summary>
+public sealed class GetAccountDeletionQueryAuthorizer : IQueryAuthorizer<GetAccountDeletionQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public GetAccountDeletionQueryAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(GetAccountDeletionQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}

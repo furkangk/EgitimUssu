@@ -4,6 +4,7 @@ using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Modules.Messaging.Infrastructure;
 
@@ -55,6 +56,9 @@ public static class DependencyInjection
             provider => provider.GetRequiredService<AuthenticatedMessagingAuthorizer>());
         services.AddScoped<IQueryAuthorizer<ListMessagesQuery>>(
             provider => provider.GetRequiredService<AuthenticatedMessagingAuthorizer>());
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, MessagingPersonalDataAnonymizer>();
+
 
         return services;
     }

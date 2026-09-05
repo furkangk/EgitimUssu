@@ -28,6 +28,9 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<UpdateUserSettingsCommand, Result<UserSettingsResponse>>, UpdateUserSettingsCommandHandler>();
         services.AddScoped<ICommandValidator<UpdateUserSettingsCommand>, UpdateUserSettingsCommandValidator>();
         services.AddScoped<ICommandAuthorizer<UpdateUserSettingsCommand>, UpdateUserSettingsCommandAuthorizer>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, SettingsPersonalDataAnonymizer>();
+
 
         return services;
     }

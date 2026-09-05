@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Modules.Payments.Infrastructure;
 
@@ -44,6 +45,8 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedPaymentHandler>();
 
         // M07-1: vadesi geçen ödemeleri saatte bir işaretleyen tarama turu.
+        // E-07: KVKK anonimleştirme (ticari kayıt korunur, serbest metin silinir).
+        services.AddScoped<IPersonalDataAnonymizer, PaymentsPersonalDataAnonymizer>();
         services.AddScoped<IPaymentOverdueScanProcessor, PaymentOverdueScanProcessor>();
         services.AddHostedService<PaymentOverdueScanner>();
 

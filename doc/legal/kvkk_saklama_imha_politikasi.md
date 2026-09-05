@@ -154,18 +154,20 @@ imkânı bırakır. Süre boyunca hesap **kapalıdır** — veri işlenmez, yaln
 
 ---
 
-## 7. Kodda karşılığı — P13 Task 5'e girdi
+## 7. Kodda karşılığı
 
-| Kural | Nerede uygulanacak | Durum |
+> Teknik ayrıntı: [`../architecture/kvkk.md`](../architecture/kvkk.md)
+
+| Kural | Nerede | Durum |
 |-------|--------------------|-------|
-| 30 gün bekleme + iptal | `AccountDeletionService` | 🔴 Yazılacak |
-| Modül başına anonimleştirme | `IPersonalDataAnonymizer` (Identity, Students, Teachers, Parents, Study, Messaging, Assignments, Payments, LessonSessions, Reporting) | 🔴 Yazılacak |
-| Rastgele vekil e-posta (§4) | `AccountDeletionService` | 🔴 Yazılacak |
-| Outbox/inbox 90 gün | Bakım servisi | 🔴 Yazılacak |
-| Geri bildirim 2 yıl | `FeedbackRetentionService` (M18 — henüz yok) | 🔴 Yazılacak |
-| Admin denetim kaydı 5 yıl | Bakım servisi (M18/P12) | 🔴 Yazılacak |
-| Oturum/jeton temizliği 90/30 gün | Bakım servisi | 🔴 Yazılacak |
-| Rapor PDF 1 yıl | Bakım servisi | 🔴 Yazılacak |
+| 30 gün bekleme + iptal | `AccountDeletionRequest` + `AccountDeletionProcessor` | 🟢 **Var** |
+| Modül başına anonimleştirme | `IPersonalDataAnonymizer` — **11 modül** (Identity, Teachers, Students, Parents, Study, Messaging, Notifications, Settings, Assignments, LessonSessions, Payments, Reporting) | 🟢 **Var** |
+| Rastgele vekil e-posta (§4) | `PersonalDataPlaceholder.DeletedEmail(IIdGenerator.New())` | 🟢 **Var** |
+| Outbox/inbox 90 gün | `DataRetentionService` (günde bir, tüm modül şemaları) | 🟢 **Var** |
+| Geri bildirim 2 yıl | `FeedbackRetentionService` | 🔴 **M18 modülü yok** — P12'de |
+| Admin denetim kaydı 5 yıl | Bakım servisi | 🔴 **AdminAuditLog yok** — P12'de (K-08) |
+| Oturum/jeton temizliği 90/30 gün | Bakım servisi | 🟡 **Kısmi** — hesap silmede siliniyor; süre bazlı ayrı tur yok |
+| Rapor PDF 1 yıl | Bakım servisi | 🟡 **Kısmi** — hesap silmede siliniyor; süre bazlı ayrı tur yok |
 | Yedek 30 gün | `scripts/backup-db.sh` (`BACKUP_RETENTION_DAYS`) | 🟢 **Var** |
 | Log/trace saklama | Toplayıcı yapılandırması | 🔴 Toplayıcı seçilmedi |
 
@@ -174,4 +176,4 @@ imkânı bırakır. Süre boyunca hesap **kapalıdır** — veri işlenmez, yaln
 > İlgili: [aydınlatma metni](kvkk_aydinlatma_metni.md) · [açık rıza metinleri](kvkk_acik_riza_metni.md) ·
 > [veri envanteri (iç belge)](kvkk_veri_envanteri.md) · [yedekleme](../architecture/backup_restore.md)
 
-*Saklama ve İmha Politikası | Taslak sürüm 1.0 | Güncelleme: 2026-09-05 (ilk sürüm — Q5'i açmak için; hukuk onayı bekliyor)*
+*Saklama ve İmha Politikası | Taslak sürüm 1.0 | Güncelleme: 2026-09-05 (P13 Task 5 / E-07: §7 kod durumları gerçeğe çekildi — silme akışı, 11 modül anonimleştiricisi ve outbox/inbox temizliği **uygulandı**; Feedback/AdminAuditLog modülleri olmadığı için bekliyor) · 2026-09-05 (ilk sürüm — Q5'i açmak için; hukuk onayı bekliyor)*

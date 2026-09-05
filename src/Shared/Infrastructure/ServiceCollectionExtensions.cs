@@ -22,6 +22,9 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddSharedInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // E-07: Saklama süresi dolan teknik kayıtları (işlenmiş outbox/inbox) temizler.
+        services.AddScoped<Persistence.IDataRetentionProcessor, Persistence.DataRetentionProcessor>();
+        services.AddHostedService<Persistence.DataRetentionService>();
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));

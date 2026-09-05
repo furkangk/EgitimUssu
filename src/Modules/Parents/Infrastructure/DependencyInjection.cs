@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Modules.Parents.Infrastructure;
 
@@ -58,6 +59,9 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, ParentAssignmentProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentPaymentProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentStudentDirectoryProjectionHandler>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, ParentsPersonalDataAnonymizer>();
+
 
         return services;
     }

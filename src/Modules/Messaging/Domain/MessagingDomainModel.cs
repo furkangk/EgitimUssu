@@ -96,6 +96,19 @@ public sealed class Conversation : AggregateRoot<Guid>
 
     public string? LastMessagePreview { get; private set; }
 
+    /// <summary>E-07: Sohbet önizlemesini siler; sohbetin kendisi karşı taraf için kalır.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (LastMessagePreview is null)
+        {
+            return false;
+        }
+
+        LastMessagePreview = null;
+        return true;
+    }
+
     public bool IsBlockedByTeacher { get; private set; }
 
     public bool IsBlockedByCounterpart { get; private set; }
@@ -293,6 +306,28 @@ public sealed class Message : AggregateRoot<Guid>
 
     /// <summary>API'ye giden içerik: mesaj silinmişse <c>null</c>.</summary>
     public string? VisibleBody => IsDeleted ? null : Body;
+
+    /// <summary>
+    /// E-07: Mesaj içeriğini <b>gerçekten</b> siler.
+    /// <para>
+    /// <c>SoftDelete</c>'ten farkı budur: yumuşak silme <c>Body</c>'yi veritabanında bırakır
+    /// (kullanıcı "sildim" der ama veri durur) — silme talebi için bu yeterli değildir.
+    /// </para>
+    /// </summary>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData(DateTime nowUtc)
+    {
+        if (Body.Length == 0 && IsDeleted)
+        {
+            return false;
+        }
+
+        Body = string.Empty;
+        IsDeleted = true;
+        DeletedOnUtc ??= nowUtc;
+        return true;
+    }
 
     /// <summary>
     /// Okundu damgası <b>ilk</b> okumada sabitlenir; sonraki çağrılar bir şey değiştirmez.

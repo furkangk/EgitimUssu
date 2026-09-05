@@ -40,6 +40,17 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetUserByIdQuery>, GetUserByIdQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetCurrentUserQuery>, GetCurrentUserQueryAuthorizer>();
         services.AddScoped<ICommandValidator<AssignRolesCommand>, AssignRolesCommandValidator>();
+        // E-07: KVKK hesap silme
+        services.AddScoped<IAccountDeletionRequestRepository, AccountDeletionRequestRepository>();
+        services.AddScoped<IAccountDeletionProcessor, AccountDeletionProcessor>();
+        services.AddHostedService<AccountDeletionService>();
+        services.AddScoped<ICommandHandler<RequestAccountDeletionCommand, Result<AccountDeletionResponse>>, RequestAccountDeletionCommandHandler>();
+        services.AddScoped<ICommandHandler<CancelAccountDeletionCommand, Result>, CancelAccountDeletionCommandHandler>();
+        services.AddScoped<IQueryHandler<GetAccountDeletionQuery, Result<AccountDeletionResponse>>, GetAccountDeletionQueryHandler>();
+        services.AddScoped<ICommandAuthorizer<RequestAccountDeletionCommand>, RequestAccountDeletionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<CancelAccountDeletionCommand>, CancelAccountDeletionCommandAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetAccountDeletionQuery>, GetAccountDeletionQueryAuthorizer>();
+
         services.AddScoped<ICommandAuthorizer<AssignRolesCommand>, AssignRolesCommandAuthorizer>();
         return services;
     }

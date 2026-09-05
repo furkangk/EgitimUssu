@@ -35,6 +35,9 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<ITeacherAvailabilityDirectory, TeacherAvailabilityDirectory>();
         services.AddScoped<ITeacherDirectory, TeacherDirectory>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, TeachersPersonalDataAnonymizer>();
+
 
         return services;
     }

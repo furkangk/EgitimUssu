@@ -88,6 +88,30 @@ public sealed class LessonSession : AggregateRoot<Guid>
     public string? CancellationReason { get; private set; }
 
     /// <summary>
+    /// E-07: Ders oturumundaki serbest metinleri ve bağlantıları siler.
+    /// Süre, tarih, katılım ve durum <b>korunur</b>: ders kaydı ücretlendirmenin dayanağıdır ve
+    /// yasal saklama süresince kimliksizleşmiş hâlde durmalıdır.
+    /// </summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (TopicTitle == PersonalDataPlaceholder.RemovedContent && CoveredContent is null
+            && TeacherNotes is null && MeetingUrl is null && RecordingUrl is null
+            && CancellationReason is null)
+        {
+            return false;
+        }
+
+        TopicTitle = PersonalDataPlaceholder.RemovedContent;
+        CoveredContent = null;
+        TeacherNotes = null;
+        MeetingUrl = null;
+        RecordingUrl = null;
+        CancellationReason = null;
+        return true;
+    }
+
+    /// <summary>
     /// M05-1: Dersi başlatır — yalnız <see cref="LessonSessionStatus.Planned"/> durumundan
     /// <see cref="LessonSessionStatus.InProgress"/> durumuna geçilebilir.
     /// </summary>

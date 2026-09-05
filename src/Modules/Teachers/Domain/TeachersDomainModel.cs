@@ -85,6 +85,36 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
     /// </summary>
     public string? ProfilePhotoKey { get; private set; }
 
+    /// <summary>
+    /// E-07: Öğretmen profilini kimliksizleştirir ve <b>aramadan çıkarır</b>.
+    /// <para>
+    /// Profil satırı silinmez: ders ve ödeme kayıtları ona referans verir. Ama kişiyi gösteren her
+    /// alan (ad, biyografi, vitrin başlığı, fotoğraf) kaybolur ve profil pasifleşir — silinmiş bir
+    /// öğretmenin arama sonuçlarında görünmesi, silme talebinin en görünür ihlali olurdu.
+    /// </para>
+    /// <para>Fotoğraf <b>dosyasını</b> depolamadan silmek çağıranın işidir; burada yalnız anahtar düşürülür.</para>
+    /// </summary>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData(DateTime nowUtc)
+    {
+        if (FullName == PersonalDataPlaceholder.FullName && !IsActive
+            && Biography is null && Headline is null && ProfilePhotoKey is null)
+        {
+            return false;
+        }
+
+        FullName = PersonalDataPlaceholder.FullName;
+        Biography = null;
+        Headline = null;
+        ProfilePhotoKey = null;
+        City = string.Empty;
+        District = string.Empty;
+        IsActive = false;
+        UpdatedOnUtc = nowUtc;
+        return true;
+    }
+
     public DateTime CreatedOnUtc { get; private set; }
 
     public DateTime UpdatedOnUtc { get; private set; }
@@ -334,6 +364,21 @@ public sealed class TeacherCertificate : Entity<Guid>
     public int? Year { get; private set; }
 
     public string? FileUrl { get; private set; }
+
+    /// <summary>E-07: Sertifika bilgisini siler (dosya anahtarı dahil; dosyayı çağıran siler).</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (Title == PersonalDataPlaceholder.RemovedContent && Institution is null && FileUrl is null)
+        {
+            return false;
+        }
+
+        Title = PersonalDataPlaceholder.RemovedContent;
+        Institution = null;
+        FileUrl = null;
+        return true;
+    }
 }
 
 public enum TeacherLessonFormat
