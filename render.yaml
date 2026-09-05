@@ -47,8 +47,74 @@ services:
       - key: Outbox__PollIntervalSeconds
         value: "15"
 
+  # ---------------------------------------------------------------------------
+  # E-06: Staging — üretimin provasi. Ayri servis, AYRI VERITABANI.
+  # Uretim verisine hicbir bicimde dokunmaz; demo veri yalniz burada tohumlanir.
+  # Detay: doc/architecture/environments.md
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: egitimussu-api-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    port: 8080
+    healthCheckPath: /health/live
+
+    envVars:
+      # Staging, Production DEGILDIR: DemoDataSeedGuard yalnizca bu sayede tohumlamaya izin verir.
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Staging
+
+      # Ayri veritabani — staging'i sifirlamak uretimi etkilemesin.
+      - key: ConnectionStrings__Postgres
+        fromDatabase:
+          name: egitimussu-staging-db
+          property: connectionString
+
+      - key: Redis__Configuration
+        sync: false
+
+      - key: Jwt__Issuer
+        value: EgitimUssu
+      - key: Jwt__Audience
+        value: EgitimUssu.Clients
+      - key: Jwt__ExpiryMinutes
+        value: "60"
+      # Uretimden AYRI anahtar: staging token'i uretimde gecerli olmamali.
+      - key: Jwt__SigningKey
+        generateValue: true
+
+      - key: Database__ApplyMigrationsOnStartup
+        value: "true"
+
+      # Demo veri: idempotent, her acilista yalniz eksikleri tamamlar.
+      - key: Seeding__Enabled
+        value: "true"
+
+      # Gercek e-posta/push GONDERILMEZ — demo hesaplarin adresleri gercek degil, gonderim
+      # denemeleri hem bounce uretir hem sagayici itibarini yakar.
+      - key: Email__Provider
+        value: Logging
+      - key: Email__FromEmail
+        value: no-reply@egitimussu.local
+      - key: Push__Provider
+        value: Logging
+
+      - key: Outbox__DispatchEnabled
+        value: "true"
+      - key: Outbox__BatchSize
+        value: "20"
+      - key: Outbox__PollIntervalSeconds
+        value: "15"
+
 databases:
   - name: egitimussu-db
     plan: free            # 90 gün sonra sona erer; ücretli plana geçebilirsiniz
     databaseName: egitimussu
     user: egitimussu_user
+
+  - name: egitimussu-staging-db
+    plan: free
+    databaseName: egitimussu_staging
+    user: egitimussu_staging_user

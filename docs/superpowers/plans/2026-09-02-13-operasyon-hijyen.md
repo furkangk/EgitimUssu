@@ -152,20 +152,45 @@ git commit -m "feat(api): surum basligi + surumleme politikasi (C-10)"
 **Files:**
 - Create: `scripts/seed-demo-data.sh`
 - Create: `src/API.Host/Seeding/DemoDataSeeder.cs`
-- Modify: `src/API.Host/Program.cs` (yalnız `Seeding:Enabled=true` iken)
-- Modify: `render.yaml` (staging servisi)
+- Modify: `src/API.Host/Program.cs` (koşulsuz çağrı — karar guard'ın; sapma notu #2)
+- Modify: `src/API.Host/appsettings.json` (`Seeding:Enabled` varsayılan `false`) *(plan dışı — sapma notu #6)*
+- Modify: `render.yaml` (staging servisi + staging veritabanı)
 - Create: `doc/architecture/environments.md`
+- Modify: `doc/architecture/backend.md` (§3 "Ortamlar / tohumlama" satırı)
+- Test: `tests/Integration/DemoDataSeederTests.cs` *(plan `tests/Unit` diyordu — sapma notu #1)*
 
 **Interfaces:**
 - `DemoDataSeeder.SeedAsync()` — idempotent: 2 öğretmen, 5 öğrenci, 2 veli, 3 hafta ders geçmişi, ödevler, ödemeler, çalışma seansları. Var olan veriyi **asla** değiştirmez (yalnız yoksa oluşturur).
 - `Seeding:Enabled` prod'da **daima false**; guard bunu zorlar (`ASPNETCORE_ENVIRONMENT=Production` ise `true` olsa bile çalışmaz + `LogWarning`).
 
-- [ ] **Step 1: Testi yaz (kırmızı)** — seeder iki kez çalıştırıldığında kayıt sayısı değişmiyor; Production ortamında hiç çalışmıyor.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~DemoDataSeeder"`
-- [ ] **Step 3: Seeder'ı yaz** (modül command'lerini dispatch ederek — doğrudan DbContext yazımı yok, iş kuralları atlanmasın).
-- [ ] **Step 4: Staging servisini tanımla** — `render.yaml`'a ayrı servis + ayrı DB + `Email__Provider=Logging`, `Push__Provider=Logging`, `Seeding__Enabled=true`.
-- [ ] **Step 5: Ortam dokümanı** — `doc/architecture/environments.md`: development / staging / production farkları, hangi sağlayıcılar açık, kim erişebilir.
-- [ ] **Step 6: Commit**
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **Test `tests/Integration`'a yazıldı, `tests/Unit`'e değil.** Seeder 15 modülün DI'ını, dispatcher'ını ve
+>    DbContext'lerini kullanır; `tests/Unit` `API.Host`'a referanslı bile değil (Öğrenilenler #72) ve olsaydı da bu
+>    bir birim testi olmazdı. **Guard** yine de saf bir fonksiyon olarak ayrıldı (`DemoDataSeedGuard.BlockReason`),
+>    böylece "üretimde asla" kuralı ortam kurmadan, tablo halinde test edilebiliyor.
+> 2. **`Program.cs` bayrağı sınamıyor; kararın tamamı guard'ın.** Plan "yalnız `Seeding:Enabled=true` iken" diyordu;
+>    bayrak iki yerde sınansaydı kural ikiye bölünür ve biri unutulduğunda üretimde demo veri açılabilirdi.
+>    Çağrı koşulsuz, karar tek yerde.
+> 3. **5 öğrencinin 2'si kendi hesabıyla açılıyor.** Plan öğrenci türünü söylemiyordu. Gerekçe iki yönlü:
+>    (a) veli-çocuk bağını **yalnız öğrenci ya da Admin** onaylayabiliyor (veli kendi bağını onaylayamaz) ve demo
+>    sette Admin yok — hesapsız çocuğa bağlanan veli onaysız kalırdı; (b) çalışma seansı öğrencinin kendi kaydıdır,
+>    hesapsız öğrenci için tohumlanamaz. Kalan 3 öğrenci öğretmen-yönetimli: iki akış da temsil ediliyor.
+> 4. **Seeder outbox kuyruğunu elle boşaltıyor.** Parents, bir öğrenciyi ancak olay işlendikten sonra tanıyor ve
+>    tanımadan bağ onayını fail-closed reddediyor (`shared.forbidden` — gerçekten görüldü). Tohumlama tek turda
+>    aktığı için arka plan dispatcher'ının periyodu beklenemez; kuyruk veli adımından önce ve tur sonunda boşaltılır.
+> 5. **Her öğrenciye ayrı ders saati verildi.** İlk yazımda saat öğretmen indeksine göre kayıyordu; aynı öğretmenin
+>    iki öğrencisi aynı saate düşünce Scheduling `scheduling.teacher_conflict` ile **haklı olarak** reddetti.
+> 6. **`appsettings.json`'a `Seeding:Enabled=false` eklendi** — ayar yalnız env değişkeninde yaşasaydı keşfedilemezdi.
+> 7. **Kimliğe bürünme mekanizması:** yetkilendiriciler `ICurrentUser` → `IHttpContextAccessor` üzerinden çalışıyor;
+>    tohumlama HTTP isteği içinde koşmadığı için `SeedSession.ActAs` bağlamı elle kurar. `ClaimsIdentity`'ye
+>    `authenticationType` verilmezse `IsAuthenticated` false kalır ve **her** komut reddedilir.
+
+- [x] **Step 1: Testi yaz (kırmızı)** — seeder iki kez çalıştırıldığında kayıt sayısı değişmiyor; Production ortamında hiç çalışmıyor. Ek olarak tam veri seti gerçek tablolardan doğrulanıyor (özet nesnesinden değil).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Integration/... --filter "FullyQualifiedName~DemoDataSeederTests"` → **CS0234** (`Seeding` ad alanı yok).
+- [x] **Step 3: Seeder'ı yaz** (modül command'lerini dispatch ederek — doğrudan DbContext yazımı yok, iş kuralları atlanmasın).
+- [x] **Step 4: Staging servisini tanımla** — `render.yaml`'a ayrı servis + ayrı DB + `Email__Provider=Logging`, `Push__Provider=Logging`, `Seeding__Enabled=true`.
+- [x] **Step 5: Ortam dokümanı** — `doc/architecture/environments.md`: development / staging / production farkları, hangi sağlayıcılar açık, kim erişebilir.
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/API.Host scripts render.yaml tests doc

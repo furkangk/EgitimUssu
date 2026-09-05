@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using System.Text;
 using EgitimUssu.API.Host;
+using EgitimUssu.API.Host.Seeding;
 using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Configuration;
@@ -190,6 +191,11 @@ if (databaseOptions.ApplyMigrationsOnStartup)
         await app.Services.SeedMembershipPlansAsync();
     }
 }
+
+// E-06: Staging demo verisi. Koşulsuz çağrılır; "koşmalı mı" kararı DemoDataSeedGuard'ındır —
+// bayrak Program.cs'te de sınansaydı kural iki yere dağılır ve biri unutulabilirdi. Üretimde
+// bayrak açık olsa bile çalışmaz.
+await app.Services.SeedDemoDataAsync();
 
 await app.RunAsync();
 
