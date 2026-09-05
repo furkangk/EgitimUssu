@@ -255,11 +255,11 @@ class _SelectionFields extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const AppFieldLabel(text: 'Ogrenci'),
+        const AppFieldLabel(text: 'Öğrenci'),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: selectedStudent,
-          decoration: appInputDecoration('Ogrenci sec'),
+          decoration: appInputDecoration('Öğrenci seç'),
           items: studentOptions
               .map(
                 (student) => DropdownMenuItem<String>(

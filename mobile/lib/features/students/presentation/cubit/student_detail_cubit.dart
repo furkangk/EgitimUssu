@@ -74,7 +74,7 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
         state.copyWith(
           isSaving: false,
           student: saved,
-          successMessage: 'Ogrenci guncellendi.',
+          successMessage: 'Öğrenci güncellendi.',
           clearMessages: true,
         ),
       );

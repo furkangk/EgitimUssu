@@ -30,9 +30,9 @@ void main() {
     );
 
     expect(find.text('Takvim'), findsWidgets);
-    expect(find.text('Aylik'), findsOneWidget);
-    expect(find.text('Haftalik'), findsOneWidget);
-    expect(find.text('Gunluk'), findsOneWidget);
+    expect(find.text('Aylık'), findsOneWidget);
+    expect(find.text('Haftalık'), findsOneWidget);
+    expect(find.text('Günlük'), findsOneWidget);
     // Eski "etkinlik ekle" menu chrome'u yok; tek ekleme girisi "Ders Ekle" FAB.
     expect(find.text('Etkinlik ekle'), findsNothing);
     expect(find.text('Ders Ekle'), findsOneWidget);

@@ -5,6 +5,7 @@ import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/member
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,7 +24,7 @@ class _MorePageState extends State<MorePage> {
     final session = context.select((AuthCubit cubit) => cubit.state.session);
     final fallbackName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Ogretmen';
+        : AppLocalizations.of(context).more_roleTeacherFallback;
     final userId = session?.userId ?? '';
     // D-15: Rozet artık gerçek üyelikten gelir (`GET /api/membership/me`),
     // P05'teki sabit `true` sahtesi kaldırıldı.
@@ -62,16 +63,16 @@ class _MorePageState extends State<MorePage> {
                     children: <Widget>[
                       _MenuTile(
                         icon: Icons.person_outline_rounded,
-                        title: 'Profil Bilgileri',
-                        subtitle: 'Vitrin, brans, biyografi ve musaitlik',
+                        title: AppLocalizations.of(context).more_profileTitle,
+                        subtitle: AppLocalizations.of(context).more_profileSubtitle,
                         color: AppColors.accentBlue,
                         onTap: () => context.push('/teacher-profile'),
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.manage_accounts_outlined,
-                        title: 'Hesap bilgileri',
-                        subtitle: 'E-posta, rol ve oturum bilgileri',
+                        title: AppLocalizations.of(context).more_accountTitle,
+                        subtitle: AppLocalizations.of(context).more_accountSubtitle,
                         color: AppColors.accentGreen,
                         onTap: () => context.push('/account-info'),
                       ),
@@ -80,8 +81,8 @@ class _MorePageState extends State<MorePage> {
                       // gercek gelen kutusuna gidiyor.
                       _MenuTile(
                         icon: Icons.chat_bubble_outline_rounded,
-                        title: 'Mesajlar',
-                        subtitle: 'Ogrenci ve velilerle sohbet',
+                        title: AppLocalizations.of(context).more_messagesTitle,
+                        subtitle: AppLocalizations.of(context).more_messagesSubtitle,
                         color: AppColors.accentTeal,
                         onTap: () => context.push('/messages'),
                       ),
@@ -91,10 +92,10 @@ class _MorePageState extends State<MorePage> {
                       // uyelik ekranina gidiyor.
                       _MenuTile(
                         icon: Icons.workspace_premium_outlined,
-                        title: 'Uyelik',
+                        title: AppLocalizations.of(context).more_membershipTitle,
                         subtitle: isPremium
-                            ? 'Premium plan, donem sonu ve referans kodu'
-                            : 'Plani gor, ucretsiz dene ve referans kodunu kullan',
+                            ? AppLocalizations.of(context).more_membershipSubtitlePremium
+                            : AppLocalizations.of(context).more_membershipSubtitleFree,
                         color: AppColors.amber,
                         onTap: () => context.push('/membership'),
                       ),
@@ -103,8 +104,8 @@ class _MorePageState extends State<MorePage> {
                       // satir artik aktif ve projeksiyondan beslenen ekrana gidiyor.
                       _MenuTile(
                         icon: Icons.bar_chart_rounded,
-                        title: 'Raporlar',
-                        subtitle: 'Aylik ders/tahsilat ozeti ve bos zamanlar',
+                        title: AppLocalizations.of(context).more_reportsTitle,
+                        subtitle: AppLocalizations.of(context).more_reportsSubtitle,
                         color: AppColors.amber,
                         onTap: () => context.push('/teacher/reports'),
                       ),
@@ -117,17 +118,17 @@ class _MorePageState extends State<MorePage> {
                       // gizlilik/guvenlik ekranina gidiyor (M15-3/M15-4).
                       _MenuTile(
                         icon: Icons.shield_outlined,
-                        title: 'Gizlilik ve guvenlik',
+                        title: AppLocalizations.of(context).more_privacyTitle,
                         subtitle:
-                            'Calisma verisi paylasimi ve oturum politikasi',
+                            AppLocalizations.of(context).more_privacySubtitle,
                         color: AppColors.accentBlue,
                         onTap: () => context.push('/settings/privacy'),
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.notifications_active_outlined,
-                        title: 'Bildirim ayarlari',
-                        subtitle: 'Ders, odev, odeme ve haftalik ozet',
+                        title: AppLocalizations.of(context).more_notificationSettingsTitle,
+                        subtitle: AppLocalizations.of(context).more_notificationSettingsSubtitle,
                         color: AppColors.accentRed,
                         onTap: () => context.push('/settings/notifications'),
                       ),
@@ -135,8 +136,8 @@ class _MorePageState extends State<MorePage> {
                       // Gercek karsiligi ogretmen profilidir (ders bicimi + musaitlik).
                       _MenuTile(
                         icon: Icons.work_outline_rounded,
-                        title: 'Calisma ayarlari',
-                        subtitle: 'Ders bicimi ve musaitlik (profil)',
+                        title: AppLocalizations.of(context).more_studySettingsTitle,
+                        subtitle: AppLocalizations.of(context).more_studySettingsSubtitle,
                         color: AppColors.accentGreen,
                         onTap: () => context.push('/teacher-profile'),
                       ),
@@ -144,8 +145,8 @@ class _MorePageState extends State<MorePage> {
                       // Gercek karsiligi M04 tatil uclaridir; takvimdeki tatil yonetimi.
                       _MenuTile(
                         icon: Icons.event_busy_outlined,
-                        title: 'Tatil ayarlari',
-                        subtitle: 'Kapali gunler ve tatil takvimi',
+                        title: AppLocalizations.of(context).more_holidayTitle,
+                        subtitle: AppLocalizations.of(context).more_holidaySubtitle,
                         color: AppColors.amber,
                         onTap: () => context.push('/scheduling'),
                       ),
@@ -156,32 +157,32 @@ class _MorePageState extends State<MorePage> {
                     children: <Widget>[
                       _MenuTile(
                         icon: Icons.help_outline_rounded,
-                        title: 'Yardim (SSS)',
-                        subtitle: 'Sik sorulan sorular',
+                        title: AppLocalizations.of(context).more_helpTitle,
+                        subtitle: AppLocalizations.of(context).more_helpSubtitle,
                         color: AppColors.accentBlue,
                         onTap: _showHelpSheet,
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.support_agent_rounded,
-                        title: 'Bize ulasin',
-                        subtitle: 'Hata, talep veya gelistirme fikri',
+                        title: AppLocalizations.of(context).more_contactTitle,
+                        subtitle: AppLocalizations.of(context).more_contactSubtitle,
                         color: AppColors.accentGreen,
                         onTap: _showContactSheet,
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.info_outline_rounded,
-                        title: 'Hakkimizda',
-                        subtitle: 'EgitimUssu ve uygulama bilgileri',
+                        title: AppLocalizations.of(context).more_aboutTitle,
+                        subtitle: AppLocalizations.of(context).more_aboutSubtitle,
                         color: AppColors.textSecondary,
                         onTap: _showAboutSheet,
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.logout_rounded,
-                        title: 'Cikis yap',
-                        subtitle: 'Oturumu kapat ve giris ekranina don',
+                        title: AppLocalizations.of(context).more_logoutTitle,
+                        subtitle: AppLocalizations.of(context).more_logoutSubtitle,
                         color: AppColors.accentRed,
                         titleColor: AppColors.accentRed,
                         onTap: _confirmLogout,
@@ -199,24 +200,24 @@ class _MorePageState extends State<MorePage> {
 
   void _showHelpSheet() {
     _showInfoSheet(
-      title: 'Yardim',
+      title: AppLocalizations.of(context).more_helpSheetTitle,
       children: <Widget>[
         _FaqTile(
-          title: 'Bildirimler ne zaman gider?',
+          title: AppLocalizations.of(context).more_faqNotificationsQuestion,
           body:
-              'Ders ve odeme hatirlatmalari aktifse ilgili saatlerden once hazir bildirim olusturulur.',
+              AppLocalizations.of(context).more_faqNotificationsAnswer,
         ),
         _DividerLine(),
         _FaqTile(
-          title: 'Tatil gunleri takvimi etkiler mi?',
+          title: AppLocalizations.of(context).more_faqHolidayQuestion,
           body:
-              'Tatil gunlerini kapat secenegi acikken yeni ders slotlari varsayilan olarak kapali gelir.',
+              AppLocalizations.of(context).more_faqHolidayAnswer,
         ),
         _DividerLine(),
         _FaqTile(
-          title: 'Profil bilgilerim nerede gorunur?',
+          title: AppLocalizations.of(context).more_faqProfileQuestion,
           body:
-              'Profil bilgileri ogrenci ve veli tarafinda ogretmen vitrinini olusturur.',
+              AppLocalizations.of(context).more_faqProfileAnswer,
         ),
       ],
     );
@@ -250,9 +251,9 @@ class _MorePageState extends State<MorePage> {
                 controller: controller,
                 minLines: 4,
                 maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Mesajiniz',
-                  hintText: 'Bir hata, istek veya gelistirme fikri yazin.',
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).more_contactMessageLabel,
+                  hintText: AppLocalizations.of(context).more_contactMessageHint,
                 ),
               ),
               const SizedBox(height: 16),
@@ -262,11 +263,11 @@ class _MorePageState extends State<MorePage> {
                   onPressed: () {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mesajiniz alindi.')),
+                      SnackBar(content: Text(AppLocalizations.of(context).more_contactSent)),
                     );
                   },
                   icon: const Icon(Icons.send_rounded),
-                  label: const Text('Gonder'),
+                  label: Text(AppLocalizations.of(context).more_contactSend),
                 ),
               ),
             ],
@@ -278,10 +279,10 @@ class _MorePageState extends State<MorePage> {
 
   void _showAboutSheet() {
     _showInfoSheet(
-      title: 'Hakkimizda',
-      children: const <Widget>[
+      title: AppLocalizations.of(context).more_aboutTitle,
+      children: <Widget>[
         Text(
-          'EgitimUssu; ogretmenlerin ders planlama, ogrenci takibi, odev, tahsilat ve veli bilgilendirme sureclerini tek mobil deneyimde yonetmesi icin tasarlanir.',
+          AppLocalizations.of(context).more_aboutBody,
         ),
       ],
     );
@@ -302,10 +303,10 @@ class _MorePageState extends State<MorePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const _SheetTitle(title: 'Cikis yap'),
+              const _SheetTitle(title: 'Çıkış yap'),
               const SizedBox(height: 10),
               Text(
-                'Hesabinizdan cikis yapmak istiyor musunuz?',
+                AppLocalizations.of(context).more_logoutConfirm,
                 style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -316,7 +317,7 @@ class _MorePageState extends State<MorePage> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(sheetContext).pop(),
-                      child: const Text('Vazgec'),
+                      child: Text(AppLocalizations.of(context).common_cancel),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -329,7 +330,7 @@ class _MorePageState extends State<MorePage> {
                         Navigator.of(sheetContext).pop();
                         context.read<AuthCubit>().logout();
                       },
-                      child: const Text('Cikis yap'),
+                      child: const Text('Çıkış yap'),
                     ),
                   ),
                 ],
@@ -376,7 +377,7 @@ class _TopBar extends StatelessWidget {
     return Row(
       children: <Widget>[
         Text(
-          'Diger',
+          AppLocalizations.of(context).more_navLabel,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w800,
@@ -469,7 +470,7 @@ class _PlusBadge extends StatelessWidget {
           ),
           const SizedBox(width: 7),
           Text(
-            'Plus uye',
+            AppLocalizations.of(context).more_plusBadge,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -565,7 +566,7 @@ class _RatingLine extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          '($reviewCount degerlendirme)',
+          AppLocalizations.of(context).more_ratingCount(reviewCount),
           style: Theme.of(
             context,
           ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),

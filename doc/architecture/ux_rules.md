@@ -3,7 +3,7 @@ title: "UX Kuralları"
 summary: "Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları; rol bazlı öncelikler"
 tags: [mimari, ux, navigasyon]
 authority: derived
-updated: 2026-06-27
+updated: 2026-09-05
 ---
 
 # 📐 UX Kuralları — EğitimÜssü
@@ -121,4 +121,23 @@ Scaffold(
 
 ---
 
-*UX Kuralları | Güncelleme: 2026-06-27*
+## 8. Metin Dili ve Yazım (D-19 / D-20)
+
+Kullanıcıya görünen her metin **eksiksiz Türkçe** yazılır. Bu bir tercih değil, marka kuralıdır:
+Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün özensiz görünmesine yol açar.
+
+| Kural | Nasıl |
+|-------|-------|
+| **Türkçe karakterler eksiksiz** | `ç ğ ı İ ö ş ü` — kısaltma yok. `Çıkış`, `Ödeme`, `Öğrenci`, `Ayarları` |
+| **Uygulama adı** | Görünen metin **EğitimÜssü**. `EgitimUssu` yalnız dosya/klasör/kod tanımlayıcısıdır (kök `CLAUDE.md`) |
+| **Metinler ARB'de** | `AppLocalizations.of(context).<ekran>_<eleman>` — bkz. [`mobile_flutter.md` §10.1](mobile_flutter.md) |
+| **Hizmet ≠ pazarlama dili** | Ders hatırlatması bilgilendirir, kampanya duyurusu izin ister; ikisi aynı tonu paylaşmaz |
+
+> **Bu kural otomatik denetlenir.** `mobile/test/l10n/localization_test.dart` hem ARB değerlerini hem
+> **tüm `lib/**` kaynak dosyalarını** tarar; bozuk yazım bulursa test kırılır. Yani düzeltilen bir metin
+> geri gelemez. Kontrol listesi kesin hataları içerir ("Devam", "Kaydet" gibi zaten doğru yazımlar hariç)
+> ve kelime **başı** sınırıyla eşleşir — "rozet" içindeki "ozet" yanlış alarm üretmez.
+
+---
+
+*UX Kuralları | Güncelleme: 2026-09-05 (P13 Task 6 / D-19+D-20: §8 metin dili ve yazım kuralı — eksiksiz Türkçe, ARB'den metin, otomatik denetim) · 2026-06-27*

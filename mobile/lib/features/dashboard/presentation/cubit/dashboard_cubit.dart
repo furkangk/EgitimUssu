@@ -183,7 +183,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     return upcoming.take(6).map((lesson) {
       final start = lesson.startAtUtc.toLocal();
       final end = lesson.endAtUtc.toLocal();
-      final studentName = namesById[lesson.studentId] ?? 'Ogrenci';
+      final studentName = namesById[lesson.studentId] ?? 'Öğrenci';
       final isOnline = lesson.lessonFormat.toLowerCase().contains('online');
       return DashboardUpcomingLesson(
         title: lesson.subject,
@@ -216,7 +216,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         continue;
       }
 
-      final studentName = namesById[lesson.studentId] ?? 'Ogrenci';
+      final studentName = namesById[lesson.studentId] ?? 'Öğrenci';
       activities.add(
         _TimedActivity(
           time: lessonTime,
@@ -236,15 +236,15 @@ class DashboardCubit extends Cubit<DashboardState> {
       if (paymentTime == null) {
         continue;
       }
-      final studentName = namesById[payment.studentId] ?? 'Ogrenci';
+      final studentName = namesById[payment.studentId] ?? 'Öğrenci';
       activities.add(
         _TimedActivity(
           time: paymentTime,
           activity: DashboardActivity(
             studentName: studentName,
             description: payment.collectedAmount > 0
-                ? 'Odeme alindi'
-                : 'Odeme eklendi',
+                ? 'Ödeme alındı'
+                : 'Ödeme eklendi',
             timeLabel: _relativeTimeLabel(paymentTime, now),
             accent: payment.collectedAmount > 0
                 ? AppColors.accentGreen
@@ -269,8 +269,8 @@ class DashboardCubit extends Cubit<DashboardState> {
       final student = students[index];
       return DashboardActivity(
         studentName: student.fullName,
-        description: 'Odev teslim edildi',
-        timeLabel: index == 0 ? 'Bugun 10:30' : 'Dun 18:40',
+        description: 'Ödev teslim edildi',
+        timeLabel: index == 0 ? 'Bugün 10:30' : 'Dun 18:40',
         accent: index.isEven ? AppColors.accentGreen : AppColors.accentBlue,
       );
     });
@@ -295,7 +295,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     final today = _dateOnly(now);
     final yesterday = today.subtract(const Duration(days: 1));
     final prefix = _sameDate(date, today)
-        ? 'Bugun'
+        ? 'Bugün'
         : _sameDate(date, yesterday)
         ? 'Dun'
         : '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}';

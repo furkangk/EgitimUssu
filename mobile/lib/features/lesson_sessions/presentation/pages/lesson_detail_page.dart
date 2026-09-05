@@ -69,7 +69,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       sourceFilePath: null,
     ),
     const _NoteFileItem(
-      title: 'Fonksiyonlar Ozet Notu.pdf',
+      title: 'Fonksiyonlar Özet Notu.pdf',
       meta: '860 KB  18 Mayis',
       accent: AppColors.accentGreen,
       noteText:
@@ -78,7 +78,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     ),
   ];
 
-  static const _tabs = <String>['Ders notu', 'Odevler', 'Kaynaklar', 'Odeme'];
+  static const _tabs = <String>['Ders notu', 'Ödevler', 'Kaynaklar', 'Ödeme'];
 
   LessonDetailPayload? _editedPayload;
   SchedulingCubit? _schedulingCubit;
@@ -162,7 +162,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.edit_calendar_rounded,
-                      label: 'Dersi Duzenle',
+                      label: 'Dersi Düzenle',
                       onTap: _showEditLessonSheet,
                     ),
                   ),
@@ -178,7 +178,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.post_add_rounded,
-                      label: 'Odev Ekle',
+                      label: 'Ödev Ekle',
                       onTap: () => context.push(
                         '/assignments/demo-lesson-session',
                         extra: AssignmentFormContext(
@@ -256,7 +256,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         child: OutlinedButton.icon(
                           onPressed: _sessionBusy ? null : _cancelSession,
                           icon: const Icon(Icons.cancel_outlined, size: 18),
-                          label: const Text('Dersi Iptal Et'),
+                          label: const Text('Dersi İptal Et'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.accentRed,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -389,8 +389,8 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(
-            labelText: 'Iptal nedeni (istege bagli)',
-            hintText: 'Ornek: Ogrenci hastalandi',
+            labelText: 'İptal nedeni (isteğe bağlı)',
+            hintText: 'Örnek: Öğrenci hastalandı',
           ),
         ),
         actions: <Widget>[
@@ -518,14 +518,14 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           padding: const EdgeInsets.only(bottom: 24),
           children: const <Widget>[
             _PaymentCard(
-              title: 'Mayis Dersi Odeme Kaydi',
+              title: 'Mayıs Dersi Ödeme Kaydı',
               subtitle: '2 Saat  20 Mayis 2025',
               amountLabel: '2.000 TL',
               statusLabel: 'Odendi',
             ),
             SizedBox(height: 12),
             _PaymentCard(
-              title: 'Ek Etut Odeme Kaydi',
+              title: 'Ek Etüt Ödeme Kaydı',
               subtitle: '1 Saat  23 Mayis 2025',
               amountLabel: '1.000 TL',
               statusLabel: 'Beklemede',
@@ -610,7 +610,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Dosya secimi',
+                          'Dosya seçimi',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 color: AppColors.textPrimary,
@@ -911,7 +911,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                'Dersi Duzenle',
+                                'Dersi Düzenle',
                                 style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(
                                       color: AppColors.textPrimary,

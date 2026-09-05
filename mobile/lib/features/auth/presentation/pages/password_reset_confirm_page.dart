@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/password_reset_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/widgets/auth_field_decoration.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -70,7 +71,7 @@ class _PasswordResetConfirmPageState extends State<PasswordResetConfirmPage> {
           backgroundColor: AppColors.background,
           elevation: 0,
           foregroundColor: AppColors.textPrimary,
-          title: const Text('Yeni şifre belirle'),
+          title: Text(AppLocalizations.of(context).auth_resetConfirmTitle),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => context.go('/login'),
@@ -86,9 +87,9 @@ class _PasswordResetConfirmPageState extends State<PasswordResetConfirmPage> {
                   listener: (context, state) {
                     if (state.status == PasswordResetStatus.done) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text(
-                            'Şifren güncellendi, giriş yapabilirsin.',
+                            AppLocalizations.of(context).auth_resetConfirmSuccess,
                           ),
                         ),
                       );
@@ -119,53 +120,52 @@ class _PasswordResetConfirmPageState extends State<PasswordResetConfirmPage> {
                               const SizedBox(height: 14),
                             ],
                             Text(
-                              'E-postana gönderdiğimiz sıfırlama kodunu ve yeni '
-                              'şifreni gir.',
+                              AppLocalizations.of(context).auth_resetConfirmIntro,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: AppColors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: 18),
-                            _label(theme, 'E-posta adresin'),
+                            _label(theme, AppLocalizations.of(context).auth_emailAddress),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               decoration: authFieldDecoration(
-                                hintText: 'ornek@mail.com',
+                                hintText: AppLocalizations.of(context).common_emailHint,
                                 icon: Icons.mail_outline_rounded,
                               ),
                               validator: (value) {
                                 if (value == null || !value.contains('@')) {
-                                  return 'Geçerli bir e-posta gir.';
+                                  return AppLocalizations.of(context).common_invalidEmail;
                                 }
                                 return null;
                               },
                             ),
                             const SizedBox(height: 14),
-                            _label(theme, 'Sıfırlama kodu'),
+                            _label(theme, AppLocalizations.of(context).auth_resetCode),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _tokenController,
                               decoration: authFieldDecoration(
-                                hintText: 'E-postadaki kod',
+                                hintText: AppLocalizations.of(context).auth_codeFromEmail,
                                 icon: Icons.key_outlined,
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Sıfırlama kodunu gir.';
+                                  return AppLocalizations.of(context).auth_resetCodeRequired;
                                 }
                                 return null;
                               },
                             ),
                             const SizedBox(height: 14),
-                            _label(theme, 'Yeni şifre'),
+                            _label(theme, AppLocalizations.of(context).auth_newPassword),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
                               decoration: authFieldDecoration(
-                                hintText: '••••••••',
+                                hintText: AppLocalizations.of(context).common_passwordHint,
                                 icon: Icons.lock_outline_rounded,
                                 suffixIcon: IconButton(
                                   onPressed: () => setState(
@@ -181,24 +181,24 @@ class _PasswordResetConfirmPageState extends State<PasswordResetConfirmPage> {
                               ),
                               validator: (value) {
                                 if (value == null || value.length < 8) {
-                                  return 'Şifre en az 8 karakter olmalı.';
+                                  return AppLocalizations.of(context).common_passwordTooShort;
                                 }
                                 return null;
                               },
                             ),
                             const SizedBox(height: 14),
-                            _label(theme, 'Yeni şifre (tekrar)'),
+                            _label(theme, AppLocalizations.of(context).auth_newPasswordRepeat),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _passwordAgainController,
                               obscureText: _obscurePassword,
                               decoration: authFieldDecoration(
-                                hintText: '••••••••',
+                                hintText: AppLocalizations.of(context).common_passwordHint,
                                 icon: Icons.lock_outline_rounded,
                               ),
                               validator: (value) {
                                 if (value != _passwordController.text) {
-                                  return 'Şifreler eşleşmiyor.';
+                                  return AppLocalizations.of(context).auth_passwordsDoNotMatch;
                                 }
                                 return null;
                               },
@@ -210,8 +210,8 @@ class _PasswordResetConfirmPageState extends State<PasswordResetConfirmPage> {
                                 onPressed: isBusy ? null : _submit,
                                 child: Text(
                                   isBusy
-                                      ? 'Güncelleniyor...'
-                                      : 'Şifremi güncelle',
+                                      ? AppLocalizations.of(context).auth_updating
+                                      : AppLocalizations.of(context).auth_updatePassword,
                                 ),
                               ),
                             ),

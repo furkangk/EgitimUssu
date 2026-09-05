@@ -76,7 +76,7 @@ class DashboardState extends Equatable {
       outstandingCurrency: 'TRY',
       upcomingLessons: <DashboardUpcomingLesson>[
         DashboardUpcomingLesson(
-          title: 'Matematik - 9. Sinif',
+          title: 'Matematik - 9. Sınıf',
           studentName: 'Zeynep Demir',
           timeRange: '15:30 - 16:30',
           modeLabel: 'Online',
@@ -86,7 +86,7 @@ class DashboardState extends Equatable {
           ),
         ),
         DashboardUpcomingLesson(
-          title: 'Fizik - 11. Sinif',
+          title: 'Fizik - 11. Sınıf',
           studentName: 'Ali Yilmaz',
           timeRange: '17:00 - 18:30',
           modeLabel: 'Yuz yuze',
@@ -97,14 +97,14 @@ class DashboardState extends Equatable {
       recentActivities: const <DashboardActivity>[
         DashboardActivity(
           studentName: 'Ali Yilmaz',
-          description: 'Odev teslim edildi',
-          timeLabel: 'Bugun 10:30',
+          description: 'Ödev teslim edildi',
+          timeLabel: 'Bugün 10:30',
           accent: AppColors.accentGreen,
         ),
         DashboardActivity(
           studentName: 'Zeynep Demir',
-          description: 'Odeme eklendi',
-          timeLabel: 'Bugun 09:10',
+          description: 'Ödeme eklendi',
+          timeLabel: 'Bugün 09:10',
           accent: AppColors.amber,
         ),
         DashboardActivity(
@@ -131,7 +131,7 @@ class DashboardState extends Equatable {
           startAtUtc: today.add(const Duration(hours: 18)),
           endAtUtc: today.add(const Duration(hours: 19, minutes: 30)),
           status: 'Completed',
-          locationLabel: 'Calisma odasi',
+          locationLabel: 'Çalışma odası',
         ),
       ],
       pendingAssignments: const <DashboardPendingAssignment>[

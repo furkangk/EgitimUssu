@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -238,41 +238,87 @@ Detay: [`../roles/`](../roles/00_roller_genel_bakis.md).
 
 ## 10. Paketler
 
+**Kaynak: `mobile/pubspec.yaml`** (aşağıdaki liste 2026-09-05'te ona karşı doğrulandı).
+
 ```yaml
 dependencies:
-  # NOT (P10 Task 4 / D-18): `flutter_chat_ui` KALDIRILDI — sohbet balonları
-  # tasarım sistemi token'larıyla yazıldı; kullanılmayan ağır bağımlılık bırakmak
-  # D-18'in ta kendisiydi.
-  flutter_bloc: ^8        # state (Cubit)  ← kanonik
-  go_router: ^14          # routing
-  dio: ^5                 # ağ
-  get_it: ^7              # DI
-  flutter_secure_storage  # token
-  shared_preferences      # local cache
+  flutter_localizations    # l10n (§10.1)
+  intl                     # tarih/sayı biçimlendirme + ARB araç zinciri
+  flutter_bloc             # state (Cubit) ← kanonik
+  go_router                # routing
+  dio                      # ağ
+  get_it                   # DI
+  equatable                # değer eşitliği
+  flutter_secure_storage   # token
+  shared_preferences       # yerel önbellek
   syncfusion_flutter_calendar + syncfusion_localizations  # takvim
-  google_fonts            # Inter
-  fl_chart                # grafik (donut/line) — öğrenci/veli ekranları
-  table_calendar          # (alternatif takvim)
-  percent_indicator       # circular progress
-  intl                    # tarih/locale
-  file_picker             # dosya ekleme (ders notu)
-  cached_network_image    # avatar/görsel
-  firebase_core           # Firebase başlatma (push — A-04, 2026-09-03)
-  firebase_messaging      # FCM push (A-04)
-  flutter_local_notifications  # ön planda yerel bildirim
-  flutter_animate         # mikro animasyon
-  url_launcher            # dış bağlantı / toplantı linki
-  open_filex              # indirilen dosyayı cihazın sistem görüntüleyicisinde açma (P08 / M14-4)
+  shimmer                  # iskelet yükleme
+  fl_chart                 # grafik (donut/line) — öğrenci/veli ekranları
+  firebase_core            # Firebase başlatma (push — A-04)
+  firebase_messaging       # FCM push (A-04)
+  file_picker              # dosya ekleme (ders notu)
+  image_picker             # profil fotoğrafı
+  url_launcher             # dış bağlantı / toplantı linki
+  open_filex               # indirilen dosyayı sistem görüntüleyicisinde açma (M14-4)
+
+dev_dependencies:
+  flutter_test · flutter_lints
 ```
 
-> **`open_filex` neden eklendi (2026-09-04, P08 Task 5):** PDF gelişim raporu yetkili uçtan **bayt olarak**
-> indiriliyor (public URL yok), geçici dizine yazılıyor ve kullanıcıya açılması gerekiyor. `url_launcher`
-> bir `file://` adresini Android/iOS'ta güvenilir biçimde açamaz (Android `content://` + FileProvider
-> bekler); `open_filex` platform başına doğru mekanizmayı kullanır. Kullanım tek noktada:
-> `features/reporting/data/services/device_report_file_opener.dart` — `ReportFileOpener` arayüzünün
-> arkasında, böylece cubit dosya sistemine dokunmadan test edilebiliyor.
+### Kaldırılan paketler (D-18)
 
-> Sürümleri `mobile/pubspec.yaml` belirler (burada anlamsal/yön gösterici). `pubspec.lock` `main`'e commit edilmez (bkz. `CLAUDE.md`).
+| Paket | Ne zaman | Neden |
+|-------|----------|-------|
+| `flutter_chat_ui` | P10 Task 4 | Kendi teması/girdi alanı/model tipleriyle geliyordu; sohbet balonları tasarım sistemi token'larıyla yazıldı |
+| `flutter_local_notifications` | **P13 Task 6** | ⚠️ Plan "kullanılıyor" diyordu — **kullanılmıyordu**. Push tamamen `firebase_messaging` üzerinden çalışıyor; `lib/` ve `test/` altında tek bir import'u yoktu |
+| `cupertino_icons` | P13 Task 6 | `CupertinoIcons` hiç kullanılmıyor |
+| `flutter_screenutil`, `flutter_svg`, `cached_network_image`, `lottie`, `modal_bottom_sheet` | P13 Task 6 | Hiçbir dosyada import edilmiyordu |
+| `freezed`, `freezed_annotation`, `json_serializable`, `build_runner` | P13 Task 6 | Kod üretimi hiç kullanılmamış — repoda tek bir `*.freezed.dart` / `*.g.dart` yok |
+
+> **Ölçüt:** bir paket, `lib/` veya `test/` altında `package:<ad>/` biçiminde import edilmiyorsa
+> kullanılmıyordur. İstisnalar bilinçlidir: `flutter_lints` `analysis_options.yaml`'dan,
+> `flutter_localizations` `l10n.yaml` araç zincirinden gelir.
+
+---
+
+## 10.1 Yerelleştirme (l10n) — D-19 / K-12
+
+Kullanıcıya görünen metinler **ARB dosyalarında** yaşar; varsayılan dil **Türkçe**, `en` iskelet olarak korunur.
+
+| Dosya | Rol |
+|-------|-----|
+| `mobile/l10n.yaml` | Araç yapılandırması (`arb-dir: lib/l10n`, şablon `app_tr.arb`, `nullable-getter: false`) |
+| `mobile/lib/l10n/app_tr.arb` | **Şablon** — anahtar kümesinin kaynağı |
+| `mobile/lib/l10n/app_en.arb` | İngilizce karşılıklar (anahtar kümesi tr ile **birebir aynı** olmalı) |
+| `mobile/lib/l10n/app_localizations*.dart` | **Üretilir** — `flutter pub get` (pubspec `generate: true`) yazar, `.gitignore`'dadır |
+
+**Kullanım:** `AppLocalizations.of(context).<anahtar>`
+**Anahtar adı:** `<ekran>_<eleman>` — `more_logoutTitle`, `auth_signIn`, `common_cancel`.
+
+```dart
+// Widget testlerinde delegate ve yerel ayar açıkça verilmelidir; yoksa
+// AppLocalizations.of(context) null döner ya da İngilizce değer render edilir.
+MaterialApp(
+  locale: const Locale('tr', 'TR'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: ...,
+)
+```
+
+### Taşıma durumu
+
+| Alan | Durum |
+|------|-------|
+| Altyapı + `app.dart` delegate | 🟢 Tamam |
+| `features/auth` (7 ekran) · `features/more` (`more_page`) | 🟢 ARB'de |
+| Kalan ~50 ekran | 🟡 **Sürüyor** — P13 Task 6b, feature feature |
+
+> **Metinlerin Türkçe karakter doğruluğu ekrandan bağımsız olarak sağlanmıştır** (D-20): taşınmamış
+> ekranlarda da metin doğru yazılır ve `test/l10n/localization_test.dart` bunu **tüm `lib/**`** için
+> her koşumda denetler. Yani ARB'ye taşıma teknik borç kapatır, marka kalitesi zaten kapalıdır.
+
+---
 
 ---
 
@@ -556,4 +602,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

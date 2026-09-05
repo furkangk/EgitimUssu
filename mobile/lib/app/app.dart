@@ -9,6 +9,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.d
 import 'package:egitim_ussu_mobile/features/membership/domain/membership_contracts.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/membership_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -113,7 +114,8 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
           }
         },
         child: MaterialApp.router(
-          title: 'EgitimUssu',
+          // D-19: Başlık da ARB'den gelir — görünen ad her zaman "EğitimÜssü".
+          onGenerateTitle: (context) => AppLocalizations.of(context).app_title,
           debugShowCheckedModeBanner: false,
           locale: const Locale('tr', 'TR'),
           supportedLocales: const <Locale>[
@@ -125,6 +127,7 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
             SfGlobalLocalizations.delegate,
+            AppLocalizations.delegate,
           ],
           theme: AppTheme.lightTheme,
           routerConfig: _appRouter.router,

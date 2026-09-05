@@ -20,7 +20,7 @@ class PrivacySettingsPage extends StatelessWidget {
 
     if (userId == null) {
       return const SettingsScaffold(
-        title: 'Gizlilik ve guvenlik',
+        title: 'Gizlilik ve güvenlik',
         child: EmptyStateView(
           title: 'Oturum bulunamadi',
           subtitle: 'Ayarlarini gormek icin giris yapmalisin.',
@@ -41,18 +41,18 @@ class _PrivacySettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
-      title: 'Gizlilik ve guvenlik',
+      title: 'Gizlilik ve güvenlik',
       child: BlocConsumer<SettingsCubit, SettingsState>(
         listener: settingsErrorListener,
         builder: (context, state) {
           if (state.isLoading) {
-            return const LoadingStateView(message: 'Ayarlar yukleniyor...');
+            return const LoadingStateView(message: 'Ayarlar yükleniyor...');
           }
 
           final settings = state.settings;
           if (settings == null) {
             return ErrorStateView(
-              message: state.errorMessage ?? 'Ayarlar yuklenemedi.',
+              message: state.errorMessage ?? 'Ayarlar yüklenemedi.',
               onRetry: context.read<SettingsCubit>().refresh,
             );
           }
@@ -62,7 +62,7 @@ class _PrivacySettingsView extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: <Widget>[
-              const SettingsSectionTitle('Calisma verisi gizliligi'),
+              const SettingsSectionTitle('Çalışma verisi gizliliği'),
               SettingsPanel(
                 children: <Widget>[
                   for (final level in PrivacyLevel.values) ...<Widget>[
@@ -80,8 +80,8 @@ class _PrivacySettingsView extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               const SettingsHint(
-                'Ogretmen ve onayli veli yalnizca burada izin verdigin kadarini gorur. '
-                'Ders, odev ve odeme bilgileri bu ayardan etkilenmez.',
+                'Öğretmen ve onaylı veli yalnızca burada izin verdiğin kadarını görür. '
+                'Ders, ödev ve ödeme bilgileri bu ayardan etkilenmez.',
               ),
               const SizedBox(height: 18),
               const SettingsSectionTitle('Oturum guvenligi'),

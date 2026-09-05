@@ -24,7 +24,7 @@ class LessonSessionsPage extends StatefulWidget {
 }
 
 class _LessonSessionsPageState extends State<LessonSessionsPage> {
-  static const _tabs = <String>['Yaklasan', 'Gecmis', 'Iptal Edilen'];
+  static const _tabs = <String>['Yaklasan', 'Geçmiş', 'İptal Edilen'];
 
   int _selectedTab = 0;
   bool _didOpenInitialCreate = false;
@@ -35,7 +35,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
     final teacherUserId = session?.userId ?? '';
     final teacherName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Demo ogretmen';
+        : 'Demo öğretmen';
 
     if (widget.openCreateOnStart && !_didOpenInitialCreate) {
       _didOpenInitialCreate = true;
@@ -198,7 +198,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
   }
 
   _LessonCardData _toCardData(LessonSchedule l, Map<String, String> namesById) {
-    final studentName = namesById[l.studentId] ?? 'Ogrenci';
+    final studentName = namesById[l.studentId] ?? 'Öğrenci';
     final isOnline = l.lessonFormat.toLowerCase().contains('online');
     final start = l.startAtUtc.toLocal();
     final end = l.endAtUtc.toLocal();

@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/email_verification_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/widgets/auth_field_decoration.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -55,7 +56,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
     final email = _emailController.text.trim();
     if (!email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Önce e-posta adresini gir.')),
+        SnackBar(content: Text(AppLocalizations.of(context).auth_verifyEmailEnterFirst)),
       );
       return;
     }
@@ -74,7 +75,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
           backgroundColor: AppColors.background,
           elevation: 0,
           foregroundColor: AppColors.textPrimary,
-          title: const Text('E-posta doğrulama'),
+          title: Text(AppLocalizations.of(context).auth_verifyEmailTitle),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => context.go('/login'),
@@ -91,17 +92,17 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                       listener: (context, state) {
                         if (state.status == EmailVerificationStatus.verified) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('E-posta adresin doğrulandı.'),
+                            SnackBar(
+                              content: Text(AppLocalizations.of(context).auth_verifyEmailConfirmed),
                             ),
                           );
                           context.go('/login');
                         }
                         if (state.status == EmailVerificationStatus.resent) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Yeni doğrulama kodu e-postana gönderildi.',
+                                AppLocalizations.of(context).auth_verifyEmailCodeResent,
                               ),
                             ),
                           );
@@ -134,41 +135,40 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                                   const SizedBox(height: 14),
                                 ],
                                 Text(
-                                  'Hesabını etkinleştirmek için e-postana '
-                                  'gönderdiğimiz kodu gir.',
+                                  AppLocalizations.of(context).auth_verifyEmailIntro,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
                                 const SizedBox(height: 18),
-                                _label(theme, 'E-posta adresin'),
+                                _label(theme, AppLocalizations.of(context).auth_emailAddress),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
                                   decoration: authFieldDecoration(
-                                    hintText: 'ornek@mail.com',
+                                    hintText: AppLocalizations.of(context).common_emailHint,
                                     icon: Icons.mail_outline_rounded,
                                   ),
                                   validator: (value) {
                                     if (value == null || !value.contains('@')) {
-                                      return 'Geçerli bir e-posta gir.';
+                                      return AppLocalizations.of(context).common_invalidEmail;
                                     }
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 14),
-                                _label(theme, 'Doğrulama kodu'),
+                                _label(theme, AppLocalizations.of(context).auth_verificationCode),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: _tokenController,
                                   decoration: authFieldDecoration(
-                                    hintText: 'E-postadaki kod',
+                                    hintText: AppLocalizations.of(context).auth_codeFromEmail,
                                     icon: Icons.verified_outlined,
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Doğrulama kodunu gir.';
+                                      return AppLocalizations.of(context).auth_verificationCodeRequired;
                                     }
                                     return null;
                                   },
@@ -180,8 +180,8 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                                     onPressed: isVerifying ? null : _verify,
                                     child: Text(
                                       isVerifying
-                                          ? 'Doğrulanıyor...'
-                                          : 'Doğrula',
+                                          ? AppLocalizations.of(context).auth_verifying
+                                          : AppLocalizations.of(context).auth_verify,
                                     ),
                                   ),
                                 ),
@@ -190,8 +190,8 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                                   onPressed: isResending ? null : _resend,
                                   child: Text(
                                     isResending
-                                        ? 'Gönderiliyor...'
-                                        : 'Kodu tekrar gönder',
+                                        ? AppLocalizations.of(context).auth_sending
+                                        : AppLocalizations.of(context).auth_resendCode,
                                   ),
                                 ),
                               ],

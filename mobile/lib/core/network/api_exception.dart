@@ -44,7 +44,7 @@ class ApiException implements Exception {
     return ApiException(
       message: switch (exception.type) {
         DioExceptionType.connectionTimeout =>
-          'Sunucuya baglanti zaman asimina ugradi.',
+          'Sunucuya bağlantı zaman aşımına uğradı.',
         DioExceptionType.receiveTimeout =>
           'Sunucu yaniti zaman asimina ugradi.',
         DioExceptionType.sendTimeout => 'Istek gonderimi zaman asimina ugradi.',

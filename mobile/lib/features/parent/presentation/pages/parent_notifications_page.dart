@@ -172,22 +172,26 @@ class _PrefsFormState extends State<_PrefsForm> {
         ParentCard(
           title: 'Bildirim kanalı',
           icon: Icons.send_rounded,
-          child: Column(
-            children: <Widget>[
-              for (final option in const <List<String>>[
-                <String>['Push', 'Uygulama bildirimi'],
-                <String>['Email', 'E-posta'],
-                <String>['Both', 'Her ikisi'],
-              ])
-                RadioListTile<String>(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.primary,
-                  value: option[0],
-                  groupValue: _channel,
-                  onChanged: (v) => setState(() => _channel = v ?? _channel),
-                  title: Text(option[1]),
-                ),
-            ],
+          // Flutter 3.32'den sonra Radio'nun groupValue/onChanged'i kullanımdan kalktı;
+          // seçim durumu artık ortak bir RadioGroup atasında yaşıyor.
+          child: RadioGroup<String>(
+            groupValue: _channel,
+            onChanged: (v) => setState(() => _channel = v ?? _channel),
+            child: Column(
+              children: <Widget>[
+                for (final option in const <List<String>>[
+                  <String>['Push', 'Uygulama bildirimi'],
+                  <String>['Email', 'E-posta'],
+                  <String>['Both', 'Her ikisi'],
+                ])
+                  RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.primary,
+                    value: option[0],
+                    title: Text(option[1]),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 18),
@@ -259,7 +263,7 @@ class _SwitchRow extends StatelessWidget {
             ),
             Switch(
               value: value,
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               onChanged: onChanged,
             ),
           ],

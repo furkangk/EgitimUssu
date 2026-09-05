@@ -5,6 +5,7 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -113,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                                 const SizedBox(height: 14),
                               ],
                               Text(
-                                'E-posta',
+                                AppLocalizations.of(context).common_email,
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w700,
@@ -124,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
                                 decoration: InputDecoration(
-                                  hintText: 'ornek@mail.com',
+                                  hintText: AppLocalizations.of(context).common_emailHint,
                                   prefixIcon: const Icon(
                                     Icons.mail_outline_rounded,
                                   ),
@@ -156,14 +157,14 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 validator: (value) {
                                   if (value == null || !value.contains('@')) {
-                                    return 'Gecerli bir e-posta gir.';
+                                    return AppLocalizations.of(context).common_invalidEmail;
                                   }
                                   return null;
                                 },
                               ),
                               const SizedBox(height: 14),
                               Text(
-                                'Sifre',
+                                AppLocalizations.of(context).common_password,
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: AppColors.textSecondary,
                                   fontWeight: FontWeight.w700,
@@ -174,7 +175,7 @@ class _LoginPageState extends State<LoginPage> {
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
                                 decoration: InputDecoration(
-                                  hintText: '••••••••',
+                                  hintText: AppLocalizations.of(context).common_passwordHint,
                                   prefixIcon: const Icon(
                                     Icons.lock_outline_rounded,
                                   ),
@@ -218,7 +219,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 validator: (value) {
                                   if (value == null || value.length < 8) {
-                                    return 'Sifre en az 8 karakter olmali.';
+                                    return AppLocalizations.of(context).common_passwordTooShort;
                                   }
                                   return null;
                                 },
@@ -256,7 +257,7 @@ class _LoginPageState extends State<LoginPage> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            'Beni hatirla',
+                                            AppLocalizations.of(context).auth_rememberMe,
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                                   color:
@@ -280,7 +281,7 @@ class _LoginPageState extends State<LoginPage> {
                                       tapTargetSize:
                                           MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    child: const Text('Şifremi unuttum'),
+                                    child: Text(AppLocalizations.of(context).auth_forgotPassword),
                                   ),
                                 ],
                               ),
@@ -313,7 +314,7 @@ class _LoginPageState extends State<LoginPage> {
                                           ),
                                         )
                                       : Text(
-                                          'Giris Yap',
+                                          AppLocalizations.of(context).auth_signIn,
                                           style: theme.textTheme.titleMedium
                                               ?.copyWith(
                                                 color: Colors.white,
@@ -335,7 +336,7 @@ class _LoginPageState extends State<LoginPage> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Sunucu uyandırılıyor, lütfen bekleyin...',
+                                      AppLocalizations.of(context).auth_serverWaking,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: AppColors.textSecondary,
@@ -352,9 +353,9 @@ class _LoginPageState extends State<LoginPage> {
                                 child: OutlinedButton.icon(
                                   onPressed: () {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                         content: Text(
-                                          'Google ile giris akisi henuz eklenmedi.',
+                                          AppLocalizations.of(context).auth_googleNotReady,
                                         ),
                                       ),
                                     );
@@ -388,7 +389,7 @@ class _LoginPageState extends State<LoginPage> {
                                     ),
                                   ),
                                   label: Text(
-                                    'Google',
+                                    AppLocalizations.of(context).auth_google,
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(
                                           color: AppColors.textPrimary,
@@ -410,13 +411,13 @@ class _LoginPageState extends State<LoginPage> {
                               fontWeight: FontWeight.w400,
                             ),
                             children: <InlineSpan>[
-                              const TextSpan(text: 'Hesabin yok mu? '),
+                              TextSpan(text: AppLocalizations.of(context).auth_noAccount),
                               WidgetSpan(
                                 alignment: PlaceholderAlignment.middle,
                                 child: GestureDetector(
                                   onTap: () => context.go('/role-selection'),
                                   child: Text(
-                                    'Kayit Ol',
+                                    AppLocalizations.of(context).auth_signUp,
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: AppColors.primary,
                                       fontWeight: FontWeight.w700,
@@ -491,7 +492,7 @@ class _LogoHeader extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Giris Yapin',
+          AppLocalizations.of(context).auth_loginTitle,
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
             color: AppColors.textPrimary,
@@ -529,7 +530,7 @@ class _AuthDivider extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('veya sununla devam et', style: textStyle),
+          child: Text(AppLocalizations.of(context).auth_orContinueWith, style: textStyle),
         ),
         const Expanded(
           child: Divider(color: AppColors.border, thickness: 1, height: 1),
@@ -565,8 +566,8 @@ class _IconPill extends StatelessWidget {
 }
 
 const Map<String, _RoleLabel> _roles = <String, _RoleLabel>{
-  'ogretmen': _RoleLabel('Ogretmen'),
-  'ogrenci': _RoleLabel('Ogrenci'),
+  'ogretmen': _RoleLabel('Öğretmen'),
+  'ogrenci': _RoleLabel('Öğrenci'),
   'veli': _RoleLabel('Veli'),
 };
 

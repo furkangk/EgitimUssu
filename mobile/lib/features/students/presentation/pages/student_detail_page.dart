@@ -26,7 +26,7 @@ class StudentDetailPage extends StatefulWidget {
 }
 
 class _StudentDetailPageState extends State<StudentDetailPage> {
-  static const _tabs = <String>['Genel', 'Dersler', 'Performans', 'Odemeler'];
+  static const _tabs = <String>['Genel', 'Dersler', 'Performans', 'Ödemeler'];
 
   int _selectedTab = 0;
 
@@ -98,7 +98,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                     ),
                     Expanded(
                       child: EmptyStateView(
-                        title: 'Ogrenci bulunamadi',
+                        title: 'Öğrenci bulunamadı',
                         subtitle:
                             state.errorMessage ?? 'Lutfen yeniden deneyin.',
                       ),
@@ -239,7 +239,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Veli kayitli bir kullanici olmalidir. Baglanti onay bekler.',
+              'Veli kayıtlı bir kullanıcı olmalıdır. Bağlantı onay bekler.',
               style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -282,7 +282,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   Icons.edit_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text('Duzenle'),
+                title: const Text('Düzenle'),
                 onTap: () {
                   Navigator.pop(context);
                   _showEditSheet(context, student, cubit);
@@ -335,7 +335,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-          willDeactivate ? 'Ogrenciyi Pasifles' : 'Ogrenciyi Aktifles',
+          willDeactivate ? 'Öğrenciyi Pasifleştir' : 'Öğrenciyi Aktifleştir',
         ),
         content: Text(
           willDeactivate
@@ -345,7 +345,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Iptal'),
+            child: const Text('İptal'),
           ),
           TextButton(
             onPressed: () {
@@ -450,7 +450,7 @@ class _TopBar extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Ogrenci Detayi',
+            'Öğrenci Detayı',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -677,7 +677,7 @@ class _OverviewTab extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'Odeme',
+                label: 'Ödeme',
                 value: outstanding.toStringAsFixed(0),
                 caption: 'Bekleyen TRY',
                 color: outstanding > 0
@@ -703,7 +703,7 @@ class _OverviewTab extends StatelessWidget {
               child: _MetricCard(
                 label: 'Durum',
                 value: outstanding > 0 ? 'Takip' : 'Temiz',
-                caption: outstanding > 0 ? 'Odeme var' : 'Borcsuz',
+                caption: outstanding > 0 ? 'Ödeme var' : 'Borcsuz',
                 color: outstanding > 0
                     ? AppColors.accentRed
                     : AppColors.accentGreen,
@@ -713,7 +713,7 @@ class _OverviewTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _InfoCard(
-          title: 'Ogrenci notlari',
+          title: 'Öğrenci notları',
           children: <Widget>[
             _InfoLine(
               icon: Icons.track_changes_rounded,
@@ -758,7 +758,7 @@ class _OverviewTab extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _ActionButton(
-                label: 'Odeme Ekle',
+                label: 'Ödeme Ekle',
                 icon: Icons.payments_rounded,
                 onTap: onAddPayment,
               ),
@@ -811,8 +811,8 @@ class _LessonsTab extends StatelessWidget {
         const SizedBox(height: 12),
         if (sortedLessons.isEmpty)
           const EmptyStateView(
-            title: 'Ders kaydi yok',
-            subtitle: 'Bu ogrenci icin planli ders bulunamadi.',
+            title: 'Ders kaydı yok',
+            subtitle: 'Bu öğrenci için planlı ders bulunamadı.',
           )
         else
           ...List<Widget>.generate(sortedLessons.length, (index) {
@@ -847,7 +847,7 @@ class _PerformanceTab extends StatelessWidget {
     return Column(
       children: <Widget>[
         _InfoCard(
-          title: 'Performans ozeti',
+          title: 'Performans özeti',
           children: <Widget>[
             _ProgressLine(
               label: 'Ders tamamlama',
@@ -948,15 +948,15 @@ class _PaymentsTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _SectionHeader(
-          title: 'Odeme gecmisi',
-          actionText: 'Odeme ekle',
+          title: 'Ödeme geçmişi',
+          actionText: 'Ödeme ekle',
           onActionTap: onAddPayment,
         ),
         const SizedBox(height: 12),
         if (payments.isEmpty)
           const EmptyStateView(
-            title: 'Odeme kaydi yok',
-            subtitle: 'Bu ogrenci icin tahsilat kaydi bulunamadi.',
+            title: 'Ödeme kaydı yok',
+            subtitle: 'Bu öğrenci için tahsilat kaydı bulunamadı.',
           )
         else
           ...List<Widget>.generate(payments.length, (index) {
@@ -1129,7 +1129,7 @@ class _SubjectTargetsCard extends StatelessWidget {
       children: <Widget>[
         if (student.subjects.isEmpty)
           const Text(
-            'Ogrenci hedefleri eklendiginde burada gorunur.',
+            'Öğrenci hedefleri eklendiğinde burada görünür.',
             style: TextStyle(color: AppColors.textSecondary),
           )
         else
@@ -1187,8 +1187,8 @@ class _ParentLinkCard extends StatelessWidget {
       title: 'Veli',
       children: <Widget>[
         const Text(
-          'Kayitli bir veli kullanicisini bu ogrenciye baglayabilirsin. '
-          'Baglanti onay bekler; onaylandiktan sonra veli ogrencinin gelisimini gorur.',
+          'Kayıtlı bir veli kullanıcısını bu öğrenciye bağlayabilirsin. '
+          'Bağlantı onay bekler; onaylandıktan sonra veli öğrencinin gelişimini görür.',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 6),
@@ -1689,7 +1689,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Ogrenci Guncelle',
+                      'Öğrenci Güncelle',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -1713,9 +1713,9 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
               const SizedBox(height: 12),
               _FormField(
                 controller: _gradeLevelCtrl,
-                label: 'Sinif / Seviye',
+                label: 'Sınıf / Seviye',
                 validator: (v) =>
-                    (v == null || v.trim().length < 2) ? 'Sinif giriniz' : null,
+                    (v == null || v.trim().length < 2) ? 'Sınıf giriniz' : null,
               ),
               const SizedBox(height: 12),
               _FormField(controller: _subjectCtrl, label: 'Ders'),
@@ -1750,7 +1750,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Aktif Ogrenci',
+                      'Aktif Öğrenci',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,

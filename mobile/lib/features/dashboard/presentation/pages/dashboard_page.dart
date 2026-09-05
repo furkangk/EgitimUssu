@@ -108,7 +108,7 @@ class TeacherPanelView extends StatelessWidget {
             ),
             _QuickAction(
               icon: Icons.post_add_rounded,
-              label: 'Odev ver',
+              label: 'Ödev ver',
               accent: AppColors.accentGreen,
               onTap: () => context.push('/assignments/new'),
             ),
@@ -120,7 +120,7 @@ class TeacherPanelView extends StatelessWidget {
             ),
             _QuickAction(
               icon: Icons.payments_rounded,
-              label: 'Odeme ekle',
+              label: 'Ödeme ekle',
               accent: AppColors.amber,
               onTap: () => context.push('/payments/new'),
             ),
@@ -244,7 +244,7 @@ class _SummaryCards extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Gunluk streak',
+                          'Günlük seri',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.92),
@@ -290,7 +290,7 @@ class _SummaryCards extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Bugunun Dersleri',
+                          'Bugünün Dersleri',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 color: AppColors.textPrimary,
@@ -448,7 +448,7 @@ class _LessonsSection extends StatelessWidget {
     final items = <_LessonCardData>[
       ...todayLessons.map(
         (l) => _LessonCardData(
-          dateLabel: 'Bugun',
+          dateLabel: 'Bugün',
           subject: l.subject,
           timeRange:
               '${_fmt(l.startAtUtc.toLocal())} - ${_fmt(l.endAtUtc.toLocal())}',
@@ -512,7 +512,7 @@ class _LessonsSection extends StatelessWidget {
     final changed = await context.push<bool>(
       '/lesson-sessions/detail',
       extra: LessonDetailPayload(
-        studentName: data.studentName ?? 'Ogrenci',
+        studentName: data.studentName ?? 'Öğrenci',
         subject: data.subject,
         dateLabel: data.dateLabel,
         timeLabel: data.timeRange,
@@ -542,7 +542,7 @@ class _LessonsSection extends StatelessWidget {
     final day = DateTime(local.year, local.month, local.day);
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
-    if (_sameDate(day, today)) return 'Bugun';
+    if (_sameDate(day, today)) return 'Bugün';
     if (_sameDate(day, tomorrow)) return 'Yarin';
     const dayNames = ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz'];
     if (day.difference(today).inDays <= 7) return dayNames[local.weekday - 1];
@@ -1114,7 +1114,7 @@ class _PendingAssignmentsSectionState
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Bekleyen Odevler',
+                  'Bekleyen Ödevler',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -1143,7 +1143,7 @@ class _PendingAssignmentsSectionState
               ],
               if (widget.assignments.isNotEmpty)
                 Text(
-                  '${widget.assignments.length} odev',
+                  '${widget.assignments.length} ödev',
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w700,
@@ -1176,14 +1176,14 @@ class _PendingAssignmentsSectionState
                     else if (widget.assignments.isEmpty)
                       const _EmptyPanel(
                         icon: Icons.assignment_turned_in_outlined,
-                        title: 'Bekleyen odev yok',
-                        subtitle: 'Tum odevler tamamlandi.',
+                        title: 'Bekleyen ödev yok',
+                        subtitle: 'Tüm ödevler tamamlandı.',
                       )
                     else ...[
                       ...widget.assignments.map((assignment) {
                         final studentName =
                             widget.studentNamesById[assignment.studentId] ??
-                            'Ogrenci';
+                            'Öğrenci';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _AssignmentCard(
@@ -1337,7 +1337,7 @@ class _AssignmentCard extends StatelessWidget {
     final due = assignment.dueDateUtc!.toLocal();
     final days = due.difference(DateTime.now()).inDays;
     if (days < 0) return 'Gecikti!';
-    if (days == 0) return 'Bugun!';
+    if (days == 0) return 'Bugün!';
     if (days == 1) return 'Yarin!';
     return '$days gun';
   }
@@ -1435,7 +1435,7 @@ class _OverduePaymentsSectionState extends State<_OverduePaymentsSection> {
             children: [
               Expanded(
                 child: Text(
-                  'Geciken Odemeler',
+                  'Geciken Ödemeler',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -1487,7 +1487,7 @@ class _OverduePaymentsSectionState extends State<_OverduePaymentsSection> {
                       ...widget.payments.map((payment) {
                         final studentName =
                             widget.studentNamesById[payment.studentId] ??
-                            'Ogrenci';
+                            'Öğrenci';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _PaymentCard(
@@ -1537,7 +1537,7 @@ class _PaymentCard extends StatelessWidget {
     final avatarBg = isVeryLate
         ? AppColors.errorSurfaceStrong
         : AppColors.warningSurfaceStrong;
-    final badgeLabel = daysLate <= 0 ? 'Bugun' : '$daysLate gun gecikti';
+    final badgeLabel = daysLate <= 0 ? 'Bugün' : '$daysLate gun gecikti';
 
     return InkWell(
       onTap: onTap,

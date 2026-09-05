@@ -1,5 +1,6 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -37,7 +38,7 @@ class WelcomePage extends StatelessWidget {
                       elevation: 0,
                     ),
                     child: Text(
-                      'Giris Yap',
+                      AppLocalizations.of(context).auth_signIn,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -59,7 +60,7 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'Kayit Ol',
+                      AppLocalizations.of(context).auth_signUp,
                       style: theme.textTheme.titleMedium?.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,
@@ -130,7 +131,7 @@ class _BrandBlock extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          'EgitimUssu',
+          AppLocalizations.of(context).app_title,
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
             color: AppColors.textPrimary,
@@ -139,7 +140,7 @@ class _BrandBlock extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Ozel ders sureclerinizi tek bir yerde yonetin.',
+          AppLocalizations.of(context).auth_welcomeTagline,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: AppColors.textSecondary,
@@ -216,7 +217,7 @@ class _WelcomePhoto extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(
-                      'Ogretmen, ogrenci ve veli deneyimi tek mobil akista.',
+                      AppLocalizations.of(context).auth_welcomeSlideExperience,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -225,7 +226,7 @@ class _WelcomePhoto extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Planlama, takip, odev ve gelisim ekranlarini tek merkezden yonetin.',
+                      AppLocalizations.of(context).auth_welcomeSlidePlanning,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.86),
                         height: 1.5,
@@ -267,7 +268,7 @@ class _PhotoBadge extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            'Canli takip',
+            AppLocalizations.of(context).auth_welcomeLiveTracking,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w700,
@@ -387,7 +388,7 @@ class _PhotoFallback extends StatelessWidget {
                             )
                           else
                             Text(
-                              'Egitim odakli guclu bir baslangic alani',
+                              AppLocalizations.of(context).auth_welcomeBadge,
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

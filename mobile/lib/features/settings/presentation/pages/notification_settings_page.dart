@@ -19,7 +19,7 @@ class NotificationSettingsPage extends StatelessWidget {
 
     if (userId == null) {
       return const SettingsScaffold(
-        title: 'Bildirim ayarlari',
+        title: 'Bildirim ayarları',
         child: EmptyStateView(
           title: 'Oturum bulunamadi',
           subtitle: 'Ayarlarini gormek icin giris yapmalisin.',
@@ -40,18 +40,18 @@ class _NotificationSettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
-      title: 'Bildirim ayarlari',
+      title: 'Bildirim ayarları',
       child: BlocConsumer<SettingsCubit, SettingsState>(
         listener: settingsErrorListener,
         builder: (context, state) {
           if (state.isLoading) {
-            return const LoadingStateView(message: 'Ayarlar yukleniyor...');
+            return const LoadingStateView(message: 'Ayarlar yükleniyor...');
           }
 
           final settings = state.settings;
           if (settings == null) {
             return ErrorStateView(
-              message: state.errorMessage ?? 'Ayarlar yuklenemedi.',
+              message: state.errorMessage ?? 'Ayarlar yüklenemedi.',
               onRetry: context.read<SettingsCubit>().refresh,
             );
           }
@@ -77,7 +77,7 @@ class _NotificationSettingsView extends StatelessWidget {
                   SettingsSwitchRow(
                     icon: Icons.mark_email_unread_outlined,
                     title: 'E-posta bildirimleri',
-                    subtitle: 'Ozet ve hatirlatmalari e-posta ile de al.',
+                    subtitle: 'Özet ve hatırlatmaları e-posta ile de al.',
                     value: settings.emailNotificationsEnabled,
                     isSaving: state.isSaving,
                     onChanged: cubit.setEmailNotificationsEnabled,
@@ -90,7 +90,7 @@ class _NotificationSettingsView extends StatelessWidget {
                 children: <Widget>[
                   SettingsSwitchRow(
                     icon: Icons.event_available_outlined,
-                    title: 'Ders hatirlatmalari',
+                    title: 'Ders hatırlatmaları',
                     subtitle: 'Yaklasan derslerden once bildirim al.',
                     value: settings.upcomingLessonReminderEnabled,
                     isSaving: state.isSaving,
@@ -99,8 +99,8 @@ class _NotificationSettingsView extends StatelessWidget {
                   const SettingsDivider(),
                   SettingsSwitchRow(
                     icon: Icons.assignment_outlined,
-                    title: 'Odev hatirlatmalari',
-                    subtitle: 'Yeni, yaklasan ve kacirilan odevler.',
+                    title: 'Ödev hatırlatmaları',
+                    subtitle: 'Yeni, yaklaşan ve kaçırılan ödevler.',
                     value: settings.homeworkReminderEnabled,
                     isSaving: state.isSaving,
                     onChanged: cubit.setHomeworkReminderEnabled,
@@ -108,8 +108,8 @@ class _NotificationSettingsView extends StatelessWidget {
                   const SettingsDivider(),
                   SettingsSwitchRow(
                     icon: Icons.payments_outlined,
-                    title: 'Odeme hatirlatmalari',
-                    subtitle: 'Vadesi gelen ve geciken odemeleri kacirma.',
+                    title: 'Ödeme hatırlatmaları',
+                    subtitle: 'Vadesi gelen ve geciken ödemeleri kaçırma.',
                     value: settings.paymentReminderEnabled,
                     isSaving: state.isSaving,
                     onChanged: cubit.setPaymentReminderEnabled,
@@ -117,8 +117,8 @@ class _NotificationSettingsView extends StatelessWidget {
                   const SettingsDivider(),
                   SettingsSwitchRow(
                     icon: Icons.summarize_outlined,
-                    title: 'Haftalik ozet',
-                    subtitle: 'Hafta sonunda ders ve calisma ozeti al.',
+                    title: 'Haftalık özet',
+                    subtitle: 'Hafta sonunda ders ve çalışma özeti al.',
                     value: settings.weeklySummaryEnabled,
                     isSaving: state.isSaving,
                     onChanged: cubit.setWeeklySummaryEnabled,
@@ -127,7 +127,7 @@ class _NotificationSettingsView extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               const SettingsHint(
-                'Kapattigin bir tur icin bildirim gonderilmez; gecmis bildirimler '
+                'Kapattığın bir tür için bildirim gönderilmez; geçmiş bildirimler '
                 'bildirim merkezinde kalir.',
               ),
             ],

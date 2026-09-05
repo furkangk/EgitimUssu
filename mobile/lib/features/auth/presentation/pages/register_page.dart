@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -116,7 +117,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                           child: TextFormField(
                                             controller: _firstNameController,
                                             decoration: _inputDecoration(
-                                              hintText: 'Adiniz',
+                                              hintText: AppLocalizations.of(context).auth_firstNameHint,
                                               icon:
                                                   Icons.person_outline_rounded,
                                             ),
@@ -127,11 +128,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: _LabeledField(
-                                          label: 'Soyad',
+                                          label: AppLocalizations.of(context).auth_lastName,
                                           child: TextFormField(
                                             controller: _lastNameController,
                                             decoration: _inputDecoration(
-                                              hintText: 'Soyadiniz',
+                                              hintText: AppLocalizations.of(context).auth_lastNameHint,
                                               icon: Icons.badge_outlined,
                                             ),
                                             validator: _requiredValidator,
@@ -142,30 +143,30 @@ class _RegisterPageState extends State<RegisterPage> {
                                   ),
                                   const SizedBox(height: 10),
                                   _LabeledField(
-                                    label: 'Telefon',
+                                    label: AppLocalizations.of(context).auth_phone,
                                     child: TextFormField(
                                       controller: _phoneController,
                                       keyboardType: TextInputType.phone,
                                       decoration: _inputDecoration(
-                                        hintText: '5xx xxx xx xx',
+                                        hintText: AppLocalizations.of(context).auth_phoneHint,
                                         icon: Icons.phone_outlined,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(height: 10),
                                   _LabeledField(
-                                    label: 'E-posta',
+                                    label: AppLocalizations.of(context).common_email,
                                     child: TextFormField(
                                       controller: _emailController,
                                       keyboardType: TextInputType.emailAddress,
                                       decoration: _inputDecoration(
-                                        hintText: 'ornek@mail.com',
+                                        hintText: AppLocalizations.of(context).common_emailHint,
                                         icon: Icons.mail_outline_rounded,
                                       ),
                                       validator: (value) {
                                         if (value == null ||
                                             !value.contains('@')) {
-                                          return 'Gecerli bir e-posta gir.';
+                                          return AppLocalizations.of(context).common_invalidEmail;
                                         }
                                         return null;
                                       },
@@ -173,12 +174,12 @@ class _RegisterPageState extends State<RegisterPage> {
                                   ),
                                   const SizedBox(height: 10),
                                   _LabeledField(
-                                    label: 'Sifre',
+                                    label: AppLocalizations.of(context).common_password,
                                     child: TextFormField(
                                       controller: _passwordController,
                                       obscureText: _obscurePassword,
                                       decoration: _inputDecoration(
-                                        hintText: '••••••••',
+                                        hintText: AppLocalizations.of(context).common_passwordHint,
                                         icon: Icons.lock_outline_rounded,
                                         suffixIcon: IconButton(
                                           onPressed: () {
@@ -196,7 +197,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       ),
                                       validator: (value) {
                                         if (value == null || value.length < 8) {
-                                          return 'Sifre en az 8 karakter olmali.';
+                                          return AppLocalizations.of(context).common_passwordTooShort;
                                         }
                                         return null;
                                       },
@@ -264,7 +265,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                               ),
                                             )
                                           : Text(
-                                              'Kayit Ol',
+                                              AppLocalizations.of(context).auth_signUp,
                                               style: theme.textTheme.titleMedium
                                                   ?.copyWith(
                                                     color: Colors.white,
@@ -286,8 +287,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                   fontWeight: FontWeight.w400,
                                 ),
                                 children: <InlineSpan>[
-                                  const TextSpan(
-                                    text: 'Zaten hesabin var mi? ',
+                                  TextSpan(
+                                    text: AppLocalizations.of(context).auth_hasAccount,
                                   ),
                                   WidgetSpan(
                                     alignment: PlaceholderAlignment.middle,
@@ -295,7 +296,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       onTap: () =>
                                           context.go('/login?role=ogretmen'),
                                       child: Text(
-                                        'Giris Yap',
+                                        AppLocalizations.of(context).auth_signIn,
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
                                               color: AppColors.primary,
@@ -350,7 +351,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   String? _requiredValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Bu alan zorunlu.';
+      return AppLocalizations.of(context).common_requiredField;
     }
     return null;
   }
@@ -387,7 +388,7 @@ class _LogoHeader extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Kayit Ol',
+          AppLocalizations.of(context).auth_signUp,
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(
             color: AppColors.textPrimary,
@@ -446,7 +447,7 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Hesap turunu degistir',
+                    AppLocalizations.of(context).auth_changeRole,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -454,7 +455,7 @@ class _RoleSelectionReturnBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Rol secim ekranina geri don',
+                    AppLocalizations.of(context).auth_backToRoleSelection,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
                     ),

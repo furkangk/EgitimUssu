@@ -91,7 +91,7 @@ class StudentRepositoryImpl implements StudentRepository {
           teacherUserId: 'mock-teacher-user',
           id: studentId,
           fullName: 'Mehmet Demir',
-          gradeLevel: '8. Sinif',
+          gradeLevel: '8. Sınıf',
         ),
       );
     }

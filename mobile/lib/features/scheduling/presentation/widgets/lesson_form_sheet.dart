@@ -168,7 +168,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                _isEdit ? 'Dersi Duzenle' : 'Ders Ekle',
+                                _isEdit ? 'Dersi Düzenle' : 'Ders Ekle',
                                 style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(
                                       color: AppColors.textPrimary,
@@ -236,25 +236,25 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                     ],
                     // Ogrenci
                     if (_isEdit) ...<Widget>[
-                      const _SheetLabel(text: 'Ogrenci'),
+                      const _SheetLabel(text: 'Öğrenci'),
                       const SizedBox(height: 8),
-                      _ReadonlyBox(text: widget.studentName ?? 'Ogrenci'),
+                      _ReadonlyBox(text: widget.studentName ?? 'Öğrenci'),
                       const SizedBox(height: 16),
                     ] else if (students.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
-                          'Once ogrenci eklemelisin.',
+                          'Önce öğrenci eklemelisin.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
                       )
                     else ...<Widget>[
-                      const _SheetLabel(text: 'Ogrenci secimi'),
+                      const _SheetLabel(text: 'Öğrenci seçimi'),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<StudentProfile>(
                         initialValue: _selectedStudent,
-                        decoration: _inputDecoration('Ogrenci sec'),
+                        decoration: _inputDecoration('Öğrenci seç'),
                         items: students
                             .map(
                               (student) => DropdownMenuItem<StudentProfile>(
@@ -273,7 +273,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                           });
                         },
                         validator: (value) =>
-                            value == null ? 'Ogrenci secimi zorunlu.' : null,
+                            value == null ? 'Öğrenci seçimi zorunlu.' : null,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -291,7 +291,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                       ),
                       const SizedBox(height: 16),
                     ] else if (students.isNotEmpty) ...<Widget>[
-                      const _SheetLabel(text: 'Ders secimi'),
+                      const _SheetLabel(text: 'Ders seçimi'),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
                         initialValue: subjects.contains(_selectedSubject)
@@ -310,7 +310,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                           setState(() => _selectedSubject = value);
                         },
                         validator: (value) =>
-                            value == null ? 'Ders secimi zorunlu.' : null,
+                            value == null ? 'Ders seçimi zorunlu.' : null,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -318,7 +318,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
                       _SheetLabel(
                         text: _mode == _LessonCreateMode.recurring
                             ? 'Baslangic tarihi'
-                            : 'Tarih secimi',
+                            : 'Tarih seçimi',
                       ),
                       const SizedBox(height: 8),
                       InkWell(
@@ -650,7 +650,7 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
       return;
     }
     if (_selectedDate == null) {
-      _snack(context, 'Tarih secimi zorunlu.');
+      _snack(context, 'Tarih seçimi zorunlu.');
       return;
     }
     if (_startTime == null || _endTime == null) {
@@ -777,9 +777,9 @@ class _LessonFormSheetState extends State<LessonFormSheet> {
 
   String _frequencyLabel(_RecurrenceFrequency value) {
     return switch (value) {
-      _RecurrenceFrequency.daily => 'Gunluk',
-      _RecurrenceFrequency.weekly => 'Haftalik',
-      _RecurrenceFrequency.monthly => 'Aylik',
+      _RecurrenceFrequency.daily => 'Günlük',
+      _RecurrenceFrequency.weekly => 'Haftalık',
+      _RecurrenceFrequency.monthly => 'Aylık',
     };
   }
 
@@ -956,7 +956,7 @@ class _WeeklyPreviewCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Haftalik programini goster',
+                    'Haftalık programını göster',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w900,
@@ -964,7 +964,7 @@ class _WeeklyPreviewCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Secilen dersi haftalik takvimde kontrol et.',
+                    'Seçilen dersi haftalık takvimde kontrol et.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -1051,7 +1051,7 @@ class _WeeklyProgramModal extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Haftalik Program',
+                  'Haftalık Program',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,

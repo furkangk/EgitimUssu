@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/password_reset_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/widgets/auth_field_decoration.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -52,7 +53,7 @@ class _PasswordResetRequestPageState extends State<PasswordResetRequestPage> {
           backgroundColor: AppColors.background,
           elevation: 0,
           foregroundColor: AppColors.textPrimary,
-          title: const Text('Şifremi unuttum'),
+          title: Text(AppLocalizations.of(context).auth_forgotPassword),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => context.go('/login'),
@@ -96,15 +97,14 @@ class _PasswordResetRequestPageState extends State<PasswordResetRequestPage> {
                               const SizedBox(height: 14),
                             ],
                             Text(
-                              'Kayıtlı e-posta adresini gir; sana bir sıfırlama '
-                              'kodu göndereceğiz.',
+                              AppLocalizations.of(context).auth_resetRequestIntro,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: AppColors.textSecondary,
                               ),
                             ),
                             const SizedBox(height: 18),
                             Text(
-                              'E-posta adresin',
+                              AppLocalizations.of(context).auth_emailAddress,
                               style: theme.textTheme.labelMedium?.copyWith(
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w700,
@@ -115,12 +115,12 @@ class _PasswordResetRequestPageState extends State<PasswordResetRequestPage> {
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               decoration: authFieldDecoration(
-                                hintText: 'ornek@mail.com',
+                                hintText: AppLocalizations.of(context).common_emailHint,
                                 icon: Icons.mail_outline_rounded,
                               ),
                               validator: (value) {
                                 if (value == null || !value.contains('@')) {
-                                  return 'Geçerli bir e-posta gir.';
+                                  return AppLocalizations.of(context).common_invalidEmail;
                                 }
                                 return null;
                               },
@@ -132,8 +132,8 @@ class _PasswordResetRequestPageState extends State<PasswordResetRequestPage> {
                                 onPressed: isBusy ? null : _submit,
                                 child: Text(
                                   isBusy
-                                      ? 'Gönderiliyor...'
-                                      : 'Sıfırlama kodu gönder',
+                                      ? AppLocalizations.of(context).auth_sending
+                                      : AppLocalizations.of(context).auth_sendResetCode,
                                 ),
                               ),
                             ),
@@ -143,7 +143,7 @@ class _PasswordResetRequestPageState extends State<PasswordResetRequestPage> {
                                 '/password-reset/confirm',
                                 extra: _emailController.text.trim(),
                               ),
-                              child: const Text('Kodum zaten var'),
+                              child: Text(AppLocalizations.of(context).auth_haveCodeAlready),
                             ),
                           ],
                         ),

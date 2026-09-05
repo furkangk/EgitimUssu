@@ -1,5 +1,6 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,24 +11,24 @@ class RoleSelectionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    const roles = <_RoleCardData>[
+    final roles = <_RoleCardData>[
       _RoleCardData(
-        title: 'Ogretmen',
-        description: 'Derslerinizi yonetin, ogrencilerinizi takip edin.',
+        title: AppLocalizations.of(context).auth_roleTeacher,
+        description: AppLocalizations.of(context).auth_roleTeacherDescription,
         icon: Icons.history_edu_rounded,
         accent: AppColors.accentGreen,
         keyName: 'ogretmen',
       ),
       _RoleCardData(
-        title: 'Ogrenci',
-        description: 'Calisma surecinizi planlayin, gelisiminizi izleyin.',
+        title: AppLocalizations.of(context).auth_roleStudent,
+        description: AppLocalizations.of(context).auth_roleStudentDescription,
         icon: Icons.auto_stories_rounded,
         accent: AppColors.accentBlue,
         keyName: 'ogrenci',
       ),
       _RoleCardData(
-        title: 'Veli',
-        description: 'Cocugunuzun ilerlemesini sade ozetlerle takip edin.',
+        title: AppLocalizations.of(context).auth_roleParent,
+        description: AppLocalizations.of(context).auth_roleParentDescription,
         icon: Icons.family_restroom_rounded,
         accent: AppColors.accentOrange,
         keyName: 'veli',
@@ -47,7 +48,7 @@ class RoleSelectionPage extends StatelessWidget {
                 children: <Widget>[
                   const Spacer(flex: 3),
                   Text(
-                    'Hesap turunu secin',
+                    AppLocalizations.of(context).auth_roleSelectionTitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       color: AppColors.textPrimary,
@@ -56,7 +57,7 @@ class RoleSelectionPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Size en uygun deneyimi yasatalim.',
+                    AppLocalizations.of(context).auth_roleSelectionSubtitle,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
@@ -82,9 +83,9 @@ class RoleSelectionPage extends StatelessWidget {
                           fontWeight: FontWeight.w400,
                         ),
                         children: <InlineSpan>[
-                          const TextSpan(text: 'Zaten hesabim var '),
+                          TextSpan(text: AppLocalizations.of(context).auth_alreadyHaveAccount),
                           TextSpan(
-                            text: 'Giris Yap',
+                            text: AppLocalizations.of(context).auth_signIn,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w700,

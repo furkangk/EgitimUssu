@@ -368,7 +368,24 @@ git commit -m "feat(kvkk): hesap silme + anonimlestirme + saklama sureleri (E-07
 
 ---
 
-### Task 6: Mobil hijyen — l10n, metin kalitesi, paketler, test, CI
+### Task 6: Mobil hijyen — l10n altyapısı, metin kalitesi, paketler, test, CI
+
+> **Plan değişikliği (2026-09-05, yürütmeden önce):** Bu görev **ikiye bölündü**.
+>
+> **Ölçüm:** `mobile/lib` altında 52 sayfa + 23 widget ve **~770 kullanıcıya görünür dize** var
+> (toplam 5553 tırnaklı dize, 2712 benzersiz). Step 4'ün "tüm `mobile/lib/**`" kapsamı tek bir
+> görevde dürüstçe yapılıp doğrulanamaz: birkaç bin satırlık bir diff olur ve her ekranın
+> bozulmadığını kanıtlamanın yolu kalmaz.
+>
+> **Bölme:**
+> - **Task 6 (bu görev):** l10n **altyapısı** (D-19) + **tüm** Türkçe karakter düzeltmeleri (D-20)
+>   + planın kendi öncelik sırasının başı olan **auth ve more** ekranlarının ARB'ye taşınması
+>   (deseni uçtan uca kanıtlar) + paket temizliği (D-18) + test kapsamı (D-21) + CI (D-22).
+> - **Task 6b (yeni):** kalan ekranların ARB'ye taşınması — dosya listesiyle, aşağıda.
+>
+> **Gerekçe:** K-12'nin çözmek istediği iki sorundan **marka kalitesi** olan (Türkçe karaktersiz
+> yazımlar) bu görevde **tamamen** kapanıyor; **teknik borç** olan (hardcoded metin) ise altyapı
+> kurulup desen kanıtlandıktan sonra ekran ekran kapanıyor. Kullanıcının gördüğü kusur bugün gidiyor.
 
 **Files:**
 - Create: `mobile/l10n.yaml`, `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`
@@ -383,30 +400,65 @@ git commit -m "feat(kvkk): hesap silme + anonimlestirme + saklama sureleri (E-07
 - `AppLocalizations.of(context)!.<key>` — tüm kullanıcıya görünen metinler ARB'den gelir.
 - Anahtar adlandırma: `<ekran>_<eleman>` (`login_submitButton`, `more_logoutTitle`).
 
-- [ ] **Step 1: l10n testini yaz (kırmızı)** — `app_tr.arb` ve `app_en.arb` **aynı anahtar kümesine** sahip; hiçbir anahtarın Türkçe değeri Türkçe karakter içermeyen bozuk yazım değil (ör. "Cikis" gibi yazımları yakalayan bir kontrol listesi).
-- [ ] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/l10n/localization_test.dart`
-- [ ] **Step 3: l10n altyapısını kur (D-19)**
-`mobile/l10n.yaml`:
-```yaml
-arb-dir: lib/l10n
-template-arb-file: app_tr.arb
-output-localization-file: app_localizations.dart
-nullable-getter: false
-```
-`pubspec.yaml` → `flutter: generate: true`.
-- [ ] **Step 4: Metinleri taşı** — ekran ekran; **öncelik sırası**: auth → more → dashboard → student → parent. Her ekran taşındıktan sonra `flutter test` koşulur (bozulma erken yakalanır).
-- [ ] **Step 5: Türkçe karakter düzeltmesi (D-20)** — `more_page.dart` başta olmak üzere "Cikis yap" → "Çıkış yap", "Odeme hatirlatmalari" → "Ödeme hatırlatmaları", "Abonelik ayarlari" → "Abonelik ayarları" vb. ARB'ye doğru yazımla girilir.
-- [ ] **Step 6: Kullanılmayan paketleri temizle (D-18)** — P03 ve P10 sonrası `firebase_messaging`, `flutter_local_notifications`, `flutter_chat_ui` **kullanılıyor**; kullanılmayan kalan varsa (`dart pub deps` + `grep`) kaldır. Kaldırılan her paket `doc/architecture/mobile_flutter.md`'de not edilir.
-- [ ] **Step 7: Eksik testleri yaz (D-21)** — parent feature'ı için en az 3 cubit testi; study için eksik senaryolar; hedef: `flutter test --coverage` ile `lib/features/**` satır kapsamı **%50+**.
-- [ ] **Step 8: CI'yı sıkılaştır (D-22)** — `build-android.yml` içine `flutter analyze --fatal-infos` + `flutter test --coverage` adımları; kapsam eşiği altındaysa uyarı (ilk aşamada hata değil).
-- [ ] **Step 9: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 10: Doküman + commit**
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **Kapsam ikiye bölündü** — yukarıdaki "Plan değişikliği" notu. Step 4'ün "tüm `mobile/lib/**`"
+>    hedefi ölçülünce ~770 dize / 52 ekran çıktı; Task 6b açıldı.
+> 2. **Test yalnız ARB'yi değil, `lib/**` kaynak kodunu da denetliyor.** Plan ARB anahtar paritesi +
+>    ARB değerlerinde bozuk yazım kontrolü istiyordu; ama ekranların çoğu henüz ARB'de değil ve asıl
+>    kusur orada. Kaynak taraması olmasaydı D-20 düzeltmeleri **bir sonraki commit'te geri gelebilirdi**.
+>    Tarama kelime **başı** sınırıyla eşleşiyor — ilk yazımda "rozet" içindeki "ozet" yanlış alarm verdi.
+> 3. **`flutter_local_notifications` kullanılmıyordu.** Plan onu "kullanılıyor" sayıyordu; `lib/` ve
+>    `test/` altında tek import'u yok — push tamamen `firebase_messaging` üzerinden çalışıyor. Kaldırıldı.
+>    Toplam **11 paket** kaldırıldı (kod üretimi zinciri dahil: repoda tek bir `*.freezed.dart`/`*.g.dart` yok).
+> 4. **Kapsam hedefi %50'ye ulaşılmadı: %15.1 → %15.3.** Ölçüm: `lib/features/**` 18.962 satır, kapsanan
+>    2.906. Hedefe çıkmak ~6.600 satırlık ekran (widget) testi demek — bu görevin değil, ayrı bir işin
+>    boyutu. Planın **somut** olarak istediği yazıldı (veli cubit'i için 3 değil **6** test). Eşik CI'da
+>    **uyarı** olarak duruyor (planın kendi ifadesi: "ilk aşamada hata değil").
+> 5. **`flutter analyze` zaten 4 info ile 1 dönüyordu** — yani `--fatal-infos` olmadan da CI kırılırdı.
+>    Dördü de kapatıldı (import sırası; `Radio` → `RadioGroup`; `activeColor` → `activeThumbColor`) ve
+>    analiz **tamamen temiz** hâle geldi; `--fatal-infos` ancak bu yüzden açılabildi.
+> 6. **6 mevcut test güncellendi.** Metin doğru yazıma geçince eski yazımı arayan beklentiler kırıldı
+>    (`scheduling_page_test`, `widget_test`, `app_router_test`); ayrıca sayfaları doğrudan pump eden iki
+>    yönlendirme testine `AppLocalizations.delegate` **ve `locale: tr`** eklendi — yerel ayar verilmezse
+>    test ortamı `en_US`'a düşüp İngilizce değeri render ediyordu.
+> 7. **Karşılama ekranındaki uygulama adı düzeltildi**: `EgitimUssu` → **EğitimÜssü** (kök `CLAUDE.md`
+>    kuralı: görünen metin Türkçe karakterli). `MaterialApp` başlığı da ARB'den geliyor.
+
+- [x] **Step 1: l10n testini yaz (kırmızı)** — 4 test: ARB anahtar paritesi, ARB değerlerinde bozuk yazım, anahtar adı biçimi ve **`lib/**` kaynak taraması** (sapma #2).
+- [x] **Step 2: Kırmızı gör** — 4/4 başarısız; kaynak taraması **188 bozuk yazım** buldu.
+- [x] **Step 3: l10n altyapısını kur (D-19)** — `l10n.yaml`, `lib/l10n/app_{tr,en}.arb`, `generate: true`, `app.dart`'ta `AppLocalizations.delegate` + `onGenerateTitle`. Üretilen dosyalar `.gitignore`'da.
+- [x] **Step 4: Metinleri taşı** — `more` (`more_page`, 44 dize) + `auth` (7 ekran). **116 ARB anahtarı**, tr/en birebir. Kalanlar Task 6b.
+- [x] **Step 5: Türkçe karakter düzeltmesi (D-20)** — **188 → 0**. 22 dosyada 107 benzersiz dize; taşınan ekranlarda ARB'ye, kalanlarda yerinde düzeltildi. Test bunu kalıcı kılıyor.
+- [x] **Step 6: Kullanılmayan paketleri temizle (D-18)** — **11 paket** (sapma #3); `doc/architecture/mobile_flutter.md` §10 gerçeğe göre yeniden yazıldı.
+- [x] **Step 7: Eksik testleri yaz (D-21)** — `parent_cubit_test.dart`: 6 test (onaysız bağın panel açmaması dahil). **Kapsam hedefe ulaşmadı** — sapma #4.
+- [x] **Step 8: CI'yı sıkılaştır (D-22)** — `flutter analyze --fatal-infos` + `flutter test --coverage` + kapsam eşiği uyarısı; iş akışı PR'larda da koşuyor, APK yalnız `main` push'unda üretiliyor.
+- [x] **Step 9: Testler** — `flutter test`: **203 başarılı** (öncesi 193) · `flutter analyze --fatal-infos`: **0 sorun** (öncesi 4 info).
+- [x] **Step 10: Doküman + commit**
 
 `doc/architecture/mobile_flutter.md` (l10n bölümü + paket listesi), `doc/architecture/ux_rules.md` (metin dili kuralı: tam Türkçe karakter, "EğitimÜssü" yazımı).
 ```bash
 git add mobile .github doc
 git commit -m "chore(mobile): l10n altyapisi + metin kalitesi + test kapsami + CI (D-18..D-22/D-12)"
 ```
+
+---
+
+### Task 6b: Kalan ekranların ARB'ye taşınması (D-19 devamı)
+
+> Task 6'da altyapı kuruldu ve desen `auth` + `more` üzerinde kanıtlandı. Burada kalan ekranlar
+> aynı desenle taşınır. **Bu görev bölünebilir** — her feature ayrı commit olabilir.
+
+**Files:** `mobile/lib/features/**` (aşağıdaki sıra), `mobile/lib/l10n/app_{tr,en}.arb`
+
+**Sıra (metin yoğunluğuna göre, en çok kullanılandan):**
+1. `dashboard` · 2. `scheduling` (en büyük: `scheduling_page`, `lesson_form_sheet`) ·
+3. `lesson_sessions` · 4. `students` · 5. `study` · 6. `parent` · 7. `payments` ·
+8. `assignments` · 9. `settings` · 10. `teacher_profile` · 11. `membership` · 12. `messaging` ·
+13. `notifications` · 14. `reporting` · 15. `progress` · 16. `shared/widgets`
+
+- [ ] **Step 1:** Feature'ı taşı → `flutter test` → commit (her feature ayrı tur)
+- [ ] **Step 2:** Tümü bitince `localization_test.dart`'a "hardcoded metin kalmadı" kontrolü ekle
+- [ ] **Step 3:** `doc/architecture/mobile_flutter.md` l10n bölümünü "tamamlandı" olarak güncelle
 
 ---
 

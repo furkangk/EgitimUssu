@@ -3,6 +3,8 @@ name: Android APK Build
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
@@ -29,7 +31,33 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      # D-22: Analiz ve test, APK'dan ÖNCE koşar — kırık kodun build'e girmesi anlamsız.
+      - name: Statik analiz
+        working-directory: mobile
+        # --fatal-infos: info seviyesi uyarılar da build'i kırar. Bunu açabilmemizin
+        # sebebi, bu görevde mevcut 4 info'nun kapatılmış olması — eşik boş bir söz değil.
+        run: flutter analyze --fatal-infos
+
+      - name: Testler (kapsam ölçümüyle)
+        working-directory: mobile
+        run: flutter test --coverage
+
+      - name: Kapsam eşiği (uyarı)
+        working-directory: mobile
+        # D-21: Eşik bugün UYARI üretir, hata değil — `lib/features/**` kapsamı %15
+        # seviyesinde ve hedefe (%50) ekran testleriyle kademeli çıkılacak. CI'ı bugün
+        # kırmak, kapsamı artırmadan yalnızca boru hattını kırardı.
+        run: |
+          COVERED=$(grep -h '^LH:' coverage/lcov.info | cut -d: -f2 | paste -sd+ - | bc)
+          TOTAL=$(grep -h '^LF:' coverage/lcov.info | cut -d: -f2 | paste -sd+ - | bc)
+          PCT=$(( 100 * COVERED / TOTAL ))
+          echo "Satır kapsamı: ${COVERED}/${TOTAL} = %${PCT} (hedef: %50)"
+          if [ "$PCT" -lt 50 ]; then
+            echo "::warning::Test kapsamı %${PCT} — hedef %50. Bkz. P13 Task 6 / D-21."
+          fi
+
       - name: APK build
+        if: github.event_name == 'push'
         working-directory: mobile
         run: |
           flutter build apk \
@@ -38,12 +66,14 @@ jobs:
             --dart-define=USE_MOCK_FALLBACK=false
 
       - name: APK'yı yeniden adlandır
+        if: github.event_name == 'push'
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           cp mobile/build/app/outputs/flutter-apk/app-release.apk \
              mobile/build/app/outputs/flutter-apk/egitimussu-${SHORT_SHA}.apk
 
       - name: GitHub Release oluştur / güncelle
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest

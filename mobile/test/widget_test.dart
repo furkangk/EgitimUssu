@@ -29,9 +29,9 @@ void main() {
       ),
     );
 
-    expect(find.text('EgitimUssu'), findsOneWidget);
-    expect(find.text('Giris Yap'), findsOneWidget);
-    expect(find.text('Kayit Ol'), findsOneWidget);
+    expect(find.text('EğitimÜssü'), findsOneWidget);
+    expect(find.text('Giriş Yap'), findsOneWidget);
+    expect(find.text('Kayıt Ol'), findsOneWidget);
 
     appRouter.dispose();
     await authCubit.close();
