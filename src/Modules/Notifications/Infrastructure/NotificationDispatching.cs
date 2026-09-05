@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Infrastructure.Push;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -52,6 +54,12 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
     public async Task<int> DispatchDueRemindersAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.notifications.reminders",
+            ActivityKind.Internal);
+
         var now = _clock.UtcNow;
         var dueReminders = await _repository.ListDuePendingAsync(now, cancellationToken);
         var sentCount = 0;
@@ -139,6 +147,12 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
     /// </summary>
     public async Task<int> DispatchPendingUserNotificationsAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.notifications.pending",
+            ActivityKind.Internal);
+
         var now = _clock.UtcNow;
         var pending = await _userNotifications.ListPendingPushAsync(PendingUserNotificationBatchSize, cancellationToken);
         if (pending.Count == 0)

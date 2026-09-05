@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,6 +22,13 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         where TResponse : Result
     {
         var commandType = command.GetType();
+
+        // C-04: Trace'te HTTP span'ı ile EF/Npgsql span'ları arasında bir boşluk vardı; hangi
+        // komutun koştuğu ve doğrulama/yetki adımlarının ne kadar sürdüğü görünmüyordu.
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            $"command {commandType.Name}",
+            ActivityKind.Internal);
+
         _logger.LogInformation("Dispatching command {CommandType}", commandType.Name);
 
         var invokers = DispatcherInvokerCache.ForCommand(commandType);

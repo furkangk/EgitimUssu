@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Modules.Assignments.Domain;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,6 +52,12 @@ public sealed class AssignmentDueScanProcessor : IAssignmentDueScanProcessor
 
     public async Task<AssignmentDueScanResult> ScanAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.assignments.due",
+            ActivityKind.Internal);
+
         var now = _clock.UtcNow;
         var horizon = now + DueSoonWindow;
 

@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using EgitimUssu.Modules.Identity.Application;
 using EgitimUssu.Modules.Identity.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,6 +71,12 @@ public sealed class AccountDeletionProcessor : IAccountDeletionProcessor
 
     public async Task<AccountDeletionRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.identity.account_deletion",
+            ActivityKind.Internal);
+
         var now = _clock.UtcNow;
 
         var due = await _dbContext.AccountDeletionRequests

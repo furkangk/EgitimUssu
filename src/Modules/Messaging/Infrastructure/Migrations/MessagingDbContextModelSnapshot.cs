@@ -181,6 +181,10 @@ namespace EgitimUssu.Modules.Messaging.Infrastructure.Migrations
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(512)

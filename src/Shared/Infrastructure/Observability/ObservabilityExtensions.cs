@@ -67,7 +67,11 @@ public static class ObservabilityExtensions
                     .AddHttpClientInstrumentation()
                     // EF Core enstrümantasyonunun kararlı sürümü yok; Npgsql'in kendi kararlı
                     // köprüsü SQL komutlarını zaten span olarak yayar (bkz. Öğrenilenler).
-                    .AddNpgsql();
+                    .AddNpgsql()
+                    // P13 Task 9: Uygulamanın kendi span'ları (komut/sorgu dispatch'i, outbox turu ve
+                    // mesaj dispatch'i, olay handler'ları, saklama turu). Bu kaynak kaydedilmezse
+                    // Npgsql span'ları ebeveynsiz kalır ve her SQL komutu ayrı bir kök trace olur.
+                    .AddSource(EgitimUssuActivitySource.Name);
 
                 Export(tracing, options);
             })

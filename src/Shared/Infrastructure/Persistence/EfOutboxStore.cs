@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
@@ -22,6 +23,14 @@ public sealed class EfOutboxStore(
         CancellationToken cancellationToken = default)
     {
         var settings = options.Value;
+
+        // C-04: Turun kendi span'ı. Claim ve sayım sorguları bir ebeveyn altında toplanmazsa
+        // Npgsql her birini ayrı bir **kök trace** olarak yayar; saniyede birkaç kez koşan bir
+        // yoklayıcı, toplayıcıyı gerçek isteklerin görünmez olduğu bir gürültüyle doldurur.
+        using var pollActivity = EgitimUssuActivitySource.Instance.StartActivity(
+            "outbox.poll",
+            ActivityKind.Internal);
+
         using var scope = scopeFactory.CreateScope();
         var descriptors = scope.ServiceProvider.GetServices<ModuleDbContextDescriptor>().ToArray();
         var processed = 0;
@@ -75,7 +84,13 @@ public sealed class EfOutboxStore(
                 message.Module,
                 message.Type,
                 message.Payload,
-                message.OccurredOnUtc);
+                message.OccurredOnUtc,
+                message.TraceParent);
+
+            // C-04: Span'ın ebeveyni, mesajı üreten isteğin bağlamıdır — böylece handler'ların işi
+            // Jaeger'da o isteğin trace'inin altında, dakikalar sonra bile görünür. Bağlam yoksa
+            // (tohumlama, tarayıcılar) tur span'ının altına düşer; bozuksa görmezden gelinir.
+            using var dispatchActivity = StartDispatchActivity(message);
 
             try
             {
@@ -87,6 +102,7 @@ public sealed class EfOutboxStore(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
+                dispatchActivity?.SetStatus(ActivityStatusCode.Error, exception.Message);
                 RecordFailure(message, exception, settings);
                 metrics.RecordOutboxDispatched(message.Type, success: false);
             }
@@ -96,6 +112,24 @@ public sealed class EfOutboxStore(
         // zehirli bir mesaj batch'teki diğerlerinin işaretlenmesini engellemez.
         await dbContext.SaveChangesAsync(cancellationToken);
         return processed;
+    }
+
+    /// <summary>
+    /// Mesajın dispatch span'ını, üreten isteğin bağlamını ebeveyn alarak başlatır.
+    /// Saklanan değer yoksa ya da W3C biçimine uymuyorsa span yine açılır — yalnız ebeveyni
+    /// içinde bulunduğu tur olur. <b>Bozuk bir traceparent yüzünden mesaj yayınlanmadan kalmaz.</b>
+    /// </summary>
+    private static Activity? StartDispatchActivity(OutboxMessage message)
+    {
+        var name = $"outbox.dispatch {message.Type}";
+
+        if (!string.IsNullOrWhiteSpace(message.TraceParent)
+            && ActivityContext.TryParse(message.TraceParent, traceState: null, out var parentContext))
+        {
+            return EgitimUssuActivitySource.Instance.StartActivity(name, ActivityKind.Consumer, parentContext);
+        }
+
+        return EgitimUssuActivitySource.Instance.StartActivity(name, ActivityKind.Consumer);
     }
 
     private void RecordFailure(OutboxMessage message, Exception exception, OutboxOptions settings)

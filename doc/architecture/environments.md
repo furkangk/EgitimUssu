@@ -2,7 +2,7 @@
 title: Ortamlar — Development, Staging, Production
 summary: "Development / Staging / Production ortamlarinin farklari: hangi saglayici nerede acik, demo veri nereye tohumlanir, migration ve yedekleme nasil isler"
 authority: derived
-updated: 2026-09-05
+updated: 2026-09-06
 type: architecture
 status: 🟢 uygulandı
 tags: [ops, environment, staging, seeding, render, E-06]
@@ -176,15 +176,29 @@ Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
 | Hata gövdelerinde `traceId` | ✅ |
 | Metrikler (`egitimussu.outbox.pending/dispatched`, `email.sent`, `push.sent`) | ✅ Gerçek OTLP toplayıcısında okundu |
 | Sorgu dizesindeki sır (`?token=…`) | ✅ `SensitiveDataMask` ile `***` |
-| CQRS komut/sorgu adımı ayrı span | ❌ Yok |
-| Outbox → handler işinin **isteğin trace'ine bağlanması** | ❌ Yok |
+| CQRS komut/sorgu adımı ayrı span | ✅ `command <Tip>` / `query <Tip>` |
+| Outbox → handler işinin **isteğin trace'ine bağlanması** | ✅ `outbox_messages.TraceParent` ile (P13 Task 9) |
+| Arka plan turlarının kendi span'ı | ✅ `outbox.poll` · `retention.sweep` · `scan.*` (7 tarayıcı) |
 
-> ⚠️ **Bilinen açık (P13 Task 9):** Outbox/inbox yoklayıcıları arka planda çalışır ve `Activity`
-> açmaz; Npgsql enstrümantasyonu her SQL komutunu **ebeveynsiz kök trace** olarak yayar. Task 8
-> ölçümünde 1500 trace'in **1488'i** bu gürültüydü (yalnız 12'si gerçek HTTP isteği) ve trace'in
-> adı veritabanı adı (`egitimussu_staging`) olarak göründü. Zinciri gerçekten uçtan uca görmek için
-> (a) dispatch/handler adımlarına kendi span'ları, (b) `outbox_messages`'a `TraceParent` sütunu
-> gerekiyor — (b) **her modülde bir migration** demek olduğu için ayrı görev açıldı.
+> ✅ **Kapandı (P13 Task 9).** Önce şöyleydi: outbox/inbox yoklayıcıları `Activity` açmadığı için
+> Npgsql her SQL komutunu **ebeveynsiz kök trace** olarak yayıyordu; Task 8 ölçümünde 1500 trace'in
+> **1488'i** bu gürültüydü (yalnız 12'si gerçek HTTP isteği) ve trace'in adı veritabanı adı olarak
+> görünüyordu. Task 9'da (a) dispatch/handler/tur adımlarına kendi span'ları eklendi, (b)
+> `outbox_messages`'a `TraceParent` sütunu geldi (**15 migration**). Doğrulama koşumunda
+> **ebeveynsiz ham DB kök trace'i: 0** (29 trace'in hepsi adlandırılmış) ve ders oluşturma isteği
+> **tek trace, 18 span** olarak göründü:
+>
+> ```
+> POST /api/scheduling/lessons
+> └── command CreateLessonScheduleCommand
+>     ├── SELECT EXISTS (çakışma) · INSERT INTO scheduling.lesson_schedules
+>     └── outbox.dispatch LessonScheduledDomainEvent
+>         ├── handler LessonScheduleNotificationIntegrationEventHandler
+>         └── handler LessonScheduleUpsertProjectionHandler
+>             └── outbox.dispatch LessonReminderCreatedDomainEvent
+> ```
+>
+> Ayrıntı: [`backend.md` §11.5](backend.md).
 
 > ⚠️ **`Logging` e-posta sağlayıcısı PII yazar.** Development ve Staging'de `Email__Provider=Logging`
 > olduğu için doğrulama e-postasının **alıcısı ve jetonu** servis log'una düşer. Bu bilinçli bir
@@ -199,4 +213,4 @@ Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
 > yedekleme/geri yükleme → [`backup_restore.md`](backup_restore.md) ·
 > gözlemlenebilirlik → [`backend.md` §11](backend.md)
 
-*Ortamlar | Güncelleme: 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*
+*Ortamlar | Güncelleme: 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*

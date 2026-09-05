@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Shared.Infrastructure.Configuration;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +67,12 @@ public sealed class DataRetentionProcessor : IDataRetentionProcessor
 
     public async Task<DataRetentionRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Outbox turuyla aynı gerekçe — bu tur her modülün iki tablosunu tarar ve span'ı
+        // olmadan her sorgu ayrı bir kök trace olur (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "retention.sweep",
+            ActivityKind.Internal);
+
         var cutoff = _clock.UtcNow - MessageLogRetention;
         var outboxDeleted = 0;
         var inboxDeleted = 0;

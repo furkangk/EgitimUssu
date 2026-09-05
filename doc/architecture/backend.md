@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-09-05
+updated: 2026-09-06
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
@@ -212,11 +212,13 @@ Modüller arası iletişim **doğrudan çağrı değil**, event tabanlıdır:
 Aggregate.Raise(DomainEvent)
    └─ SaveChanges sırasında ModuleDbContext:
         DomainEvent → IDomainEventMapper → IntegrationEvent
-        → OutboxMessage (Module, Type, Payload, OccurredOnUtc) AYNI transaction'da yazılır
+        → OutboxMessage (Module, Type, Payload, OccurredOnUtc, TraceParent) AYNI transaction'da yazılır
    └─ Outbox işleyici → IEventBus.PublishAsync → ilgili modüller/bildirim tüketir
 ```
 
-`OutboxMessage`: `Id, Module, Type, Payload, OccurredOnUtc, ProcessedOnUtc?, Error?`. Bu desen **en az bir kez**
+`OutboxMessage`: `Id, Module, Type, Payload, OccurredOnUtc, ProcessedOnUtc?, Error?, RetryCount,
+NextAttemptUtc?, DeadLetteredOnUtc?, TraceParent?`. Son alan **üreten isteğin trace bağlamıdır** —
+asenkron hop'ta zincirin kopmaması için (§11.5). Bu desen **en az bir kez**
 teslim ve atomik yazma (domain + event tek tx) sağlar. Mevcut `IDomainEventMapper` varsayılanı `NoOpDomainEventMapper`
 (modüller mapper'larını ekledikçe gerçek event yayını devreye girer).
 
@@ -341,7 +343,18 @@ durum eşler. Beklenmeyen istisnalar `ProblemDetailsExceptionMiddleware` tarafı
 ### 11.2 Trace
 
 Kaynaklar: **ASP.NET Core** (gelen istek) · **HttpClient** (giden istek; FCM/SMTP çağrıları) ·
-**Npgsql** (SQL komutları).
+**Npgsql** (SQL komutları) · **`EgitimUssu`** (uygulamanın kendi span'ları — `EgitimUssuActivitySource`).
+
+Uygulamanın kendi span'ları, enstrümantasyon paketlerinin göremediği aradaki adımları doldurur:
+
+| Span | Nerede | Ne gösterir |
+|------|--------|-------------|
+| `command <CommandType>` | `CommandDispatcher` | Hangi komut koştu; doğrulama + yetki + handler süresi |
+| `query <QueryType>` | `QueryDispatcher` | Aynısı sorgu tarafında |
+| `outbox.poll` | `EfOutboxStore.ProcessPendingAsync` | Bir yoklama turu (claim + sayım sorguları buranın altında) |
+| `outbox.dispatch <EventName>` | `EfOutboxStore` (mesaj başına) | Mesajın yayınlanması; **ebeveyni üreten istektir** (§11.6) |
+| `handler <HandlerType>` | `DispatchingEventBus` | Olayı dinleyen her handler ayrı ayrı |
+| `retention.sweep` | `DataRetentionProcessor` | Saklama süresi dolan outbox/inbox satırlarının temizliği |
 
 - `/health*` istekleri **bilerek filtrelenir**: saniyede bir çağrılıp trace'i doldurur ve gerçek isteği gizlerlerdi.
 - ⚠️ **EF Core enstrümantasyonu kullanılmıyor**: `OpenTelemetry.Instrumentation.EntityFrameworkCore`'un
@@ -384,7 +397,40 @@ Enstrümantasyondan gelenler: `http.server.request.duration`, `http.server.activ
   olur (`accessToken`, `refresh_token`, `userEmail` de yakalanır). Anahtarlar ve zararsız değerler
   korunur — okunamayan log'a kimse bakmaz.
 
-### 11.5 Yerelde doğrulama
+### 11.5 Asenkron zincir: outbox trace yayılımı
+
+`outbox_messages.TraceParent` (W3C `traceparent`, 55 karakter) mesajı **üreten** isteğin bağlamını
+taşır. `ModuleDbContext.CaptureOutboxMessages` satırı yazarken `Activity.Current?.Id`'yi kopyalar;
+`EfOutboxStore` dispatch ederken bu değeri `ActivityContext.TryParse` ile çözüp span'ın **ebeveyni**
+yapar. Sonuç: Jaeger'da `POST /api/scheduling/lessons` trace'ini açtığınızda, dakikalar sonra koşan
+outbox dispatch'i ve handler'ları **aynı trace'in altında** görünür.
+
+```
+POST /api/scheduling/lessons
+├── command CreateLessonScheduleCommand
+│   ├── SELECT EXISTS (çakışma kontrolü)          ← Npgsql
+│   └── INSERT INTO scheduling.lesson_schedules   ← Npgsql
+└── outbox.dispatch LessonScheduledDomainEvent    ← dakikalar sonra, arka planda
+    ├── handler LessonScheduledNotificationHandler
+    └── handler TeacherDashboardProjectionHandler
+```
+
+Üç kural:
+
+- **Bağlam yazma anında yakalanır, okuma anında değil.** Dispatch başka bir thread'de, dakikalar
+  sonra koşar; o an `Activity.Current` çoktan boştur.
+- **Bağlam yoksa akış bozulmaz.** Tohumlama ve zamanlanmış tarayıcılar trace'siz üretir; `TraceParent`
+  `null` kalır ve dispatch span'ı içinde bulunduğu `outbox.poll` turunun altına düşer.
+- **Bozuk bir `traceparent` mesajı kilitlemez.** `TryParse` başarısız olursa değer yok sayılır;
+  yayınlama normal şekilde sürer.
+
+> **Neden arka plan işine span şart:** enstrümante edilmemiş bir yoklayıcı trace'i temizlemez,
+> *kirletir*. Npgsql her SQL komutunu yayar ve ebeveyni yoksa **her biri ayrı bir kök trace** olur.
+> P13 Task 8'in staging ölçümünde 1500 trace'in **1488'i** böyle oluşmuştu (adları da veritabanı adı
+> olarak görünüyordu) ve 12 gerçek HTTP isteği aralarında kayboluyordu. Periyodik bir işçi eklerken
+> span'ını da ekleyin.
+
+### 11.6 Yerelde doğrulama
 
 ```bash
 docker run -d --name otel-jaeger -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one
@@ -422,4 +468,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-05 (P13 Task 4 / E-05: §3'e **Yedekleme / migration** satırı — üretimde açılış migration'ı `MigrationStartupGuard` ile kapatıldı, `ApplyModuleMigrationsAsync` artık kararın sahibi ve `bool` döndürüyor; §6 migration maddesine `Down()` kuralı + CI kontrolü eklendi. Prosedür: `backup_restore.md`) · 2026-09-05 (P13 Task 3 / E-06: §3'e **Ortamlar / tohumlama** satırı — staging ayrı servis + ayrı veritabanı, açılışta idempotent demo veri; seeder modül komutlarından geçer (kimliğe bürünerek), Production'da guard bayrağı yok sayar. Ayrıntı `environments.md`) · 2026-09-05 (P13 Task 2 / C-10: §3'e **API sürümleme** satırı — yayınlanan sözleşme `v1`, mevcut yollar sürüm eki taşımaz ve kırılmaz, kırıcı değişiklik `/api/v2/...` altında açılır; her `/api/*` yanıtında `X-Api-Version` (401/404 dahil), `/health*` ve `/openapi*` sürümlenmez. `GET /api/meta/version` artık `apiVersion` (sözleşme) ile `version` (derleme) ayrımını yapıyor, OpenAPI belgesi sözleşme sürümünü yayınlıyor. Politika: `api_versioning.md`) · 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-06 (P13 Task 9 / C-04: §11.2'ye **uygulamanın kendi span'ları** tablosu (`command`/`query`/`outbox.poll`/`outbox.dispatch`/`handler`/`retention.sweep`) ve yeni **§11.5 asenkron zincir** — `outbox_messages.TraceParent` ile üreten isteğin bağlamı mesajla taşınıyor, dispatch o trace'i devam ettiriyor; enstrümante edilmemiş yoklayıcının trace'i nasıl kirlettiği ölçümle anlatıldı) · 2026-09-05 (P13 Task 4 / E-05: §3'e **Yedekleme / migration** satırı — üretimde açılış migration'ı `MigrationStartupGuard` ile kapatıldı, `ApplyModuleMigrationsAsync` artık kararın sahibi ve `bool` döndürüyor; §6 migration maddesine `Down()` kuralı + CI kontrolü eklendi. Prosedür: `backup_restore.md`) · 2026-09-05 (P13 Task 3 / E-06: §3'e **Ortamlar / tohumlama** satırı — staging ayrı servis + ayrı veritabanı, açılışta idempotent demo veri; seeder modül komutlarından geçer (kimliğe bürünerek), Production'da guard bayrağı yok sayar. Ayrıntı `environments.md`) · 2026-09-05 (P13 Task 2 / C-10: §3'e **API sürümleme** satırı — yayınlanan sözleşme `v1`, mevcut yollar sürüm eki taşımaz ve kırılmaz, kırıcı değişiklik `/api/v2/...` altında açılır; her `/api/*` yanıtında `X-Api-Version` (401/404 dahil), `/health*` ve `/openapi*` sürümlenmez. `GET /api/meta/version` artık `apiVersion` (sözleşme) ile `version` (derleme) ayrımını yapıyor, OpenAPI belgesi sözleşme sürümünü yayınlıyor. Politika: `api_versioning.md`) · 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

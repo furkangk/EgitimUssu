@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Modules.ProgressTracking.Domain;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +50,12 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
 
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.progress.snapshot",
+            ActivityKind.Internal);
+
         var now = _clock.UtcNow;
         var today = DateOnly.FromDateTime(now);
         var createdCount = 0;

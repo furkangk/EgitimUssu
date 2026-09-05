@@ -6,4 +6,6 @@ public sealed record OutboxBatchItem(
     string Module,
     string Type,
     string Payload,
-    DateTime OccurredOnUtc);
+    DateTime OccurredOnUtc,
+    // C-04: Mesajı üreten isteğin W3C traceparent'ı; yoksa null.
+    string? TraceParent = null);

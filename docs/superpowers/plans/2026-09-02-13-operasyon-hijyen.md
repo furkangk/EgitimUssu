@@ -569,29 +569,57 @@ git commit -m "docs: P13 operasyon ve hijyen kapanisi"
 > o yüzden ayrı ve açıkça karar verilerek yürütülür.
 
 **Files:**
-- Modify: `src/Shared/Infrastructure/Observability/ObservabilityExtensions.cs` (yeni `ActivitySource` kaydı)
+- Modify: `src/Shared/Infrastructure/Observability/ObservabilityExtensions.cs` (`AddSource`)
 - Create: `src/Shared/Infrastructure/Observability/EgitimUssuActivitySource.cs`
-- Modify: `src/Shared/Infrastructure/Messaging/{OutboxProcessor,OutboxDispatcher}.cs`, `src/Shared/Infrastructure/Persistence/{OutboxMessage,EfOutboxStore}.cs`
-- Modify: `src/Shared/Application/Dispatching/*Dispatcher*.cs` (komut/sorgu span'ı)
+- Modify: `src/Shared/Infrastructure/Persistence/{OutboxMessage,OutboxBatchItem,EfOutboxStore,ModuleDbContext,DataRetentionService}.cs` *(sapma #1, #3)*
+- Modify: `src/Shared/Infrastructure/Messaging/DispatchingEventBus.cs` *(sapma #2)*
+- Modify: `src/Shared/Infrastructure/Application/{CommandDispatcher,QueryDispatcher}.cs`
+- Modify: 6 modül arka plan servisi *(sapma #4)* — `Payments/PaymentOverdueScanner`, `Assignments/AssignmentDueScanner`, `Identity/AccountDeletionService`, `ProgressTracking/ProgressSnapshotService`, `Notifications/{NotificationDispatching,ParentWeeklySummaryService}`
 - Create: `src/Modules/*/Infrastructure/Migrations/*_AddOutboxTraceParent.cs` (**15 modül**)
-- Test: `tests/Unit/OutboxTracePropagationTests.cs`
+- Test: `tests/Unit/OutboxTracePropagationTests.cs` (9 test)
+- Doküman: `doc/architecture/{backend,environments}.md`, `doc/denetim/2026-09-02_eksik_analizi.md`
+
+> **Plandan sapma (2026-09-06, uygulanırken düzeltildi):**
+> 1. **`ModuleDbContext.cs` ve `OutboxBatchItem.cs` de değişti.** Plan yalnız `OutboxMessage`/`EfOutboxStore`
+>    diyordu; ama bağlamın **yazıldığı** yer `CaptureOutboxMessages`'tır. Dispatch dakikalar sonra, başka bir
+>    thread'de koşar — o an `Activity.Current` boştur; okuma anında yakalamak mümkün değil.
+> 2. **Handler span'ı `DispatchingEventBus`'a eklendi** (plan bu dosyayı listelemiyordu). Aynı olayı birden çok
+>    modül dinliyor; tek bir dispatch span'ı altında hepsinin süresi birbirine karışır ve "hangisi yavaş"
+>    sorusu cevapsız kalırdı.
+> 3. **`DataRetentionService` de enstrümante edildi.** Task 8 ölçümündeki gürültünün bir kısmı outbox değil,
+>    saklama turunun `inbox_messages` taramasıydı.
+> 4. **6 modül arka plan servisine de span eklendi.** İlk ölçümde (yalnız Shared enstrümante edilmişken)
+>    gürültü 1488 → 58'e indi ama **sıfırlanmadı**: kalan 58'in 42'si `NotificationDispatching`'in
+>    `device_tokens` + `user_settings` yoklamalarıydı. Görev zaten "modüle dokunma" kısıtını (15 migration ile)
+>    bilerek deldiği için, hedefi yarım bırakmak yerine yedi tarayıcının hepsine `scan.*` span'ı eklendi.
+> 5. **Span link değil, ebeveyn.** Plan "kök + span link" diyordu. Ama kabul kriteri "**tek trace**'te
+>    HTTP → command → EF → outbox → handler" ister; link iki ayrı trace bırakır ve Jaeger'ın trace görünümü
+>    yalnız ebeveyn-çocuk zincirini izler. Saklanan `traceparent` doğrudan **ebeveyn bağlamı** yapıldı.
+> 6. **17 modül var, 15'inin migration'ı oldu.** `Matching` ve `Reviews` henüz iskelet (hiç migration'ları yok).
 
 **Interfaces:**
-- `OutboxMessage.TraceParent` (`string?`, W3C `traceparent` biçimi) — yazarken `Activity.Current` varsa doldurulur
-- Dispatch sırasında span: `outbox.dispatch` (kök) + **span link** ile üreten isteğe bağlanır; handler başına `handler.<EventName>` span'ı
+- `OutboxMessage.TraceParent` (`string?`, W3C `traceparent`, `HasMaxLength(55)`) — yazarken `Activity.Current?.Id`
+- `EgitimUssuActivitySource.Name = "EgitimUssu"` — `AddObservability` içinde `AddSource` ile kayıtlı
+- Span adları: `command <Tip>` · `query <Tip>` · `outbox.poll` · `outbox.dispatch <EventName>` (Consumer) ·
+  `handler <HandlerTipi>` · `retention.sweep` · `scan.<modül>.<iş>`
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — outbox'a yazarken `traceparent` saklanıyor mu; dispatch span'ı link taşıyor mu; `Activity.Current` yokken null kalıyor mu.
-- [ ] **Step 2: Kırmızı gör**
-- [ ] **Step 3: `ActivitySource` + dispatcher/outbox/handler span'ları** (şema değişikliği olmadan — gürültü burada biter)
-- [ ] **Step 4: `TraceParent` sütunu + 15 migration** (`check-migration-down.sh` yeşil kalmalı)
-- [ ] **Step 5: Yeşil gör + Jaeger'da tek trace'te HTTP → command → EF → outbox → handler**
-- [ ] **Step 6: Doküman** — `doc/architecture/environments.md` §5 tablosundaki iki ❌ satırı ✅'ye çevir; `doc/denetim/2026-09-02_eksik_analizi.md` C-04 → tam ✅
+- [x] **Step 1: Testleri yaz (kırmızı)** — 9 test: satıra `traceparent` yazılması, trace yokken `null`, dispatch'in üreten trace'i devam ettirmesi, bağlam yokken tur span'ının altına düşmesi, **bozuk `traceparent`'ın mesajı kilitlememesi**, boş turda bile `outbox.poll`, handler başına span, komut ve sorgu span'ı.
+- [x] **Step 2: Kırmızı gör** — **CS0103** ×3 (`EgitimUssuActivitySource` yok) + **CS1061/CS0117** ×3 (`TraceParent` yok).
+- [x] **Step 3: `ActivitySource` + dispatcher/outbox/handler/tarayıcı span'ları** — 733 birim testi yeşil. *(Bu adımda iki gerçek hata testin kendisindeydi: `UseInMemoryDatabase` adı lambda'nın içinde üretilince her scope ayrı veritabanı açıyordu; ve `ActivityListener` süreç geneli olduğu için paralel koşan testlerin span'larını topluyordu — testler artık kendi trace'lerine göre filtreliyor.)*
+- [x] **Step 4: `TraceParent` sütunu + 15 migration** — `check-migration-down.sh`: **97 migration, hepsi geri alınabilir**. Integration paketi gerçek Postgres'te 62/62 yeşil (sütun temiz uygulanıyor).
+- [x] **Step 5: Yeşil gör + Jaeger'da tek trace** — `./scripts/test-with-docker.sh`: 4 mimari / **733 birim** / 62 integration, başarısız 0, atlanan 0. `dotnet build -warnaserror --no-incremental`: 0 uyarı / 0 hata. **Jaeger kanıtı:** ders oluşturma **tek trace, 18 span** — `POST /api/scheduling/lessons → command CreateLessonScheduleCommand → (SELECT, INSERT) → outbox.dispatch LessonScheduledDomainEvent → 2 handler → outbox.dispatch LessonReminderCreatedDomainEvent`. **Gürültü: ebeveynsiz ham DB kök trace'i 1488 → 0** (29 trace'in hepsi adlandırılmış). 16 outbox satırının **1'inde** `TraceParent` dolu (HTTP'den gelen), 15'i tohumlamadan geldiği için `null` — tasarlandığı gibi.
+- [x] **Step 6: Doküman** — `backend.md` §7 (`OutboxMessage` alanları) + §11.2 (span tablosu) + yeni **§11.5 asenkron zincir**; `environments.md` §5 tablosundaki iki ❌ → ✅; `doc/denetim/2026-09-02_eksik_analizi.md` **C-04 → tam ✅**.
+
+```bash
+git add src tests doc docs/superpowers
+git commit -m "feat(observability): outbox trace zinciri ve arka plan span'lari (C-04)"
+```
 
 ---
 
 ## Kabul Kriterleri
 
-- [~] Trace zinciri uçtan uca görünüyor; her log satırında `TraceId` var — **`TraceId` ✅**, **HTTP → EF ✅**, **outbox → handler ❌** (Task 9)
+- [x] Trace zinciri uçtan uca görünüyor; her log satırında `TraceId` var — **Task 9'da kapandı**: tek trace / 18 span (HTTP → command → EF → outbox → handler → ikinci nesil olay); ebeveynsiz gürültü trace'i 1488 → 0
 - [x] PII hiçbir log/trace alanında yok (örnek istek incelenerek doğrulandı) — istek/trace hattında yok; ⚠️ `Email__Provider=Logging` **bilerek** alıcı + doğrulama jetonunu log'a yazar (dev/staging kolaylığı, üretimde `Smtp`)
 - [x] Outbox kuyruk derinliği ve push/e-posta başarı oranı metrik olarak yayınlanıyor — gerçek OTLP toplayıcısında okundu (`push.sent` tanımlı ama tetiklenmedi: cihaz jetonu yok, **Q8**)
 - [x] Her `/api/*` yanıtında `X-Api-Version` başlığı var — canlı doğrulandı (200 ve 404 dahil)

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,6 +22,12 @@ internal sealed class QueryDispatcher : IQueryDispatcher
         where TResponse : Result
     {
         var queryType = query.GetType();
+
+        // C-04: Komut tarafıyla aynı gerekçe — sorgunun adı ve yetki adımının maliyeti trace'te görünsün.
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            $"query {queryType.Name}",
+            ActivityKind.Internal);
+
         _logger.LogInformation("Dispatching query {QueryType}", queryType.Name);
 
         var invokers = DispatcherInvokerCache.ForQuery(queryType);

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -25,6 +27,13 @@ public sealed class DispatchingEventBus(
 
         foreach (var handler in matchingHandlers)
         {
+            // C-04: Handler başına span. Aynı olayı birden çok modül dinlediğinde, "hangisi yavaş /
+            // hangisi patladı" sorusunun cevabı ancak burada ayrışır — tek bir dispatch span'ının
+            // altında hepsi tek bir süreye karışırdı.
+            using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+                $"handler {handler.GetType().Name}",
+                ActivityKind.Internal);
+
             await handler.HandleAsync(integrationEvent, cancellationToken);
         }
     }

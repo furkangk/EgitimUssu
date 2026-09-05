@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Modules.Payments.Domain;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +41,12 @@ public sealed class PaymentOverdueScanProcessor : IPaymentOverdueScanProcessor
 
     public async Task<int> ScanAsync(CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.payments.overdue",
+            ActivityKind.Internal);
+
         var now = _clock.UtcNow;
 
         var candidates = await _dbContext.PaymentRecords
