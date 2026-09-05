@@ -25,11 +25,30 @@
 **Files:**
 - Create: `src/Shared/Infrastructure/Observability/ObservabilityExtensions.cs`
 - Create: `src/Shared/Infrastructure/Observability/EgitimUssuMetrics.cs`
+- Create: `src/Shared/Infrastructure/Observability/SensitiveDataMask.cs`, `MeteredSenders.cs` *(plan dışı — sapma notu)*
+- Create: `src/Shared/Infrastructure/Configuration/ObservabilityOptions.cs`
 - Modify: `src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj` (OpenTelemetry paketleri)
 - Modify: `src/API.Host/Program.cs`, `appsettings.json`
 - Modify: `src/Shared/Infrastructure/Middleware/RequestContextLoggingMiddleware.cs` (TraceId + PII maskesi)
-- Modify: `src/Shared/Infrastructure/Messaging/EfOutboxStore.cs` (kuyruk metrikleri)
-- Test: `tests/Unit/EgitimUssuMetricsTests.cs`
+- Modify: `src/Shared/Infrastructure/**Persistence**/EfOutboxStore.cs` (kuyruk metrikleri) *(plan yolu `Messaging/` diyordu — dosya `Persistence/` altında)*
+- Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs` (ölçüm sarmalayıcıları)
+- Test: `tests/Unit/EgitimUssuMetricsTests.cs`, `tests/Unit/RequestContextLoggingTests.cs`
+
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **EF Core enstrümantasyonu alınmadı.** `OpenTelemetry.Instrumentation.EntityFrameworkCore`'un kararlı sürümü yok
+>    (yalnız `1.18.0-beta.1`); üretim koduna beta bağımlılık girmesin diye Npgsql'in **kararlı** `Npgsql.OpenTelemetry`
+>    köprüsü kullanıldı — SQL komutları zaten span olarak yayılıyor. Paket **`9.0.4`'e sabitlendi**: serbest bırakılınca
+>    Npgsql'i 10'a çekiyor ve EF sağlayıcısı (`Npgsql.EntityFrameworkCore.PostgreSQL 9.0.4`) desteklenmeyen bir sürücüyle kalıyordu.
+> 2. **`outbox.pending` claim edilen parti değil, gerçek kuyruk derinliğidir.** İlk yazımda `messages.Count`
+>    (claim edilen parti) ölçülüyordu; parti `BatchSize` ile sınırlı olduğu için 10.000 mesaj biriktiğinde bile 20'de
+>    tavan yapar ve **alarm hiç ötmezdi**. Tur başına ayrı bir `COUNT` eklendi.
+> 3. **Push/e-posta ölçümü sarmalayıcıya konuldu** (`MeteredPushSender`/`MeteredEmailSender`), sağlayıcıların içine
+>    değil: her sağlayıcıya ayrı yazılsaydı yarın eklenecek üçüncü sağlayıcı ölçümü sessizce atlayabilirdi.
+> 4. **PII maskesi ayrı bir tipe alındı** (`SensitiveDataMask`) — middleware'in içinde gömülü kalsaydı birim testi
+>    yazmak için sahte `HttpContext` kurmak gerekirdi; kural saf bir fonksiyon olarak doğrudan test edilebiliyor.
+> 5. **`EgitimUssuMetrics` `Enabled=false` iken de kaydedilir.** İş kodu (outbox/push/e-posta) ona bağımlıdır ve her
+>    ortamda çağırabilmelidir; dinleyici yokken ölçüm zaten ücretsizdir. Kapalıyken kurulmayan şey exporter ve
+>    enstrümantasyondur.
 
 **Interfaces:**
 - Produces:
@@ -43,11 +62,12 @@
         public void RecordEmailSent(bool success);
     }
     ```
-  - Konfigürasyon: `Observability:Enabled`, `Observability:OtlpEndpoint`, `Observability:ServiceName`.
+  - Konfigürasyon: `Observability:Enabled`, `Observability:OtlpEndpoint`, `Observability:ServiceName`, `Observability:ServiceVersion`.
+  - `static string SensitiveDataMask.MaskQueryString(string? pathAndQuery)` + `bool IsSensitiveKey(string key)`.
 
-- [ ] **Step 1: Metrik testini yaz (kırmızı)** — `MeterListener` ile `RecordPushSent("Delivered")` sayacının arttığını doğrula; yüksek kardinaliteli etiket (`userId`) kabul edilmediğini doğrula (API'de böyle bir parametre yok).
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EgitimUssuMetricsTests"`
-- [ ] **Step 3: Paketleri ekle**
+- [x] **Step 1: Metrik testini yaz (kırmızı)** — `MeterListener` ile `RecordPushSent("Delivered")` sayacının arttığını doğrula; yüksek kardinaliteli etiket (`userId`) kabul edilmediğini doğrula (API'de böyle bir parametre yok).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~EgitimUssuMetricsTests"`
+- [x] **Step 3: Paketleri ekle**
 ```bash
 dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj package OpenTelemetry.Extensions.Hosting
 dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj package OpenTelemetry.Instrumentation.AspNetCore
@@ -56,11 +76,16 @@ dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj pac
 dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj package OpenTelemetry.Exporter.OpenTelemetryProtocol
 dotnet add src/Shared/Infrastructure/EgitimUssu.Shared.Infrastructure.csproj package OpenTelemetry.Exporter.Console
 ```
-- [ ] **Step 4: `AddObservability`'yi yaz** — `Observability:Enabled=false` iken hiçbir şey kaydetmez (test/CI maliyeti sıfır). OTLP endpoint boşsa konsol exporter.
-- [ ] **Step 5: Metrikleri yerleştir** — outbox bekleyen sayısı (her dispatch turunda), push sonucu (P03), e-posta sonucu (P02).
-- [ ] **Step 6: Log korelasyonu + PII maskesi** — her log satırına `TraceId`; `email`, `phone`, `token`, `password` anahtarlarını içeren alanlar `***` ile maskelenir.
-- [ ] **Step 7: Yerelde doğrula** — `docker run -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one` + `Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 dotnet run --project src/API.Host` → bir istek at → Jaeger UI'da trace görünüyor (HTTP → dispatcher → EF sorgusu zinciri).
-- [ ] **Step 8: Doküman + commit**
+- [x] **Step 4: `AddObservability`'yi yaz** — `Observability:Enabled=false` iken hiçbir şey kaydetmez (test/CI maliyeti sıfır). OTLP endpoint boşsa konsol exporter.
+- [x] **Step 5: Metrikleri yerleştir** — outbox bekleyen sayısı (her dispatch turunda), push sonucu (P03), e-posta sonucu (P02).
+- [x] **Step 6: Log korelasyonu + PII maskesi** — her log satırına `TraceId`; `email`, `phone`, `token`, `password` anahtarlarını içeren alanlar `***` ile maskelenir.
+- [x] **Step 7: Yerelde doğrula** — Jaeger + gerçek koşum yapıldı (2026-09-05):
+  `GET /api/meta/version` ve `/api/messaging/status` Jaeger'da göründü (servis `egitimussu-api`, 5 trace),
+  `/health/live` çağrıları **filtrelendiği için trace'e girmedi**; her log satırında `TraceId` dolu;
+  `?token=SECRET123` log'a `token=***` olarak düştü ve `SECRET123` metni log'da **0 kez** geçti;
+  OTLP adresi boşken konsol exporter'ından `egitimussu.outbox.pending` (LongGauge, meter `EgitimUssu`)
+  ve `http.server.request.duration` okundu.
+- [x] **Step 8: Doküman + commit**
 
 `doc/architecture/backend.md` "Gözlemlenebilirlik" başlığı (ne toplanıyor, nasıl açılıyor, hangi metrikler alarm adayı).
 ```bash

@@ -83,6 +83,7 @@ Host'un kurduğu çapraz-kesit servisler:
 | **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp` (`SmtpEmailSender`, MailKit; herhangi bir relay: Gmail/SES/SendGrid/Resend). Env: `Email__Provider`, `Email__FromEmail`, `Email__Smtp__Host`, `Email__Smtp__Port`, `Email__Smtp__UseStartTls`, `Email__Smtp__Username`, `Email__Smtp__Password`. `EmailOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Kimlik akışı şablonları: `Identity/Infrastructure/EmailTemplates` (`egitimussu://` derin bağlantı, token URL-kodlu) |
 | **Push** | `IPushSender` (K-02); sağlayıcı `Push:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Fcm` (`FcmPushSender`, FCM HTTP v1 + service-account OAuth2, `IFcmAccessTokenProvider`). Env: `Push__Provider`, `Push__ProjectId`, `Push__ServiceAccountJson` (veya `Push__ServiceAccountJsonPath`). `PushOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Sonuç üç değerli: `Delivered` / `TokenInvalid` (token kapatılır) / `TransientFailure` (yeniden denenir) |
 | **Dosya depolama** | `IFileStorage` (K-03); sağlayıcı `Storage:Provider` ile seçilir — `Local` (varsayılan, `LocalFileStorage`, disk) / `S3` (`S3FileStorage`, AWS SDK; AWS S3 / Cloudflare R2 / MinIO — `ServiceUrl` doluysa path-style). Env: `Storage__Provider`, `Storage__BucketName`, `Storage__ServiceUrl`, `Storage__Region`, `Storage__AccessKeyId`, `Storage__SecretAccessKey`. `StorageOptionsGuard` startup'ta fail-fast. Anahtar deseni `{keyPrefix}/{guid}{uzantı}`; **public bucket yok** — indirme uygulama üzerinden yetkiyle. Sınır: `FileValidation` 10 MB + 13 uzantılık beyaz liste (`storage.file_too_large` / `storage.unsupported_type` / `storage.empty_file`) |
+| **Gözlemlenebilirlik** | OpenTelemetry (K-10): trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı) + log'da `TraceId`. `Observability:Enabled` **varsayılan kapalı**; OTLP adresi boşsa konsol exporter. PII sorgu parametreleri `SensitiveDataMask` ile `***`. Detay: §11 |
 | **Meta** | `GET /api/meta/version` → servis sürümü + yüklü modül listesi |
 | **OpenAPI** | `AddOpenApi` / `MapOpenApi` |
 
@@ -181,7 +182,7 @@ public sealed class Result<TValue> : Result { public TValue? Value { get; } /* �
 ```
 
 **Configuration option'ları:** `DatabaseOptions` (connection + `ApplyMigrationsOnStartup`), `JwtOptions`,
-`RedisOptions`, `OutboxOptions`, `RateLimitOptions`, `EmailOptions` (+`SmtpOptions`), `PushOptions`, `StorageOptions`.
+`RedisOptions`, `OutboxOptions`, `RateLimitOptions`, `EmailOptions` (+`SmtpOptions`), `PushOptions`, `StorageOptions`, `ObservabilityOptions`.
 
 **Startup guard'ları** (ortak desen: `Validate` nedeni döner → health check kullanır; `EnsureValid` fırlatır → `Program.cs` fail-fast):
 `JwtSigningKeyGuard`, `ConnectionStringGuard`, `EmailOptionsGuard`, `PushOptionsGuard`, `StorageOptionsGuard`.
@@ -310,9 +311,85 @@ durum eşler. Beklenmeyen istisnalar `ProblemDetailsExceptionMiddleware` tarafı
 7. **Dokümanı güncelle (KALICI KURAL):** `modules/mNN_<ad>.md`, `modules/00_genel_bakis.md` (indeks + endpoint envanteri),
    `modules/veri_modeli.md` ve `INDEX.md`. Bkz. kökteki `CLAUDE.md`.
 
-## 11. Gözlemlenebilirlik
+## 11. Gözlemlenebilirlik (C-04 / K-10)
 
-- **Loglama:** yapılandırılmış JSON (console); `RequestContextLoggingMiddleware` ile istek korelasyonu.
+**Kurulum:** `Shared/Infrastructure/Observability/ObservabilityExtensions.AddObservability(configuration, serviceName)`
+— `Program.cs`'te `AddSharedInfrastructure` hemen ardından çağrılır. OpenTelemetry .NET; exporter OTLP.
+
+### 11.1 Açma/kapama
+
+| Ayar | Varsayılan | Anlamı |
+|------|-----------|--------|
+| `Observability:Enabled` | `false` | **Kapalıyken hiçbir exporter/enstrümantasyon kurulmaz** — testte ve CI'da maliyet sıfır |
+| `Observability:OtlpEndpoint` | `""` | OTLP toplayıcı (ör. `http://localhost:4317`). **Boşsa konsol exporter** |
+| `Observability:ServiceName` | `egitimussu-api` | Toplayıcıda görünen servis adı |
+| `Observability:ServiceVersion` | `""` | Boşsa çalışan derlemenin sürümü |
+
+> **`EgitimUssuMetrics` her koşulda kaydedilir** — `Enabled=false` olsa bile. İş kodu (outbox, push,
+> e-posta) ona bağımlıdır ve her ortamda çağırabilmelidir; dinleyici yokken ölçüm zaten ücretsizdir.
+> Kapalıyken kurulmayan tek şey exporter ve enstrümantasyondur.
+
+> **Boş endpoint neden sessizce hiçbir şey yapmıyor?** "Açtım ama hiçbir yere gitmiyor" durumu fark
+> edilmeden kalmasın diye konsola yazılır (§1 çıtası: sessiz başarısızlık yok).
+
+### 11.2 Trace
+
+Kaynaklar: **ASP.NET Core** (gelen istek) · **HttpClient** (giden istek; FCM/SMTP çağrıları) ·
+**Npgsql** (SQL komutları).
+
+- `/health*` istekleri **bilerek filtrelenir**: saniyede bir çağrılıp trace'i doldurur ve gerçek isteği gizlerlerdi.
+- ⚠️ **EF Core enstrümantasyonu kullanılmıyor**: `OpenTelemetry.Instrumentation.EntityFrameworkCore`'un
+  kararlı sürümü yok (yalnız `beta`). Yerine Npgsql'in **kararlı** `Npgsql.OpenTelemetry` köprüsü
+  (`AddNpgsql()`) kullanılır; SQL komutları zaten span olarak yayılır. Paket sürümü Npgsql 9.x'e
+  **sabitlenmiştir** (`9.0.4`) — serbest bırakılırsa Npgsql'i 10'a çekiyor ve EF sağlayıcısı (9.0.4)
+  desteklenmeyen bir sürücüyle kalıyor.
+
+### 11.3 Metrikler
+
+Enstrümantasyondan gelenler: `http.server.request.duration`, `http.server.active_requests`,
+`http.client.*`. Uygulamanın kendi metrikleri (meter: **`EgitimUssu`**):
+
+| Metrik | Tip | Etiketler | Alarm adayı |
+|--------|-----|-----------|-------------|
+| `egitimussu.outbox.pending` | Gauge | — | **Evet** — sürekli artıyorsa dispatcher durmuştur |
+| `egitimussu.outbox.dispatched` | Counter | `event`, `outcome` | `outcome=failure` oranı |
+| `egitimussu.push.sent` | Counter | `status` (`Delivered`/`TokenInvalid`/`TransientFailure`) | `TransientFailure` oranı |
+| `egitimussu.email.sent` | Counter | `outcome` | `failure` oranı |
+
+> **`outbox.pending` claim edilen parti değil, gerçek bekleyen sayısıdır.** Parti `Outbox:BatchSize`
+> ile sınırlı olduğundan 10.000 mesaj biriktiğinde bile 20'de tavan yapar ve alarm hiç ötmezdi;
+> bu yüzden tur başına ayrı bir `COUNT` çalışır (15 sn'lik döngüde ihmal edilebilir).
+
+> **Push/e-posta ölçümü sağlayıcının içinde değil, sarmalayıcıdadır** (`MeteredPushSender`,
+> `MeteredEmailSender`). Her sağlayıcıya ayrı yazılsaydı yarın eklenecek üçüncü sağlayıcı ölçümü
+> sessizce atlayabilirdi; sarmalayıcı kompozisyon noktasında bir kez kurulur.
+
+> **Yüksek kardinalite yasağı API ile zorlanır:** hiçbir kayıt metodu kullanıcı kimliği/e-posta/token
+> almaz ve `EgitimUssuMetricsTests` bunu yansımayla denetler. Böyle bir boyut zaman serisi sayısını
+> kullanıcı sayısıyla büyütür.
+
+### 11.4 Log korelasyonu ve PII maskesi
+
+- Yapılandırılmış JSON log (console). Her erişim satırı hem `CorrelationId` (istemciden gelen
+  `X-Correlation-Id` ya da üretilen) hem **`TraceId`** taşır — log'dan trace'e geçiş ancak ikisi
+  aynı satırdayken mümkündür.
+- **PII log'a yazılmaz:** sorgu dizesi `SensitiveDataMask`'ten geçer. Adında `token`, `password`,
+  `secret`, `email`, `phone`, `apikey`, `authorization` **geçen** her parametrenin değeri `***`
+  olur (`accessToken`, `refresh_token`, `userEmail` de yakalanır). Anahtarlar ve zararsız değerler
+  korunur — okunamayan log'a kimse bakmaz.
+
+### 11.5 Yerelde doğrulama
+
+```bash
+docker run -d --name otel-jaeger -p 16686:16686 -p 4317:4317 jaegertracing/all-in-one
+ConnectionStrings__Postgres="InMemory:otel" \
+Jwt__SigningKey="<32+ karakter>" Jwt__Issuer=egitimussu Jwt__Audience=egitimussu \
+Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
+dotnet run --project src/API.Host
+# → http://localhost:16686 (servis: egitimussu-api)
+```
+OTLP adresi verilmezse metrikler ve trace'ler **konsola** yazılır (toplayıcı kurmadan doğrulama).
+
 - **Health:** `/health/live` + `/health/ready` (config + DB). `ConfigurationHealthCheck`, `DatabaseConnectionHealthCheck`.
 - **Sürüm/meta:** `GET /api/meta/version`.
 
@@ -339,4 +416,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

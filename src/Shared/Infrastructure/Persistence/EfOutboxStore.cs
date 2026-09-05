@@ -1,4 +1,5 @@
 using EgitimUssu.Shared.Infrastructure.Configuration;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,6 +12,7 @@ public sealed class EfOutboxStore(
     IServiceScopeFactory scopeFactory,
     IOptions<OutboxOptions> options,
     IClock clock,
+    EgitimUssuMetrics metrics,
     ILogger<EfOutboxStore> logger) : IOutboxStore
 {
     private const int ErrorMaxLength = 4000;
@@ -52,6 +54,12 @@ public sealed class EfOutboxStore(
         OutboxOptions settings,
         CancellationToken cancellationToken)
     {
+        // C-04: Kuyruk derinliği alarmın dayandığı ölçümdür ve **claim edilen parti değildir**:
+        // parti `BatchSize` ile sınırlı olduğu için 10.000 mesaj biriktiğinde bile 20'de tavan yapar
+        // ve alarm hiç ötmezdi. Bu yüzden gerçek bekleyen sayısı ayrıca sayılır. Boş turda da
+        // bildirilir — yoksa kuyruk boşaldığında son yüksek değer takılı kalır ve alarm düşmez.
+        metrics.RecordOutboxPending(await CountPendingAsync(dbContext, cancellationToken));
+
         var messages = await ClaimAsync(dbContext, descriptor, settings, cancellationToken);
         if (messages.Count == 0)
         {
@@ -75,10 +83,12 @@ public sealed class EfOutboxStore(
                 message.ProcessedOnUtc = clock.UtcNow;
                 message.Error = null;
                 processed++;
+                metrics.RecordOutboxDispatched(message.Type, success: true);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 RecordFailure(message, exception, settings);
+                metrics.RecordOutboxDispatched(message.Type, success: false);
             }
         }
 
@@ -170,6 +180,22 @@ public sealed class EfOutboxStore(
             .OrderBy(message => message.OccurredOnUtc)
             .Take(settings.BatchSize)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// İşlenmeyi bekleyen (dead-letter olmayan, backoff'u dolmuş) mesaj sayısı. Tur başına tek
+    /// <c>COUNT</c>; varsayılan 15 saniyelik döngüde ihmal edilebilir bir maliyet.
+    /// </summary>
+    private async Task<int> CountPendingAsync(ModuleDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow;
+        return await dbContext.OutboxMessages
+            .AsNoTracking()
+            .CountAsync(
+                message => message.ProcessedOnUtc == null
+                    && message.DeadLetteredOnUtc == null
+                    && (message.NextAttemptUtc == null || message.NextAttemptUtc <= now),
+                cancellationToken);
     }
 
     private static string Truncate(string value, int maxLength)

@@ -6,6 +6,7 @@ using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Email;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Infrastructure.Push;
 using EgitimUssu.Shared.Infrastructure.Storage;
 using EgitimUssu.Shared.Kernel.Storage;
@@ -59,9 +60,13 @@ public static class ServiceCollectionExtensions
         {
             var emailOptions = provider.GetRequiredService<IOptions<EmailOptions>>().Value;
 
-            return string.Equals(emailOptions.Provider, EmailOptions.SmtpProvider, StringComparison.OrdinalIgnoreCase)
-                ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
-                : ActivatorUtilities.CreateInstance<LoggingEmailSender>(provider);
+            IEmailSender sender =
+                string.Equals(emailOptions.Provider, EmailOptions.SmtpProvider, StringComparison.OrdinalIgnoreCase)
+                    ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
+                    : ActivatorUtilities.CreateInstance<LoggingEmailSender>(provider);
+
+            // C-04: Ölçüm kompozisyon noktasında sarmalanır — hangi sağlayıcı seçilirse seçilsin çalışır.
+            return new MeteredEmailSender(sender, provider.GetRequiredService<EgitimUssuMetrics>());
         });
 
         // K-02: Push sağlayıcısı konfigürasyonla seçilir; uygulama kodu FCM'i bilmez.
@@ -71,9 +76,13 @@ public static class ServiceCollectionExtensions
         {
             var pushOptions = provider.GetRequiredService<IOptions<PushOptions>>().Value;
 
-            return string.Equals(pushOptions.Provider, PushOptions.FcmProvider, StringComparison.OrdinalIgnoreCase)
-                ? provider.GetRequiredService<FcmPushSender>()
-                : ActivatorUtilities.CreateInstance<LoggingPushSender>(provider);
+            IPushSender sender =
+                string.Equals(pushOptions.Provider, PushOptions.FcmProvider, StringComparison.OrdinalIgnoreCase)
+                    ? provider.GetRequiredService<FcmPushSender>()
+                    : ActivatorUtilities.CreateInstance<LoggingPushSender>(provider);
+
+            // C-04: Ölçüm kompozisyon noktasında sarmalanır — hangi sağlayıcı seçilirse seçilsin çalışır.
+            return new MeteredPushSender(sender, provider.GetRequiredService<EgitimUssuMetrics>());
         });
 
         // K-03: Dosya depolama sağlayıcısı konfigürasyonla seçilir; modüller S3'ü bilmez.

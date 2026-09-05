@@ -11,6 +11,7 @@ using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Middleware;
 using EgitimUssu.Modules.Membership.Infrastructure;
 using EgitimUssu.Shared.Infrastructure.Modules;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +25,10 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 builder.Services.AddSharedInfrastructure(builder.Configuration);
+// C-04/K-10: Gözlemlenebilirlik. `Observability:Enabled=false` iken (varsayılan) hiçbir exporter
+// kurulmaz — testte ve CI'da maliyet sıfırdır; `EgitimUssuMetrics` yine de kaydedilir, çünkü iş
+// kodu ona her ortamda bağımlıdır.
+builder.Services.AddObservability(builder.Configuration, serviceName: "egitimussu-api");
 builder.Services.AddDiscoveredModules(builder.Configuration, ModuleAssemblies.All);
 builder.Services.ValidateAuthorizationCoverage();
 builder.Services

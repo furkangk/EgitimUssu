@@ -1,5 +1,7 @@
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using System.Diagnostics.Metrics;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
@@ -76,6 +78,7 @@ public sealed class OutboxRetryAndDeadLetterTests
         services.AddSingleton<IDomainEventMapper, JsonDomainEventMapper>();
         services.AddDbContext<TestOutboxDbContext>(builder => builder.UseInMemoryDatabase(databaseName));
         services.AddSingleton(new ModuleDbContextDescriptor("Test", "test", typeof(TestOutboxDbContext)));
+        services.AddMetrics();
         var provider = services.BuildServiceProvider();
 
         var poisonId = Guid.NewGuid();
@@ -93,6 +96,7 @@ public sealed class OutboxRetryAndDeadLetterTests
             provider.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(options),
             new FixedClock(now),
+            new EgitimUssuMetrics(provider.GetRequiredService<IMeterFactory>()),
             NullLogger<EfOutboxStore>.Instance);
 
         return (store, provider, poisonId, goodId);
