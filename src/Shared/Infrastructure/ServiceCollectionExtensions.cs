@@ -73,6 +73,11 @@ public static class ServiceCollectionExtensions
             return new MeteredEmailSender(sender, provider.GetRequiredService<EgitimUssuMetrics>());
         });
 
+        // A-04: E-posta artık istek yolunda gönderilmez; iş yazımıyla aynı transaction'da kuyruğa
+        // girer, arka planda retry/backoff/dead-letter ile gönderilir (push'un çoktan aldığı tedavi).
+        services.AddSingleton<IEmailQueue, EmailQueue>();
+        services.AddHostedService<OutgoingEmailDispatcher>();
+
         // K-02: Push sağlayıcısı konfigürasyonla seçilir; uygulama kodu FCM'i bilmez.
         services.AddSingleton<IFcmAccessTokenProvider, GoogleFcmAccessTokenProvider>();
         services.AddHttpClient<FcmPushSender>();

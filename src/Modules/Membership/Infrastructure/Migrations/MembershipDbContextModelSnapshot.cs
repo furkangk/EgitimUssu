@@ -293,6 +293,59 @@ namespace EgitimUssu.Modules.Membership.Infrastructure.Migrations
 
                     b.ToTable("outbox_messages", "membership");
                 });
+
+            modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.OutgoingEmail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeadLetteredOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HtmlBody")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("NextAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SentOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("TextBody")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ToEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SentOnUtc");
+
+                    b.HasIndex("NextAttemptUtc", "CreatedOnUtc")
+                        .HasDatabaseName("ix_outgoing_emails_pending")
+                        .HasFilter("\"SentOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
+
+                    b.ToTable("outgoing_emails", "membership");
+                });
 #pragma warning restore 612, 618
         }
     }

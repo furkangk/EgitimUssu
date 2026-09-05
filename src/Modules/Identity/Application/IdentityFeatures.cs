@@ -98,8 +98,12 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
         var verificationToken = _tokenProtector.GenerateToken();
         user.SecurityTokens.Add(new UserSecurityToken(_idGenerator.New(), user.Id, SecurityTokenPurpose.EmailVerification, _tokenProtector.Hash(verificationToken), now, now.AddHours(24)));
         await _repository.AddAsync(user, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        // A-04: E-posta, kullanıcı yazımıyla AYNI transaction'da kuyruğa girer — bu yüzden
+        // SaveChanges'ten ÖNCE. Eskiden kayıt commit edildikten sonra SMTP'ye gidiliyordu:
+        // sağlayıcı düşükse kullanıcı oluşmuş ama istek 500 dönüyor, tekrar deneme
+        // duplicate_email veriyordu. Artık ya ikisi de yazılır ya hiçbiri.
         await _notificationService.SendEmailVerificationAsync(user.Email, verificationToken, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
         var access = _tokenIssuer.Issue(user);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));
     }
@@ -206,8 +210,9 @@ public sealed class RequestPasswordResetCommandHandler : ICommandHandler<Request
         var now = _clock.UtcNow;
         var token = _tokenProtector.GenerateToken();
         user.SecurityTokens.Add(new UserSecurityToken(_idGenerator.New(), user.Id, SecurityTokenPurpose.PasswordReset, _tokenProtector.Hash(token), now, now.AddHours(1)));
-        await _repository.SaveChangesAsync(cancellationToken);
+        // A-04: Kuyruga alma SaveChanges'ten ONCE — token ile e-posta ayni transaction'da yazilir.
         await _notificationService.SendPasswordResetAsync(user.Email, token, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }
@@ -250,8 +255,9 @@ public sealed class RequestEmailVerificationCommandHandler : ICommandHandler<Req
         var now = _clock.UtcNow;
         var token = _tokenProtector.GenerateToken();
         user.SecurityTokens.Add(new UserSecurityToken(_idGenerator.New(), user.Id, SecurityTokenPurpose.EmailVerification, _tokenProtector.Hash(token), now, now.AddHours(24)));
-        await _repository.SaveChangesAsync(cancellationToken);
+        // A-04: Kuyruga alma SaveChanges'ten ONCE — token ile e-posta ayni transaction'da yazilir.
         await _notificationService.SendEmailVerificationAsync(user.Email, token, cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }

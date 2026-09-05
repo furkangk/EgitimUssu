@@ -80,6 +80,13 @@ public sealed class EfOutboxStore(
                 deleted += await dbContext.Set<InboxMessage>()
                     .Where(message => message.ProcessedOnUtc < cutoff)
                     .ExecuteDeleteAsync(cancellationToken);
+
+                // A-04: Gönderilmiş e-postalar gövdelerinde doğrulama/sıfırlama token'ı taşır;
+                // budamak yalnız tablo boyutu değil, sırrın saklandığı süre açısından da doğrudur.
+                // Dead-letter'a düşenler durur — "e-posta gitmedi" bilgisi kaybolmamalı.
+                deleted += await dbContext.OutgoingEmails
+                    .Where(email => email.SentOnUtc != null && email.SentOnUtc < cutoff)
+                    .ExecuteDeleteAsync(cancellationToken);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
