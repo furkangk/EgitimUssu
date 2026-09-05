@@ -167,4 +167,129 @@ void main() {
       );
     });
   });
+
+  _runMigratedFeatureScan(projectRoot);
+}
+
+/// P13 Task 6b: ARB'ye taşınmış feature'larda **hardcoded kullanıcı metni kalmadığını**
+/// doğrular. Liste her turda bir feature büyür; taşınan ekran bir daha geri kaymaz.
+///
+/// Tarayıcı kasıtlı olarak ihtiyatlıdır: teknik dize (rota, anahtar, kimlik, dosya yolu),
+/// ham `RegExp` deseni ve yalnız enterpolasyondan ibaret biçimlendirme dizeleri elenir.
+/// Kodda kalması **doğru** olan dizeler [_contractLiterals] içinde gerekçesiyle listelenir;
+/// önizleme/sahte veri blokları kaynakta `// l10n-ignore-start` … `// l10n-ignore-end`
+/// işaretiyle kapsam dışına alınır.
+///
+/// `auth` ve `more` **henüz listede değil**: Task 6 bu ikisini "taşındı" saymıştı ama
+/// tarama `auth`ta 38, `more`da 53 kalıntı buldu (`account_info_page`, `device_sessions_page`,
+/// rol etiketleri, hata mesajları). Bunlar Task 6b'nin kendi turlarına alındı.
+const _migratedFeatures = <String>['dashboard'];
+
+/// Kaynakta kalması doğru olan dizeler → gerekçe.
+const _contractLiterals = <String, String>{
+  'Online': 'ders biçimi sözleşme değeri (API `lessonFormat`, `LessonDetailPayload.modeLabel`)',
+  'InPerson': 'API `lessonFormat` sözleşme değeri',
+  'Yuz yuze':
+      'aynı sözleşmenin diğer ucu; `lesson_sessions` taşınınca bool/enum olacak (Task 6b sırası #3)',
+  'Planned': 'ders durumu sözleşme değeri',
+  'Completed': 'ders durumu sözleşme değeri',
+  'Cancelled': 'ders durumu sözleşme değeri',
+  'Draft': 'ders durumu sözleşme değeri',
+  'TRY': 'ISO 4217 para birimi kodu — çeviriye girmez',
+};
+
+void _runMigratedFeatureScan(String projectRoot) {
+  /// Enterpolasyonu ayıklar. Ayıklanamayan (dengesiz `${`) dizeler `null` döner.
+  String? stripInterpolation(String text) {
+    final stripped = text
+        .replaceAll(RegExp(r'\$\{[^{}]*\}'), '')
+        .replaceAll(RegExp(r'\$[a-zA-Z_][a-zA-Z0-9_]*'), '');
+    if (stripped.contains(r'$') || stripped.contains('{') || stripped.contains('}')) {
+      return null;
+    }
+    return stripped;
+  }
+
+  bool looksLikeUserText(String raw) {
+    final content = stripInterpolation(raw);
+    if (content == null) return false;
+
+    final text = content.trim();
+    // Harf içermeyen biçimlendirme parçaları ("  -  ", ":", "%").
+    if (!RegExp('[A-Za-zÇĞİÖŞÜçğıöşü]').hasMatch(text)) return false;
+    // Rota (`/api/...`, `/login?role=...`), URL ve e-posta kullanıcıya metin sunmaz.
+    // Enterpolasyonlu uçlar da buraya düşsün diye bu eleme kısayoldan önce gelir.
+    if (text.startsWith('/') || text.contains('://')) return false;
+    if (RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(text)) return false;
+    // Enterpolasyon + kelime = derlenmiş kullanıcı metni ("$count gün"): uzunluğa bakma.
+    if (content != raw) return true;
+    if (text.length < 3) return false;
+    // Boşluksuz teknik dizeler: tanımlayıcı, anahtar, kimlik, dosya yolu.
+    if (!RegExp(r'\s').hasMatch(text)) {
+      // Tek kelimelik **başlık** da olabilir ("Dersler") — küçük harfle başlamıyorsa
+      // ve yol/ayraç içermiyorsa gerçek metin sayılır.
+      return !RegExp(r'^[a-z0-9]').hasMatch(text) &&
+          !text.contains('/') &&
+          !text.contains(':') &&
+          !text.contains('_');
+    }
+    return true;
+  }
+
+  group('Taşınmış feature\'larda hardcoded metin (Task 6b)', () {
+    for (final feature in _migratedFeatures) {
+      test('$feature: kullanıcı metni yalnız ARB\'den geliyor', () {
+        final dir = Directory('$projectRoot/lib/features/$feature');
+        expect(dir.existsSync(), isTrue, reason: '${dir.path} bulunamadı.');
+
+        final violations = <String>[];
+        // Ham dize (`r'...'`) hariç, tek satırlık dize sabitleri.
+        final literal = RegExp(r"""(?<!r)(?:'([^'\n\\]*)'|"([^"\n\\]*)")""");
+
+        for (final file in dir
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.dart'))) {
+          final lines = file.readAsLinesSync();
+          var ignoring = false;
+
+          for (var index = 0; index < lines.length; index++) {
+            final line = lines[index];
+            final trimmed = line.trimLeft();
+
+            if (trimmed.startsWith('// l10n-ignore-start')) {
+              ignoring = true;
+              continue;
+            }
+            if (trimmed.startsWith('// l10n-ignore-end')) {
+              ignoring = false;
+              continue;
+            }
+            if (ignoring) continue;
+            if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+            if (trimmed.startsWith('import ') || trimmed.startsWith('export ')) continue;
+            // `DateFormat('d MMMM y')` gibi biçim desenleri metin değil, kalıptır.
+            if (line.contains('DateFormat(')) continue;
+
+            for (final match in literal.allMatches(line)) {
+              final raw = match.group(1) ?? match.group(2)!;
+              if (_contractLiterals.containsKey(raw)) continue;
+              if (!looksLikeUserText(raw)) continue;
+
+              final relative = file.path.replaceFirst('$projectRoot/', '');
+              violations.add('$relative:${index + 1}  "$raw"');
+            }
+          }
+        }
+
+        expect(
+          violations,
+          isEmpty,
+          reason:
+              '${violations.length} hardcoded metin — ARB\'ye taşı ya da gerekçesiyle '
+              'sözleşme listesine ekle:\n${violations.join('\n')}',
+        );
+      });
+    }
+  });
 }

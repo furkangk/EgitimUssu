@@ -451,14 +451,40 @@ git commit -m "chore(mobile): l10n altyapisi + metin kalitesi + test kapsami + C
 **Files:** `mobile/lib/features/**` (aşağıdaki sıra), `mobile/lib/l10n/app_{tr,en}.arb`
 
 **Sıra (metin yoğunluğuna göre, en çok kullanılandan):**
-1. `dashboard` · 2. `scheduling` (en büyük: `scheduling_page`, `lesson_form_sheet`) ·
+1. `dashboard` ✅ · 2. `scheduling` (en büyük: `scheduling_page`, `lesson_form_sheet`) ·
 3. `lesson_sessions` · 4. `students` · 5. `study` · 6. `parent` · 7. `payments` ·
 8. `assignments` · 9. `settings` · 10. `teacher_profile` · 11. `membership` · 12. `messaging` ·
-13. `notifications` · 14. `reporting` · 15. `progress` · 16. `shared/widgets`
+13. `notifications` · 14. `reporting` · 15. `progress` · 16. `shared/widgets` ·
+**17. `auth` (kalan) · 18. `more` (kalan)** *(sapma #1 — aşağı bkz.)*
 
-- [ ] **Step 1:** Feature'ı taşı → `flutter test` → commit (her feature ayrı tur)
-- [ ] **Step 2:** Tümü bitince `localization_test.dart`'a "hardcoded metin kalmadı" kontrolü ekle
-- [ ] **Step 3:** `doc/architecture/mobile_flutter.md` l10n bölümünü "tamamlandı" olarak güncelle
+> **Plandan sapma (2026-09-06, `dashboard` turunda):**
+> 1. **`auth` ve `more` tam taşınmamış.** Task 6 bu ikisini "desen kanıtlandı" diye bitmiş sayıyordu;
+>    Step 2'nin taraması `auth`ta **38**, `more`da **53** kalıntı buldu (`account_info_page`,
+>    Task 7'de eklenen `device_sessions_page`, rol etiketleri, repository/cubit hata mesajları).
+>    Sıraya iki tur eklendi; `_migratedFeatures` listesine yalnız kanıtlanan feature giriyor.
+> 2. **Step 2 öne alındı (TDD).** Tarama "tümü bitince" değil, **ilk turdan önce** yazıldı ve her tur
+>    bir feature ekleniyor; aksi hâlde tur başına kırmızı-yeşil kanıtı olmuyordu.
+> 3. **Taşıma yalnız metin değiştirmiyor, katman sınırını da düzeltiyor.** Cubit/state görünen metin
+>    üretiyordu (`description: 'Ders planlandi'`, `timeLabel: 'Bugün 10:30'`, `todayLessonDurationLabel`);
+>    bunlar anlamsal veriye çevrildi (`DashboardActivityKind`, `occurredAt`, `Duration`). Yan fayda:
+>    aktivite ikonu artık `description.contains('odeme')` yerine enum'dan çözülüyor.
+> 4. **Gün/ay kısaltmaları ARB'ye alınmadı** — `DateFormat('EEE'/'d MMM', locale)` (projedeki yerleşik
+>    desen) 19 anahtar yerine yerel ayarın kendi kısaltmasını veriyor ve "Çar"/"Ağu" yazımını düzeltiyor.
+> 5. **`DashboardUpcomingLesson.modeLabel` ölü alandı** — hiçbir yerde okunmuyordu, kaldırıldı.
+> 6. **`LessonDetailPayload.modeLabel` çevrilmedi:** ders detayında hem gösteriliyor hem
+>    `== 'Online'` ile karşılaştırılıyor. Sözleşme değeri olarak bırakıldı; sıra #3 (`lesson_sessions`)
+>    turunda bool/enum'a dönecek.
+> 7. **Ekran testi eklendi.** Statik tarama kaynakta kalıntı olmadığını görür ama ekranın doğru metni
+>    ürettiğini görmez; `dashboard_page_test.dart` (3 test) bunu doğruluyor. Test yazı tipi glifleri
+>    tam kare çizdiği için 172 px'lik ders kartı **yalnız testte** taşıyor — yutuluyor, üründe yok
+>    (taşıma öncesi kodda da aynı taşma üretilerek doğrulandı).
+
+- [x] **Step 1a:** Tarama testi (kırmızı) — `_migratedFeatures` + `_contractLiterals` + `l10n-ignore` blokları
+- [x] **Step 1b:** `dashboard` taşındı → **111 → 0 kalıntı**, 48 ARB anahtarı (tr/en birebir, toplam 179)
+- [ ] **Step 1c:** Kalan feature'lar (sıra yukarıda) — her feature ayrı tur, ayrı commit
+- [x] **Step 2:** `localization_test.dart`'ta "hardcoded metin kalmadı" kontrolü — **turlu**, liste her turda büyür
+- [ ] **Step 3:** Tümü bitince `doc/architecture/mobile_flutter.md` l10n bölümünü "tamamlandı" yap
+      *(bu turda "taşıma durumu" tablosu gerçeğe göre güncellendi)*
 
 ---
 

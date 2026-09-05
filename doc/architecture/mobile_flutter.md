@@ -308,15 +308,38 @@ MaterialApp(
 
 ### Taşıma durumu
 
+Taşıma **feature feature** yürür (P13 Task 6b) ve her tur `localization_test.dart`'taki
+`_migratedFeatures` listesine bir feature ekler. Liste yalnız **kanıtlanmış** feature'ları taşır:
+tarayıcı o feature'da kullanıcıya görünen tek bir sabit metin bulursa test kırılır.
+
 | Alan | Durum |
 |------|-------|
 | Altyapı + `app.dart` delegate | 🟢 Tamam |
-| `features/auth` (7 ekran) · `features/more` (`more_page`) | 🟢 ARB'de |
-| Kalan ~50 ekran | 🟡 **Sürüyor** — P13 Task 6b, feature feature |
+| `features/dashboard` (179 ARB anahtarının 48'i) | 🟢 ARB'de — taramayla kilitli |
+| `features/auth` · `features/more` | 🟡 **Kısmi** — `more_page` ve giriş/kayıt ekranları taşındı, ama `account_info_page`, `device_sessions_page`, rol etiketleri ve hata mesajları hâlâ kaynakta (auth 38 · more 53 kalıntı) |
+| Kalan ~48 ekran | 🟡 **Sırada** — `scheduling` → `lesson_sessions` → `students` → … |
+
+**Kural — görünen metin üretimi presentation katmanındadır.** Cubit/state sabit Türkçe metin
+üretmez; anlamsal veri taşır (`DashboardActivityKind` enum'u, `DateTime occurredAt`, `Duration`)
+ve etiketi ekran çözer. Yedek metinler de öyle: cubit `null` döndürür, ekran
+`dashboard_studentFallback`'i koyar.
+
+**Gün/ay kısaltmaları ARB'ye girmez** — `DateFormat('EEE'/'d MMM', locale)` kullanılır; yerel
+ayarın kendi kısaltmasını verir ve 19 anahtar tasarruf ettirir.
+
+**Sözleşme değerleri çevrilmez.** `'Online'`, `'InPerson'`, `'Planned'`, `'TRY'` gibi API/sayfa-arası
+değerler kaynakta kalır; testteki `_contractLiterals` haritasında gerekçesiyle listelenir.
+
+**Sahte/önizleme verisi kapsam dışıdır**: `// l10n-ignore-start` … `// l10n-ignore-end` bloğuyla
+işaretlenir (`DashboardState.preview()`, `DashboardRepositoryImpl._mockSummary()`).
 
 > **Metinlerin Türkçe karakter doğruluğu ekrandan bağımsız olarak sağlanmıştır** (D-20): taşınmamış
 > ekranlarda da metin doğru yazılır ve `test/l10n/localization_test.dart` bunu **tüm `lib/**`** için
 > her koşumda denetler. Yani ARB'ye taşıma teknik borç kapatır, marka kalitesi zaten kapalıdır.
+
+> **Widget testlerinde taşma:** test yazı tipi her glifi tam kare çizer, metinler gerçek
+> uygulamadan belirgin geniştir. Sabit genişlikli kartlarda (ör. 172 px ders kartı) yalnız testte
+> `RenderFlex overflowed` çıkar; `while (tester.takeException() != null) {}` ile yutulur.
 
 ---
 
@@ -602,4 +625,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

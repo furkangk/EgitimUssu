@@ -8,11 +8,13 @@ import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/l
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -22,7 +24,7 @@ class DashboardPage extends StatelessWidget {
     final session = context.select((AuthCubit cubit) => cubit.state.session);
     final name = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Ahmet Bey';
+        : AppLocalizations.of(context).dashboard_teacherFallback;
     final teacherUserId = session?.userId ?? 'mock-teacher-user';
 
     return BlocProvider(
@@ -51,7 +53,7 @@ class TeacherPanelPreviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TeacherPanelView(
-      teacherName: 'Ahmet Bey',
+      teacherName: AppLocalizations.of(context).dashboard_teacherFallback,
       state: DashboardState.preview(),
     );
   }
@@ -81,6 +83,7 @@ class TeacherPanelView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
       children: <Widget>[
@@ -93,34 +96,34 @@ class TeacherPanelView extends StatelessWidget {
         _SummaryCards(
           streakCount: state.streakCount,
           todayLessonCount: state.todayLessonCount,
-          todayDurationLabel: state.todayLessonDurationLabel,
+          todayDuration: state.todayLessonDuration,
         ),
         const SizedBox(height: 24),
-        _SectionHeader(title: 'Hizli islemler'),
+        _SectionHeader(title: l10n.dashboard_quickActionsTitle),
         const SizedBox(height: 12),
         _QuickActions(
           actions: <_QuickAction>[
             _QuickAction(
               icon: Icons.add_alarm_rounded,
-              label: 'Ders Ekle',
+              label: l10n.dashboard_addLesson,
               accent: AppColors.accentBlue,
               onTap: () => _showLessonForm(context, state),
             ),
             _QuickAction(
               icon: Icons.post_add_rounded,
-              label: 'Ödev ver',
+              label: l10n.dashboard_addAssignment,
               accent: AppColors.accentGreen,
               onTap: () => context.push('/assignments/new'),
             ),
             _QuickAction(
               icon: Icons.edit_note_rounded,
-              label: 'Not ekle',
+              label: l10n.dashboard_addNote,
               accent: AppColors.accentBlue,
               onTap: () => context.push('/lesson-notes/new'),
             ),
             _QuickAction(
               icon: Icons.payments_rounded,
-              label: 'Ödeme ekle',
+              label: l10n.dashboard_addPayment,
               accent: AppColors.amber,
               onTap: () => context.push('/payments/new'),
             ),
@@ -128,8 +131,8 @@ class TeacherPanelView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SectionHeader(
-          title: 'Dersler',
-          actionLabel: 'Tumunu gor',
+          title: l10n.dashboard_lessonsTitle,
+          actionLabel: l10n.dashboard_viewAll,
           onTap: onOpenLessons,
         ),
         const SizedBox(height: 12),
@@ -159,7 +162,7 @@ class TeacherPanelView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 24),
-        _SectionHeader(title: 'Son aktiviteler'),
+        _SectionHeader(title: l10n.dashboard_activitiesTitle),
         const SizedBox(height: 12),
         _ActivitySection(activities: state.recentActivities),
       ],
@@ -212,15 +215,29 @@ class _SummaryCards extends StatelessWidget {
   const _SummaryCards({
     required this.streakCount,
     required this.todayLessonCount,
-    required this.todayDurationLabel,
+    required this.todayDuration,
   });
 
   final int streakCount;
   final int todayLessonCount;
-  final String todayDurationLabel;
+  final Duration todayDuration;
+
+  /// "3s 30dk" / "45dk" — birim kısaltmaları ARB'den gelir.
+  String _durationLabel(AppLocalizations l10n) {
+    final hours = todayDuration.inHours;
+    final minutes = todayDuration.inMinutes.remainder(60);
+    if (hours > 0 && minutes > 0) {
+      return l10n.dashboard_durationHoursMinutes(hours, minutes);
+    }
+    if (hours > 0) {
+      return l10n.dashboard_durationHours(hours);
+    }
+    return l10n.dashboard_durationMinutes(todayDuration.inMinutes);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: <Widget>[
         Expanded(
@@ -244,7 +261,7 @@ class _SummaryCards extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Günlük seri',
+                          l10n.dashboard_dailyStreak,
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.92),
@@ -257,7 +274,7 @@ class _SummaryCards extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    '$streakCount gun',
+                    l10n.dashboard_dayCount(streakCount),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -290,7 +307,7 @@ class _SummaryCards extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Bugünün Dersleri',
+                          l10n.dashboard_todayLessonsTitle,
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 color: AppColors.textPrimary,
@@ -315,7 +332,7 @@ class _SummaryCards extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Toplam $todayDurationLabel',
+                        l10n.dashboard_totalDuration(_durationLabel(l10n)),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w400,
@@ -442,13 +459,15 @@ class _LessonsSection extends StatelessWidget {
       return const _LoadingPanel();
     }
 
+    final l10n = AppLocalizations.of(context);
+    final dateLocale = Localizations.localeOf(context).languageCode;
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
 
     final items = <_LessonCardData>[
       ...todayLessons.map(
         (l) => _LessonCardData(
-          dateLabel: 'Bugün',
+          dateLabel: l10n.dashboard_today,
           subject: l.subject,
           timeRange:
               '${_fmt(l.startAtUtc.toLocal())} - ${_fmt(l.endAtUtc.toLocal())}',
@@ -472,7 +491,7 @@ class _LessonsSection extends StatelessWidget {
           })
           .map(
             (l) => _LessonCardData(
-              dateLabel: _dateLabel(l.startAtUtc.toLocal(), now),
+              dateLabel: _dateLabel(l.startAtUtc.toLocal(), now, l10n, dateLocale),
               subject: l.title,
               timeRange: l.timeRange,
               isOnline: l.isOnline,
@@ -487,10 +506,10 @@ class _LessonsSection extends StatelessWidget {
     ]..sort((a, b) => a.startAt.compareTo(b.startAt));
 
     if (items.isEmpty) {
-      return const _EmptyPanel(
+      return _EmptyPanel(
         icon: Icons.event_busy_outlined,
-        title: 'Ders bulunmuyor',
-        subtitle: 'Planlanan dersler burada gorunecek.',
+        title: l10n.dashboard_lessonsEmptyTitle,
+        subtitle: l10n.dashboard_lessonsEmptySubtitle,
       );
     }
 
@@ -509,10 +528,15 @@ class _LessonsSection extends StatelessWidget {
   }
 
   Future<void> _openDetail(BuildContext context, _LessonCardData data) async {
+    // `modeLabel` ders detayında hem gösterilir hem de `== 'Online'` ile
+    // karşılaştırılır; sözleşme değeri olduğu için çevrilmez. Task 6b'nin
+    // `lesson_sessions` turunda bool/enum'a dönecek.
     final changed = await context.push<bool>(
       '/lesson-sessions/detail',
       extra: LessonDetailPayload(
-        studentName: data.studentName ?? 'Öğrenci',
+        studentName:
+            data.studentName ??
+            AppLocalizations.of(context).dashboard_studentFallback,
         subject: data.subject,
         dateLabel: data.dateLabel,
         timeLabel: data.timeRange,
@@ -538,29 +562,24 @@ class _LessonsSection extends StatelessWidget {
   static bool _sameDate(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  static String _dateLabel(DateTime local, DateTime now) {
+  /// Gün ve ay kısaltmaları ARB'ye değil `intl`'e bırakılır: projedeki yerleşik
+  /// desen bu (`DateFormat('d MMM', 'tr_TR')`) ve 19 anahtar yerine yerel ayarın
+  /// kendi kısaltmasını verir ("Çar", "Ağu").
+  static String _dateLabel(
+    DateTime local,
+    DateTime now,
+    AppLocalizations l10n,
+    String dateLocale,
+  ) {
     final day = DateTime(local.year, local.month, local.day);
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
-    if (_sameDate(day, today)) return 'Bugün';
-    if (_sameDate(day, tomorrow)) return 'Yarin';
-    const dayNames = ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz'];
-    if (day.difference(today).inDays <= 7) return dayNames[local.weekday - 1];
-    const months = [
-      'Oca',
-      'Sub',
-      'Mar',
-      'Nis',
-      'May',
-      'Haz',
-      'Tem',
-      'Agu',
-      'Eyl',
-      'Eki',
-      'Kas',
-      'Ara',
-    ];
-    return '${local.day} ${months[local.month - 1]}';
+    if (_sameDate(day, today)) return l10n.dashboard_today;
+    if (_sameDate(day, tomorrow)) return l10n.dashboard_tomorrow;
+    if (day.difference(today).inDays <= 7) {
+      return DateFormat('EEE', dateLocale).format(local);
+    }
+    return DateFormat('d MMM', dateLocale).format(local);
   }
 }
 
@@ -572,6 +591,7 @@ class _LessonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isToday = data.isToday;
     final cardColor = isToday ? AppColors.primary : AppColors.card;
     final titleColor = isToday ? Colors.white : AppColors.textPrimary;
@@ -585,7 +605,7 @@ class _LessonCard extends StatelessWidget {
         ? Colors.white.withValues(alpha: 0.18)
         : AppColors.primaryLight;
     final badgeText = isToday ? Colors.white : AppColors.primary;
-    final statusBadge = _dashboardStatusBadge(data);
+    final statusBadge = _dashboardStatusBadge(data, l10n);
 
     return GestureDetector(
       onTap: onTap,
@@ -676,7 +696,9 @@ class _LessonCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  data.isOnline ? 'Online' : 'Yuz yuze',
+                  data.isOnline
+                      ? l10n.dashboard_modeOnline
+                      : l10n.dashboard_modeInPerson,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: modeColor,
                     fontWeight: FontWeight.w700,
@@ -704,36 +726,36 @@ class _StatusBadge {
 /// Ana sayfa ders karti icin durum rozetini cozer. Her ders icin bir rozet
 /// doner: Tamamlandi / Iptal / Taslak / (planli ve saati gecmisse) Bekliyor /
 /// (gelecek planli) Planlandi.
-_StatusBadge _dashboardStatusBadge(_LessonCardData data) {
+_StatusBadge _dashboardStatusBadge(_LessonCardData data, AppLocalizations l10n) {
   switch (data.status) {
     case 'Completed':
-      return const _StatusBadge(
-        'Tamamlandı',
+      return _StatusBadge(
+        l10n.dashboard_statusCompleted,
         AppColors.accentGreen,
         Icons.check_circle_rounded,
       );
     case 'Cancelled':
-      return const _StatusBadge(
-        'İptal',
+      return _StatusBadge(
+        l10n.dashboard_statusCancelled,
         AppColors.accentRed,
         Icons.cancel_rounded,
       );
     case 'Draft':
-      return const _StatusBadge(
-        'Taslak',
+      return _StatusBadge(
+        l10n.dashboard_statusDraft,
         AppColors.textMuted,
         Icons.edit_note_rounded,
       );
     default:
       final started = !data.startAt.isAfter(DateTime.now().toUtc());
       return started
-          ? const _StatusBadge(
-              'Bekliyor',
+          ? _StatusBadge(
+              l10n.dashboard_statusPending,
               AppColors.amber,
               Icons.hourglass_bottom_rounded,
             )
-          : const _StatusBadge(
-              'Planlandı',
+          : _StatusBadge(
+              l10n.dashboard_statusPlanned,
               AppColors.secondary,
               Icons.event_available_rounded,
             );
@@ -780,10 +802,11 @@ class _ActivitySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (activities.isEmpty) {
-      return const _EmptyPanel(
+      final l10n = AppLocalizations.of(context);
+      return _EmptyPanel(
         icon: Icons.history_toggle_off_rounded,
-        title: 'Henuz aktivite yok',
-        subtitle: 'Son hareketler bu alanda listelenecek.',
+        title: l10n.dashboard_activitiesEmptyTitle,
+        subtitle: l10n.dashboard_activitiesEmptySubtitle,
       );
     }
 
@@ -815,6 +838,7 @@ class _ActivityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       child: Row(
@@ -829,7 +853,7 @@ class _ActivityRow extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Icon(
-              _iconFor(activity.description),
+              _iconFor(activity.kind),
               color: activity.accent,
               size: 20,
             ),
@@ -841,7 +865,7 @@ class _ActivityRow extends StatelessWidget {
               children: [
                 const SizedBox(height: 1),
                 Text(
-                  activity.studentName,
+                  activity.studentName ?? l10n.dashboard_studentFallback,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -849,7 +873,7 @@ class _ActivityRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  activity.description,
+                  _descriptionFor(activity.kind, l10n),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textSecondary,
                   ),
@@ -861,7 +885,7 @@ class _ActivityRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 3),
             child: Text(
-              activity.timeLabel,
+              _timeLabel(context, l10n),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -873,18 +897,48 @@ class _ActivityRow extends StatelessWidget {
     );
   }
 
-  IconData _iconFor(String description) {
-    final lower = description.toLowerCase();
-    if (lower.contains('ders')) return Icons.menu_book_rounded;
-    if (lower.contains('odeme') || lower.contains('ödeme')) {
-      return lower.contains('alindi')
-          ? Icons.check_circle_rounded
-          : Icons.receipt_long_rounded;
-    }
-    if (lower.contains('odev') || lower.contains('ödev')) {
-      return Icons.assignment_turned_in_rounded;
-    }
-    return Icons.notifications_rounded;
+  IconData _iconFor(DashboardActivityKind kind) {
+    return switch (kind) {
+      DashboardActivityKind.lessonPlanned => Icons.menu_book_rounded,
+      DashboardActivityKind.paymentReceived => Icons.check_circle_rounded,
+      DashboardActivityKind.paymentAdded => Icons.receipt_long_rounded,
+      DashboardActivityKind.assignmentSubmitted =>
+        Icons.assignment_turned_in_rounded,
+    };
+  }
+
+  String _descriptionFor(DashboardActivityKind kind, AppLocalizations l10n) {
+    return switch (kind) {
+      DashboardActivityKind.lessonPlanned => l10n.dashboard_activityLessonPlanned,
+      DashboardActivityKind.paymentReceived =>
+        l10n.dashboard_activityPaymentReceived,
+      DashboardActivityKind.paymentAdded => l10n.dashboard_activityPaymentAdded,
+      DashboardActivityKind.assignmentSubmitted =>
+        l10n.dashboard_activityAssignmentSubmitted,
+    };
+  }
+
+  /// "Bugün 10:30" / "Dün 18:40" / "04.09 09:10" — gün adı ARB'den, saat `intl`'den.
+  String _timeLabel(BuildContext context, AppLocalizations l10n) {
+    final occurredAt = activity.occurredAt;
+    final now = DateTime.now();
+    final date = DateTime(occurredAt.year, occurredAt.month, occurredAt.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final day = date == today
+        ? l10n.dashboard_today
+        : date == yesterday
+        ? l10n.dashboard_yesterday
+        : DateFormat(
+            'dd.MM',
+            Localizations.localeOf(context).languageCode,
+          ).format(occurredAt);
+
+    return l10n.dashboard_activityTime(
+      day,
+      DateFormat('HH:mm').format(occurredAt),
+    );
   }
 }
 
@@ -1096,6 +1150,7 @@ class _PendingAssignmentsSectionState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final overdueCount = widget.assignments
         .where(
           (a) =>
@@ -1114,7 +1169,7 @@ class _PendingAssignmentsSectionState
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Bekleyen Ödevler',
+                  l10n.dashboard_assignmentsTitle,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -1132,7 +1187,7 @@ class _PendingAssignmentsSectionState
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '$overdueCount gecikti',
+                    l10n.dashboard_assignmentsOverdue(overdueCount),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.error,
                       fontWeight: FontWeight.w700,
@@ -1143,7 +1198,7 @@ class _PendingAssignmentsSectionState
               ],
               if (widget.assignments.isNotEmpty)
                 Text(
-                  '${widget.assignments.length} ödev',
+                  l10n.dashboard_assignmentsCount(widget.assignments.length),
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w700,
@@ -1174,16 +1229,16 @@ class _PendingAssignmentsSectionState
                     if (widget.isLoading && widget.assignments.isEmpty)
                       const _LoadingPanel()
                     else if (widget.assignments.isEmpty)
-                      const _EmptyPanel(
+                      _EmptyPanel(
                         icon: Icons.assignment_turned_in_outlined,
-                        title: 'Bekleyen ödev yok',
-                        subtitle: 'Tüm ödevler tamamlandı.',
+                        title: l10n.dashboard_assignmentsEmptyTitle,
+                        subtitle: l10n.dashboard_assignmentsEmptySubtitle,
                       )
                     else ...[
                       ...widget.assignments.map((assignment) {
                         final studentName =
                             widget.studentNamesById[assignment.studentId] ??
-                            'Öğrenci';
+                            l10n.dashboard_studentFallback;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _AssignmentCard(
@@ -1219,7 +1274,7 @@ class _AssignmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final urgency = _urgencyLevel();
-    final label = _urgencyLabel();
+    final label = _urgencyLabel(AppLocalizations.of(context));
 
     return InkWell(
       onTap: onTap,
@@ -1332,14 +1387,14 @@ class _AssignmentCard extends StatelessWidget {
     return _AssignmentUrgency.later;
   }
 
-  String _urgencyLabel() {
-    if (assignment.dueDateUtc == null) return 'Tarih yok';
+  String _urgencyLabel(AppLocalizations l10n) {
+    if (assignment.dueDateUtc == null) return l10n.dashboard_dueNoDate;
     final due = assignment.dueDateUtc!.toLocal();
     final days = due.difference(DateTime.now()).inDays;
-    if (days < 0) return 'Gecikti!';
-    if (days == 0) return 'Bugün!';
-    if (days == 1) return 'Yarin!';
-    return '$days gun';
+    if (days < 0) return l10n.dashboard_dueOverdue;
+    if (days == 0) return l10n.dashboard_dueToday;
+    if (days == 1) return l10n.dashboard_dueTomorrow;
+    return l10n.dashboard_dueInDays(days);
   }
 
   String _initials(String name) {
@@ -1417,6 +1472,7 @@ class _OverduePaymentsSectionState extends State<_OverduePaymentsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final totalAmount = widget.payments.fold(
       0.0,
       (sum, p) => sum + p.outstandingAmount,
@@ -1435,7 +1491,7 @@ class _OverduePaymentsSectionState extends State<_OverduePaymentsSection> {
             children: [
               Expanded(
                 child: Text(
-                  'Geciken Ödemeler',
+                  l10n.dashboard_paymentsTitle,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -1487,7 +1543,7 @@ class _OverduePaymentsSectionState extends State<_OverduePaymentsSection> {
                       ...widget.payments.map((payment) {
                         final studentName =
                             widget.studentNamesById[payment.studentId] ??
-                            'Öğrenci';
+                            l10n.dashboard_studentFallback;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _PaymentCard(
@@ -1522,6 +1578,7 @@ class _PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final daysLate = DateTime.now()
         .difference(payment.dueDateUtc.toLocal())
         .inDays;
@@ -1537,7 +1594,9 @@ class _PaymentCard extends StatelessWidget {
     final avatarBg = isVeryLate
         ? AppColors.errorSurfaceStrong
         : AppColors.warningSurfaceStrong;
-    final badgeLabel = daysLate <= 0 ? 'Bugün' : '$daysLate gun gecikti';
+    final badgeLabel = daysLate <= 0
+        ? l10n.dashboard_today
+        : l10n.dashboard_paymentsOverdueBadge(daysLate);
 
     return InkWell(
       onTap: onTap,
@@ -1678,7 +1737,7 @@ class _ViewAllButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Tumunu Gor',
+              AppLocalizations.of(context).dashboard_viewAll,
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w700,

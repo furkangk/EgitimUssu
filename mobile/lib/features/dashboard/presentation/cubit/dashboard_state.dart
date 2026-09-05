@@ -49,19 +49,8 @@ class DashboardState extends Equatable {
   final List<DashboardOverduePayment> overduePayments;
   final String? errorMessage;
 
-  String get todayLessonDurationLabel {
-    final hours = todayLessonDuration.inHours;
-    final minutes = todayLessonDuration.inMinutes.remainder(60);
-    if (hours > 0 && minutes > 0) {
-      return '${hours}s ${minutes}dk';
-    }
-    if (hours > 0) {
-      return '${hours}s';
-    }
-    return '${todayLessonDuration.inMinutes}dk';
-  }
-
   factory DashboardState.preview() {
+    // l10n-ignore-start: önizleme rotasının sahte verisi — ürün metni değil, çeviriye girmez.
     final now = DateTime.now().toUtc();
     final today = DateTime.utc(now.year, now.month, now.day);
     return DashboardState(
@@ -79,7 +68,6 @@ class DashboardState extends Equatable {
           title: 'Matematik - 9. Sınıf',
           studentName: 'Zeynep Demir',
           timeRange: '15:30 - 16:30',
-          modeLabel: 'Online',
           isOnline: true,
           startAtUtc: today.add(
             const Duration(days: 1, hours: 15, minutes: 30),
@@ -89,28 +77,27 @@ class DashboardState extends Equatable {
           title: 'Fizik - 11. Sınıf',
           studentName: 'Ali Yilmaz',
           timeRange: '17:00 - 18:30',
-          modeLabel: 'Yuz yuze',
           isOnline: false,
           startAtUtc: today.add(const Duration(days: 2, hours: 17)),
         ),
       ],
-      recentActivities: const <DashboardActivity>[
+      recentActivities: <DashboardActivity>[
         DashboardActivity(
           studentName: 'Ali Yilmaz',
-          description: 'Ödev teslim edildi',
-          timeLabel: 'Bugün 10:30',
+          kind: DashboardActivityKind.assignmentSubmitted,
+          occurredAt: today.add(const Duration(hours: 10, minutes: 30)),
           accent: AppColors.accentGreen,
         ),
         DashboardActivity(
           studentName: 'Zeynep Demir',
-          description: 'Ödeme eklendi',
-          timeLabel: 'Bugün 09:10',
+          kind: DashboardActivityKind.paymentAdded,
+          occurredAt: today.add(const Duration(hours: 9, minutes: 10)),
           accent: AppColors.amber,
         ),
         DashboardActivity(
           studentName: 'Mehmet Kaya',
-          description: 'Yeni ders planlandi',
-          timeLabel: 'Dun 18:40',
+          kind: DashboardActivityKind.lessonPlanned,
+          occurredAt: today.subtract(const Duration(hours: 5, minutes: 20)),
           accent: AppColors.accentBlue,
         ),
       ],
@@ -157,6 +144,7 @@ class DashboardState extends Equatable {
         ),
       ],
     );
+    // l10n-ignore-end
   }
 
   DashboardState copyWith({
@@ -233,7 +221,6 @@ class DashboardUpcomingLesson extends Equatable {
     required this.title,
     required this.studentName,
     required this.timeRange,
-    required this.modeLabel,
     required this.isOnline,
     required this.startAtUtc,
     this.status = 'Planned',
@@ -242,9 +229,11 @@ class DashboardUpcomingLesson extends Equatable {
   });
 
   final String title;
-  final String studentName;
+
+  /// Öğrenci adı; bilinmiyorsa `null` — görünen yedek metni ekran katmanı
+  /// (`dashboard_studentFallback`) koyar, cubit sabit Türkçe metin üretmez.
+  final String? studentName;
   final String timeRange;
-  final String modeLabel;
   final bool isOnline;
   final DateTime startAtUtc;
 
@@ -260,7 +249,6 @@ class DashboardUpcomingLesson extends Equatable {
     title,
     studentName,
     timeRange,
-    modeLabel,
     isOnline,
     startAtUtc,
     status,
@@ -269,24 +257,34 @@ class DashboardUpcomingLesson extends Equatable {
   ];
 }
 
+/// Ana sayfadaki "Son aktiviteler" satırının türü.
+///
+/// Metin ve ikon ekran katmanında bu türe göre çözülür; cubit sabit Türkçe
+/// açıklama üretmez (D-19). Eskiden açıklama metni `contains('odeme')` gibi
+/// kırılgan aramalarla ikona çevriliyordu.
+enum DashboardActivityKind {
+  lessonPlanned,
+  paymentReceived,
+  paymentAdded,
+  assignmentSubmitted,
+}
+
 class DashboardActivity extends Equatable {
   const DashboardActivity({
     required this.studentName,
-    required this.description,
-    required this.timeLabel,
+    required this.kind,
+    required this.occurredAt,
     required this.accent,
   });
 
-  final String studentName;
-  final String description;
-  final String timeLabel;
+  /// Öğrenci adı; bilinmiyorsa `null` (bkz. [DashboardUpcomingLesson.studentName]).
+  final String? studentName;
+  final DashboardActivityKind kind;
+
+  /// Olayın yerel zamanı; "Bugün 10:30" gibi etiketi ekran katmanı üretir.
+  final DateTime occurredAt;
   final Color accent;
 
   @override
-  List<Object?> get props => <Object?>[
-    studentName,
-    description,
-    timeLabel,
-    accent,
-  ];
+  List<Object?> get props => <Object?>[studentName, kind, occurredAt, accent];
 }

@@ -89,6 +89,130 @@
   "common_passwordTooShort": "Şifre en az 8 karakter olmalı.",
   "common_requiredField": "Bu alan zorunlu.",
   "common_save": "Kaydet",
+  "dashboard_activitiesEmptySubtitle": "Son hareketler bu alanda listelenecek.",
+  "dashboard_activitiesEmptyTitle": "Henüz aktivite yok",
+  "dashboard_activitiesTitle": "Son aktiviteler",
+  "dashboard_activityAssignmentSubmitted": "Ödev teslim edildi",
+  "dashboard_activityLessonPlanned": "Ders planlandı",
+  "dashboard_activityPaymentAdded": "Ödeme eklendi",
+  "dashboard_activityPaymentReceived": "Ödeme alındı",
+  "dashboard_activityTime": "{day} {time}",
+  "@dashboard_activityTime": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboard_addAssignment": "Ödev ver",
+  "dashboard_addLesson": "Ders ekle",
+  "dashboard_addNote": "Not ekle",
+  "dashboard_addPayment": "Ödeme ekle",
+  "dashboard_assignmentsCount": "{count} ödev",
+  "@dashboard_assignmentsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_assignmentsEmptySubtitle": "Tüm ödevler tamamlandı.",
+  "dashboard_assignmentsEmptyTitle": "Bekleyen ödev yok",
+  "dashboard_assignmentsOverdue": "{count} gecikti",
+  "@dashboard_assignmentsOverdue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_assignmentsTitle": "Bekleyen Ödevler",
+  "dashboard_dailyStreak": "Günlük seri",
+  "dashboard_dayCount": "{count} gün",
+  "@dashboard_dayCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_dueInDays": "{count} gün",
+  "@dashboard_dueInDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_dueNoDate": "Tarih yok",
+  "dashboard_dueOverdue": "Gecikti!",
+  "dashboard_dueToday": "Bugün!",
+  "dashboard_dueTomorrow": "Yarın!",
+  "dashboard_durationHours": "{hours}s",
+  "@dashboard_durationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_durationHoursMinutes": "{hours}s {minutes}dk",
+  "@dashboard_durationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_durationMinutes": "{minutes}dk",
+  "@dashboard_durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_lessonsEmptySubtitle": "Planlanan dersler burada görünecek.",
+  "dashboard_lessonsEmptyTitle": "Ders bulunmuyor",
+  "dashboard_lessonsTitle": "Dersler",
+  "dashboard_modeInPerson": "Yüz yüze",
+  "dashboard_modeOnline": "Online",
+  "dashboard_paymentsOverdueBadge": "{count} gün gecikti",
+  "@dashboard_paymentsOverdueBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_paymentsTitle": "Geciken Ödemeler",
+  "dashboard_quickActionsTitle": "Hızlı işlemler",
+  "dashboard_statusCancelled": "İptal",
+  "dashboard_statusCompleted": "Tamamlandı",
+  "dashboard_statusDraft": "Taslak",
+  "dashboard_statusPending": "Bekliyor",
+  "dashboard_statusPlanned": "Planlandı",
+  "dashboard_studentFallback": "Öğrenci",
+  "dashboard_teacherFallback": "Öğretmen",
+  "dashboard_today": "Bugün",
+  "dashboard_todayLessonsTitle": "Bugünün Dersleri",
+  "dashboard_tomorrow": "Yarın",
+  "dashboard_totalDuration": "Toplam {duration}",
+  "@dashboard_totalDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboard_viewAll": "Tümünü gör",
+  "dashboard_yesterday": "Dün",
   "more_aboutBody": "EğitimÜssü; öğretmenlerin ders planlama, öğrenci takibi, ödev, tahsilat ve veli bilgilendirme süreçlerini tek mobil deneyimde yönetmesi için tasarlanır.",
   "more_aboutSubtitle": "EğitimÜssü ve uygulama bilgileri",
   "more_aboutTitle": "Hakkımızda",
