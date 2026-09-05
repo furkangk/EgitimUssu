@@ -164,6 +164,26 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                     b.ToTable("inbox_messages", "payments");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.JobLease", b =>
+                {
+                    b.Property<string>("JobName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("AcquiredOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("JobName");
+
+                    b.ToTable("job_leases", "payments");
+                });
+
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>
                 {
                     b.Property<Guid>("Id")

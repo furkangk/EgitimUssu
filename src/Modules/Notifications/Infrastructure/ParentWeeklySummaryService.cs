@@ -8,6 +8,8 @@ using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 
 namespace EgitimUssu.Modules.Notifications.Infrastructure;
 
@@ -94,37 +96,24 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
     }
 }
 
-internal sealed class ParentWeeklySummaryService : BackgroundService
+internal sealed class ParentWeeklySummaryService(
+    IServiceScopeFactory scopeFactory,
+    IClock clock,
+    ILogger<ParentWeeklySummaryService> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
+    protected override string JobName => "parent-weekly-summary";
+
     // Haftalık iş; sık poll gerekmez. 6 saatte bir tetikler, dedup hafta anahtarı ile korunur.
-    private static readonly TimeSpan PollInterval = TimeSpan.FromHours(6);
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IClock _clock;
-    private readonly ILogger<ParentWeeklySummaryService> _logger;
+    // A-07: Hafta anahtarı zaten çift göndermeyi engelliyordu; kira buna ek olarak iki örneğin
+    // aynı anda tüm velileri taramasını (gereksiz yük) da önler.
+    protected override TimeSpan PollInterval => TimeSpan.FromHours(6);
 
-    public ParentWeeklySummaryService(IServiceScopeFactory scopeFactory, IClock clock, ILogger<ParentWeeklySummaryService> logger)
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
+        => services.GetRequiredService<NotificationsDbContext>();
+
+    protected override Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
-        _scopeFactory = scopeFactory;
-        _clock = clock;
-        _logger = logger;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IParentWeeklySummaryProcessor>();
-                await processor.RunAsync(_clock.UtcNow, stoppingToken);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Parent weekly summary cycle failed.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
-        }
+        var processor = services.GetRequiredService<IParentWeeklySummaryProcessor>();
+        return processor.RunAsync(clock.UtcNow, cancellationToken);
     }
 }

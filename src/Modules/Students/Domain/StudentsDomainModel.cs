@@ -410,6 +410,24 @@ public sealed class StudentParentInvite : AggregateRoot<Guid>
         ClaimedByParentUserId = parentUserId;
         ClaimedOnUtc = nowUtc;
     }
+
+    /// <summary>
+    /// A-05 telafisi: tüketilmiş daveti yeniden kullanılabilir hâle getirir. Bağ kurulamadığında
+    /// çağrılır — davet Students şemasında, bağ Parents şemasında yaşadığı ve ikisini saran bir
+    /// transaction olmadığı için, başarısız bir akışın veliyi kodundan etmemesi gerekir.
+    /// </summary>
+    /// <param name="nowUtc">Şu an (durum geçişini doğrulamak için).</param>
+    public void ReleaseClaim(DateTime nowUtc)
+    {
+        if (Status != ParentInviteStatus.Claimed)
+        {
+            return;
+        }
+
+        Status = ParentInviteStatus.Pending;
+        ClaimedByParentUserId = null;
+        ClaimedOnUtc = null;
+    }
 }
 
 public enum ParentInviteStatus

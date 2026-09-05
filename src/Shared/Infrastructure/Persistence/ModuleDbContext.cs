@@ -26,6 +26,9 @@ public abstract class ModuleDbContext : DbContext
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
+    /// <summary>A-07: Arka plan işlerinin çoklu-instance kiraları.</summary>
+    public DbSet<JobLease> JobLeases => Set<JobLease>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -67,6 +70,13 @@ public abstract class ModuleDbContext : DbContext
 
             // A-09: Retention taraması bu sütuna göre siler.
             builder.HasIndex(item => item.ProcessedOnUtc);
+        });
+
+        modelBuilder.Entity<JobLease>(builder =>
+        {
+            builder.ToTable("job_leases");
+            builder.HasKey(item => item.JobName);
+            builder.Property(item => item.JobName).HasMaxLength(128);
         });
 
         base.OnModelCreating(modelBuilder);

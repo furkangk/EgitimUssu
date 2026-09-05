@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 
 namespace EgitimUssu.Modules.Payments.Infrastructure;
 
@@ -59,39 +61,24 @@ public sealed class PaymentOverdueScanProcessor : IPaymentOverdueScanProcessor
 }
 
 /// <summary>M07-1: Tarama turunu saatte bir koşturan arka plan servisi.</summary>
-internal sealed class PaymentOverdueScanner : BackgroundService
+internal sealed class PaymentOverdueScanner(
+    IServiceScopeFactory scopeFactory,
+    ILogger<PaymentOverdueScanner> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromHours(1);
+    protected override string JobName => "payment-overdue-scan";
 
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<PaymentOverdueScanner> _logger;
+    protected override TimeSpan PollInterval => TimeSpan.FromHours(1);
 
-    public PaymentOverdueScanner(IServiceScopeFactory scopeFactory, ILogger<PaymentOverdueScanner> logger)
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
+        => services.GetRequiredService<PaymentsDbContext>();
+
+    protected override async Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
+        var processor = services.GetRequiredService<IPaymentOverdueScanProcessor>();
+        var markedCount = await processor.ScanAsync(cancellationToken);
+        if (markedCount > 0)
         {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IPaymentOverdueScanProcessor>();
-                var markedCount = await processor.ScanAsync(stoppingToken);
-                if (markedCount > 0)
-                {
-                    _logger.LogInformation("Payment overdue scan marked {MarkedCount} record(s) as overdue.", markedCount);
-                }
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Payment overdue scan cycle failed.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
+            logger.LogInformation("Payment overdue scan marked {MarkedCount} record(s) as overdue.", markedCount);
         }
     }
 }

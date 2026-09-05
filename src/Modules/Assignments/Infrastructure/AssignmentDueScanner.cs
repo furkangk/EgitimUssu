@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 
 namespace EgitimUssu.Modules.Assignments.Infrastructure;
 
@@ -89,42 +91,27 @@ public sealed class AssignmentDueScanProcessor : IAssignmentDueScanProcessor
 }
 
 /// <summary>M06-3: Tarama turunu saatte bir koşturan arka plan servisi.</summary>
-internal sealed class AssignmentDueScanner : BackgroundService
+internal sealed class AssignmentDueScanner(
+    IServiceScopeFactory scopeFactory,
+    ILogger<AssignmentDueScanner> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromHours(1);
+    protected override string JobName => "assignment-due-scan";
 
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<AssignmentDueScanner> _logger;
+    protected override TimeSpan PollInterval => TimeSpan.FromHours(1);
 
-    public AssignmentDueScanner(IServiceScopeFactory scopeFactory, ILogger<AssignmentDueScanner> logger)
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
+        => services.GetRequiredService<AssignmentsDbContext>();
+
+    protected override async Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
+        var processor = services.GetRequiredService<IAssignmentDueScanProcessor>();
+        var result = await processor.ScanAsync(cancellationToken);
+        if (result.Total > 0)
         {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IAssignmentDueScanProcessor>();
-                var result = await processor.ScanAsync(stoppingToken);
-                if (result.Total > 0)
-                {
-                    _logger.LogInformation(
-                        "Assignment due scan raised {DueSoonCount} due-soon and {MissedCount} missed warning(s).",
-                        result.DueSoonCount,
-                        result.MissedCount);
-                }
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Assignment due scan cycle failed.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
+            logger.LogInformation(
+                "Assignment due scan raised {DueSoonCount} due-soon and {MissedCount} missed warning(s).",
+                result.DueSoonCount,
+                result.MissedCount);
         }
     }
 }

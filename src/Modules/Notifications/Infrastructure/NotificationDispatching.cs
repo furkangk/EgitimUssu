@@ -5,6 +5,8 @@ using EgitimUssu.Shared.Infrastructure.Push;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 
 namespace EgitimUssu.Modules.Notifications.Infrastructure;
 
@@ -225,35 +227,25 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
         };
 }
 
-internal sealed class NotificationDispatcher : BackgroundService
+/// <summary>
+/// A-07: Tur başına kira alır. Kirasız çalışırken ikinci bir uygulama örneği aynı <c>Pending</c>
+/// satırları okuyup <b>aynı bildirimi iki kez</b> gönderebiliyordu.
+/// </summary>
+internal sealed class NotificationDispatcher(
+    IServiceScopeFactory scopeFactory,
+    ILogger<NotificationDispatcher> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<NotificationDispatcher> _logger;
+    protected override string JobName => "notification-dispatch";
 
-    public NotificationDispatcher(IServiceScopeFactory scopeFactory, ILogger<NotificationDispatcher> logger)
+    protected override TimeSpan PollInterval => TimeSpan.FromSeconds(30);
+
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
+        => services.GetRequiredService<NotificationsDbContext>();
+
+    protected override async Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<INotificationDispatchProcessor>();
-                await processor.DispatchDueRemindersAsync(stoppingToken);
-                await processor.DispatchPendingUserNotificationsAsync(stoppingToken);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Notification dispatch cycle failed.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
-        }
+        var processor = services.GetRequiredService<INotificationDispatchProcessor>();
+        await processor.DispatchDueRemindersAsync(cancellationToken);
+        await processor.DispatchPendingUserNotificationsAsync(cancellationToken);
     }
 }

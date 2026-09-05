@@ -40,6 +40,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
         services.AddSingleton<IDomainEventMapper, JsonDomainEventMapper>();
         services.AddSingleton<IOutboxStore, EfOutboxStore>();
+        // A-07: Arka plan işleri tur başına kira alır; ikinci bir uygulama örneği aynı turu koşamaz.
+        services.AddSingleton<IJobLeaseStore, JobLeaseStore>();
         services.AddSingleton<IOutboxProcessor, OutboxProcessor>();
         services.AddSingleton<IEventBus, DispatchingEventBus>();
         services.AddHostedService<OutboxDispatcher>();
