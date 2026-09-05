@@ -47,6 +47,52 @@ public sealed class EfOutboxStore(
         return processed;
     }
 
+    /// <inheritdoc />
+    public async Task<int> PurgeProcessedAsync(TimeSpan retention, CancellationToken cancellationToken = default)
+    {
+        if (retention <= TimeSpan.Zero)
+        {
+            return 0;
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var descriptors = scope.ServiceProvider.GetServices<ModuleDbContextDescriptor>().ToArray();
+        var cutoff = clock.UtcNow - retention;
+        var deleted = 0;
+
+        foreach (var descriptor in descriptors)
+        {
+            try
+            {
+                var dbContext = (ModuleDbContext)scope.ServiceProvider.GetRequiredService(descriptor.DbContextType);
+
+                // `ExecuteDelete` ilişkisel olmayan sağlayıcıda (test/dev InMemory) desteklenmez.
+                if (!dbContext.Database.IsRelational())
+                {
+                    continue;
+                }
+
+                // Dead-letter satırları BİLEREK dışarıda: incelenmek için duruyorlar, budanmamalılar.
+                deleted += await dbContext.OutboxMessages
+                    .Where(message => message.ProcessedOnUtc != null && message.ProcessedOnUtc < cutoff)
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                deleted += await dbContext.Set<InboxMessage>()
+                    .Where(message => message.ProcessedOnUtc < cutoff)
+                    .ExecuteDeleteAsync(cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(
+                    exception,
+                    "Outbox/inbox budaması {Module} modülü için başarısız oldu; diğer modüllerle devam ediliyor.",
+                    descriptor.ModuleName);
+            }
+        }
+
+        return deleted;
+    }
+
     private async Task<int> ProcessContextAsync(
         ModuleDbContext dbContext,
         ModuleDbContextDescriptor descriptor,

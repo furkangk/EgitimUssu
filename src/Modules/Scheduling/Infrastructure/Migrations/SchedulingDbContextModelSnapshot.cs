@@ -258,6 +258,8 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
 
                     b.HasKey("EventId", "Handler");
 
+                    b.HasIndex("ProcessedOnUtc");
+
                     b.ToTable("inbox_messages", "scheduling");
                 });
 
@@ -316,6 +318,10 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessedOnUtc");
+
+                    b.HasIndex("NextAttemptUtc", "OccurredOnUtc")
+                        .HasDatabaseName("ix_outbox_messages_pending")
+                        .HasFilter("\"ProcessedOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
 
                     b.ToTable("outbox_messages", "scheduling");
                 });

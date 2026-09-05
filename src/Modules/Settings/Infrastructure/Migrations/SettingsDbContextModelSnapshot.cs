@@ -96,6 +96,8 @@ namespace EgitimUssu.Modules.Settings.Infrastructure.Migrations
 
                     b.HasKey("EventId", "Handler");
 
+                    b.HasIndex("ProcessedOnUtc");
+
                     b.ToTable("inbox_messages", "settings");
                 });
 
@@ -154,6 +156,10 @@ namespace EgitimUssu.Modules.Settings.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessedOnUtc");
+
+                    b.HasIndex("NextAttemptUtc", "OccurredOnUtc")
+                        .HasDatabaseName("ix_outbox_messages_pending")
+                        .HasFilter("\"ProcessedOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
 
                     b.ToTable("outbox_messages", "settings");
                 });

@@ -26,7 +26,6 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.RefreshTokenSession", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedOnUtc")
@@ -120,7 +119,6 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.UserRoleMembership", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("AssignedOnUtc")
@@ -145,7 +143,6 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.UserSecurityToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedOnUtc")
@@ -195,6 +192,8 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("EventId", "Handler");
+
+                    b.HasIndex("ProcessedOnUtc");
 
                     b.ToTable("inbox_messages", "identity");
                 });
@@ -254,6 +253,10 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ProcessedOnUtc");
+
+                    b.HasIndex("NextAttemptUtc", "OccurredOnUtc")
+                        .HasDatabaseName("ix_outbox_messages_pending")
+                        .HasFilter("\"ProcessedOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
 
                     b.ToTable("outbox_messages", "identity");
                 });

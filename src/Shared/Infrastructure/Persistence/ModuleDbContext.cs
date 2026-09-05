@@ -38,6 +38,17 @@ public abstract class ModuleDbContext : DbContext
             builder.Property(item => item.Module).HasMaxLength(128).IsRequired();
             builder.Property(item => item.Type).HasMaxLength(512).IsRequired();
             builder.Property(item => item.Payload).IsRequired();
+
+            // A-09: Claim sorgusu "ProcessedOnUtc IS NULL AND DeadLetteredOnUtc IS NULL AND
+            // (NextAttemptUtc IS NULL OR <= now) ORDER BY OccurredOnUtc" biçimindedir; tek başına
+            // ProcessedOnUtc üzerindeki indeks bunu karşılamıyordu. Kısmi indeks yalnız bekleyen
+            // satırları kapsar — tablo (işlenmişler biriktikçe) büyüse de indeks küçük kalır.
+            builder
+                .HasIndex(item => new { item.NextAttemptUtc, item.OccurredOnUtc })
+                .HasDatabaseName("ix_outbox_messages_pending")
+                .HasFilter("\"ProcessedOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
+
+            // Retention taraması işlenmiş satırları tarih sırasına göre siler.
             builder.HasIndex(item => item.ProcessedOnUtc);
         });
 
@@ -53,6 +64,9 @@ public abstract class ModuleDbContext : DbContext
             builder.HasKey(item => new { item.EventId, item.Handler });
             builder.Property(item => item.Handler).HasMaxLength(256).IsRequired();
             builder.Property(item => item.EventName).HasMaxLength(256).IsRequired();
+
+            // A-09: Retention taraması bu sütuna göre siler.
+            builder.HasIndex(item => item.ProcessedOnUtc);
         });
 
         base.OnModelCreating(modelBuilder);

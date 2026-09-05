@@ -11,6 +11,10 @@ public sealed class OutboxProcessor(
     public Task<int> DispatchPendingAsync(CancellationToken cancellationToken = default)
         => outboxStore.ProcessPendingAsync(PublishAsync, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<int> PurgeProcessedAsync(TimeSpan retention, CancellationToken cancellationToken = default)
+        => outboxStore.PurgeProcessedAsync(retention, cancellationToken);
+
     private async Task PublishAsync(OutboxBatchItem item, CancellationToken cancellationToken)
     {
         // K5: Deserialize başarısızlığı artık sessizce düşürülmez; hata olarak fırlatılır ki
