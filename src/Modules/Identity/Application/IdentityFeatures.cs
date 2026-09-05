@@ -40,7 +40,8 @@ public interface ILoginAttemptThrottle
     Task RecordFailureAsync(string normalizedEmail, CancellationToken cancellationToken);
     Task ResetAsync(string normalizedEmail, CancellationToken cancellationToken);
 }
-public interface ITokenIssuer { (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount); }
+/// <summary>M01-4: Erişim jetonu, hangi <b>cihaz oturumundan</b> geldiğini <c>sid</c> talebiyle taşır.</summary>
+public interface ITokenIssuer { (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount, Guid sessionId); }
 public interface ITokenProtector { string Hash(string token); string GenerateToken(); }
 public interface IIdentityNotificationService
 {
@@ -72,13 +73,14 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
         var user = new UserAccount(_idGenerator.New(), command.Email.Trim(), normalizedEmail, _passwordHasher.Hash(command.Password), command.FirstName.Trim(), command.LastName.Trim(), string.IsNullOrWhiteSpace(command.PhoneNumber) ? null : command.PhoneNumber.Trim(), UserAccountStatus.Active, false, false, now);
         foreach (var role in command.Roles.Distinct()) user.RoleMemberships.Add(new UserRoleMembership(_idGenerator.New(), user.Id, role, now));
         var refreshToken = _tokenProtector.GenerateToken();
-        user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), null, now, now.AddDays(30)));
+        var session = new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), null, now, now.AddDays(30));
+        user.RefreshSessions.Add(session);
         var verificationToken = _tokenProtector.GenerateToken();
         user.SecurityTokens.Add(new UserSecurityToken(_idGenerator.New(), user.Id, SecurityTokenPurpose.EmailVerification, _tokenProtector.Hash(verificationToken), now, now.AddHours(24)));
         await _repository.AddAsync(user, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
         await _notificationService.SendEmailVerificationAsync(user.Email, verificationToken, cancellationToken);
-        var access = _tokenIssuer.Issue(user);
+        var access = _tokenIssuer.Issue(user, session.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));
     }
 }
@@ -114,7 +116,7 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
-        var access = _tokenIssuer.Issue(user);
+        var access = _tokenIssuer.Issue(user, session.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));
     }
 }
@@ -133,9 +135,15 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
         if (user is null || session is null || !session.IsActive(now)) return Result<AuthResponse>.Failure(InvalidRefresh);
         session.Revoke(now);
         var newRefresh = _tokenProtector.GenerateToken();
-        user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(newRefresh), command.DeviceName, now, now.AddDays(30)));
+        // M01-4: Jeton döndürülüyor ama oturum AYNI cihazın oturumu; başlangıç anı devralınır,
+        // "son kullanım" şimdiye çekilir. Aksi halde her yenilemede oturum yeni doğmuş görünürdü.
+        var rotated = new RefreshTokenSession(
+            _idGenerator.New(), user.Id, _tokenProtector.Hash(newRefresh),
+            command.DeviceName ?? session.DeviceName, session.CreatedOnUtc, now.AddDays(30),
+            lastUsedOnUtc: now);
+        user.RefreshSessions.Add(rotated);
         await _repository.SaveChangesAsync(cancellationToken);
-        var access = _tokenIssuer.Issue(user);
+        var access = _tokenIssuer.Issue(user, rotated.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, newRefresh));
     }
 }

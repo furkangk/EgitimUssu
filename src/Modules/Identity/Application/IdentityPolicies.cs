@@ -179,3 +179,39 @@ public sealed class GetAccountDeletionQueryAuthorizer : IQueryAuthorizer<GetAcco
     public Task<Result> Authorize(GetAccountDeletionQuery query, CancellationToken cancellationToken)
         => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
 }
+
+/// <summary>M01-4: Cihaz oturumları yalnız oturum açmış kullanıcının kendisi içindir.</summary>
+public sealed class GetDeviceSessionsQueryAuthorizer : IQueryAuthorizer<GetDeviceSessionsQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public GetDeviceSessionsQueryAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(GetDeviceSessionsQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>M01-4: Oturum iptali için giriş zorunlu; sahiplik kontrolü handler'da (kendi listesinde arar).</summary>
+public sealed class RevokeDeviceSessionCommandAuthorizer : ICommandAuthorizer<RevokeDeviceSessionCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public RevokeDeviceSessionCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(RevokeDeviceSessionCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>M01-4: Toplu iptal için giriş zorunlu.</summary>
+public sealed class RevokeAllDeviceSessionsCommandAuthorizer : ICommandAuthorizer<RevokeAllDeviceSessionsCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public RevokeAllDeviceSessionsCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(RevokeAllDeviceSessionsCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}

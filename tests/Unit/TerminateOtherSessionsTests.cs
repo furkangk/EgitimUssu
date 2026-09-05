@@ -122,7 +122,9 @@ public sealed class TerminateOtherSessionsTests
 
     private sealed class FakeTokenIssuer : ITokenIssuer
     {
-        public (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount) => ("access", Now.AddMinutes(15));
+        /// <summary>M01-4: Üretilen jeton artık oturum kimliğini de taşıyor; sahte onu yalnız yansıtır.</summary>
+        public (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount, Guid sessionId)
+            => ($"access:{sessionId:N}", Now.AddMinutes(15));
     }
 
     private sealed class FakeTokenProtector : ITokenProtector

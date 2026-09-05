@@ -465,12 +465,44 @@ git commit -m "chore(mobile): l10n altyapisi + metin kalitesi + test kapsami + C
 ### Task 7: Cihaz oturumları ve telefon doğrulama (M01-4/M01-5/D-03)
 
 **Files:**
-- Modify: `src/Modules/Identity/Application/IdentityFeatures.cs`, `IdentityPolicies.cs`
+- Create: `src/Modules/Identity/Application/DeviceSessionFeatures.cs` *(plan `IdentityFeatures.cs` diyordu — sapma #1)*
+- Modify: `src/Modules/Identity/Application/{IdentityFeatures,IdentityPolicies}.cs`
+- Modify: `src/Modules/Identity/Domain/IdentityDomainModel.cs` (`RefreshTokenSession.LastUsedOnUtc`) *(sapma #3)*
 - Modify: `src/Modules/Identity/API/IdentityModule.cs`
-- Modify: `src/Modules/Identity/Infrastructure/{IdentityRepositoryAndSecurity,DependencyInjection}.cs`
-- Create: `mobile/lib/features/more/presentation/pages/device_sessions_page.dart`
-- Modify: `mobile/lib/core/routing/app_router.dart`
+- Modify: `src/Modules/Identity/Infrastructure/{IdentityRepositoryAndSecurity,IdentityDbContext,DependencyInjection}.cs`
+- Create: `src/Modules/Identity/Infrastructure/Migrations/*_AddSessionLastUsedAt.cs`
+- Modify: `src/Shared/Kernel/ICurrentUser.cs` (`SessionId` — **varsayılan üye**), `src/Shared/Infrastructure/Authentication/HttpContextCurrentUser.cs` *(sapma #2)*
+- Create: `mobile/lib/features/more/{domain/device_session_contracts.dart, data/repositories/device_session_repository_impl.dart, presentation/cubit/device_sessions_cubit.dart, presentation/pages/device_sessions_page.dart}` *(sapma #4)*
+- Modify: `mobile/lib/core/routing/app_router.dart`, `core/di/injector.dart`, `features/more/presentation/pages/more_page.dart`, `lib/l10n/app_{tr,en}.arb`
+- Modify: `tests/Unit/TerminateOtherSessionsTests.cs` (`FakeTokenIssuer` imzası)
 - Test: `tests/Unit/DeviceSessionTests.cs`, `mobile/test/features/more/device_sessions_test.dart`
+- Doküman: `doc/modules/{m01_identity,00_genel_bakis}.md`, `doc/pages/device_sessions.md` + `00_pages_index.md`
+
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **Yeni dosya `DeviceSessionFeatures.cs`.** `IdentityFeatures.cs` zaten 300+ satır ve 11 command/query
+>    barındırıyor; Task 5'te de aynı gerekçeyle ayrı dosya açılmıştı.
+> 2. **"Mevcut oturum" jetondaki `jti` ile ayırt edilemiyordu.** Plan `jti`'yi öneriyordu ama o **her
+>    jetonda değişen rastgele bir değer** — oturumu göstermiyor. Jetona `sid` talebi eklendi
+>    (`ITokenIssuer.Issue(user, sessionId)`) ve `ICurrentUser`'a `SessionId` geldi. `ICurrentUser`'ı
+>    **27 test sahtesi** uyguluyor; bu yüzden üye **varsayılan uygulamalı** (`=> null`) tanımlandı —
+>    Öğrenilenler #159'un dersi: yaygın uygulanan bir arayüzü tek bir çağıran için genişletme.
+> 3. **`LastUsedOnUtc` eklendi ve rotasyonda `CreatedOnUtc` devralınıyor.** Plan `lastUsedOnUtc` alanını
+>    şart koşuyordu ama şemada yoktu. Asıl mesele şu: refresh akışı jetonu **döndürüyor** (eski satır
+>    iptal, yeni satır açılır). Başlangıç anı devralınmasaydı 30 gün boyunca her yenilemede oturum
+>    "az önce açılmış" görünürdü. Migration mevcut satırlara `CreatedOnUtc`'yi kopyalar — varsayılan
+>    `0001-01-01` bırakılsaydı ekranda "son kullanım: yıl 1" yazardı.
+> 4. **Mobilde tam dilim açıldı** (`domain` + `data` + `cubit` + `page`), plan yalnız sayfayı listeliyordu.
+>    Master tasarım §4 mobil katmanı `features/<ad>/{data,domain,presentation}` olarak tanımlıyor;
+>    sayfanın içine `ApiClient` çağrısı gömmek o kuralı bozardı.
+> 5. **`revoke-all` çıplak sayı değil nesne döndürüyor** (`{ revokedCount }`): çıplak skaler gövde
+>    istemcide JSON nesnesi bekleyen çözümleyiciyle çalışmaz ve ileride alan eklenemez.
+> 6. **`sid` yoksa toplu iptal reddediliyor** (`409 identity.unknown_session`). Fail-closed: hangi
+>    oturumun korunacağı bilinmeden "diğerlerini kapat" sessizce "hepsini kapat"a dönüşür ve kullanıcıyı
+>    kendi cihazından da atardı.
+> 7. **Listede yalnız aktif oturumlar var.** Rotasyon her yenilemede bir "ölü" satır bırakıyor; hepsi
+>    gösterilseydi kullanıcı tek cihazını onlarca oturum olarak görürdü.
+> 8. **Mevcut cihazın oturumu ekrandan kapatılamıyor.** Bunun adı "çıkış yap"tır ve o eylem Diğer
+>    ekranında zaten var; aynı işi iki ayrı adla sunmak kullanıcıyı yanıltır.
 
 **Interfaces:**
 - Produces:
@@ -481,13 +513,13 @@ git commit -m "chore(mobile): l10n altyapisi + metin kalitesi + test kapsami + C
 
 > **M01-5 (telefon/SMS OTP) bu planda kapsam dışıdır.** Gerekçe: SMS sağlayıcı sözleşmesi + maliyet kararı gerektirir ve hiçbir akış buna bağlı değil (kimlik doğrulama e-posta üzerinden çalışıyor). Karar verildiğinde ayrı bir plan açılır; `doc/modules/m01_identity.md`'de madde "ertelendi (karar bekliyor)" olarak işaretlenir.
 
-- [ ] **Step 1: Testleri yaz (kırmızı)** — kullanıcı yalnız kendi oturumlarını görüyor; başka kullanıcının oturumunu iptal edemiyor (403); `revoke-all` mevcut oturumu **korumalı**; iptal edilen refresh token ile yenileme 401.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~DeviceSessionTests"`
-- [ ] **Step 3: Query/command + authorizer + uçları yaz** — mevcut oturumu ayırt etmek için token'daki `jti`/oturum kimliği kullanılır.
-- [ ] **Step 4: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
-- [ ] **Step 5: Mobil ekran** — cihaz adı, son kullanım, "Bu cihaz" rozeti, tekil iptal + "Diğer tüm oturumları kapat"; onay diyaloğu.
-- [ ] **Step 6: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
-- [ ] **Step 7: Doküman + commit**
+- [x] **Step 1: Testleri yaz (kırmızı)** — 8 test: yalnız kendi aktif oturumları, iptal edilmiş/süresi geçmişlerin gizlenmesi, kendi oturumunu iptal, **başkasınınkinde 403**, `revoke-all` mevcut oturumu korur, **`sid` yoksa fail-closed**, iptal edilen oturum aktif değil, rotasyonda başlangıç anının korunması.
+- [x] **Step 2: Kırmızı gör** — **CS0246** ×3 (üç handler de yok).
+- [x] **Step 3: Query/command + authorizer + uçlar** — `jti` yerine **`sid`** (sapma #2); 3 uç + 3 authorizer + DI.
+- [x] **Step 4: Yeşil gör** — `dotnet test EgitimUssu.slnx`: 4 mimari / **724 birim** / 62 integration, başarısız 0.
+- [x] **Step 5: Mobil ekran** — `/account/sessions`: cihaz adı, bağlanma + son kullanım, "Bu cihaz" rozeti, tekil iptal (**yalnız yabancı cihazda**, sapma #8) + "Diğer tüm oturumları kapat"; **her ikisi de onay diyaloğu ister**. `/more` → "Cihaz oturumları" girişi eklendi; metinler ARB'de (15 yeni anahtar).
+- [x] **Step 6: Testler** — `flutter test`: **212 başarılı** (öncesi 203; +9) · `flutter analyze --fatal-infos`: **0 sorun**.
+- [x] **Step 7: Doküman + commit**
 
 `doc/modules/m01_identity.md` (§3.3 + mobil listesi), `doc/pages/device_sessions.md` + `doc/pages/00_pages_index.md`.
 ```bash

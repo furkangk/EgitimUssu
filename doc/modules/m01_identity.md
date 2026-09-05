@@ -163,6 +163,30 @@ Vekil e-posta silinen adresten **türetilmez** (hash kullanılmaz — bkz.
 [`../architecture/kvkk.md`](../architecture/kvkk.md) §3).
 
 
+### 2.6 🟢 Cihaz oturumları (M01-4)
+
+`RefreshTokenSession` bir **cihaz oturumudur**. Erişim jetonu, hangi oturumdan geldiğini `sid`
+talebiyle taşır (`JwtTokenIssuer`); `ICurrentUser.SessionId` bunu okur ve "bu cihaz" rozeti ile
+"diğerlerini kapat" kararı buna dayanır.
+
+| Alan | Not |
+|------|-----|
+| `CreatedOnUtc` | Cihazın **ilk** bağlandığı an — jeton yenilendiğinde yeni satıra **devredilir** |
+| `LastUsedOnUtc` | Jetonun en son yenilendiği an (E-07 sonrası eklendi; migration mevcut satırlara `CreatedOnUtc`'yi kopyalar) |
+| `RevokedOnUtc` | İptal anı; `IsActive(now)` bunu ve süreyi birlikte değerlendirir |
+
+> **Neden iki tarih?** Refresh akışı jetonu **döndürüyor**: eski satır iptal edilip yenisi
+> açılıyor. Başlangıç anı devralınmasaydı 30 gün boyunca her yenilemede oturum "az önce açılmış"
+> görünür ve kullanıcı cihazı ne zaman bağladığını asla göremezdi.
+
+> **Listede yalnız aktif oturumlar var.** Rotasyon her yenilemede bir "ölü" satır bırakıyor;
+> hepsi gösterilseydi tek cihaz onlarca oturum olarak görünürdü.
+
+> ⚠️ **M01-5 (telefon/SMS doğrulama) ertelendi — karar bekliyor.** SMS sağlayıcı sözleşmesi ve
+> maliyet kararı gerektiriyor; hiçbir akış buna bağlı değil (kimlik doğrulama e-posta üzerinden
+> çalışıyor). Karar verilince ayrı bir plan açılır (master tasarım §5.1).
+
+
 ## 3. API Sözleşmesi
 
 Tüm uçlar `RoutePrefix = /api/identity` altında ve `DistributedRateLimitMiddleware` tarafından **yol tabanlı `auth` politikasıyla** (IP-partition, Redis, fail-open) sınırlandırılmıştır (2026-07-01, Y4).
@@ -182,6 +206,9 @@ Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToH
 | **Hesap silme talebi (E-07)** | `POST /account/deletion-request` | oturum | — | `AccountDeletionResponse` |
 | **Silme talebini iptal (E-07)** | `DELETE /account/deletion-request` | oturum | — | `200 OK` · yoksa `404` |
 | **Silme talebini oku (E-07)** | `GET /account/deletion-request` | oturum | — | `AccountDeletionResponse` |
+| **Cihaz oturumları (M01-4)** | `GET /sessions` | oturum | — | `DeviceSessionResponse[]` |
+| **Oturum kapat (M01-4)** | `POST /sessions/{sessionId}/revoke` | oturum | — | `200 OK` · başkasınınki `403` |
+| **Diğerlerini kapat (M01-4)** | `POST /sessions/revoke-all` | oturum | — | `{ revokedCount }` · `sid` yoksa `409` |
 | Oturum açmış kullanıcı | `GET /me` | **AuthenticatedUser** | — | `CurrentUserResponse` |
 | Oturum kapat | `POST /logout` | **AuthenticatedUser** | `LogoutRequest` | `200 OK` |
 | Kullanıcı getir | `GET /users/{userId:guid}` | **AuthenticatedUser** | — | `UserAccountResponse` |
@@ -351,4 +378,4 @@ Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOth
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

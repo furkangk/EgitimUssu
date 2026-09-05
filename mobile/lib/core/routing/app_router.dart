@@ -23,6 +23,7 @@ import 'package:egitim_ussu_mobile/features/membership/presentation/pages/paywal
 import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/chat_page.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/messaging_inbox_page.dart';
 import 'package:egitim_ussu_mobile/features/more/presentation/pages/account_info_page.dart';
+import 'package:egitim_ussu_mobile/features/more/presentation/pages/device_sessions_page.dart';
 import 'package:egitim_ussu_mobile/features/more/presentation/pages/more_page.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_child_detail_page.dart';
@@ -338,6 +339,11 @@ class AppRouter {
         GoRoute(
           path: '/account-info',
           builder: (context, state) => const AccountInfoPage(),
+        ),
+        // M01-4 (D-03): "Hesabım hangi cihazlarda açık?"
+        GoRoute(
+          path: '/account/sessions',
+          builder: (context, state) => const DeviceSessionsPage(),
         ),
         GoRoute(
           path: '/account-info-preview',

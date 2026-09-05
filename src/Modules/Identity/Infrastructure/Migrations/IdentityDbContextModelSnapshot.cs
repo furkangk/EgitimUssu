@@ -73,6 +73,9 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                     b.Property<DateTime>("ExpiresOnUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime>("LastUsedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
                         .HasMaxLength(512)
@@ -87,6 +90,8 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UserAccountId", "ExpiresOnUtc");
+
+                    b.HasIndex("UserAccountId", "RevokedOnUtc");
 
                     b.ToTable("refresh_token_sessions", "identity");
                 });

@@ -84,6 +84,10 @@ internal sealed class RefreshTokenSessionConfiguration : IEntityTypeConfiguratio
         builder.Property(entity => entity.DeviceName).HasMaxLength(128);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
+        // M01-4: Var olan satırlar için varsayılan CreatedOnUtc'dir (migration onu kopyalar).
+        builder.Property(entity => entity.LastUsedOnUtc).IsRequired();
+        // Cihaz oturumu listesi: kullanıcının AKTİF oturumlarını okur.
+        builder.HasIndex(entity => new { entity.UserAccountId, entity.RevokedOnUtc });
         builder.HasIndex(entity => new { entity.UserAccountId, entity.ExpiresOnUtc });
     }
 }

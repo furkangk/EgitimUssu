@@ -3,7 +3,7 @@ title: "Sayfa (Ekran) Dokümanları — İndeks"
 summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/Progress/Reporting/Membership/Messaging/More/Notifications/Parent)"
 tags: [sayfa-index, indeks, mobil]
 authority: derived
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
@@ -11,7 +11,7 @@ updated: 2026-09-04
 > Her dosya, kodda **var olan** bir Flutter ekranını belgeler (route, dosya, state, veri kaynağı, durum).
 > Kaynak: `mobile/lib/core/routing/app_router.dart` + feature klasörleri.
 > **Yeni ekran eklendiğinde buraya bir satır + ekranın md'si eklenir** (bkz. kökteki `CLAUDE.md`).
-> **Son güncelleme:** 2026-09-04 (P10 Task 4: `messaging_inbox` + `messaging_chat` sayfa md'leri eklendi; `/messages` ve `/messages/:conversationId` rotaları; giriş noktaları — öğretmen `/more` "Mesajlar", öğretmen öğrenci detayı "Mesaj Gonder", öğrenci `/student/profile` "Mesajlar" ve `/student/teacher` kartında "Mesaj gönder", veli ana sayfa başlık ikonu — D-08) · 2026-09-04 (P09 Task 6: `membership` + `paywall` sayfa md'leri eklendi; `/membership` ve `/membership/paywall` rotaları; `/more` "Uyelik" aktif — D-10/D-15) · 2026-09-04 (P08 Task 5: `progress_overview` + `teacher_reports` sayfa md'leri eklendi; `/student/reports` ve `/teacher/reports` rotaları; `/more` "Raporlar" aktif; veli çocuk detayına gelişim grafikleri) · 2026-09-03 (P05/D-14..D-17: `/settings/notifications` + `/settings/privacy` eklendi; `/more` sahte kartlardan temizlendi; veli ekranlarındaki `mock-parent-user` sentinel'i kaldırıldı) · 2026-09-03 (P04/M06-1: ders detayına "Kaynaklar" sekmesi — 🔴 → 🟡) · 2026-09-03 (P03/D-11: `/notifications` bildirim merkezine dönüştü — sayfa md'si eklendi, 🟡 → 🟢) · 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
+> **Son güncelleme:** 2026-09-05 (P13 Task 7: `device_sessions` sayfa md'si eklendi; `/account/sessions` rotası ve `/more` → "Cihaz oturumları" girişi — M01-4/D-03) · 2026-09-04 (P10 Task 4: `messaging_inbox` + `messaging_chat` sayfa md'leri eklendi; `/messages` ve `/messages/:conversationId` rotaları; giriş noktaları — öğretmen `/more` "Mesajlar", öğretmen öğrenci detayı "Mesaj Gonder", öğrenci `/student/profile` "Mesajlar" ve `/student/teacher` kartında "Mesaj gönder", veli ana sayfa başlık ikonu — D-08) · 2026-09-04 (P09 Task 6: `membership` + `paywall` sayfa md'leri eklendi; `/membership` ve `/membership/paywall` rotaları; `/more` "Uyelik" aktif — D-10/D-15) · 2026-09-04 (P08 Task 5: `progress_overview` + `teacher_reports` sayfa md'leri eklendi; `/student/reports` ve `/teacher/reports` rotaları; `/more` "Raporlar" aktif; veli çocuk detayına gelişim grafikleri) · 2026-09-03 (P05/D-14..D-17: `/settings/notifications` + `/settings/privacy` eklendi; `/more` sahte kartlardan temizlendi; veli ekranlarındaki `mock-parent-user` sentinel'i kaldırıldı) · 2026-09-03 (P04/M06-1: ders detayına "Kaynaklar" sekmesi — 🔴 → 🟡) · 2026-09-03 (P03/D-11: `/notifications` bildirim merkezine dönüştü — sayfa md'si eklendi, 🟡 → 🟢) · 2026-09-02 (P02/D-01, D-02: şifre sıfırlama + e-posta doğrulama ekranları ve `egitimussu://` derin bağlantısı) · 2026-08-20 (kod-drift düzeltmesi: payments_list/students_list rozetleri 🔴→🟡 — gerçek API + demo fallback) · 2026-08-19 (temizlik Geçiş 3 — kod-senkron: eksik `/notifications` ekranı eklendi; ekran envanteri koddan doğrulandı)
 
 **Veri durumu:** 🟢 gerçek API'ye bağlı · 🟡 karışık (kısmen demo) · 🔴 tamamen demo/UI.
 
@@ -103,6 +103,7 @@ updated: 2026-09-04
 | Paywall | `/membership/paywall` | [paywall](paywall.md) | 🟡 (katalog + deneme gerçek; satın alma P09 Task 4'e bloke) |
 | Bildirim ayarları | `/settings/notifications` | [settings_notifications](settings_notifications.md) | 🟢 |
 | Gizlilik ve güvenlik | `/settings/privacy` | [settings_privacy](settings_privacy.md) | 🟢 |
+| **Cihaz oturumları** | `/account/sessions` | [device_sessions](device_sessions.md) | 🟢 (M01-4/D-03) |
 | Hesap bilgileri | `/account-info` (+ `/account-info-preview` alias) | [account_info](account_info.md) | 🔴 |
 
 ## Messaging (Mesajlaşma)

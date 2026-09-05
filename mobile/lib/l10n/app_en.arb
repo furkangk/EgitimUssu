@@ -114,6 +114,21 @@
   "more_reportsSubtitle": "Monthly lesson/collection summary and free slots",
   "more_reportsTitle": "Reports",
   "more_roleTeacherFallback": "Teacher",
+  "more_sessionsSubtitle": "Devices where your account is signed in",
   "more_studySettingsSubtitle": "Lesson format and availability (profile)",
-  "more_studySettingsTitle": "Study settings"
+  "more_studySettingsTitle": "Study settings",
+  "sessions_close": "Close",
+  "sessions_closeOneConfirm": "This device's session will be closed. It will need to sign in again.",
+  "sessions_closeOthers": "Close all other sessions",
+  "sessions_closeOthersConfirm": "All sessions except this device will be closed. You will need to sign in again on other devices.",
+  "sessions_closedCount": "{count} sessions were closed.",
+  "sessions_connectedOn": "Connected: {date}",
+  "sessions_empty": "No open sessions",
+  "sessions_emptyHint": "No other device sessions are open for this account right now.",
+  "sessions_lastUsed": "Last used: {date}",
+  "sessions_loadFailed": "Sessions could not be loaded.",
+  "sessions_subtitle": "Devices where your account is signed in. Close any device you don't recognise.",
+  "sessions_thisDevice": "This device",
+  "sessions_title": "Device sessions",
+  "sessions_unknownDevice": "Unknown device"
 }

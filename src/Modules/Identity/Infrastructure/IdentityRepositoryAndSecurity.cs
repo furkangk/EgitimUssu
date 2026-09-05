@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using EgitimUssu.Modules.Identity.Application;
 using EgitimUssu.Modules.Identity.Domain;
+using EgitimUssu.Shared.Infrastructure.Authentication;
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -112,13 +113,16 @@ internal sealed class JwtTokenIssuer : ITokenIssuer
         _jwtOptions = jwtOptions.Value;
     }
 
-    public (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount)
+    public (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount, Guid sessionId)
     {
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiryMinutes);
         var claims = new List<Claim>
         {
             // Y4: jti — token blacklist (anlık iptal) için benzersiz token kimliği.
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            // M01-4: Bu jetonun hangi cihaz oturumundan geldiği. "Bu cihaz" rozeti ve
+            // "diğer oturumları kapat" bu talebe dayanır; jti her jetonda değişir, oturumu göstermez.
+            new(HttpContextCurrentUser.SessionIdClaimType, sessionId.ToString()),
             new(JwtRegisteredClaimNames.Sub, userAccount.Id.ToString()),
             new(ClaimTypes.NameIdentifier, userAccount.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, userAccount.Email),

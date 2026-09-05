@@ -17,6 +17,8 @@ import 'package:egitim_ussu_mobile/features/membership/data/repositories/members
 import 'package:egitim_ussu_mobile/features/membership/domain/membership_contracts.dart';
 import 'package:egitim_ussu_mobile/features/messaging/data/repositories/messaging_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
+import 'package:egitim_ussu_mobile/features/more/data/repositories/device_session_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/more/domain/device_session_contracts.dart';
 import 'package:egitim_ussu_mobile/features/notifications/data/repositories/device_token_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
@@ -184,6 +186,10 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
       ),
     )
     // A-04/M11-2: cihaz push token kaydı + FCM'e bağlı push servisi.
+    // M01-4 (D-03): Cihaz oturumları ekranı.
+    ..registerLazySingleton<DeviceSessionRepository>(
+      () => DeviceSessionRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
     ..registerLazySingleton<DeviceTokenRepository>(
       () => DeviceTokenRepositoryImpl(apiClient: injector<ApiClient>()),
     )

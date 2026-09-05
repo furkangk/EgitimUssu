@@ -74,6 +74,16 @@ public sealed class IdentityModule : ModuleDefinition
 
         authorizedGroup.MapGet("/account/deletion-request", GetAccountDeletionAsync)
         .WithSummary("Bekleyen hesap silme talebini döndürür");
+
+        // M01-4 (D-03): Cihaz oturumları — hangi cihazlarda açığım, birini/hepsini kapat.
+        authorizedGroup.MapGet("/sessions", GetDeviceSessionsAsync)
+        .WithSummary("Açık cihaz oturumlarını listeler");
+
+        authorizedGroup.MapPost("/sessions/revoke-all", RevokeAllDeviceSessionsAsync)
+        .WithSummary("Mevcut oturum hariç tüm oturumları kapatır");
+
+        authorizedGroup.MapPost("/sessions/{sessionId:guid}/revoke", RevokeDeviceSessionAsync)
+        .WithSummary("Belirtilen cihaz oturumunu kapatır (yalnız kendi oturumu)");
     }
 
     /// <summary>
@@ -314,6 +324,46 @@ public sealed class IdentityModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>M01-4: Kullanıcının açık cihaz oturumları; "bu cihaz" rozeti <c>isCurrent</c> ile gelir.</summary>
+    private static async Task<IResult> GetDeviceSessionsAsync(
+        HttpContext context,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetDeviceSessionsQuery(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M01-4: Tek bir cihaz oturumunu kapatır.</summary>
+    private static async Task<IResult> RevokeDeviceSessionAsync(
+        HttpContext context,
+        Guid sessionId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RevokeDeviceSessionCommand(sessionId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// M01-4: Mevcut oturum hariç hepsini kapatır.
+    /// <para>
+    /// Yanıt <b>nesne</b> döner (<c>{ "revokedCount": N }</c>), çıplak sayı değil: çıplak bir skaler
+    /// gövde istemci tarafında JSON nesnesi bekleyen çözümleyicilerle çalışmaz ve ileride alan
+    /// eklenemez.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> RevokeAllDeviceSessionsAsync(
+        HttpContext context,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RevokeAllDeviceSessionsCommand(), cancellationToken);
+        return result.IsSuccess
+            ? Results.Ok(new { revokedCount = result.Value })
+            : ToHttpResult(context, Result.Failure(result.Error));
+    }
+
     private static IResult ToHttpResult(HttpContext context, Result result)
     {
         if (result.IsSuccess)
@@ -325,6 +375,7 @@ public sealed class IdentityModule : ModuleDefinition
         {
             "identity.invalid_refresh_token" => ApiErrorHttpResults.FromError(context, StatusCodes.Status401Unauthorized, result.Error),
             "identity.deletion_request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "identity.unknown_session" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };

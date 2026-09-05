@@ -50,6 +50,13 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<RequestAccountDeletionCommand>, RequestAccountDeletionCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<CancelAccountDeletionCommand>, CancelAccountDeletionCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetAccountDeletionQuery>, GetAccountDeletionQueryAuthorizer>();
+        // M01-4: Cihaz oturumları
+        services.AddScoped<IQueryHandler<GetDeviceSessionsQuery, Result<IReadOnlyCollection<DeviceSessionResponse>>>, GetDeviceSessionsQueryHandler>();
+        services.AddScoped<ICommandHandler<RevokeDeviceSessionCommand, Result>, RevokeDeviceSessionCommandHandler>();
+        services.AddScoped<ICommandHandler<RevokeAllDeviceSessionsCommand, Result<int>>, RevokeAllDeviceSessionsCommandHandler>();
+        services.AddScoped<IQueryAuthorizer<GetDeviceSessionsQuery>, GetDeviceSessionsQueryAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RevokeDeviceSessionCommand>, RevokeDeviceSessionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RevokeAllDeviceSessionsCommand>, RevokeAllDeviceSessionsCommandAuthorizer>();
 
         services.AddScoped<ICommandAuthorizer<AssignRolesCommand>, AssignRolesCommandAuthorizer>();
         return services;

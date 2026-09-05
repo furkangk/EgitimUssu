@@ -114,6 +114,16 @@ class _MorePageState extends State<MorePage> {
                   const SizedBox(height: 14),
                   _MenuPanel(
                     children: <Widget>[
+                      // M01-4 (D-03): Hesabın açık olduğu cihazlar.
+                      _MenuTile(
+                        icon: Icons.devices_other_rounded,
+                        title: AppLocalizations.of(context).sessions_title,
+                        subtitle:
+                            AppLocalizations.of(context).more_sessionsSubtitle,
+                        color: AppColors.accentTeal,
+                        onTap: () => context.push('/account/sessions'),
+                      ),
+                      _DividerLine(),
                       // D-14: Sahte "sessiz saatler" sheet'i kaldirildi; satir gercek
                       // gizlilik/guvenlik ekranina gidiyor (M15-3/M15-4).
                       _MenuTile(

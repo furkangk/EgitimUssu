@@ -165,13 +165,24 @@ public sealed class RefreshTokenSession : Entity<Guid>
     {
     }
 
+    /// <summary>Yeni bir cihaz oturumu açar.</summary>
+    /// <param name="id">Oturum kimliği (erişim jetonuna <c>sid</c> olarak yazılır).</param>
+    /// <param name="userAccountId">Oturumun sahibi.</param>
+    /// <param name="refreshTokenHash">Refresh token'ın özeti (token'ın kendisi saklanmaz).</param>
+    /// <param name="deviceName">İstemcinin bildirdiği cihaz adı (opsiyonel).</param>
+    /// <param name="createdOnUtc">Oturumun <b>başlangıcı</b>; jeton döndürüldüğünde devralınır.</param>
+    /// <param name="expiresOnUtc">Refresh token'ın son geçerlilik anı.</param>
+    /// <param name="lastUsedOnUtc">
+    /// En son kullanım anı. Verilmezse <paramref name="createdOnUtc"/> kabul edilir (ilk açılış).
+    /// </param>
     public RefreshTokenSession(
         Guid id,
         Guid userAccountId,
         string refreshTokenHash,
         string? deviceName,
         DateTime createdOnUtc,
-        DateTime expiresOnUtc)
+        DateTime expiresOnUtc,
+        DateTime? lastUsedOnUtc = null)
     {
         Id = id;
         UserAccountId = userAccountId;
@@ -179,6 +190,7 @@ public sealed class RefreshTokenSession : Entity<Guid>
         DeviceName = deviceName;
         CreatedOnUtc = createdOnUtc;
         ExpiresOnUtc = expiresOnUtc;
+        LastUsedOnUtc = lastUsedOnUtc ?? createdOnUtc;
     }
 
     public Guid UserAccountId { get; private set; }
@@ -192,6 +204,18 @@ public sealed class RefreshTokenSession : Entity<Guid>
     public DateTime ExpiresOnUtc { get; private set; }
 
     public DateTime? RevokedOnUtc { get; private set; }
+
+    /// <summary>
+    /// M01-4: Bu oturumun jetonunun en son yenilendiği an.
+    /// <para>
+    /// Refresh akışı jetonu <b>döndürür</b> (eski satır iptal edilir, yenisi açılır); bu yüzden
+    /// yeni satır eskinin <see cref="CreatedOnUtc"/>'sini devralır ve burası "şimdi" olur. Böylece
+    /// kullanıcı hem cihazı ne zaman bağladığını hem en son ne zaman kullandığını görebilir —
+    /// ikisini de <c>CreatedOnUtc</c>'den okumak, 30 gün boyunca her yenilemede oturumu
+    /// "az önce açılmış" gösterirdi.
+    /// </para>
+    /// </summary>
+    public DateTime LastUsedOnUtc { get; private set; }
 
     public bool IsActive(DateTime now) => RevokedOnUtc is null && ExpiresOnUtc > now;
 

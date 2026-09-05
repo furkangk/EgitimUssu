@@ -128,6 +128,8 @@ POST /logout (auth)   GET /me (auth)   GET /users/{userId} (auth)
 POST /users/{userId}/roles (auth, yalnız Admin — rol atama)
 POST /account/deletion-request   DELETE /account/deletion-request   GET /account/deletion-request
   (auth; KVKK hesap silme — 30 gün bekleme, iptal edilebilir; E-07 2026-09-05)
+GET /sessions   POST /sessions/{sessionId}/revoke   POST /sessions/revoke-all
+  (auth; cihaz oturumları — yalnız aktifler, "bu cihaz" jetondaki `sid` ile; M01-4 2026-09-05)
 [expose] IPersonalDataAnonymizer tüketicisi (Shared.Contracts) — süresi dolan talepte 11 modülü anonimleştirir
 ```
 > Not (K1): `POST /register` yalnız `Teacher/Student/Parent` kabul eder; `Admin` reddedilir. Yükseltilmiş rol yalnız `POST /users/{id}/roles` ile atanır.

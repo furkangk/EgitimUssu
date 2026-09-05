@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Rakip Paritesi ve Farklılaşma Analizi (2026-09-05)</title><meta name="description" content="Rakiplerde olup bizde olmayan (R-01…R-14) ve hiçbir rakipte olmayıp bizde olabilecek (Ü-01…Ü-10) maddelerin kod gerçeğine karşı envanteri; her madde için kanıt, etki, çözüm taslağı, kabul kriteri, risk, efor ve karar sütunu"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"><style>
+:root {
+  --ground:#EEF1F5; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --line:#D3DBE4; --line-soft:#E4EAF0;
+  --ink:#0E1A26; --ink-2:#3C4E60; --ink-3:#6C7E90;
+  --navy:#082B4F; --teal:#0F7D8C; --quote:#EDF3F4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#0B131C; --surface:#121C27; --surface-2:#17222E;
+    --line:#2A3949; --line-soft:#1F2C3A;
+    --ink:#E6EDF4; --ink-2:#AFC0D0; --ink-3:#7C8FA2;
+    --navy:#7FB2E4; --teal:#4FBECB; --quote:#152631;
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#0B131C; --surface:#121C27; --surface-2:#17222E;
+  --line:#2A3949; --line-soft:#1F2C3A;
+  --ink:#E6EDF4; --ink-2:#AFC0D0; --ink-3:#7C8FA2;
+  --navy:#7FB2E4; --teal:#4FBECB; --quote:#152631;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ground); color: var(--ink);
+  font-family: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16.5px; line-height: 1.62;
+  margin: 0; padding: 40px 20px 96px;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1000px; margin: 0 auto; }
+h1, h2, h3, h4 {
+  font-family: Newsreader, Georgia, "Times New Roman", serif;
+  font-weight: 500; letter-spacing: -.015em; line-height: 1.15; text-wrap: balance;
+}
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); margin: 0 0 24px;
+     border-bottom: 2px solid var(--ink); padding-bottom: 18px; }
+h2 { font-size: clamp(1.45rem, 3vw, 1.95rem); margin: 48px 0 14px;
+     border-top: 1px solid var(--line); padding-top: 16px; }
+h3 { font-size: 1.2rem; margin: 28px 0 8px; color: var(--ink); }
+h4 { font-size: 1.02rem; margin: 20px 0 6px; color: var(--ink-2);
+     font-family: "IBM Plex Sans", sans-serif; font-weight: 600; }
+p { margin: 0 0 15px; max-width: 78ch; }
+ul, ol { margin: 0 0 15px; padding-left: 24px; max-width: 78ch; }
+li { margin-bottom: 6px; }
+li > ul, li > ol { margin-top: 6px; }
+strong { font-weight: 600; }
+a { color: var(--teal); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+blockquote {
+  margin: 18px 0; padding: 14px 18px;
+  background: var(--quote); border-left: 3px solid var(--teal);
+  color: var(--ink-2); max-width: 82ch;
+}
+blockquote p { margin-bottom: 10px; }
+blockquote p:last-child { margin-bottom: 0; }
+.tw { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); margin: 0 0 20px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+     color: var(--ink-3); background: var(--surface-2);
+     border-bottom: 1px solid var(--line); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+code {
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, "Courier New", monospace;
+  font-size: .87em; background: var(--surface-2); color: var(--ink-2);
+  padding: 1px 5px; border: 1px solid var(--line-soft);
+}
+pre {
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, "Courier New", monospace;
+  font-size: 13px; line-height: 1.55; background: var(--surface);
+  border: 1px solid var(--line); padding: 14px 16px;
+  overflow-x: auto; margin: 0 0 20px;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 32px 0; }
+@media (max-width: 620px) { body { padding: 28px 16px 72px; font-size: 16px; } }
+@media print {
+  body { background: #FFF; color: #000; padding: 0; font-size: 10.5pt; }
+  .tw { overflow: visible; border: 0; }
+  h2 { break-after: avoid; } table, pre, blockquote { break-inside: avoid; }
+}
+</style></head><body><main><h1>⚔️ EğitimÜssü — Rakip Paritesi ve Farklılaşma Analizi</h1>
+<blockquote><p><strong>Tarih:</strong> 2026-09-05 <strong>Soru:</strong> <em>&quot;Onlarla aynı seviyeye gelmek ve onlardan öne çıkmak için ne yapmam gerekiyor?&quot;</em> <strong>Kapsam:</strong> <a href="../kaynaklar/2026-09-05_rakip_analizi.md">Rakip analizi</a>&#x27;nde incelenen 11 ürün (Doping Hafıza, Pakodemy, Net Up, DUS Club, VeliCep + Tilki, Özel Ders Alanı, Öğretsen, Öğretmenim.app, Özel Ders Takip Sistemi) × EğitimÜssü&#x27;nün <strong>bugünkü kod gerçeği</strong> (<code>src/</code> 16 modül, <code>mobile/lib/</code> 52 ekran / 67 rota). <strong>Yöntem:</strong> Her rakip özelliği için kodda karşılığı arandı (endpoint envanteri, domain sınıfları, seed verisi, <code>grep</code>). &quot;Bizde yok&quot; diyen her madde koda karşı doğrulandı; &quot;bizde var&quot; diyen her madde <code>dosya:satır</code> ile kanıtlandı. Çözüm taslakları <strong>mevcut desenlere</strong> dayanır (projeksiyon, outbox, entitlement, depolama); uydurma mimari önerilmedi. Doküman iddiası ile kod çeliştiğinde <strong>kod esas alındı</strong> (bkz. §3 — üç çelişki çıktı). <strong>İlgili:</strong> <a href="../kaynaklar/2026-09-05_rakip_analizi.md"><code>../kaynaklar/2026-09-05_rakip_analizi.md</code></a> (pazar tarafı) · <a href="2026-09-02_eksik_analizi.md"><code>2026-09-02_eksik_analizi.md</code></a> (iç eksikler) · <a href="../ozel_ders_platformu_PRD.md"><code>../ozel_ders_platformu_PRD.md</code></a> · <a href="../../docs/superpowers/ILERLEME.md"><code>../../docs/superpowers/ILERLEME.md</code></a></p></blockquote>
+<hr>
+<h2>0. Bu dokümanı nasıl kullanacaksın</h2>
+<p><a href="2026-09-02_eksik_analizi.md"><code>2026-09-02_eksik_analizi.md</code></a> ile <strong>aynı şema</strong>, üç alan eklenmiş (<em>çözüm taslağı</em>, <em>kabul kriteri</em>, <em>risk</em>) — böylece karar verdiğin madde doğrudan plan görevine çevrilebilir.</p>
+<div class="tw"><table><tr><th>Alan</th><th>Anlamı</th></tr>
+<tr><td><strong>ID</strong></td><td><code>R-nn</code> = <strong>parite</strong> (rakipte var, bizde yok) · <code>Ü-nn</code> = <strong>üstünlük</strong> (hiçbir rakipte yok, bizde olabilir) · <code>X-nn</code> = <strong>çelişki</strong> (doküman ≠ kod)</td></tr>
+<tr><td><strong>Rakip kanıtı</strong></td><td>Hangi üründe, nasıl doğrulandı (mağaza açıklaması / site / API verisi)</td></tr>
+<tr><td><strong>Bizdeki durum</strong></td><td>Kodda ne var, ne yok — <code>dosya:satır</code>, endpoint veya <code>grep</code> sonucu</td></tr>
+<tr><td><strong>Etki</strong></td><td>Bu olmayınca ne kaybediyoruz / olunca ne kazanıyoruz</td></tr>
+<tr><td><strong>Çözüm taslağı</strong></td><td>Hangi modül, hangi entity/olay, hangi uç, hangi mobil ekran, hangi test. <strong>Mevcut desenlere dayanır</strong></td></tr>
+<tr><td><strong>Kabul kriteri</strong></td><td>&quot;Bitti&quot; ne demek — doğrulanabilir maddeler</td></tr>
+<tr><td><strong>Risk / tuzak</strong></td><td>Bu işi yaparken nerede tökezlenir</td></tr>
+<tr><td><strong>Efor</strong></td><td><strong>S</strong> ≤1 gün · <strong>M</strong> 2–4 gün · <strong>L</strong> 1–2 hafta · <strong>XL</strong> 2+ hafta. Backend + mobil + test dahil</td></tr>
+<tr><td><strong>Karar</strong></td><td><strong>SEN DOLDURACAKSIN.</strong> <code>✅ Yap</code> · <code>⏳ Sonra</code> · <code>❌ İptal</code> · <code>❓ Konuşalım</code></td></tr>
+</table></div>
+<p><strong>Akış:</strong> (1) Karar sütunlarını doldur → (2) &quot;planı çıkar&quot; de → (3) <code>docs/superpowers/plans/</code> altına bağımlılık sıralı dilim planı üretilir (mevcut P11–P14 ile birleştirilerek).</p>
+<p><strong>Lejant (etki):</strong> 🔴 Rekabette kaybettiriyor · 🟠 Ana akışı zayıflatıyor · 🟡 İkincil · 🟢 Farklılaşma fırsatı</p>
+<hr>
+<h2>1. Mevcut durum fotoğrafı</h2>
+<h3>1.1 Rakip merceğinden bizde ne var</h3>
+<blockquote><p>Bu tablo analiz sırasında <strong>koddan</strong> çıkarıldı. Rakip analizi turunda &quot;bizde yok&quot; sandığım birkaç şey aslında <strong>var</strong> çıktı; aşağısı gerçek durumdur.</p></blockquote>
+<div class="tw"><table><tr><th>Rakip özelliği</th><th>Bizdeki karşılığı</th><th>Kanıt</th></tr>
+<tr><td>Çalışma kronometresi</td><td>✅ Var — başlat/duraklat/devam/tamamla/iptal/<strong>kurtar</strong> + manuel giriş</td><td><code>StudyModule.cs</code> → <code>/sessions/start</code>, <code>/pause</code>, <code>/resume</code>, <code>/complete</code>, <code>/discard</code>, <code>/recover</code>, <code>/sessions/manual</code></td></tr>
+<tr><td>Günlük seri (streak)</td><td>✅ Var — güncel seri, en uzun seri, toplam gün, bugün çalıştı mı, bugünkü dakika</td><td><code>StudyStreak</code> (<code>StudyDomainModel.cs:592</code>) · <code>StudyProgressFeatures.cs:151-157</code> · <code>GET /students/{id}/streak</code></td></tr>
+<tr><td>Anlamlı seri kuralı</td><td>✅ Var — gün, günlük hedefin ayarlanabilir yüzdesi (<code>StreakThresholdPercent</code>, varsayılan %60; hedef yoksa 20 dk) tamamlanınca sayılır; gün sınırı <strong>04:00</strong></td><td><code>roles/ogrenci.md</code> §8 · migration <code>AddStreakThresholdPercent</code></td></tr>
+<tr><td>Rozet / başarım</td><td>✅ Var — <strong>10 tohumlanmış rozet</strong>, eşik tabanlı otomatik kazanım</td><td><code>StudyDbContext.cs:140-150</code> · <code>AchievementEvaluator</code> (<code>StudyPolicies.cs:178</code>) · mobil <code>achievements_page.dart</code></td></tr>
+<tr><td>Deneme sınavı + net trendi</td><td>✅ Var — çok dersli deneme, sınav tipine göre net böleni</td><td><code>MockExam</code> (<code>:466</code>), <code>TestResult</code> (<code>:320</code>) · <code>/students/{id}/mock-exams</code>, <code>/test-results</code>, <code>/net-trend</code></td></tr>
+<tr><td>Konu/kazanım kataloğu</td><td>✅ Var — öğrenci bazlı ders + konu CRUD</td><td><code>StudentSubjectCatalog</code> / <code>StudentTopicCatalog</code> (<code>StudyCatalogModel.cs</code>) · <code>/students/{id}/subjects</code>, <code>/subjects/{id}/topics</code></td></tr>
+<tr><td>Hedef</td><td>✅ Var — günlük dakika hedefi + hedef net/puan (<code>TargetNet</code>/<code>TargetScore</code>)</td><td><code>StudyGoal</code> (<code>:513</code>) · <code>/students/{id}/goals</code></td></tr>
+<tr><td>Öğrenci notu</td><td>✅ Var</td><td><code>StudyNote</code> (<code>StudyCatalogModel.cs:107</code>) · <code>/students/{id}/notes</code></td></tr>
+<tr><td>Konu hâkimiyeti + gelişim eğrisi</td><td>✅ Var (M10 🟢) — snapshot + trend</td><td><code>/api/progress-tracking</code></td></tr>
+<tr><td>Veli gelişim görünümü</td><td>✅ Var (M09 🟢) — 11 uç</td><td><code>/api/parents</code></td></tr>
+<tr><td>Rapor + PDF</td><td>✅ Var (M14 🟢) — QuestPDF, premium kapılı</td><td><code>/students/{id}/report</code>, <code>/reports/{id}/file</code></td></tr>
+<tr><td>Öğretmen boş zaman analizi</td><td>✅ Var — <strong>rakiplerin hiçbirinde yok</strong></td><td><code>FreeSlotCalculator.cs</code> · <code>/teachers/{id}/free-slots</code></td></tr>
+<tr><td>Ders materyali paylaşımı</td><td>✅ Var — dosya veya bağlantı; <code>StudentId</code> null ise <strong>tüm öğrencilere açık</strong></td><td><code>LessonResource</code> (<code>AssignmentsDomainModel.cs:368</code>), <code>LessonResourceKind{File,Link}</code></td></tr>
+<tr><td>Ödev akışı</td><td>✅ Var — atama, teslim, onay/geri gönderme, puanlama, son teslim uyarısı</td><td><code>Assignment</code> + <code>AssignmentStatus</code></td></tr>
+<tr><td>Mesajlaşma</td><td>🟡 Var (M16 🟡) — 1-1 sohbet, 8 uç, kullanıcı başına 30/dk kota</td><td><code>Conversation</code>/<code>Message</code> · <code>ParticipantRole{Teacher,Student,Parent}</code></td></tr>
+<tr><td>Push + bildirim merkezi</td><td>✅ Var (M11 🟢) — FCM, cihaz token, çift-push koruması</td><td><code>UserNotification</code>, <code>DeviceToken</code>, <code>UserNotificationKind</code> (9 tip)</td></tr>
+<tr><td>Üyelik + deneme + referans</td><td>🟡 Var (M17 🟡) — plan/deneme/referans/entitlement; <strong>checkout yok</strong></td><td><code>/api/membership</code> 9 uç</td></tr>
+<tr><td>Çevrimdışı dayanıklılık</td><td>🟡 Kısmi — <code>LocalCache</code> auth/scheduling/payments/students&#x27;ta</td><td><code>mobile/lib/core/storage/local_cache.dart</code></td></tr>
+</table></div>
+<p><strong>Sonuç:</strong> Öğrenci tarafındaki &quot;alışkanlık motoru&quot;nun <strong>iskeleti zaten kurulu</strong>. Eksik olan, o iskeletin <strong>sosyal ve döngüsel</strong> kısmı (§4) ile bu verilerin <strong>birleştirilmesinden doğan</strong> üstünlük (§5).</p>
+<h3>1.2 Elimizdeki domain olayları — yeni özelliklerin bedava yakıtı</h3>
+<p>Aşağıdaki olaylar <strong>zaten üretiliyor</strong>. §4–§5&#x27;teki projeksiyonların çoğu yeni olay yazmadan, sadece bu olayları dinleyerek kurulabilir:</p>
+<div class="tw"><table><tr><th>Olay</th><th>Modül</th><th>Ne zaman</th><th>Hangi maddede kullanılır</th></tr>
+<tr><td><code>StudySessionStartedDomainEvent</code></td><td>M08</td><td>Kronometre başlatılınca</td><td>R-01, Ü-01</td></tr>
+<tr><td><code>StudySessionCompletedDomainEvent</code></td><td>M08</td><td>Seans tamamlanınca (efektif dakika ile)</td><td><strong>R-01, R-03, Ü-01, Ü-02, Ü-07</strong></td></tr>
+<tr><td><code>TestResultRecordedDomainEvent</code></td><td>M08</td><td>Test/deneme girilince</td><td>Ü-02, Ü-08</td></tr>
+<tr><td><code>StudyGoalUpdatedDomainEvent</code></td><td>M08</td><td>Hedef değişince</td><td>R-03</td></tr>
+<tr><td><code>StreakMilestoneReachedDomainEvent</code></td><td>M08</td><td>Seri eşiği aşılınca</td><td>R-10, Ü-07</td></tr>
+<tr><td><code>StreakBrokenDomainEvent</code></td><td>M08</td><td>Seri kırılınca</td><td><strong>R-10</strong> (hatırlatıcı), Ü-08</td></tr>
+<tr><td><code>AchievementEarnedDomainEvent</code></td><td>M08</td><td>Rozet kazanılınca</td><td>R-01 (lig bildirimi)</td></tr>
+<tr><td><code>MessageSentDomainEvent</code></td><td>M16</td><td>Mesaj gönderilince</td><td>R-06 (duyuru fan-out&#x27;u aynı yolu izler)</td></tr>
+</table></div>
+<p>Ayrıca M05 (ders tamamlandı/iptal), M07 (ödeme beklendi/tahsil edildi) ve M10 (konu hâkimiyeti) olayları M14 projeksiyonlarını zaten besliyor — Ü-01/Ü-02/Ü-04/Ü-08 aynı borulardan içer.</p>
+<h3>1.3 Yerleşik desenler — yeni iş bunların üstüne biner</h3>
+<div class="tw"><table><tr><th>Desen</th><th>Nerede</th><th>Ne sağlar</th></tr>
+<tr><td><strong>Projeksiyon (read-model)</strong></td><td><code>ProjectionEntity</code> (Shared.Kernel) + <code>ProjectionHandler&lt;TEvent&gt;</code> + <code>ReportingProjectionHandler&lt;TEvent&gt;</code></td><td>Olaydan okuma modeli üretme; <strong>yeniden kurulabilirlik gerçek Postgres&#x27;te kanıtlanmış</strong> (P08 Task 6, <code>RealProjectionRebuildTests</code>)</td></tr>
+<tr><td><strong>Yeniden inşa</strong></td><td><code>IProjectionRebuilder</code> (Shared.Infrastructure)</td><td>Projeksiyon bozulursa sıfırdan oynatma</td></tr>
+<tr><td><strong>Outbox / inbox</strong></td><td>Her modülde <code>outbox</code> + <code>inbox_messages</code> tabloları</td><td>Modüller-arası güvenilir teslimat, tekrar-güvenli (idempotent)</td></tr>
+<tr><td><strong>Entitlement</strong></td><td><code>IEntitlementDirectory</code> + <code>Entitlement</code> + <code>MembershipGate</code></td><td>Premium kapısının <strong>tek kaynağı</strong>; fail-safe (okunamazsa Free)</td></tr>
+<tr><td><strong>Dosya depolama</strong></td><td>S3/MinIO (P04, canlı doğrulandı) + <code>LessonResource</code></td><td>Dosya yükleme/erişim; imzalı URL deseni mevcut</td></tr>
+<tr><td><strong>Bildirim</strong></td><td><code>UserNotification</code> + <code>NotificationDispatcher</code> + <code>DeviceToken</code> + FCM</td><td>In-app + push, <code>PushedOnUtc</code> ile çift bildirim koruması</td></tr>
+<tr><td><strong>Gizlilik kapısı</strong></td><td><code>GET/PUT /students/{id}/sharing</code> + M15&#x27;in üç sözleşmesi</td><td>Öğrencinin neyi paylaşacağını seçmesi</td></tr>
+<tr><td><strong>Test zinciri</strong></td><td>4 mimari + 683 birim + 44 integration (gerçek Postgres+Redis) + 193 mobil</td><td>Yeni işin regresyon ağı hazır</td></tr>
+</table></div>
+<blockquote><p><strong>Okuma:</strong> §4–§5&#x27;teki maddelerin çoğunun eforu düşük çünkü <strong>yeni altyapı gerekmiyor</strong>. Pahalı olanlar (Ü-03, R-09, R-13) yeni bir yetenek sınıfı açtığı için pahalı.</p></blockquote>
+<hr>
+<h2>2. Tek bakışta parite tablosu</h2>
+<div class="tw"><table><tr><th>Rakip özelliği</th><th>Kimde var</th><th>Bizde</th><th>Madde</th><th>Efor</th></tr>
+<tr><td>Uygulama dışı paylaşım (WhatsApp/link)</td><td>Tilki, Net Up</td><td>❌</td><td><strong>R-08</strong></td><td>S + M</td></tr>
+<tr><td>Bire-çok duyuru</td><td>VeliCep, Doping, Pakodemy</td><td>❌</td><td><strong>R-06</strong></td><td>S–M</td></tr>
+<tr><td>Zamanlanmış yerel hatırlatıcı</td><td>Net Up (19:00 + 20:00)</td><td>❌ (paket kurulu, kullanılmıyor)</td><td><strong>R-10</strong></td><td>S</td></tr>
+<tr><td>Fotoğraf/video paylaşımı (galeri)</td><td>VeliCep</td><td>🟡 dosya var, galeri yok</td><td><strong>R-07</strong></td><td>S</td></tr>
+<tr><td>Günlük görev döngüsü</td><td>Net Up, Pakodemy</td><td>❌</td><td><strong>R-03</strong></td><td>M</td></tr>
+<tr><td>Haftalık lig / sıralama</td><td>Net Up, DUS Club</td><td>❌</td><td><strong>R-01</strong></td><td>M</td></tr>
+<tr><td>Ekip / kulüp (kod ile katılım)</td><td>DUS Club</td><td>❌</td><td><strong>R-02</strong></td><td>M</td></tr>
+<tr><td>Flashcard + aralıklı tekrar</td><td>DUS Club, Doping</td><td>❌</td><td><strong>R-05</strong></td><td>M</td></tr>
+<tr><td>Gerçek para tahsilatı</td><td>Hepsi</td><td>❌ (Q1 bloke)</td><td><strong>R-09</strong></td><td>L</td></tr>
+<tr><td>Öğretmen arama / filtreleme</td><td>Öğretsen, Özel Ders Alanı</td><td>🔴 M12 iskelet</td><td><strong>R-11</strong></td><td>L</td></tr>
+<tr><td>Puan / yorum</td><td>Öğretsen</td><td>🔴 M13 iskelet</td><td><strong>R-12</strong></td><td>M</td></tr>
+<tr><td>Web erişimi</td><td>Tilki, Doping, Pakodemy</td><td>❌ (P14)</td><td><strong>R-13</strong></td><td>XL</td></tr>
+<tr><td>XP / seviye / ödül sandığı</td><td>Net Up</td><td>❌</td><td><strong>R-04</strong></td><td>S <em>(iptal önerisi)</em></td></tr>
+<tr><td>Soru bankası / video içerik</td><td>Doping, Pakodemy, Net Up, DUS Club</td><td>❌</td><td><strong>R-14</strong></td><td>XL <em>(iptal önerisi)</em></td></tr>
+</table></div>
+<hr>
+<h2>3. 🔴 X — Doküman ile kod çelişkileri</h2>
+<h3>X-01 — PRD §9.2 streak&#x27;i Premium sayıyor, kod <strong>Free</strong> veriyor ✅ PRD düzeltildi 2026-09-05</h3>
+<ul>
+<li><strong>Kanıt (kod):</strong> <code>src/Shared/Contracts/MembershipGate.cs:31-36</code> sınıf yorumu: <em>&quot;Free = çekirdek alışkanlık (kronometre, test, <strong>streak tam</strong>, son 30 gün geçmiş, temel haftalık analiz); Premium = derinlik (sınırsız geçmiş + tüm <code>PremiumFeature</code> özellikleri).&quot;</em> <code>PremiumFeature</code> enum&#x27;unda streak&#x27;in kendisi değil yalnız <strong><code>StreakFreeze</code></strong> (seri dondurma hakkı) var. <code>FreeHistoryWindowDays = 30</code> → geçmiş kayıtlar Free&#x27;de 30 gün görünüyor. Kapılar <code>MembershipGate.ClampFrom</code> (<code>StudyTestFeatures.cs:244,270</code>, <code>StudySessionFeatures.cs:566</code>) ve <code>MembershipGate.Allows(tier, PremiumFeature.TargetTracking)</code> (<code>StudyProgressFeatures.cs:98</code>) ile uygulanıyor.</li>
+<li><strong>Kanıt (doküman):</strong> PRD §9.2 tablosu &quot;Streak (seri gün) | ❌ | ✅&quot;, &quot;Motivasyon sistemi | ❌ | ✅&quot;, &quot;Geçmiş çalışma kayıtları | ❌ | ✅&quot;, &quot;Haftalık / aylık analiz | ❌ | ✅&quot; diyordu. §9.1 ise Free öğrenci limitini &quot;5–10&quot; gösteriyordu; kodda <code>MembershipFeatures.FreeMaxStudents = 5</code>.</li>
+<li><strong>Neden önemli:</strong> Rakip analizi turunda &quot;streak&#x27;i paywall&#x27;un arkasına koymak dönüşümü öldürür&quot; uyarısı <strong>PRD&#x27;ye bakılarak</strong> yazılmıştı. Kod zaten doğru olanı yapıyor — <strong>Net Up modeliyle aynı hizada</strong> (alışkanlık ücretsiz, derinlik ücretli). Yapılacak iş kod değişikliği değil, doküman düzeltmesiydi.</li>
+<li><strong>Yapılan (2026-09-05):</strong> PRD §9.1 (limit 5) ve §9.2 (kapı sütunlu yeni tablo + tasarım kararı notu) yeniden yazıldı; aynı bayat liste <code>m17_membership.md</code> §1 ve §7&#x27;de, <code>roles/ogrenci.md</code> §14.3&#x27;te düzeltildi (orada ayrıca kapı kaynağı <code>IMembershipDirectory</code> → <code>IEntitlementDirectory</code> olarak güncellendi).</li>
+<li><strong>Efor:</strong> S (yapıldı) · <strong>Karar:</strong> — <em>(düzeltme, karar gerektirmiyor)</em></li>
+</ul>
+<h3>X-02 — <code>Entitlement</code> kaydında iki alan tanımlı ama hiçbir yerde okunmuyor 🟡</h3>
+<ul>
+<li><strong>Kanıt:</strong> <code>src/Shared/Contracts/EntitlementContract.cs:19-20</code> → <code>DetailedAnalytics</code> ve <code>RichNotifications</code> alanları tanımlı ve <code>MembershipFeatures.cs:31,33,39,41</code>&#x27;de doldurulmuş. Tüketim tarafında <code>grep -rn &quot;DetailedAnalytics\|RichNotifications&quot; src/Modules/</code> yalnız <strong>doldurma</strong> satırlarını buluyor; hiçbir kapı bu iki alanı <strong>okumuyor</strong>. Bugün gerçekten uygulanan kapılar: <code>MaxStudents</code> (<code>StudentProfileFeatures.cs:173</code>), <code>PdfReports</code> (<code>StudentReportFeatures.cs:335</code>), <code>Tier</code> → <code>MembershipGate</code> (Study).</li>
+<li><strong>Etki:</strong> &quot;Zengin bildirim&quot; ve &quot;detaylı analiz&quot; premium vaadi <strong>sözleşmede var, kodda yok</strong>. Premium alan kullanıcı Free ile aynı bildirimi alıyor. Ödeme açıldığında (R-09) bu bir iade sebebi olur.</li>
+<li><strong>Çözüm taslağı:</strong> İki yol var, biri seçilmeli: (a) <strong>Bağla</strong> — <code>RichNotifications</code>&#x27;ı <code>NotificationDispatcher</code>&#x27;da haftalık özet/ödeme uyarısı üretimine, <code>DetailedAnalytics</code>&#x27;i M14&#x27;ün aylık analiz uçlarına kapı olarak koy; (b) <strong>Kaldır</strong> — alanları sözleşmeden çıkar, <code>MembershipGate</code> + <code>MaxStudents</code> + <code>PdfReports</code> yeter. <strong>Öneri: (a)</strong>, çünkü Ü-08 (erken uyarı) zaten &quot;zengin bildirim&quot; kategorisinde satılacak.</li>
+<li><strong>Kabul kriteri:</strong> Free kullanıcı haftalık özet bildirimi almıyor · Premium alıyor · integration testi ikisini de gösteriyor.</li>
+<li><strong>Risk:</strong> Kapıyı sonradan koymak, bugün bildirim alan Free kullanıcıdan özelliği geri almak demek — ödeme açılmadan (R-09) önce yapılırsa kimse fark etmez, sonra yapılırsa şikâyet gelir. <strong>Sıralama önemli.</strong></li>
+<li><strong>Efor:</strong> S · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>X-03 — <code>AchievementCategory.Goal</code> tanımlı ama hiç rozet kullanmıyor 🟡</h3>
+<ul>
+<li><strong>Kanıt:</strong> <code>StudyDomainModel.cs:874</code> enum&#x27;da beş değer var (<code>Streak</code>, <code>StudyTime</code>, <code>TestPerformance</code>, <code>Goal</code>, <code>Consistency</code>); <code>StudyDbContext.cs:140-150</code> seed&#x27;inde <strong><code>Goal</code> kategorisinde tek rozet yok</strong> (<code>grep -c &quot;AchievementCategory.Goal&quot; StudyDbContext.cs</code> → <strong>0</strong>). Ayrıca <code>StudyMetrics.ValueFor</code> (<code>StudyPolicies.cs:228</code>) <code>Goal</code> için bir metrik döndürmüyor.</li>
+<li><strong>Etki:</strong> Ölü kod değil ama <strong>yarım desen</strong>: hedefini tutturan öğrenciyi ödüllendiren rozet yok. R-03 (günlük görev döngüsü) tam olarak bu boşluğu dolduracak yerdir.</li>
+<li><strong>Çözüm taslağı:</strong> <code>StudyMetrics</code>&#x27;e &quot;hedefi tutturulan gün sayısı&quot; metriği ekle (<code>StudySession</code> + <code>StudyGoal</code>&#x27;dan hesaplanır, <code>StudyGoalUpdatedDomainEvent</code> gerekmez), seed&#x27;e <code>GOAL_7</code> / <code>GOAL_30</code> rozetlerini ekle. R-03 ile aynı işte yapılmalı.</li>
+<li><strong>Kabul kriteri:</strong> <code>GET /students/{id}/achievements</code> <code>Goal</code> kategorisinde en az iki rozet döndürüyor · eşik aşılınca <code>AchievementEarnedDomainEvent</code> üretiliyor.</li>
+<li><strong>Efor:</strong> S <em>(R-03 içinde)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<hr>
+<h2>4. 🟠 R — Parite: rakiplerde var, bizde yok</h2>
+<h3>R-08 — Uygulama dışı paylaşım yok (WhatsApp / link / özet) 🔴</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Tilki</strong>&#x27;nin bel kemiği — <em>&quot;Veliler ders, ödev ve ödeme bildirimlerini <strong>uygulama indirmeden</strong> WhatsApp&#x27;tan alır.&quot;</em> Ürün sayfası bunu bir özellik değil, <strong>tasarım kararı</strong> olarak anlatıyor. <strong>Net Up</strong> haftalık veli raporunu WhatsApp / e-posta / SMS ile paylaştırıyor (App Store açıklaması).</li>
+<li><strong>Bizdeki durum:</strong> PDF üretiliyor ve cihazda açılıyor (<code>open_filex</code>, P08 Task 5), ama <strong>paylaşım yok</strong>: <code>mobile/pubspec.yaml</code>&#x27;da <code>share_plus</code> <strong>yok</strong>; <code>grep -i whatsapp mobile/lib</code> → <strong>boş</strong>. Veli, veriyi görmek için <strong>uygulamayı indirmek + hesap açmak + veli bağı kurmak</strong> zorunda.</li>
+<li><strong>Etki:</strong> 🔴 Ürünün en yüksek sürtünme noktası ve en büyük sessiz kayıp kaynağı. Özel derste veli çoğu zaman uygulama indirmez; rakip bunu kabul edip WhatsApp&#x27;a teslim olmuş, biz zorunlu tutuyoruz. Öğretmen de &quot;veliye göstereceğim&quot; diyemediği için platformu ikinci sınıf araç olarak kullanıyor.</li>
+<li><strong>Çözüm taslağı — iki katman:</strong></li>
+<ul>
+<li><strong>(a) Cihazdan paylaşım [S]</strong> — mobil: <code>share_plus</code> ekle; <code>ReportingRepository</code>&#x27;nin ürettiği PDF&#x27;i ve <em>hazır özet metnini</em> paylaş. Özet metni <strong>istemcide</strong> üretilir (yeni uç gerekmez), kaynağı mevcut <code>/students/{id}/report</code> yanıtı. Giriş noktaları: <code>/student/reports</code>, veli paneli, öğretmenin öğrenci detayı. Metin şablonu <code>mobile/lib/features/reporting/domain/</code> altına saf fonksiyon olarak yazılır → birim testlenebilir.</li>
+<li><strong>(b) Giriş gerektirmeyen özet linki [M]</strong> — backend: <code>Reporting</code> modülüne <code>ShareLink</code> entity&#x27;si (<code>Id</code>, <code>StudentId</code>, <code>CreatedByUserId</code>, <code>Scope</code>, <code>ExpiresAtUtc</code>, <code>RevokedOnUtc</code>, <code>TokenHash</code>). Uçlar: <code>POST /api/reporting/students/{id}/share-link</code> (imzalı token üretir), <code>GET /api/reporting/shared/{token}</code> (<strong>anonim</strong>, yalnız okunur özet döner). Token <strong>hash&#x27;lenerek</strong> saklanır (parola deseni gibi); varsayılan ömür 7 gün; veri kapsamı <code>/students/{id}/sharing</code> gizlilik ayarına saygı duyar.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong></li>
+<ul>
+<li>(a) Öğretmen ve veli, tek dokunuşla WhatsApp&#x27;a düşen bir özet metni + PDF paylaşabiliyor.</li>
+<li>(b) Link paylaşılan kişi <strong>giriş yapmadan</strong> özet görebiliyor; süre dolunca 410 dönüyor; üreten kişi iptal edebiliyor.</li>
+<li>Özet metninde öğrenci <strong>tam adı</strong> ve iletişim bilgisi geçmiyor (yalnız ad + baş harf).</li>
+<li>Integration testi: link üret → anonim eriş → iptal et → 403/410.</li>
+</ul>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>KVKK:</strong> Anonim erişilebilir link, çocuk verisi taşıyor. Kapsam dar tutulmalı (dakika, ödev sayısı, net trendi — ders içeriği ve mesaj <strong>asla</strong>), süre kısa olmalı, iptal edilebilmeli. P13 Task 5 (Q5) ile hizalı gitmeli.</li>
+<li><strong>Tahmin edilebilir token:</strong> <code>Guid</code> yeterli değil; kriptografik rastgele + hash saklama.</li>
+<li>Paylaşım metni çok uzun olursa WhatsApp&#x27;ta kırpılır — 4 satırı geçmemeli.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> Yok. (b) için M15 gizlilik ayarı okunmalı (mevcut).</li>
+<li><strong>Efor:</strong> S (a) + M (b) · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-06 — Bire-çok duyuru yok 🔴</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>VeliCep</strong> — <em>&quot;Sınıf veya okul genelinde anlık duyuru yayınlayın&quot;</em>, öğretmen tarafının üç ana özelliğinden biri. Doping ve Pakodemy&#x27;de de duyuru/bildirim akışı var.</li>
+<li><strong>Bizdeki durum:</strong> M16 yalnız <strong>1-1 <code>Conversation</code></strong> modeli: <code>ParticipantRole{Teacher,Student,Parent}</code>, iki katılımcı, <code>MessagingErrors.PairNotAllowed</code> çifti kısıtlıyor. Öğretmen 10 öğrencisine aynı şeyi söylemek için <strong>10 sohbet açmak</strong> zorunda (üstelik kullanıcı başına 30 mesaj/dk kotası var).</li>
+<li><strong>Etki:</strong> 🔴 &quot;Yarınki ders iptal&quot;, &quot;Pazar deneme sınavı var&quot;, &quot;kitap getirin&quot; — özel derste en sık iletişim ihtiyacı bu ve karşılanmıyor. Öğretmen WhatsApp grubuna kaçıyor; iletişim platformu terk edince <strong>geri kalan her şey de terk ediliyor</strong>. Terk riski en yüksek madde.</li>
+<li><strong>Çözüm taslağı:</strong> Duyuru <strong>sohbet değildir</strong> — ayrı bir kavram olarak modellenmeli, yoksa M16&#x27;nın çift-katılımcı değişmezleri bozulur.</li>
+<ul>
+<li><strong>Domain (M16):</strong> <code>Announcement</code> (<code>Id</code>, <code>TeacherUserId</code>, <code>Title</code>, <code>Body</code>, <code>Audience</code>, <code>CreatedOnUtc</code>, <code>ArchivedOnUtc</code>) + <code>AnnouncementRecipient</code> (<code>AnnouncementId</code>, <code>UserId</code>, <code>ReadOnUtc</code>). <code>Audience</code> enum: <code>AllStudents</code>, <code>AllParents</code>, <code>Both</code>, <code>SelectedStudents</code>.</li>
+<li><strong>Uçlar:</strong> <code>POST /api/messaging/announcements</code>, <code>GET /api/messaging/announcements</code> (öğretmen: gönderdikleri; öğrenci/veli: aldıkları), <code>POST /api/messaging/announcements/{id}/read</code>, <code>DELETE .../{id}</code> (yumuşak arşiv, <code>LessonResource</code>&#x27;un <code>Archive</code> desenini izler).</li>
+<li><strong>Alıcı çözümü:</strong> <code>IStudentDirectory</code> (öğretmenin öğrencileri) + <code>IParentAccessDirectory</code> (o öğrencilerin velileri) — <strong>ikisi de mevcut</strong>, M16 Task 2&#x27;de zaten kullanılıyor.</li>
+<li><strong>Bildirim:</strong> <code>AnnouncementPublishedDomainEvent</code> → outbox → M11&#x27;de handler → <code>UserNotificationKind</code>&#x27;a <strong>yeni değer <code>AnnouncementPublished = 10</code></strong> + push. Fan-out outbox üzerinden yapılır ki 30 alıcılı duyuru istek zaman aşımına uğramasın.</li>
+<li><strong>Kota:</strong> Mesaj kotasından ayrı — öğretmen başına <strong>günde 10 duyuru</strong> gibi bir sınır (P10&#x27;da düzeltilen <code>UseAuthentication</code> sırası tuzağına dikkat: kota kullanıcı bazlı olmalı, IP&#x27;ye düşmemeli).</li>
+<li><strong>Mobil:</strong> Öğretmen &quot;Duyuru gönder&quot; (öğrenci listesi ekranından), öğrenci/veli gelen kutusunda duyurular ayrı sekme/başlık; okunmamış rozeti mevcut bildirim merkezine bağlanır.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong></li>
+<ul>
+<li>Öğretmen tek işlemde tüm öğrencilerine + velilerine duyuru gönderiyor; her alıcı <strong>bir</strong> bildirim alıyor.</li>
+<li>Duyuruya <strong>cevap verilemiyor</strong> (sohbet değil) — cevap isteyen kullanıcı ilgili sohbete yönlendiriliyor.</li>
+<li>Öğretmen kimin okuduğunu görüyor.</li>
+<li><code>RealMessagingChainTests</code> tarzı gerçek-Postgres testi: 1 duyuru → N alıcı → N bildirim, tekrar teslimde çoğalmıyor.</li>
+</ul>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Fan-out N+1:</strong> Alıcı başına ayrı komut çalıştırılırsa 30 öğrencide 30 SaveChanges olur — tek toplu ekleme + outbox kullanılmalı.</li>
+<li><strong>Spam:</strong> Kota konmazsa öğretmen günde 50 duyuru atıp bildirimleri değersizleştirir.</li>
+<li><strong>Yanlış kapsam:</strong> Veli, çocuğunun öğretmeninden gelen duyuruyu görmeli; ilişkisi bitmiş öğretmenden görmemeli (<code>IParentAccessDirectory</code> bunu zaten çözüyor, atlanmamalı).</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M16 (🟡, mevcut) · M11 (🟢, mevcut).</li>
+<li><strong>Efor:</strong> S–M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-10 — Zamanlanmış yerel hatırlatıcı yok 🟠</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Net Up</strong> — <em>&quot;Akşam 19:00 hatırlatıcı + 20:00 günlük seri uyarısı.&quot;</em> Uygulamanın günlük açılışını taşıyan mekanizma bu; streak tek başına hatırlatıcısız çalışmıyor.</li>
+<li><strong>Bizdeki durum:</strong> <code>flutter_local_notifications: ^18.0.1</code> <strong>pubspec&#x27;te kurulu ama <code>lib/</code> içinde hiç kullanılmıyor</strong> (<code>grep -rn &quot;FlutterLocalNotifications&quot; mobile/lib</code> → <strong>boş</strong>). Yani hem özellik eksik, hem de bu, <code>D-18</code> (kullanılmayan ağır bağımlılık) maddesinin hâlâ açık olan kısmı.</li>
+<li><strong>Etki:</strong> 🟠 Streak var ama kimse hatırlatmıyor → seri kırılıyor → alışkanlık kurulmuyor. Streak&#x27;e yapılan yatırımın getirisi hatırlatıcı olmadan düşük kalıyor. Ayrıca sunucu push&#x27;u (M11) internet ve FCM&#x27;e bağlı; yerel hatırlatıcı <strong>çevrimdışı da</strong> çalışır.</li>
+<li><strong>Çözüm taslağı:</strong> Tamamen <strong>mobil</strong> iş, backend değişikliği yok.</li>
+<ul>
+<li><code>mobile/lib/core/notifications/local_reminder_service.dart</code>: zamanlama, iptal, izin akışı.</li>
+<li>İki hatırlatıcı: (1) <strong>çalışma hatırlatıcısı</strong> — kullanıcının seçtiği saat, varsayılan 19:00; (2) <strong>seri koruma uyarısı</strong> — 20:00, <em>yalnız o gün eşik dolmadıysa</em>. Eşik durumu <code>GET /students/{id}/streak</code> yanıtındaki <code>todayMinutes</code> + günlük hedeften hesaplanır (uç zaten var).</li>
+<li>Zamanlama uygulama her açıldığında yeniden kurulur (yerel bildirimler cihazda tutulur, sunucu bilmez).</li>
+<li>Ayar: M15 bildirim tercihleri ekranına iki anahtar + saat seçici.</li>
+<li>iOS/Android izin akışı: reddedilirse sessizce devre dışı, ayarlar ekranında durum gösterilir.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong></li>
+<ul>
+<li>Kullanıcı saati değiştirince eski bildirim iptal olup yenisi kuruluyor (çift bildirim yok).</li>
+<li>O gün eşiği dolduran öğrenci 20:00 uyarısını <strong>almıyor</strong>.</li>
+<li>Bildirim kapalıyken hiçbir yerel bildirim planlanmıyor.</li>
+<li><code>flutter test</code> ile servis birim testleniyor (sahte zamanlayıcı ile).</li>
+<li><code>pubspec.yaml</code>&#x27;da kullanılmayan paket kalmıyor → <strong>D-18 kapanıyor</strong>.</li>
+</ul>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Çift bildirim:</strong> Sunucu push&#x27;u (M11) ile yerel hatırlatıcı aynı anda düşerse kullanıcı iki bildirim görür. Kapsamları ayrılmalı: sunucu = olay bildirimi (ödev, mesaj, ödeme), yerel = alışkanlık hatırlatıcısı.</li>
+<li><strong>Saat dilimi ve yaz saati:</strong> Yerel bildirimlerde <code>tz</code> paketiyle doğru saat dilimi kurulmalı; yoksa hatırlatıcı yanlış saatte düşer.</li>
+<li>iOS&#x27;ta uygulama uzun süre açılmazsa planlanmış bildirim sayısı sınırlıdır (64) — tekrar eden bildirim kullanılmalı.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> Yok. <strong>P13 Task 6 (mobil hijyen) ile birlikte yapılmalı</strong> — D-18 orada kapanıyor.</li>
+<li><strong>Efor:</strong> S · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-07 — Fotoğraf/video paylaşımı (galeri) yok 🟡</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>VeliCep</strong> — <em>&quot;Öğretmenin paylaştığı fotoğraf ve videolara <strong>tarihe göre</strong> göz atın, indirin.&quot;</em> Öğretmen tarafında <em>&quot;fotoğraf ve video yükleyin, sınıfınızın anlarını velilerle paylaşın.&quot;</em></li>
+<li><strong>Bizdeki durum:</strong> Yapı taşları <strong>hazır</strong>: <code>LessonResource</code> (<code>File</code>/<code>Link</code>, <code>StudentId</code> null ise tüm öğrencilere açık, yumuşak arşiv), S3/MinIO depolama canlı doğrulanmış (P04), mobilde <code>image_picker</code> kurulu. Eksik olan <strong>tarih eksenli galeri görünümü</strong> ve kaynağın ders/oturuma bağlanması.</li>
+<li><strong>Etki:</strong> 🟡 Veli için somut kanıt (&quot;çocuğum bu hafta bunu çözdü&quot; fotoğrafı) rakipte var, bizde yok. Anaokulunda beklenti hâline gelmiş bir davranış; özel derste karşılığı <strong>çözülmüş soru fotoğrafı</strong> ve tahta görüntüsü. Ü-01&#x27;in (doğrulanmış karne) görsel ayağı.</li>
+<li><strong>Çözüm taslağı:</strong></li>
+<ul>
+<li>Backend: yeni entity <strong>gerekmiyor</strong>. <code>LessonResource</code>&#x27;a <code>MediaKind</code> (<code>Image</code>/<code>Video</code>/<code>Document</code>) türetimi içerik tipinden yapılır; <code>GET /api/assignments/students/{id}/gallery?from=&amp;to=</code> — tarihe göre gruplanmış, keyset sayfalı liste. Veli erişimi <code>IParentAccessDirectory</code> üzerinden.</li>
+<li>Mobil: <code>features/assignments</code> altına galeri ekranı — ay başlıklarıyla ızgara, tam ekran görüntüleyici, indirme (<code>open_filex</code> mevcut). Öğretmen tarafında çoklu yükleme (<code>image_picker</code> mevcut).</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Veli, çocuğunun materyallerini tarihe göre görüyor ve indirebiliyor · başka öğrencinin materyali görünmüyor · arşivlenmiş kaynak listede çıkmıyor · 50 öğeli galeri tek istekte değil sayfalı geliyor.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Video boyutu:</strong> Sınırsız video yüklemesi depolama maliyetini patlatır — boyut sınırı ve süre sınırı konmalı.</li>
+<li><strong>İzinsiz görsel:</strong> Başka çocuğun görüntüsü kadraja girerse KVKK sorunu; öğretmene uyarı metni gösterilmeli.</li>
+<li>Küçük resim (thumbnail) üretilmezse liste ekranı ham görselleri indirir → yavaş ve pahalı.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M06 + P04 depolama (ikisi de 🟢).</li>
+<li><strong>Efor:</strong> S · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-03 — Günlük görev döngüsü yok 🟠</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Net Up</strong> günlük görev + günlük seri uyarısı (&quot;her gün küçük adımlar at&quot;). <strong>Pakodemy</strong> <em>&quot;seviyene ve hedeflerine göre haftalık 10 özel görev seç, bunları tamamla ve planlı ilerle.&quot;</em></li>
+<li><strong>Bizdeki durum:</strong> <code>/students/{id}/goals</code> <strong>günlük dakika hedefi</strong> tutuyor ve dashboard&#x27;da <code>dailyGoalMinutes &gt; 0 &amp;&amp; todayMinutes &gt;= dailyGoalMinutes</code> hesaplanıyor (<code>StudyProgressFeatures.cs:309</code>). Yani &quot;bugünkü hedef&quot; var, ama <strong>çok adımlı görev listesi ve tamamlama ödülü</strong> yok. Ayrıca <code>AchievementCategory.Goal</code> boş duruyor (X-03).</li>
+<li><strong>Etki:</strong> 🟠 Uygulamayı açan öğrenciye &quot;bugün ne yapmalıyım&quot; cevabı verilmiyor. Kronometre bir araç, görev listesi bir <strong>davet</strong>. Rakipler bu daveti üretiyor.</li>
+<li><strong>Çözüm taslağı:</strong> Görevleri <strong>üretmek</strong> yerine <strong>türetmek</strong> — asıl fark burada.</li>
+<ul>
+<li>Domain (M08): <code>DailyQuest</code> (<code>StudentId</code>, <code>Date</code>, <code>Kind</code>, <code>TargetValue</code>, <code>CurrentValue</code>, <code>CompletedOnUtc</code>). <code>QuestKind</code>: <code>StudyMinutes</code> (hedeften), <code>CompleteAssignment</code> (M06&#x27;dan <strong>teslim edilmemiş ödev</strong>), <code>SolveTest</code> (deneme girişi), <code>ReviewWeakTopic</code> (M10&#x27;un en zayıf kazanımı).</li>
+<li>Üretim: gün başında (ilk istekte, tembel üretim) o günün görevleri hesaplanır — arka plan işi gerekmez.</li>
+<li>İlerleme: <code>StudySessionCompletedDomainEvent</code> ve ödev teslim olayı görev sayaçlarını günceller.</li>
+<li>Uçlar: <code>GET /api/study/students/{id}/quests?date=</code>, <code>POST /api/study/quests/{id}/dismiss</code>.</li>
+<li>X-03 ile birlikte: <code>Goal</code> kategorisinde <code>GOAL_7</code> / <code>GOAL_30</code> rozetleri.</li>
+<li>Mobil: öğrenci ana ekranında &quot;Bugün&quot; kartı — 3 görev, tamamlananlar üstü çizili, hepsi bitince kutlama.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Öğrenci ana ekranda en fazla 3 görev görüyor · görevlerden en az biri <strong>öğretmeninin verdiği gerçek ödevden</strong> türüyor · kronometre bitince görev ilerlemesi otomatik güncelleniyor · gün değişince görevler sıfırlanıyor (04:00 gün sınırı, streak ile aynı kural).</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Gün sınırı tutarsızlığı:</strong> Streak 04:00&#x27;ü kullanıyor; görevler gece yarısını kullanırsa gece çalışan öğrencide iki sistem çelişir. <strong>Aynı kuralı paylaşmalılar.</strong></li>
+<li><strong>Ödevi olmayan öğrenci:</strong> Öğretmensiz öğrencide <code>CompleteAssignment</code> görevi üretilemez — jenerik görevlere düşmeli, boş liste gösterilmemeli.</li>
+<li>Görev sayısı 3&#x27;ü geçerse &quot;yapılacaklar listesi&quot; hissi verir ve motive etmez, yorar.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M08 (🟢), M06 (🟢), M10 (🟢).</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-01 — Haftalık lig / karşılaştırmalı sıralama yok 🟠</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Net Up</strong> haftalık lig tablosu (&quot;arkadaşlarınla yarış, zirveye çık&quot;) ürünün üç ana mekaniğinden biri. <strong>DUS Club</strong> &quot;ekip içi günlük çalışma sıralaması&quot; sunuyor.</li>
+<li><strong>Bizdeki durum:</strong> Rozet (10 adet) ve streak <strong>var</strong>, ama hepsi <strong>tek kişilik</strong>. Kodda hiçbir karşılaştırma/sıralama yok (<code>grep -i leaderboard src/</code> → boş).</li>
+<li><strong>Etki:</strong> 🟠 Motivasyon yalnızca kendi geçmişine karşı. Rakipler sosyal baskıyı kullanırken bizde günlük açılış sebebi zayıf. Öğrenci tutundurmasının en ucuz kaldıracı bu — çünkü <strong>veri zaten toplanıyor</strong>.</li>
+<li><strong>Çözüm taslağı:</strong> Klasik projeksiyon işi; §1.3&#x27;teki desen birebir uygulanır.</li>
+<ul>
+<li>Domain/altyapı: <code>Study</code> (ya da yeni hafif bir modül yerine M08 içinde) <code>WeeklyLeaderboardProjection : ProjectionEntity</code> — <code>GroupId</code>, <code>WeekStartDate</code>, satırlar: <code>StudentId</code>, <code>Minutes</code>, <code>SessionCount</code>, <code>Rank</code>.</li>
+<li>Besleme: <code>StudySessionCompletedDomainEvent</code> → <code>ProjectionHandler&lt;...&gt;</code>. <strong>Yeni olay yazılmıyor.</strong></li>
+<li>Uç: <code>GET /api/study/groups/{groupId}/leaderboard?week=</code> — kendi sıran her zaman döner (listede görünmesen bile), üst N gösterilir.</li>
+<li>Gizlilik: katılım <strong>opt-in</strong>; <code>GET/PUT /students/{id}/sharing</code> sözleşmesine yeni bir alan (<code>ShareLeaderboard</code>) eklenir. Katılmayan öğrenci listede <strong>hiç</strong> yer almaz.</li>
+<li>Mobil: <code>features/study</code> altında lig ekranı; ana ekranda &quot;bu hafta sınıfında N.&quot;&#x27;sin şeridi.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Sıralama haftalık pencerede doğru · opt-out öğrenci listede yok · projeksiyon <code>IProjectionRebuilder</code> ile sıfırdan aynı sonucu üretiyor (P08&#x27;deki <code>RealProjectionRebuildTests</code> deseni) · hafta değişince yeni tablo başlıyor, eskisi kayboluyor değil.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Utandırma:</strong> Alt sıralar açıkça gösterilirse zayıf öğrenci uygulamayı bırakır. Öneri: yalnız ilk 5 + kendi sıran, alt sıralar hiç gösterilmez.</li>
+<li><strong>Küçük grup:</strong> 2 kişilik grupta lig anlamsız — en az 3 katılımcı yoksa şerit gizlenir.</li>
+<li><strong>Manipülasyon:</strong> Kronometreyi açık bırakıp dakika biriktirme. M08&#x27;in <code>EffectiveMinutes</code> ve <code>recover</code>/<code>discard</code> mantığı buna karşı zaten çalışıyor, ama lige girmeden önce <strong>günlük üst sınır</strong> (ör. 8 saat) konmalı.</li>
+<li>Gizlilik ayarı sonradan kapatılırsa geçmiş sıralamadan da düşmeli.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> <strong>R-02 (grup kavramı) olmadan <code>groupId</code> yok</strong> — ikisi tek işte yapılmalı.</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-02 — Ekip / grup kavramı yok (kod ile katılım) 🟠</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>DUS Club</strong> — <em>&quot;Kendi ekibini kur ya da bir <strong>koda dahil ol</strong>. Ekip içi günlük çalışma sıralamasında yerini gör.&quot;</em></li>
+<li><strong>Bizdeki durum:</strong> <code>TeacherStudent</code> bağı var (çoklu öğretmen kararı, 2026-07-18), ama <strong>grup/sınıf entity&#x27;si yok</strong>. Referans kodu altyapısı M17&#x27;de mevcut (<code>GET /referral-code</code>, <code>POST /referral/redeem</code>) — kod üretme/çözme/tek-kullanım deseni hazır, kopyalanabilir.</li>
+<li><strong>Etki:</strong> 🟠 R-01&#x27;in taşıyıcısı. Ayrıca öğretmenin &quot;sınıfım&quot; görünümü yok; her öğrenci ayrı ada — toplu işlem (duyuru, toplu ödev, toplu rapor) için ortak bir kap yok.</li>
+<li><strong>Çözüm taslağı:</strong></li>
+<ul>
+<li>Domain (M03 Students ya da M02 Teachers): <code>StudyGroup</code> (<code>Id</code>, <code>OwnerUserId</code>, <code>Name</code>, <code>JoinCode</code>, <code>IsActive</code>, <code>CreatedOnUtc</code>) + <code>StudyGroupMember</code> (<code>GroupId</code>, <code>StudentId</code>, <code>JoinedOnUtc</code>, <code>LeftOnUtc</code>).</li>
+<li><strong>Varsayılan grup:</strong> Öğretmenin öğrencileri <strong>otomatik</strong> bir gruba düşer (kurulum gerektirmez) — DUS Club&#x27;da kullanıcı ekibi kendi kurmak zorunda, bizde hazır. Bkz. <strong>Ü-07</strong>.</li>
+<li>Katılım kodu: M17&#x27;nin <code>ReferralCode</code> deseni — tekil, sahibi kendi kodunu kullanamaz, iptal edilebilir.</li>
+<li>Uçlar: <code>POST /api/students/groups</code>, <code>POST /api/students/groups/join</code>, <code>GET /api/students/groups/{id}/members</code>, <code>DELETE /api/students/groups/{id}/members/{studentId}</code>.</li>
+<li>Shared sözleşme: <code>IStudyGroupDirectory</code> — M08 (lig) ve M16 (duyuru hedefi) buradan okur, <strong>yerel kopya yok</strong> (P10&#x27;da <code>IStudentDirectory</code> için uygulanan kural).</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Öğretmenin öğrencileri otomatik grupta · kodla katılan öğrenci gruba düşüyor · gruptan çıkarılan öğrenci ligde görünmüyor · kod tahmin edilebilir değil · aynı kod iki kez kullanılamıyor.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Kapsam kayması:</strong> Grup, &quot;sınıf yönetimi&quot; modülüne dönüşmemeli. Bu iş yalnız <em>lig + duyuru hedefi</em> için.</li>
+<li><strong>İzinsiz katılım:</strong> Kod sızarsa yabancı çocuk gruba girer ve diğerlerinin adını görür. Öğretmen onayı (bekleyen üyelik) ya da kod yenileme şart.</li>
+<li>Öğrenci birden çok grupta olabilir (iki öğretmen) — tekil grup varsayımı yapılmamalı.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M03 · M17 (kod deseni) · R-01 bunu bekliyor.</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-05 — Flashcard / aralıklı tekrar yok 🟠</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>DUS Club</strong> — <em>&quot;Flashcard&#x27;larla aktif tekrar yap. Kendi kartlarını oluştur, <strong>topluluk kartlarını</strong> kullan, mnemonics ve şifreler ile kritik bilgileri kafanda tut.&quot;</em> <strong>Doping Hafıza</strong> — hafıza teknikleri, akıl haritaları, &quot;refleksler&quot;.</li>
+<li><strong>Bizdeki durum:</strong> <code>StudyNote</code> (<code>StudyCatalogModel.cs:107</code>) serbest metin notu tutuyor; <strong>tekrar algoritması ve kart yapısı yok</strong>. <code>grep -i flashcard src/ mobile/</code> → <strong>boş</strong>.</li>
+<li><strong>Etki:</strong> 🟠 &quot;Öğrenme&quot; tarafında elimiz boş; sadece <strong>takip</strong> yapıyoruz. Öğrenci öğrenmek için başka uygulamaya gidiyor, orada kalıyor. Bu, içerik boşluğunun (R-14) günlük hissedilen yüzü.</li>
+<li><strong>Çözüm taslağı:</strong> Tek başına yapılırsa sıradan bir flashcard uygulaması olur; <strong>Ü-03 ile birlikte yapılırsa rakiplerde olmayan şey</strong> çıkar (öğretmenin verdiği kart).</li>
+<ul>
+<li>Domain (M08): <code>Flashcard</code> (<code>Id</code>, <code>OwnerUserId</code>, <code>SubjectId</code>, <code>TopicId</code>, <code>Front</code>, <code>Back</code>, <code>Source</code>)</li>
+<ul>
+<li><code>FlashcardReview</code> (<code>CardId</code>, <code>StudentId</code>, <code>EaseFactor</code>, <code>IntervalDays</code>, <code>DueOnDate</code>, <code>Repetition</code>). <code>Source</code>: <code>Student</code> | <code>Teacher</code> (Ü-03 köprüsü).</li>
+</ul>
+<li>Algoritma: SM-2&#x27;nin sadeleştirilmişi — <strong>saf, birim testli</strong> bir sınıf (<code>MembershipGate</code> gibi <code>Shared</code> değil, M08 Application içinde). Karmaşık aralıklandırma v1&#x27;de gerekmez: 1/3/7/16/35 gün.</li>
+<li>Uçlar: <code>POST /api/study/flashcards</code>, <code>GET /api/study/students/{id}/flashcards/due</code>, <code>POST /api/study/flashcards/{id}/review</code> (kolay/zor/bilmiyorum).</li>
+<li>Mobil: kart çevirme ekranı; günlük &quot;tekrar zamanı gelen N kart&quot; → R-03 görevine bağlanır.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Zor denen kart yakında tekrar geliyor, kolay denen uzağa gidiyor · tekrar kuyruğu günlük görevde görünüyor · öğretmenin atadığı kart öğrencide çıkıyor (Ü-03 yapıldıysa) · aralık hesabı birim testli ve deterministik.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Boş kart havuzu:</strong> Öğrenci kendi kartını yazmazsa özellik ölü doğar. Bu yüzden <strong>Ü-03 önce/birlikte</strong> gelmeli.</li>
+<li>SM-2&#x27;yi tam uygulamak v1 için aşırı; basit aralık listesi yeterli ve daha kolay açıklanır.</li>
+<li>Kartlar konu kataloğuna bağlanmazsa M10 kazanım verisiyle ilişkilenemez → Ü-02&#x27;nin değeri düşer.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> <strong>Ü-03 ile birlikte yapılmalı.</strong> M08 katalog (🟢).</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-09 — Gerçek para tahsilatı yok 🔴</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> İncelenen 10 üründen <strong>10&#x27;u</strong> para alabiliyor. Net Up (99,99 ₺/ay · 499,99 ₺/yıl), DUS Club (DUSClubber) ve Özel Ders Alanı (Eko/Bronz/Silver/Gold/Platinum + ders talebi kontörü) <strong>mağaza içi satın alma</strong>; Tilki kart ile SaaS (120 ₺/aktif öğrenci/ay); Doping ve Pakodemy havale + 12 taksit.</li>
+<li><strong>Bizdeki durum:</strong> M17 🟡 — plan kataloğu, ücretsiz deneme (kullanıcı başına bir kez), referans kampanyası, entitlement ve <strong>mobil paywall ekranı</strong> var; <strong>checkout yok</strong>. <code>ILERLEME.md</code> → P09 Task 4 (iyzico) <strong>Q1&#x27;e bloke</strong>, Task 5 (AdMob) <strong>Q3&#x27;e bloke</strong>. <code>RealMembershipEntitlementTests</code> deneme→premium→süre sonu→Free zincirini gerçek Postgres&#x27;te doğruluyor — yani <strong>kilit çalışıyor, açacak anahtar yok</strong>.</li>
+<li><strong>Etki:</strong> 🔴 Ürün fiilen ücretsiz. Premium kapıları (öğrenci limiti 5, PDF raporu 402, geçmiş 30 gün) çalışıyor ama kullanıcı ödeyerek açamıyor.</li>
+<li><strong>Çözüm taslağı — iki ayrı para akışı, iki ayrı yol:</strong></li>
+</ul>
+<div class="tw"><table><tr><th>Akış</th><th>Yöntem</th><th>Gerekçe</th></tr>
+<tr><td><strong>Premium üyelik</strong> (uygulama özelliği açar)</td><td><strong>StoreKit 2 / Google Play Billing</strong></td><td>App Store 3.1.1: dijital içerik/özellik IAP zorunlu. Rakiplerin hepsi böyle yapıyor</td></tr>
+<tr><td><strong>Ders ücreti</strong> (öğrenci → öğretmen)</td><td><strong>iyzico</strong> (ya da havale, bugünkü manuel akış)</td><td>App Store 3.1.3(d): <em>&quot;real-time person-to-person services… for example <strong>tutoring students</strong>&quot;</em> IAP dışı ödeme kullanabilir. <strong>Bire-çok grup dersi bu istisnanın dışında</strong></td></tr>
+</table></div>
+<ul>
+<li>Backend: <code>Membership</code>&#x27;e <code>PurchaseReceipt</code> (<code>Provider</code>, <code>ExternalSubscriptionId</code>, <code>RawReceipt</code>, <code>VerifiedOnUtc</code>) + <code>POST /api/membership/purchases/verify</code> (mağaza fişini sunucuda doğrular) + mağaza sunucu bildirimi (webhook) ucu. Backend <strong>kart verisi tutmaz</strong> (m17 §9 kuralı korunur).</li>
+<ul>
+<li>Yenileme/iptal/geri ödeme mağazadan gelir → <code>UserSubscription</code> durumu güncellenir → entitlement kendiliğinden değişir (zincir zaten çalışıyor).</li>
+<li>Mobil: paywall ekranındaki pasif düğme gerçek satın almaya bağlanır; &quot;satın alımları geri yükle&quot; akışı.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Satın alan kullanıcı <code>GET /api/membership/me</code>&#x27;de Premium görüyor · iptal edince dönem sonunda Free&#x27;ye düşüyor · <strong>fiş sunucuda doğrulanıyor</strong> (istemciye güvenilmiyor) · aynı fiş iki hesaba bağlanamıyor · sandbox hesabıyla uçtan uca test edilmiş.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Mağaza reddi:</strong> Premium&#x27;u harici ödemeyle satmak reddedilir. En büyük risk bu ve ücretsiz — sadece doğru yolu seçmekle çözülüyor.</li>
+<li><strong>Fişi istemcide doğrulamak:</strong> Klasik güvenlik açığı; doğrulama sunucuda olmalı.</li>
+<li><strong>Çift kaynak:</strong> Hem iyzico hem IAP aboneliği satılırsa entitlement iki yerden gelir → tek yazar kuralı bozulur.</li>
+<li><strong>Komisyon:</strong> Mağaza %15–30 alır; fiyatlandırma buna göre yapılmalı (Net Up 99,99 ₺&#x27;yi bu komisyonla koymuş).</li>
+</ul>
+<li><strong>Bağımlılık:</strong> 🚫 <strong>Q1 kararı.</strong> M17 (🟡) hazır.</li>
+<li><strong>Efor:</strong> L · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-11 — Öğretmen arama / filtreleme yok 🟠</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Özel Ders Alanı</strong> — branş, konum, fiyat ve ders biçimine göre arama; öğretmen profili, ders talebi oluşturma. <strong>Öğretsen</strong> — konuma göre keşif, <strong>harita üzerinden filtreleme</strong>, mesafeye göre sıralama.</li>
+<li><strong>Bizdeki durum:</strong> M12 Matching <strong>🔴 iskelet</strong> — 0 entity, 0 migration, yalnız <code>GET /status</code>.</li>
+<li><strong>Etki:</strong> 🟠 Eşleştirme yok → yeni kullanıcı kendi öğretmenini getirmek zorunda; platform büyümesi ağızdan ağıza kalıyor.</li>
+<li><strong>Çözüm taslağı:</strong> P11 planı mevcut; buraya eklenmesi gereken tek şey <strong>Ü-10</strong> (profilin operasyon verisiyle beslenmesi) ve <strong>Ü-06</strong> (boş saat → ilan).</li>
+<li><strong>Kabul kriteri:</strong> P11 planındaki kriterler + arama sonucunda gösterilen her metrik <strong>gerçek veriden</strong> geliyor.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Boş pazar:</strong> Öğretsen 4 yılda 41 değerlendirme, Öğretmenim.app 2022&#x27;den beri güncellenmemiş — saf eşleştirme tek başına tutmuyor. PRD §10.1&#x27;in &quot;eşleştirmeyi en son aç&quot; kararı <strong>dışarıdan doğrulanıyor</strong>.</li>
+<li>Konum verisi toplamak KVKK yükü getirir; ilçe düzeyi yeterli, tam koordinat gerekmez.</li>
+</ul>
+<li><strong>Efor:</strong> L <em>(P11)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-12 — Puan / yorum sistemi yok 🟡</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Öğretsen</strong> — <em>&quot;eğitmen profilleri ve kullanıcı yorumlarını görerek doğru kararı ver.&quot;</em></li>
+<li><strong>Bizdeki durum:</strong> M13 Reviews <strong>🔴 iskelet</strong>.</li>
+<li><strong>Etki:</strong> 🟡 R-11 olmadan tek başına anlamsız; ikisi birlikte P11&#x27;de.</li>
+<li><strong>Çözüm taslağı:</strong> P11 planı. Bizde ayrıcalıklı bir imkân var: yorum bırakabilecek kişi <strong>gerçekten ders almış</strong> olan öğrenci/veli (M05 kaydı kanıt) → <strong>doğrulanmış yorum</strong>. Pazar yerlerinde bu yok.</li>
+<li><strong>Risk / tuzak:</strong> Sahte yorum ve intikam yorumu. Ders kaydı şartı ilkini, moderasyon (P12/M18) ikincisini çözer.</li>
+<li><strong>Efor:</strong> M <em>(P11)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-13 — Web erişimi yok 🟡</h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Tilki</strong> iOS + Android + <strong>web</strong>; Doping ve Pakodemy tarayıcıdan çalışıyor (Pakodemy ayrıca Huawei AppGallery).</li>
+<li><strong>Bizdeki durum:</strong> Angular planlı, kod yok (P14).</li>
+<li><strong>Etki:</strong> 🟡 Öğretmen masaüstünde ders planlayamıyor, toplu veri giremiyor. Haftalık planlama işi doğal olarak bilgisayarda yapılır — mobil-only bunu zorlaştırıyor ve öğretmeni Excel&#x27;e geri itiyor.</li>
+<li><strong>Çözüm taslağı:</strong> P14 planı. Öncelik sırası: <strong>öğretmen takvimi + toplu ders girişi + raporlar</strong>; öğrenci/veli web&#x27;i gerekmez (onlar zaten mobilde).</li>
+<li><strong>Risk / tuzak:</strong> Mobil ve web&#x27;i aynı anda geliştirmek PRD §10.3&#x27;te &quot;yaygın hata&quot; olarak işaretli — mobil kararlı olmadan başlanmamalı.</li>
+<li><strong>Efor:</strong> XL <em>(P14)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-04 — XP / seviye / ödül sandığı yok 🟡 <em>(iptal önerisi)</em></h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> <strong>Net Up</strong> — XP topla, sandık aç, rozet kazan, avatar özelleştir.</li>
+<li><strong>Bizdeki durum:</strong> Rozet var (10 adet, 4 kategori kullanımda), XP/seviye yok.</li>
+<li><strong>Etki:</strong> 🟡 Mikro ödül döngüsü eksik; ancak rozet aynı ihtiyacın büyük kısmını karşılıyor.</li>
+<li><strong>Görüş — neden şimdi değil:</strong></li>
+<ol>
+<li>Rozet sistemiyle <strong>çakışır</strong>: iki paralel ödül para birimi kafa karıştırır.</li>
+<li>Yaş grubumuz Net Up&#x27;ın 6–8. sınıfından <strong>geniş</strong> (lise sonuna kadar); XP/sandık dili büyük öğrencide ters teper.</li>
+<li>Asıl eksik sosyal katman (R-01/R-02), ödül enflasyonu değil.</li>
+</ol>
+<li><strong>Yeniden değerlendirme koşulu:</strong> R-01 ve R-03 yayına girdikten sonra ölçüm &quot;rozet kazanımı düşük, günlük dönüş zayıf&quot; derse gelsin.</li>
+<li><strong>Efor:</strong> S <em>(altyapı hazır: <code>AchievementEvaluator</code> eşik motoru)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>R-14 — Soru bankası / video içerik yok ⚪ <em>(kapsam dışı önerisi)</em></h3>
+<ul>
+<li><strong>Rakip kanıtı:</strong> Pakodemy 400–500 bin soru + 20&#x27;den fazla yayınevi (Test Okul, VİP, Açı, Delta, Karat, Röntgen…) + 6.000+ kazanım videosu (iddia); Doping her soruya çözüm videosu + çok formatlı anlatım; Net Up 2.000+ soru; DUS Club soru havuzu + vaka soruları.</li>
+<li><strong>Bizdeki durum:</strong> Yok ve <strong>olmamalı</strong>. Merkezî içerik üretimi sermaye, telif ve editoryal ekip işi; PRD §1 ürünü &quot;eşleştirme + yönetim&quot; olarak tanımlıyor.</li>
+<li><strong>Alternatif:</strong> İçeriği <strong>öğretmen üretsin</strong> → <strong>Ü-03</strong>. Bu, içerik boşluğunu içerik şirketi olmadan kapatır ve üstelik rakiplerin kopyalayamayacağı bir kilitlenme yaratır.</li>
+<li><strong>Efor:</strong> XL <em>(girilirse)</em> · <strong>Karar:</strong> <code> </code> · <strong>Öneri:</strong> <code>❌ İptal</code> — Ü-03 ile ikame edilsin</li>
+</ul>
+<hr>
+<h2>5. 🟢 Ü — Üstünlük: hiçbir rakipte olmayan, bizde olabilecekler</h2>
+<blockquote><p>Buradaki maddelerin ortak özelliği: <strong>hepsi hâlihazırda topladığımız verinin birleştirilmesinden</strong> doğuyor. Yeni içerik, yeni pazar, yeni sermaye gerektirmiyorlar — rakiplerin <strong>yapısal olarak yapamadığı</strong> şeyler, çünkü onların elinde bu üç taraf (öğretmen + öğrenci + veli) aynı veri modelinde değil.</p><p>Her maddede ayrıca <strong>&quot;nasıl ölçeriz&quot;</strong> var: farklılaşma iddiası ölçülmeden doğrulanmış sayılmaz.</p></blockquote>
+<h3>Ü-01 — Doğrulanmış çalışma karnesi (üç kaynaklı kanıt) 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> Rakiplerde çalışma verisi <strong>tek kaynaklı</strong>: öğrenci kendi kendini raporlar. Net Up bunu <em>&quot;gerçek çalışma dakikası, ekran süresi değil&quot;</em> diye pazarlıyor — yine de tek taraflı beyan. Bizde aynı zaman çizgisinde <strong>üç bağımsız kanıt</strong> var: öğretmenin işaretlediği ders (M05), öğrencinin kronometresi (M08), teslim edilen ödev (M06).</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;Bu ay: 8 ders yapıldı (öğretmen onaylı), 14 saat bireysel çalışma (kronometre), 11/12 ödev teslim edildi.&quot;</em> Veli için tartışmasız, öğrenci için gurur, öğretmen için kanıt.</li>
+<li><strong>Neden rakip yapamaz:</strong> Doping/Pakodemy/Net Up&#x27;ın elinde <strong>öğretmen yok</strong>; Tilki&#x27;nin elinde <strong>öğrenci kronometresi yok</strong>; VeliCep&#x27;in elinde <strong>çalışma verisi yok</strong>.</li>
+<li><strong>Çözüm taslağı:</strong> Yeni veri toplanmıyor — yalnız birleştiriliyor.</li>
+<ul>
+<li><code>Reporting</code> modülüne <code>StudentEvidenceProjection : ProjectionEntity</code> (<code>StudentId</code>, <code>PeriodStart</code>, <code>LessonsPlanned/Completed</code>, <code>StudyMinutes</code>, <code>SessionCount</code>, <code>AssignmentsAssigned/Submitted/Approved</code>).</li>
+<li>Besleme: mevcut olaylar — ders tamamlandı (M05), <code>StudySessionCompletedDomainEvent</code> (M08), ödev teslim/onay (M06). Üçü de <strong>zaten outbox&#x27;tan akıyor</strong>.</li>
+<li>Uç: <code>GET /api/reporting/students/{id}/evidence?from=&amp;to=</code>.</li>
+<li>Mobil: veli panelinde ve öğrenci profilinde tek kart; PDF raporuna bölüm olarak eklenir (M14 mevcut).</li>
+<li>R-08 ile birleşince: bu kart <strong>paylaşılabilir özetin gövdesi</strong> olur.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Üç sayı da bağımsız kaynaktan geliyor ve tıklanınca detayına iniliyor · projeksiyon yeniden kurulunca aynı sonucu veriyor · veli, öğrenci ve öğretmen aynı sayıyı görüyor.</li>
+<li><strong>Nasıl ölçeriz:</strong> Veli panelinin haftalık açılma oranı; R-08 paylaşımlarının kaçının bu kartı içerdiği.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Çelişkili sayı:</strong> Öğretmen dersi işaretlemeyi unutursa &quot;8 ders yapıldı&quot; yanlış çıkar ve <strong>güven ters yönde</strong> zedelenir. Eksik işaretlemeyi görünür kılan bir uyarı gerekir.</li>
+<li>Ödev sayısı düşük öğrencide kart suçlayıcı görünebilir — dil dikkatli kurulmalı.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M05 · M06 · M08 · M14 projeksiyon deseni (hepsi 🟢).</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-02 — Kapalı döngü: ödev → çalışma → deneme → gelişim nedenselliği 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> Rakiplerde bu zincirin halkaları farklı ürünlerde. Bizde tek veri modelinde: ödevin konusu (M06) → o konuya ayrılan süre (M08 <code>subjects</code>/<code>topics</code>) → denemede o konunun neti (M08 <code>TestResult</code> + <code>/net-trend</code>) → kazanım hâkimiyeti (M10).</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;Paragraf konusuna 3 hafta önce 40 dk çalıştın, netin 6 → 11 çıktı. Çarpanlara ayırmaya hiç çalışmadın, netin 3&#x27;te sabit.&quot;</em> — <strong>nedensellik</strong>, kuru istatistik değil.</li>
+<li><strong>Neden rakip yapamaz:</strong> Pakodemy&#x27;nin &quot;dışarıda çalıştığını da ekle&quot; özelliği bunun zayıf taklidi — onların elinde <strong>ödevi veren öğretmen</strong> ve <strong>dersin konusu</strong> yok.</li>
+<li><strong>Çözüm taslağı:</strong></li>
+<ul>
+<li><code>Reporting</code>&#x27;e <code>TopicCausalityProjection</code> — konu bazında: ayrılan dakika, çözülen soru, net değişimi, hâkimiyet değişimi; dönem karşılaştırmalı.</li>
+<li>Besleme: <code>StudySessionCompletedDomainEvent</code> (konu kırılımlı), <code>TestResultRecordedDomainEvent</code>, M10 kazanım olayı — <strong>üçü de mevcut</strong>.</li>
+<li>Sunum: &quot;en çok ilerlediğin 3 konu&quot; + &quot;dokunmadığın 3 konu&quot; + her biri için bir cümlelik açıklama. Cümle üretimi <strong>kural tabanlı</strong> (yapay zekâ gerekmez, gerekirse sonra).</li>
+<li>Uç: <code>GET /api/reporting/students/{id}/topic-insights?period=</code>.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Her içgörü cümlesi <strong>iki veri noktasına</strong> dayanıyor ve ikisi de arayüzde görülebiliyor · yetersiz veri varsa cümle üretilmiyor (&quot;henüz yeterli veri yok&quot;) · yanlış nedensellik iddiası yok (metin &quot;ilişkili&quot; der, &quot;sebep oldu&quot; demez).</li>
+<li><strong>Nasıl ölçeriz:</strong> Öğretmenin bu ekranı ders öncesi açma oranı; içgörü sonrası o konuya ayrılan sürede artış.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Sahte nedensellik:</strong> Az veriyle &quot;çalıştın, net arttı&quot; demek yanıltıcı. Eşik (ör. en az 2 deneme + 30 dk) altında cümle üretilmemeli.</li>
+<li>Konu eşleşmesi zayıfsa (ödev konusu ≠ katalog konusu) zincir kopar — konu kataloğu tek kaynak olmalı.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M06 · M08 · M10 · M14 (hepsi 🟢).</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-03 — Öğretmenin kendi içerik havuzu (soru + kart), öğrenciye atanabilir 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> R-14&#x27;ün (soru bankası) cevabı içerik satın almak değil, <strong>öğretmeni içerik üreticisi yapmak</strong>. Öğretmen zaten her derste soru seçiyor, kendi notlarını ve püf noktalarını hazırlıyor. Bunu platformda tutarsa: havuzu birikir, tüm öğrencilerine atar, <strong>ertesi yıl tekrar kullanır</strong>.</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;Kendi soru bankan. Bir kez hazırla, her öğrencine ata, her yıl kullan.&quot;</em></li>
+<li><strong>Neden güçlü:</strong></li>
+<ol>
+<li><strong>İçerik maliyeti sıfır</strong> — telif, editör, video prodüksiyon yok.</li>
+<li><strong>Kişiselleştirme rakiplerin yapay zekâsından isabetli</strong> — öğretmen çocuğu tanıyor.</li>
+<li><strong>Kilitlenme (lock-in):</strong> Havuzunu iki yıl biriktiren öğretmen platformdan çıkamaz. Tilki&#x27;de ve pazar yerlerinde bunun karşılığı <strong>yok</strong> — orada öğretmenin biriktirdiği bir varlık yok.</li>
+</ol>
+<li><strong>Çözüm taslağı:</strong> <code>LessonResource</code> zaten &quot;öğretmenin paylaştığı materyal&quot; kavramını taşıyor ve <code>StudentId</code> null ise <strong>tüm öğrencilere açık</strong> — yani bire-çok fikri kodda mevcut. Üstüne:</li>
+<ul>
+<li>Domain (M06): <code>ContentItem</code> (<code>Id</code>, <code>TeacherUserId</code>, <code>Kind</code>, <code>SubjectId</code>, <code>TopicId</code>, <code>Title</code>, <code>Body</code>, <code>AnswerKey</code>, <code>Difficulty</code>, <code>IsArchived</code>) — <code>Kind</code>: <code>Question</code> | <code>Flashcard</code> | <code>Note</code>. <code>ContentAssignment</code> (<code>ContentItemId</code>, <code>StudentId</code> <strong>veya</strong> <code>GroupId</code>, <code>AssignedOnUtc</code>, <code>DueOnUtc</code>).</li>
+<li><strong>R-05 köprüsü:</strong> <code>Kind = Flashcard</code> olan öğe öğrencinin tekrar kuyruğuna düşer (<code>Flashcard.Source = Teacher</code>).</li>
+<li><strong>R-03 köprüsü:</strong> Atanan içerik günlük görev üretir.</li>
+<li>Uçlar: <code>POST /api/assignments/content</code>, <code>GET /api/assignments/teachers/{id}/content?subject=&amp;topic=</code>, <code>POST /api/assignments/content/{id}/assign</code>, <code>GET /api/assignments/students/{id}/content</code>.</li>
+<li>Yeniden kullanım: içerik <strong>yıla bağlı değil</strong>; arşivleme var, silme yok (<code>LessonResource</code>&#x27;un yumuşak silme deseni).</li>
+<li>Mobil: öğretmende &quot;İçeriklerim&quot; (konuya göre filtreli liste + hızlı ekle), öğrencide atanan içerik akışı.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Öğretmen bir içeriği <strong>iki farklı öğrenciye ve ertesi dönem tekrar</strong> atayabiliyor · içerik konu kataloğuna bağlı (Ü-02 zinciri kopmuyor) · arşivlenen içerik yeni atamada çıkmıyor, eski atamalarda görünmeye devam ediyor · öğretmen kendi içeriğini dışa aktarabiliyor (kilitlenme ≠ rehin).</li>
+<li><strong>Nasıl ölçeriz:</strong> Öğretmen başına biriken içerik sayısı; <strong>yeniden kullanım oranı</strong> (aynı içeriğin ikinci kez atanma yüzdesi) — asıl kilitlenme göstergesi bu.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Boş havuz sorunu:</strong> Öğretmen ilk gün 0 içerikle karşılaşırsa özelliği kullanmaz. Ödev/materyal akışından <strong>otomatik tohumlama</strong> (mevcut <code>LessonResource</code> kayıtları içeriğe dönüştürülebilir) şart.</li>
+<li><strong>Telif:</strong> Öğretmen yayınevi sorusu yükleyebilir. Kullanım şartlarına madde + paylaşımın <strong>kendi öğrencileriyle sınırlı</strong> kalması (topluluk havuzu <strong>yapılmamalı</strong> — DUS Club yapıyor, biz yapmamalıyız).</li>
+<li><strong>Kapsam kayması:</strong> Bu bir &quot;soru bankası ürünü&quot; değil; editör basit kalmalı (metin + görsel + cevap).</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M06 (🟢) · P04 depolama (🟢) · R-05 ile birlikte.</li>
+<li><strong>Efor:</strong> L · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-04 — Veli için tek ekranda &quot;para + gelişim&quot; 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> Doping veliye <strong>yalnız gelişim</strong> gösteriyor (ayrı veli uygulaması), VeliCep <strong>yalnız iletişim</strong>, Tilki <strong>yalnız ödeme hatırlatması</strong>. Bizde M07 (ödeme) + M10 (gelişim) + M05 (katılım) aynı veli panelinde.</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;Eylül: 8 ders planlandı, 7&#x27;si yapıldı, 1&#x27;i ertelendi · 2.400 ₺ ödendi, 600 ₺ kaldı · matematik neti 12 → 18.&quot;</em> Velinin gerçekten sorduğu soru bu: <strong>&quot;verdiğim paranın karşılığı ne?&quot;</strong></li>
+<li><strong>Neden rakip yapamaz:</strong> Para akışı ile gelişim verisi hiçbir rakipte aynı üründe değil.</li>
+<li><strong>Çözüm taslağı:</strong></li>
+<ul>
+<li><code>Reporting</code>&#x27;e <code>ParentMonthlyProjection</code> — <code>TeacherMonthlyProjection</code>&#x27;ın veli aynası: ders sayıları, ödeme durumu (<code>PaymentRecord</code> + <code>ParentPaymentDeclaration</code>), net/hâkimiyet değişimi.</li>
+<li>Uç: <code>GET /api/reporting/parents/{id}/children/{studentId}/monthly</code>.</li>
+<li>Mobil: veli ana ekranında ay kartı + geçmiş aylar listesi.</li>
+<li><strong>Önkoşul:</strong> <code>modules/00_genel_bakis.md</code>&#x27;de M07 için işaretli <strong>&quot;veli paylaşımı ⚠️&quot;</strong> borcu önce kapanmalı — veli ödeme verisini görmüyorsa bu ekran yarım olur.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Veli ödeme ve gelişimi aynı ekranda görüyor · ödeme verisi öğretmenin girdiğiyle birebir · veli yalnız kendi çocuğunu görüyor · para bilgisi öğrenciye gösterilmiyor.</li>
+<li><strong>Nasıl ölçeriz:</strong> Veli aylık aktifliği; ödeme gecikmesinde azalma (şeffaflık tahsilatı hızlandırır).</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Hassas veri:</strong> Ücret bilgisi çocuğa görünmemeli; rol bazlı alan filtresi şart.</li>
+<li><strong>Yanlış tahsilat görüntüsü:</strong> Elden ödeme öğretmen tarafından işlenmezse veli &quot;ödemedim&quot; görür ve gereksiz gerilim çıkar. <code>ParentPaymentDeclaration</code> (veli beyanı) akışı bu yüzden önemli.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M07 (🟢, veli paylaşımı borcu) · M09 · M10 · M14.</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-05 — Çok öğretmenli öğrenci: tek çocuk, tüm dersler 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> Bir öğrencinin matematik ve fizik öğretmeni ayrı kişiler. Tilki <strong>tek öğretmenin defteri</strong>; VeliCep <strong>tek kurumun</strong> uygulaması; pazar yerleri ders bitince ilişkiyi bırakıyor. Bizde <code>TeacherStudent</code> çoklu bağ modeli var → <strong>öğrenci merkezli birleşik görünüm</strong> mümkün.</li>
+<li><strong>Ürün ifadesi:</strong> Veli tek uygulamada üç öğretmeni, üç dersi, tek takvimi ve tek ödeme özetini görüyor.</li>
+<li><strong>Neden güçlü:</strong> Ağ etkisi <strong>ters yönde</strong> çalışıyor — öğrenci zaten platformda olduğu için <strong>ikinci öğretmen de</strong> platforma çekiliyor. Rakiplerde her öğretmen kendi adasında; müşteri edinme maliyeti bizde düşüyor.</li>
+<li><strong>Çözüm taslağı:</strong> Veri modeli hazır; eksik olan sunum ve birkaç sorgu.</li>
+<ul>
+<li>Öğrenci/veli için <strong>birleşik takvim</strong> (M04 zaten öğrenci-kapsamlı sorguyu destekliyor) ve öğretmen bazlı kırılımlı özet.</li>
+<li>&quot;Öğretmen davet et&quot; akışı: öğrenci/veli kendi öğretmenini davet eder (M17 referans kodu deseni) → <strong>büyüme kanalı</strong>.</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> İki öğretmenli öğrencide takvim çakışmasız birleşiyor · her öğretmen yalnız kendi dersini/ödevini görüyor · veli hepsini görüyor · davet edilen öğretmen öğrenciye otomatik bağlanmıyor (onay gerekiyor).</li>
+<li><strong>Nasıl ölçeriz:</strong> Öğrenci başına ortalama öğretmen sayısı; davetle gelen öğretmen oranı.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Veri sızıntısı:</strong> Öğretmen A, öğretmen B&#x27;nin ders notunu görmemeli. <code>LessonNoteVisibility</code> bunu zaten modelliyor, atlanmamalı.</li>
+<li>Birleşik takvimde çakışan dersler karışabilir — renk/etiket ayrımı gerekli.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M02/M03 (çoklu bağ) · M04.</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-06 — Boş zamanı gelire çevirme (kapasite → ilan) 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> <code>FreeSlotCalculator</code> + <code>GET /teachers/{id}/free-slots</code> <strong>zaten kodda ve rakiplerin hiçbirinde yok.</strong> Bugün yalnızca bir rapor; M12 açılınca <strong>gelir aracına</strong> dönüşür: <em>&quot;Salı 16:00 boş — bu saati ilana çevir.&quot;</em></li>
+<li><strong>Ürün ifadesi:</strong> Öğretmen için doluluk oranı, boş saatin parasal karşılığı ve tek dokunuşla ilan.</li>
+<li><strong>Neden rakip yapamaz:</strong> Pazar yerlerinde <strong>takvim yok</strong>; Tilki&#x27;de takvim var ama <strong>pazar yeri yok</strong>. İkisi aynı üründe yalnız bizde.</li>
+<li><strong>Çözüm taslağı:</strong> M12 ilanına <code>AvailabilityWindow</code> alanı; <code>free-slots</code> çıktısından <strong>tek dokunuşla</strong> ilan oluşturma; ilan eşleşince takvime otomatik yerleşme (M04 çakışma kontrolü mevcut).</li>
+<li><strong>Kabul kriteri:</strong> Öğretmen boş saatini ilana çevirebiliyor · ilan dolunca takvimde blok oluşuyor · çakışma reddediliyor · doluluk oranı gerçek ders verisinden hesaplanıyor.</li>
+<li><strong>Nasıl ölçeriz:</strong> Boş saat oranındaki düşüş; ilanların kaçının <code>free-slots</code> ekranından açıldığı.</li>
+<li><strong>Risk / tuzak:</strong> Öğretmen &quot;boş&quot; görünen ama kişisel olarak dolu saatlerini ilana açmak istemez — <code>free-slots</code> bir <strong>öneri</strong> olmalı, otomatik yayın olmamalı.</li>
+<li><strong>Bağımlılık:</strong> M12 (🔴) · M14 <code>FreeSlotCalculator</code> (🟢).</li>
+<li><strong>Efor:</strong> M <em>(M12 sonrası)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-07 — Sınıf ligi: öğretmenin gerçek öğrenci grubu 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> R-01/R-02&#x27;nin üzerine bir kat. Net Up&#x27;ta lig <strong>anonim/global</strong>, DUS Club&#x27;da kullanıcı ekibini <strong>kendi kurmak zorunda</strong>. Bizde lig <strong>hazır ve gerçek</strong>: öğretmenin öğrencileri. Sıfır kurulum, gerçek tanışıklık ve — kritik fark — <strong>sıralamayı gören, müdahale edebilen bir yetişkin</strong>.</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;Sınıfının bu haftaki çalışma sıralaması&quot;</em> — öğrenciye rekabet, öğretmene erken uyarı.</li>
+<li><strong>Neden rakip yapamaz:</strong> Ligi yöneten bir öğretmen yok. Bizde sosyal mekanik <strong>pedagojik denetim</strong> altında.</li>
+<li><strong>Çözüm taslağı:</strong> R-02&#x27;nin varsayılan grubu + R-01&#x27;in projeksiyonu; üstüne öğretmen görünümü: sıralama + &quot;bu hafta hiç çalışmayanlar&quot; listesi (öğretmene özel, öğrenciye gösterilmez).</li>
+<li><strong>Kabul kriteri:</strong> Öğretmen sıralamayı ve çalışmayanları görüyor · öğrenci yalnız ilk N + kendi sırasını görüyor · opt-out öğrenci hiçbir listede yok · öğretmen tek dokunuşla o öğrenciye mesaj/duyuru atabiliyor (R-06).</li>
+<li><strong>Nasıl ölçeriz:</strong> Lig gören öğrencinin haftalık çalışma dakikasında artış (A/B ile ölçülebilir).</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Utandırma ve baskı:</strong> En büyük risk. Alt sıralar gizli, &quot;çalışmayanlar&quot; listesi <strong>yalnız öğretmende</strong>.</li>
+<li>Velinin sıralamayı görmesi çocuk üzerinde baskı yaratır — v1&#x27;de veliye <strong>gösterilmemeli</strong>.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> R-01 + R-02.</li>
+<li><strong>Efor:</strong> S <em>(ikisi yapıldıysa)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-08 — Erken uyarı: ödeme + devamsızlık + düşüş birleşik risk sinyali 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> M07 (geciken ödeme) + M05 (kaçırılan ders) + M10 (düşen trend) birleşince <strong>öğrenci kaybı sinyali</strong> çıkar: <em>&quot;Ali: son 2 dersi kaçırdı, ödemesi 12 gün gecikti, neti 3 hafta düşüyor.&quot;</em></li>
+<li><strong>Ürün ifadesi:</strong> Öğretmen panelinde &quot;dikkat isteyen öğrenciler&quot; kartı; gerekçesi tıklanınca açılıyor.</li>
+<li><strong>Neden rakip yapamaz:</strong> Üç sinyalin üçü de aynı üründe yalnız bizde. Tilki ödeme görür ama gelişim görmez; Doping gelişim görür ama ödeme ve devam görmez.</li>
+<li><strong>Neden değerli:</strong> Öğretmenin <strong>doğrudan cebine dokunuyor</strong> — kaybedilen öğrenci = kaybedilen gelir. Bu yüzden premium için en ikna edici özellik adayı: Tilki&#x27;nin 120 ₺/öğrenci/ay fiyatına karşı somut karşılık.</li>
+<li><strong>Çözüm taslağı:</strong></li>
+<ul>
+<li><code>Reporting</code>&#x27;e <code>StudentRiskProjection</code> — üç bileşenli skor (devam, ödeme, gelişim), her biri açıklanabilir; <strong>kara kutu skor yok</strong>, her bileşen ayrı gösterilir.</li>
+<li>Besleme: mevcut olaylar (ders tamamlandı/iptal, ödeme beklendi/tahsil edildi, hâkimiyet değişimi).</li>
+<li>Uç: <code>GET /api/reporting/teachers/{id}/at-risk</code>.</li>
+<li>Bildirim: haftalık özet olarak (X-02&#x27;nin <code>RichNotifications</code> kapısı burada anlam kazanır) — <code>UserNotificationKind</code> mevcut, yeni tip gerekmez (<code>System</code> veya yeni <code>RiskAlert</code>).</li>
+<li><strong>Entitlement:</strong> Premium özelliği olarak kapılanır (<code>DetailedAnalytics</code>).</li>
+</ul>
+<li><strong>Kabul kriteri:</strong> Her uyarı <strong>üç gerekçeyi de</strong> ayrı gösteriyor · yanlış pozitif (tatilde olan öğrenci) için &quot;yok say&quot; seçeneği var · Free kullanıcı kartı görüyor ama içeriği kilitli (paywall&#x27;a doğru yol) · projeksiyon yeniden kurulabiliyor.</li>
+<li><strong>Nasıl ölçeriz:</strong> Uyarı sonrası öğretmenin temas oranı; uyarı alan öğrencilerde ilişki devam oranı.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Yanlış pozitif güveni öldürür:</strong> İlk sürüm dar ve muhafazakâr olmalı (üç sinyalden <strong>en az ikisi</strong>).</li>
+<li><strong>Ödeme sinyali gizlilik gerektirir:</strong> Öğrenciye asla gösterilmemeli.</li>
+<li>Skoru tek sayıya indirgemek (&quot;risk %72&quot;) güveni azaltır; gerekçeli liste daha ikna edici.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M05 · M07 · M10 · M14 · X-02 (bildirim kapısı).</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-09 — Veri sahipliği ve gizlilik duruşu 🟡</h3>
+<ul>
+<li><strong>Fikir:</strong> &quot;Özel Ders Takip Sistemi&quot; <strong>&quot;tüm verileriniz sadece kendi cihazınızda saklanır, internet gerektirmez, %100 gizlilik&quot;</strong> diyerek bir niş açmış — bu, bulut ürünlerine duyulan güvensizliğin kanıtı. Bizde <code>GET/PUT /students/{id}/sharing</code> (öğrencinin neyi paylaşacağını seçmesi) ve M15&#x27;in üç sözleşmesi <strong>zaten var</strong>; bunu <strong>duruşa</strong> çevirmek bedava.</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;Çocuğunun verisini kimin göreceğine sen karar verirsin.&quot;</em> — ayar değil, vaat.</li>
+<li><strong>Çözüm taslağı:</strong> Yeni özellik değil, <strong>görünürlük</strong>: onboarding&#x27;de bir ekran, ayarlarda toplu &quot;kim neyi görüyor&quot; özeti, gizlilik sözleşmesinin sade dille yazılmış hâli. Teknik ayağı P13 Task 5 (KVKK hesap silme ve saklama, <strong>Q5</strong>&#x27;e bağlı).</li>
+<li><strong>Kabul kriteri:</strong> Kullanıcı tek ekranda &quot;öğretmenim şunu görüyor, velim şunu görüyor&quot; listesini görüyor · her satır kapatılabiliyor · kapatınca ilgili uç gerçekten veri döndürmüyor (integration testi).</li>
+<li><strong>Nasıl ölçeriz:</strong> Gizlilik ekranını açan kullanıcı oranı; destek taleplerinde &quot;verim kimde&quot; sorusunun azalması.</li>
+<li><strong>Risk / tuzak:</strong> Vaat edip uygulamamak en kötüsü. &quot;Kapattım ama öğretmen hâlâ görüyor&quot; tek bir örnekte bile çıkarsa duruş tersine döner — kapatma <strong>sunucuda</strong> zorlanmalı, arayüzde gizlemek yetmez.</li>
+<li><strong>Bağımlılık:</strong> M08 sharing (🟢) · M15 (🟢) · P13 Task 5 (Q5).</li>
+<li><strong>Efor:</strong> S <em>(+ P13 Task 5)</em> · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<h3>Ü-10 — Doğrulanmış öğretmen profili (operasyondan ilana) 🟢</h3>
+<ul>
+<li><strong>Fikir:</strong> Pazar yerlerinin çözemediği problem <strong>güven</strong>: Öğretsen&#x27;de ve Özel Ders Alanı&#x27;nda profil öğretmenin <strong>kendi beyanı</strong>. Bizde M12 açıldığında profil <strong>gerçek operasyon verisiyle</strong> dolu olur: tamamlanan ders sayısı, planlanan/gerçekleşen oranı, süreklilik (aynı öğrenciyle kaç ay), veli memnuniyeti (M13 — üstelik <strong>yalnız gerçekten ders almış</strong> kişiden).</li>
+<li><strong>Ürün ifadesi:</strong> <em>&quot;142 ders tamamladı · %96 planına sadık · ortalama öğrenci ilişkisi 7 ay&quot;</em> — beyan değil, <strong>kayıt</strong>.</li>
+<li><strong>Neden rakip yapamaz:</strong> Pazar yerlerinin elinde ders <strong>sonrası</strong> veri yok; ilişki ilk mesajdan sonra platform dışına çıkıyor. Bu, PRD §10.1&#x27;in &quot;önce operasyon, sonra eşleştirme&quot; stratejisinin <strong>asıl ödülü</strong>: bugün gecikme gibi görünen şey, M12 açıldığında kopyalanamaz bir avantaja dönüşüyor.</li>
+<li><strong>Çözüm taslağı:</strong> <code>Reporting</code>&#x27;e <code>TeacherCredibilityProjection</code> (tamamlanan ders, plana sadakat oranı, ortalama ilişki süresi, doğrulanmış yorum sayısı); M12 ilan kartı bu projeksiyondan okur. Rozetler: &quot;100+ ders&quot;, &quot;3+ yıl&quot;, &quot;yüksek süreklilik&quot;.</li>
+<li><strong>Kabul kriteri:</strong> Profildeki her sayı <strong>tıklanınca kaynağına</strong> iniyor · yeni öğretmende &quot;henüz veri yok&quot; dürüstçe yazıyor (uydurma rozet yok) · metrikler manipüle edilemiyor (sahte ders girip sayı şişirme engelli — ör. yalnız öğrenci tarafından da onaylanan dersler sayılır).</li>
+<li><strong>Nasıl ölçeriz:</strong> İlan → ilk mesaj dönüşüm oranı; doğrulanmış metrikli profillerin dönüşüm farkı.</li>
+<li><strong>Risk / tuzak:</strong></li>
+<ul>
+<li><strong>Yeni öğretmen dezavantajı:</strong> Sıfır verili öğretmen hiç eşleşemezse pazar tek yanlı olur — &quot;yeni&quot; etiketi ve ayrı bir vitrin gerekir.</li>
+<li><strong>Metrik şişirme:</strong> Sahte öğrenci + sahte ders. Karşı önlem: yalnız iki taraflı onaylı dersler sayılır.</li>
+</ul>
+<li><strong>Bağımlılık:</strong> M12 (🔴) · M13 (🔴) · M05/M04 (🟢) — <strong>P11&#x27;e eklenmeli</strong>.</li>
+<li><strong>Efor:</strong> M · <strong>Karar:</strong> <code> </code> · <strong>Not:</strong> <code> </code></li>
+</ul>
+<hr>
+<h2>6. Veri modeli ve olay etkisi (plan çıkarırken tek bakış)</h2>
+<div class="tw"><table><tr><th>Madde</th><th>Modül</th><th>Yeni entity / alan</th><th>Yeni olay</th><th>Yeni uç (özet)</th><th>Mobil</th></tr>
+<tr><td>R-08a</td><td>—</td><td>—</td><td>—</td><td>—</td><td>paylaşım düğmesi + metin şablonu</td></tr>
+<tr><td>R-08b</td><td>M14 Reporting</td><td><code>ShareLink</code></td><td>—</td><td><code>POST .../share-link</code>, <code>GET /shared/{token}</code> (anonim)</td><td>link üret/iptal</td></tr>
+<tr><td>R-06</td><td>M16 Messaging</td><td><code>Announcement</code>, <code>AnnouncementRecipient</code>, <code>Audience</code></td><td><code>AnnouncementPublished</code></td><td>4 uç</td><td>duyuru gönder + gelen kutusu sekmesi</td></tr>
+<tr><td>R-10</td><td>— <em>(yalnız mobil)</em></td><td>—</td><td>—</td><td>—</td><td><code>local_reminder_service</code> + ayar</td></tr>
+<tr><td>R-07</td><td>M06 Assignments</td><td><em>(yok — <code>LessonResource</code> yeter)</em></td><td>—</td><td><code>GET .../gallery</code></td><td>galeri ekranı + çoklu yükleme</td></tr>
+<tr><td>R-03</td><td>M08 Study</td><td><code>DailyQuest</code>, <code>QuestKind</code>, <code>Goal</code> rozetleri (X-03)</td><td>—</td><td>2 uç</td><td>&quot;Bugün&quot; kartı</td></tr>
+<tr><td>R-01</td><td>M08 Study</td><td><code>WeeklyLeaderboardProjection</code></td><td>—</td><td>1 uç</td><td>lig ekranı + ana ekran şeridi</td></tr>
+<tr><td>R-02</td><td>M03 Students</td><td><code>StudyGroup</code>, <code>StudyGroupMember</code>, <code>IStudyGroupDirectory</code></td><td>—</td><td>4 uç</td><td>grup/katılım ekranı</td></tr>
+<tr><td>R-05</td><td>M08 Study</td><td><code>Flashcard</code>, <code>FlashcardReview</code></td><td>—</td><td>3 uç</td><td>kart çevirme ekranı</td></tr>
+<tr><td>R-09</td><td>M17 Membership</td><td><code>PurchaseReceipt</code></td><td>—</td><td>2 uç + webhook</td><td>satın alma + geri yükleme</td></tr>
+<tr><td>Ü-01</td><td>M14 Reporting</td><td><code>StudentEvidenceProjection</code></td><td>—</td><td>1 uç</td><td>karne kartı</td></tr>
+<tr><td>Ü-02</td><td>M14 Reporting</td><td><code>TopicCausalityProjection</code></td><td>—</td><td>1 uç</td><td>içgörü ekranı</td></tr>
+<tr><td>Ü-03</td><td>M06 Assignments</td><td><code>ContentItem</code>, <code>ContentAssignment</code></td><td>—</td><td>4 uç</td><td>&quot;İçeriklerim&quot; + atanan içerik</td></tr>
+<tr><td>Ü-04</td><td>M14 Reporting</td><td><code>ParentMonthlyProjection</code></td><td>—</td><td>1 uç</td><td>veli ay kartı</td></tr>
+<tr><td>Ü-05</td><td>M04/M02</td><td><em>(yok)</em></td><td>—</td><td>birleşik sorgu</td><td>birleşik takvim</td></tr>
+<tr><td>Ü-06</td><td>M12 Matching</td><td><code>AvailabilityWindow</code> (ilan alanı)</td><td>—</td><td>M12 içinde</td><td>boş saat → ilan</td></tr>
+<tr><td>Ü-07</td><td>M08 + M16</td><td><em>(yok — R-01+R-02 üstüne)</em></td><td>—</td><td>1 uç (öğretmen görünümü)</td><td>öğretmen lig ekranı</td></tr>
+<tr><td>Ü-08</td><td>M14 Reporting</td><td><code>StudentRiskProjection</code></td><td>—</td><td>1 uç</td><td>&quot;dikkat isteyen öğrenciler&quot; kartı</td></tr>
+<tr><td>Ü-09</td><td>—</td><td><em>(yok)</em></td><td>—</td><td>—</td><td>gizlilik özet ekranı</td></tr>
+<tr><td>Ü-10</td><td>M14 Reporting</td><td><code>TeacherCredibilityProjection</code></td><td>—</td><td>M12 profilinde</td><td>ilan kartı</td></tr>
+</table></div>
+<blockquote><p><strong>Dikkat çeken sonuç:</strong> 20 maddeden <strong>19&#x27;u yeni domain olayı gerektirmiyor.</strong> Mevcut olay akışı (§1.2) ve projeksiyon deseni (§1.3) neredeyse tüm işi taşıyor. Yeni olay yalnız R-06&#x27;da gerekiyor.</p></blockquote>
+<hr>
+<h2>7. Dalga planı</h2>
+<blockquote><p>Sıralama ölçütü: <strong>etki ÷ efor</strong>, ve her dalganın kendi içinde tutarlı bir hikâye anlatması. Her dalga sonunda ürün <strong>anlatılabilir</strong> bir şey kazanmalı.</p></blockquote>
+<h3>🌊 Dalga 1 — Sızıntıyı durdur · ≈1 hafta</h3>
+<p><strong>Amaç:</strong> Ürünü terk ettiren şeyleri kapatmak. Yeni pazar açmaz, mevcut kullanıcıyı tutar.</p>
+<div class="tw"><table><tr><th>Madde</th><th>Efor</th><th>Neden burada</th></tr>
+<tr><td><strong>R-08a</strong> Paylaşım (<code>share_plus</code> + hazır özet metni)</td><td>S</td><td>Velinin uygulama indirme zorunluluğunu kaldırır — en büyük sessiz kayıp</td></tr>
+<tr><td><strong>R-06</strong> Bire-çok duyuru</td><td>S–M</td><td>Öğretmeni WhatsApp grubuna kaçıran boşluk; terk riski en yüksek madde</td></tr>
+<tr><td><strong>R-10</strong> Zamanlı yerel hatırlatıcı</td><td>S</td><td>Streak zaten var ama hatırlatan yok; <strong>D-18&#x27;i de kapatır</strong></td></tr>
+<tr><td><strong>R-07</strong> Galeri görünümü</td><td>S</td><td>Depolama hazır, yalnız ekran</td></tr>
+</table></div>
+<ul>
+<li><strong>Çıktı:</strong> Öğretmen tek işlemde herkese duyuru atabiliyor; veli özeti WhatsApp&#x27;tan alabiliyor; öğrenci akşam hatırlatıcısı görüyor; veli materyalleri tarihe göre gezebiliyor.</li>
+<li><strong>Doğrulama:</strong> Duyuru fan-out&#x27;u gerçek Postgres testinde (P10 deseni); paylaşım metni birim testli; hatırlatıcı çift bildirim üretmiyor; <code>flutter analyze</code> temiz ve <strong>kullanılmayan paket kalmadı</strong>.</li>
+<li><strong>Bitince ne değişir:</strong> &quot;Veliye gösteremiyorum&quot; ve &quot;duyuru atamıyorum&quot; şikâyetleri biter.</li>
+</ul>
+<h3>🌊 Dalga 2 — Alışkanlık motorunu tamamla · ≈1,5 hafta</h3>
+<p><strong>Amaç:</strong> Öğrencinin günlük açılış sebebini kurmak. Rozet + streak zaten var; eksik olan sosyal ve döngüsel kısım.</p>
+<div class="tw"><table><tr><th>Madde</th><th>Efor</th><th>Neden burada</th></tr>
+<tr><td><strong>R-03</strong> Günlük görev döngüsü (+ <strong>X-03</strong> <code>Goal</code> rozetleri)</td><td>M</td><td>&quot;Bugün ne yapmalıyım&quot; cevabı — ödevden türerse rakiplerinkinden gerçek</td></tr>
+<tr><td><strong>R-02</strong> Grup + kod ile katılım</td><td>M</td><td>R-01&#x27;in taşıyıcısı; öğretmenin sınıfı varsayılan grup</td></tr>
+<tr><td><strong>R-01</strong> Haftalık lig</td><td>M</td><td>Sosyal baskı — tutundurmanın en ucuz kaldıracı</td></tr>
+<tr><td><strong>Ü-07</strong> Sınıf ligi (öğretmen görünümü)</td><td>S</td><td>Rakiplerin ligini geçen kat: müdahale edebilen yetişkin</td></tr>
+<tr><td><strong>Ü-01</strong> Doğrulanmış çalışma karnesi</td><td>M</td><td>Üç kaynaklı kanıt — Net Up&#x27;ın tek kaynaklı iddiasını geçer</td></tr>
+</table></div>
+<ul>
+<li><strong>Çıktı:</strong> Öğrenci uygulamayı &quot;bugünkü görevim var&quot; diye açıyor; sınıf sıralaması görüyor; veli/öğretmen doğrulanmış karneyi görüyor.</li>
+<li><strong>Doğrulama:</strong> Lig projeksiyonu <code>IProjectionRebuilder</code> ile aynı sonucu üretiyor; opt-out öğrenci hiçbir listede yok; görev üretimi 04:00 gün sınırını streak ile paylaşıyor.</li>
+<li><strong>Bitince ne değişir:</strong> Ürün &quot;kayıt tutma aracı&quot;ndan &quot;günlük kullanılan uygulama&quot;ya geçer.</li>
+</ul>
+<h3>🌊 Dalga 3 — Parayı aç · ≈1,5 hafta · 🚫 <strong>Q1 kararına bağlı</strong></h3>
+<p><strong>Amaç:</strong> Ürünün para kazanması ve premium&#x27;un <strong>satılabilir</strong> bir gerekçe kazanması.</p>
+<div class="tw"><table><tr><th>Madde</th><th>Efor</th><th>Neden burada</th></tr>
+<tr><td><strong>R-09</strong> IAP (premium) + iyzico (ders ücreti) ayrımı</td><td>L</td><td>Ürün ücretsiz olmaktan çıkar; P09 Task 4</td></tr>
+<tr><td><strong>X-02</strong> <code>DetailedAnalytics</code> / <code>RichNotifications</code> kapılarını bağla</td><td>S</td><td>Ödeme açılmadan <strong>önce</strong> yapılmalı, sonra yapmak özellik geri almak olur</td></tr>
+<tr><td><strong>Ü-08</strong> Erken uyarı kartı</td><td>M</td><td>Premium&#x27;un en ikna edici gerekçesi — öğretmenin cebine dokunuyor</td></tr>
+<tr><td><strong>Ü-04</strong> Veli: para + gelişim tek ekranda</td><td>M</td><td>Veliyi ödeme yapan tarafa dönüştürür <em>(M07 veli paylaşımı borcu önce kapanmalı)</em></td></tr>
+</table></div>
+<ul>
+<li><strong>Çıktı:</strong> Kullanıcı premium satın alabiliyor; premium gerçekten fazla şey veriyor; veli ne için ödediğini görüyor.</li>
+<li><strong>Doğrulama:</strong> Sandbox satın alma → <code>GET /membership/me</code> Premium → iptal → dönem sonunda Free (mevcut <code>RealMembershipEntitlementTests</code> zinciri genişletilir).</li>
+<li><strong>Bitince ne değişir:</strong> M17 🟡 → 🟢 olur.</li>
+</ul>
+<h3>🌊 Dalga 4 — Kopyalanamaz derinlik · ≈2–3 hafta</h3>
+<p><strong>Amaç:</strong> İçerik boşluğunu içerik şirketi olmadan kapatmak ve öğretmen tarafında kilitlenme yaratmak.</p>
+<div class="tw"><table><tr><th>Madde</th><th>Efor</th><th>Neden burada</th></tr>
+<tr><td><strong>Ü-03</strong> Öğretmen içerik havuzu</td><td>L</td><td>İçerik maliyeti sıfır; <strong>havuzunu biriktiren öğretmen çıkamaz</strong></td></tr>
+<tr><td><strong>R-05</strong> Flashcard + aralıklı tekrar</td><td>M</td><td>Ü-03&#x27;ün öğrenci tarafındaki tüketim yüzeyi</td></tr>
+<tr><td><strong>Ü-02</strong> Nedensellik raporu</td><td>M</td><td>&quot;İstatistik&quot; ile &quot;içgörü&quot; arasındaki fark</td></tr>
+<tr><td><strong>Ü-05</strong> Çok öğretmenli birleşik görünüm</td><td>M</td><td>İkinci öğretmeni platforma çeker — büyüme kanalı</td></tr>
+</table></div>
+<ul>
+<li><strong>Çıktı:</strong> Öğretmenin kendi soru/kart havuzu birikiyor ve yeniden kullanılıyor; öğrenci tekrar kuyruğu görüyor; raporlar neden-sonuç anlatıyor.</li>
+<li><strong>Doğrulama:</strong> Aynı içeriğin iki öğrenciye ve ikinci döneme atanabilmesi; içgörü cümlelerinin eşik altında üretilmemesi.</li>
+<li><strong>Bitince ne değişir:</strong> Rakiplerin kopyalayamayacağı ilk gerçek hendek açılır.</li>
+</ul>
+<h3>🌊 Dalga 5 — Pazarı aç · ≈2–3 hafta <em>(mevcut P11)</em></h3>
+<div class="tw"><table><tr><th>Madde</th><th>Efor</th><th>Neden burada</th></tr>
+<tr><td><strong>R-11 + R-12</strong> Eşleştirme + yorum</td><td>L + M</td><td>Mevcut P11 planı</td></tr>
+<tr><td><strong>Ü-10</strong> Doğrulanmış profil</td><td>M</td><td>P11&#x27;in <strong>ayrılmaz parçası</strong> — beyan değil kayıt</td></tr>
+<tr><td><strong>Ü-06</strong> Boş zaman → ilan</td><td>M</td><td><code>FreeSlotCalculator</code> hazır, yalnız M12 bekliyor</td></tr>
+</table></div>
+<ul>
+<li><strong>Çıktı:</strong> Öğretmen bulunabiliyor, profili gerçek veriyle dolu, boş saatini ilana çevirebiliyor.</li>
+<li><strong>Ön koşul:</strong> Dalga 1–4 bitmiş olmalı — boş pazar sorununa karşı tek savunma <strong>dolu bir operasyon ürünü</strong>.</li>
+</ul>
+<h3>🌊 Dalga 6 — Masaüstü <em>(mevcut P14, XL)</em></h3>
+<p><strong>R-13</strong> Web (Angular). Öncelik: öğretmen takvimi + toplu giriş + raporlar.</p>
+<h3>Kapsam dışı</h3>
+<p><strong>R-14</strong> (soru bankası/video) — Ü-03 ile ikame ediliyor. <strong>R-04</strong> (XP) — rozet varken çakışıyor; R-01/R-03 ölçümü isterse yeniden değerlendirilir.</p>
+<hr>
+<h2>8. Bağımlılık ve program haritası</h2>
+<pre>Dalga 1 (R-06, R-07, R-08a, R-10)   → bağımsız, hemen başlar · D-18&#x27;i kapatır
+Dalga 2 (R-01, R-02, R-03 + Ü-01, Ü-07)
+        ├─ R-02 → R-01 → Ü-07   (grup olmadan lig, lig olmadan sınıf ligi yok)
+        ├─ R-03 → X-03          (Goal rozetleri aynı işte)
+        └─ gizlilik kapısı: /students/{id}/sharing (🟢) + M15 sözleşmeleri
+Dalga 3 (R-09 + X-02 + Ü-04, Ü-08)  → 🚫 Q1 · X-02 R-09&#x27;dan ÖNCE · M07 &quot;veli paylaşımı ⚠️&quot; Ü-04&#x27;ten önce
+Dalga 4 (Ü-03 → R-05 → Ü-02, Ü-05)  → M06 + P04 depolama üzerine
+Dalga 5 (R-11, R-12 + Ü-06, Ü-10)   → mevcut P11; P12 (admin/moderasyon) yorum moderasyonu için gerekli
+Dalga 6 (R-13)                      → mevcut P14</pre>
+<p><strong>Mevcut programla ilişki</strong> (<code>docs/superpowers/ILERLEME.md</code> — aktif: <strong>P13, 1/8</strong>):</p>
+<div class="tw"><table><tr><th>Bu doküman</th><th>Mevcut plan</th><th>İlişki</th></tr>
+<tr><td>R-10</td><td>P13 Task 6 (mobil hijyen)</td><td><code>flutter_local_notifications</code> kullanılınca <strong>D-18 kapanır</strong> — birlikte yapılmalı</td></tr>
+<tr><td>R-09, X-02</td><td>P09 Task 4 (🚫 Q1)</td><td>Rakip kanıtı Q1&#x27;in cevabını değiştiriyor: <strong>IAP (premium) + iyzico (ders ücreti) ayrı</strong></td></tr>
+<tr><td>R-11, R-12, Ü-06, Ü-10</td><td>P11 (0/6)</td><td><strong>Ü-10 P11 kapsamına eklenmeli</strong> — profil beslemesi planda yok</td></tr>
+<tr><td>Ü-09</td><td>P13 Task 5 (🚫 Q5)</td><td>KVKK ayağı</td></tr>
+<tr><td>R-13</td><td>P14 (0/5)</td><td>Değişiklik yok</td></tr>
+<tr><td><strong>Dalga 1, 2, 4</strong></td><td><strong>Plan yok</strong></td><td>Yeni plan gerekiyor: <strong>P15 — Alışkanlık, paylaşım ve içerik</strong> önerilir</td></tr>
+<tr><td>R-06</td><td>—</td><td>M16 🟡 → 🟢 yolundaki eksiklerden biri (karşı tarafın adı, veli sohbeti ile birlikte)</td></tr>
+</table></div>
+<hr>
+<h2>9. Karar özeti (senin dolduracağın hızlı tablo)</h2>
+<div class="tw"><table><tr><th>ID</th><th>Başlık</th><th>Efor</th><th>Dalga</th><th>Öneri</th><th><strong>Kararın</strong></th><th>Not</th></tr>
+<tr><td>X-02</td><td>Entitlement kapılarını bağla</td><td>S</td><td>3</td><td>✅ Yap <em>(R-09&#x27;dan önce)</em></td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>X-03</td><td><code>Goal</code> kategorisinde rozet yok</td><td>S</td><td>2</td><td>✅ Yap <em>(R-03 ile)</em></td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-08a</td><td>Paylaşım: <code>share_plus</code> + özet metni</td><td>S</td><td>1</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-08b</td><td>Giriş gerektirmeyen veli özet linki</td><td>M</td><td>1–2</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-06</td><td>Bire-çok duyuru</td><td>S–M</td><td>1</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-10</td><td>Zamanlı yerel hatırlatıcı (+D-18)</td><td>S</td><td>1</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-07</td><td>Galeri (foto/video, tarihe göre)</td><td>S</td><td>1</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-03</td><td>Günlük görev döngüsü</td><td>M</td><td>2</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-02</td><td>Grup + kod ile katılım</td><td>M</td><td>2</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-01</td><td>Haftalık lig / sıralama</td><td>M</td><td>2</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-07</td><td>Sınıf ligi (öğretmen görünümü)</td><td>S</td><td>2</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-01</td><td>Doğrulanmış çalışma karnesi</td><td>M</td><td>2</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-09</td><td>IAP + iyzico ayrımı</td><td>L</td><td>3</td><td>✅ Yap <em>(Q1)</em></td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-08</td><td>Erken uyarı (risk altındaki öğrenci)</td><td>M</td><td>3</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-04</td><td>Veli: para + gelişim tek ekran</td><td>M</td><td>3</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-03</td><td>Öğretmen içerik havuzu</td><td>L</td><td>4</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-05</td><td>Flashcard + aralıklı tekrar</td><td>M</td><td>4</td><td>✅ Yap <em>(Ü-03 ile)</em></td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-02</td><td>Nedensellik raporu</td><td>M</td><td>4</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-05</td><td>Çok öğretmenli birleşik görünüm</td><td>M</td><td>4</td><td>⏳ Sonra</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-10</td><td>Doğrulanmış öğretmen profili</td><td>M</td><td>5</td><td>✅ <strong>P11&#x27;e ekle</strong></td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-11</td><td>Öğretmen arama / filtreleme</td><td>L</td><td>5</td><td>⏳ P11</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-12</td><td>Puan / yorum</td><td>M</td><td>5</td><td>⏳ P11</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-06</td><td>Boş zaman → ilan</td><td>M</td><td>5</td><td>⏳ P11 sonrası</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>Ü-09</td><td>Veri sahipliği duruşu</td><td>S</td><td>—</td><td>✅ Yap</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-13</td><td>Web (Angular)</td><td>XL</td><td>6</td><td>⏳ P14</td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-04</td><td>XP / seviye / sandık</td><td>S</td><td>—</td><td>❌ İptal <em>(rozet var)</em></td><td><code> </code></td><td><code> </code></td></tr>
+<tr><td>R-14</td><td>Soru bankası / video içerik</td><td>XL</td><td>—</td><td>❌ İptal <em>(Ü-03 ikame)</em></td><td><code> </code></td><td><code> </code></td></tr>
+</table></div>
+<p><strong>Toplam efor (öneriler kabul edilirse):</strong> Dalga 1–2 ≈ 2,5 hafta · Dalga 3 ≈ 1,5 hafta (Q1 açılınca) · Dalga 4 ≈ 2–3 hafta · Dalga 5 = mevcut P11 · Dalga 6 = mevcut P14.</p>
+<hr>
+<h2>10. Üç cümlelik özet</h2>
+<ol>
+<li><strong>Aynı seviyeye gelmek sanıldığından yakın.</strong> Streak, 10 rozet, deneme, net trendi, konu kataloğu, hedef, PDF rapor ve boş zaman analizi <strong>zaten kodda</strong>. Gerçek parite açığı dört küçük maddede (paylaşım, duyuru, hatırlatıcı, galeri) ve bir büyük maddede (para tahsilatı) toplanıyor.</li>
+<li><strong>Öne geçmek içerik almakla değil, veriyi birleştirmekle olur.</strong> Ü-01…Ü-10&#x27;un tamamı, elimizdeki üç tarafın (öğretmen + öğrenci + veli) tek veri modelinde olmasından doğuyor — rakiplerin yapısal olarak kopyalayamayacağı tek şey bu. <strong>20 maddeden 19&#x27;u yeni domain olayı bile gerektirmiyor.</strong></li>
+<li><strong>En büyük tek risk para değil, sürtünme.</strong> Velinin veriyi görmek için uygulama indirmek zorunda olması (R-08), rakibin (Tilki) bilerek terk ettiği bir zorunluluk. En ucuz, en yüksek getirili iş bu.</li>
+</ol>
+<hr>
+<p><em>Güncelleme: 2026-09-05</em></p></main></body></html>

@@ -138,6 +138,42 @@
   "more_reportsSubtitle": "Aylık ders/tahsilat özeti ve boş zamanlar",
   "more_reportsTitle": "Raporlar",
   "more_roleTeacherFallback": "Öğretmen",
+  "more_sessionsSubtitle": "Hesabının açık olduğu cihazlar",
   "more_studySettingsSubtitle": "Ders biçimi ve müsaitlik (profil)",
-  "more_studySettingsTitle": "Çalışma ayarları"
+  "more_studySettingsTitle": "Çalışma ayarları",
+  "sessions_close": "Kapat",
+  "sessions_closeOneConfirm": "Bu cihazın oturumu kapatılacak. O cihazda yeniden giriş yapılması gerekir.",
+  "sessions_closeOthers": "Diğer tüm oturumları kapat",
+  "sessions_closeOthersConfirm": "Bu cihaz dışındaki tüm oturumlar kapatılacak. Diğer cihazlarda yeniden giriş yapman gerekir.",
+  "sessions_closedCount": "{count} oturum kapatıldı.",
+  "@sessions_closedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessions_connectedOn": "Bağlandı: {date}",
+  "@sessions_connectedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "sessions_empty": "Açık oturum yok",
+  "sessions_emptyHint": "Bu hesapta şu an başka bir cihaz oturumu görünmüyor.",
+  "sessions_lastUsed": "Son kullanım: {date}",
+  "@sessions_lastUsed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "sessions_loadFailed": "Oturumlar yüklenemedi.",
+  "sessions_subtitle": "Hesabının açık olduğu cihazlar. Tanımadığın bir cihaz görürsen kapat.",
+  "sessions_thisDevice": "Bu cihaz",
+  "sessions_title": "Cihaz oturumları",
+  "sessions_unknownDevice": "Bilinmeyen cihaz"
 }
