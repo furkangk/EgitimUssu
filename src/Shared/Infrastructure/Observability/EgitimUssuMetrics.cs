@@ -22,6 +22,7 @@ public sealed class EgitimUssuMetrics
     private readonly Counter<long> _pushSent;
     private readonly Counter<long> _emailSent;
     private readonly Counter<long> _redisUnavailable;
+    private readonly Counter<long> _entitlementFallback;
 
     /// <summary>Yeni örnek oluşturur.</summary>
     /// <param name="meterFactory">DI'dan gelen meter fabrikası (test yalıtımı da buna dayanır).</param>
@@ -56,6 +57,13 @@ public sealed class EgitimUssuMetrics
             "egitimussu.redis.unavailable",
             unit: "{operation}",
             description: "Redis erişilemediği için fail-open geçilen işlem sayısı.");
+
+        // A-11: Üyelik okuması hata yutup Free döndüğünde artan sayaç. Ödeme yapmış kullanıcının
+        // sessizce Free'ye düşmesinin log dışında tek dışa vurumu budur.
+        _entitlementFallback = meter.CreateCounter<long>(
+            "egitimussu.entitlement.fallback",
+            unit: "{user}",
+            description: "Üyelik hakları okunamadığı için Free varsayılan kullanıcı sayısı.");
     }
 
     /// <summary>
@@ -86,6 +94,15 @@ public sealed class EgitimUssuMetrics
     /// <param name="success">Gönderim başarılı mı.</param>
     public void RecordEmailSent(bool success) => _emailSent.Add(
         1, new KeyValuePair<string, object?>("outcome", Outcome(success)));
+
+    /// <summary>
+    /// A-11: Üyelik hakları okunamadığı için Free varsayılan bir kullanıcıyı sayar.
+    /// <para>
+    /// Bu düşüş kullanıcıya hata olarak gitmez — ödeme yapmış biri sessizce premium özelliklerini
+    /// kaybeder. Log satırı dışında hiçbir izi olmadığından sayaç alarmın tek dayanağıdır.
+    /// </para>
+    /// </summary>
+    public void RecordEntitlementFallback() => _entitlementFallback.Add(1);
 
     /// <summary>Redis erişilemediği için fail-open geçilen bir işlemi sayar.</summary>
     /// <param name="operation">Etkilenen koruma: `ratelimit` | `blacklist` | `login-throttle` | `idempotency`

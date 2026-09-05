@@ -3,8 +3,11 @@ using EgitimUssu.Modules.Membership.Domain;
 using EgitimUssu.Modules.Membership.Infrastructure;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EgitimUssu.Tests.Unit;
@@ -195,7 +198,11 @@ public sealed class EntitlementDirectoryTests
 
     private static EntitlementDirectory NewDirectory(
         MembershipDbContext dbContext, params IMembershipDirectory[] legacySources)
-        => new(dbContext, new FixedClock(), legacySources, NullLogger<EntitlementDirectory>.Instance);
+        => new(dbContext, new FixedClock(), legacySources, NewMetrics(), NullLogger<EntitlementDirectory>.Instance);
+
+    /// <summary>A-11: Olcum, dinleyici olmadan da cagrilabilir; test icin yalitilmis bir meter fabrikasi yeter.</summary>
+    private static EgitimUssuMetrics NewMetrics()
+        => new(new ServiceCollection().AddMetrics().BuildServiceProvider().GetRequiredService<IMeterFactory>());
 
     private static async Task SeedAsync(MembershipDbContext dbContext, Action<UserSubscription> arrange)
     {

@@ -11,7 +11,19 @@ public sealed class RedisIdempotencyStore(ResilientRedisExecutor redis) : IIdemp
 
     private const string KeyPrefix = "idempotency:";
     private const string ProcessingMarker = "processing";
-    private static readonly TimeSpan ProcessingTtl = TimeSpan.FromSeconds(30);
+    /// <summary>
+    /// A-12: "İşleniyor" işaretinin ömrü. Eskiden 30 saniyeydi ve istek sürerken yenilenmiyordu:
+    /// 30 saniyeyi aşan bir istek (S3 yüklemesi, soğuk başlangıç) devam ederken işaret düşüyor,
+    /// aynı anahtarla gelen tekrar <c>Proceed</c> alıyor ve iş <b>iki kez</b> koşuyordu — koruma
+    /// tam da kullanıcının tekrar denediği yavaş isteklerde bozuluyordu.
+    /// <para>
+    /// Süre artık makul her istek süresini kapsar. Normal akışta bu TTL zaten beklenmez: başarıda
+    /// <see cref="CompleteAsync"/> anahtarın üzerine yazar, başarısızlıkta <see cref="ReleaseAsync"/>
+    /// siler. TTL yalnız süreç isteğin ortasında çökerse devreye girer — o durumda işin yazılıp
+    /// yazılmadığı bilinemediği için bir süre bloklamak doğru davranıştır.
+    /// </para>
+    /// </summary>
+    private static readonly TimeSpan ProcessingTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan CompletedTtl = TimeSpan.FromHours(24);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -59,6 +71,14 @@ public sealed class RedisIdempotencyStore(ResilientRedisExecutor redis) : IIdemp
             Protection,
             database => database.StringSetAsync(Key(key), payload, CompletedTtl), cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task ReleaseAsync(string key, CancellationToken cancellationToken = default)
+        // Yalnız başarısız akışta çağrılır; başarılı akışta anahtarın üzerine zaten saklı yanıt
+        // yazılmış olur, dolayısıyla burada tamamlanmış bir kaydı silme riski yoktur.
+        => redis.TryExecuteAsync(
+            Protection,
+            database => database.KeyDeleteAsync(Key(key)), cancellationToken);
 
     private static RedisKey Key(string key) => new($"{KeyPrefix}{key}");
 }

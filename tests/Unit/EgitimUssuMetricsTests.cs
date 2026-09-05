@@ -99,7 +99,9 @@ public sealed class EgitimUssuMetricsTests
         using var probe = new MeterProbe("egitimussu.redis.unavailable");
 
         probe.Metrics.RecordRedisUnavailable("ratelimit");
+        probe.Metrics.RecordEntitlementFallback();
         probe.Metrics.RecordRedisUnavailable("ratelimit");
+        probe.Metrics.RecordEntitlementFallback();
         probe.Metrics.RecordRedisUnavailable("blacklist");
 
         Assert.Equal(2, probe.SumWhere("operation", "ratelimit"));
@@ -120,10 +122,12 @@ public sealed class EgitimUssuMetricsTests
         probe.Metrics.RecordPushSent("Delivered");
         probe.Metrics.RecordEmailSent(success: true);
         probe.Metrics.RecordRedisUnavailable("ratelimit");
+        probe.Metrics.RecordEntitlementFallback();
 
         Assert.Equal(
             [
                 "egitimussu.email.sent",
+                "egitimussu.entitlement.fallback",
                 "egitimussu.outbox.dispatched",
                 "egitimussu.outbox.pending",
                 "egitimussu.push.sent",

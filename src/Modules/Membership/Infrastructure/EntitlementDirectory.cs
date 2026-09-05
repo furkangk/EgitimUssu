@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Membership.Application;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -27,17 +28,20 @@ internal sealed class EntitlementDirectory : IEntitlementDirectory, IMembershipR
     private readonly MembershipDbContext _dbContext;
     private readonly IClock _clock;
     private readonly IReadOnlyCollection<IMembershipDirectory> _legacyTierSources;
+    private readonly EgitimUssuMetrics _metrics;
     private readonly ILogger<EntitlementDirectory> _logger;
 
     public EntitlementDirectory(
         MembershipDbContext dbContext,
         IClock clock,
         IEnumerable<IMembershipDirectory> legacyTierSources,
+        EgitimUssuMetrics metrics,
         ILogger<EntitlementDirectory> logger)
     {
         _dbContext = dbContext;
         _clock = clock;
         _legacyTierSources = legacyTierSources.ToArray();
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -48,8 +52,11 @@ internal sealed class EntitlementDirectory : IEntitlementDirectory, IMembershipR
             var snapshot = await GetSnapshotAsync(userId, cancellationToken);
             return EntitlementPolicy.For(snapshot.Tier, snapshot.EffectiveUntilUtc);
         }
-        catch (Exception exception)
+        // A-11: İptal bir "okuma hatası" değildir; yutulup Free dönülürse çağıran, iptal ettiği işin
+        // sonucunu gerçek bir cevap sanır. Yukarı taşınır.
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            _metrics.RecordEntitlementFallback();
             _logger.LogWarning(
                 exception, "Üyelik hakları okunamadı, Free varsayıldı. Kullanıcı: {UserId}", userId);
             return EntitlementPolicy.Free;
@@ -91,8 +98,13 @@ internal sealed class EntitlementDirectory : IEntitlementDirectory, IMembershipR
 
             return result;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            for (var index = 0; index < ids.Length; index++)
+            {
+                _metrics.RecordEntitlementFallback();
+            }
+
             _logger.LogWarning(
                 exception, "Toplu üyelik hakları okunamadı, {Count} kullanıcı Free varsayıldı.", ids.Length);
             return ids.ToDictionary(id => id, _ => EntitlementPolicy.Free);
