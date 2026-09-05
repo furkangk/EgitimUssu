@@ -28,9 +28,13 @@ public sealed class ConfigurationHealthCheck(
             issues.Add(connectionStringIssue);
         }
 
-        if (string.IsNullOrWhiteSpace(redisOptions.Value.Configuration))
+        // A-01: Eskiden yalnız "boş mu" diye bakılıyordu. Varsayılan "localhost:6379" boş olmadığı
+        // için, ortam değişkeni verilmemiş bir üretim dağıtımı bu kontrolden geçiyor ve dört koruma
+        // birden sessizce kapalıyken sağlık uçları "Healthy" diyordu. Guard loopback'i de reddeder.
+        var redisIssue = RedisOptionsGuard.Validate(redisOptions.Value, environment.IsDevelopment());
+        if (redisIssue is not null)
         {
-            issues.Add("Redis:Configuration missing.");
+            issues.Add(redisIssue);
         }
 
         var jwtKeyIssue = JwtSigningKeyGuard.Validate(jwtOptions.Value.SigningKey);

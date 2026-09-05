@@ -34,7 +34,24 @@ builder.Services.ValidateAuthorizationCoverage();
 builder.Services
     .AddHealthChecks()
     .AddCheck<ConfigurationHealthCheck>("configuration", tags: ["ready"])
-    .AddCheck<DatabaseConnectionHealthCheck>("database", tags: ["ready"]);
+    .AddCheck<DatabaseConnectionHealthCheck>("database", tags: ["ready"])
+    // A-01: Redis'e bağlı korumalar fail-open olduğu için kesinti hiçbir isteği hata döndürmez;
+    // erişilebilirliğin dışarıdan görülebildiği tek yer bu kontroldür (sonucu Degraded — fail-open
+    // bilinçli bir karar olduğundan Redis kesintisi uygulamayı yeniden başlatmaya değmez).
+    .AddCheck<RedisConnectionHealthCheck>("redis", tags: ["ready"]);
+
+// A-17: Tarayıcı istemcileri için CORS. Liste boşken (bugünkü mobil-only durum) hiçbir köken açılmaz.
+var corsOptions = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>() ?? new CorsOptions();
+if (corsOptions.HasOrigins)
+{
+    builder.Services.AddCors(options => options.AddPolicy(
+        CorsOptions.PolicyName,
+        policy => policy
+            .WithOrigins(corsOptions.AllowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()));
+}
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 // Y3: Zayıf/eksik/yer-tutucu imzalama anahtarını startup'ta reddet (fail-fast).
@@ -52,6 +69,10 @@ PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.IsDevelopment());
 // P04/K-03: Depolama sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (yüklenen dosya kaybolmasın).
 var storageOptions = builder.Configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
 StorageOptionsGuard.EnsureValid(storageOptions, builder.Environment.IsDevelopment());
+// A-01: Redis eksikse hız sınırı, token kara listesi, giriş kilidi ve idempotency **sessizce** kapanır.
+// Diğer sırlarla aynı muamele: üretimde eksik/loopback adresle uygulama açılmaz.
+var redisOptions = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
+RedisOptionsGuard.EnsureValid(redisOptions, builder.Environment.IsDevelopment());
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey));
 
 builder.Services
@@ -132,7 +153,15 @@ if (!app.Environment.IsDevelopment()
 }
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
+// A-17: Güvenlik başlıkları her yanıta yazılır — hata ve 429 yanıtları dahil, bu yüzden
+// rate limiting ve yetkilendirmeden ÖNCE gelir.
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RequestContextLoggingMiddleware>();
+if (corsOptions.HasOrigins)
+{
+    // Kimlik doğrulamadan önce: preflight (OPTIONS) isteği Authorization başlığı taşımaz.
+    app.UseCors(CorsOptions.PolicyName);
+}
 // M16-1: Kimlik doğrulama rate limiting'ten ÖNCE gelir. `UseAuthentication` yalnız token'ı çözüp
 // `HttpContext.User`'ı doldurur (hiçbir isteği reddetmez); mesajlaşma kotası kullanıcı başına
 // sayıldığı için limitleyicinin bu kimliği görmesi şart. Sırası tersken partition sessizce IP'ye
@@ -143,7 +172,13 @@ app.UseMiddleware<DistributedRateLimitMiddleware>();
 app.UseAuthorization();
 // Y4: Idempotency-Key ile mutasyon uçlarında tekrarlı istek koruması (auth sonrası — kullanıcıya göre kapsam).
 app.UseMiddleware<IdempotencyMiddleware>();
-app.MapOpenApi();
+
+// A-14: OpenAPI belgesi yalnız geliştirmede yayınlanır. Kimliksiz erişilebilen `/openapi/v1.json`
+// yönetici uçları dahil tüm API yüzeyini — yol, şema ve alan adlarıyla — dışarı veriyordu.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

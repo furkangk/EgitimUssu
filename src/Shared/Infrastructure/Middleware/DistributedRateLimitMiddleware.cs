@@ -27,7 +27,7 @@ public sealed class DistributedRateLimitMiddleware(
         if (selection is not null)
         {
             var (policyName, rule) = selection.Value;
-            var partitionKey = $"{policyName}:{ResolvePartitionId(context, policyName)}";
+            var partitionKey = $"{policyName}:{ResolvePartitionId(context, policyName, settings.TrustedProxyHopCount)}";
             var allowed = await rateLimiter.TryAcquireAsync(partitionKey, rule.PermitLimit, rule.Window, context.RequestAborted);
             if (!allowed)
             {
@@ -83,7 +83,7 @@ public sealed class DistributedRateLimitMiddleware(
     /// Partition anahtarı: mesajlaşma kotası <b>kullanıcı</b> başınadır (aynı ağdaki kullanıcılar
     /// birbirinin kotasını tüketmesin), diğer politikalar istemci IP'si başına.
     /// </summary>
-    internal static string ResolvePartitionId(HttpContext context, string policyName)
+    internal static string ResolvePartitionId(HttpContext context, string policyName, int trustedProxyHopCount)
     {
         if (policyName == "messaging")
         {
@@ -94,19 +94,42 @@ public sealed class DistributedRateLimitMiddleware(
             }
         }
 
-        return ResolveClientId(context);
+        return ResolveClientId(context, trustedProxyHopCount);
     }
 
-    /// <summary>Ters-proxy arkasında (Render) gerçek istemci IP'si <c>X-Forwarded-For</c>'un ilk girdisidir.</summary>
-    internal static string ResolveClientId(HttpContext context)
+    /// <summary>
+    /// A-02: İstemci kimliğini <c>X-Forwarded-For</c>'un <b>sonundan</b> güvenilir proxy sayısı kadar
+    /// geriden okur.
+    /// <para>
+    /// Başlığın tamamını istemci de yazabilir; güvenilebilecek olan yalnız <b>son</b> girdilerdir,
+    /// çünkü önümüzdeki her proxy kendi gördüğü soket adresini listenin sonuna ekler. Eskiden ilk
+    /// girdi alınıyordu: istemcinin <c>X-Forwarded-For: 1.2.3.4</c> göndermesi her istekte yeni bir
+    /// partition açıyor, böylece kimlik uçlarındaki 10/dk sınırı tümüyle atlanabiliyordu.
+    /// </para>
+    /// <para>
+    /// Liste beklenenden kısaysa (zincir sanılandan sığ ya da başlık uydurulmuş) başlık güvenilmez
+    /// sayılır ve soket adresine düşülür — eksik başlık, sınırı kapatma gerekçesi değildir.
+    /// </para>
+    /// </summary>
+    /// <param name="context">İstek bağlamı.</param>
+    /// <param name="trustedProxyHopCount">Önümüzdeki güvenilir proxy sayısı; <c>0</c> ise başlık yok sayılır.</param>
+    /// <returns>Partition anahtarı olarak kullanılacak istemci kimliği.</returns>
+    internal static string ResolveClientId(HttpContext context, int trustedProxyHopCount)
     {
-        var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
+        if (trustedProxyHopCount > 0)
         {
-            var first = forwarded.Split(',')[0].Trim();
-            if (first.Length > 0)
+            var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(forwarded))
             {
-                return first;
+                var entries = forwarded.Split(
+                    ',',
+                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                var index = entries.Length - trustedProxyHopCount;
+                if (index >= 0 && index < entries.Length && entries[index].Length > 0)
+                {
+                    return entries[index];
+                }
             }
         }
 

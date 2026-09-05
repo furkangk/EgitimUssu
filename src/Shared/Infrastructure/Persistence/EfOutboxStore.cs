@@ -58,7 +58,7 @@ public sealed class EfOutboxStore(
         // parti `BatchSize` ile sınırlı olduğu için 10.000 mesaj biriktiğinde bile 20'de tavan yapar
         // ve alarm hiç ötmezdi. Bu yüzden gerçek bekleyen sayısı ayrıca sayılır. Boş turda da
         // bildirilir — yoksa kuyruk boşaldığında son yüksek değer takılı kalır ve alarm düşmez.
-        metrics.RecordOutboxPending(await CountPendingAsync(dbContext, cancellationToken));
+        metrics.RecordOutboxPending(descriptor.ModuleName, await CountPendingAsync(dbContext, cancellationToken));
 
         var messages = await ClaimAsync(dbContext, descriptor, settings, cancellationToken);
         if (messages.Count == 0)

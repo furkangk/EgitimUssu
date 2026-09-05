@@ -5,6 +5,9 @@ namespace EgitimUssu.Shared.Infrastructure.Caching;
 /// <summary>Y4: Redis tabanlı token blacklist. Anahtar, token'ın kalan ömrü kadar TTL ile tutulur.</summary>
 public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBlacklist
 {
+    /// <summary>A-01: Redis düştüğünde hangi korumanın fail-open geçtiğini ölçen etiket.</summary>
+    private const string Protection = "blacklist";
+
     private const string KeyPrefix = "token-blacklist:";
 
     public Task BlacklistAsync(string tokenId, TimeSpan timeToLive, CancellationToken cancellationToken = default)
@@ -14,7 +17,9 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
             return Task.CompletedTask;
         }
 
-        return redis.TryExecuteAsync(database => database.StringSetAsync(Key(tokenId), "1", timeToLive), cancellationToken);
+        return redis.TryExecuteAsync(
+            Protection,
+            database => database.StringSetAsync(Key(tokenId), "1", timeToLive), cancellationToken);
     }
 
     public async Task<bool> IsBlacklistedAsync(string tokenId, CancellationToken cancellationToken = default)
@@ -24,7 +29,9 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
             return false;
         }
 
-        var (ok, exists) = await redis.TryExecuteAsync(database => database.KeyExistsAsync(Key(tokenId)), cancellationToken);
+        var (ok, exists) = await redis.TryExecuteAsync(
+            Protection,
+            database => database.KeyExistsAsync(Key(tokenId)), cancellationToken);
         return ok && exists; // fail-open: Redis erişilemezse token'ı geçerli say
     }
 

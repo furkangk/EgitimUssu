@@ -10,6 +10,9 @@ namespace EgitimUssu.Modules.Identity.Infrastructure;
 /// </summary>
 internal sealed class RedisLoginAttemptThrottle(ResilientRedisExecutor redis) : ILoginAttemptThrottle
 {
+    /// <summary>A-01: Redis düştüğünde hangi korumanın fail-open geçtiğini ölçen etiket.</summary>
+    private const string Protection = "login-throttle";
+
     private const int MaxFailedAttempts = 5;
     private const string KeyPrefix = "login-fail:";
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(15);
@@ -17,6 +20,7 @@ internal sealed class RedisLoginAttemptThrottle(ResilientRedisExecutor redis) : 
     public async Task<bool> IsLockedAsync(string normalizedEmail, CancellationToken cancellationToken)
     {
         var (ok, value) = await redis.TryExecuteAsync(
+            Protection,
             database => database.StringGetAsync(Key(normalizedEmail)),
             cancellationToken);
 
@@ -30,6 +34,7 @@ internal sealed class RedisLoginAttemptThrottle(ResilientRedisExecutor redis) : 
 
     public Task RecordFailureAsync(string normalizedEmail, CancellationToken cancellationToken)
         => redis.TryExecuteAsync(
+            Protection,
             async database =>
             {
                 var key = Key(normalizedEmail);
@@ -44,7 +49,9 @@ internal sealed class RedisLoginAttemptThrottle(ResilientRedisExecutor redis) : 
             cancellationToken);
 
     public Task ResetAsync(string normalizedEmail, CancellationToken cancellationToken)
-        => redis.TryExecuteAsync(database => database.KeyDeleteAsync(Key(normalizedEmail)), cancellationToken);
+        => redis.TryExecuteAsync(
+            Protection,
+            database => database.KeyDeleteAsync(Key(normalizedEmail)), cancellationToken);
 
     private static RedisKey Key(string normalizedEmail) => new($"{KeyPrefix}{normalizedEmail}");
 }

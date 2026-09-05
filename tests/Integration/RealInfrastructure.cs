@@ -19,6 +19,12 @@ internal static class RealInfrastructure
             ["Database__ApplyMigrationsOnStartup"] = applyMigrations ? "true" : "false",
             ["Outbox__DispatchEnabled"] = dispatchOutbox ? "true" : "false",
             ["Outbox__MaxRetryCount"] = maxRetryCount?.ToString(),
+            // A-02: Testler tek bir ters-proxy arkasında olmayı taklit eder — her test sınıfı kendi
+            // hız-sınırı partition'ında kalabilmek için tek girdilik bir `X-Forwarded-For` gönderir.
+            // Geliştirme ayarı 0'dır (yerelde proxy yok, başlık yok sayılır); burada 1 olmazsa tüm
+            // testler soket adresine (TestServer'da null → "unknown") düşer, tek partition'ı paylaşır
+            // ve 10/dk kimlik kotasını birbirlerine tüketirler.
+            ["RateLimiting__TrustedProxyHopCount"] = "1",
         });
     }
 
