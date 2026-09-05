@@ -1,5 +1,8 @@
 ---
 title: Ortamlar — Development, Staging, Production
+summary: "Development / Staging / Production ortamlarinin farklari: hangi saglayici nerede acik, demo veri nereye tohumlanir, migration ve yedekleme nasil isler"
+authority: derived
+updated: 2026-09-05
 type: architecture
 status: 🟢 uygulandı
 tags: [ops, environment, staging, seeding, render, E-06]

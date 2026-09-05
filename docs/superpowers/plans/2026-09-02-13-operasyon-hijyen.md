@@ -264,7 +264,24 @@ git commit -m "feat(ops): yedekleme/geri yukleme prosedürü + migration geri al
 
 ### Task 5: KVKK — hesap silme ve saklama (E-07)
 
-> **Bloklayıcı:** Q5 (KVKK metinleri) hukuki metinler için gerekli; **teknik akış** metinler olmadan da yazılabilir.
+> **Bloklayıcı — ✅ çözüldü (2026-09-05):** Q5 için taslak metin seti yazıldı → **`doc/legal/`**
+> ([indeks](../../../doc/legal/00_legal_index.md) · [veri envanteri](../../../doc/legal/kvkk_veri_envanteri.md) ·
+> [aydınlatma](../../../doc/legal/kvkk_aydinlatma_metni.md) · [açık rıza](../../../doc/legal/kvkk_acik_riza_metni.md) ·
+> [saklama/imha](../../../doc/legal/kvkk_saklama_imha_politikasi.md)). Bu görev artık yürütülebilir.
+>
+> **Metinlerden gelen ve bu göreve giren üç düzeltme:**
+> 1. **Anonimleştirme hash ile yapılmaz.** Plan `deleted-{hash}@egitimussu.local` diyor; e-posta adresleri sınırlı
+>    ve tahmin edilebilir bir küme olduğu için aynı hash bilinen bir listeye uygulanıp **eşleştirilebilir** — bu
+>    anonimleştirme değil takma adlaştırmadır ve takma adlı veri hâlâ kişisel veridir. **Rastgele** bir vekil
+>    değer kullanılacak (ya da tuz gizli tutulup imha edilecek). Bkz. saklama politikası §4.
+> 2. **Saklama süreleri politikadan alınacak** (saklama politikası §2), plandaki üç sayı bunun alt kümesidir:
+>    oturum/jeton 90/30 gün, mesaj 3 yıl, rapor PDF 1 yıl, ders/ödev 10 yıl (anonim), ödeme 10 yıl (TTK m.82),
+>    log 1 yıl, trace 30 gün, inbox 90 gün — outbox 90 gün / feedback 2 yıl / audit 5 yıl planla aynı.
+> 3. **Rıza kaydı tablosu gerekiyor.** `user_settings` boolean'ı rızanın *şu anki durumunu* tutuyor; hangi metin
+>    sürümüne ne zaman onay verildiğini tutmuyor ve ispat yükü veri sorumlusundadır. Bkz. açık rıza metni §7.
+>
+> ⚠️ **Hukuk onayı ayrı bir iştir ve bu görevi bloke etmez:** metinler taslaktır, `«…»` alanları boştur.
+> Yayına alma koşulları ve **R-1…R-6** riskleri `doc/legal/00_legal_index.md` §3–§4'tedir.
 
 **Files:**
 - Modify: `src/Modules/Identity/Application/IdentityFeatures.cs` (`RequestAccountDeletionCommand`)

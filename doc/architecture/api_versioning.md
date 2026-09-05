@@ -1,5 +1,8 @@
 ---
 title: API Sürümleme ve Sözleşme Kararlılığı
+summary: "API surumleme politikasi: yayinlanan sozlesme v1, kirici degisiklik tanimi, X-Api-Version basligi, uyari suresi ve kaldirma proseduru"
+authority: derived
+updated: 2026-09-05
 type: architecture
 status: 🟢 uygulandı
 tags: [api, versioning, contract, backend, C-10]

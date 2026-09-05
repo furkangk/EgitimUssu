@@ -56,6 +56,19 @@ updated: 2026-09-04
 | [`architecture/design_system.md`](architecture/design_system.md) | Platformlar-arası ortak görsel token (renk/tipografi/spacing) + Atomic/CBD — **token tek doğruluk kaynağı** |
 | [`architecture/widgets.md`](architecture/widgets.md) | Ortak widget kataloğu: paylaşılan bileşenlerin API + kural + durumu (🟢/🟡/🔴) |
 
+## 1.2 Hukuki Metinler (`doc/legal/`) — KVKK
+
+> ⚠️ **Taslak seti.** Hukuk onayından geçmemiştir ve `«…»` alanları doldurulmadan yayına alınamaz.
+> Durum + doldurulacak alanlar + metin yazmakla kapanmayan riskler: [`legal/00_legal_index.md`](legal/00_legal_index.md).
+
+| Doküman | Kapsam |
+|---------|--------|
+| [`legal/00_legal_index.md`](legal/00_legal_index.md) | **Buradan başla.** Belge listesi, doldurulacak `«…»` alanları, onay durumu ve **R-1…R-6 açık riskleri** (yurt dışı aktarım, çocuk verisi, rıza kaydı). Henüz yazılmamış belgeler (kullanıcı sözleşmesi, mesafeli satış, çerez, İYS, ihlal prosedürü) de burada |
+| [`legal/kvkk_veri_envanteri.md`](legal/kvkk_veri_envanteri.md) | **İç belge, diğer üçünün dayanağı.** Koddan çıkarılmış kişisel veri envanteri: veri kategorisi → tablo/alan → amaç → hukuki sebep → alıcı. Alıcılar ve **yurt dışına aktarım** tablosu, özel nitelikli veri riski (serbest metin), çocuk verisi açıkları Ç-1…Ç-5. Kod değişince **önce burası** güncellenir |
+| [`legal/kvkk_aydinlatma_metni.md`](legal/kvkk_aydinlatma_metni.md) | **Kullanıcıya gösterilecek** KVKK m.10 aydınlatma metni: işlenen veri (rol bazında), amaç + hukuki sebep, aktarım, 18 yaş altı, m.11 hakları ve başvuru usulü. Kayıt ekranında ve Ayarlar → Gizlilik'te gösterilir |
+| [`legal/kvkk_acik_riza_metni.md`](legal/kvkk_acik_riza_metni.md) | **Kullanıcıya gösterilecek** rıza metinleri — her amaç için ayrı: profil fotoğrafı, çalışma verisinin öğretmen/veli ile paylaşımı, ticari ileti, reklam. Üç arayüz kuralı (rıza aydınlatmadan ayrı · hizmetin şartı değil · geri alınabilir) + **rıza gerektirmeyen** işlemler listesi + saklanacak rıza kaydı alanları |
+| [`legal/kvkk_saklama_imha_politikasi.md`](legal/kvkk_saklama_imha_politikasi.md) | Her veri türü için **saklama süresi + dayanak + imha yöntemi**, hesap silme akışı (30 gün bekleme), anonimleştirme kuralı (**hash ≠ anonimleştirme** uyarısı), periyodik imha takvimi. P13 Task 5'in uygulayacağı sayıların kaynağı |
+
 ## 2. Roller (`doc/roles/`) — Rol Perspektifi
 
 > Her rolün yetenekleri, kullanıcı yolculuğu, ekranları ve rol-özel kuralları. **Teknik detay modüllerdedir.**
@@ -146,6 +159,7 @@ updated: 2026-09-04
 ## 7. Hangi Soru → Hangi Doküman?
 
 - **"Ürün ne yapıyor, hangi modül hangi fazda?"** → [`PRD v2.1`](ozel_ders_platformu_PRD.md) §6 + [`modules/00_genel_bakis`](modules/00_genel_bakis.md)
+- **"Kişisel veriyi nasıl işliyoruz / KVKK metinleri nerede / hesap silme nasıl işler?"** → [`legal/00_legal_index.md`](legal/00_legal_index.md) (envanter → aydınlatma → açık rıza → saklama)
 - **"Bu rol neler yapabilir / akışı nedir?"** → [`roles/`](roles/00_roller_genel_bakis.md)
 - **"Gerçekte hangi endpoint/domain var?"** → [`modules/00_genel_bakis`](modules/00_genel_bakis.md) §4 + ilgili `mNN_*`
 - **"Tablolar nasıl ilişkili?"** → [`modules/veri_modeli`](modules/veri_modeli.md)

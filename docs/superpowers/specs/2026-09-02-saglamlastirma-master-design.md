@@ -118,15 +118,15 @@ Tüm planlar aşağıdakilere uyar (her planın "Global Constraints" bölümünd
 
 ## 6. Açık Sorular (plan yürütmeden önce cevaplanmalı)
 
-| # | Soru | Bloklayan plan |
-|---|------|----------------|
-| Q1 | Ödeme sağlayıcı iyzico onaylanıyor mu? Ticari hesap/anlaşma var mı? | P09 |
-| Q2 | Fiyatlandırma nihai mi? (`codex/03_paket_fiyatlandirma.md` güncel mi) | P09 |
-| Q3 | AdMob hesabı + reklam yerleşim politikası (hangi ekranlarda, hangi sıklıkta)? | P09 |
-| Q4 | S3-uyumlu sağlayıcı tercihi: AWS S3 mi, Cloudflare R2 mi? | P04 (varsayılan: R2, ücretsiz çıkış trafiği) |
-| Q5 | KVKK metinleri (aydınlatma, açık rıza, saklama süreleri) hazır mı? | P13 |
-| Q6 | Beta öğretmen listesi (5–10 kişi) belirlendi mi? | P06 sonrası |
+| # | Soru | Bloklayan plan | Durum |
+|---|------|----------------|-------|
+| Q1 | Ödeme sağlayıcı iyzico onaylanıyor mu? Ticari hesap/anlaşma var mı? | P09 | ❓ Cevap bekliyor |
+| Q2 | Fiyatlandırma nihai mi? (`codex/03_paket_fiyatlandirma.md` güncel mi) | P09 | ❓ Cevap bekliyor |
+| Q3 | AdMob hesabı + reklam yerleşim politikası (hangi ekranlarda, hangi sıklıkta)? | P09 | ❓ Cevap bekliyor |
+| Q4 | S3-uyumlu sağlayıcı tercihi: AWS S3 mi, Cloudflare R2 mi? | P04 (varsayılan: R2, ücretsiz çıkış trafiği) | ❓ Cevap bekliyor |
+| Q5 | KVKK metinleri (aydınlatma, açık rıza, saklama süreleri) hazır mı? | P13 | **Taslak seti yazıldı** (2026-09-05, `doc/legal/`): koddan çıkarılmış veri envanteri + aydınlatma + açık rıza + saklama/imha. P13 Task 5'in **teknik** işi artık açık. Kalan: `«…»` alanlarının doldurulması, hukuk onayı ve `doc/legal/00_legal_index.md` §4'teki R-1…R-6 riskleri (en acili: **altyapının tamamı yurt dışında** ve **çocuk verisi için yaş/veli onayı yok**) |
+| Q6 | Beta öğretmen listesi (5–10 kişi) belirlendi mi? | P06 sonrası | ❓ Cevap bekliyor |
 
 ---
 
-*Master Tasarım | Güncelleme: 2026-09-02*
+*Master Tasarım | Güncelleme: 2026-09-05 (Q5 taslak düzeyinde açıldı — `doc/legal/` KVKK metin seti) · 2026-09-02*

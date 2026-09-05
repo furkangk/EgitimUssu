@@ -1,5 +1,8 @@
 ---
 title: Yedekleme, Geri Yükleme ve Migration Geri Alma
+summary: "Veritabani yedekleme/geri yukleme prosedürü, RPO/RTO hedefleri, üretimde migration'in ayri deploy adimi olmasi ve Down() geri alma kurali"
+authority: derived
+updated: 2026-09-05
 type: architecture
 status: 🟢 uygulandı
 tags: [ops, backup, restore, migration, rollback, disaster-recovery, E-05]

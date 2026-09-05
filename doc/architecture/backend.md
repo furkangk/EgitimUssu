@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
