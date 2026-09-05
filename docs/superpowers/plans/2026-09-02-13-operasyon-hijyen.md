@@ -203,20 +203,57 @@ git commit -m "feat(ops): staging ortami + idempotent demo veri tohumlama (E-06)
 
 **Files:**
 - Create: `scripts/backup-db.sh`, `scripts/restore-db.sh`
+- Create: `scripts/lib/pg-connection.sh` *(plan dışı — sapma notu #1)*
+- Create: `scripts/check-migration-down.sh` *(plan dışı — sapma notu #4)*
 - Create: `doc/architecture/backup_restore.md`
+- Create: `src/Shared/Infrastructure/Configuration/MigrationStartupGuard.cs` *(plan dışı — sapma notu #2)*
+- Modify: `src/Shared/Infrastructure/Extensions/ModuleMigrationExtensions.cs` *(plan dışı — sapma notu #2)*
 - Modify: `src/API.Host/Program.cs` (`ApplyMigrationsOnStartup` davranışı)
+- Modify: `render.yaml` (üretimde `Database__ApplyMigrationsOnStartup=false`) *(plan dışı — sapma notu #3)*
 - Modify: `.github/workflows/backend-ci.yml` (migration geri alma kontrolü)
+- Modify: `doc/architecture/environments.md`, `doc/architecture/backend.md` *(plan dışı — sapma notu #7)*
+- Test: `tests/Unit/MigrationStartupGuardTests.cs` *(plan dışı — sapma notu #2)*
 
 **Interfaces:**
 - `scripts/backup-db.sh` — `pg_dump` ile tarihli yedek, opsiyonel S3'e yükleme.
 - `scripts/restore-db.sh` — belirtilen yedeği hedef veritabanına geri yükler; **onay ister** (`--yes` olmadan çalışmaz).
 - Prod'da `Database:ApplyMigrationsOnStartup = false`; migration ayrı bir deploy adımıdır (`dotnet ef database update`).
+- `static string? MigrationStartupGuard.BlockReason(string environmentName, bool enabled)`
+- `Task<bool> ApplyModuleMigrationsAsync(this IServiceProvider, CancellationToken)` — uygulandıysa `true`.
 
-- [ ] **Step 1: Script'leri yaz ve yerelde dene** — Docker Postgres'e demo veri yükle → yedek al → veritabanını düşür → geri yükle → veri aynı.
-- [ ] **Step 2: Prod'da otomatik migration'ı kapat** — `appsettings.json` `false` (zaten öyle); `Program.cs`'te Production'da `true` olsa bile `LogWarning` + çalıştırma.
-- [ ] **Step 3: CI'ya migration geri alma kontrolü ekle** — her yeni migration için `Down()` metodunun boş olmadığını doğrulayan basit bir script (`grep`-tabanlı: `protected override void Down` gövdesinde en az bir ifade).
-- [ ] **Step 4: Prosedürü yaz** — `doc/architecture/backup_restore.md`: yedek sıklığı (günlük), saklama (30 gün), geri yükleme adımları, RTO/RPO hedefleri, kim yetkili.
-- [ ] **Step 5: Commit**
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **Bağlantı/çalıştırma yardımcıları ortak dosyada** (`scripts/lib/pg-connection.sh`). İki neden: (a) repo'nun
+>    bağlantı dizesi **Npgsql anahtar-değer** biçimindedir (`seed-demo-data.sh` de öyle kullanıyor), `pg_dump` ise
+>    libpq biçimini bekler — çeviriyi iki script'e kopyalamak bir ayrıştırıcıyı çoğaltmak olurdu; (b) parola
+>    conninfo'dan çıkarılıp `PGPASSWORD`'e alınıyor, aksi halde `ps` çıktısında görünürdü.
+> 2. **Karar saf bir guard'a alındı** (`MigrationStartupGuard`) ve `ApplyModuleMigrationsAsync` **kararın sahibi**
+>    oldu (`bool` döndürür). Plan yalnız `Program.cs`'i değiştirmeyi öngörüyordu; bayrak hem host'ta hem uzantıda
+>    sınansaydı kural iki yere dağılırdı — Task 3'teki `DemoDataSeedGuard` gerekçesinin aynısı. Guard saf olduğu için
+>    host ayağa kaldırmadan test edilebiliyor. **Plan bu göreve test dosyası koymamıştı**; Step 2 davranış
+>    değiştirdiği için TDD zorunluydu (master tasarım §1 "testsiz kod yok").
+> 3. **`render.yaml`'da üretim bayrağı `false`'a çekildi.** Blueprint `true` diyordu; guard eklenince bu, her üretim
+>    açılışında ötecek bir uyarıya ve blueprint'ten okunduğunda **yanlış** bir niyete dönüşürdü ("üretim kendi
+>    migrate ediyor" izlenimi). Staging `true` kaldı — Staging, Production değildir ve provanın yeri orasıdır.
+> 4. **Kontrol CI'ya gömülmedi, `scripts/check-migration-down.sh` oldu.** Yalnız workflow içinde yaşasaydı yerelde
+>    çalıştırılamaz, PR açılmadan denenemezdi. (Plan zaten "script" diyordu.)
+> 5. **Kural "Down() boş değil" değil, "`Up()` doluysa `Down()` dolu".** Repoda `Up()`'ı da boş olan gerçek bir
+>    no-op migration var (`StudentSubjectValueGeneratedNever` — yalnız model metadata'sı değişiyor); planın düz
+>    kuralı bu meşru dosyada CI'ı kırardı. Ek olarak **yalnız `throw` içeren** `Down()` de yakalanıyor: gövde boş
+>    değildir ama migration yine geri alınamaz — aynı kusurun kılık değiştirmiş hali.
+> 6. **Arşiv konteynere bind mount ile değil, stdin/stdout ile akıyor.** İlk yazımda `-v` kullanıldı; Docker Desktop
+>    paylaşılmayan host dizinine **sessizce boş** bir bağlama yaptı, `pg_dump` konteyner içinde başarıyla yazdı,
+>    host'ta dosya oluşmadı ve script "yedek alındı" dedi — **gerçekten görüldü**. Akış biçimi hem bu tuzağı hem de
+>    dosyanın `root`'a ait olması sorununu ortadan kaldırır. Yedek yazıldıktan sonra host'ta varlığı + okunabilirliği
+>    (`pg_restore --list`) ayrıca doğrulanıyor.
+> 7. **`environments.md` ve `backend.md` bu görevde güncellendi** — ikisi de "E-05'te ayrı adıma taşınacak" diye
+>    **ileriye referans** veriyordu ve `backend.md`'deki `Program.cs` kod örneği artık gerçeğe uymuyordu.
+>    `doc/INDEX.md` girdisi Task 8'e bırakıldı (planın kendi kapanış görevi dört yeni mimari dokümanını topluca ekliyor).
+
+- [x] **Step 1: Script'leri yaz ve yerelde dene** — Docker Postgres 17'ye `seed-demo-data.sh` ile demo veri yüklendi (15 modül şeması + 122 tablo) → yedek alındı → **tüm şemalar düşürüldü** (0 tablo) → geri yüklendi → **122 tablonun satır sayısı birebir aynı** (`diff` farksız). Geri yüklenen veritabanına karşı uygulama açıldı: `/health/ready` = `Healthy`, demo öğretmen girişi **HTTP 200**. `--yes` olmadan çalıştırma reddedildi (çıkış 1).
+- [x] **Step 2: Prod'da otomatik migration'ı kapat** — `MigrationStartupGuard` + `ApplyModuleMigrationsAsync` (bkz. sapma #2). Canlı doğrulandı: `Production` + bayrak açık → uyarı düştü, **0 migration** koştu, boş veritabanında **0 tablo**; aynı veritabanı `Staging` ile açılınca **15 modül** migrate oldu, **122 tablo**.
+- [x] **Step 3: CI'ya migration geri alma kontrolü ekle** — `scripts/check-migration-down.sh` + Backend CI adımı. Repoda 80 migration incelendi, hepsi geri alınabilir (1 no-op muaf). Dört sahte migration'la doğrulandı: boş `Down()` → yakalandı, yalnız `throw` içeren `Down()` → yakalandı, sağlam migration → geçti, no-op → geçti.
+- [x] **Step 4: Prosedürü yaz** — `doc/architecture/backup_restore.md`: RPO ≤ 24 sa / RTO ≤ 1 sa, günlük yedek, 30 gün saklama, geri yükleme adımları, üretimde migration prosedürü + geri alma tablosu, `Down()` kuralı, yetki tablosu, **tatbikat kaydı**.
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts .github doc src/API.Host

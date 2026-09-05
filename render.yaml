@@ -36,9 +36,12 @@ services:
       - key: Jwt__SigningKey
         generateValue: true   # Render otomatik güvenli bir değer üretir
 
-      # Uygulama başlarken migration'ları uygula
+      # E-05: Üretimde migration AÇILIŞTA UYGULANMAZ. Şema değişikliği ayrı ve gözetilen bir
+      # deploy adımıdır (doc/architecture/backup_restore.md §4). Bu değer yanlışlıkla "true"
+      # yapılsa bile MigrationStartupGuard uygulamaz; burada "false" olması, uyarı log'u
+      # üretmemesi ve niyetin blueprint'ten okunabilmesi içindir.
       - key: Database__ApplyMigrationsOnStartup
-        value: "true"
+        value: "false"
 
       - key: Outbox__DispatchEnabled
         value: "true"

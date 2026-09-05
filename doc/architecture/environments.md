@@ -20,13 +20,14 @@ tags: [ops, environment, staging, seeding, render, E-06]
 | `ASPNETCORE_ENVIRONMENT` | `Development` | `Staging` | `Production` |
 | Nerede | Geliştiricinin makinesi | Render (`egitimussu-api-staging`) | Render (`egitimussu-api`) |
 | Veritabanı | `InMemory:development` ya da yerel Docker Postgres | `egitimussu-staging-db` (**ayrı**) | `egitimussu-db` |
-| Migration | Elle (`dotnet ef database update`) | Açılışta otomatik | **Açılışta otomatik** *(E-05 ile ayrı adıma taşınacak)* |
+| Migration | Bayrağa göre (`dotnet ef database update`) | Açılışta otomatik | **Asla açılışta** — ayrı deploy adımı ([`backup_restore.md`](backup_restore.md) §4) |
 | Demo veri (`Seeding:Enabled`) | Kapalı (istenirse açılır) | **Açık** | **Yasak** — guard bayrağı yok sayar |
 | E-posta | `Logging` (göndermez) | `Logging` (göndermez) | `Smtp` *(Q7 bekliyor)* |
 | Push | `Logging` (göndermez) | `Logging` (göndermez) | `Fcm` *(Q8 bekliyor)* |
 | Dosya depolama | `Local` (disk) | `Local` | `S3` *(Q4 bekliyor)* |
 | JWT imzalama anahtarı | Sabit dev anahtarı | Render üretir (**üretimden ayrı**) | Render üretir |
 | Gözlemlenebilirlik | Kapalı | Kapalı (OTLP adresi girilince açılır) | Kapalı (aynı) |
+| Yedekleme | Yok | Yok | **Günlük**, 30 gün saklama ([`backup_restore.md`](backup_restore.md)) |
 | Kime açık | Yalnız geliştirici | Ekip + beta öğretmenler | Herkes |
 
 > **Staging'in en önemli özelliği ayrı veritabanıdır.** Aynı veritabanını paylaşan bir "staging"
@@ -109,7 +110,7 @@ Sırlar repoda tutulmaz; hepsi env'den gelir ve startup'ta guard'lardan geçer (
 | `ConnectionStrings__Postgres` | `InMemory:development` | staging DB | üretim DB |
 | `Jwt__SigningKey` | dev anahtarı | Render üretir | Render üretir |
 | `Redis__Configuration` | `localhost:6379` | elle girilir (Upstash) | elle girilir (Upstash) |
-| `Database__ApplyMigrationsOnStartup` | `false` | `true` | `true` |
+| `Database__ApplyMigrationsOnStartup` | `false` | `true` | `false` *(açık olsa da `MigrationStartupGuard` engeller)* |
 | `Seeding__Enabled` | `false` | `true` | `false` *(açık olsa da engellenir)* |
 | `Email__Provider` / `Push__Provider` | `Logging` | `Logging` | `Smtp` / `Fcm` |
 | `Storage__Provider` | `Local` | `Local` | `S3` |
@@ -124,9 +125,12 @@ Blueprint: [`render.yaml`](../../render.yaml) — iki web servisi + iki veritaba
 | Adım | Staging | Production |
 |------|---------|------------|
 | Tetikleyici | Dal push'u | `main` merge'ü |
-| Migration | Açılışta otomatik | Açılışta otomatik *(E-05'te ayrı adıma taşınacak)* |
+| Migration | Açılışta otomatik | **Ayrı adım**: önce yedek, sonra `dotnet ef database update`, sonra deploy ([`backup_restore.md`](backup_restore.md) §4) |
 | Sağlık kontrolü | `/health/live` | `/health/live` |
-| Geri alma | Render'da önceki deploy | Render'da önceki deploy + gerekiyorsa yedekten geri yükleme |
+| Geri alma | Render'da önceki deploy | Kod: önceki deploy · Şema: `dotnet ef database update <öncekiMigration>` · Veri: yedekten geri yükleme ([`backup_restore.md`](backup_restore.md) §4) |
+
+> **Yedekleme:** Üretim veritabanı günlük yedeklenir (30 gün saklama), geri yükleme `--yes` onayı
+> ister ve tatbikatı kayıt altındadır: [`backup_restore.md`](backup_restore.md).
 
 > **Sürüm kontrolü:** Deploy sonrası `curl <url>/api/meta/version` → `apiVersion` (sözleşme) ve
 > `version` (derleme) birlikte döner. Sözleşme kuralları: [`api_versioning.md`](api_versioning.md).
@@ -134,6 +138,7 @@ Blueprint: [`render.yaml`](../../render.yaml) — iki web servisi + iki veritaba
 ---
 
 > İlgili: backend mimari → [`backend.md`](backend.md) · API sürümleme → [`api_versioning.md`](api_versioning.md) ·
+> yedekleme/geri yükleme → [`backup_restore.md`](backup_restore.md) ·
 > gözlemlenebilirlik → [`backend.md` §11](backend.md)
 
-*Ortamlar | Güncelleme: 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*
+*Ortamlar | Güncelleme: 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*

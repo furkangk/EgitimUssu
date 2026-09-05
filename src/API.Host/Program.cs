@@ -179,11 +179,10 @@ app.MapGet("/api/meta/version", GetApiVersion)
 app.MapDiscoveredModules();
 app.MapTeacherDashboard();
 
-var databaseOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<DatabaseOptions>>().Value;
-if (databaseOptions.ApplyMigrationsOnStartup)
+// E-05: Migration'lar koşulsuz çağrılır; "koşmalı mı" kararı MigrationStartupGuard'ındır.
+// Üretimde bayrak açık olsa bile uygulanmaz — şema değişikliği ayrı bir deploy adımıdır.
+if (await app.Services.ApplyModuleMigrationsAsync())
 {
-    await app.Services.ApplyModuleMigrationsAsync();
-
     // M17-1: Plan kataloğu tohumlaması YALNIZ Development'ta koşar — fiyatlar henüz hipotez (Q2).
     // Üretimde planlar Admin ucundan (POST /api/membership/plans) girilir.
     if (app.Environment.IsDevelopment())

@@ -80,3 +80,6 @@ doc/.obsidian/snippets/
 # duyarsiz dosya sisteminde src/Shared/**/Storage/ kaynak klasorunu de gizler.
 /storage/
 /src/API.Host/storage/
+
+# E-05: yerel veritabani yedekleri (scripts/backup-db.sh varsayilan cikti dizini)
+/backups/

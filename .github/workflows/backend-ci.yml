@@ -44,6 +44,12 @@ jobs:
           fi
           echo "Zafiyetli paket bulunamadı."
 
+      - name: Migration geri alma kontrolü
+        # E-05: Up() bir şey yapıyorsa Down() de yapmalı. Boş (ya da yalnız "throw" içeren)
+        # bir Down(), üretimde sorun çıkaran migration'ın tek geri dönüş yolunu yedekten
+        # geri yüklemeye indirir.
+        run: scripts/check-migration-down.sh
+
       - name: Migration drift kontrolü
         run: |
           set -e
