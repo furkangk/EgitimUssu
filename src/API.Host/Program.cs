@@ -15,6 +15,7 @@ using EgitimUssu.Shared.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +23,19 @@ builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
 
 builder.Services.AddProblemDetails();
-builder.Services.AddOpenApi();
+// C-10: OpenAPI belgesi yayınlanan **sözleşme** sürümünü taşır (derleme sürümünü değil) —
+// belgeyi indiren istemci hangi sözleşmeye baktığını `X-Api-Version` başlığıyla aynı jetondan okur.
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info ??= new OpenApiInfo();
+    document.Info.Title = "EğitimÜssü API";
+    document.Info.Version = ApiVersions.Current;
+    document.Info.Description =
+        "Sözleşme sürümü " + ApiVersions.Current + ". Her yanıt `X-Api-Version` başlığını taşır. "
+        + "Kırıcı değişiklikler yeni bir sürüm yolu (`/api/v2/...`) altında açılır; "
+        + "mevcut yollar kırılmaz. Politika: doc/architecture/api_versioning.md";
+    return Task.CompletedTask;
+}));
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 builder.Services.AddSharedInfrastructure(builder.Configuration);
 // C-04/K-10: Gözlemlenebilirlik. `Observability:Enabled=false` iken (varsayılan) hiçbir exporter
@@ -132,6 +145,10 @@ if (!app.Environment.IsDevelopment()
 }
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
+// C-10: Sürüm başlığı olabildiğince dışta durur — 401/403/429 ve beklenmeyen 500 dahil **her**
+// /api/* yanıtı sözleşme sürümünü taşısın. Exception middleware'in içinde kalır ki yakalanmış bir
+// hatanın yanıtı da başlığı korusun (o middleware yalnız durum+gövde yazar, başlıkları temizlemez).
+app.UseMiddleware<ApiVersionHeaderMiddleware>();
 app.UseMiddleware<RequestContextLoggingMiddleware>();
 // M16-1: Kimlik doğrulama rate limiting'ten ÖNCE gelir. `UseAuthentication` yalnız token'ı çözüp
 // `HttpContext.User`'ı doldurur (hiçbir isteği reddetmez); mesajlaşma kotası kullanıcı başına
@@ -180,12 +197,18 @@ public partial class Program
 {
     /// <summary>
     /// API host sürümünü ve çalışma zamanında keşfedilen modüllerin ad ile route prefix bilgilerini döndürür.
+    /// <para>
+    /// C-10: <c>apiVersion</c> yayınlanan <b>sözleşmenin</b> sürümüdür ve <c>X-Api-Version</c>
+    /// başlığıyla aynı değerdir; <c>version</c> ise çalışan <b>derlemenin</b> sürümüdür. İkisi ayrı
+    /// tempoda değişir: derleme her yayında, sözleşme yalnız kırıcı değişiklikte.
+    /// </para>
     /// </summary>
     private static IResult GetApiVersion(IReadOnlyCollection<IModule> modules)
     {
         return Results.Ok(new
         {
             service = "EgitimUssu.API.Host",
+            apiVersion = ApiVersions.Current,
             version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0",
             modules = modules.Select(module => new { module.Name, module.RoutePrefix })
         });

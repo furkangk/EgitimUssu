@@ -98,20 +98,46 @@ git commit -m "feat(observability): OpenTelemetry trace/metrik/log korelasyonu (
 ### Task 2: API sürümleme ve sözleşme kararlılığı (C-10)
 
 **Files:**
-- Modify: `src/Shared/Infrastructure/Modules/ModuleDefinition.cs` (grup üzerinde sürüm etiketi)
-- Modify: `src/API.Host/Program.cs` (OpenAPI belgesi + sürüm başlığı)
+- Modify: `src/Shared/Infrastructure/Modules/ModuleDefinition.cs` (grup üzerinde sürüm etiketi + sürümlü grup overload'ı)
+- Create: `src/Shared/Infrastructure/Modules/ApiVersioning.cs` *(plan dışı — sapma notu #3)*
+- Create: `src/Shared/Infrastructure/Middleware/ApiVersionHeaderMiddleware.cs` *(plan dışı — sapma notu #2)*
+- Modify: `src/API.Host/Program.cs` (OpenAPI belgesi + sürüm başlığı + `apiVersion` alanı)
 - Create: `doc/architecture/api_versioning.md`
-- Test: `tests/Integration/ApiVersionHeaderTests.cs`
+- Modify: `doc/architecture/backend.md` (§3 "API sürümleme" + "Meta" + "OpenAPI" satırları)
+- Test: `tests/Integration/ApiVersionHeaderTests.cs`, `tests/Unit/ApiVersionHeaderMiddlewareTests.cs` *(ikincisi plan dışı — sapma notu #4)*
 
 **Interfaces:**
 - Yanıtlara `X-Api-Version` başlığı eklenir (`/api/meta/version` ile aynı değer).
 - Kural: `v1` yolları **kırılmaz**; kırıcı değişiklik `"/api/v2/..."` altında yeni grupla açılır. Mevcut yollar `v1` kabul edilir (yol değişmez, belge bunu açıkça yazar).
 
-- [ ] **Step 1: Testi yaz (kırmızı)** — herhangi bir `/api/*` yanıtında `X-Api-Version` başlığı var ve `/api/meta/version` ile aynı.
-- [ ] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Integration/EgitimUssu.Tests.Integration.csproj --filter "FullyQualifiedName~ApiVersionHeaderTests"`
-- [ ] **Step 3: Başlığı ekleyen middleware'i yaz.**
-- [ ] **Step 4: Sürümleme politikasını yaz** — `doc/architecture/api_versioning.md`: kırıcı değişiklik tanımı, uyarı süresi (mobil sürümler için en az 2 sürüm), kaldırma prosedürü.
-- [ ] **Step 5: Yeşil gör + commit**
+> **Plandan sapma (2026-09-05, uygulanırken düzeltildi):**
+> 1. **Başlık sözleşme sürümünü taşır, derleme sürümünü değil.** Plan "`/api/meta/version` ile aynı değer" diyordu,
+>    ama o uç yalnız **assembly** sürümünü (`1.0.0.0`) döndürüyordu; başlık ona bağlansaydı her yayında değişir ve
+>    istemci "sözleşme kırıldı mı?" sorusunu **cevaplayamazdı** — üstelik planın kendi `v1`/`v2` yol kuralıyla da
+>    ilgisiz kalırdı. Uca `apiVersion` (`"v1"`) alanı eklendi, başlık onunla birebir aynı; `version` (derleme)
+>    alanı olduğu gibi korundu. Test iki kaynağın **eşitliğini** doğruluyor.
+> 2. **Başlık middleware'i ayrı dosyaya alındı** (`Middleware/ApiVersionHeaderMiddleware.cs`) — plan Files listesinde
+>    yoktu ve Step 3 "middleware yaz" diyordu; repoda tüm middleware'ler bu klasörde ayrı sınıflar.
+> 3. **Sürüm sözlüğü ayrı dosyada** (`Modules/ApiVersioning.cs`: `ApiVersions` + `ApiVersionMetadata` +
+>    `WithApiVersion`) — `ModuleDefinition.cs`'e gömülseydi hem modül taban sınıfını hem sürüm sözleşmesini
+>    barındıran iki işli bir dosya olurdu ve middleware onu `Modules` üzerinden çağırmak zorunda kalırdı.
+> 4. **Birim testi eklendi.** Plan yalnız integration testi öngörüyordu; ama asıl kural **çözümleme sırası**
+>    (metadata > yol varsayılanı) ve "başlık `next`'ten **önce** yazılır" — ikisi de saf birim testiyle doğrudan
+>    kanıtlanır. v2 etiketi de ancak böyle test edilebiliyor: canlı uygulamada henüz v2 grubu yok.
+> 5. **`/health/*` ve `/openapi/*` bilerek sürümlenmiyor.** Plan "her `/api/*` yanıtı" diyordu; bu uçlar zaten
+>    `/api` altında değil ve yayınlanan sözleşmenin parçası değil — sürüm başlığı taşımaları yanıltıcı olurdu.
+>    Test bunu açıkça doğruluyor.
+> 6. **Etiketsiz `/api` ucu için yol tabanlı yedek kural var.** `CreateModuleGroup` kullanmayan uçlar
+>    (`/api/meta/version`, `MapTeacherDashboard`) metadata taşımıyor; yedek kural olmasa sürümsüz yanıt dönerlerdi.
+>    Bu uçları tek tek etiketlemek yerine yedek kural seçildi: yarın eklenecek bir uç da unutulmuş olmaz.
+> 7. **`doc/INDEX.md` güncellemesi Task 8'e bırakıldı** — planın kendi kapanış görevi (Task 8 Step 4) dört yeni
+>    mimari dokümanını topluca ekliyor. `doc/architecture/backend.md` bu görevde güncellendi.
+
+- [x] **Step 1: Testi yaz (kırmızı)** — herhangi bir `/api/*` yanıtında `X-Api-Version` başlığı var ve `/api/meta/version` ile aynı.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Integration/EgitimUssu.Tests.Integration.csproj --filter "FullyQualifiedName~ApiVersionHeaderTests"` → **5 başarısız / 1 geçti** (geçen tek test "health sürümlenmez"; başlık hiç yokken doğal olarak yeşildi).
+- [x] **Step 3: Başlığı ekleyen middleware'i yaz.**
+- [x] **Step 4: Sürümleme politikasını yaz** — `doc/architecture/api_versioning.md`: kırıcı değişiklik tanımı, uyarı süresi (mobil sürümler için en az 2 sürüm **ve** en az 90 gün — ikisinin büyüğü), kaldırma prosedürü.
+- [x] **Step 5: Yeşil gör + commit** — 4 mimari / 691 birim / 50 integration, başarısız 0, atlanan 0; `-warnaserror` 0/0.
 
 ```bash
 dotnet test EgitimUssu.slnx
