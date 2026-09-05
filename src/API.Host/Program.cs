@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Reflection;
 using System.Text;
 using EgitimUssu.API.Host;
@@ -94,16 +95,25 @@ builder.Services
         options.Events = new JwtBearerEvents
         {
             // Y4: Token blacklist — iptal edilmiş (logout'lanmış) erişim token'ı reddedilir (anlık iptal).
+            // A-06: Buna ek olarak kullanıcı bazlı iptal damgası denetlenir: parola sıfırlama ve rol
+            // değişimi tek tek `jti` bilemez, "şu andan önce verilen token'lar geçersiz" der. İki
+            // kontrol tek Redis turunda yapılır.
             OnTokenValidated = async context =>
             {
-                var jti = context.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-                if (!string.IsNullOrEmpty(jti))
+                var principal = context.Principal;
+                var jti = principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                var userId = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var issuedAtUtc = ReadIssuedAtUtc(principal);
+
+                if (string.IsNullOrEmpty(jti) && (userId is null || issuedAtUtc is null))
                 {
-                    var blacklist = context.HttpContext.RequestServices.GetRequiredService<ITokenBlacklist>();
-                    if (await blacklist.IsBlacklistedAsync(jti, context.HttpContext.RequestAborted))
-                    {
-                        context.Fail("Token has been revoked.");
-                    }
+                    return;
+                }
+
+                var blacklist = context.HttpContext.RequestServices.GetRequiredService<ITokenBlacklist>();
+                if (await blacklist.IsRevokedAsync(jti ?? string.Empty, userId, issuedAtUtc, context.HttpContext.RequestAborted))
+                {
+                    context.Fail("Token has been revoked.");
                 }
             },
             OnChallenge = async context =>
@@ -213,6 +223,18 @@ await app.RunAsync();
 
 public partial class Program
 {
+    /// <summary>
+    /// A-06: Token'ın <c>iat</c> claim'ini UTC'ye çevirir. Değer Unix saniyesidir; okunamıyorsa
+    /// <c>null</c> döner ve kullanıcı bazlı iptal damgası denetlenmez (yalnız <c>jti</c> kara listesi kalır).
+    /// </summary>
+    private static DateTime? ReadIssuedAtUtc(ClaimsPrincipal? principal)
+    {
+        var raw = principal?.FindFirst(JwtRegisteredClaimNames.Iat)?.Value;
+        return long.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var seconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime
+            : null;
+    }
+
     /// <summary>
     /// API host sürümünü ve çalışma zamanında keşfedilen modüllerin ad ile route prefix bilgilerini döndürür.
     /// </summary>

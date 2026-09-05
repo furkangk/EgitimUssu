@@ -17,6 +17,8 @@ public static class DependencyInjection
         services.AddScoped<ITokenIssuer, JwtTokenIssuer>();
         services.AddScoped<ITokenProtector, Sha256TokenProtector>();
         services.AddScoped<ILoginAttemptThrottle, RedisLoginAttemptThrottle>();
+        // A-06: Parola sıfırlama ve rol değişimi dolaşımdaki erişim token'larını da iptal eder.
+        services.AddScoped<ITokenRevocationService, TokenRevocationService>();
         services.AddScoped<IIdentityNotificationService, EmailIdentityNotificationService>();
         services.AddScoped<ICommandHandler<RegisterUserCommand, Result<AuthResponse>>, RegisterUserCommandHandler>();
         services.AddScoped<ICommandHandler<LoginUserCommand, Result<AuthResponse>>, LoginUserCommandHandler>();

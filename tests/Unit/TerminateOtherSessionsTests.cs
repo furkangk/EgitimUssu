@@ -112,6 +112,8 @@ public sealed class TerminateOtherSessionsTests
         public Task AddAsync(UserAccount userAccount, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task PurgeStaleCredentialsAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher

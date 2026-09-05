@@ -115,26 +115,7 @@ public sealed class DistributedRateLimitMiddleware(
     /// <param name="trustedProxyHopCount">Önümüzdeki güvenilir proxy sayısı; <c>0</c> ise başlık yok sayılır.</param>
     /// <returns>Partition anahtarı olarak kullanılacak istemci kimliği.</returns>
     internal static string ResolveClientId(HttpContext context, int trustedProxyHopCount)
-    {
-        if (trustedProxyHopCount > 0)
-        {
-            var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(forwarded))
-            {
-                var entries = forwarded.Split(
-                    ',',
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                var index = entries.Length - trustedProxyHopCount;
-                if (index >= 0 && index < entries.Length && entries[index].Length > 0)
-                {
-                    return entries[index];
-                }
-            }
-        }
-
-        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    }
+        => ClientIpResolver.Resolve(context, trustedProxyHopCount);
 
     private static async Task WriteRateLimitedAsync(HttpContext context)
     {
