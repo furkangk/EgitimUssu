@@ -31,6 +31,7 @@
 
 ### Task 3: Veli — kodla katılım ve hesap girişleri (rapor 2.3-1, 2.3-2, §4-4)
 - `parent_children_page.dart` GUID alanı → **davet kodu** alanı (`claim-invite`); bekleyen bağlar için durum açıklaması ("Öğrencinin onayı bekleniyor").
+- **Tasarım (kullanıcı onaylı 2026-11-14, taslak V02):** "Çocuk bağla" FAB + sheet yerine liste üstünde **satır içi davet kodu kartı** (8 karakter, K-24 biçimi, tek alan + "Bağla" düğmesi).
 - Veli profilinde: mesajlar, bildirim gelen kutusu, bildirim tercihleri, gizlilik, cihaz oturumları, üyelik, hesap silme.
 - **Kabul:** veli kodu girer → bağ **anında onaylı**, panoda çocuk görünür; hiçbir ekranda GUID istenmez.
 
@@ -55,6 +56,7 @@
 
 ### Task 8: Sohbet adları ve veli sohbet başlatma (rapor 2.3-4)
 - `ConversationSummaryResponse`'a karşı tarafın görünen adı (Identity/Students sözleşmesiyle); veli, onaylı çocuğunun özel öğretmenleriyle sohbet başlatabilir.
+- **Tasarım (kullanıcı onaylı 2026-11-14, taslak G01/G02/G03):** satırda ve sohbet başlığında baş harfli avatar + **ad**, altında rol etiketi (Öğrenci / Veli / Öğretmen); salt-okunur ve engelli sohbet rozetleri (G01), salt-okunur sohbette yazma alanı yerine kilitli bilgi kutusu (G03, #198).
 - **Kabul:** gelen kutusunda isimsiz satır yok.
 
 ### Task 9: Kapanış — üç rol senaryosu + doküman çelişkileri
