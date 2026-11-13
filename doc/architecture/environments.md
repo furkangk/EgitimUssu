@@ -116,6 +116,13 @@ bittiğini doğrular ve demo hesapları yazdırır.
 > veritabanını boşaltıp (ya da yeni bir veritabanı adıyla) yeniden tohumla. Staging henüz deploy edilmediği için
 > etkilenen yalnız yerel geliştirme veritabanlarıdır.
 
+> ⚠️ **P15 T3 ile (T4 öncesi) tohumlanmış veritabanı — geri doldurma yok:** o sürümde davetle hesaba bağlanan
+> öğrencilerin `StudentProfileLinkedToUser` olayı tüketicisiz dağıtıldı; Parents'taki `known_students.UserId` boş kaldı.
+> T4'ten sonra bu öğrencilerin velisi panelde çalışma verisini **gizli** görür (fail-closed) ve öğrenci veli talebini
+> onaylayamaz. Ayrıca T4 öncesi biten veli bağlarının `student_profiles.ParentUserId`'si temizlenmez (artık yetki
+> vermez, yalnız gösterge). Çare yine yeniden tohumlamadır; seeder hata vermeden açılır, belirti yalnız davranıştadır.
+> Canlı üretim olmadığı için geri doldurma (backfill) yazılmadı.
+
 ---
 
 ## 3. Ortam değişkenleri
@@ -227,4 +234,4 @@ Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
 > yedekleme/geri yükleme → [`backup_restore.md`](backup_restore.md) ·
 > gözlemlenebilirlik → [`backend.md` §11](backend.md)
 
-*Ortamlar | Güncelleme: 2026-11-14 (P15 Task 3 / N-23: demo öğrenci hesapları davet + claim ile, veli bağları veli davet koduyla kurulur; §2) · 2026-11-13 (P15 Task 2 / N-08: demo öğrencilerinin beşi de öğretmen bağlı `TeacherManaged` profil; hesaplı ikisi öğrencinin hesabıyla açılır. Eski demo veritabanı için sıfırlama notu §2) · 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*
+*Ortamlar | Güncelleme: 2026-11-14 (P15 Task 4 / N-27: T3 ile tohumlanmış veritabanında davetle bağlanan öğrencilerin Parents eşlemesi boş — yeniden tohumlama notu §2) · 2026-11-14 (P15 Task 3 / N-23: demo öğrenci hesapları davet + claim ile, veli bağları veli davet koduyla kurulur; §2) · 2026-11-13 (P15 Task 2 / N-08: demo öğrencilerinin beşi de öğretmen bağlı `TeacherManaged` profil; hesaplı ikisi öğrencinin hesabıyla açılır. Eski demo veritabanı için sıfırlama notu §2) · 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*

@@ -138,7 +138,7 @@ Hemen arkasından: **N-41** arka plan işleri kendi kirasını yenileyemediği i
 | A-06 (token iptali) | ✅ | Cihaz iptali, M15-3, KVKK tamamlanması access token'ı iptal etmiyor → N-31 |
 | A-07 (çok-instance kirası) | ✅ | Kira sahibince yenilenemiyor → işler ~5 dk'da bir koşuyor (N-41); ayrıca `AccountDeletionService` ve `DataRetentionService` düz `BackgroundService`, kirasız (`AccountDeletionService.cs:170`) ◐ |
 | M15-3 (diğer oturumları kapat) | ✅ | A-15 ile birleşince yeni oturumu da öldürüyor → N-29 |
-| M03-1 (veli bağ onayı) | ✅ | Davetle bağlanan öğrencide fiilen yalnız Admin onaylayabiliyor → N-27; mobilde onay ekranı hiç yok |
+| M03-1 (veli bağ onayı) | ✅ | Davetle bağlanan öğrencide fiilen yalnız Admin onaylayabiliyor → N-27 (✅ backend P15 T4); mobilde onay ekranı hiç yok (P21 T2) |
 | D-08 (mesajlaşma, üç rol) | ✅ | Veli `/messages`'a giremiyor → N-62 |
 | D-14 (hesap bilgileri) | ✅ | `account_info_page` sahte veri → N-66 |
 | D-20 (Türkçe yazım 188→0) | ✅ | `api_exception.dart` ASCII Türkçe, `localization_test` yakalamıyor → N-72 |

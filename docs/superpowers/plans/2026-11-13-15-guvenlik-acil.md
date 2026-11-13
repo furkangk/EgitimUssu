@@ -152,11 +152,11 @@
 **Interfaces:**
 - Produces: `ParentChildLink.Approve(...)` → `Result` (`parents.invalid_link_transition`); `ParentChildLinkEndedIntegrationEvent(LinkId, ParentUserId, StudentId, Reason)`.
 
-- [x] **Step 1: Kırmızı testler** — onaylı veli → bağ iptal → profil okuma **403**; reddedilmiş bağ yeniden `Approve` → hata; davetle bağlanmış öğrenci "Gizli" seçer → veli paneli gizli alanları görmez; davetle bağlanmış öğrenci veli talebini onaylayabilir; aynı öğrenciye eşzamanlı iki birincil veli → biri reddedilir. (15 birim + 7 integration; yarış hem deterministik — iki kapsamda iç içe onay — hem gerçek HTTP yarışı olarak.)
+- [x] **Step 1: Kırmızı testler** — onaylı veli → bağ iptal → profil okuma **403**; reddedilmiş bağ yeniden `Approve` → hata; davetle bağlanmış öğrenci "Gizli" seçer → veli paneli gizli alanları görmez; davetle bağlanmış öğrenci veli talebini onaylayabilir; aynı öğrenciye eşzamanlı iki birincil veli → biri reddedilir. (15 birim + 7 integration; yarış hem deterministik — iki kapsamda iç içe onay — hem gerçek HTTP yarışı olarak. Takipte 8. integration: yabancı öğrenci / ilgisiz veli / talep eden veli → onay-ret-iptal 403; gizlilik testine pozitif kontrol.)
 - [x] **Step 2: Kırmızı gör.** (Önce derleme, sonra API iskeletiyle davranışsal: 12/15 birim, 7/7 integration kırmızı; 3 yeşil birim test koruma testi.)
 - [x] **Step 3: Uygula** (fail-closed: `UserId` bilinmiyorsa `Hidden`).
 - [x] **Step 4: Migration + `check-migration-down.sh`.** (`ParentLinkIntegrity`; 144 migration geri alınabilir, drift 0.)
-- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh` (4 / 928 / 83, başarısız 0, atlanan 0; `-warnaserror` 0 uyarı.)
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh` (4 / 928 / 84, başarısız 0, atlanan 0; `-warnaserror` 0 uyarı.)
 - [x] **Step 6: Doküman + commit** — `m09`, `roles/veli.md`, `roles/ogrenci.md`; rapor N-26/27 ✅. (Ek: `m03`, `00_genel_bakis.md`, `veri_modeli.md`; N-32'nin birincil veli maddesi ✅ — N-32 ◐ kalır.)
   ```bash
   git commit -m "fix(parents): bag iptalinde erisim kesilir + gizlilik fail-closed + tek birincil veli (N-26, N-27)"
