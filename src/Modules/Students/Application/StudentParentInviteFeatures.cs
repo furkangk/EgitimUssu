@@ -13,6 +13,9 @@ public interface IStudentParentInviteRepository
 
     Task<StudentParentInvite?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken);
 
+    /// <summary>P15 / N-28: Bir profilin bekleyen veli davetleri — birleşmede kanonik profile taşınır.</summary>
+    Task<IReadOnlyCollection<StudentParentInvite>> ListPendingByStudentAsync(Guid studentId, CancellationToken cancellationToken);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 

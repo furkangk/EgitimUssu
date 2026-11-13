@@ -51,6 +51,9 @@ public static class DependencyInjection
         // M10-4: tamamlanan ders → konuya katılım katkısı
         services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedProgressHandler>();
 
+        // P15 / N-28: profil birleşmesi → gelişim verisi kanonik profile (çakışmada kanonik kazanır)
+        services.AddScoped<IIntegrationEventHandler, StudentProfilesMergedProgressHandler>();
+
         // M10-1: kapanmış hafta/ay için gelişim anlık görüntüsü üreten günlük tur
         services.AddScoped<IProgressSnapshotProcessor, ProgressSnapshotProcessor>();
         services.AddHostedService<ProgressSnapshotService>();

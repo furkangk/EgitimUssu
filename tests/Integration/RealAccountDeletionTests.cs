@@ -51,7 +51,7 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
 
         var teacherUserId = await RegisterAsync(teacher, role: 2, label: "Silme-Ogretmen");
         var (studentUserId, studentEmail) = await RegisterWithEmailAsync(student, role: 3, label: "Silme-Ogrenci");
-        var studentId = await CreateStudentAsync(teacher, teacherUserId, studentUserId);
+        var studentId = await CreateStudentAsync(factory, teacher, student, teacherUserId, studentUserId);
 
         // Öğrenci gerçek veri üretir: cihaz jetonu (push), ayar satırı, çalışma seansı.
         await RegisterDeviceAsync(student, studentUserId);
@@ -186,11 +186,16 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
         return (payload.RootElement.GetProperty("userId").GetGuid(), email);
     }
 
-    private static async Task<Guid> CreateStudentAsync(HttpClient teacher, Guid teacherUserId, Guid studentUserId)
+    /// <summary>
+    /// Öğretmen hesapsız profil açar, öğrenci <b>davet + claim</b> ile devralır (P15 T3 / N-23: gövdedeki
+    /// <c>userId</c> artık reddedilir). Sonuç: profil öğrencinin, öğretmenle bağ <c>Linked</c>.
+    /// </summary>
+    private static async Task<Guid> CreateStudentAsync(
+        WebApplicationFactory<Program> factory, HttpClient teacher, HttpClient student, Guid teacherUserId, Guid studentUserId)
     {
         var response = await teacher.PostAsJsonAsync("/api/students/profiles", new
         {
-            userId = studentUserId,
+            userId = (Guid?)null,
             createdByTeacherUserId = teacherUserId,
             parentUserId = (Guid?)null,
             fullName = "Silme Ogrencisi",
@@ -203,7 +208,9 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
             subjects = Array.Empty<object>(),
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        var studentId = (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        await StudentLinkTestHelper.LinkStudentAccountAsync(factory, teacher, student, teacherUserId, studentId, studentUserId);
+        return studentId;
     }
 
     private static async Task RegisterDeviceAsync(HttpClient student, Guid studentUserId)

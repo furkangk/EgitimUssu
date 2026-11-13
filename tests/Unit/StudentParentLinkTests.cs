@@ -141,7 +141,8 @@ public sealed class StudentParentLinkTests
         var authorizer = new StudentProfileQueryAuthorizer(
             new FakeCurrentUser(Guid.NewGuid().ToString(), "Parent"),
             new FakeRepository(null),
-            new FakeRequestEntityCache());
+            new FakeRequestEntityCache(),
+            new FakeTeacherStudentAccess(TeacherAccessScope.None));
 
         var result = await authorizer.Authorize(new ListStudentsByParentQuery(ParentUserId), CancellationToken.None);
 
@@ -155,7 +156,8 @@ public sealed class StudentParentLinkTests
         var authorizer = new StudentProfileQueryAuthorizer(
             new FakeCurrentUser(ParentUserId.ToString(), "Parent"),
             new FakeRepository(null),
-            new FakeRequestEntityCache());
+            new FakeRequestEntityCache(),
+            new FakeTeacherStudentAccess(TeacherAccessScope.None));
 
         var result = await authorizer.Authorize(new ListStudentsByParentQuery(ParentUserId), CancellationToken.None);
 
@@ -193,10 +195,15 @@ public sealed class StudentParentLinkTests
         Assert.True(result.IsSuccess);
     }
 
+    /// <summary>
+    /// Öğretmenin açıp öğrencinin davetle devraldığı profil (sahip öğrenci + açan öğretmen). P15 T3'ten beri bu
+    /// durum kurucuyla değil, ürünün kendi yolu olan <see cref="StudentProfile.LinkUser"/> ile kurulur.
+    /// </summary>
     private static StudentProfile NewProfile()
-        => new(
+    {
+        var profile = new StudentProfile(
             Guid.NewGuid(),
-            StudentUserId,
+            null,
             TeacherId,
             null,
             "Ali Veli",
@@ -208,6 +215,9 @@ public sealed class StudentParentLinkTests
             StudentOrigin.TeacherManaged,
             true,
             Now);
+        Assert.True(profile.LinkUser(StudentUserId, Now).IsSuccess);
+        return profile;
+    }
 
     private sealed class FakeCurrentUser(string? userId, params string[] roles) : ICurrentUser
     {

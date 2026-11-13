@@ -142,10 +142,15 @@ public sealed class StudentProfileSubjectsTests
         Assert.Equal("shared.forbidden", result.Error.Code);
     }
 
+    /// <summary>
+    /// Öğretmenin açıp öğrencinin davetle devraldığı profil (sahip öğrenci + açan öğretmen). P15 T3'ten beri bu
+    /// durum kurucuyla değil, ürünün kendi yolu olan <see cref="StudentProfile.LinkUser"/> ile kurulur.
+    /// </summary>
     private static StudentProfile NewProfile()
-        => new(
+    {
+        var profile = new StudentProfile(
             Guid.NewGuid(),
-            StudentUserId,
+            null,
             TeacherId,
             null,
             "Ali Veli",
@@ -157,6 +162,9 @@ public sealed class StudentProfileSubjectsTests
             StudentOrigin.TeacherManaged,
             true,
             Now);
+        Assert.True(profile.LinkUser(StudentUserId, Now).IsSuccess);
+        return profile;
+    }
 
     private sealed class FakeClock : IClock
     {

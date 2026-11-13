@@ -30,6 +30,23 @@ public sealed class TeacherStudentLinkTests
         public bool IsAuthenticated => UserId is not null;
     }
 
+    private sealed class NoopLimiter : EgitimUssu.Shared.Application.IInviteClaimAttemptLimiter
+    {
+        public Task<bool> IsBlockedAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(false);
+        public Task RecordFailureAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ResetAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class NoParentInvites : IStudentParentInviteRepository
+    {
+        public Task<IReadOnlyCollection<StudentParentInvite>> ListPendingByStudentAsync(Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<StudentParentInvite>>([]);
+        public Task AddAsync(StudentParentInvite invite, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<StudentParentInvite?> GetByInviteCodeAsync(string inviteCode, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<StudentParentInvite?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
     private sealed class SingleLinkRepo : ITeacherStudentLinkRepository
     {
         private readonly TeacherStudentLink? _link;
@@ -49,6 +66,8 @@ public sealed class TeacherStudentLinkTests
         public Task AddAsync(TeacherStudentLink link, CancellationToken ct) => Task.CompletedTask;
         public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<TeacherStudentLink>> ListByTeacherAsync(Guid teacherUserId, bool includeArchived, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<TeacherStudentLink>> ListByStudentAsync(Guid studentId, CancellationToken ct) => throw new NotImplementedException();
+        public void Remove(TeacherStudentLink link) => throw new NotImplementedException();
     }
 
     [Fact]
@@ -111,7 +130,8 @@ public sealed class TeacherStudentLinkTests
         public SingleProfileRepo(StudentProfile? profile) => _profile = profile;
 
         public Task<StudentProfile?> GetByIdAsync(Guid studentId, CancellationToken ct) => Task.FromResult(_profile);
-        public Task<StudentProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct) => throw new NotImplementedException();
+        public Task<StudentProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct)
+            => Task.FromResult(_profile is not null && _profile.UserId == userId ? _profile : null);
         public Task<bool> ExistsByContactEmailAsync(string normalizedEmail, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<StudentProfile>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<StudentProfile>> ListByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct) => throw new NotImplementedException();
@@ -138,8 +158,10 @@ public sealed class TeacherStudentLinkTests
         Assert.Equal(TeacherStudentLinkStatus.InviteSent, link.Status);
         Assert.Equal(studentUserId, link.InviteTargetUserId);
 
-        var accept = new AcceptTeacherStudentLinkCommandHandler(linkRepo, new SingleProfileRepo(profile), new FakeClock());
-        var acceptResult = await accept.Handle(new AcceptTeacherStudentLinkCommand(linkId, studentUserId), CancellationToken.None);
+        var accept = new AcceptTeacherStudentLinkCommandHandler(
+            linkRepo, new SingleProfileRepo(profile), new NoParentInvites(), new NoopLimiter(), new FakeClock());
+        var acceptResult = await accept.Handle(
+            new AcceptTeacherStudentLinkCommand(linkId, studentUserId, link.InviteCode!), CancellationToken.None);
 
         Assert.True(acceptResult.IsSuccess);
         Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
@@ -149,9 +171,9 @@ public sealed class TeacherStudentLinkTests
     [Fact]
     public async Task RejectHandler_MissingLink_ReturnsNotFound()
     {
-        var handler = new RejectTeacherStudentLinkCommandHandler(new SingleLinkRepo(null), new FakeClock());
+        var handler = new RejectTeacherStudentLinkCommandHandler(new SingleLinkRepo(null), new NoopLimiter(), new FakeClock());
 
-        var result = await handler.Handle(new RejectTeacherStudentLinkCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.Handle(new RejectTeacherStudentLinkCommand(Guid.NewGuid(), Guid.NewGuid(), "ABCD2345"), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal("students.link_not_found", result.Error.Code);
@@ -185,12 +207,12 @@ public sealed class TeacherStudentLinkTests
         Assert.Equal(TeacherStudentLinkStatus.InviteSent, link.Status);
         Assert.Equal(target, link.InviteTargetUserId);
 
-        link.Accept(Now);
+        Assert.True(link.Accept(target, "123456", Now).IsSuccess);
         Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
 
         var link2 = New();
         link2.MarkInviteSent("654321", target, Now.AddDays(7), Now);
-        link2.Reject(Now);
+        Assert.True(link2.Reject(target, "654321", Now).IsSuccess);
         Assert.Equal(TeacherStudentLinkStatus.Rejected, link2.Status);
     }
 }

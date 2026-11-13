@@ -64,7 +64,7 @@ public sealed class InviteCodeHardeningTests
     {
         var (link, _, profileRepo) = InviteSentLink(expiresOnUtc: Now.AddMinutes(-1));
         var limiter = new FakeLimiter();
-        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(link), profileRepo, limiter, new FixedClock(Now));
+        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(link), profileRepo, new ParentInviteRepo(), limiter, new FixedClock(Now));
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("ABCD2345", Guid.NewGuid()), default);
 
@@ -78,7 +78,7 @@ public sealed class InviteCodeHardeningTests
     public async Task StudentClaim_By_The_Inviting_Teacher_Fails()
     {
         var (link, teacherId, profileRepo) = InviteSentLink(expiresOnUtc: Now.AddDays(1));
-        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(link), profileRepo, new FakeLimiter(), new FixedClock(Now));
+        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(link), profileRepo, new ParentInviteRepo(), new FakeLimiter(), new FixedClock(Now));
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("ABCD2345", teacherId), default);
 
@@ -92,7 +92,7 @@ public sealed class InviteCodeHardeningTests
     {
         var (link, _, profileRepo) = InviteSentLink(expiresOnUtc: Now.AddDays(1));
         var limiter = new FakeLimiter();
-        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(link), profileRepo, limiter, new FixedClock(Now));
+        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(link), profileRepo, new ParentInviteRepo(), limiter, new FixedClock(Now));
 
         var result = await handler.Handle(new ClaimStudentLinkCommand(" abcd2345 ", Guid.NewGuid()), default);
 
@@ -106,7 +106,7 @@ public sealed class InviteCodeHardeningTests
     {
         var (link, _, profileRepo) = InviteSentLink(expiresOnUtc: Now.AddDays(1));
         var linkRepo = new LinkRepo(link);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new FakeLimiter { Blocked = true }, new FixedClock(Now));
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new ParentInviteRepo(), new FakeLimiter { Blocked = true }, new FixedClock(Now));
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("ABCD2345", Guid.NewGuid()), default);
 
@@ -120,7 +120,7 @@ public sealed class InviteCodeHardeningTests
     public async Task StudentClaim_Unknown_Code_Counts_As_Attempt()
     {
         var limiter = new FakeLimiter();
-        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(null), new ProfileRepo(null), limiter, new FixedClock(Now));
+        var handler = new ClaimStudentLinkCommandHandler(new LinkRepo(null), new ProfileRepo(null), new ParentInviteRepo(), limiter, new FixedClock(Now));
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("ZZZZ9999", Guid.NewGuid()), default);
 
@@ -222,6 +222,8 @@ public sealed class InviteCodeHardeningTests
         public Task AddAsync(TeacherStudentLink link, CancellationToken ct) => Task.CompletedTask;
         public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<TeacherStudentLink>> ListByTeacherAsync(Guid teacherUserId, bool includeArchived, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<TeacherStudentLink>> ListByStudentAsync(Guid studentId, CancellationToken ct) => throw new NotImplementedException();
+        public void Remove(TeacherStudentLink link) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
     }
 
@@ -250,6 +252,8 @@ public sealed class InviteCodeHardeningTests
 
         public Task<StudentParentInvite?> GetByInviteCodeAsync(string inviteCode, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<StudentParentInvite?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<StudentParentInvite>> ListPendingByStudentAsync(Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<StudentParentInvite>>(Added.Where(invite => invite.StudentId == studentId).ToArray());
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

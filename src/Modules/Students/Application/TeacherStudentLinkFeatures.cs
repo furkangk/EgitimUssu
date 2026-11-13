@@ -18,6 +18,12 @@ public interface ITeacherStudentLinkRepository
 
     Task<IReadOnlyCollection<TeacherStudentLink>> ListByTeacherAsync(Guid teacherUserId, bool includeArchived, CancellationToken cancellationToken);
 
+    /// <summary>P15 / N-28: Bir öğrenci profilinin bütün öğretmen bağları (arşivli/bitmiş dahil) — birleştirme için.</summary>
+    Task<IReadOnlyCollection<TeacherStudentLink>> ListByStudentAsync(Guid studentId, CancellationToken cancellationToken);
+
+    /// <summary>P15 / N-28: Birleşmede düşen bağı siler (SaveChanges ile birlikte uygulanır).</summary>
+    void Remove(TeacherStudentLink link);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
@@ -87,9 +93,11 @@ public sealed class SetTeacherStudentRateCommandHandler : ICommandHandler<SetTea
 
 public sealed record InviteStudentCommand(Guid TeacherUserId, Guid StudentId, Guid? TargetUserId) : ICommand<Result>;
 
-public sealed record AcceptTeacherStudentLinkCommand(Guid LinkId, Guid AcceptingUserId) : ICommand<Result>;
+/// <summary>P15 / N-22: Link kimliğiyle davet kabulü — davet kodu kanıttır (link kimliği tek başına yetmez).</summary>
+public sealed record AcceptTeacherStudentLinkCommand(Guid LinkId, Guid AcceptingUserId, string InviteCode) : ICommand<Result>;
 
-public sealed record RejectTeacherStudentLinkCommand(Guid LinkId, Guid RejectingUserId) : ICommand<Result>;
+/// <summary>P15 / N-22: Link kimliğiyle davet reddi — kabulle aynı kanıtı ister.</summary>
+public sealed record RejectTeacherStudentLinkCommand(Guid LinkId, Guid RejectingUserId, string InviteCode) : ICommand<Result>;
 
 public sealed class InviteStudentCommandHandler : ICommandHandler<InviteStudentCommand, Result>
 {
@@ -125,64 +133,90 @@ public sealed class InviteStudentCommandHandler : ICommandHandler<InviteStudentC
     }
 }
 
+/// <summary>
+/// P15 / N-22: Link kimliğiyle davet kabulü. Claim ile <b>aynı çekirdeği</b> kullanır
+/// (<see cref="StudentInviteAcceptance"/>): kod, durum, hedef, süre ve kendi davetini kullanma kontrolü;
+/// sonra devralma ya da birleştirme. Kodla ilgili her başarısız deneme kullanıcı başına sayılır.
+/// </summary>
 public sealed class AcceptTeacherStudentLinkCommandHandler : ICommandHandler<AcceptTeacherStudentLinkCommand, Result>
 {
     private static readonly Error NotFound = new("students.link_not_found", "Ogrenci baglantisi bulunamadi.");
     private readonly ITeacherStudentLinkRepository _repository;
     private readonly IStudentProfileRepository _profileRepository;
+    private readonly IStudentParentInviteRepository _parentInviteRepository;
+    private readonly IInviteClaimAttemptLimiter _attempts;
     private readonly IClock _clock;
 
     public AcceptTeacherStudentLinkCommandHandler(
         ITeacherStudentLinkRepository repository,
         IStudentProfileRepository profileRepository,
+        IStudentParentInviteRepository parentInviteRepository,
+        IInviteClaimAttemptLimiter attempts,
         IClock clock)
     {
         _repository = repository;
         _profileRepository = profileRepository;
+        _parentInviteRepository = parentInviteRepository;
+        _attempts = attempts;
         _clock = clock;
     }
 
     public async Task<Result> Handle(AcceptTeacherStudentLinkCommand command, CancellationToken cancellationToken)
     {
+        if (await _attempts.IsBlockedAsync(command.AcceptingUserId, cancellationToken))
+        {
+            return Result.Failure(StudentInviteAcceptance.TooManyAttempts);
+        }
+
         var link = await _repository.GetByIdAsync(command.LinkId, cancellationToken);
         if (link is null)
         {
             return Result.Failure(NotFound);
         }
 
-        link.Accept(_clock.UtcNow);
+        var accepted = await StudentInviteAcceptance.AcceptAsync(
+            link, command.AcceptingUserId, command.InviteCode, _clock.UtcNow,
+            _repository, _profileRepository, _parentInviteRepository, cancellationToken);
 
-        var profile = await _profileRepository.GetByIdAsync(link.StudentId, cancellationToken);
-        profile?.LinkUser(command.AcceptingUserId, _clock.UtcNow);
-
-        await _repository.SaveChangesAsync(cancellationToken);
-        return Result.Success();
+        return await StudentInviteAcceptance.FinishAsync(
+            accepted, command.AcceptingUserId, _repository, _attempts, cancellationToken);
     }
 }
 
+/// <summary>P15 / N-22: Link kimliğiyle davet reddi — yalnız <c>InviteSent</c> bağda ve kodla.</summary>
 public sealed class RejectTeacherStudentLinkCommandHandler : ICommandHandler<RejectTeacherStudentLinkCommand, Result>
 {
     private static readonly Error NotFound = new("students.link_not_found", "Ogrenci baglantisi bulunamadi.");
     private readonly ITeacherStudentLinkRepository _repository;
+    private readonly IInviteClaimAttemptLimiter _attempts;
     private readonly IClock _clock;
 
-    public RejectTeacherStudentLinkCommandHandler(ITeacherStudentLinkRepository repository, IClock clock)
+    public RejectTeacherStudentLinkCommandHandler(
+        ITeacherStudentLinkRepository repository,
+        IInviteClaimAttemptLimiter attempts,
+        IClock clock)
     {
         _repository = repository;
+        _attempts = attempts;
         _clock = clock;
     }
 
     public async Task<Result> Handle(RejectTeacherStudentLinkCommand command, CancellationToken cancellationToken)
     {
+        if (await _attempts.IsBlockedAsync(command.RejectingUserId, cancellationToken))
+        {
+            return Result.Failure(StudentInviteAcceptance.TooManyAttempts);
+        }
+
         var link = await _repository.GetByIdAsync(command.LinkId, cancellationToken);
         if (link is null)
         {
             return Result.Failure(NotFound);
         }
 
-        link.Reject(_clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
-        return Result.Success();
+        var rejected = link.Reject(command.RejectingUserId, command.InviteCode, _clock.UtcNow);
+        return await StudentInviteAcceptance.FinishAsync(
+            rejected, command.RejectingUserId, _repository, _attempts, cancellationToken);
     }
 }
 
@@ -196,27 +230,32 @@ public sealed record ClaimStudentLinkCommand(string InviteCode, Guid ClaimingUse
 /// reddedilir; bulunamayan/süresi dolmuş her deneme kullanıcı başına sayılır, eşik aşılınca doğru kod da
 /// reddedilir (<see cref="IInviteClaimAttemptLimiter"/>).
 /// </para>
+/// <para>
+/// P15 / N-22, N-28: kabulün kendisi link kabulüyle aynı çekirdektedir (<see cref="StudentInviteAcceptance"/>):
+/// hedefli davet yalnız hedefine açılır, başkasına ait profil devralınamaz, birleşmede öğretmen bağları ve
+/// bekleyen veli davetleri aynı transaction'da kanonik profile taşınır.
+/// </para>
 /// </summary>
 public sealed class ClaimStudentLinkCommandHandler : ICommandHandler<ClaimStudentLinkCommand, Result>
 {
     private static readonly Error InviteNotFound = new("students.invite_not_found", "Davet kodu bulunamadi.");
     private static readonly Error InviteInvalid = new("students.invite_invalid", "Davet kodu artik gecerli degil.");
-    private static readonly Error InviteExpired = new("students.invite_expired", "Davet kodunun süresi dolmuş. Öğretmeninden yeni bir kod iste.");
-    private static readonly Error CannotClaimOwnInvite = new("students.cannot_claim_own_invite", "Kendi oluşturduğun daveti kullanamazsın.");
-    private static readonly Error TooManyAttempts = new("shared.too_many_attempts", "Çok fazla hatalı kod denemesi. Lütfen daha sonra tekrar dene.");
     private readonly ITeacherStudentLinkRepository _repository;
     private readonly IStudentProfileRepository _profileRepository;
+    private readonly IStudentParentInviteRepository _parentInviteRepository;
     private readonly IInviteClaimAttemptLimiter _attempts;
     private readonly IClock _clock;
 
     public ClaimStudentLinkCommandHandler(
         ITeacherStudentLinkRepository repository,
         IStudentProfileRepository profileRepository,
+        IStudentParentInviteRepository parentInviteRepository,
         IInviteClaimAttemptLimiter attempts,
         IClock clock)
     {
         _repository = repository;
         _profileRepository = profileRepository;
+        _parentInviteRepository = parentInviteRepository;
         _attempts = attempts;
         _clock = clock;
     }
@@ -225,52 +264,153 @@ public sealed class ClaimStudentLinkCommandHandler : ICommandHandler<ClaimStuden
     {
         if (await _attempts.IsBlockedAsync(command.ClaimingUserId, cancellationToken))
         {
-            return Result.Failure(TooManyAttempts);
+            return Result.Failure(StudentInviteAcceptance.TooManyAttempts);
         }
 
-        var link = await _repository.GetByInviteCodeAsync(SecureCode.Normalize(command.InviteCode), cancellationToken);
+        var code = SecureCode.Normalize(command.InviteCode);
+        var link = await _repository.GetByInviteCodeAsync(code, cancellationToken);
         if (link is null)
         {
             await _attempts.RecordFailureAsync(command.ClaimingUserId, cancellationToken);
             return Result.Failure(InviteNotFound);
         }
 
+        // Kullanılmış (Linked) eski kod: "bulunamadı" değil "artık geçersiz" — mobil mesajı bunu ayırır.
         if (link.Status != TeacherStudentLinkStatus.InviteSent)
         {
             return Result.Failure(InviteInvalid);
         }
 
-        var now = _clock.UtcNow;
-        if (link.IsInviteExpired(now))
+        var accepted = await StudentInviteAcceptance.AcceptAsync(
+            link, command.ClaimingUserId, code, _clock.UtcNow,
+            _repository, _profileRepository, _parentInviteRepository, cancellationToken);
+
+        return await StudentInviteAcceptance.FinishAsync(
+            accepted, command.ClaimingUserId, _repository, _attempts, cancellationToken);
+    }
+}
+
+/// <summary>
+/// P15 / N-22, N-23, N-28: Öğrenci davetini kabul etmenin tek çekirdeği — claim (kodla) ve link kabulü
+/// (link kimliği + kod) aynı kuralı izler:
+/// <list type="number">
+/// <item>Kod, durum (<c>InviteSent</c>), hedef kullanıcı ve süre (<see cref="TeacherStudentLink.CanRespond"/>);
+/// daveti üreten öğretmen kendi davetini kullanamaz.</item>
+/// <item>Davet edilen profil başka bir hesaba aitse devralınamaz (N-23 ile açılmış satırlar).</item>
+/// <item>Kullanıcının kendi profili yoksa (ya da zaten bu profilse) <b>devralma</b>: profil kullanıcıya bağlanır.</item>
+/// <item>Kendi profili varsa <b>birleştirme</b>: öğretmen bağları (<see cref="StudentMergePolicy"/>), bekleyen veli
+/// davetleri ve (boşsa) onaylı veli kanonik profile taşınır, manuel profil pasifleşir. Hepsi tek SaveChanges.</item>
+/// </list>
+/// Bağ, birleştirmeden <b>sonra</b> kabul edilir: <c>TeacherStudentLinkAccepted</c> olayı kanonik kimliği taşısın
+/// (Reporting'in birleştirme tüketicisi yok). Hiçbir adım kaydetmez; çağıran <see cref="FinishAsync"/> ile kaydeder.
+/// </summary>
+internal static class StudentInviteAcceptance
+{
+    public static readonly Error TooManyAttempts = new("shared.too_many_attempts", "Çok fazla hatalı kod denemesi. Lütfen daha sonra tekrar dene.");
+    private static readonly Error CannotClaimOwnInvite = new("students.cannot_claim_own_invite", "Kendi oluşturduğun daveti kullanamazsın.");
+    private static readonly Error ProfileNotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+
+    /// <summary>Kod tahminine işaret eden hatalar — kullanıcı başına deneme sayacına yazılır.</summary>
+    private static readonly HashSet<string> GuessingErrors =
+    [
+        StudentErrors.InviteCodeMismatch.Code,
+        StudentErrors.InviteExpired.Code,
+        StudentErrors.InviteNotForUser.Code,
+    ];
+
+    public static async Task<Result> AcceptAsync(
+        TeacherStudentLink link,
+        Guid actingUserId,
+        string? inviteCode,
+        DateTime nowUtc,
+        ITeacherStudentLinkRepository links,
+        IStudentProfileRepository profiles,
+        IStudentParentInviteRepository parentInvites,
+        CancellationToken cancellationToken)
+    {
+        var respondable = link.CanRespond(actingUserId, inviteCode, nowUtc);
+        if (respondable.IsFailure)
         {
-            await _attempts.RecordFailureAsync(command.ClaimingUserId, cancellationToken);
-            return Result.Failure(InviteExpired);
+            return respondable;
         }
 
-        if (link.TeacherUserId == command.ClaimingUserId)
+        if (link.TeacherUserId == actingUserId)
         {
             return Result.Failure(CannotClaimOwnInvite);
         }
 
-        link.Accept(now);
-
-        var manualProfile = await _profileRepository.GetByIdAsync(link.StudentId, cancellationToken);
-        var existingProfile = await _profileRepository.GetByUserIdAsync(command.ClaimingUserId, cancellationToken);
-
-        if (manualProfile is not null && existingProfile is not null && existingProfile.Id != manualProfile.Id)
+        var invitedProfile = await profiles.GetByIdAsync(link.StudentId, cancellationToken);
+        if (invitedProfile is null)
         {
-            // Öğrencinin zaten bir self-register profili var → kanonik = self-profil. Manuel profili
-            // birleştir (pasifleştir) ve modüller-arası StudentId yeniden atamasını tetikle (Outbox).
-            manualProfile.MarkMerged(existingProfile.Id, _clock.UtcNow);
-        }
-        else
-        {
-            // Mevcut self-register profil yok → manuel profili öğrenci kullanıcısına bağla (basit devralma).
-            manualProfile?.LinkUser(command.ClaimingUserId, _clock.UtcNow);
+            return Result.Failure(ProfileNotFound);
         }
 
-        await _repository.SaveChangesAsync(cancellationToken);
-        await _attempts.ResetAsync(command.ClaimingUserId, cancellationToken);
+        var claimable = invitedProfile.EnsureClaimableBy(actingUserId);
+        if (claimable.IsFailure)
+        {
+            return claimable;
+        }
+
+        var ownProfile = await profiles.GetByUserIdAsync(actingUserId, cancellationToken);
+        if (ownProfile is null || ownProfile.Id == invitedProfile.Id)
+        {
+            // Devralma: öğrencinin başka profili yok → öğretmenin açtığı profil onun olur.
+            var bound = invitedProfile.LinkUser(actingUserId, nowUtc);
+            return bound.IsFailure ? bound : link.Accept(actingUserId, inviteCode, nowUtc);
+        }
+
+        // Birleştirme: kanonik = öğrencinin kendi profili.
+        var fromLinks = await links.ListByStudentAsync(invitedProfile.Id, cancellationToken);
+        var canonicalLinks = await links.ListByStudentAsync(ownProfile.Id, cancellationToken);
+        var dropped = StudentMergePolicy.MergeTeacherLinks(fromLinks, canonicalLinks, ownProfile.Id, link.Id, nowUtc);
+        foreach (var droppedLink in dropped)
+        {
+            links.Remove(droppedLink);
+        }
+
+        if (!dropped.Contains(link))
+        {
+            var accepted = link.Accept(actingUserId, inviteCode, nowUtc);
+            if (accepted.IsFailure)
+            {
+                return accepted;
+            }
+        }
+
+        foreach (var invite in await parentInvites.ListPendingByStudentAsync(invitedProfile.Id, cancellationToken))
+        {
+            invite.ReassignStudent(ownProfile.Id);
+        }
+
+        if (ownProfile.ParentUserId is null && invitedProfile.ParentUserId is { } approvedParent)
+        {
+            ownProfile.LinkParent(approvedParent, nowUtc);
+        }
+
+        invitedProfile.MarkMerged(ownProfile.Id, nowUtc);
+        return Result.Success();
+    }
+
+    /// <summary>Başarıda kaydeder ve deneme sayacını sıfırlar; kod tahmini hatasında sayacı artırır.</summary>
+    public static async Task<Result> FinishAsync(
+        Result outcome,
+        Guid actingUserId,
+        ITeacherStudentLinkRepository links,
+        IInviteClaimAttemptLimiter attempts,
+        CancellationToken cancellationToken)
+    {
+        if (outcome.IsFailure)
+        {
+            if (GuessingErrors.Contains(outcome.Error.Code))
+            {
+                await attempts.RecordFailureAsync(actingUserId, cancellationToken);
+            }
+
+            return outcome;
+        }
+
+        await links.SaveChangesAsync(cancellationToken);
+        await attempts.ResetAsync(actingUserId, cancellationToken);
         return Result.Success();
     }
 }
@@ -342,23 +482,28 @@ public sealed class TeacherStudentLinkResponseAuthorizer :
     // sahiplik kanıtı yerine geçer. P15 / N-20: yalnız Öğrenci (veya Admin) rolü — öğretmen ya da veli
     // hesabı öğrenci profilini devralamaz.
     public Task<Result> Authorize(ClaimStudentLinkCommand command, CancellationToken cancellationToken)
-    {
-        if (!_currentUser.IsAuthenticated)
-        {
-            return Task.FromResult(Result.Failure(Forbidden));
-        }
+        => Task.FromResult(AuthorizeStudentRole());
 
-        return Task.FromResult(
-            _currentUser.Roles.Contains("Student") || _currentUser.Roles.Contains("Admin")
-                ? Result.Success()
-                : Result.Failure(ClaimRequiresStudentRole));
-    }
-
-    private async Task<Result> AuthorizeResponse(Guid linkId, CancellationToken cancellationToken)
+    private Result AuthorizeStudentRole()
     {
         if (!_currentUser.IsAuthenticated)
         {
             return Result.Failure(Forbidden);
+        }
+
+        return _currentUser.Roles.Contains("Student") || _currentUser.Roles.Contains("Admin")
+            ? Result.Success()
+            : Result.Failure(ClaimRequiresStudentRole);
+    }
+
+    // P15 / N-22: link kabulü/reddi de yalnız öğrenci hesabına açıktır (kabul eden profilin sahibi olur);
+    // kodun ve durumun doğrulaması domain'dedir (TeacherStudentLink.CanRespond).
+    private async Task<Result> AuthorizeResponse(Guid linkId, CancellationToken cancellationToken)
+    {
+        var role = AuthorizeStudentRole();
+        if (role.IsFailure)
+        {
+            return role;
         }
 
         if (_currentUser.Roles.Contains("Admin"))

@@ -283,11 +283,14 @@ public sealed class StudentsModule : ModuleDefinition
     }
 
     /// <summary>
-    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini kabul eder ve profiline bağlanır.
+    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini kabul eder ve profiline bağlanır. P15 / N-22: gövdede
+    /// davet kodu zorunludur — link kimliği tek başına kanıt değildir. Kullanıcının zaten bir profili varsa
+    /// claim'deki gibi birleştirme uygulanır.
     /// </summary>
     private static async Task<IResult> AcceptLinkAsync(
         HttpContext context,
         Guid linkId,
+        RespondToStudentInviteRequest request,
         ICurrentUser currentUser,
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
@@ -297,16 +300,18 @@ public sealed class StudentsModule : ModuleDefinition
             return ApiErrorHttpResults.Unauthorized(context, "Daveti yanıtlayan kullanıcı belirlenemedi.");
         }
 
-        var result = await dispatcher.Dispatch(new AcceptTeacherStudentLinkCommand(linkId, acceptingUserId), cancellationToken);
+        var result = await dispatcher.Dispatch(
+            new AcceptTeacherStudentLinkCommand(linkId, acceptingUserId, request.InviteCode), cancellationToken);
         return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
     }
 
     /// <summary>
-    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini reddeder.
+    /// Oturum açmış öğrenci kullanıcısı öğretmen davetini reddeder. P15 / N-22: yalnız bekleyen davet, yalnız kodla.
     /// </summary>
     private static async Task<IResult> RejectLinkAsync(
         HttpContext context,
         Guid linkId,
+        RespondToStudentInviteRequest request,
         ICurrentUser currentUser,
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
@@ -316,12 +321,13 @@ public sealed class StudentsModule : ModuleDefinition
             return ApiErrorHttpResults.Unauthorized(context, "Daveti yanıtlayan kullanıcı belirlenemedi.");
         }
 
-        var result = await dispatcher.Dispatch(new RejectTeacherStudentLinkCommand(linkId, rejectingUserId), cancellationToken);
+        var result = await dispatcher.Dispatch(
+            new RejectTeacherStudentLinkCommand(linkId, rejectingUserId, request.InviteCode), cancellationToken);
         return result.IsSuccess ? Results.NoContent() : MapLinkError(context, result);
     }
 
     /// <summary>
-    /// Oturum açmış öğrenci kullanıcısı 6 haneli davet kodunu girerek öğretmenin oluşturduğu profili
+    /// Oturum açmış öğrenci kullanıcısı 8 karakterli davet kodunu girerek öğretmenin oluşturduğu profili
     /// kendi hesabına devralır (Ö-C). Kullanıcının zaten bir profili varsa birleştirme (merge) uygulanır.
     /// </summary>
     private static async Task<IResult> ClaimLinkAsync(
@@ -353,11 +359,15 @@ public sealed class StudentsModule : ModuleDefinition
     private static IResult MapLinkError(HttpContext context, Result result)
         => result.Error.Code switch
         {
-            "students.link_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "students.invite_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "students.invite_invalid" => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error),
+            "students.link_not_found" or "students.invite_not_found" or "students.profile_not_found"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "students.invite_invalid" or "students.invite_code_mismatch"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error),
             "students.invite_expired" => ApiErrorHttpResults.FromError(context, StatusCodes.Status410Gone, result.Error),
-            "students.cannot_claim_own_invite" or "students.claim_requires_student_role"
+            // P15 / N-22: kurulmuş bağa tekrar davet, bitmiş daveti yanıtlama, başkasına ait profili devralma.
+            "students.invalid_link_transition" or "students.link_already_active" or "students.profile_already_claimed"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "students.cannot_claim_own_invite" or "students.claim_requires_student_role" or "students.invite_not_for_user"
                 => ApiErrorHttpResults.FromError(context, StatusCodes.Status403Forbidden, result.Error),
             "shared.too_many_attempts" => ApiErrorHttpResults.FromError(context, StatusCodes.Status429TooManyRequests, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
@@ -377,6 +387,8 @@ public sealed class StudentsModule : ModuleDefinition
             "students.free_limit_reached" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "students.duplicate_subject" or "students.parent_link_exists" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "students.profile_not_found" or "students.student_not_found" or "students.subject_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            // P15 / N-23: profilin sahibini gövdeden belirleme girişimi.
+            "students.field_not_allowed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
@@ -399,9 +411,14 @@ public sealed record SetStudentRateRequest(decimal AgreedRateAmount, string Curr
 public sealed record InviteStudentRequest(Guid? TargetUserId);
 
 /// <summary>
-/// Öğrencinin öğretmen profilini devralmak için girdiği 6 haneli davet kodunu taşır (Ö-C).
+/// Öğrencinin öğretmen profilini devralmak için girdiği davet kodunu taşır (Ö-C; P15 / N-20: 8 karakter).
 /// </summary>
 public sealed record ClaimLinkRequest(string InviteCode);
+
+/// <summary>
+/// P15 / N-22: Link kimliğiyle davet kabulü/reddi — öğretmenin verdiği davet kodu kanıt olarak zorunludur.
+/// </summary>
+public sealed record RespondToStudentInviteRequest(string InviteCode);
 
 /// <summary>
 /// Öğretmenin bir öğrenci için veli davet kodu üretmesini taşır (Veli V-D). Çocuğun görünen adı opsiyonel.
@@ -448,6 +465,12 @@ public sealed record UpdateStudentProfileRequest(
 
 /// <summary>
 /// Öğrenci profili oluşturmak için gerekli kimlik, iletişim, hedef ve ders bilgilerini taşır.
+/// <para>
+/// P15 / N-23: <c>ParentUserId</c> her zaman boş olmalı; <c>UserId</c> yalnız öğrencinin kendi açtığı
+/// profilde (kendi kimliği), <c>CreatedByTeacherUserId</c> yalnız öğretmenin açtığında dolu gelir. Aksi
+/// <c>400 students.field_not_allowed</c>. Alanlar geriye uyumluluk için sözleşmede durur (mobil <c>null</c>
+/// gönderiyor); hesaba bağlama davet koduyla yapılır.
+/// </para>
 /// </summary>
 public sealed record CreateStudentProfileRequest(
     Guid? UserId,

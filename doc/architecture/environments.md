@@ -2,7 +2,7 @@
 title: Ortamlar — Development, Staging, Production
 summary: "Development / Staging / Production ortamlarinin farklari: hangi saglayici nerede acik, demo veri nereye tohumlanir, migration ve yedekleme nasil isler"
 authority: derived
-updated: 2026-11-13
+updated: 2026-11-14
 type: architecture
 status: 🟢 uygulandı
 tags: [ops, environment, staging, seeding, render, E-06]
@@ -53,7 +53,7 @@ Staging her deploy'da yeniden başlar ve açılışta `DemoDataSeeder` koşar
 | Kayıt | Adet | Not |
 |-------|------|-----|
 | Öğretmen | 2 | Matematik (İstanbul) ve Fizik (Ankara), uygunluk aralıklarıyla |
-| Öğrenci | 5 | **2'si kendi hesabıyla** (mobil giriş + kronometre denenebilsin), 3'ü hesapsız. **Beşi de öğretmenin açtığı profil** (`TeacherManaged`) ve öğretmenle yaşayan bağı var — P15 T2'den beri öğretmen yalnız bağı olduğu öğrenciye ders/ödeme yazabilir. Hesaplı iki öğrencinin profili öğrencinin hesabıyla birlikte açılır (P15 T3 bunu davet + claim'e çevirecek) |
+| Öğrenci | 5 | **2'si kendi hesabıyla** (mobil giriş + kronometre denenebilsin), 3'ü hesapsız. **Beşi de öğretmenin açtığı profil** (`TeacherManaged`) ve öğretmenle yaşayan bağı var — P15 T2'den beri öğretmen yalnız bağı olduğu öğrenciye ders/ödeme yazabilir. Hesaplı iki öğrencinin profilini öğretmen hesapsız açar, öğrenciyi hedefli davet eder, öğrenci kodu girer (claim) — ürünün kendi yolu (P15 T3 / N-23: profil oluşturma gövdesindeki `userId` artık reddedilir) |
 | Veli | 2 | Her biri kendi hesabı olan bir çocuğa bağlı, bağ **onaylanmış** |
 | Ders | 15 | Öğrenci başına 3 haftalık geçmiş; hepsi tamamlanmış |
 | Ödev | 15 | Her dersin ardından ders notu + ödev |
@@ -83,14 +83,22 @@ bir yapılandırma hatasıdır, veri kaybı olmamalıdır.
 ### Seeder neden doğrudan tabloya yazmıyor?
 
 Her kayıt, o kaydı gerçek hayatta açacak kullanıcının kimliğiyle ilgili **modül komutundan** geçer:
-öğretmen profilini öğretmen açar, veli bağını veli ister ve **öğrenci onaylar** (veli kendi bağını
-onaylayamaz). Böylece iş kuralları ve yetki kuralları atlanmaz; tohumlanan veri, gerçek
+öğretmen profilini öğretmen açar, öğrenci hesabı **davet koduyla** bağlanır (öğretmen davet eder, öğrenci
+kodu girer) ve veli, öğretmenin ürettiği **veli davet koduyla** bağlanır (kod = öğretmen onayı → bağ doğrudan
+onaylı). Böylece iş kuralları ve yetki kuralları atlanmaz; tohumlanan veri, gerçek
 kullanıcıların üretebileceği veriyle birebir aynı biçimde olur. Doğrudan tablo yazımı, yarın bir
 domain kuralı değiştiğinde sessizce geçersiz veri bırakırdı.
 
 > ⚠️ **Modüller birbirini olayla tanır.** Parents, bir öğrenciyi ancak öğrenci olayı işlendikten
 > sonra bilir ve bilmeden bağ onayını fail-closed reddeder. Bu yüzden seeder, veli adımından önce
 > outbox kuyruğunu boşaltır — adımların başarısı arka plan dispatcher'ının periyoduna bırakılamaz.
+> P15 T3'ten beri veli bağı "veli ister, öğrenci onaylar" yoluyla **kurulmaz**: davetle bağlanan öğrencinin
+> kullanıcısı Parents'a P15 T4'e kadar ulaşmıyor (`KnownStudent.UserId` boş), o yol 403 verirdi.
+>
+> ⚠️ **Davet kodu API'den dönmüyor** (P21 T1 açacak): seeder kodu Students deposundan **salt-okunur** alır,
+> yazım yine komutla (claim) yapılır. Yarıda kalmış tur (profil açılmış, claim yapılmamış) kaldığı yerden
+> devam eder — profil öğretmenin listesinde adıyla bulunur. P15 T2 ile tohumlanmış bir veritabanı (profil
+> öğrencinin hesabıyla açılmış) olduğu gibi kullanılmaya devam eder.
 
 ### Yerelde denemek
 
@@ -219,4 +227,4 @@ Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
 > yedekleme/geri yükleme → [`backup_restore.md`](backup_restore.md) ·
 > gözlemlenebilirlik → [`backend.md` §11](backend.md)
 
-*Ortamlar | Güncelleme: 2026-11-13 (P15 Task 2 / N-08: demo öğrencilerinin beşi de öğretmen bağlı `TeacherManaged` profil; hesaplı ikisi öğrencinin hesabıyla açılır. Eski demo veritabanı için sıfırlama notu §2) · 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*
+*Ortamlar | Güncelleme: 2026-11-14 (P15 Task 3 / N-23: demo öğrenci hesapları davet + claim ile, veli bağları veli davet koduyla kurulur; §2) · 2026-11-13 (P15 Task 2 / N-08: demo öğrencilerinin beşi de öğretmen bağlı `TeacherManaged` profil; hesaplı ikisi öğrencinin hesabıyla açılır. Eski demo veritabanı için sıfırlama notu §2) · 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*

@@ -26,6 +26,8 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         TargetExam targetExam = TargetExam.None,
         DateTime? dateOfBirth = null)
     {
+        EnsureOwnershipInvariant(origin, userId, createdByTeacherUserId, parentUserId);
+
         Id = id;
         UserId = userId;
         CreatedByTeacherUserId = createdByTeacherUserId;
@@ -170,11 +172,66 @@ public sealed class StudentProfile : AggregateRoot<Guid>
 
     /// <summary>
     /// Öğretmen davetini kabul eden gerçek öğrenci kullanıcısını profile bağlar (B-06 davet/kabul akışı).
+    /// <para>
+    /// P15 / N-22, N-23: Profilin sahibi bir kez belirlenir. Aynı kullanıcıya tekrar bağlamak değişiklik
+    /// yapmaz; başka bir kullanıcıya ait profil <c>students.profile_already_claimed</c> ile korunur. Bağlama
+    /// <see cref="StudentProfileLinkedToUserDomainEvent"/> yayar (Parents'ın öğrenci→kullanıcı eşlemesi, T4).
+    /// </para>
     /// </summary>
-    public void LinkUser(Guid userId, DateTime updatedOnUtc)
+    /// <param name="userId">Daveti kabul eden öğrenci kullanıcısı.</param>
+    /// <param name="updatedOnUtc">Bağlama anı.</param>
+    /// <returns>İşlem sonucu.</returns>
+    public Result LinkUser(Guid userId, DateTime updatedOnUtc)
     {
+        var claimable = EnsureClaimableBy(userId);
+        if (claimable.IsFailure || UserId == userId)
+        {
+            return claimable;
+        }
+
         UserId = userId;
         UpdatedOnUtc = updatedOnUtc;
+        Raise(new StudentProfileLinkedToUserDomainEvent(Id, userId, updatedOnUtc) { OccurredOnUtc = updatedOnUtc });
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// P15 / N-23: Bu profil verilen kullanıcı tarafından devralınabilir mi? Başka bir hesaba bağlı ya da
+    /// başka bir profile birleşmiş profil devralınamaz (birleştirmenin kaynağı da olamaz).
+    /// </summary>
+    /// <param name="userId">Devralmak isteyen kullanıcı.</param>
+    /// <returns>Devralınabilirse başarı.</returns>
+    public Result EnsureClaimableBy(Guid userId)
+    {
+        if (IsMerged || (UserId is { } owner && owner != userId))
+        {
+            return Result.Failure(StudentErrors.ProfileAlreadyClaimed);
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// P15 / N-23: Profilin kime ait olduğu istek gövdesinden gelmez. Öğretmenin açtığı profil hesapsız ve
+    /// velisiz doğar (hesap davetle, veli onaylı bağla gelir); öğrencinin açtığı profil kendi hesabına aittir,
+    /// öğretmen ve veli taşımaz. Uygulama katmanı bunu <c>400 students.field_not_allowed</c> ile reddeder;
+    /// buradaki koruma programlama hatasına karşıdır.
+    /// </summary>
+    private static void EnsureOwnershipInvariant(StudentOrigin origin, Guid? userId, Guid? createdByTeacherUserId, Guid? parentUserId)
+    {
+        var valid = origin switch
+        {
+            StudentOrigin.TeacherManaged => userId is null && parentUserId is null && createdByTeacherUserId is not null,
+            StudentOrigin.SelfRegistered => userId is not null && parentUserId is null && createdByTeacherUserId is null,
+            _ => false
+        };
+
+        if (!valid)
+        {
+            throw new ArgumentException(
+                $"{origin} öğrenci profili kimlik alanlarıyla uyumsuz (userId, createdByTeacherUserId, parentUserId).",
+                nameof(origin));
+        }
     }
 
     /// <summary>
@@ -235,6 +292,14 @@ public static class StudentErrors
     public static readonly Error InvalidSubject = new("students.invalid_subject", "Branş adı boş olamaz.");
     public static readonly Error DuplicateSubject = new("students.duplicate_subject", "Bu branş zaten ekli.");
     public static readonly Error SubjectNotFound = new("students.subject_not_found", "Branş bulunamadı.");
+
+    // P15 Task 3 (N-22, N-23)
+    public static readonly Error InvalidLinkTransition = new("students.invalid_link_transition", "Bu davet artık yanıtlanamaz.");
+    public static readonly Error InviteCodeMismatch = new("students.invite_code_mismatch", "Davet kodu eşleşmiyor.");
+    public static readonly Error InviteNotForUser = new("students.invite_not_for_user", "Bu davet başka bir kullanıcıya gönderilmiş.");
+    public static readonly Error InviteExpired = new("students.invite_expired", "Davet kodunun süresi dolmuş. Öğretmeninden yeni bir kod iste.");
+    public static readonly Error LinkAlreadyActive = new("students.link_already_active", "Öğrenci bu öğretmene zaten bağlı; yeni davet gerekmez.");
+    public static readonly Error ProfileAlreadyClaimed = new("students.profile_already_claimed", "Bu öğrenci profili başka bir hesaba bağlı.");
 }
 
 public sealed class StudentSubject : Entity<Guid>
@@ -287,6 +352,16 @@ public sealed record StudentProfileCreatedDomainEvent(
 /// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge) yayılır. Diğer modüller bu olayı
 /// tüketerek <c>FromStudentId</c>'ye ait kayıtlarını kanonik <c>ToStudentId</c>'ye yeniden atar.
 /// </summary>
+/// <summary>
+/// P15 / N-23: Öğretmenin açtığı profil davet kabulüyle bir öğrenci hesabına bağlandı. Integration yükü
+/// <c>StudentProfileLinkedToUserIntegrationEvent</c> (Shared/Contracts). <c>OccurredOnUtc</c> bağlama anına
+/// eşitlenir — record parametresi olarak verilmez (taban sınıfla çakışır, CS8907; Öğrenilenler #63).
+/// </summary>
+public sealed record StudentProfileLinkedToUserDomainEvent(
+    Guid StudentId,
+    Guid UserId,
+    DateTime LinkedOnUtc) : DomainEvent;
+
 public sealed record StudentProfilesMergedDomainEvent(
     Guid FromStudentId,
     Guid ToStudentId,
@@ -364,6 +439,12 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
     /// <returns>İşlem sonucu.</returns>
     public Result MarkInviteSent(string inviteCode, Guid? targetUserId, DateTime expiresOnUtc, DateTime nowUtc)
     {
+        // N-22: kurulmuş bağa ikinci davet, ikinci bir claim'in mevcut sahibin üstüne yazmasının kapısıydı.
+        if (Status == TeacherStudentLinkStatus.Linked)
+        {
+            return Result.Failure(StudentErrors.LinkAlreadyActive);
+        }
+
         Status = TeacherStudentLinkStatus.InviteSent;
         InviteCode = SecureCode.Normalize(inviteCode);
         InviteTargetUserId = targetUserId;
@@ -378,17 +459,153 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
     /// <returns>Dolmuşsa <c>true</c>.</returns>
     public bool IsInviteExpired(DateTime nowUtc) => InviteExpiresOnUtc is { } expires && nowUtc >= expires;
 
-    public void Accept(DateTime updatedOnUtc)
+    /// <summary>
+    /// P15 / N-22: Davet yanıtlanabilir mi? Önce <b>kod</b> sınanır — link kimliğini bilen ama kodu bilmeyen
+    /// biri bağın durumunu da öğrenemez. Sonra durum (yalnız <c>InviteSent</c>), hedef kullanıcı ve süre.
+    /// </summary>
+    /// <param name="actingUserId">Daveti yanıtlayan kullanıcı.</param>
+    /// <param name="inviteCode">Kullanıcının girdiği kod (normalize edilerek karşılaştırılır).</param>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>Yanıtlanabilirse başarı.</returns>
+    public Result CanRespond(Guid actingUserId, string? inviteCode, DateTime nowUtc)
     {
-        Status = TeacherStudentLinkStatus.Linked;
-        UpdatedOnUtc = updatedOnUtc;
-        Raise(new TeacherStudentLinkAcceptedDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
+        if (InviteCode is null || !string.Equals(SecureCode.Normalize(inviteCode), InviteCode, StringComparison.Ordinal))
+        {
+            return Result.Failure(StudentErrors.InviteCodeMismatch);
+        }
+
+        if (Status != TeacherStudentLinkStatus.InviteSent)
+        {
+            return Result.Failure(StudentErrors.InvalidLinkTransition);
+        }
+
+        if (InviteTargetUserId is { } target && target != actingUserId)
+        {
+            return Result.Failure(StudentErrors.InviteNotForUser);
+        }
+
+        return IsInviteExpired(nowUtc) ? Result.Failure(StudentErrors.InviteExpired) : Result.Success();
     }
 
-    public void Reject(DateTime updatedOnUtc)
+    /// <summary>P15 / N-22: Daveti kabul eder — yalnız <see cref="CanRespond"/> geçerse <c>Linked</c> olur.</summary>
+    /// <param name="actingUserId">Daveti kabul eden kullanıcı.</param>
+    /// <param name="inviteCode">Davet kodu.</param>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>İşlem sonucu.</returns>
+    public Result Accept(Guid actingUserId, string? inviteCode, DateTime nowUtc)
     {
+        var respondable = CanRespond(actingUserId, inviteCode, nowUtc);
+        if (respondable.IsFailure)
+        {
+            return respondable;
+        }
+
+        Status = TeacherStudentLinkStatus.Linked;
+        UpdatedOnUtc = nowUtc;
+        Raise(new TeacherStudentLinkAcceptedDomainEvent(Id, TeacherUserId, StudentId, nowUtc));
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// P15 / N-22: Daveti reddeder — kabulle aynı kanıtı ister. Eskiden açık davetin link kimliğini bilen
+    /// herkes kurulmuş (<c>Linked</c>) bağı bile <c>Rejected</c>'a çekip öğretmenin erişimini düşürebiliyordu.
+    /// </summary>
+    /// <param name="actingUserId">Daveti reddeden kullanıcı.</param>
+    /// <param name="inviteCode">Davet kodu.</param>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>İşlem sonucu.</returns>
+    public Result Reject(Guid actingUserId, string? inviteCode, DateTime nowUtc)
+    {
+        var respondable = CanRespond(actingUserId, inviteCode, nowUtc);
+        if (respondable.IsFailure)
+        {
+            return respondable;
+        }
+
         Status = TeacherStudentLinkStatus.Rejected;
-        UpdatedOnUtc = updatedOnUtc;
+        UpdatedOnUtc = nowUtc;
+        return Result.Success();
+    }
+
+    /// <summary>P15 / N-28: Profil birleşmesinde bağı kanonik öğrenci kimliğine taşır.</summary>
+    /// <param name="canonicalStudentId">Kanonik profilin kimliği.</param>
+    /// <param name="nowUtc">Şu an.</param>
+    public void ReassignStudent(Guid canonicalStudentId, DateTime nowUtc)
+    {
+        StudentId = canonicalStudentId;
+        UpdatedOnUtc = nowUtc;
+    }
+
+    /// <summary>P15 / N-28: Birleşmede düşen bağın anlaşılmış ücretini, kendi ücreti yoksa devralır.</summary>
+    /// <param name="dropped">Birleşmede düşen bağ.</param>
+    /// <param name="nowUtc">Şu an.</param>
+    public void AdoptRateFrom(TeacherStudentLink dropped, DateTime nowUtc)
+    {
+        if (AgreedRateAmount is null && dropped.AgreedRateAmount is { } amount)
+        {
+            SetRate(amount, dropped.Currency, nowUtc);
+        }
+    }
+}
+
+/// <summary>
+/// P15 / N-28: Profil birleştirme kuralları. Manuel (öğretmenin açtığı) profil kanonik profile birleşirken
+/// öğretmen bağları kanonik kimliğe taşınır. Aynı öğretmenin iki tarafta da bağı varsa <b>biri</b> kalır
+/// (<c>(TeacherUserId, StudentId)</c> benzersiz): arşivli olan düşer; ikisi de yaşıyorsa daha güçlü durum
+/// (kabul edilen davet = <c>Linked</c>) kalır; eşitlikte kanonik taraftaki mevcut bağ korunur. Kalan bağ,
+/// ücreti yoksa düşenin ücretini devralır.
+/// </summary>
+public static class StudentMergePolicy
+{
+    /// <summary>Bağları taşır ve silinmesi gerekenleri döndürür.</summary>
+    /// <param name="fromLinks">Birleşen (manuel) profilin bağları.</param>
+    /// <param name="canonicalLinks">Kanonik profilin bağları.</param>
+    /// <param name="canonicalStudentId">Kanonik profilin kimliği.</param>
+    /// <param name="acceptingLinkId">Birleşmeyi tetikleyen, kabul edilmek üzere olan bağ (sıralamada <c>Linked</c> sayılır).</param>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>Depodan silinecek bağlar.</returns>
+    public static IReadOnlyList<TeacherStudentLink> MergeTeacherLinks(
+        IReadOnlyCollection<TeacherStudentLink> fromLinks,
+        IReadOnlyCollection<TeacherStudentLink> canonicalLinks,
+        Guid canonicalStudentId,
+        Guid? acceptingLinkId,
+        DateTime nowUtc)
+    {
+        var dropped = new List<TeacherStudentLink>();
+        foreach (var incoming in fromLinks)
+        {
+            var existing = canonicalLinks.FirstOrDefault(link => link.TeacherUserId == incoming.TeacherUserId);
+            if (existing is null)
+            {
+                incoming.ReassignStudent(canonicalStudentId, nowUtc);
+                continue;
+            }
+
+            var incomingWins = Rank(incoming, acceptingLinkId) > Rank(existing, acceptingLinkId);
+            var (winner, loser) = incomingWins ? (incoming, existing) : (existing, incoming);
+            winner.AdoptRateFrom(loser, nowUtc);
+            if (incomingWins)
+            {
+                incoming.ReassignStudent(canonicalStudentId, nowUtc);
+            }
+
+            dropped.Add(loser);
+        }
+
+        return dropped;
+    }
+
+    private static int Rank(TeacherStudentLink link, Guid? acceptingLinkId)
+    {
+        var status = link.Id == acceptingLinkId ? TeacherStudentLinkStatus.Linked : link.Status;
+        var statusRank = status switch
+        {
+            TeacherStudentLinkStatus.Linked => 3,
+            TeacherStudentLinkStatus.InviteSent or TeacherStudentLinkStatus.Manual => 2,
+            _ => 0
+        };
+
+        return (link.IsArchived ? 0 : 10) + statusRank;
     }
 }
 
@@ -470,6 +687,13 @@ public sealed class StudentParentInvite : AggregateRoot<Guid>
     public Guid? ClaimedByParentUserId { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }
     public DateTime? ClaimedOnUtc { get; private set; }
+
+    /// <summary>P15 / N-28: Profil birleşmesinde bekleyen daveti kanonik öğrenci kimliğine taşır.</summary>
+    /// <param name="canonicalStudentId">Kanonik profilin kimliği.</param>
+    public void ReassignStudent(Guid canonicalStudentId)
+    {
+        StudentId = canonicalStudentId;
+    }
 
     public void Claim(Guid parentUserId, DateTime nowUtc)
     {

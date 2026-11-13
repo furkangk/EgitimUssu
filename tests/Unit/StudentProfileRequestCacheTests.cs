@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Students.Application;
 using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 using EgitimUssu.Tests.Unit.TestDoubles;
 
@@ -26,7 +27,7 @@ public sealed class StudentProfileRequestCacheTests
         var currentUser = new FakeCurrentUser(TeacherId.ToString(), "Teacher");
         var query = new GetStudentProfileByIdQuery(profile.Id);
 
-        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache)
+        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None))
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByIdQueryHandler(repository, cache)
             .Handle(query, CancellationToken.None);
@@ -75,7 +76,7 @@ public sealed class StudentProfileRequestCacheTests
         var currentUser = new FakeCurrentUser(StudentUserId.ToString(), "Student");
         var query = new GetStudentProfileByUserIdQuery(StudentUserId);
 
-        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache)
+        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None))
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByUserIdQueryHandler(repository, cache)
             .Handle(query, CancellationToken.None);
@@ -95,7 +96,7 @@ public sealed class StudentProfileRequestCacheTests
         var query = new GetStudentProfileByIdQuery(profile.Id);
 
         var authorization = await new StudentProfileQueryAuthorizer(
-                new FakeCurrentUser(Guid.NewGuid().ToString(), "Admin"), repository, cache)
+                new FakeCurrentUser(Guid.NewGuid().ToString(), "Admin"), repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None))
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByIdQueryHandler(repository, cache)
             .Handle(query, CancellationToken.None);
@@ -105,10 +106,15 @@ public sealed class StudentProfileRequestCacheTests
         Assert.Equal(profile.Id, result.Value!.Id);
     }
 
+    /// <summary>
+    /// Öğretmenin açıp öğrencinin davetle devraldığı profil (sahip öğrenci + açan öğretmen). P15 T3'ten beri bu
+    /// durum kurucuyla değil, ürünün kendi yolu olan <see cref="StudentProfile.LinkUser"/> ile kurulur.
+    /// </summary>
     private static StudentProfile NewProfile()
-        => new(
+    {
+        var profile = new StudentProfile(
             Guid.NewGuid(),
-            StudentUserId,
+            null,
             TeacherId,
             null,
             "Ali Veli",
@@ -120,6 +126,9 @@ public sealed class StudentProfileRequestCacheTests
             StudentOrigin.TeacherManaged,
             true,
             Now);
+        Assert.True(profile.LinkUser(StudentUserId, Now).IsSuccess);
+        return profile;
+    }
 
     private sealed class FakeCurrentUser(string? userId, params string[] roles) : ICurrentUser
     {

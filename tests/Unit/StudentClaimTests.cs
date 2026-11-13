@@ -33,6 +33,9 @@ public sealed class StudentClaimTests
         public Task<TeacherStudentLink?> GetByTeacherAndStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken ct) => Task.FromResult<TeacherStudentLink?>(null);
         public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<TeacherStudentLink>> ListByTeacherAsync(Guid teacherUserId, bool includeArchived, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<TeacherStudentLink>> ListByStudentAsync(Guid studentId, CancellationToken ct)
+            => Task.FromResult<IReadOnlyCollection<TeacherStudentLink>>(_byCode is not null && _byCode.StudentId == studentId ? [_byCode] : []);
+        public void Remove(TeacherStudentLink link) { }
     }
 
     private sealed class ClaimProfileRepo : IStudentProfileRepository
@@ -54,6 +57,16 @@ public sealed class StudentClaimTests
         public Task AddAsync(StudentProfile profile, CancellationToken ct) => throw new NotImplementedException();
         public Task ReplaceSubjectsAsync(Guid studentProfileId, IReadOnlyList<StudentSubject> newSubjects, CancellationToken ct) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
+    }
+
+    private sealed class NoParentInvites : IStudentParentInviteRepository
+    {
+        public Task<IReadOnlyCollection<StudentParentInvite>> ListPendingByStudentAsync(Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<StudentParentInvite>>([]);
+        public Task AddAsync(StudentParentInvite invite, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<StudentParentInvite?> GetByInviteCodeAsync(string inviteCode, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<StudentParentInvite?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class NoopLimiter : EgitimUssu.Shared.Application.IInviteClaimAttemptLimiter
@@ -84,7 +97,7 @@ public sealed class StudentClaimTests
 
         var linkRepo = new ClaimLinkRepo(link);
         var profileRepo = new ClaimProfileRepo(manualProfile, byUserId: null);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoParentInvites(), new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("123456", claimingUserId), CancellationToken.None);
 
@@ -108,7 +121,7 @@ public sealed class StudentClaimTests
 
         var linkRepo = new ClaimLinkRepo(link);
         var profileRepo = new ClaimProfileRepo(manualProfile, byUserId: selfProfile);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoParentInvites(), new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("123456", claimingUserId), CancellationToken.None);
 
@@ -131,7 +144,7 @@ public sealed class StudentClaimTests
     {
         var linkRepo = new ClaimLinkRepo(null);
         var profileRepo = new ClaimProfileRepo(null, null);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoParentInvites(), new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("000000", Guid.NewGuid()), CancellationToken.None);
 
@@ -146,11 +159,11 @@ public sealed class StudentClaimTests
         // Manuel durumda kod atanmış ama davet gönderilmemiş varsay: kodu doğrudan set edemeyiz,
         // bu yüzden InviteSent yapıp ardından Accept ile Linked'e çekerek "artık geçersiz" durumu kurarız.
         link.MarkInviteSent("123456", null, Now.AddDays(7), Now);
-        link.Accept(Now);
+        link.Accept(Guid.NewGuid(), "123456", Now);
 
         var linkRepo = new ClaimLinkRepo(link);
         var profileRepo = new ClaimProfileRepo(null, null);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoParentInvites(), new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("123456", Guid.NewGuid()), CancellationToken.None);
 

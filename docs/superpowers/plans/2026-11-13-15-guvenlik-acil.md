@@ -102,7 +102,7 @@
 
 ---
 
-### Task 3: Davet kabul/ret, profil bağlama ve merge kuralları (N-22, N-23, N-28)
+### Task 3: Davet kabul/ret, profil bağlama ve merge kuralları (N-22, N-23, N-28) ✅
 
 **Files:**
 - Modify: `src/Modules/Students/Domain/StudentsDomainModel.cs` (`Accept`, `Reject`, `MarkInviteSent`, `StudentProfile` kurucu kuralları, `LinkUser` olayı)
@@ -111,6 +111,8 @@
 - Modify: `src/Modules/Students/API/StudentsModule.cs` (istek gövdesinden `UserId`/`ParentUserId` almayı bırak)
 - Create: `src/Modules/Parents/Infrastructure/StudentProfilesMergedParentsHandler.cs`, `src/Modules/ProgressTracking/Infrastructure/StudentProfilesMergedProgressHandler.cs`
 - Test: `tests/Unit/TeacherStudentLinkTransitionTests.cs`, `tests/Unit/StudentProfileOwnershipTests.cs`, `tests/Integration/RealStudentMergeIntegrationTests.cs` (genişlet)
+- **Yürütmede eklenen (2026-11-14):** `src/Shared/Contracts/StudentProfileLinkedToUserContract.cs` (integration yükü), `src/Shared/Contracts/StudentProfilesMergedContract.cs` (açıklama: benzersiz satırlı tüketici kuralı), `src/Modules/Students/Application/StudentParentInviteFeatures.cs` + `Infrastructure/StudentParentInviteRepository.cs` (`ListPendingByStudentAsync` — bekleyen veli davetleri birleşmede taşınır; N-28 raporunda vardı, Interfaces'ta yoktu), `Infrastructure/TeacherStudentLinkRepository.cs` (`ListByStudentAsync`, `Remove`), `src/Modules/Parents/Domain/ParentsReadModels.cs` (`ChildProgressSnapshot.Absorb` — iki profilde de özet varsa toplanır), `src/Modules/Parents/Infrastructure/DependencyInjection.cs` + `src/Modules/ProgressTracking/Infrastructure/DependencyInjection.cs` (tüketici kayıtları), `tests/Integration/RealStudentInviteRulesTests.cs` (yeni hata kodlarının HTTP eşlemesi — #182), `tests/Integration/StudentLinkTestHelper.cs` (davet + claim yardımcısı), `tests/Integration/RealSingleEntityLoadTests.cs` + birim test fake'leri (`InviteCodeHardeningTests`, `ListStudentsByTeacherTests`, `StudentClaimTests`, `StudentFreeLimitTests`, `TeacherStudentLinkTests`, `StudentParentLinkTests`, `StudentProfileRequestCacheTests`, `StudentProfileSubjectsTests` — yeni imzalar; üç fikstür "öğretmenin açıp öğrencinin devraldığı" profili artık kurucuyla değil `LinkUser` ile kuruyor).
+- **Kararlar (yürütmede):** (1) `Accept`/`Reject` ikisi de `CanRespond(actingUserId, inviteCode, now)` ister — **önce kod** (link kimliğini bilip kodu bilmeyen biri durumu öğrenemesin), sonra durum, hedef (`students.invite_not_for_user` 403 — plan adı vermemişti), süre; reddetmek de kod ister (eskiden yabancı `Linked` bağı `Rejected`'a çekip öğretmeni `None`'a düşürebiliyordu). (2) Claim ve link kabulü **tek çekirdek** (`StudentInviteAcceptance`): kendi profili olan kullanıcı link kabulünde de birleşir (eskiden `LinkUser` benzersiz `UserId` indeksine çarpıp 500 veriyordu); kodla ilgili başarısızlıklar deneme sayacına yazılır. (3) Bağ birleştirmeden **sonra** kabul edilir — `TeacherStudentLinkAccepted` olayı kanonik kimliği taşır (Reporting'in birleştirme tüketicisi yok). (4) Bağ çakışması (`StudentMergePolicy`): arşivli düşer; ikisi yaşıyorsa kabul edilen davet `Linked` sayılır ve güçlü durum kalır, eşitlikte kanoniktekine; kalan bağ ücreti yoksa düşenin ücretini devralır, düşen silinir (aynı SaveChanges'te silme + taşıma gerçek Postgres'te geçti). (5) N-23: gövde alanları `400 students.field_not_allowed` (plan Step 1 "null'a zorla" ile Step 3 "kabul edip yok sayma" çelişiyordu — Step 3 uygulandı); `StudentProfile` kurucusu uyumsuz alanlarla `ArgumentException` atar; `LinkUser` `Result` döner, başka sahibe ait/birleşmiş profili korur (`students.profile_already_claimed` 409). (6) Profil **okuma** `Private` kapsamlı öğretmene açıldı (birleşme sonrası kanonik profil `CreatedByTeacherUserId`'siz); **yazma** (güncelleme/branş/`link-parent`) bilinçli olarak genişletilmedi. (7) Merge tüketicileri: Parents — veli bağları tekilleşir (`Revoked`), taşınır, fazla birincil düşürülür; `known_students` kaynağı silinir; özet toplanır. ProgressTracking — çakışmayan satır taşınır, çakışanda kanonik kazanır. (8) Birleşmede kanonik profilin velisi boşsa birleşenin velisi taşınır (T4'e kadar veli okuması `ParentUserId`'ye bakıyor).
 - **T2'den devreden (2026-11-13, Öğrenilenler #179–#181):** `src/API.Host/Seeding/DemoDataSeeder.cs` (`EnsureStudentWithOwnAccountAsync` gövdeye `UserId` yazıyor → davet + claim'e geçmeli; veli bağı onayı `KnownStudent.UserId` boş kalacağı için veli davet kodu claim'iyle kurulmalı ya da T4 sırası gözetilmeli), `tests/Integration/RealMessagingChainTests.cs` + `tests/Integration/RealAccountDeletionTests.cs` (aynı `userId` yardımcıları). Merge kabul testi: birleşme sonrası kanonik profilde `ITeacherStudentAccess.GetScopeAsync == Private`.
 
 **Interfaces:**
@@ -121,12 +123,12 @@
   - `StudentProfileLinkedToUserIntegrationEvent(Guid StudentId, Guid UserId, DateTime OccurredOnUtc)` (T4 tüketir).
   - Merge: `TeacherStudentLink`'ler aynı transaction'da kanonik ID'ye taşınır (çakışan bağda arşivli olan düşer); Parents (`ParentChildLink`, `KnownStudent`) ve ProgressTracking `StudentProfilesMerged` olayını tüketir.
 
-- [ ] **Step 1: Kırmızı testler** — link ID'si bilinen ama kodu bilmeyen kullanıcı `accept` → hata; `Linked` bağa ikinci `MarkInviteSent` → hata; öğretmen `TeacherManaged` profil oluştururken gövdeye başka kullanıcının `UserId`'sini yazar → profil `UserId == null` ve o kullanıcı kendi profilini açabilir; merge sonrası kanonik profilde öğretmen kapsamı `Private`, veli paneli dolu.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Domain kuralları + handler'lar + uç sözleşmesi** (gövde alanları kabul edilip yok sayılmaz → doğrulayıcı `400 students.field_not_allowed` döner; mobil zaten göndermiyorsa kırılma yok — `grep -rn "userId\|parentUserId" mobile/lib/features/students/data` ile kontrol et).
-- [ ] **Step 4: Merge tüketicileri** (idempotent taban).
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m03`, `m09`, `m10`; rapor N-22/23/28 ✅.
+- [x] **Step 1: Kırmızı testler** — link ID'si bilinen ama kodu bilmeyen kullanıcı `accept` → hata; `Linked` bağa ikinci `MarkInviteSent` → hata; öğretmen `TeacherManaged` profil oluştururken gövdeye başka kullanıcının `UserId`'sini yazar → profil `UserId == null` ve o kullanıcı kendi profilini açabilir; merge sonrası kanonik profilde öğretmen kapsamı `Private`, veli paneli dolu.
+- [x] **Step 2: Kırmızı gör.**
+- [x] **Step 3: Domain kuralları + handler'lar + uç sözleşmesi** (gövde alanları kabul edilip yok sayılmaz → doğrulayıcı `400 students.field_not_allowed` döner; mobil zaten göndermiyorsa kırılma yok — `grep -rn "userId\|parentUserId" mobile/lib/features/students/data` ile kontrol et).
+- [x] **Step 4: Merge tüketicileri** (idempotent taban).
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 6: Doküman + commit** — `m03`, `m09`, `m10`; rapor N-22/23/28 ✅. (Ek: `00_genel_bakis.md`, `roles/ogrenci.md`, `roles/ogretmen.md`, `architecture/environments.md`.)
   ```bash
   git commit -m "fix(students): davet kabul/merge kurallari + profil baglama sunucu tarafinda (N-22, N-23, N-28)"
   ```

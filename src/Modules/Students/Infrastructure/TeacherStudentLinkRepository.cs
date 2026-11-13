@@ -57,6 +57,18 @@ internal sealed class TeacherStudentLinkRepository : ITeacherStudentLinkReposito
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<TeacherStudentLink>> ListByStudentAsync(Guid studentId, CancellationToken cancellationToken)
+    {
+        return await _dbContext.TeacherStudentLinks
+            .Where(link => link.StudentId == studentId)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public void Remove(TeacherStudentLink link)
+    {
+        _dbContext.TeacherStudentLinks.Remove(link);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
