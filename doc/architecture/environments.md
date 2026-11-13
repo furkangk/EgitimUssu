@@ -2,7 +2,7 @@
 title: Ortamlar — Development, Staging, Production
 summary: "Development / Staging / Production ortamlarinin farklari: hangi saglayici nerede acik, demo veri nereye tohumlanir, migration ve yedekleme nasil isler"
 authority: derived
-updated: 2026-09-06
+updated: 2026-11-13
 type: architecture
 status: 🟢 uygulandı
 tags: [ops, environment, staging, seeding, render, E-06]
@@ -53,7 +53,7 @@ Staging her deploy'da yeniden başlar ve açılışta `DemoDataSeeder` koşar
 | Kayıt | Adet | Not |
 |-------|------|-----|
 | Öğretmen | 2 | Matematik (İstanbul) ve Fizik (Ankara), uygunluk aralıklarıyla |
-| Öğrenci | 5 | **2'si kendi hesabıyla** (mobil giriş + kronometre denenebilsin), 3'ü öğretmen-yönetimli |
+| Öğrenci | 5 | **2'si kendi hesabıyla** (mobil giriş + kronometre denenebilsin), 3'ü hesapsız. **Beşi de öğretmenin açtığı profil** (`TeacherManaged`) ve öğretmenle yaşayan bağı var — P15 T2'den beri öğretmen yalnız bağı olduğu öğrenciye ders/ödeme yazabilir. Hesaplı iki öğrencinin profili öğrencinin hesabıyla birlikte açılır (P15 T3 bunu davet + claim'e çevirecek) |
 | Veli | 2 | Her biri kendi hesabı olan bir çocuğa bağlı, bağ **onaylanmış** |
 | Ders | 15 | Öğrenci başına 3 haftalık geçmiş; hepsi tamamlanmış |
 | Ödev | 15 | Her dersin ardından ders notu + ödev |
@@ -101,6 +101,12 @@ scripts/seed-demo-data.sh "Host=localhost;Port=5432;Database=egitimussu;Username
 
 Script uygulamayı `Staging` ortamıyla ayağa kaldırır, `/health/ready` yeşile dönünce tohumlamanın
 bittiğini doğrular ve demo hesapları yazdırır.
+
+> ⚠️ **P15 T2 öncesi tohumlanmış veritabanı:** o sürümde kendi hesabı olan iki öğrenci `SelfRegistered` profille ve
+> öğretmen bağı **olmadan** açılıyordu. Bu bağ komutlarla sonradan kurulamadığı için seeder açılışta
+> "P15 T2 öncesi tohumlanmış … Demo veritabanını sıfırlayıp yeniden tohumlayın" hatasıyla durur. Çare: demo
+> veritabanını boşaltıp (ya da yeni bir veritabanı adıyla) yeniden tohumla. Staging henüz deploy edilmediği için
+> etkilenen yalnız yerel geliştirme veritabanlarıdır.
 
 ---
 
@@ -213,4 +219,4 @@ Observability__Enabled=true Observability__OtlpEndpoint=http://localhost:4317 \
 > yedekleme/geri yükleme → [`backup_restore.md`](backup_restore.md) ·
 > gözlemlenebilirlik → [`backend.md` §11](backend.md)
 
-*Ortamlar | Güncelleme: 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*
+*Ortamlar | Güncelleme: 2026-11-13 (P15 Task 2 / N-08: demo öğrencilerinin beşi de öğretmen bağlı `TeacherManaged` profil; hesaplı ikisi öğrencinin hesabıyla açılır. Eski demo veritabanı için sıfırlama notu §2) · 2026-09-06 (P13 Task 9: §5 tablosundaki iki ❌ **kapandı** — komut/sorgu span'ları ve outbox→handler trace bağı; ölçüm ebeveynsiz kök trace'i 1488'den **0'a** indirdi) · 2026-09-05 (P13 Task 8: §5 **Gözlemlenebilirlik** eklendi — `render.yaml`'a `Observability__*` anahtarları girildi (varsayılan kapalı, gerekçesiyle), staging profilinde canlı doğrulama sonuçları ve **outbox trace zinciri açığı** tablolandı) · 2026-09-05 (P13 Task 4 / E-05: üretimde açılış migration'ı **kapatıldı** — ayrı deploy adımı; yedekleme satırları eklendi) · 2026-09-05 (P13 Task 3 / E-06: ilk sürüm — staging servisi + ayrı veritabanı, idempotent demo veri tohumlaması ve üretim guard'ı)*

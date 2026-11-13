@@ -10,10 +10,12 @@ namespace EgitimUssu.Modules.Students.Infrastructure;
 internal sealed class StudentDirectory : IStudentDirectory
 {
     private readonly StudentsDbContext _dbContext;
+    private readonly ITeacherStudentAccess _access;
 
-    public StudentDirectory(StudentsDbContext dbContext)
+    public StudentDirectory(StudentsDbContext dbContext, ITeacherStudentAccess access)
     {
         _dbContext = dbContext;
+        _access = access;
     }
 
     public async Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -48,20 +50,11 @@ internal sealed class StudentDirectory : IStudentDirectory
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    public async Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
     {
-        // M10-2: Yaşayan bağ = Manual (öğretmenin kendi açtığı kayıt), InviteSent (davet yolda) veya
-        // Linked (öğrenci devraldı). Rejected/Disconnected ve arşivlenmiş kayıt erişim vermez.
-        return _dbContext.TeacherStudentLinks
-            .AsNoTracking()
-            .AnyAsync(
-                link => link.TeacherUserId == teacherUserId
-                    && link.StudentId == studentId
-                    && !link.IsArchived
-                    && (link.Status == TeacherStudentLinkStatus.Manual
-                        || link.Status == TeacherStudentLinkStatus.InviteSent
-                        || link.Status == TeacherStudentLinkStatus.Linked),
-                cancellationToken);
+        // M10-2 → P15 T2: kapsamın tek kaynağı ITeacherStudentAccess. Yalnız özel ders bağı (Private) sayılır;
+        // P22'nin sınıf kapsamı (Class) bu eski soruya "evet" demez.
+        return await _access.GetScopeAsync(teacherUserId, studentId, cancellationToken) == TeacherAccessScope.Private;
     }
 
     public async Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken)

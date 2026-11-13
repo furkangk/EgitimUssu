@@ -44,6 +44,10 @@ public interface IStudentDirectory
     /// M10-2: Öğretmenin bu öğrenciyle <b>yaşayan</b> bir bağı var mı (<c>TeacherStudentLink</c>)?
     /// Reddedilmiş/koparılmış/arşivlenmiş bağ <c>false</c> döner — öğretmen görünümü yetkisi
     /// bu cevaba dayanır (varsayılan-deny).
+    /// <para>
+    /// P15 T2: geriye uyumluluk için kalır; <see cref="ITeacherStudentAccess.GetScopeAsync"/> <c>== Private</c>'a
+    /// delege eder. Yeni kod doğrudan <see cref="ITeacherStudentAccess"/> kullanır.
+    /// </para>
     /// </summary>
     /// <param name="teacherUserId">Öğretmen kullanıcı kimliği.</param>
     /// <param name="studentId">Öğrenci profili kimliği.</param>

@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Modules.LessonSessions.Domain;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Tests.Unit.TestDoubles;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -278,7 +279,8 @@ public sealed class LessonSessionTests
     {
         var session = NewSession();
         var authorizer = new LessonSessionCommandAuthorizer(
-            new FakeCurrentUser(Guid.NewGuid(), ["Teacher"]), new FakeLessonSessionRepository(session));
+            new FakeCurrentUser(Guid.NewGuid(), ["Teacher"]), new FakeLessonSessionRepository(session),
+            new FakeTeacherStudentAccess(), new FakeLessonScheduleDirectory());
 
         var result = await authorizer.Authorize(new StartLessonSessionCommand(session.Id), default);
 
@@ -291,7 +293,8 @@ public sealed class LessonSessionTests
     {
         var session = NewSession();
         var authorizer = new LessonSessionCommandAuthorizer(
-            new FakeCurrentUser(session.TeacherUserId, ["Teacher"]), new FakeLessonSessionRepository(session));
+            new FakeCurrentUser(session.TeacherUserId, ["Teacher"]), new FakeLessonSessionRepository(session),
+            new FakeTeacherStudentAccess(), new FakeLessonScheduleDirectory());
 
         var result = await authorizer.Authorize(new CancelLessonSessionCommand(session.Id, null), default);
 

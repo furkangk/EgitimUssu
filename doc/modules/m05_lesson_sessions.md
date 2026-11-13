@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/LessonSessions/**
-updated: 2026-09-04
+updated: 2026-11-13
 ---
 
 # 📖 Ders Oturumları (M05) — Detaylı Tasarım Dokümanı
@@ -182,7 +182,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 4. **Katılım (🟢 kodda):** `AttendanceStatus` tamamlamada girilir (`Attended/Late/Absent`); `Unknown` varsayılan.
 5. **Geçerli zaman (🟢 kodda, P06/M05-3):** `ActualEndAtUtc > ActualStartAtUtc` domain invariant'ıdır; eşit veya ters aralık `lesson_sessions.invalid_time_range` ile reddedilir ve kayıt değişmez. `CompleteLessonSessionCommandValidator` aynı kuralı istek katmanında da uygular (çift savunma).
 6. **Yaşam döngüsü (🟢 kodda, P06/M05-1):** `Planned → InProgress → Completed`, `Planned/InProgress → Cancelled`. `Cancelled` **son durumdur**; oradan `Start`/`Complete` yapılamaz. Geçersiz geçiş `lesson_sessions.invalid_transition` (409).
-7. **Sahiplik (yetki):** Öğretmen yalnızca kendi oturumlarını yönetebilir (`LessonSessionPolicies.cs`); öğrenci yalnızca kendi oturumlarını görüntüleyebilir (önerilen rol kısıtı).
+7. **Sahiplik (yetki):** Öğretmen yalnızca kendi oturumlarını yönetebilir (`LessonSessionPolicies.cs`); öğrenci yalnızca kendi oturumlarını görüntüleyebilir (önerilen rol kısıtı). **P15 T2 / N-08:** **manuel oturum** (`POST /api/lesson-sessions`) ayrıca öğretmenin öğrenciyle yaşayan özel ders bağını ister (`ITeacherStudentAccess.GetScopeAsync == Private`) → yoksa `403 shared.forbidden` (Admin muaf). Gövdede `lessonScheduleId` varsa o planlı ders **aynı öğretmen–öğrenci ikilisine** ait olmalı; başka öğretmenin, başka öğrencinin ya da bilinmeyen bir plan → `403 lesson_sessions.schedule_not_owned` (**Admin dahil** — veri bütünlüğü kuralı; aksi halde asıl öğretmenin `from-schedule` isteği bu yabancı oturumu "zaten var" diye döndürürdü). Başlat/iptal/tamamla yalnız sahipliğe bakar.
 
 ---
 
@@ -291,4 +291,4 @@ M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
 
 ---
 
-*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 / M07-2: `LessonSessionDetails` sözleşmesine `IsChargeable` eklendi — tamamlanan ücretli ders Payments'ta ödeme kaydı üretir) · 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*
+*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-11-13 (P15 Task 2 / N-08: §4 kural 7 — manuel oturum `Private` kapsam ister; bağlanan planlı ders aynı öğretmen–öğrenci ikilisine ait olmalı → `403 lesson_sessions.schedule_not_owned`) · 2026-09-04 (P06 Task 5 / M07-2: `LessonSessionDetails` sözleşmesine `IsChargeable` eklendi — tamamlanan ücretli ders Payments'ta ödeme kaydı üretir) · 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*

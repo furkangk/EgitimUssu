@@ -177,6 +177,9 @@ public sealed class LessonSessionsModule : ModuleDefinition
             // M05-1: gecersiz durum gecisi bir cakismadir (istek dogru, kaynagin durumu uygun degil).
             "lesson_sessions.invalid_transition" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            // P15 T2 / N-08: başka öğretmenin (ya da başka öğrencinin) planlı dersine oturum bağlanamaz.
+            // Kod korunur (Forbidden() kodu shared.forbidden'a çevirirdi) — istemci nedeni ayırt edebilsin.
+            "lesson_sessions.schedule_not_owned" => ApiErrorHttpResults.FromError(context, StatusCodes.Status403Forbidden, result.Error),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };
     }

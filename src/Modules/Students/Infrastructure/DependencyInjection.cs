@@ -16,6 +16,8 @@ public static class DependencyInjection
         services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
         services.AddScoped<ITeacherStudentLinkRepository, TeacherStudentLinkRepository>();
         services.AddScoped<IStudentDirectory, StudentDirectory>();
+        // P15 T2 (K-13): öğretmen–öğrenci erişim kapsamının tek kaynağı.
+        services.AddScoped<ITeacherStudentAccess, TeacherStudentAccess>();
         services.AddScoped<IMembershipDirectory, MembershipDirectory>();
         services.AddScoped<ICommandHandler<CreateStudentProfileCommand, Result<StudentProfileResponse>>, CreateStudentProfileCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByIdQueryHandler>();

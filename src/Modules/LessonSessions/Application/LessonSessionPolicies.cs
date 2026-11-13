@@ -42,19 +42,65 @@ public sealed class LessonSessionCommandAuthorizer :
     IQueryAuthorizer<ListLessonSessionsQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotLinked = new("shared.forbidden", "Bu öğrenciyle aktif bir özel ders bağınız yok.");
     private static readonly Error NotFound = new("lesson_sessions.not_found", "Ders oturumu bulunamadı.");
+    private static readonly Error ScheduleNotOwned = new(
+        "lesson_sessions.schedule_not_owned",
+        "Planlı ders bu öğretmen ve öğrenciye ait değil.");
     private readonly ICurrentUser _currentUser;
     private readonly ILessonSessionRepository _repository;
+    private readonly ITeacherStudentAccess _access;
+    private readonly ILessonScheduleDirectory _scheduleDirectory;
 
-    public LessonSessionCommandAuthorizer(ICurrentUser currentUser, ILessonSessionRepository repository)
+    public LessonSessionCommandAuthorizer(
+        ICurrentUser currentUser,
+        ILessonSessionRepository repository,
+        ITeacherStudentAccess access,
+        ILessonScheduleDirectory scheduleDirectory)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _access = access;
+        _scheduleDirectory = scheduleDirectory;
     }
 
-    public Task<Result> Authorize(CreateLessonSessionCommand command, CancellationToken cancellationToken)
+    /// <summary>
+    /// P15 T2 / N-08: Manuel oturum yalnız öğrenciyle yaşayan özel ders bağı olan öğretmence açılır (Admin muaf).
+    /// Bir planlı derse bağlanıyorsa o plan bu öğretmen–öğrenci ikilisine ait olmalı — Admin dahil: aksi halde
+    /// asıl öğretmenin <c>from-schedule</c> isteği bu yabancı oturumu "zaten var" diye döndürür. Bilinmeyen
+    /// plan da aynı hatayla reddedilir (varlığı sızdırılmaz).
+    /// </summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public async Task<Result> Authorize(CreateLessonSessionCommand command, CancellationToken cancellationToken)
     {
-        return Task.FromResult(CanManageTeacher(command.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+        if (!CanManageTeacher(command.TeacherUserId))
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (!_currentUser.Roles.Contains("Admin"))
+        {
+            var scope = await _access.GetScopeAsync(command.TeacherUserId, command.StudentId, cancellationToken);
+            if (scope != TeacherAccessScope.Private)
+            {
+                return Result.Failure(NotLinked);
+            }
+        }
+
+        if (command.LessonScheduleId is { } lessonScheduleId)
+        {
+            var schedule = await _scheduleDirectory.GetAsync(lessonScheduleId, cancellationToken);
+            if (schedule is null
+                || schedule.TeacherUserId != command.TeacherUserId
+                || schedule.StudentId != command.StudentId)
+            {
+                return Result.Failure(ScheduleNotOwned);
+            }
+        }
+
+        return Result.Success();
     }
 
     public async Task<Result> Authorize(CompleteLessonSessionCommand command, CancellationToken cancellationToken)

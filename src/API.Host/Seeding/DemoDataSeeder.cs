@@ -251,7 +251,7 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
 
             var seeded = seed.SelfEmail is null
                 ? await EnsureTeacherManagedStudentAsync(seed, teacherUserId, subject)
-                : await EnsureSelfRegisteredStudentAsync(seed, teacherUserId, subject);
+                : await EnsureStudentWithOwnAccountAsync(seed, teacherUserId, subject);
 
             _students.Add(seeded);
         }
@@ -289,7 +289,18 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
         return new SeededStudent(created.Id, null, seed, teacherUserId, subject);
     }
 
-    private async Task<SeededStudent> EnsureSelfRegisteredStudentAsync(
+    /// <summary>
+    /// Kendi hesabı olan öğrenci: profil öğrencinin hesabına bağlı <b>ve</b> öğretmenle yaşayan özel ders bağı var.
+    /// <para>
+    /// P15 T2 (N-08): öğretmen yalnız bağı olduğu öğrenciye ders/ödeme yazabilir. Eskiden profil öğrencinin
+    /// kendisince (<c>SelfRegistered</c>) açılıyor ve öğretmenle <b>hiç bağı olmuyordu</b> — tohumlama, öğretmenin
+    /// herhangi bir öğrenciye yazabildiği açığa dayanıyordu. Bugün kendi açtığı profile bağ kurmanın tek ürün
+    /// yolu (davet + claim + birleştirme) bağı eski profilde bırakıyor (N-28), bu yüzden profil öğretmen
+    /// tarafından öğrencinin hesabıyla birlikte açılır. P15 T3 gövdedeki <c>userId</c>'yi reddedince (N-23)
+    /// bu adım davet + claim'e geçer (Öğrenilenler #179).
+    /// </para>
+    /// </summary>
+    private async Task<SeededStudent> EnsureStudentWithOwnAccountAsync(
         StudentSeed seed, Guid teacherUserId, string subject)
     {
         var (firstName, lastName) = SplitName(seed.FullName);
@@ -301,12 +312,23 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
         var existing = await session.QueryOrDefaultAsync(new GetStudentProfileByUserIdQuery(studentUserId));
         if (existing is not null)
         {
+            if (existing.Origin == nameof(StudentOrigin.SelfRegistered))
+            {
+                // P15 T2 öncesi tohumlanmış veritabanı: bu profilin öğretmenle bağı yok ve komutlarla kurulamaz.
+                // Ders/ödeme adımında belirsiz bir 403 yerine nedeni ve çaresi burada söylenir.
+                throw new InvalidOperationException(
+                    $"Demo veri tohumlaması durdu: '{seed.SelfEmail}' öğrencisi P15 T2 öncesi tohumlanmış "
+                    + "(kendi açtığı profil, öğretmen bağı yok). Demo veritabanını sıfırlayıp yeniden tohumlayın.");
+            }
+
             return new SeededStudent(existing.Id, studentUserId, seed, teacherUserId, subject);
         }
 
+        session.ActAs(teacherUserId, TeacherSeeds[seed.TeacherIndex].Email, "Teacher");
+
         var created = await session.SendAsync(new CreateStudentProfileCommand(
             UserId: studentUserId,
-            CreatedByTeacherUserId: null,
+            CreatedByTeacherUserId: teacherUserId,
             ParentUserId: null,
             seed.FullName,
             seed.GradeLevel,
@@ -314,7 +336,7 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
             ContactPhone: null,
             GoalSummary: $"{seed.TargetExam} hazırlığı (demo)",
             LevelNotes: null,
-            StudentOrigin.SelfRegistered,
+            StudentOrigin.TeacherManaged,
             [new StudentSubjectRequest(subject, seed.TargetExam.ToString())],
             seed.TargetExam));
 

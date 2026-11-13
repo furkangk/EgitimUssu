@@ -65,7 +65,7 @@
 
 ---
 
-### Task 2: Erişim kapsamı sözleşmesi + yazma uçlarında bağ kontrolü (N-08, N-21)
+### Task 2: Erişim kapsamı sözleşmesi + yazma uçlarında bağ kontrolü (N-08, N-21) ✅
 
 **Files:**
 - Create: `src/Shared/Contracts/TeacherStudentAccessContract.cs`
@@ -74,8 +74,10 @@
 - Modify: `src/Modules/Scheduling/Application/LessonSchedulePolicies.cs` (create/update/reschedule)
 - Modify: `src/Modules/Payments/Application/PaymentPolicies.cs` (create/update)
 - Modify: `src/Modules/LessonSessions/Application/LessonSessionPolicies.cs` (manuel create + `LessonScheduleId` sahipliği)
-- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs` (sahiplik okuması gerekiyorsa)
+- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs` (sahiplik okuması gerekiyorsa) — **gerekmedi**: `LessonScheduleDetails` zaten `TeacherUserId` + `StudentId` taşıyor
 - Test: `tests/Unit/TeacherStudentAccessTests.cs`, `tests/Unit/WriteEndpointLinkAuthorizationTests.cs`
+- **Yürütmede eklenen (2026-11-13):** `src/Modules/Students/Infrastructure/StudentDirectory.cs` (delegasyon) + `DependencyInjection.cs` (kayıt), `src/Shared/Contracts/StudentDirectoryContract.cs` (açıklama), `src/Modules/LessonSessions/API/LessonSessionsModule.cs` (`lesson_sessions.schedule_not_owned` → **403**; eşleme yoksa varsayılan 400'e düşüyordu, authorizer birim testi bunu göremez), `src/API.Host/Seeding/DemoDataSeeder.cs` (**demo tohumlaması N-08 açığına dayanıyordu**: kendi hesabı olan iki öğrenci `SelfRegistered` profille, öğretmenle **hiç bağ olmadan** açılıp onlara ders/ödeme yazılıyordu → artık öğretmen profili öğrencinin hesabıyla birlikte açar; T3'te davet + claim'e geçer, Öğrenilenler #179), `src/Modules/Students/Infrastructure/*.csproj` (`InternalsVisibleTo`), `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Students.Infrastructure referansı — kapsam kuralı gerçek sorguya karşı test edilsin), `tests/Unit/TestDoubles/FakeTeacherStudentAccess.cs`, `tests/Unit/TestDoubles/FakeLessonScheduleDirectory.cs`, `tests/Unit/LessonSessionTests.cs` + `tests/Unit/PaymentRequestCacheTests.cs` (kurucu imzaları), `tests/Integration/RealWriteLinkAuthorizationTests.cs` (DI kaydı + HTTP eşlemesi + arşiv sonrası 403 / iptal 200 gerçek Postgres'te).
+- **Formül netleştirmesi (yürütmede):** ikinci kol "öğretmen bağı arşivli değil" **ve yaşıyor** (`Manual`/`InviteSent`) okunur — `Rejected`/`Disconnected` bağ `None` (eski `IsLinkedTeacherOfStudentAsync` de `false` dönüyordu; "mevcut çağıranlar davranış değiştirmez" ve fail-closed). Profil var ama bağ satırı yoksa `None`. Yazma uçları `!= None` değil **`== Private`** karşılaştırır (P22'de `Class` özel ders yetkisi vermemeli — K-17/K-18). Manuel oturumda plan sahipliği öğretmen **ve öğrenci** eşleşmesi ister ve **Admin'e de** uygulanır (veri bütünlüğü); bilinmeyen plan da `schedule_not_owned`.
 
 **Interfaces:**
 - Produces (master §4):
@@ -87,13 +89,13 @@
   `Private` ⇔ (`TeacherStudentLink.Status == Linked` ve arşivli değil) **veya** (profil `TeacherManaged` ve `CreatedByTeacherUserId == teacher` ve öğretmen bağı arşivli değil). Aksi `None`. `Class` P22'ye kadar dönmez.
 - Consumes: `IStudentDirectory.IsLinkedTeacherOfStudentAsync` artık `GetScopeAsync == Private`'a delege eder (tek kaynak).
 
-- [ ] **Step 1: Kırmızı testler** — her uç için üç senaryo (başka öğretmen / bağı arşivlenmiş öğretmen / bağsız öğretmen) → 403:
-  `CreateLessonSchedule`, `CreatePayment`, `CreateLessonSession` (manuel), `CreateParentInvite` (N-21: bağsız öğretmen davet üretemez). Ek: manuel oturumda başka öğretmenin `LessonScheduleId`'si → 403 `lesson_sessions.schedule_not_owned`.
-- [ ] **Step 2: Kırmızı gör** — `--filter "FullyQualifiedName~TeacherStudentAccess|FullyQualifiedName~WriteEndpointLinkAuthorization"`
-- [ ] **Step 3: Sözleşme + Students implementasyonu**; `IsLinkedTeacherOfStudentAsync`'i delege et (mevcut çağıranlar — Messaging, ProgressTracking, Reporting — davranış değiştirmez).
-- [ ] **Step 4: Dört authorizer'ı kapsam sorgusuna geçir.** Admin istisnası korunur.
-- [ ] **Step 5: Yeşil gör** — `dotnet test EgitimUssu.slnx`
-- [ ] **Step 6: Doküman + commit** — `doc/architecture/backend.md` (erişim kapsamı bölümü), `m03`, `m04`, `m05`, `m07`; rapor N-08, N-21 ✅.
+- [x] **Step 1: Kırmızı testler** — her uç için üç senaryo (başka öğretmen / bağı arşivlenmiş öğretmen / bağsız öğretmen) → 403:
+  `CreateLessonSchedule`, `CreatePayment`, `CreateLessonSession` (manuel), `CreateParentInvite` (N-21: bağsız öğretmen davet üretemez). Ek: manuel oturumda başka öğretmenin `LessonScheduleId`'si → 403 `lesson_sessions.schedule_not_owned`. **Yürütmede genişletildi** (Global Constraints "değişen her yazma ucu"): `UpdateLessonSchedule`, `RescheduleLessonSchedule`, `UpdatePayment` için de üç senaryo; arşivli öğretmenin iptal/silmesi serbest; Admin muafiyeti; bilinmeyen / başka öğrencinin planı.
+- [x] **Step 2: Kırmızı gör** — `--filter "FullyQualifiedName~TeacherStudentAccess|FullyQualifiedName~WriteEndpointLinkAuthorization"`
+- [x] **Step 3: Sözleşme + Students implementasyonu**; `IsLinkedTeacherOfStudentAsync`'i delege et (mevcut çağıranlar — Messaging, ProgressTracking, Reporting — davranış değiştirmez).
+- [x] **Step 4: Dört authorizer'ı kapsam sorgusuna geçir.** Admin istisnası korunur.
+- [x] **Step 5: Yeşil gör** — `dotnet test EgitimUssu.slnx`
+- [x] **Step 6: Doküman + commit** — `doc/architecture/backend.md` (erişim kapsamı bölümü), `m03`, `m04`, `m05`, `m07`; rapor N-08, N-21 ✅.
   ```bash
   git commit -m "fix(security): ITeacherStudentAccess + yazma uclarinda bag kontrolu (N-08, N-21)"
   ```

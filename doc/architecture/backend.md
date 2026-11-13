@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-10-16
+updated: 2026-11-13
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
@@ -303,6 +303,36 @@ Doğrulama InMemory'den alınamaz; gerçek Postgres'te EF'in `Executed DbCommand
 - **Hata sızdırmama:** Tüm hata yanıtları ProblemDetails; 401/403 challenge'ları özel `ApiErrorHttpResults` ile tutarlı.
 - **Sır repoda yok:** Bağlantı dizesi, JWT anahtarı ve SMTP kimlik bilgileri yalnız ortam değişkeninden (`ConnectionStrings__Postgres`, `Jwt__SigningKey`, `Email__Smtp__Username`, `Email__Smtp__Password`); eksik/zayıf değerde uygulama açılmaz.
 
+### 8.1 Öğretmen–öğrenci erişim kapsamı (P15 T2, K-13)
+
+Öğretmenin bir öğrenci üzerindeki yetkisi **rolde değil ilişkide** durur. Tek kaynak
+`Shared/Contracts/TeacherStudentAccessContract.cs`:
+
+```csharp
+public enum TeacherAccessScope { None = 0, Private = 1, Class = 2 }
+public interface ITeacherStudentAccess
+{ Task<TeacherAccessScope> GetScopeAsync(Guid teacherUserId, Guid studentId, CancellationToken ct); }
+```
+
+| Kapsam | Ne zaman | Verdiği yetki |
+|--------|----------|---------------|
+| `Private` | Bağ `Linked` ve arşivli değil **veya** profil `TeacherManaged`, bu öğretmence açılmış ve bağı yaşıyor (`Manual`/`InviteSent`, arşivli değil) | Ders, ödeme, oturum, veli daveti, mesaj, gelişim/rapor |
+| `Class` | Sınıf üyeliği — **P22'ye kadar hiç dönmez** | Özel ders yetkisi **vermez** (K-17, K-18) |
+| `None` | Arşivli / reddedilmiş (`Rejected`) / kopmuş (`Disconnected`) bağ, hiç bağ yok, başkasının profilinde `Manual` bağ | — |
+
+- **Uygulayan:** Students (`Infrastructure/TeacherStudentAccess.cs`). Eski `IStudentDirectory.IsLinkedTeacherOfStudentAsync`
+  geriye uyumluluk için kalır ve `GetScopeAsync == Private`'a delege eder (Messaging, ProgressTracking, Reporting).
+- **Karşılaştırma kuralı:** yazma uçları `!= None` değil **`== Private`** sorar — P22'de `Class` dönmeye başlayınca
+  sınıf öğretmeni özel ders kaydı açamamalı.
+- **Kapsam soran yazma uçları:** ders oluştur/güncelle/ertele (M04), ödeme oluştur/güncelle (M07), manuel oturum (M05,
+  ayrıca bağlandığı planlı ders aynı öğretmen–öğrenci ikilisine ait olmalı → `403 lesson_sessions.schedule_not_owned`),
+  veli daveti (M03). Kapsam yoksa `403 shared.forbidden` ("Bu öğrenciyle aktif bir özel ders bağınız yok."). **Admin muaf.**
+- **Bilinçli olarak sormayanlar:** ders iptal/silme/tamamlama, oturum başlat/iptal/tamamla ve okumalar yalnız sahipliğe
+  bakar — bağı biten öğretmen eski kayıtlarını temizleyebilir.
+- **Test:** kural gerçek sorguya karşı (`TeacherStudentAccessTests`, EF InMemory); her yazma ucu için "başka öğretmen /
+  bağı arşivlenmiş öğretmen / bağsız öğretmen → 403" (`WriteEndpointLinkAuthorizationTests`); DI kaydı ve HTTP eşlemesi
+  gerçek Postgres'te (`RealWriteLinkAuthorizationTests`).
+
 ## 9. Hata Yönetimi
 
 İş hataları istisna fırlatmaz; `Result.Failure(new Error(code, message))` döner. API katmanı `Error.Code` → HTTP
@@ -469,4 +499,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-10-16 (denetim: HTTP idempotency anonim/kimliksiz isteklerde ve Identity uçlarında kapatıldı; kullanıcılar arası yanıt ve eski jeton tekrarı engellendi, `IdempotencyIdentityIsolationTests`) · 2026-09-06 (P13 Task 9 / C-04: §11.2'ye **uygulamanın kendi span'ları** tablosu (`command`/`query`/`outbox.poll`/`outbox.dispatch`/`handler`/`retention.sweep`) ve yeni **§11.5 asenkron zincir** — `outbox_messages.TraceParent` ile üreten isteğin bağlamı mesajla taşınıyor, dispatch o trace'i devam ettiriyor; enstrümante edilmemiş yoklayıcının trace'i nasıl kirlettiği ölçümle anlatıldı) · 2026-09-05 (P13 Task 4 / E-05: §3'e **Yedekleme / migration** satırı — üretimde açılış migration'ı `MigrationStartupGuard` ile kapatıldı, `ApplyModuleMigrationsAsync` artık kararın sahibi ve `bool` döndürüyor; §6 migration maddesine `Down()` kuralı + CI kontrolü eklendi. Prosedür: `backup_restore.md`) · 2026-09-05 (P13 Task 3 / E-06: §3'e **Ortamlar / tohumlama** satırı — staging ayrı servis + ayrı veritabanı, açılışta idempotent demo veri; seeder modül komutlarından geçer (kimliğe bürünerek), Production'da guard bayrağı yok sayar. Ayrıntı `environments.md`) · 2026-09-05 (P13 Task 2 / C-10: §3'e **API sürümleme** satırı — yayınlanan sözleşme `v1`, mevcut yollar sürüm eki taşımaz ve kırılmaz, kırıcı değişiklik `/api/v2/...` altında açılır; her `/api/*` yanıtında `X-Api-Version` (401/404 dahil), `/health*` ve `/openapi*` sürümlenmez. `GET /api/meta/version` artık `apiVersion` (sözleşme) ile `version` (derleme) ayrımını yapıyor, OpenAPI belgesi sözleşme sürümünü yayınlıyor. Politika: `api_versioning.md`) · 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-11-13 (P15 Task 2 / N-08, N-21: yeni **§8.1 öğretmen–öğrenci erişim kapsamı** — `ITeacherStudentAccess` + `TeacherAccessScope { None, Private, Class }` tek kaynak; ders/ödeme/manuel oturum/veli daveti yazma uçları `== Private` sorar, Admin muaf; iptal/silme/okuma yalnız sahiplik) · 2026-10-16 (denetim: HTTP idempotency anonim/kimliksiz isteklerde ve Identity uçlarında kapatıldı; kullanıcılar arası yanıt ve eski jeton tekrarı engellendi, `IdempotencyIdentityIsolationTests`) · 2026-09-06 (P13 Task 9 / C-04: §11.2'ye **uygulamanın kendi span'ları** tablosu (`command`/`query`/`outbox.poll`/`outbox.dispatch`/`handler`/`retention.sweep`) ve yeni **§11.5 asenkron zincir** — `outbox_messages.TraceParent` ile üreten isteğin bağlamı mesajla taşınıyor, dispatch o trace'i devam ettiriyor; enstrümante edilmemiş yoklayıcının trace'i nasıl kirlettiği ölçümle anlatıldı) · 2026-09-05 (P13 Task 4 / E-05: §3'e **Yedekleme / migration** satırı — üretimde açılış migration'ı `MigrationStartupGuard` ile kapatıldı, `ApplyModuleMigrationsAsync` artık kararın sahibi ve `bool` döndürüyor; §6 migration maddesine `Down()` kuralı + CI kontrolü eklendi. Prosedür: `backup_restore.md`) · 2026-09-05 (P13 Task 3 / E-06: §3'e **Ortamlar / tohumlama** satırı — staging ayrı servis + ayrı veritabanı, açılışta idempotent demo veri; seeder modül komutlarından geçer (kimliğe bürünerek), Production'da guard bayrağı yok sayar. Ayrıntı `environments.md`) · 2026-09-05 (P13 Task 2 / C-10: §3'e **API sürümleme** satırı — yayınlanan sözleşme `v1`, mevcut yollar sürüm eki taşımaz ve kırılmaz, kırıcı değişiklik `/api/v2/...` altında açılır; her `/api/*` yanıtında `X-Api-Version` (401/404 dahil), `/health*` ve `/openapi*` sürümlenmez. `GET /api/meta/version` artık `apiVersion` (sözleşme) ile `version` (derleme) ayrımını yapıyor, OpenAPI belgesi sözleşme sürümünü yayınlıyor. Politika: `api_versioning.md`) · 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
@@ -80,28 +81,44 @@ public sealed class CreateParentInviteCommandHandler : ICommandHandler<CreatePar
     }
 }
 
+/// <summary>
+/// P15 T2 / N-21: Veli daveti yalnız öğrenciyle yaşayan özel ders bağı olan öğretmen tarafından üretilir.
+/// Eskiden öğrenci kimliğini bilen herhangi bir öğretmen hesabı davet üretip ikinci bir hesapla kendisi
+/// kullanabiliyor ve çocuğun birincil velisi oluyordu.
+/// </summary>
 public sealed class CreateParentInviteCommandAuthorizer : ICommandAuthorizer<CreateParentInviteCommand>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu öğrenci için veli daveti oluşturma yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
+    private readonly ITeacherStudentAccess _access;
 
-    public CreateParentInviteCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+    public CreateParentInviteCommandAuthorizer(ICurrentUser currentUser, ITeacherStudentAccess access)
+    {
+        _currentUser = currentUser;
+        _access = access;
+    }
 
-    public Task<Result> Authorize(CreateParentInviteCommand command, CancellationToken cancellationToken)
+    public async Task<Result> Authorize(CreateParentInviteCommand command, CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated)
         {
-            return Task.FromResult(Result.Failure(Forbidden));
+            return Result.Failure(Forbidden);
         }
 
         if (_currentUser.Roles.Contains("Admin"))
         {
-            return Task.FromResult(Result.Success());
+            return Result.Success();
         }
 
-        var canManage = _currentUser.Roles.Contains("Teacher")
+        var isSelf = _currentUser.Roles.Contains("Teacher")
             && Guid.TryParse(_currentUser.UserId, out var id)
             && id == command.TeacherUserId;
-        return Task.FromResult(canManage ? Result.Success() : Result.Failure(Forbidden));
+        if (!isSelf)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        var scope = await _access.GetScopeAsync(command.TeacherUserId, command.StudentId, cancellationToken);
+        return scope == TeacherAccessScope.Private ? Result.Success() : Result.Failure(Forbidden);
     }
 }
