@@ -1,9 +1,10 @@
-# 🧭 İLERLEME — Sağlamlaştırma Programı Devam Noktası
+# 🧭 İLERLEME — Program Devam Noktası (Olgunlaştırma P15–P29 · önceki: Sağlamlaştırma P01–P14)
 
 > **Bu dosya oturumlar arası tek hafızadır.** Konuşma geçmişi `/clear` ile silinse bile "nerede kaldık" bilgisi burada durur.
 > Her görev bittiğinde **bu dosya güncellenir**, sonra oturum temizlenir. Yeni oturumda `/devam` yaz.
 >
-> Kaynaklar: [master tasarım](specs/2026-09-02-saglamlastirma-master-design.md) · [planlar](plans/) · [eksik analizi](../../doc/denetim/2026-09-02_eksik_analizi.md)
+> **Aktif program (2026-11-13):** [Olgunlaştırma master tasarım](specs/2026-11-13-olgunlastirma-master-design.md) · planlar `plans/2026-11-13-NN-*.md` · [kapsamlı inceleme (N/P serisi)](../../doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md)
+> **Önceki program:** [Sağlamlaştırma master tasarım](specs/2026-09-02-saglamlastirma-master-design.md) · planlar `plans/2026-09-02-NN-*.md` · [eksik analizi](../../doc/denetim/2026-09-02_eksik_analizi.md)
 
 ---
 
@@ -11,30 +12,53 @@
 
 | Alan | Değer |
 |------|-------|
-| **Aktif plan** | 🔄 `P13 — Operasyon & hijyen` (`plans/2026-09-02-13-operasyon-hijyen.md`) — **9/10** *(tek açık görev **Task 6b**; turlu yürüyor: 1/18 feature bitti)* · *(P10 ✅ 5/5 bitti · P09 5/7, kalan 2 görev Q1/Q3'e bloke)* |
-| **Sıradaki görev** | **P13 Task 6b — tur 2: `scheduling`** (en büyük ekran: `scheduling_page` + `lesson_form_sheet`). Tur 1 (`dashboard`) ✅ bitti. Kalan sıra: `scheduling` → `lesson_sessions` → `students` → `study` → `parent` → `payments` → `assignments` → `settings` → `teacher_profile` → `membership` → `messaging` → `notifications` → `reporting` → `progress` → `shared/widgets` → **`auth` (kalan 38)** → **`more` (kalan 53)**. Her tur ayrı commit; turu bitiren şey `localization_test.dart`'taki `_migratedFeatures` listesine feature'ı eklemek. Alternatif: **P11 Eşleştirme & yorum**'a geçip 6b'yi sonraya bırakmak (ürün değeri daha yüksek) |
-| **Dal** | `feat/p13-operasyon-hijyen` (`feat/p10-mesajlasma`'dan açıldı — P13 "paralel yürüyebilir" ama P02/P03'ün e-posta/push kodu üzerine metrik koyuyor, o yüzden main'den değil zincirin ucundan açıldı). **P01–P13 dallarının hepsi PR/merge bekliyor.** |
-| **Son commit** | `820b75c` (chore(mobile): dashboard ekrani ARB'ye tasindi — D-19 / Task 6b turu 1) |
-| **Çalışma ağacı** | `backups/` `.gitignore`'da (E-05) · `mobile/pubspec.lock` kirli (beklenen — #44) · izlenmeyen `.claude/worktrees/` (**commit'lenmemeli** → #103) · ⚠️ **bu görevin dışında ve hâlâ commit'lenmedi**: `doc/INDEX.md`'nin rakip-analizi satırları, `doc/kaynaklar/00_kaynaklar_index.md`, `doc/modules/m17_membership.md`, `doc/ozel_ders_platformu_PRD.md`, `doc/roles/ogrenci.md` + izlenmeyen `doc/kaynaklar/2026-09-05_rakip_analizi.{md,doc,html}` — **paralel bir oturumun** işi. Task 8 ve Task 6b tur 1 commit'leri `git add -A` yerine dosya listesiyle yapıldı ki bunlar karışmasın |
+| **Aktif program** | **Olgunlaştırma (P15–P29)** — [master](specs/2026-11-13-olgunlastirma-master-design.md). Önceki program kapandı: P01–P10 ✅, P13 ✅ (Task 6b → K-26), P09 5/7 (Task 4/5 → P28); P11, P12, P14 yeni programın dalgalarına yerleştirildi |
+| **Aktif plan** | ⏳ **P15 — Güvenlik acil** ([plan](plans/2026-11-13-15-guvenlik-acil.md)) — 0/9 |
+| **Sıradaki görev** | **P15 Task 1** — güvenli kod üreteci + davet kodlarının sertleştirilmesi (N-20) |
+| **Dal** | `feat/p15-guvenlik` (`main`'den açıldı; ilk commit program dokümanları). **P01–P13 dallarının hepsi `main`'e merge edildi** (`dfc158f`, `117aac9` — 2026-11-13) |
+| **Son commit** | `117aac9` (merge: mimari ve güvenlik açığı düzeltmeleri → main). Program dokümanları `feat/p15-guvenlik` dalında ayrı bir `docs:` commit'i olarak atıldı (`git log -1` ile doğrula) |
+| **Hafif planlar (🅻)** | P21–P29: `/devam` bu planlara geldiğinde **önce Task 0'ı** (planı kodu okuyarak ayrıntılandırma) yürütür, kod yazmadan önce commit'ler |
+| **Üretim** | **Canlı üretim servisi yok** (kullanıcı, 2026-11-13): önce proje tamamlanacak. Üretim guard'ları (P15 T6) merge'ü bloklamaz; Render üretim servisi yayın kapısında (master §3.2) açılır |
+| **Çalışma ağacı** | `mobile/pubspec.lock` platforma göre oynayabilir (#44 — kalıcı çözüm P26 T6: Flutter sürümü sabitleme). Platforma özgü dosyalar `main`'e commit'lenmez |
 
 ## 📋 Plan Durumu
 
 | Plan | Görev | Durum | Not |
 |------|-------|-------|-----|
-| P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (merge bekliyor) |
-| P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (merge bekliyor) |
+| P01 Onarım | 7/7 | ✅ Bitti | Ana dal yeşil: test paketi + CI `-warnaserror` derlemesi · dal: `feat/p01-onarim` (✅ main'e merge edildi 2026-11-13) |
+| P02 E-posta altyapısı | 7/7 | ✅ Bitti | A-03 + M01-1 + D-01 + D-02 kapandı · dal: `feat/p02-eposta` (✅ main'e merge edildi 2026-11-13) |
 | P03 Push bildirim | 7/7 | ✅ Bitti | Task 1-6 bitti (cihaz token · `IPushSender`/FCM · gerçek gönderim · in-app bildirim merkezi · mobil push zinciri · mobil bildirim merkezi; **Y5 kapandı, M11 🟢**). Gerçek cihaz doğrulaması **Q8'e bağlı** · dal: `feat/p03-push` |
-| P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (merge bekliyor) |
+| P04 Dosya depolama | 5/5 | ✅ Bitti | C-02/M06-1/M06-2/M02-2/D-05 kapandı, **mimari O8 kapandı**; S3 yolu MinIO'ya karşı canlı doğrulandı · dal: `feat/p04-depolama` (✅ main'e merge edildi 2026-11-13) |
 | P05 Ayarlar | 6/6 | ✅ Bitti | M15-1/2/3 + M11-5 + D-14..D-17 kapandı, M15-4 kısmi (rol bazlı profil düzenleme kaldı); **M15 🟡 → 🟢** · dal: `feat/p05-ayarlar` |
-| P06 Öğretmen MVP | 10/10 | ✅ Bitti | M02-1/3/4/5 + M03-1/2/3 + M05-1/2/3/4 + M07-1/2 + M04-1/2 + M08-1 + M06-3/4 + M09-3 + D-04. **Canlı saha doğrulaması yapıldı** (41/41), 4 gerçek hata bulunup düzeltildi (C-10…C-13). Kalan kod-dışı: Q6 beta listesi, Q7 SMTP, Q8 Firebase, cihazda mobil gezinti · dal: `feat/p05-ayarlar` (merge bekliyor) |
-| P07 Read-model | 5/5 | ✅ Bitti | C-03/O5 (projeksiyon deseni + M14 ilk read-model, M14 🔴→🟡), C-05/O2 (çift sorgu), C-06/O4 (dispatcher delegate önbelleği) kapandı. Docker'lı tam paket: 4/485/28, atlanan 0 · dal: `feat/p07-read-model` (merge bekliyor) |
-| P08 Gelişim & raporlama | 6/6 | ✅ Bitti | Task 1 ✅ (M10-1 snapshot+trend) · Task 2 ✅ (M10-2/3/4 öğretmen/veli görünümü + gizlilik + M05 beslemesi) · Task 3 ✅ (M14-1/2/3/5: üç analitik projeksiyon + 4 uç + boş zaman analizi + iki yeni sözleşme) · Task 4 ✅ (M14-4: QuestPDF raporu + `student_reports` + premium kapısı 402) · Task 5 ✅ (mobil: `ProgressCubit`+snapshot çizgisi, yeni `features/reporting` — iki ekran + iki cubit + üç grafik, PDF indir/aç, D-16 kapandı) · Task 6 ✅ (kapanış: projeksiyon yeniden-kurulabilirliği gerçek Postgres'te kanıtlandı, **M10 + M14 🟢**). Kalan borçlar P09/P12'ye etiketlendi · dal: `feat/p08-gelisim-raporlama` (merge bekliyor) |
-| P09 Üyelik & gelir | 5/7 | 🚫 Kalan 2 görev bloke | Task 1 ✅ (M17-1: modül iskeleti + abonelik domain'i; **M17 🔴 → 🟡**) · Task 2 ✅ (K-09/M17-5/M03-4: `IEntitlementDirectory` + `GET /me` + dört modülün devri; **#113 kapandı**) · Task 3 ✅ (M17-1/M17-3: referans + deneme + plan kataloğu + Admin plan CRUD) · Task 6 ✅ (D-10/D-15: mobil üyelik ekranı + paywall + `PremiumLock`) · **Task 7 ✅ kısmi** (uçtan uca doğrulama + doküman kapanışı; **M17 🟡 bırakıldı**, 2 kabul kriteri doğrulanamadı) · **Task 4 🚫 (iyzico, Q1)** ve **Task 5 🚫 (AdMob, Q3)** — dış hesap kararı bekliyor · dal: `feat/p09-uyelik-gelir` |
-| P10 Mesajlaşma | 5/5 | ✅ Bitti | Task 1 ✅ (M16-1: modül iskeleti + `Conversation`/`Message` domain'i; **M16 🔴 → 🟡**) · Task 2 ✅ (8 uç + ilişki kapısı `IStudentDirectory`/`IParentAccessDirectory` + keyset sayfalama + kullanıcı başına 30/dk kota) · Task 3 ✅ (M09-2: `MessageSentNotificationHandler` → in-app bildirim) · Task 4 ✅ (D-08: mobil gelen kutusu + sohbet, üç rolde giriş; **`flutter_chat_ui` kaldırıldı**, D-18 kısmen) · Task 5 ✅ (kapanış: `RealMessagingChainTests` gerçek Postgres+Redis, **1 gerçek hata bulundu ve düzeltildi**). **M16 bilerek 🟡** — karşı tarafın adı, veli sohbet başlatma, şikayet (M18/P12), cihaza push (Q8) açık · dal: `feat/p10-mesajlasma` (merge bekliyor) |
-| P11 Eşleştirme & yorum | 0/6 | ⚪ Bekliyor | P07+P09 sonrası |
-| P12 Admin & moderasyon | 0/6 | ⚪ Bekliyor | P11 sonrası |
-| P13 Operasyon & hijyen | 9/10 | 🔄 Devam ediyor | Task 1 ✅ (C-04/K-10: OpenTelemetry) · Task 2 ✅ (C-10: `X-Api-Version`) · Task 3 ✅ (E-06: staging servisi + demo veri) · Task 4 ✅ (E-05: yedek/geri yükleme tatbikatı) · Task 5 ✅ (E-07: KVKK hesap silme) · Task 6 ✅ (D-18…D-22: l10n altyapısı + 188→0 yazım + CI) · Task 7 ✅ (M01-4/D-03: cihaz oturumları) · Task 8 ✅ (kapanış: tam test turu + canlı gözlemlenebilirlik + geri yükleme tatbikatı) · **Task 9 ✅** (outbox trace zinciri: `TraceParent` + 15 migration + 7 arka plan span'ı; **C-04 tam kapandı**, ebeveynsiz gürültü trace'i 1488 → 0). **Tek açık görev: Task 6b** (ARB taşıması) · dal: `feat/p13-operasyon-hijyen` · **Task 6b 🔄 turlu**: tur 1 `dashboard` ✅ (111 dize → 48 ARB anahtarı), 17 tur kaldı |
-| P14 Web (Angular) | 0/5 | ⚪ Bekliyor | P12 sonrası |
+| P06 Öğretmen MVP | 10/10 | ✅ Bitti | M02-1/3/4/5 + M03-1/2/3 + M05-1/2/3/4 + M07-1/2 + M04-1/2 + M08-1 + M06-3/4 + M09-3 + D-04. **Canlı saha doğrulaması yapıldı** (41/41), 4 gerçek hata bulunup düzeltildi (C-10…C-13). Kalan kod-dışı: Q6 beta listesi, Q7 SMTP, Q8 Firebase, cihazda mobil gezinti · dal: `feat/p05-ayarlar` (✅ main'e merge edildi 2026-11-13) |
+| P07 Read-model | 5/5 | ✅ Bitti | C-03/O5 (projeksiyon deseni + M14 ilk read-model, M14 🔴→🟡), C-05/O2 (çift sorgu), C-06/O4 (dispatcher delegate önbelleği) kapandı. Docker'lı tam paket: 4/485/28, atlanan 0 · dal: `feat/p07-read-model` (✅ main'e merge edildi 2026-11-13) |
+| P08 Gelişim & raporlama | 6/6 | ✅ Bitti | Task 1 ✅ (M10-1 snapshot+trend) · Task 2 ✅ (M10-2/3/4 öğretmen/veli görünümü + gizlilik + M05 beslemesi) · Task 3 ✅ (M14-1/2/3/5: üç analitik projeksiyon + 4 uç + boş zaman analizi + iki yeni sözleşme) · Task 4 ✅ (M14-4: QuestPDF raporu + `student_reports` + premium kapısı 402) · Task 5 ✅ (mobil: `ProgressCubit`+snapshot çizgisi, yeni `features/reporting` — iki ekran + iki cubit + üç grafik, PDF indir/aç, D-16 kapandı) · Task 6 ✅ (kapanış: projeksiyon yeniden-kurulabilirliği gerçek Postgres'te kanıtlandı, **M10 + M14 🟢**). Kalan borçlar P09/P12'ye etiketlendi · dal: `feat/p08-gelisim-raporlama` (✅ main'e merge edildi 2026-11-13) |
+| P09 Üyelik & gelir | 5/7 | ✅ Kapandı (Task 4 → P28, Task 5 → P28 ops.) | Task 1 ✅ (M17-1: modül iskeleti + abonelik domain'i; **M17 🔴 → 🟡**) · Task 2 ✅ (K-09/M17-5/M03-4: `IEntitlementDirectory` + `GET /me` + dört modülün devri; **#113 kapandı**) · Task 3 ✅ (M17-1/M17-3: referans + deneme + plan kataloğu + Admin plan CRUD) · Task 6 ✅ (D-10/D-15: mobil üyelik ekranı + paywall + `PremiumLock`) · **Task 7 ✅ kısmi** (uçtan uca doğrulama + doküman kapanışı; **M17 🟡 bırakıldı**, 2 kabul kriteri doğrulanamadı) · **Task 4 🚫 (iyzico, Q1)** ve **Task 5 🚫 (AdMob, Q3)** — dış hesap kararı bekliyor · dal: `feat/p09-uyelik-gelir` |
+| P10 Mesajlaşma | 5/5 | ✅ Bitti | Task 1 ✅ (M16-1: modül iskeleti + `Conversation`/`Message` domain'i; **M16 🔴 → 🟡**) · Task 2 ✅ (8 uç + ilişki kapısı `IStudentDirectory`/`IParentAccessDirectory` + keyset sayfalama + kullanıcı başına 30/dk kota) · Task 3 ✅ (M09-2: `MessageSentNotificationHandler` → in-app bildirim) · Task 4 ✅ (D-08: mobil gelen kutusu + sohbet, üç rolde giriş; **`flutter_chat_ui` kaldırıldı**, D-18 kısmen) · Task 5 ✅ (kapanış: `RealMessagingChainTests` gerçek Postgres+Redis, **1 gerçek hata bulundu ve düzeltildi**). **M16 bilerek 🟡** — karşı tarafın adı, veli sohbet başlatma, şikayet (M18/P12), cihaza push (Q8) açık · dal: `feat/p10-mesajlasma` (✅ main'e merge edildi 2026-11-13) |
+| P11 Eşleştirme & yorum | 0/6 | ⚪ Bekliyor | **Yeni sıra:** Dalga 6 (P21 + P28 sonrası) |
+| P12 Admin & moderasyon | 0/6 (+Task 0) | ⚪ Bekliyor | **Revize 2026-11-13:** P11 bağımlılığı kaldırıldı, Task 0 ilk admin bootstrap; Dalga 4 (yayın kapısı) — P24 sonrası |
+| P13 Operasyon & hijyen | 9/9 | ✅ Bitti (Task 6b → K-26: dokunulan ekran kuralı + P25 T7 süpürme) | Task 1 ✅ (C-04/K-10: OpenTelemetry) · Task 2 ✅ (C-10: `X-Api-Version`) · Task 3 ✅ (E-06: staging servisi + demo veri) · Task 4 ✅ (E-05: yedek/geri yükleme tatbikatı) · Task 5 ✅ (E-07: KVKK hesap silme) · Task 6 ✅ (D-18…D-22: l10n altyapısı + 188→0 yazım + CI) · Task 7 ✅ (M01-4/D-03: cihaz oturumları) · Task 8 ✅ (kapanış: tam test turu + canlı gözlemlenebilirlik + geri yükleme tatbikatı) · **Task 9 ✅** (outbox trace zinciri: `TraceParent` + 15 migration + 7 arka plan span'ı; **C-04 tam kapandı**, ebeveynsiz gürültü trace'i 1488 → 0). **Tek açık görev: Task 6b** (ARB taşıması) · dal: `feat/p13-operasyon-hijyen` · **Task 6b 🔄 turlu**: tur 1 `dashboard` ✅ (111 dize → 48 ARB anahtarı), 17 tur kaldı |
+| P14 Web (Angular) | 0/5 | ⚪ Bekliyor | Dalga 6, P12 sonrası, K-11 onayı |
+
+**Olgunlaştırma programı (2026-11-13)** — sıra: P15 → P16 → P17 → P18 → P19 → P20 → P21 → P22 → P23 → P24 → P12 → P25 → P27 → P26 → P28 → P11 → P29 → P14 (P26 T1–T8 ve P27 kod-dışı işler paralel yürüyebilir)
+
+| Plan | Dalga | Görev | Durum | Not |
+|------|-------|-------|-------|-----|
+| P15 Güvenlik acil 🅳 | 0 | 0/9 | ⏳ Sırada | N-20…N-32, N-41, N-46, N-63, N-67, P-01 |
+| P16 Zaman ve takvim çekirdeği 🅳 | 1 | 0/6 | ⚪ Bekliyor | N-04, N-05, N-07, N-11, N-14, N-43, N-50 · T3, P17 T1'den önce (S-2) |
+| P17 Ders oluşumu zinciri 🅳 | 1 | 0/8 | ⚪ Bekliyor | N-01…N-03, N-06, N-12, N-13, N-15, N-16, N-48, N-49 |
+| P18 Veri bütünlüğü ve ödeme 🅳 | 1 | 0/6 | ⚪ Bekliyor | §1.5, N-09, N-10, N-11, N-55, N-64, N-65 |
+| P19 Çalışma, ödev, arka plan 🅳 | 1 | 0/8 | ⚪ Bekliyor | N-40, N-42, N-44, N-45, N-47, N-48, N-51…N-55 |
+| P20 Mobil sağlamlaştırma 🅳 | 1 | 0/6 | ⚪ Bekliyor | N-60, N-62, N-68…N-72, P-10 |
+| P21 Rol akışları (mobil) 🅻 | 2 | 0/10 | ⚪ Bekliyor | N-61, N-66, rapor §2.1–2.3 |
+| P22 Sınıflar — backend (M19) 🅻 | 3 | 0/10 | ⚪ Bekliyor | Okul öğretmeni, K-13…K-18, PRD güncellemesi T1 |
+| P23 Sınıflar — mobil 🅻 | 3 | 0/8 | ⚪ Bekliyor | |
+| P24 Ders programı + birleşik takvim 🅻 | 3 | 0/6 | ⚪ Bekliyor | Sessiz saatler, yerel hatırlatıcı |
+| P25 Mobil yayın 🅻 | 4 | 0/9 | ⚪ Bekliyor | P-03 (mobil), P-04, P-11, P-12 · Q8/Q11/Q13/Q14 |
+| P26 Operasyon ve hijyen 2 🅻 | 4 | 0/10 | ⚪ Bekliyor | P-02, P-03, P-07…P-09, P-13 (T9 en son), P-14 · Q4/Q9/Q12/Q13 |
+| P27 Hukuk ve uyum 🅻 | 4 | 0/7 | ⚪ Bekliyor | P-05 · **Q10** |
+| P28 Gelir v2 (IAP) 🅻 | 5 | 0/7 | ⚪ Bekliyor | P-06, N-25 · Q2/Q11/Q16 |
+| P29 Etkileşim ve büyüme 🅻 | 6 | havuz | ⚪ Bekliyor | Kullanıcı seçimiyle |
 
 **Lejant:** ✅ Bitti · 🔄 Devam ediyor · ⏳ Sırada · ⚪ Bekliyor · 🚫 Bloke
 
@@ -46,6 +70,7 @@
 
 | Tarih | Plan / Görev | Commit | Doğrulama |
 |-------|--------------|--------|-----------|
+| 2026-11-13 | **Program geçişi** — P01–P13 `main`'e merge edildi (`dfc158f`, `117aac9`); merge öncesi `c16d25b` (denetim bulguları + mobil deneyim: token refresh interceptor, login/register, ders notu formu, ödeme sheet'leri, idempotency kimlik yalıtımı, veli ödeme bütünlüğü, zamanlama değişiklik bütünlüğü, test puanlama) **bu defterde kayıtlı değildi**, burada kaydedildi · Kapsamlı proje incelemesi yazıldı (`doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`: N-01…N-72, P-01…P-14) · Kullanıcı vizyonu (okul öğretmeni + özel öğretmen + öğrenci + veli) alındı, K-13…K-17 **kullanıcı onaylı** · **Olgunlaştırma programı** açıldı: master + P15–P29 planları; P09/P12/P13 revizyon notları | henüz commit yok (dokümanlar) | Statik inceleme; test koşturulmadı. 5 paralel inceleme dilimi, kritik bulgular dosya açılarak ikinci kez teyit edildi (✔ işaretliler). `kb_healthcheck`: yeni dokümanlarda uyarı yok |
 | 2026-09-06 | P13 / Task 6b **tur 1** — `dashboard` ekranı ARB'ye taşındı (D-19) | `820b75c` | `flutter test`: **216 başarılı** (öncesi 212), başarısız 0 · `flutter analyze --fatal-infos`: **0 sorun** · `dotnet test EgitimUssu.slnx` (tur öncesi zemin): 733 birim + 62 integration, **Başarısız 0** · tarama: dashboard'da **111 → 0** sabit metin, ARB 131 → **179** anahtar (tr/en birebir) |
 | 2026-09-06 | P13 / Task 9 — C-04 outbox trace zinciri + arka plan span'ları | `32eb8a3` | `./scripts/test-with-docker.sh`: 4 mimari + **733 birim** + 62 integration, **Başarısız 0, Atlanan 0** (öncesi 724; +9) · `dotnet build -warnaserror --no-incremental`: **0 uyarı / 0 hata** · **Kırmızı gerçekten görüldü** (CS0103 ×3 + CS1061/CS0117 ×3) · `check-migration-down.sh`: **97 migration**, hepsi geri alınabilir (öncesi 82; +15) · **Jaeger kanıtı** (staging profili + gerçek Postgres): ders oluşturma **tek trace / 18 span** — `POST /api/scheduling/lessons → command CreateLessonScheduleCommand → SELECT+INSERT → outbox.dispatch LessonScheduledDomainEvent → handler ×2 → outbox.dispatch LessonReminderCreatedDomainEvent` · **Gürültü ölçümü: ebeveynsiz ham DB kök trace'i 1488 → 0** (29 trace'in hepsi adlandırılmış; ara ölçümde yalnız Shared enstrümante edilmişken 58 kalmıştı, 7 modül tarayıcısı da eklenince sıfırlandı) · 16 outbox satırının 1'inde `TraceParent` dolu (HTTP'den), 15'i tohumlamadan geldiği için `null` · `kb_healthcheck`: **RED 0** |
 | 2026-09-05 | P13 / Task 8 — Kapanış (tam test turu + canlı gözlemlenebilirlik + geri yükleme tatbikatı + doküman) | `88ef72d` | `./scripts/test-with-docker.sh`: 4 mimari + **724 birim** + **62 integration**, **Başarısız 0, Atlanan 0** · `flutter test --coverage`: **212 başarılı**, satır kapsamı **%17,1** (3.466/20.240) · **Staging profili canlı koşumu** (`ASPNETCORE_ENVIRONMENT=Staging` + Docker Postgres 17 + Redis + Jaeger 1.57 + gerçek `otelcol` 0.104): tohumlama 123 tablo/812 satır, demo giriş **200**, ders oluşturma **200**, outbox **0 bekleyen** · **Metrikler gerçek toplayıcıda okundu**: `egitimussu.outbox.pending`=0, `outbox.dispatched{event=LessonScheduledDomainEvent,outcome=success}`=1, `email.sent{outcome=success}`=1 · `X-Api-Version: v1` **canlı** (200 ve 404'te) · **Task 7'nin ertelenmiş uçtan uca denemesi yapıldı**: iki cihazdan giriş → biri diğerini iptal etti → iptal edilenin refresh'i **401 `identity.invalid_refresh_token`** · **Geri yükleme tatbikatı**: yedek 256 KB → tüm şemalar düşürüldü (**123 → 0 tablo**) → `restore-db.sh --yes` → **123 tablo / 812 satır birebir** (`diff` farksız), uygulama `Healthy`, giriş **200**, tekrar tohumlama idempotent; `--yes` yokken **çıkış 1** · ⚠️ **Step 2 tam geçmedi**: 1500 trace'in **1488'i** ebeveynsiz arka plan SQL span'ı; outbox→handler isteğin trace'ine bağlanmıyor → **Task 9 açıldı** · ⚠️ `render.yaml`'da **hiç `Observability__*` anahtarı yoktu** — eklendi (varsayılan `false`, toplayıcı hesabı **Q9**) |
@@ -321,9 +346,9 @@
 
 | Soru | Etkilediği plan | Durum |
 |------|-----------------|-------|
-| Q1 — iyzico ticari hesabı? (karar K-05) | P09 Task 4 | ❓ Cevap bekliyor |
+| Q1 — iyzico ticari hesabı? (karar K-05) | ~~P09 Task 4~~ → K-25 ile daraltıldı: yalnız ileride **özel ders ücreti tahsilatı** (P29+) | ⏸ Acil değil |
 | Q2 — Nihai fiyat listesi? | P09 Task 3 **kodlandı** — yalnız fiyat değerleri onay bekliyor | ❓ Cevap bekliyor. Seed 6 planı `codex/03_paket_fiyatlandirma.md` §4 **alt sınırıyla** yazıyor (öğretmen 249/2490, öğrenci 99/990, veli 99/990 TRY) ve **yalnız Development'ta** koşuyor; üretimde katalog Admin ucundan (`POST /api/membership/plans`) girilir |
-| Q3 — AdMob hesabı + yerleşim politikası? (karar K-06) | P09 Task 5 | ❓ Cevap bekliyor |
+| Q3 — AdMob hesabı + yerleşim politikası? (karar K-06) | P28 Task 5 (opsiyonel) | ❓ Cevap bekliyor — öneri: lansmanda reklamsız |
 | Q4 — S3 mi Cloudflare R2 mı? (karar K-03) | P04 **teknik olarak kapandı** — yalnız üretim hesabı açma kaldı | ❓ Cevap bekliyor (varsayılan: R2). Kod her ikisiyle de çalışır; MinIO'ya karşı doğrulandı |
 | Q5 — KVKK metinleri hazır mı? | P13 Task 5 ✅ **bitti** | ✅ **Bloke değil.** Taslak seti yazıldı (2026-09-05, `doc/legal/`): koddan çıkarılmış envanter + aydınlatma + açık rıza + saklama/imha. Task 5'in teknik işi yürütülebilir. **Kalan (ayrı iş):** `«…»` alanları (unvan, adres, KVKK e-postası, VERBİS), hukuk onayı ve R-1…R-6 riskleri — en acili **yurt dışı aktarım (#154)** ve **çocuk verisi (#153)** |
 | Q6 — Beta öğretmen listesi (5–10 kişi)? | P06 sonrası | ❓ Cevap bekliyor |
@@ -331,6 +356,13 @@
 | Q8 — **Firebase projesi** (Android+iOS uygulaması, `google-services.json`/`GoogleService-Info.plist`, service-account JSON)? | P03 Task 5 Step 1 + Task 7 canlı doğrulama | ❓ Cevap bekliyor — kod hazır, kurulum `mobile/README_PUSH.md`'de |
 | Q9 — **OTLP toplayıcı** (Grafana Cloud / Honeycomb / self-hosted `otelcol`)? | P13 Task 1'in çıktısının üretimde görünür olması | ❓ Cevap bekliyor — kod hazır ve `render.yaml`'da anahtarlar tanımlı, ama `Observability__Enabled="false"`. Endpoint boşken kod **konsol exporter'a düşer** ve Render'ın ücretsiz plan log'unu boğar; bu yüzden hesap açılmadan açılmamalı. Yordam: `doc/architecture/environments.md` §5 |
 | K-11 — Angular 20 + signals onayı? | P14 | ❓ Cevap bekliyor |
+| **Q10 — Hukuk danışmanı** (KVKK metin onayı, 18 yaş altı rıza modeli, okul öğretmeni kullanımı, devlet okulu öğretmeninin ücretli özel ders mevzuatı) | P27, P22 T3 ayarı, public v1 | ❓ Cevap bekliyor |
+| **Q11 — Apple Developer + Google Play Console** hesapları (bireysel / şirket) | P25, P28 | ❓ Cevap bekliyor — öneri: şirket hesabı |
+| **Q12 — Barındırma** (Render ücretli + Frankfurt mı, başka sağlayıcı mı) | P26 T1, kapalı beta | ❓ Cevap bekliyor — öneri: Render Starter + Frankfurt + managed Postgres |
+| **Q13 — Sentry** hesabı (veya alternatif) | P25 T5, P26 T2 | ❓ Cevap bekliyor |
+| **Q14 — Alan adı** (App Links / Universal Links, e-posta gönderen adresi) | P25 T4, Q7 | ❓ Cevap bekliyor |
+| **Q15 — v1 kapsamı:** public v1 okul özellikleriyle mi açılsın? | Yayın kapısı (master §3.2) | ❓ Cevap bekliyor — öneri: **evet**; kapalı beta özel öğretmenle Dalga 2 sonrası |
+| **Q16 — RevenueCat** mı doğrudan StoreKit / Play Billing mi | P28 | ❓ Cevap bekliyor — öneri: RevenueCat |
 
 ---
 
@@ -350,7 +382,9 @@
 
 ---
 
-*İlerleme defteri | Son güncelleme: 2026-09-06 (**P13 Task 9 bitti — 9/10**. Task 8'in tek geçmeyen adımı kapandı: `outbox_messages.TraceParent` (W3C traceparent) mesajı üreten isteğin bağlamını taşıyor, dispatch onu **ebeveyn** yapıyor; ayrıca komut/sorgu, outbox turu, handler ve **7 arka plan tarayıcısı** kendi span'ını açıyor. Jaeger'da ders oluşturma artık **tek trace / 18 span**; ebeveynsiz gürültü trace'i **1488 → 0**. 15 modüle `AddOutboxTraceParent` migration'ı (97 migration, hepsi geri alınabilir). 4 mimari / 733 birim / 62 integration, başarısız 0. **C-04 tam ✅** — kalan tek şey toplayıcı hesabı (Q9), kod değil. Sıradaki: **Task 6b** (ARB taşıması) ya da **P11**'e geçiş)*
+*İlerleme defteri | Son güncelleme: 2026-11-13 (**Olgunlaştırma programı açıldı.** P01–P13 `main`'e merge edildi; kapsamlı inceleme 72 mantık hatası (N serisi) + 14 profesyonellik açığı (P serisi) çıkardı; kullanıcı vizyonu okul öğretmenini kapsıyor. Yeni plan seti P15–P29 (Dalga 0 güvenlik → 1 çekirdek doğruluk → 2 üç rolün akışları → 3 okul öğretmeni → 4 yayın kapısı → 5 gelir → 6 büyüme). P13 Task 6b K-26 ile kapandı, P09 Task 4 P28'e devredildi, P12 revize edildi. Sıradaki: **P15 Task 1** (davet kodları, N-20), dal `feat/p15-guvenlik`)*
+
+*Önceki not — 2026-09-06 (**P13 Task 9 bitti — 9/10**. Task 8'in tek geçmeyen adımı kapandı: `outbox_messages.TraceParent` (W3C traceparent) mesajı üreten isteğin bağlamını taşıyor, dispatch onu **ebeveyn** yapıyor; ayrıca komut/sorgu, outbox turu, handler ve **7 arka plan tarayıcısı** kendi span'ını açıyor. Jaeger'da ders oluşturma artık **tek trace / 18 span**; ebeveynsiz gürültü trace'i **1488 → 0**. 15 modüle `AddOutboxTraceParent` migration'ı (97 migration, hepsi geri alınabilir). 4 mimari / 733 birim / 62 integration, başarısız 0. **C-04 tam ✅** — kalan tek şey toplayıcı hesabı (Q9), kod değil. Sıradaki: **Task 6b** (ARB taşıması) ya da **P11**'e geçiş)*
 
 *Önceki not — 2026-09-05 (**P13 Task 8 bitti — 8/10**. Kapanış turu: tam test paketi (4 mimari / 724 birim / 62 integration / 212 Flutter, başarısız 0) + **staging profilinde canlı koşum** (Staging env + gerçek Postgres + Jaeger + `otelcol`) + **yedekten geri yükleme tatbikatı** (123 tablo → 0 → 123, 812 satır birebir, uygulama `Healthy`). Üç şey ortaya çıktı: (1) **outbox→handler trace'e bağlanmıyor** — 1500 trace'in 1488'i ebeveynsiz arka plan SQL span'ı → **Task 9**; (2) `render.yaml`'da **hiç gözlemlenebilirlik anahtarı yoktu** — eklendi, açmak için toplayıcı hesabı gerek (**Q9**); (3) `doc/architecture/`'ın **9 dokümanı INDEX'te yoktu** — eklendi. Task 7'nin ertelenmiş uçtan uca oturum denemesi de yapıldı (iptal → refresh 401). Sıradaki: **Task 9** ya da **Task 6b**, ya da P11'e geçiş — karar kullanıcıda)*
 

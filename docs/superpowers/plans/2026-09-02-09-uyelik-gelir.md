@@ -1,5 +1,7 @@
 # P09 — Üyelik, Entitlement ve Gelir (M17) Implementation Plan
 
+> **🔁 Revizyon 2026-11-13 (Olgunlaştırma programı, K-25):** **Task 4 (iyzico + webhook) iptal edildi → [P28 Gelir v2](2026-11-13-28-gelir-v2-iap.md)**: mobilde premium Apple 3.1.1 / Play Billing gereği mağaza içi satın almayla satılır; iyzico yalnız ileride özel ders ücreti tahsilatı için (K-05 daraltıldı). **Task 5 (AdMob)** P28'de opsiyonel Task 5 oldu (Q3). Bu plan **5/7 ile kapandı**; kalan iş P28'de.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Gelir modelini çalışır hale getirmek: yeni **Membership** modülü (plan + abonelik + entitlement), entitlement'ın tüm modüllere tek noktadan yayılması, ödeme sağlayıcı entegrasyonu (iyzico) + webhook, reklam yerleşimleri, ilk-ay-ücretsiz ve referans kampanyaları, mobilde paywall.
