@@ -13,6 +13,7 @@
 - Davet kodları K-24 biçiminde gösterilir/girilir (8 karakter, büyük harf, karışmayan alfabe); paylaşım `share_plus` ile.
 - Para girişleri `Money.parseTr` (P18 T4); yazma çağrıları `idempotent: true`.
 - **Görsel referans (2026-11-14):** [ekran taslakları tuvali](https://claude.ai/artifact/6e7YYdH63gdDy8yeQFf77Q) — 54 ekran, design system'e göre. Çelişkide **özellik ve alanlar koddan**, görsel dil taslaktan alınır; taslağın koddan saptığı yerler (ör. veli "Çocuk bağla" satır içi davet kodu kartı, sohbette karşı tarafın adı) öneridir, Task 0'da kapsama alınıp alınmayacağı yazılır.
+- **Kullanıcı onaylı taslak önerileri (2026-11-14) — Task 0 bunları bir göreve yerleştirir:** (a) **O15 Diğer:** menüye "Ödevler" satırı (bugün yalnız panelden erişiliyor); (b) **O03 Öğrenci detayı:** Yeni Ders / Ödeme Ekle / Mesaj gönder aksiyonları profil kartının hemen altında; (c) K-30 (Task 4). Koda gömülü sahte puan/yorum/aktif öğrenci sayıları P20 Task 1'de kaldırılır.
 
 ---
 

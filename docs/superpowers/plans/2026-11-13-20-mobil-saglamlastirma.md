@@ -27,6 +27,7 @@
 **Files:**
 - Modify: `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart` (`_seedEvents` ve kullanımı silinir; tatil/ödev/ödeme etkinlikleri gerçek kaynaktan gelene kadar **gösterilmez**)
 - Modify: `mobile/lib/core/routing/app_router.dart` (`/teacher-panel-preview`, `/account-info-preview` yalnız `kDebugMode`)
+- Modify (kullanıcı onaylı 2026-11-14, ekran taslakları O13/O15): `mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart` (koda gömülü `'4.8'` puan / `'126 yorum'` ~155 ve `'Aktif öğrenci' '18'` ~164 kaldırılır — yorum sistemi M13/P11'e kadar yok, aktif öğrenci sayısı gerçek kaynaktan gelene kadar gösterilmez), `mobile/lib/features/more/presentation/pages/more_page.dart` (`rating: 4.8, reviewCount: 126` ~56 kaldırılır)
 - Modify: `mobile/lib/core/network/api_exception.dart`, `mobile/lib/features/students/presentation/cubit/student_detail_cubit.dart`, `.../pages/student_detail_page.dart` (ASCII Türkçe → doğru yazım, ARB)
 - Modify: `mobile/test/l10n/localization_test.dart` (tarama `lib/core/**`'u da kapsar)
 - Envanter: `grep -rn "StudyDemoBadge\|yakında\|Yakında\|prototip" mobile/lib` → her eşleşme için karar tablosu ILERLEME'ye: (a) P21'de gerçek ekrana bağlanacak → şimdilik **gizle**, (b) özellik yok → kaldır.
