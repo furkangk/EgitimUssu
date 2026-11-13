@@ -4,7 +4,7 @@ summary: "Mesajlaşma modülü uçtan uca çalışıyor (P10 Task 1-5, gerçek P
 tags: [modul, messaging, faz-2, faz-3]
 status: "🟡"
 authority: code
-updated: 2026-09-04
+updated: 2026-10-16
 ---
 
 # 💬 Mesajlaşma Modülü (M16) — Detaylı Tasarım Dokümanı
@@ -96,6 +96,7 @@ updated: 2026-09-04
 | `static Create(id, initiatorRole, initiatorUserId, counterpartRole, counterpartUserId, studentId, nowUtc)` | `Result<Conversation>` | Tam olarak **bir** taraf `Teacher` olmalı → değilse `messaging.pair_not_allowed`; aynı kullanıcı iki tarafta olamaz → `messaging.self_conversation`; taraflar normalize edilir |
 | `SendMessage(messageId, senderUserId, body, nowUtc)` | `Result<Message>` | Katılımcı değilse `messaging.not_participant`; engelliyse `messaging.blocked`; boş gövde `messaging.empty_body`; 4000 karakteri aşan `messaging.body_too_long`. Gövde `Trim`'lenir, önizleme tazelenir, `MessageSentDomainEvent` yayılır |
 | `Block(byUserId, nowUtc)` / `Unblock(byUserId, nowUtc)` | `Result` | Katılımcı değilse `messaging.not_participant`. Engeli **yalnız koyan taraf** kaldırabilir |
+| `HideDeletedMessagePreview(message)` | `void` | Silinen mesajın zaman ve içerikle eşleşen önizlemesini temizler; farklı son mesajın önizlemesi ve sohbet sıralama zamanı korunur |
 | `CanSend(senderUserId)` | `bool` | Engel **çift yönlüdür**: taraflardan biri engellediyse hiçbir taraf gönderemez |
 | `HasParticipant(userId)` / `RecipientOf(senderUserId)` | `bool` / `Guid?` | Yetki kontrolleri ve bildirim alıcısı için |
 
@@ -201,7 +202,7 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 | 4 | **Gönderim:** yalnız katılımcı gönderebilir | `Conversation.SendMessage` → `messaging.not_participant` | 🟢 |
 | 5 | **Engelleme:** taraflardan biri engellerse gönderim **iki taraf için de** kapanır; engeli yalnız koyan taraf kaldırır | `Conversation.CanSend` / `Block` / `Unblock` → `messaging.blocked` | 🟢 |
 | 6 | **Okundu bilgisi:** mesaj başına `ReadOnUtc`; ilk okumada sabitlenir, sonraki çağrılar değiştirmez | `Message.MarkRead` + `MarkConversationReadCommandHandler` | 🟢 |
-| 7 | **Silme:** yalnız **gönderen** ya da Admin siler; silme **yumuşaktır** (satır ve `Body` kalır, API `null` döner) | `DeleteMessageCommandHandler` + `Message.SoftDelete` | 🟢 |
+| 7 | **Silme:** yalnız **gönderen** ya da Admin siler; silme **yumuşaktır** (satır ve `Body` kalır, API `null` döner); silinen mesajın gelen kutusu önizlemesi de temizlenir | `DeleteMessageCommandHandler` + `Message.SoftDelete` | 🟢 |
 | 8 | **Hız sınırı:** kullanıcı başına dakikada **30** mesaj; aşımda `429` | `DistributedRateLimitMiddleware` `messaging` politikası (`RateLimiting:Messaging`) | 🟢 |
 | 9 | **Moderasyon:** mesaj şikayeti → M18 `AbuseReport` | — | 🔴 P12 |
 | 10 | **Bildirim:** yeni mesajda alıcıya in-app + push (tercihe saygıyla) | `MessageSentNotificationHandler` + `NotificationDispatcher` tercih kapısı | 🟢 |
@@ -356,4 +357,4 @@ bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu +
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-10-16 (denetim: silinen mesaj metninin gelen kutusu önizlemesinde kalması düzeltildi; gönderen/Admin silme, eski mesaj silme ve yetkisiz erişim `MessageDeletionPreviewTests` ile kapsandı) · 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*

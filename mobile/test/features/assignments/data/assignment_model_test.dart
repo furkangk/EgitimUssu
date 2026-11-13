@@ -2,6 +2,22 @@ import 'package:egitim_ussu_mobile/features/assignments/data/models/assignment_m
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final entry in {
+    'Private': 1,
+    'Student': 2,
+    'StudentAndParent': 3,
+  }.entries) {
+    test('preserves ${entry.key} note visibility when saving', () {
+      final model = FollowUpAssignmentModel.fromJson({
+        'lessonSessionId': 'session-id',
+        'note': {'summary': 'Not', 'visibility': entry.key},
+        'assignments': <dynamic>[],
+      });
+      expect(model.visibility, entry.key);
+      expect(model.toCreatePayload()['visibility'], entry.value);
+    });
+  }
+
   test('maps follow-up response and create payload', () {
     final model = FollowUpAssignmentModel.fromJson(<String, dynamic>{
       'lessonSessionId': 'session-id',

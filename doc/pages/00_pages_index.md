@@ -3,7 +3,7 @@ title: "Sayfa (Ekran) Dokümanları — İndeks"
 summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/Progress/Reporting/Membership/Messaging/More/Notifications/Parent)"
 tags: [sayfa-index, indeks, mobil]
 authority: derived
-updated: 2026-09-05
+updated: 2026-10-16
 ---
 
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
@@ -62,7 +62,7 @@ updated: 2026-09-05
 |-------|-------|-----|------|
 | Dersler | `/lesson-sessions` | [lesson_sessions_list](lesson_sessions_list.md) | 🟡 |
 | Ders detayı | `/lesson-sessions/detail` | [lesson_detail](lesson_detail.md) | 🟡 (Kaynaklar sekmesi gerçek API — M06-1 2026-09-03; not/ödev sekmeleri demo) |
-| Ders notu formu | `/lesson-notes/new` | [lesson_note_form](lesson_note_form.md) | 🔴 |
+| Ders notu formu | `/lesson-notes/new` | [lesson_note_form](lesson_note_form.md) | 🟡 gerçek API; tamamlanmış oturumlarda not kaydı, ödev içeren takip güncellemesi kapalı |
 | Ders notu görüntüleme | `/lesson-sessions/detail/note` | [lesson_note_view](lesson_note_view.md) | 🔴 |
 
 ## Scheduling

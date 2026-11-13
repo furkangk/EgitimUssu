@@ -259,7 +259,8 @@ public sealed class PaymentsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "payments.record_not_found" or "payments.declaration_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "payments.declaration_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "payments.declaration_not_pending" or "payments.record_not_outstanding" or "payments.declaration_amount_mismatch"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };

@@ -3,7 +3,7 @@ title: "Kaynaklar İndeksi"
 summary: "doc/kaynaklar/ altındaki damıtılmış reference makalelerinin subtype'a göre indeksi (research/design/decision); orijinaller doc/raw/'da"
 tags: [kb, kaynaklar, indeks, reference]
 authority: derived
-updated: 2026-08-20
+updated: 2026-09-05
 ---
 
 # 📚 Kaynaklar İndeksi
@@ -14,7 +14,7 @@ updated: 2026-08-20
 ## Araştırma (research)
 | Makale | Özet | Kaynak |
 |--------|------|--------|
-| _(henüz yok)_ | | |
+| [Rakip Analizi (2026-09)](2026-09-05_rakip_analizi.md) | Doping/Pakodemy/Net Up/DUS Club/VeliCep + özel ders kuşağı (Tilki, Öğretsen, Özel Ders Alanı) karşılaştırması; oyunlaştırma, fiyatlama ve IAP çıkarımları | Mağaza verisi + rakip siteleri · 📄 [.doc](2026-09-05_rakip_analizi.doc) · [.html](2026-09-05_rakip_analizi.html) |
 
 ## Tasarım (design)
 | Makale | Özet | Kaynak |
@@ -26,4 +26,4 @@ updated: 2026-08-20
 |--------|------|--------|
 | [Proje Vizyonu (promp)](proje-vizyonu-promp.md) | Kullanıcının özgün vizyon metninin damıtımı; PRD'nin kaynağı | [promp.txt](../promp.txt) |
 
-*Güncelleme: 2026-08-20*
+*Güncelleme: 2026-09-05*

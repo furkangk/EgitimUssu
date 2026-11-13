@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-09-05
+updated: 2026-10-16
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -18,7 +18,7 @@ updated: 2026-09-05
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-08-20 (kod-drift düzeltmesi: `study`/`progress` §8 tablosunda ve §9 feature listesinde "Planlanan"dan gerçek/uygulandı'ya taşındı — ikisi de tam kodlu; "Mevcut feature'lar" listesine eksik `notifications`/`progress`/`study`/`parent` eklendi)
+> **Güncelleme:** 2026-10-16 (token yenileme sonrası tekrar isteği: yapılandırılmış taşıma katmanı korunur, multipart gövdesi klonlanır, 401 dışındaki tekrar hataları oturumu düşürmez).
 
 ---
 
@@ -156,8 +156,10 @@ Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/
 1. **Request interceptor** — `TokenStorage`'dan access token okuyup `Authorization: Bearer` ekler.
 2. **`TokenRefreshInterceptor`** (`QueuedInterceptorsWrapper`) — 401 yanıtını yakalar; `onRefreshToken` callback'i ile `POST /api/identity/refresh` çağırır.
    - Refresh **başarılıysa:** orijinal isteği yeni token ile yeniden gönderir (caller'a şeffaftır).
+   - Tekrar isteği, aynı Dio adapter/transformer ayarlarını taşıyan interceptor'sız bir klonla gönderilir; yeniden 401 gelmesi sonsuz döngüye veya kuyruk kilitlenmesine yol açmaz. Multipart gövdesi ilk gönderimde tüketildiği için tekrar öncesi klonlanır.
+   - Refresh başarılı olup tekrar isteği **500, zaman aşımı veya validasyon hatası** verirse gerçek hata ekrana iletilir; oturum kapanmaz. Tekrar isteği de **401** dönerse oturum kapanır.
    - Refresh **başarısızsa:** `unauthorizedEvents` stream'ine event basar → `AuthCubit.expireSession()` → oturumu kapat.
-   - Eş zamanlı birden fazla 401 geldiğinde **tek bir refresh isteği** gönderilir; diğerleri kuyrukta bekler.
+   - Eş zamanlı 401 yanıtlarının yenileme ve tekrar işlemleri kuyrukta **sırayla** yürütülür; dönen refresh token bir sonraki yenilemede kullanılır.
 
 > Metotlar: `get`/`getList`/`post`/`put`/`delete` (2026-07-08: `delete` eklendi — öğrenci kişisel program girdisi silme için, `DELETE /api/scheduling/study-entries/{id}`).
 

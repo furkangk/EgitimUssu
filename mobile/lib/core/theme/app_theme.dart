@@ -1,12 +1,13 @@
+import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
-    const navy = Color(0xFF0F172A);
-    const blue = Color(0xFF3D8BFF);
-    const emerald = Color(0xFF10B981);
-    const background = Color(0xFFF8F9FF);
-    const outlineVariant = Color(0xFFC6C6CD);
+    const navy = AppColors.primary;
+    const blue = AppColors.secondary;
+    const emerald = AppColors.accentGreen;
+    const background = AppColors.background;
+    const outlineVariant = AppColors.border;
 
     final colorScheme =
         ColorScheme.fromSeed(
@@ -17,7 +18,7 @@ class AppTheme {
           secondary: blue,
           tertiary: emerald,
           surface: Colors.white,
-          onSurface: const Color(0xFF0B1C30),
+          onSurface: AppColors.textPrimary,
           outlineVariant: outlineVariant,
         );
 
@@ -97,15 +98,15 @@ class AppTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFE5EAF0)),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFE5EAF0)),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFF062B52)),
+          borderSide: const BorderSide(color: AppColors.primary),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),

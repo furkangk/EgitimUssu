@@ -17,14 +17,18 @@ class WelcomePage extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 430),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   const _BrandBlock(),
                   const SizedBox(height: 28),
-                  const Expanded(child: _WelcomePhoto()),
+                  SizedBox(
+                    height:
+                        320 * MediaQuery.textScalerOf(context).scale(14) / 14,
+                    child: const _WelcomePhoto(),
+                  ),
                   const SizedBox(height: 28),
                   FilledButton(
                     onPressed: () => context.go('/login?role=ogretmen'),
@@ -236,7 +240,15 @@ class _WelcomePhoto extends StatelessWidget {
                 ),
               ),
             ),
-            const Positioned(top: 18, right: 18, child: _PhotoBadge()),
+            const Positioned(
+              top: 18,
+              left: 18,
+              right: 18,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _PhotoBadge(),
+              ),
+            ),
           ],
         ),
       ),
@@ -267,11 +279,13 @@ class _PhotoBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            AppLocalizations.of(context).auth_welcomeLiveTracking,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              AppLocalizations.of(context).auth_welcomeLiveTracking,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

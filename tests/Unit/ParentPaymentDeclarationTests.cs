@@ -16,7 +16,7 @@ public sealed class ParentPaymentDeclarationTests
     public void MarkCollectedByParentConfirmation_SetsPaidFull()
     {
         var p = NewPending();
-        p.MarkCollectedByParentConfirmation(Now.AddDays(1));
+        Assert.True(p.MarkCollectedByParentConfirmation(500m, Now.AddDays(1)).IsSuccess);
         Assert.Equal(PaymentStatus.Paid, p.Status);
         Assert.Equal(p.ExpectedAmount, p.CollectedAmount);
         Assert.Equal(Now.AddDays(1), p.CollectedOnUtc);

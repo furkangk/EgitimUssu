@@ -187,9 +187,29 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
         return true;
     }
 
-    /// <summary>Veli beyanı öğretmence teyit edilince kaydı tam tahsil edilmiş işaretler (Veli V-G).</summary>
-    public void MarkCollectedByParentConfirmation(DateTime nowUtc)
+    /// <summary>Tam ödeme beyanı yalnızca açık kaydın güncel kalan tutarını kapatabilir.</summary>
+    public Result ValidateParentConfirmation(decimal declaredAmount)
     {
+        if (Status is not (PaymentStatus.Pending or PaymentStatus.PartiallyPaid or PaymentStatus.Overdue)
+            || ExpectedAmount <= CollectedAmount)
+        {
+            return Result.Failure(new Error("payments.record_not_outstanding", "Bu ödeme kaydının açık bakiyesi yok."));
+        }
+
+        return declaredAmount > 0m && declaredAmount == ExpectedAmount - CollectedAmount
+            ? Result.Success()
+            : Result.Failure(new Error("payments.declaration_amount_mismatch", "Beyan tutarı ödeme kaydının güncel kalan tutarına eşit olmalıdır."));
+    }
+
+    /// <summary>Geçerli veli beyanı öğretmence teyit edilince kaydı tam tahsil edilmiş işaretler (Veli V-G).</summary>
+    public Result MarkCollectedByParentConfirmation(decimal declaredAmount, DateTime nowUtc)
+    {
+        var validation = ValidateParentConfirmation(declaredAmount);
+        if (validation.IsFailure)
+        {
+            return validation;
+        }
+
         var previousStatus = Status;
         var previousCollected = CollectedAmount;
 
@@ -198,6 +218,7 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
         CollectedOnUtc = nowUtc;
 
         Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previousStatus, Status, previousCollected, CollectedAmount, nowUtc));
+        return Result.Success();
     }
 }
 

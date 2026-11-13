@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Scheduling/**
-updated: 2026-09-04
+updated: 2026-10-16
 ---
 
 # 📅 Takvim & Planlama (M04) — Detaylı Tasarım Dokümanı
@@ -92,7 +92,8 @@ updated: 2026-09-04
 - `Cancel(reason, isChargeable, cancellationNote, updatedOnUtc)` (**B-09 ile genişletildi, 2026-07-18**) → `Status = Cancelled`, iptal nedeni + ücretlendirme kararı saklanır, not eklenir (varsa mevcut nota satır eklenir), `LessonScheduleCancelledDomainEvent` yayılır.
 - `CanBeDeletedAt(nowUtc)` (**B-09, 2026-07-18**) → silme yalnız oluşturmadan ≤24 saat **ve** ders gelecekteyse `true`.
 - `EndSeriesBefore(cutoffUtc, updatedOnUtc)` (**B-03, 2026-07-18**) → tekrar serisini verilen tarihten önce sonlandırır (`RecurrenceRule`'a `UNTIL` ekler/günceller). "Bu ve sonrakiler" iptali için.
-- `Complete(updatedOnUtc)` → `Status = Completed`, `LessonSessionCompletedDomainEvent` yayılır. Zaten `Completed` ise `scheduling.already_completed (409)` döner.
+- **İptal/tekrar kapsamı güvenliği (2026-10-16):** İptal komutu tamamlanmış veya zaten iptal edilmiş dersi `409 scheduling.not_editable` ile reddeder. Tekrarlayan derste iptal/erteleme `Single` ya da `ThisAndFuture` kapsamındaysa `OccurrenceStartAtUtc` zorunludur; eksik tarih veya tanımsız kapsam `400 scheduling.invalid_request` üretir, tüm seri yanlışlıkla değiştirilmez.
+- `Complete(updatedOnUtc)` → `Status = Completed`, `LessonSessionCompletedDomainEvent` yayılır. Zaten `Completed` ise `scheduling.already_completed (409)`, iptal edilmişse `scheduling.not_editable (409)` döner; başarısız geçiş kayıt/olay üretmez.
 
 **Enum'lar (koddan birebir):**
 ```
@@ -278,7 +279,7 @@ Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda 
 | `scheduling.request_not_found` | `404` | Erteleme talebi yok (Ö-F, 2026-07-18) |
 | `scheduling.request_not_pending` | `409` | Talep zaten kabul/red edilmiş (Ö-F, 2026-07-18) |
 | `scheduling.delete_not_allowed` | `409` | Silme 24s/gelecek kuralı dışında (B-09, 2026-07-18) |
-| `scheduling.not_editable` | `409` | Yalnız planlı ders düzenlenir/ertelenir |
+| `scheduling.not_editable` | `409` | Yalnız planlı/taslak ders düzenlenir, ertelenir, iptal edilir veya tamamlanır; kapalı dersin durumu değişmez |
 | `scheduling.already_completed` | `409` | Ders zaten tamamlanmış |
 | `shared.forbidden` | `403` | Yetki yok |
 | (varsayılan) | `400` | Diğer doğrulama hataları |
@@ -439,4 +440,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 3 / M14-5: `ILessonScheduleDirectory` `ListTeacherBusyIntervalsAsync` ile genişledi — ders oluşumları + izin blokları tek listede, Reporting boş zaman analizi tüketiyor) · 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-10-16 (kapalı ders durum geçişleri ve eksik tekrar kapsamı bilgisi için veri bütünlüğü kontrolleri). Önceki: 2026-09-04 (P08 Task 3 / M14-5: `ILessonScheduleDirectory` `ListTeacherBusyIntervalsAsync` ile genişledi — ders oluşumları + izin blokları tek listede, Reporting boş zaman analizi tüketiyor) · 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*

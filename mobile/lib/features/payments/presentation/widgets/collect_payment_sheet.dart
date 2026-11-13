@@ -79,93 +79,100 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Tahsilat Kaydı',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                record.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 16),
-              _InfoRow(
-                label: 'Beklenen',
-                value: _money(record.expectedAmount, record.currency),
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                label: 'Tahsil edilen',
-                value: _money(record.collectedAmount, record.currency),
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                label: 'Kalan',
-                value: _money(_outstanding, record.currency),
-                emphasize: true,
-              ),
-              const SizedBox(height: 18),
-              // Belirgin, tam-genişlik hızlı seçim: kalanın tamamını doldurur.
-              _FullAmountButton(
-                amountLabel: _money(_outstanding, record.currency),
-                selected: _isFull,
-                onTap: _fillFull,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  Expanded(child: Divider(color: AppColors.border)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(
-                      'veya kısmi tutar gir',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
-                  Expanded(child: Divider(color: AppColors.border)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Form(
-                key: _formKey,
-                child: AppTextField(
-                  controller: _amountController,
-                  labelText: 'Bu tahsilat (${record.currency})',
-                  hintText: 'Alınan tutar',
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: _validateAmount,
                 ),
-              ),
-              const SizedBox(height: 16),
-              AppPrimaryButton(label: 'Tahsilatı Kaydet', onPressed: _submit),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  'Tahsilat Kaydı',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  record.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _InfoRow(
+                  label: 'Beklenen',
+                  value: _money(record.expectedAmount, record.currency),
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  label: 'Tahsil edilen',
+                  value: _money(record.collectedAmount, record.currency),
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  label: 'Kalan',
+                  value: _money(_outstanding, record.currency),
+                  emphasize: true,
+                ),
+                const SizedBox(height: 18),
+                // Belirgin, tam-genişlik hızlı seçim: kalanın tamamını doldurur.
+                _FullAmountButton(
+                  amountLabel: _money(_outstanding, record.currency),
+                  selected: _isFull,
+                  onTap: _fillFull,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: <Widget>[
+                    Expanded(child: Divider(color: AppColors.border)),
+                    Flexible(
+                      flex: 3,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'veya kısmi tutar gir',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.border)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Form(
+                  key: _formKey,
+                  child: AppTextField(
+                    controller: _amountController,
+                    labelText: 'Bu tahsilat (${record.currency})',
+                    hintText: 'Alınan tutar',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _validateAmount,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppPrimaryButton(label: 'Tahsilatı Kaydet', onPressed: _submit),
+              ],
+            ),
           ),
         ),
       ),
@@ -183,7 +190,9 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
   String? _validateAmount(String? value) {
     if (value == null || value.trim().isEmpty) return 'Tutar girin.';
     final amount = double.tryParse(value.trim().replaceAll(',', '.'));
-    if (amount == null || amount <= 0) return 'Geçerli bir tutar girin.';
+    if (amount == null || !amount.isFinite || amount <= 0) {
+      return 'Geçerli bir tutar girin.';
+    }
     if (amount > _outstanding + 0.001) {
       return 'Kalan tutardan (${_money(_outstanding, widget.record.currency)}) fazla olamaz.';
     }
@@ -232,9 +241,7 @@ class _FullAmountButton extends StatelessWidget {
           child: Row(
             children: <Widget>[
               Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.done_all_rounded,
+                selected ? Icons.check_circle_rounded : Icons.done_all_rounded,
                 color: fg,
                 size: 24,
               ),
@@ -259,15 +266,15 @@ class _FullAmountButton extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      amountLabel,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: fg,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                amountLabel,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: fg,
-                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
@@ -291,8 +298,10 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      spacing: 12,
+      runSpacing: 4,
       children: <Widget>[
         Text(
           label,

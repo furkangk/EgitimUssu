@@ -22,8 +22,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'teacher1@example.com');
-  final _passwordController = TextEditingController(text: 'Teacher123!');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _showWakeUpHint = false;
@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     context.read<AuthCubit>().login(
       email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
+      password: _passwordController.text,
       roleId: _roleId,
     );
     final isProduction = AppConfig.fromEnvironment().isProductionLike;
@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
@@ -125,7 +125,9 @@ class _LoginPageState extends State<LoginPage> {
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
                                 decoration: InputDecoration(
-                                  hintText: AppLocalizations.of(context).common_emailHint,
+                                  hintText: AppLocalizations.of(
+                                    context,
+                                  ).common_emailHint,
                                   prefixIcon: const Icon(
                                     Icons.mail_outline_rounded,
                                   ),
@@ -157,7 +159,9 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 validator: (value) {
                                   if (value == null || !value.contains('@')) {
-                                    return AppLocalizations.of(context).common_invalidEmail;
+                                    return AppLocalizations.of(
+                                      context,
+                                    ).common_invalidEmail;
                                   }
                                   return null;
                                 },
@@ -175,7 +179,9 @@ class _LoginPageState extends State<LoginPage> {
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
                                 decoration: InputDecoration(
-                                  hintText: AppLocalizations.of(context).common_passwordHint,
+                                  hintText: AppLocalizations.of(
+                                    context,
+                                  ).common_passwordHint,
                                   prefixIcon: const Icon(
                                     Icons.lock_outline_rounded,
                                   ),
@@ -219,13 +225,19 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 validator: (value) {
                                   if (value == null || value.length < 8) {
-                                    return AppLocalizations.of(context).common_passwordTooShort;
+                                    return AppLocalizations.of(
+                                      context,
+                                    ).common_passwordTooShort;
                                   }
                                   return null;
                                 },
                               ),
                               const SizedBox(height: 10),
-                              Row(
+                              Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 12,
+                                runSpacing: 4,
                                 children: <Widget>[
                                   InkWell(
                                     borderRadius: BorderRadius.circular(999),
@@ -239,6 +251,7 @@ class _LoginPageState extends State<LoginPage> {
                                         vertical: 4,
                                       ),
                                       child: Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: <Widget>[
                                           SizedBox(
                                             width: 20,
@@ -256,19 +269,22 @@ class _LoginPageState extends State<LoginPage> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          Text(
-                                            AppLocalizations.of(context).auth_rememberMe,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  color:
-                                                      AppColors.textSecondary,
-                                                ),
+                                          Flexible(
+                                            child: Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              ).auth_rememberMe,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    color:
+                                                        AppColors.textSecondary,
+                                                  ),
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ),
                                   ),
-                                  const Spacer(),
                                   TextButton(
                                     onPressed: () => context.push(
                                       '/password-reset',
@@ -281,7 +297,11 @@ class _LoginPageState extends State<LoginPage> {
                                       tapTargetSize:
                                           MaterialTapTargetSize.shrinkWrap,
                                     ),
-                                    child: Text(AppLocalizations.of(context).auth_forgotPassword),
+                                    child: Text(
+                                      AppLocalizations.of(
+                                        context,
+                                      ).auth_forgotPassword,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -314,7 +334,9 @@ class _LoginPageState extends State<LoginPage> {
                                           ),
                                         )
                                       : Text(
-                                          AppLocalizations.of(context).auth_signIn,
+                                          AppLocalizations.of(
+                                            context,
+                                          ).auth_signIn,
                                           style: theme.textTheme.titleMedium
                                               ?.copyWith(
                                                 color: Colors.white,
@@ -336,7 +358,9 @@ class _LoginPageState extends State<LoginPage> {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      AppLocalizations.of(context).auth_serverWaking,
+                                      AppLocalizations.of(
+                                        context,
+                                      ).auth_serverWaking,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             color: AppColors.textSecondary,
@@ -355,7 +379,9 @@ class _LoginPageState extends State<LoginPage> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                          AppLocalizations.of(context).auth_googleNotReady,
+                                          AppLocalizations.of(
+                                            context,
+                                          ).auth_googleNotReady,
                                         ),
                                       ),
                                     );
@@ -411,7 +437,11 @@ class _LoginPageState extends State<LoginPage> {
                               fontWeight: FontWeight.w400,
                             ),
                             children: <InlineSpan>[
-                              TextSpan(text: AppLocalizations.of(context).auth_noAccount),
+                              TextSpan(
+                                text: AppLocalizations.of(
+                                  context,
+                                ).auth_noAccount,
+                              ),
                               WidgetSpan(
                                 alignment: PlaceholderAlignment.middle,
                                 child: GestureDetector(
@@ -528,9 +558,16 @@ class _AuthDivider extends StatelessWidget {
         const Expanded(
           child: Divider(color: AppColors.border, thickness: 1, height: 1),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(AppLocalizations.of(context).auth_orContinueWith, style: textStyle),
+        Flexible(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              AppLocalizations.of(context).auth_orContinueWith,
+              style: textStyle,
+              textAlign: TextAlign.center,
+            ),
+          ),
         ),
         const Expanded(
           child: Divider(color: AppColors.border, thickness: 1, height: 1),

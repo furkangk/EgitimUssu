@@ -42,11 +42,11 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
-  final _firstNameController = TextEditingController(text: 'Ayse');
-  final _lastNameController = TextEditingController(text: 'Yilmaz');
-  final _phoneController = TextEditingController(text: '5551112233');
-  final _emailController = TextEditingController(text: 'teacher1@example.com');
-  final _passwordController = TextEditingController(text: 'Teacher123!');
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -109,64 +109,71 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ),
                                     const SizedBox(height: 10),
                                   ],
-                                  Row(
-                                    children: <Widget>[
-                                      Expanded(
-                                        child: _LabeledField(
-                                          label: 'Ad',
-                                          child: TextFormField(
-                                            controller: _firstNameController,
-                                            decoration: _inputDecoration(
-                                              hintText: AppLocalizations.of(context).auth_firstNameHint,
-                                              icon:
-                                                  Icons.person_outline_rounded,
-                                            ),
-                                            validator: _requiredValidator,
-                                          ),
-                                        ),
+                                  _LabeledField(
+                                    label: 'Ad',
+                                    child: TextFormField(
+                                      controller: _firstNameController,
+                                      decoration: _inputDecoration(
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        ).auth_firstNameHint,
+                                        icon: Icons.person_outline_rounded,
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _LabeledField(
-                                          label: AppLocalizations.of(context).auth_lastName,
-                                          child: TextFormField(
-                                            controller: _lastNameController,
-                                            decoration: _inputDecoration(
-                                              hintText: AppLocalizations.of(context).auth_lastNameHint,
-                                              icon: Icons.badge_outlined,
-                                            ),
-                                            validator: _requiredValidator,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                      validator: _requiredValidator,
+                                    ),
                                   ),
                                   const SizedBox(height: 10),
                                   _LabeledField(
-                                    label: AppLocalizations.of(context).auth_phone,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    ).auth_lastName,
+                                    child: TextFormField(
+                                      controller: _lastNameController,
+                                      decoration: _inputDecoration(
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        ).auth_lastNameHint,
+                                        icon: Icons.badge_outlined,
+                                      ),
+                                      validator: _requiredValidator,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _LabeledField(
+                                    label: AppLocalizations.of(
+                                      context,
+                                    ).auth_phone,
                                     child: TextFormField(
                                       controller: _phoneController,
                                       keyboardType: TextInputType.phone,
                                       decoration: _inputDecoration(
-                                        hintText: AppLocalizations.of(context).auth_phoneHint,
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        ).auth_phoneHint,
                                         icon: Icons.phone_outlined,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(height: 10),
                                   _LabeledField(
-                                    label: AppLocalizations.of(context).common_email,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    ).common_email,
                                     child: TextFormField(
                                       controller: _emailController,
                                       keyboardType: TextInputType.emailAddress,
                                       decoration: _inputDecoration(
-                                        hintText: AppLocalizations.of(context).common_emailHint,
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        ).common_emailHint,
                                         icon: Icons.mail_outline_rounded,
                                       ),
                                       validator: (value) {
                                         if (value == null ||
                                             !value.contains('@')) {
-                                          return AppLocalizations.of(context).common_invalidEmail;
+                                          return AppLocalizations.of(
+                                            context,
+                                          ).common_invalidEmail;
                                         }
                                         return null;
                                       },
@@ -174,12 +181,16 @@ class _RegisterPageState extends State<RegisterPage> {
                                   ),
                                   const SizedBox(height: 10),
                                   _LabeledField(
-                                    label: AppLocalizations.of(context).common_password,
+                                    label: AppLocalizations.of(
+                                      context,
+                                    ).common_password,
                                     child: TextFormField(
                                       controller: _passwordController,
                                       obscureText: _obscurePassword,
                                       decoration: _inputDecoration(
-                                        hintText: AppLocalizations.of(context).common_passwordHint,
+                                        hintText: AppLocalizations.of(
+                                          context,
+                                        ).common_passwordHint,
                                         icon: Icons.lock_outline_rounded,
                                         suffixIcon: IconButton(
                                           onPressed: () {
@@ -197,7 +208,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                       ),
                                       validator: (value) {
                                         if (value == null || value.length < 8) {
-                                          return AppLocalizations.of(context).common_passwordTooShort;
+                                          return AppLocalizations.of(
+                                            context,
+                                          ).common_passwordTooShort;
                                         }
                                         return null;
                                       },
@@ -227,8 +240,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                                           .trim(),
                                                       password:
                                                           _passwordController
-                                                              .text
-                                                              .trim(),
+                                                              .text,
                                                       firstName:
                                                           _firstNameController
                                                               .text
@@ -265,7 +277,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                               ),
                                             )
                                           : Text(
-                                              AppLocalizations.of(context).auth_signUp,
+                                              AppLocalizations.of(
+                                                context,
+                                              ).auth_signUp,
                                               style: theme.textTheme.titleMedium
                                                   ?.copyWith(
                                                     color: Colors.white,
@@ -288,7 +302,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                 ),
                                 children: <InlineSpan>[
                                   TextSpan(
-                                    text: AppLocalizations.of(context).auth_hasAccount,
+                                    text: AppLocalizations.of(
+                                      context,
+                                    ).auth_hasAccount,
                                   ),
                                   WidgetSpan(
                                     alignment: PlaceholderAlignment.middle,
@@ -296,7 +312,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                       onTap: () =>
                                           context.go('/login?role=ogretmen'),
                                       child: Text(
-                                        AppLocalizations.of(context).auth_signIn,
+                                        AppLocalizations.of(
+                                          context,
+                                        ).auth_signIn,
                                         style: theme.textTheme.bodyMedium
                                             ?.copyWith(
                                               color: AppColors.primary,

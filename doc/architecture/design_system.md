@@ -3,7 +3,7 @@ title: "Tasarım Sistemi (Design System) — Platformlar Arası"
 summary: "Mobil ve web için ortak görsel dil: renk, tipografi, spacing, radius, gölge token'ları + Atomic/Bileşen Tabanlı Design ilkeleri"
 tags: [mimari, tasarim-sistemi, design-tokens]
 authority: derived
-updated: 2026-06-28
+updated: 2026-10-16
 ---
 
 # 🎨 Tasarım Sistemi (Design System) — Platformlar Arası
@@ -158,10 +158,10 @@ Tüm kart/sheet/panel **bu tek token'ı** kullanır; ekran başına ayrı `BoxSh
 > kaldı (near-white yüzeyler, gradient durakları, Google mavisi gibi). **Hata/aciliyet** tint'leri için semantik token'lar
 > eklendi (`error*`/`warning*`/`infoSurface`/`successSurface`) ve aciliyet kartları bunları kullanıyor. **Gölgeler** tek
 > `AppShadows.soft` token'ına indirgendi — tüm ekranlardaki elle yazılmış `BoxShadow`'lar kaldırıldı (kartların
-> seçili/normal iki-durumlu gölgesi dâhil tek desende birleşti). `app_theme.dart` (Material ThemeData bootstrap'ı) kendi
-> ayrı seed paletini koruyor. Tipografi/spacing/radius token sınıfları (`app_text_styles`/`app_spacing`/`app_radius`)
+> seçili/normal iki-durumlu gölgesi dâhil tek desende birleşti). `app_theme.dart` (Material ThemeData bootstrap'ı) da aynı
+> `AppColors` paletini kullanır; birincil/yüzey/metin/çizgi renkleri ekranlarla tutarlıdır. Tipografi/spacing/radius token sınıfları (`app_text_styles`/`app_spacing`/`app_radius`)
 > henüz yok (planlanan).
 
 ---
 
-*Tasarım Sistemi | Güncelleme: 2026-06-28*
+*Tasarım Sistemi | Güncelleme: 2026-10-16*

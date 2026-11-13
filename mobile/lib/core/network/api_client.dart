@@ -29,6 +29,7 @@ class ApiClient {
     if (onRefreshToken != null) {
       _dio.interceptors.add(
         TokenRefreshInterceptor(
+          dio: _dio,
           onRefresh: onRefreshToken,
           onUnauthorized: _fireUnauthorized,
         ),
@@ -74,7 +75,10 @@ class ApiClient {
       final formData = FormData.fromMap(<String, dynamic>{
         field: await MultipartFile.fromFile(filePath),
       });
-      final response = await _dio.post<Map<String, dynamic>>(path, data: formData);
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: formData,
+      );
       return response.data ?? <String, dynamic>{};
     } on DioException catch (error) {
       throw ApiException.fromDioException(error);
@@ -140,7 +144,10 @@ class ApiClient {
     Map<String, dynamic>? data,
   }) async {
     try {
-      final response = await _dio.delete<Map<String, dynamic>>(path, data: data);
+      final response = await _dio.delete<Map<String, dynamic>>(
+        path,
+        data: data,
+      );
       return response.data ?? <String, dynamic>{};
     } on DioException catch (error) {
       throw ApiException.fromDioException(error);

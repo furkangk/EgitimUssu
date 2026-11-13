@@ -15,6 +15,18 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
   final AppConfig _config;
 
   @override
+  Future<List<LessonSession>> listTeacherSessions(String teacherUserId) async {
+    final response = await _apiClient.getList(
+      '/api/lesson-sessions',
+      queryParameters: <String, dynamic>{'teacherUserId': teacherUserId},
+    );
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(LessonSessionModel.fromJson)
+        .toList();
+  }
+
+  @override
   Future<LessonSession> createSession(LessonSession lessonSession) async {
     final model = _toModel(lessonSession);
     try {
@@ -120,7 +132,9 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
   }
 
   @override
-  Future<LessonSession> createSessionFromSchedule(String lessonScheduleId) async {
+  Future<LessonSession> createSessionFromSchedule(
+    String lessonScheduleId,
+  ) async {
     final response = await _apiClient.post(
       '/api/lesson-sessions/from-schedule/$lessonScheduleId',
     );

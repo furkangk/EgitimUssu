@@ -59,6 +59,7 @@ class FollowUpAssignment {
     required this.coveredTopics,
     required this.recommendations,
     required this.assignments,
+    this.visibility = 'Private',
   });
 
   final String lessonSessionId;
@@ -66,6 +67,7 @@ class FollowUpAssignment {
   final String coveredTopics;
   final String recommendations;
   final List<AssignmentItem> assignments;
+  final String visibility;
 }
 
 abstract interface class AssignmentRepository {
@@ -85,7 +87,10 @@ abstract interface class AssignmentRepository {
   Future<AssignmentItem> submitWork(String assignmentId, String filePath);
 
   /// Öğretmen ödevi onaylar; isteğe bağlı geri bildirim bırakır.
-  Future<AssignmentItem> approveAssignment(String assignmentId, String? feedback);
+  Future<AssignmentItem> approveAssignment(
+    String assignmentId,
+    String? feedback,
+  );
 
   /// M06-4: Öğretmen onayladığı ödeve 0–100 arası puan verir.
   Future<AssignmentItem> gradeAssignment(

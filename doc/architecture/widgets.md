@@ -5,7 +5,7 @@ tags: [mimari, widget, flutter]
 authority: code
 code_refs:
   - mobile/lib/shared/widgets/**
-updated: 2026-09-04
+updated: 2026-10-16
 ---
 
 # 🧩 Ortak Widget Kataloğu (Shared Widgets)
@@ -17,7 +17,7 @@ updated: 2026-09-04
 > **Otorite:** Bir widget kodda varsa **kod doğruluk kaynağıdır** (sınıf adı, parametreler buradan alınır). Token
 > değerleri → [`design_system.md`](design_system.md). Karmaşık widget'ın derin tasarımı kendi dosyasındadır (ör. tab → [`../tab_widget.md`](../tab_widget.md)).
 >
-> **Güncelleme:** 2026-09-04 (P10 Task 4 / D-08: §2c mesajlaşma bileşenleri — `MessagingHeader`/`ConversationTile`/`MessageBubble`/`MessageComposer`; `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı). Önceki not — 2026-08-20 (kod-drift düzeltmesi: StudentBottomNav girişi gerçek 4-sekmeye/rotaya güncellendi (🟢), `StudentPlaceholderPage` yok; AppTextField API'sine `textCapitalization` eklendi)
+> **Güncelleme:** 2026-10-16 (dar ekran ve %200 metin ölçeği: dropdown uzun seçenekleri satıra sarar, hata kartında tekrar düğmesi ayrı satırdadır, boş durum kısa alanda kaydırılabilir).
 
 ---
 
@@ -41,7 +41,7 @@ updated: 2026-09-04
 |---------|---------------------|------------|-----------------|-------|
 | AppButton | `AppPrimaryButton` @ `app_primary_button.dart` | `label, onPressed, isLoading` | Tam genişlik `FilledButton`; loading'de spinner. **Sadece primary var**; outline/danger/icon/small **yok** | 🟡 |
 | AppTextField | `AppTextField` @ `form_fields.dart` | `controller, labelText, hintText?, validator?, keyboardType?, textCapitalization?, minLines/maxLines, maxLength?, readOnly, onTap?, suffixIcon?` | Üstte `AppFieldLabel` + `TextFormField`; radius 18 (`appInputDecoration`) | 🟢 |
-| AppDropdownField | `AppDropdownField<T>` @ `form_fields.dart` | `value, labelText, items, onChanged` | Label + `DropdownButtonFormField` | 🟢 |
+| AppDropdownField | `AppDropdownField<T>` @ `form_fields.dart` | `value, labelText, items, onChanged` | Label + `DropdownButtonFormField`; alan genişliğiyle sınırlı (`isExpanded`), seçenek yüksekliği metne göre büyür (`itemHeight: null`) | 🟢 |
 | AppDateTimeField | `AppDateTimeField` @ `form_fields.dart` | `controller, labelText, validator, hintText?` | `AppTextField` + takvim ikonu | 🟢 |
 | AppFieldLabel | `AppFieldLabel` @ `form_fields.dart` | `text` | Form alanı etiketi (w700) | 🟢 |
 | AppCard | _(yok)_ | `child, padding?` | Beyaz zemin + `border` + `softShadow`, radius 16, padding 14-16 | 🔴 |
@@ -101,8 +101,8 @@ Yardımcılar: `initialsOf(name)` (baş harfler), `relativeTime(utc)` (bugün→
 | Katalog | Kod (sınıf @ dosya) | API | Kural | Durum |
 |---------|---------------------|-----|-------|-------|
 | LoadingState | `LoadingStateView` @ `state_views.dart` | `message='Yukleniyor...'` | Ortalı spinner + metin | 🟢 |
-| ErrorState | `ErrorStateView` @ `state_views.dart` | `message, onRetry?` | errorContainer kart + "Tekrar dene" | 🟢 |
-| EmptyState | `EmptyStateView` @ `state_views.dart` | `title, subtitle` | İkon + başlık + açıklama | 🟢 |
+| ErrorState | `ErrorStateView` @ `state_views.dart` | `message, onRetry?` | errorContainer kart; mesajın altında ayrı satırda "Tekrar dene", dar alanda metni sıkıştırmaz | 🟢 |
+| EmptyState | `EmptyStateView` @ `state_views.dart` | `title, subtitle` | İkon + ortalı başlık + açıklama; kısa alanda kaydırılabilir | 🟢 |
 | SessionRequired | `SessionRequiredView` @ `session_required_view.dart` | `title?, subtitle?` | Oturum yokken sahte kullanıcı uydurmak yerine kilit ikonu + "Giriş yap" (D-17) | 🟢 |
 | PremiumLock | `PremiumLock` @ `premium_lock.dart` | `child, message?` | Premium'da `child` doğrudan; Free'de bulanık + `IgnorePointer` önizleme (`premiumLockPreviewKey`) + kilit kartı. Kararı **kökteki `MembershipCubit`** verir (K-09) — ekran kendi tier'ını hesaplamaz (D-10) | 🟢 |
 | PremiumLockCard | `PremiumLockCard` @ `premium_lock.dart` | `message, title?` | Cubit'e bağlı **değil**; sunucudan `402 *_premium_required` alan ekranlar kendi mesajıyla gösterir. "Premium'a geç" → `kPaywallRoute` (`/membership/paywall`) | 🟢 |

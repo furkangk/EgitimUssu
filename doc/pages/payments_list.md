@@ -7,13 +7,13 @@ authority: code
 code_refs:
   - mobile/lib/features/payments/presentation/pages/payments_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-08-20
+updated: 2026-10-16
 ---
 
 # Ödeme Takibi (`/payments`)
 
 > **Feature:** `payments` · **Dosya:** `mobile/lib/features/payments/presentation/pages/payments_page.dart`
-> **State:** `PaymentsCubit` (BlocProvider.value) · **Veri:** 🟡 Gerçek API + demo fallback · **Güncelleme:** 2026-08-20
+> **State:** `PaymentsCubit` (BlocProvider.value) · **Veri:** 🟡 Gerçek API + demo fallback · **Güncelleme:** 2026-10-16
 
 ## Amaç
 Öğretmenin tüm ödeme kayıtlarını görüntüleme: açıklama, vade, tutar, durum (Ödendi/Bekleyen/Kısmi/Geciken/İptal) + **tam veya kısmi tahsilat** girişi (tahsilat formu).
@@ -48,6 +48,13 @@ updated: 2026-08-20
 
 > **Düzeltme (2026-07-06):** `Cancelled` kayıtlar önceden hiçbir yerde ele alınmadığından UI'da yanlışlıkla **"Bekleyen"** (amber) görünüyor, **"Bekleyen" sekmesinde** listeleniyor ve iptal edilmiş olmasına rağmen **"Tahsil Et"** butonu gösteriyordu. Artık ayrı **"İptal"** rozeti (gri) alır, "Bekleyen" filtresinin dışında tutulur ve "Tahsil Et" butonu gösterilmez.
 > **`_FinanceSummaryPanel` "Tahsil edilen"** metriği artık **tüm** kayıtların `collectedAmount` toplamıdır (kısmi tahsilatlar dahil; önceden yalnızca `Paid` kayıtlar sayılıyordu). Backend `CollectedAmountTotal` semantiğiyle örtüşür.
+
+## Dar ekran ve form güvenliği (2026-10-16)
+- Tahsilat ve filtre alt sayfaları kaydırılabilir; 320×568 ekranda, klavye açıkken ve büyütülmüş yazıda kaydet/uygula eylemine erişilir.
+- Büyük tutarlar ve uzun öğrenci adları yatay taşma yapmaz; güncellenen öğrenci listesinde seçili öğrenci yoksa mevcut filtre seçimi korunur.
+- Ters tarih aralığı formda açıklanır ve API'ye gönderilmez; tahsilat alanı sonlu olmayan sayıları reddeder.
+- Seçilen tarihler kullanıcının yerel gün başlangıcı/sonu üzerinden UTC'ye çevrilir; bitiş etiketi saat dilimi nedeniyle ertesi güne kaymaz. Tarih seçici ±3 yıl dışındaki eski filtreleri açarken başlangıç seçimini geçerli aralığa sınırlar.
+- Regresyon: `test/features/payments/presentation/widgets/payment_sheet_layout_test.dart`.
 
 ## Sayfa düzeni & performans (2026-07-06)
 - Gövde `CustomScrollView` + **lazy `SliverList`** + sunucu **sayfalama** (sonsuz kaydırma) — 100+ kayıt tek seferde çekilmez/build edilmez.

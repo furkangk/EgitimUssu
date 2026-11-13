@@ -3,7 +3,7 @@ title: "Özel Ders Platformu — PRD v2.1"
 summary: "Ürün gereksinim dokümanı: vizyon, kullanıcı tipleri, M01-M18 modül listesi, 6 fazlı yol haritası, iş modeli, free/premium"
 tags: [prd, urun, vizyon]
 authority: product
-updated: 2026-06-24
+updated: 2026-09-05
 ---
 
 # EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu
@@ -527,7 +527,7 @@ Hedef: Platforma dışarıdan öğretmen ve öğrenci çeken büyüme motoru.
 
 | Özellik | Free | Premium |
 |---------|------|---------|
-| Öğrenci ekleme | ✅ (maks. 5–10) | ✅ Sınırsız |
+| Öğrenci ekleme | ✅ **maks. 5** | ✅ Sınırsız |
 | Ders planlama (takvim) | ✅ | ✅ |
 | Ders geçmişi | ✅ | ✅ |
 | Not & ödev girme | ✅ | ✅ |
@@ -546,18 +546,33 @@ Hedef: Platforma dışarıdan öğretmen ve öğrenci çeken büyüme motoru.
 
 ### 9.2 Öğrenci Paketi
 
-| Özellik | Free | Premium |
-|---------|------|---------|
-| Çalışma sayacı | ✅ Basit | ✅ Gelişmiş |
-| Ders programı oluşturma | ✅ | ✅ |
-| Günlük çalışma süresi | ✅ | ✅ |
-| Test / sınav girişi | ✅ | ✅ |
-| Geçmiş çalışma kayıtları | ❌ | ✅ |
-| Haftalık / aylık analiz | ❌ | ✅ |
-| Hedef belirleme | ❌ | ✅ |
-| Streak (seri gün) | ❌ | ✅ |
-| Motivasyon sistemi | ❌ | ✅ |
-| Öğretmenle detaylı veri paylaşımı | ✅ Basit | ✅ Detaylı |
+> ⚠️ **Bu tablo 2026-09-05'te koda göre düzeltildi.** Doğruluk kaynağı:
+> `src/Shared/Contracts/MembershipGate.cs` (Free = çekirdek alışkanlık, Premium = derinlik) +
+> `src/Shared/Contracts/EntitlementContract.cs`. Önceki sürüm streak'i ve geçmişi Premium sayıyordu;
+> kod bunları **Free** veriyor. Gerekçe ve rakip karşılaştırması:
+> [`denetim/2026-09-05_rakip_paritesi_analizi.md`](denetim/2026-09-05_rakip_paritesi_analizi.md) §3.
+
+| Özellik | Free | Premium | Kod kapısı |
+|---------|------|---------|-----------|
+| Çalışma sayacı (kronometre) | ✅ | ✅ | — (kapı yok) |
+| Ders programı oluşturma | ✅ | ✅ | — |
+| Günlük çalışma süresi + günlük hedef | ✅ | ✅ | — |
+| Test / deneme girişi | ✅ | ✅ | — |
+| **Streak (seri gün)** | **✅ Tam** | ✅ Tam | — (bilinçli olarak ücretsiz) |
+| **Rozet / başarım** (10 rozet, 4 kategori) | **✅ Tam** | ✅ Tam | — |
+| Temel haftalık analiz | ✅ | ✅ | — |
+| Geçmiş çalışma / deneme kayıtları | ✅ **son 30 gün** | ✅ Sınırsız | `MembershipGate.ClampFrom` |
+| Aylık analiz | ❌ | ✅ | `PremiumFeature.MonthlyAnalysis` |
+| Hedef net / puan takibi | ❌ | ✅ | `PremiumFeature.TargetTracking` |
+| Konu bazlı zayıflık analizi | ❌ | ✅ | `PremiumFeature.TopicWeakness` |
+| Streak dondurma (seri koruma hakkı) | ❌ | ✅ | `PremiumFeature.StreakFreeze` |
+| PDF gelişim raporu | ❌ | ✅ | `PremiumFeature.PdfReport` |
+| Öğretmenle veri paylaşımı | ✅ | ✅ | `GET/PUT /students/{id}/sharing` |
+
+> **Tasarım kararı:** Alışkanlık kuran her şey (kronometre, streak, rozet, günlük hedef, son 30 gün)
+> **ücretsizdir**; ücretli olan **derinliktir** (sınırsız geçmiş, aylık/konu analizi, hedef takibi, PDF).
+> Bu, alışkanlık kancasını paywall'un arkasına koymamak içindir — pazarda aynı modeli izleyen ürünler
+> (ör. Net Up) ücretsiz seri + ücretli analiz ayrımını kullanıyor.
 
 ### 9.3 Veli Paketi
 
@@ -618,4 +633,4 @@ Hedef: Platforma dışarıdan öğretmen ve öğrenci çeken büyüme motoru.
 
 ---
 
-*EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu — Ürün Gereksinim Dokümanı | v2.1 (2026-06-24)*
+*EğitimÜssü — Özel Ders Yönetim ve Eşleştirme Platformu — Ürün Gereksinim Dokümanı | v2.1 (2026-06-24, §9.1–9.2 koda göre düzeltildi 2026-09-05)*

@@ -41,12 +41,11 @@ class RoleSelectionPage extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 430),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const Spacer(flex: 3),
                   Text(
                     AppLocalizations.of(context).auth_roleSelectionTitle,
                     textAlign: TextAlign.center,
@@ -68,8 +67,7 @@ class RoleSelectionPage extends StatelessWidget {
                   for (final role in roles) ...<Widget>[
                     _RoleCard(
                       data: role,
-                      onTap: () =>
-                          context.go('/register?role=${role.keyName}'),
+                      onTap: () => context.go('/register?role=${role.keyName}'),
                     ),
                     if (role != roles.last) const SizedBox(height: 14),
                   ],
@@ -83,7 +81,11 @@ class RoleSelectionPage extends StatelessWidget {
                           fontWeight: FontWeight.w400,
                         ),
                         children: <InlineSpan>[
-                          TextSpan(text: AppLocalizations.of(context).auth_alreadyHaveAccount),
+                          TextSpan(
+                            text: AppLocalizations.of(
+                              context,
+                            ).auth_alreadyHaveAccount,
+                          ),
                           TextSpan(
                             text: AppLocalizations.of(context).auth_signIn,
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -95,7 +97,6 @@ class RoleSelectionPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Spacer(flex: 2),
                 ],
               ),
             ),

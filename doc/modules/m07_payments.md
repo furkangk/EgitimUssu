@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Payments/**
-updated: 2026-09-04
+updated: 2026-10-16
 ---
 
 # 💰 Ödeme Takibi (M07) — Detaylı Tasarım Dokümanı
@@ -117,8 +117,10 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 Veli bir ödeme kaydı için **beyan** verir (para transferi değil, mutabakat). Alanlar:
 `Id, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, Note?, Status (Declared→Confirmed/Rejected), CreatedOnUtc, ResolvedOnUtc?`.
 `Confirm(now)`/`Reject(now)` yalnız `Declared`'dan çalışır (aksi `InvalidOperationException`). Öğretmen **teyit** edince
-`PaymentRecord.MarkCollectedByParentConfirmation(now)` çağrılır → `Status=Paid`, `CollectedAmount=ExpectedAmount`,
+`PaymentRecord.MarkCollectedByParentConfirmation(declaredAmount, now)` çağrılır → `Status=Paid`, `CollectedAmount=ExpectedAmount`,
 `CollectedOnUtc=now` ve mevcut `PaymentRecordUpdatedDomainEvent` yayılır (gelir özeti/veli paneli projeksiyonu bozulmaz).
+**2026-10-16 doğruluk kontrolü:** Beyan yalnız `Pending`, `PartiallyPaid` veya `Overdue` durumundaki açık bakiye için verilir. `DeclaredAmount`, `ExpectedAmount - CollectedAmount` değerine tam eşit olmalıdır; akış tam ödeme teyididir. Aynı kurallar teyit anında yeniden kontrol edilir. Ödeme silinmişse `404 payments.record_not_found`; kapanmış/iptal edilmişse `409 payments.record_not_outstanding`; bakiye değişmiş veya beyan tutarı uyuşmuyorsa `409 payments.declaration_amount_mismatch` döner. Başarısız teyitte beyan `Declared` kalır, ödeme ve olaylar değişmez.
+
 Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen teyidine bağlı; PRD "platform para tahsil etmez" kuralı korunur.
 
 ### 2.2 ⚠️ Önerilen (henüz kodda yok)
@@ -147,7 +149,7 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 | Gelir özeti | `GET /api/payments/teachers/{teacherUserId}/summary` | → `TeacherPaymentSummaryResponse` | **Para birimi bazında** gruplu özet |
 | Filtreli liste | `GET /api/payments/teachers/{teacherUserId}/records/filter?outstanding=&overdue=&paid=&dateFromUtc=&dateToUtc=` | → `PaymentRecordResponse[]` | Bayraklar VEYA mantığıyla; hiçbiri seçili değilse tümü |
 | **Arama + sayfalama** | `GET /api/payments/teachers/{teacherUserId}/records/search?q=&status=&studentId=&dateFromUtc=&dateToUtc=&skip=&take=` | → `PagedPaymentRecordsResponse` `{ Items[], TotalCount }` | Metin (açıklama), durum (`Open`/`Paid`/`Pending`/`PartiallyPaid`/`Overdue`/`Cancelled`), öğrenci, tarih; `take` ≤ 100; vade artan sıralı |
-| **Veli "ödedim" beyanı (Veli V-G)** | `POST /api/payments/records/{paymentRecordId}/declare-paid` | `DeclarePaidRequest(DeclaredAmount, Note?)` → `ParentPaymentDeclarationResponse` | Yetki: ödemedeki öğrencinin **onaylı velisi** (`IParentAccessDirectory`) / Admin; `currentUser` = veli; `DeclaredAmount>0`; kayıt yoksa `404` |
+| **Veli "ödedim" beyanı (Veli V-G)** | `POST /api/payments/records/{paymentRecordId}/declare-paid` | `DeclarePaidRequest(DeclaredAmount, Note?)` → `ParentPaymentDeclarationResponse` | Yetki: ödemedeki öğrencinin **onaylı velisi** (`IParentAccessDirectory`) / Admin; `currentUser` = veli; `DeclaredAmount` güncel açık bakiyeye eşit; kapanmış kayıt/tutar uyuşmazlığı `409`, kayıt yoksa `404` |
 | **Öğretmene gelen beyanlar (Veli V-G)** | `GET /api/payments/teachers/{teacherUserId}/payment-declarations?onlyPending=` | → `ParentPaymentDeclarationResponse[]` | Öğretmen/Admin; `onlyPending=true` → yalnız `Declared` |
 | **Beyanı teyit et (Veli V-G)** | `POST /api/payments/payment-declarations/{declarationId}/confirm` | → `ParentPaymentDeclarationResponse` | Öğretmen/Admin; `Declared` değilse `409 payments.declaration_not_pending`; teyit → `PaymentRecord.MarkCollectedByParentConfirmation` (Status=Paid, tam tahsil) |
 | **Beyanı reddet (Veli V-G)** | `POST /api/payments/payment-declarations/{declarationId}/reject` | → `ParentPaymentDeclarationResponse` | Öğretmen/Admin; ödeme kaydına dokunmaz; yoksa `404 payments.declaration_not_found` |
@@ -168,7 +170,8 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 **Hata kodu → HTTP eşlemesi (koddan):**
 | Kod | HTTP |
 |-----|------|
-| `payments.record_not_found` | `404` |
+| `payments.record_not_found` / `payments.declaration_not_found` | `404` |
+| `payments.declaration_not_pending` / `payments.record_not_outstanding` / `payments.declaration_amount_mismatch` | `409` |
 | `shared.forbidden` | `403` |
 | (varsayılan) | `400` |
 
@@ -297,4 +300,4 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 
 ---
 
-*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
+*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-10-16 (veli beyanında güncel kalan tutar/kayıt durumu doğrulaması; geçersiz teyit durum veya olay değiştirmez). Önceki: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*

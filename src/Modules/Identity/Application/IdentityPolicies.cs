@@ -13,7 +13,8 @@ public sealed class RegisterUserCommandValidator : ICommandValidator<RegisterUse
         var isValid = !string.IsNullOrWhiteSpace(command.Email)
             && !string.IsNullOrWhiteSpace(command.Password)
             && !string.IsNullOrWhiteSpace(command.FirstName)
-            && !string.IsNullOrWhiteSpace(command.LastName);
+            && !string.IsNullOrWhiteSpace(command.LastName)
+            && command.Roles is not null;
 
         return Task.FromResult(isValid ? Result.Success() : Result.Failure(InvalidRequest));
     }

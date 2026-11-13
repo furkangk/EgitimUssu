@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-09-05
+updated: 2026-10-16
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -271,16 +271,16 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 ## 4. İş Kuralları
 
 1. **Parola politikası:** En az **8 karakter** (`identity.invalid_password`). Kayıtta ve şifre sıfırlamada uygulanır.
-2. **En az bir rol:** Kayıtta `Roles` boş olamaz (`identity.missing_role`); roller `Distinct()` ile tekilleştirilir.
+2. **En az bir rol:** Kayıtta `Roles` boş olamaz (`identity.missing_role`); eksik veya `null` roller doğrulamada `identity.invalid_request` ile reddedilir (500 oluşmaz); roller `Distinct()` ile tekilleştirilir.
 3. **E-posta normalizasyonu:** Tüm aramalar `Email.Trim().ToUpperInvariant()` ile yapılır; benzersizlik `NormalizedEmail` üzerinden.
 4. **Mükerrer e-posta:** Aynı normalize e-posta varsa kayıt `identity.duplicate_email` (409) ile reddedilir.
 5. **Kayıt sonrası durum:** Yeni kullanıcı `Status = Active`, `IsEmailConfirmed = false`, `IsProfileVerified = false` ile oluşur; **24 saatlik** e-posta doğrulama token'ı üretilir ve doğrulama e-postası gönderilir.
    > **2026-09-02:** Bu e-posta artık gerçekten gönderiliyor (`EmailIdentityNotificationService`). Ayrıca aynı turda bir EF tuzağı kapatıldı: `UserSecurityToken`/`RefreshTokenSession`/`UserRoleMembership` yapılandırmalarına `ValueGeneratedNever()` eklendi — izlenen bir `UserAccount`'a yeni token eklenince EF satırı UPDATE etmeye çalışıyor ve `password-reset/request` ile `email-verification/request` uçları **500** dönüyordu.
 6. **Giriş koşulu:** Parola PBKDF2 ile doğrulanır; hesap yalnızca `Active` **veya** `PendingActivation` ise giriş yapılabilir (`Suspended`/`Closed` → `identity.user_inactive`). Hatalı e-posta/şifre tek tip `identity.invalid_credentials` döner (kullanıcı sayımı/enumeration engeli).
-7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token `identity.invalid_refresh_token` (401) verir.
+7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token ve `Suspended`/`Closed` hesaplar `identity.invalid_refresh_token` (401) verir; hesap durumu giriş koşuluyla aynı şekilde denetlenir.
 8. **Refresh ömrü:** Tüm refresh oturumları **30 gün** geçerlidir.
 9. **Şifre sıfırlama gizliliği:** `password-reset/request`, kullanıcı **bulunsa da bulunmasa da** `200 OK` döner (e-posta enumeration engeli). Token **1 saat** geçerlidir.
-10. **Şifre sıfırlama yan etkisi:** Başarılı sıfırlamada token "kullanıldı" işaretlenir, parola güncellenir ve **tüm aktif refresh oturumları iptal edilir** (tüm cihazlardan çıkış).
+10. **Şifre sıfırlama yan etkisi:** Başarılı sıfırlamada hesaba ait **tüm kullanılabilir şifre sıfırlama token’ları** "kullanıldı" işaretlenir (önceki e-postalar yeni parolayı değiştiremez), e-posta doğrulama token’ları korunur, parola güncellenir ve **tüm aktif refresh oturumları iptal edilir** (tüm cihazlardan çıkış).
 11. **E-posta doğrulama gizliliği:** `email-verification/request`, kullanıcı yoksa veya zaten doğrulanmışsa sessizce `200 OK` döner; aksi halde **24 saatlik** yeni token üretir.
 12. **Token tek kullanımlık:** `UserSecurityToken` `MarkUsed` ile bir kez tüketilir; tekrar kullanım `IsUsable` kontrolünde başarısız olur.
 13. **GetUserById yetkisi:** Yalnızca **admin** veya **kendi kaydı** (`isSelf`) erişebilir (`GetUserByIdQueryAuthorizer`); aksi halde `shared.forbidden` (403).
@@ -378,4 +378,4 @@ Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOth
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

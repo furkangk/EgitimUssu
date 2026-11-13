@@ -116,6 +116,7 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
     required super.coveredTopics,
     required super.recommendations,
     required super.assignments,
+    super.visibility,
   });
 
   factory FollowUpAssignmentModel.fromJson(Map<String, dynamic> json) {
@@ -132,6 +133,7 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
           note?['recommendations']?.toString() ??
           json['recommendations']?.toString() ??
           '',
+      visibility: note?['visibility']?.toString() ?? 'Private',
       assignments: ((json['assignments'] as List<dynamic>? ?? <dynamic>[]))
           .whereType<Map<String, dynamic>>()
           .map(AssignmentItemModel.fromJson)
@@ -160,6 +162,11 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
       'summary': summary,
       'coveredTopics': coveredTopics,
       'recommendations': recommendations,
+      'visibility': switch (visibility) {
+        'Student' => 2,
+        'StudentAndParent' => 3,
+        _ => 1,
+      },
       'assignments': assignments
           .map(
             (a) => AssignmentItemModel(

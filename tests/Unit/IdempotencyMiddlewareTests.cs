@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Middleware;
@@ -110,6 +111,8 @@ public sealed class IdempotencyMiddlewareTests
         services.AddOptions();
 
         var context = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "test-user")], "Test"));
         context.Request.Method = method;
         context.Request.Path = path;
         context.Response.Body = new MemoryStream();

@@ -648,6 +648,8 @@ public sealed class DeleteMessageCommandHandler : ICommandHandler<DeleteMessageC
         }
 
         message.SoftDelete(_clock.UtcNow);
+        var conversation = await _repository.GetConversationAsync(message.ConversationId, cancellationToken);
+        conversation?.HideDeletedMessagePreview(message);
         await _repository.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

@@ -7,20 +7,20 @@ authority: code
 code_refs:
   - mobile/lib/features/auth/presentation/pages/welcome_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-06-23
+updated: 2026-10-16
 ---
 
 # Karşılama / Welcome (`/`)
 
 > **Feature:** `auth` · **Dosya:** `mobile/lib/features/auth/presentation/pages/welcome_page.dart`
-> **State:** Yok (Stateless) · **Veri:** — · **Güncelleme:** 2026-06-23
+> **State:** Yok (Stateless) · **Veri:** — · **Güncelleme:** 2026-10-16
 
 ## Amaç
 Uygulamaya giriş ekranı; marka algısı + "Giriş Yap" / "Kayıt Ol" aksiyonları.
 
 ## Ana bileşenler
 - Marka/logo bloğu, gradient overlay'li karşılama görseli, açıklama metni
-- İki aksiyon butonu → `/login`, `/register`
+- İki aksiyon butonu → `/login`, `/role-selection`
 
 ## Veri / API
 Yok.
@@ -28,3 +28,9 @@ Yok.
 ## İlgili
 - Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.1
 - Modül: [`../modules/m01_identity.md`](../modules/m01_identity.md) (M01)
+
+## 2026-10-16 ekran düzeltmesi
+
+Dar/kısa ekranlarda içerik kaydırılabilir. Görselin yüksekliği yazı ölçeğine uyar; açıklama ve canlı takip rozeti birbirinin üzerine binmez. Giriş ve kayıt düğmelerine kaydırarak erişilebilir.
+
+Güncelleme: 2026-10-16

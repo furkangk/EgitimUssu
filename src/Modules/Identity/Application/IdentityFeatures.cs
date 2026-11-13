@@ -65,7 +65,7 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
     public async Task<Result<AuthResponse>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(command.Password) || command.Password.Length < 8) return Result<AuthResponse>.Failure(InvalidPassword);
-        if (command.Roles.Count == 0) return Result<AuthResponse>.Failure(MissingRole);
+        if (command.Roles is not { Count: > 0 }) return Result<AuthResponse>.Failure(MissingRole);
         if (command.Roles.Any(role => !SelfAssignableRoles.Contains(role))) return Result<AuthResponse>.Failure(RoleNotSelfAssignable);
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
         if (await _repository.GetByEmailAsync(normalizedEmail, cancellationToken) is not null) return Result<AuthResponse>.Failure(DuplicateEmail);
@@ -132,7 +132,11 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
         var hashed = _tokenProtector.Hash(command.RefreshToken.Trim());
         var user = await _repository.GetByRefreshTokenHashAsync(hashed, cancellationToken);
         var session = user?.RefreshSessions.FirstOrDefault(x => x.RefreshTokenHash == hashed);
-        if (user is null || session is null || !session.IsActive(now)) return Result<AuthResponse>.Failure(InvalidRefresh);
+        if (user is null || session is null || !session.IsActive(now)
+            || user.Status is not UserAccountStatus.Active and not UserAccountStatus.PendingActivation)
+        {
+            return Result<AuthResponse>.Failure(InvalidRefresh);
+        }
         session.Revoke(now);
         var newRefresh = _tokenProtector.GenerateToken();
         // M01-4: Jeton döndürülüyor ama oturum AYNI cihazın oturumu; başlangıç anı devralınır,
@@ -194,7 +198,13 @@ public sealed class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordC
         var hash = _tokenProtector.Hash(command.Token.Trim());
         var token = user.SecurityTokens.FirstOrDefault(x => x.Purpose == SecurityTokenPurpose.PasswordReset && x.TokenHash == hash && x.IsUsable(now));
         if (token is null) return Result.Failure(InvalidToken);
-        token.MarkUsed(now);
+        // A successful reset invalidates every outstanding reset link for the old password.
+        // Otherwise an earlier email can still overwrite the newly recovered password.
+        foreach (var resetToken in user.SecurityTokens.Where(x =>
+            x.Purpose == SecurityTokenPurpose.PasswordReset && x.IsUsable(now)))
+        {
+            resetToken.MarkUsed(now);
+        }
         user.UpdatePassword(_passwordHasher.Hash(command.NewPassword), now);
         foreach (var session in user.RefreshSessions.Where(x => x.IsActive(now))) session.Revoke(now);
         await _repository.SaveChangesAsync(cancellationToken);

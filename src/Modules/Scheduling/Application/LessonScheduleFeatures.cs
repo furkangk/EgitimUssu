@@ -260,6 +260,8 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
 public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelLessonScheduleCommand, Result<LessonScheduleResponse>>
 {
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
+    private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli veya taslak ders iptal edilebilir.");
+    private static readonly Error InvalidRequest = new("scheduling.invalid_request", "Tekrar kapsami ve ders tarihi eksik veya hatali.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
@@ -282,7 +284,17 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             return Result<LessonScheduleResponse>.Failure(NotFound);
         }
 
+        if (!lesson.IsEditable)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotEditable);
+        }
+
         var isRecurring = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule);
+        if (!Enum.IsDefined(command.Scope)
+            || (isRecurring && command.Scope != OccurrenceScope.All && command.OccurrenceStartAtUtc is null))
+        {
+            return Result<LessonScheduleResponse>.Failure(InvalidRequest);
+        }
         if (isRecurring && command.Scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
         {
             var occurrenceException = new LessonOccurrenceException(
@@ -313,6 +325,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
     private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
     private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders ertelenebilir.");
+    private static readonly Error InvalidRequest = new("scheduling.invalid_request", "Tekrar kapsami ve ders tarihi eksik veya hatali.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
@@ -340,6 +353,13 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
         if (!lesson.IsEditable)
         {
             return Result<LessonScheduleResponse>.Failure(NotEditable);
+        }
+
+        if (!Enum.IsDefined(command.Scope)
+            || (!string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
+                && command.Scope != OccurrenceScope.All && command.OccurrenceStartAtUtc is null))
+        {
+            return Result<LessonScheduleResponse>.Failure(InvalidRequest);
         }
 
         var hasConflict = await _repository.HasTeacherConflictAsync(
@@ -371,6 +391,7 @@ public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<Compl
 {
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
     private static readonly Error AlreadyCompleted = new("scheduling.already_completed", "Ders zaten tamamlanmis.");
+    private static readonly Error NotEditable = new("scheduling.not_editable", "Iptal edilmis ders tamamlanamaz.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
 
@@ -391,6 +412,11 @@ public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<Compl
         if (lesson.Status == LessonScheduleStatus.Completed)
         {
             return Result<LessonScheduleResponse>.Failure(AlreadyCompleted);
+        }
+
+        if (!lesson.IsEditable)
+        {
+            return Result<LessonScheduleResponse>.Failure(NotEditable);
         }
 
         lesson.Complete(_clock.UtcNow);

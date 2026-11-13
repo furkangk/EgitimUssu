@@ -40,6 +40,7 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
       coveredTopics: followUpAssignment.coveredTopics,
       recommendations: followUpAssignment.recommendations,
       assignments: followUpAssignment.assignments,
+      visibility: followUpAssignment.visibility,
     );
     try {
       final response = await _apiClient.post(
@@ -72,13 +73,17 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
 
   @override
   Future<AssignmentItem> completeAssignment(String assignmentId) async {
-    final response =
-        await _apiClient.post('/api/assignments/$assignmentId/complete');
+    final response = await _apiClient.post(
+      '/api/assignments/$assignmentId/complete',
+    );
     return AssignmentItemModel.fromJson(response);
   }
 
   @override
-  Future<AssignmentItem> submitWork(String assignmentId, String filePath) async {
+  Future<AssignmentItem> submitWork(
+    String assignmentId,
+    String filePath,
+  ) async {
     final response = await _apiClient.postFile(
       '/api/assignments/$assignmentId/submission',
       filePath: filePath,
@@ -146,7 +151,8 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
       '/api/assignments/lesson-resources',
       fields: <String, String>{
         'title': title,
-        if (description != null && description.isNotEmpty) 'description': description,
+        if (description != null && description.isNotEmpty)
+          'description': description,
         if (url != null && url.isNotEmpty) 'url': url,
         if (studentId != null) 'studentId': studentId,
         if (lessonSessionId != null) 'lessonSessionId': lessonSessionId,

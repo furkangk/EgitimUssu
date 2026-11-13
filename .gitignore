@@ -67,6 +67,10 @@ mobile/artifacts/
 
 # Kişisel/yerel Claude skill'leri (bu PC'ye özel — main'e commit edilmez)
 .claude/skills/
+.claude/worktrees/
+
+# Yerel denetim ve ekran görüntüsü çıktıları
+/output/
 
 # Obsidian — kişisel/oturum durumu (paylaşılabilir config commit'lenir)
 doc/.obsidian/workspace.json

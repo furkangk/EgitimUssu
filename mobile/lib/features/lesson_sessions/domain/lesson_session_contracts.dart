@@ -45,6 +45,7 @@ class LessonSession {
 }
 
 abstract interface class LessonSessionRepository {
+  Future<List<LessonSession>> listTeacherSessions(String teacherUserId);
   Future<LessonSession> createSession(LessonSession lessonSession);
   Future<LessonSession> getSession(String lessonSessionId);
   Future<LessonSession> completeSession(LessonSession lessonSession);

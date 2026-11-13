@@ -40,6 +40,7 @@ class _PaymentFilterSheetState extends State<PaymentFilterSheet> {
   String? _studentLabel;
   DateTime? _from;
   DateTime? _to;
+  String? _dateError;
 
   @override
   void initState() {
@@ -53,7 +54,9 @@ class _PaymentFilterSheetState extends State<PaymentFilterSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -62,112 +65,141 @@ class _PaymentFilterSheetState extends State<PaymentFilterSheet> {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(999),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Filtrele',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w900,
+                const SizedBox(height: 16),
+                Text(
+                  'Filtrele',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const AppFieldLabel(text: 'Öğrenci'),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String?>(
-                initialValue: _studentId,
-                decoration: appInputDecoration('Tüm öğrenciler'),
-                items: <DropdownMenuItem<String?>>[
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('Tüm öğrenciler'),
-                  ),
-                  ...widget.students.map(
-                    (s) => DropdownMenuItem<String?>(
-                      value: s.id,
-                      child: Text(s.fullName, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 16),
+                const AppFieldLabel(text: 'Öğrenci'),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  initialValue: _studentId,
+                  isExpanded: true,
+                  decoration: appInputDecoration('Tüm öğrenciler'),
+                  items: <DropdownMenuItem<String?>>[
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Tüm öğrenciler'),
                     ),
-                  ),
-                ],
-                onChanged: (value) => setState(() {
-                  _studentId = value;
-                  _studentLabel = value == null
-                      ? null
-                      : widget.students
-                            .where((s) => s.id == value)
-                            .map((s) => s.fullName)
-                            .firstOrNull;
-                }),
-              ),
-              const SizedBox(height: 16),
-              const AppFieldLabel(text: 'Vade tarihi aralığı'),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _DateBox(
-                      label: 'Başlangıç',
-                      value: _from,
-                      onTap: () => _pickDate(isFrom: true),
-                      onClear: _from == null
-                          ? null
-                          : () => setState(() => _from = null),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _DateBox(
-                      label: 'Bitiş',
-                      value: _to,
-                      onTap: () => _pickDate(isFrom: false),
-                      onClear: _to == null
-                          ? null
-                          : () => setState(() => _to = null),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(
-                        widget.filters.copyWith(
-                          studentId: null,
-                          studentLabel: null,
-                          dateFromUtc: null,
-                          dateToUtc: null,
+                    if (_studentId != null &&
+                        !widget.students.any(
+                          (student) => student.id == _studentId,
+                        ))
+                      DropdownMenuItem<String?>(
+                        value: _studentId,
+                        child: Text(
+                          _studentLabel ?? 'Seçili öğrenci',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary,
-                        side: const BorderSide(color: AppColors.border),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                    ...widget.students.map(
+                      (s) => DropdownMenuItem<String?>(
+                        value: s.id,
+                        child: Text(
+                          s.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: const Text('Temizle'),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppPrimaryButton(label: 'Uygula', onPressed: _apply),
+                  ],
+                  onChanged: (value) => setState(() {
+                    _studentId = value;
+                    _studentLabel = value == null
+                        ? null
+                        : widget.students
+                              .where((s) => s.id == value)
+                              .map((s) => s.fullName)
+                              .firstOrNull;
+                  }),
+                ),
+                const SizedBox(height: 16),
+                const AppFieldLabel(text: 'Vade tarihi aralığı'),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _DateBox(
+                        label: 'Başlangıç',
+                        value: _from,
+                        onTap: () => _pickDate(isFrom: true),
+                        onClear: _from == null
+                            ? null
+                            : () => setState(() => _from = null),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _DateBox(
+                        label: 'Bitiş',
+                        value: _to,
+                        onTap: () => _pickDate(isFrom: false),
+                        onClear: _to == null
+                            ? null
+                            : () => setState(() => _to = null),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_dateError != null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Text(
+                    _dateError!,
+                    style: const TextStyle(color: AppColors.accentRed),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 20),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(
+                          widget.filters.copyWith(
+                            studentId: null,
+                            studentLabel: null,
+                            dateFromUtc: null,
+                            dateToUtc: null,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textSecondary,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Temizle'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AppPrimaryButton(
+                        label: 'Uygula',
+                        onPressed: _apply,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -176,25 +208,44 @@ class _PaymentFilterSheetState extends State<PaymentFilterSheet> {
 
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
-    final initial = (isFrom ? _from : _to)?.toLocal() ?? now;
+    final selected = (isFrom ? _from : _to)?.toLocal() ?? now;
+    final firstDate = DateTime(now.year - 3);
+    final lastDate = DateTime(now.year + 3);
+    final selectedDay = DateTime(selected.year, selected.month, selected.day);
+    final initial = selectedDay.isBefore(firstDate)
+        ? firstDate
+        : selectedDay.isAfter(lastDate)
+        ? lastDate
+        : selectedDay;
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(now.year - 3),
-      lastDate: DateTime(now.year + 3),
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
+      _dateError = null;
       if (isFrom) {
-        _from = DateTime.utc(picked.year, picked.month, picked.day);
+        _from = DateTime(picked.year, picked.month, picked.day).toUtc();
       } else {
-        // Bitiş: günün sonuna kadar dahil olsun.
-        _to = DateTime.utc(picked.year, picked.month, picked.day, 23, 59, 59);
+        // Takvimde seçilen yerel günün tamamı dahil; saat dilimi / yaz saati korunur.
+        _to = DateTime(
+          picked.year,
+          picked.month,
+          picked.day + 1,
+        ).subtract(const Duration(microseconds: 1)).toUtc();
       }
     });
   }
 
   void _apply() {
+    if (_from != null && _to != null && _to!.isBefore(_from!)) {
+      setState(
+        () => _dateError = 'Bitiş tarihi başlangıç tarihinden önce olamaz.',
+      );
+      return;
+    }
     Navigator.of(context).pop(
       widget.filters.copyWith(
         studentId: _studentId,

@@ -8,6 +8,21 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../helpers.dart';
 
 void main() {
+  test('lists actual sessions scoped to the current teacher', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final sessions = await repository.listTeacherSessions('teacher-1');
+
+    expect(apiClient.lastPath, '/api/lesson-sessions');
+    expect(apiClient.lastQuery, {'teacherUserId': 'teacher-1'});
+    expect(sessions.single.id, 'session-completed');
+    expect(sessions.single.status, 'Completed');
+  });
+
   test('createSession posts to lesson sessions endpoint', () async {
     final apiClient = _FakeApiClient();
     final repository = LessonSessionRepositoryImpl(
@@ -137,6 +152,25 @@ class _FakeApiClient extends ApiClient {
 
   String? lastPath;
   Map<String, dynamic>? lastData;
+  Map<String, dynamic>? lastQuery;
+
+  @override
+  Future<List<dynamic>> getList(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    lastPath = path;
+    lastQuery = queryParameters;
+    return [
+      {
+        'id': 'session-completed',
+        'teacherUserId': 'teacher-1',
+        'studentId': 'student-1',
+        'subject': 'Matematik',
+        'status': 'Completed',
+      },
+    ];
+  }
 
   @override
   Future<Map<String, dynamic>> post(

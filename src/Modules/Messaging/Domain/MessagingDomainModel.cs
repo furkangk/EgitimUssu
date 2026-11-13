@@ -173,6 +173,20 @@ public sealed class Conversation : AggregateRoot<Guid>
         => HasParticipant(senderUserId) && !IsBlockedByTeacher && !IsBlockedByCounterpart;
 
     /// <summary>
+    /// Silinen mesajın gelen kutusunda kalan önizlemesini temizler. Daha yeni/farklı bir
+    /// mesajın önizlemesi korunur; aynı anda aynı önizlemeyi üreten mesajlarda gizlilik önceliklidir.
+    /// </summary>
+    public void HideDeletedMessagePreview(Message message)
+    {
+        if (message.ConversationId == Id && message.IsDeleted
+            && message.SentOnUtc == LastMessageOnUtc
+            && LastMessagePreview == BuildPreview(message.Body))
+        {
+            LastMessagePreview = null;
+        }
+    }
+
+    /// <summary>
     /// Mesajı üretir, gelen kutusu önizlemesini tazeler ve alıcıya <see cref="MessageSentDomainEvent"/>
     /// yayar. Mesaj oluşturma sohbetin üzerindedir: alıcıyı yalnız sohbet bilir.
     /// </summary>
