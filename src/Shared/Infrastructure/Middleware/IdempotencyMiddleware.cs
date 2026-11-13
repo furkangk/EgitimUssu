@@ -55,26 +55,38 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencyStor
         var originalBody = context.Response.Body;
         using var buffer = new MemoryStream();
         context.Response.Body = buffer;
+        var completed = false;
 
         try
         {
             await next(context);
+
+            var bytes = buffer.ToArray();
+
+            // Yalnız başarılı (2xx) yanıtlar önbelleklenir; geçici hatalar tekrar denenebilir kalır.
+            if (context.Response.StatusCode is >= 200 and < 300)
+            {
+                var captured = new IdempotentResponse(context.Response.StatusCode, context.Response.ContentType, bytes);
+                await store.CompleteAsync(storeKey, captured, context.RequestAborted);
+                completed = true;
+            }
+
+            context.Response.Body = originalBody;
+            await originalBody.WriteAsync(bytes, context.RequestAborted);
         }
         finally
         {
             context.Response.Body = originalBody;
+
+            // A-12: Başarısız istek (2xx dışı yanıt ya da istisna) anahtarı kilitli bırakmamalı.
+            // Yorumdaki "geçici hatalar tekrar denenebilir kalır" niyeti eskiden yalnız TTL dolduğu
+            // için gerçekleşiyordu: o ana kadar aynı anahtarla yapılan yeniden deneme 409 alıyordu.
+            // `RequestAborted` bu noktada iptal edilmiş olabilir; serbest bırakma ona bağlanmamalı.
+            if (!completed)
+            {
+                await store.ReleaseAsync(storeKey, CancellationToken.None);
+            }
         }
-
-        var bytes = buffer.ToArray();
-
-        // Yalnız başarılı (2xx) yanıtlar önbelleklenir; geçici hatalar tekrar denenebilir kalır.
-        if (context.Response.StatusCode is >= 200 and < 300)
-        {
-            var captured = new IdempotentResponse(context.Response.StatusCode, context.Response.ContentType, bytes);
-            await store.CompleteAsync(storeKey, captured, context.RequestAborted);
-        }
-
-        await originalBody.WriteAsync(bytes, context.RequestAborted);
     }
 
     private static async Task ReplayAsync(HttpContext context, IdempotentResponse response)

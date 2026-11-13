@@ -27,11 +27,22 @@ public sealed class OutboxDispatcher(
             options.Value.PollIntervalSeconds,
             options.Value.BatchSize);
 
+        // A-09: Budama poll döngüsünden ayrı, seyrek bir ritimde koşar — her 15 saniyede bir DELETE
+        // çalıştırmanın anlamı yok. İlk tur açılıştan hemen sonra yapılır ki uzun süredir birikmiş
+        // bir kuyruk ilk fırsatta küçülsün.
+        var nextPurgeUtc = DateTime.MinValue;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await outboxProcessor.DispatchPendingAsync(stoppingToken);
+
+                if (DateTime.UtcNow >= nextPurgeUtc)
+                {
+                    await PurgeAsync(stoppingToken);
+                    nextPurgeUtc = DateTime.UtcNow.AddMinutes(options.Value.PurgeIntervalMinutes);
+                }
             }
             catch (Exception exception)
             {
@@ -39,6 +50,24 @@ public sealed class OutboxDispatcher(
             }
 
             await Task.Delay(TimeSpan.FromSeconds(options.Value.PollIntervalSeconds), stoppingToken);
+        }
+    }
+
+    private async Task PurgeAsync(CancellationToken stoppingToken)
+    {
+        var retention = TimeSpan.FromDays(options.Value.RetentionDays);
+        if (retention <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var deleted = await outboxProcessor.PurgeProcessedAsync(retention, stoppingToken);
+        if (deleted > 0)
+        {
+            logger.LogInformation(
+                "Outbox/inbox retention removed {DeletedCount} processed row(s) older than {RetentionDays} day(s).",
+                deleted,
+                options.Value.RetentionDays);
         }
     }
 }

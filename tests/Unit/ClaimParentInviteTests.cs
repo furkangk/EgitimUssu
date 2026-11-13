@@ -38,6 +38,44 @@ public sealed class ClaimParentInviteTests
         Assert.Equal("parents.invite_not_found", result.Error.Code);
     }
 
+    /// <summary>
+    /// A-05: Davet tek kullanımlıktır. Yarışı kaybeden ikinci istek — kod bu arada tüketilmişse —
+    /// bağ kuramaz. Eskiden davet bağdan sonra işaretlendiği için aynı kod ikinci bir veli
+    /// tarafından tekrar kullanılabiliyordu.
+    /// </summary>
+    [Fact]
+    public async Task Claim_When_Invite_Already_Consumed_Fails_Without_Creating_A_Link()
+    {
+        var directory = new FakeInviteDirectory(
+            new ParentInviteInfo(Guid.NewGuid(), Guid.NewGuid(), "Ayşe"), consumeSucceeds: false);
+        var repo = new FakeRepo();
+        var handler = new ClaimParentInviteCommandHandler(repo, directory, new FixedClock(Now), new SeqIdGen());
+
+        var result = await handler.Handle(new ClaimParentInviteCommand(Guid.NewGuid(), "123456"), default);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("parents.invite_not_found", result.Error.Code);
+        Assert.False(repo.LinkAdded);
+    }
+
+    /// <summary>
+    /// A-05 telafisi: bağ kaydı düşerse davet geri verilir — veli, kendi hatası olmayan bir
+    /// nedenle kodunu kaybetmemeli.
+    /// </summary>
+    [Fact]
+    public async Task Claim_When_Link_Write_Fails_Releases_The_Invite()
+    {
+        var directory = new FakeInviteDirectory(new ParentInviteInfo(Guid.NewGuid(), Guid.NewGuid(), "Ayşe"));
+        var repo = new FakeRepo { ThrowOnSave = true };
+        var handler = new ClaimParentInviteCommandHandler(repo, directory, new FixedClock(Now), new SeqIdGen());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => handler.Handle(new ClaimParentInviteCommand(Guid.NewGuid(), "123456"), default));
+
+        Assert.True(directory.Claimed);
+        Assert.True(directory.Released);
+    }
+
     private sealed class FixedClock(DateTime utcNow) : IClock
     {
         public DateTime UtcNow { get; } = utcNow;
@@ -51,13 +89,29 @@ public sealed class ClaimParentInviteTests
     private sealed class FakeInviteDirectory : IParentInviteDirectory
     {
         private readonly ParentInviteInfo? _info;
+        private readonly bool _consumeSucceeds;
+
         public bool Claimed { get; private set; }
-        public FakeInviteDirectory(ParentInviteInfo? info) => _info = info;
+
+        public bool Released { get; private set; }
+
+        public FakeInviteDirectory(ParentInviteInfo? info, bool consumeSucceeds = true)
+        {
+            _info = info;
+            _consumeSucceeds = consumeSucceeds;
+        }
 
         public Task<ParentInviteInfo?> ResolveAsync(string inviteCode, CancellationToken ct) => Task.FromResult(_info);
-        public Task MarkClaimedAsync(Guid inviteId, Guid parentUserId, CancellationToken ct)
+
+        public Task<bool> TryConsumeAsync(Guid inviteId, Guid parentUserId, CancellationToken ct)
         {
-            Claimed = true;
+            Claimed = _consumeSucceeds;
+            return Task.FromResult(_consumeSucceeds);
+        }
+
+        public Task ReleaseAsync(Guid inviteId, CancellationToken ct)
+        {
+            Released = true;
             return Task.CompletedTask;
         }
     }
@@ -66,8 +120,19 @@ public sealed class ClaimParentInviteTests
     {
         public Task<ParentChildLink?> GetActiveLinkAsync(Guid parentUserId, Guid studentId, CancellationToken ct) => Task.FromResult<ParentChildLink?>(null);
         public Task<IReadOnlyCollection<ParentChildLink>> ListApprovedLinksForStudentAsync(Guid studentId, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<ParentChildLink>>(Array.Empty<ParentChildLink>());
-        public Task AddLinkAsync(ParentChildLink link, CancellationToken ct) => Task.CompletedTask;
-        public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
+        public bool ThrowOnSave { get; init; }
+
+        public bool LinkAdded { get; private set; }
+
+        public Task AddLinkAsync(ParentChildLink link, CancellationToken ct)
+        {
+            LinkAdded = true;
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken ct) => ThrowOnSave
+            ? throw new InvalidOperationException("bag yazilamadi")
+            : Task.CompletedTask;
 
         public Task<ParentProfile?> GetProfileByUserIdAsync(Guid userId, CancellationToken ct) => Task.FromResult<ParentProfile?>(null);
         public Task<ParentChildLink?> GetLinkByIdAsync(Guid linkId, CancellationToken ct) => Task.FromResult<ParentChildLink?>(null);

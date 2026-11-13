@@ -146,5 +146,8 @@ public sealed class IdempotencyIdentityIsolationTests
             Completed[key] = response;
             return Task.CompletedTask;
         }
+
+        public Task ReleaseAsync(string key, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

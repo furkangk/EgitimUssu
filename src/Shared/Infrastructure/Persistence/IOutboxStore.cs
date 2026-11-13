@@ -11,4 +11,17 @@ public interface IOutboxStore
     Task<int> ProcessPendingAsync(
         Func<OutboxBatchItem, CancellationToken, Task> publishAsync,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A-09: İşlenmiş outbox ve inbox satırlarından <paramref name="retention"/> süresinden eskilerini siler.
+    /// <para>
+    /// Her modülün kendi <c>outbox_messages</c> ve <c>inbox_messages</c> tablosu vardı ve hiçbiri
+    /// budanmıyordu: satırlar işlendi diye işaretleniyor ama duruyordu. Dead-letter'a düşmüş
+    /// satırlara <b>dokunulmaz</b> — onlar incelenmek için oradadır.
+    /// </para>
+    /// </summary>
+    /// <param name="retention">Bu süreden eski işlenmiş satırlar silinir.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Silinen satır sayısı.</returns>
+    Task<int> PurgeProcessedAsync(TimeSpan retention, CancellationToken cancellationToken = default);
 }

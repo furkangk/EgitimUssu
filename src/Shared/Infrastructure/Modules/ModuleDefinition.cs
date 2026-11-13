@@ -7,6 +7,9 @@ namespace EgitimUssu.Shared.Infrastructure.Modules;
 
 public abstract class ModuleDefinition : IModule
 {
+    /// <summary>Kimlik doğrulanmış kullanıcı politikasının adı.</summary>
+    public const string AuthenticatedUserPolicy = "AuthenticatedUser";
+
     public abstract string Name { get; }
 
     public abstract string RoutePrefix { get; }
@@ -35,6 +38,7 @@ public abstract class ModuleDefinition : IModule
     {
         return endpoints
             .MapGroup(routePrefix)
-            .WithApiVersion(apiVersion);
+            .WithApiVersion(apiVersion)
+            .RequireAuthorization(AuthenticatedUserPolicy);
     }
 }

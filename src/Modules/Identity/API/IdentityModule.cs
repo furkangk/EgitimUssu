@@ -29,28 +29,37 @@ public sealed class IdentityModule : ModuleDefinition
     public override void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         // Y4: Rate limiting artık yol tabanlı (DistributedRateLimitMiddleware); /api/identity/* otomatik "auth" politikasına tabi.
+        // A-13: Grup varsayılan olarak kimlik doğrulaması ister; giriş öncesi çalışması gereken
+        // uçlar bunu tek tek `AllowAnonymous` ile söyler (varsayılan-deny).
         var group = CreateModuleGroup(endpoints);
-        var authorizedGroup = group.MapGroup(string.Empty).RequireAuthorization("AuthenticatedUser");
+        var authorizedGroup = group.MapGroup(string.Empty);
 
         group.MapPost("/register", RegisterAsync)
+        .AllowAnonymous()
         .WithSummary("Yeni kullanıcı kaydı oluşturur");
 
         group.MapPost("/login", LoginAsync)
+        .AllowAnonymous()
         .WithSummary("Kullanıcı girişi yapar");
 
         group.MapPost("/refresh", RefreshTokenAsync)
+        .AllowAnonymous()
         .WithSummary("Erişim tokenını yeniler");
 
         group.MapPost("/password-reset/request", RequestPasswordResetAsync)
+        .AllowAnonymous()
         .WithSummary("Şifre sıfırlama isteği başlatır");
 
         group.MapPost("/password-reset/confirm", ConfirmPasswordResetAsync)
+        .AllowAnonymous()
         .WithSummary("Şifre sıfırlama işlemini onaylar");
 
         group.MapPost("/email-verification/request", RequestEmailVerificationAsync)
+        .AllowAnonymous()
         .WithSummary("E-posta doğrulama isteği başlatır");
 
         group.MapPost("/email-verification/confirm", ConfirmEmailVerificationAsync)
+        .AllowAnonymous()
         .WithSummary("E-posta doğrulama işlemini onaylar");
 
         authorizedGroup.MapPost("/logout", LogoutAsync)

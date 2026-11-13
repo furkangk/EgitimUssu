@@ -27,6 +27,12 @@ public abstract class ModuleDbContext : DbContext
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
+    /// <summary>A-07: Arka plan işlerinin çoklu-instance kiraları.</summary>
+    public DbSet<JobLease> JobLeases => Set<JobLease>();
+
+    /// <summary>A-04: Gönderilmeyi bekleyen e-postalar (iş yazımıyla aynı transaction'da kuyruğa girer).</summary>
+    public DbSet<OutgoingEmail> OutgoingEmails => Set<OutgoingEmail>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Schema);
@@ -42,6 +48,17 @@ public abstract class ModuleDbContext : DbContext
             // W3C traceparent sabit 55 karakterdir; alan sınırsız bırakılırsa şema, taşımayacağı
             // bir esnekliği ima eder ve yanlışlıkla başka bir şey yazılmasını kolaylaştırır.
             builder.Property(item => item.TraceParent).HasMaxLength(55);
+
+            // A-09: Claim sorgusu "ProcessedOnUtc IS NULL AND DeadLetteredOnUtc IS NULL AND
+            // (NextAttemptUtc IS NULL OR <= now) ORDER BY OccurredOnUtc" biçimindedir; tek başına
+            // ProcessedOnUtc üzerindeki indeks bunu karşılamıyordu. Kısmi indeks yalnız bekleyen
+            // satırları kapsar — tablo (işlenmişler biriktikçe) büyüse de indeks küçük kalır.
+            builder
+                .HasIndex(item => new { item.NextAttemptUtc, item.OccurredOnUtc })
+                .HasDatabaseName("ix_outbox_messages_pending")
+                .HasFilter("\"ProcessedOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
+
+            // Retention taraması işlenmiş satırları tarih sırasına göre siler.
             builder.HasIndex(item => item.ProcessedOnUtc);
         });
 
@@ -57,6 +74,34 @@ public abstract class ModuleDbContext : DbContext
             builder.HasKey(item => new { item.EventId, item.Handler });
             builder.Property(item => item.Handler).HasMaxLength(256).IsRequired();
             builder.Property(item => item.EventName).HasMaxLength(256).IsRequired();
+
+            // A-09: Retention taraması bu sütuna göre siler.
+            builder.HasIndex(item => item.ProcessedOnUtc);
+        });
+
+        modelBuilder.Entity<JobLease>(builder =>
+        {
+            builder.ToTable("job_leases");
+            builder.HasKey(item => item.JobName);
+            builder.Property(item => item.JobName).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<OutgoingEmail>(builder =>
+        {
+            builder.ToTable("outgoing_emails");
+            builder.HasKey(item => item.Id);
+            builder.Property(item => item.ToEmail).HasMaxLength(320).IsRequired();
+            builder.Property(item => item.Subject).HasMaxLength(512).IsRequired();
+            builder.Property(item => item.HtmlBody).IsRequired();
+            builder.Property(item => item.TextBody).IsRequired();
+
+            // Outbox ile aynı gerekçe: kısmi indeks yalnız bekleyen satırları kapsar.
+            builder
+                .HasIndex(item => new { item.NextAttemptUtc, item.CreatedOnUtc })
+                .HasDatabaseName("ix_outgoing_emails_pending")
+                .HasFilter("\"SentOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
+
+            builder.HasIndex(item => item.SentOnUtc);
         });
 
         base.OnModelCreating(modelBuilder);

@@ -231,6 +231,9 @@ public sealed class DeviceSessionTests
         public async Task AddAsync(UserAccount userAccount, CancellationToken cancellationToken)
             => await context.UserAccounts.AddAsync(userAccount, cancellationToken);
 
+        public Task PurgeStaleCredentialsAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
         public Task SaveChangesAsync(CancellationToken cancellationToken)
             => context.SaveChangesAsync(cancellationToken);
     }

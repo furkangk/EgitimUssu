@@ -248,7 +248,29 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
                     b.HasKey("EventId", "Handler");
 
+                    b.HasIndex("ProcessedOnUtc");
+
                     b.ToTable("inbox_messages", "notifications");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.JobLease", b =>
+                {
+                    b.Property<string>("JobName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("AcquiredOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("JobName");
+
+                    b.ToTable("job_leases", "notifications");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.ModuleState", b =>
@@ -311,7 +333,64 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
                     b.HasIndex("ProcessedOnUtc");
 
+                    b.HasIndex("NextAttemptUtc", "OccurredOnUtc")
+                        .HasDatabaseName("ix_outbox_messages_pending")
+                        .HasFilter("\"ProcessedOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
+
                     b.ToTable("outbox_messages", "notifications");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.OutgoingEmail", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeadLetteredOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HtmlBody")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("NextAttemptUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SentOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("TextBody")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ToEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SentOnUtc");
+
+                    b.HasIndex("NextAttemptUtc", "CreatedOnUtc")
+                        .HasDatabaseName("ix_outgoing_emails_pending")
+                        .HasFilter("\"SentOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
+
+                    b.ToTable("outgoing_emails", "notifications");
                 });
 #pragma warning restore 612, 618
         }

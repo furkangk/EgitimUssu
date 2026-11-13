@@ -12,6 +12,21 @@ public sealed class RateLimitOptions
 
     public bool Enabled { get; set; } = true;
 
+    /// <summary>
+    /// A-02: Uygulamanın önünde duran <b>güvenilir</b> ters-proxy sayısı. İstemci IP'si
+    /// <c>X-Forwarded-For</c>'un <b>sonundan</b> bu kadar geriden okunur.
+    /// <para>
+    /// Neden baştan değil: başlığı istemci de gönderebilir ve proxy kendi gördüğü soket adresini
+    /// listenin <i>sonuna</i> ekler. İlk girdi alınırsa istemci her istekte uydurma bir değer
+    /// göndererek kendine taze bir kova açar ve hız sınırı tümüyle işlevsiz kalır.
+    /// </para>
+    /// <para>
+    /// <c>0</c> → başlık hiç dikkate alınmaz, soket adresi kullanılır (proxy'siz/doğrudan yayın).
+    /// Render tek proxy arkasındadır: <c>1</c>.
+    /// </para>
+    /// </summary>
+    public int TrustedProxyHopCount { get; set; } = 1;
+
     public RateLimitRule Auth { get; set; } = new() { PermitLimit = 10, WindowSeconds = 60 };
 
     public RateLimitRule Default { get; set; } = new() { PermitLimit = 120, WindowSeconds = 60 };

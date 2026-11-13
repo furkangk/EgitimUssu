@@ -38,6 +38,29 @@ updated: 2026-09-05
 > **kaldırıldı**; Notifications'ın `processed_integration_events`'i yalnızca `ParentWeeklySummaryService` haftalık-özet
 > dedup'ı için **korundu** (event idempotency'siyle ilgisiz, ayrı bir amaç).
 
+---
+
+> **Ortak arka plan işi kirası (`job_leases`, 2026-09-05 / A-07):** 15 modül şemasının her birinde bulunur.
+> Alanlar: `JobName` (string, **PK**), `OwnerId` (Guid — uygulama örneği), `AcquiredOnUtc`, `ExpiresOnUtc`.
+> Zamanlayıcıyla koşan modül işleri (`notification-dispatch`, `payment-overdue-scan`, `assignment-due-scan`,
+> `progress-snapshot`, `parent-weekly-summary`, `outgoing-email-dispatch`) her turdan önce kirayı
+> `INSERT … ON CONFLICT DO UPDATE … WHERE "ExpiresOnUtc" <= now` ile alır: iki uygulama örneği aynı anda
+> denerse yalnız biri satır günceller. Süresi dolmuş kira devralınabilir (çöken örnek işi kalıcı kilitlemez).
+> **Neden Redis değil veritabanı:** Redis'e bağlı korumaların hepsi fail-open'dır (ADR-0004); Redis
+> düştüğünde kilit "alınmış" sayılıp iş yine koşar ve çift bildirim tam da o an üretilirdi.
+> Bkz. [`mimari_inceleme.md`](mimari_inceleme.md) A-07.
+
+---
+
+> **Ortak e-posta kuyruğu (`outgoing_emails`, 2026-09-05 / A-04):** 15 modül şemasının her birinde bulunur;
+> `OutboxMessage`'ın e-posta karşılığıdır. Alanlar: `Id` (PK), `ToEmail`, `Subject`, `HtmlBody`, `TextBody`,
+> `CreatedOnUtc`, `SentOnUtc?`, `RetryCount`, `NextAttemptUtc?`, `Error?`, `DeadLetteredOnUtc?`.
+> Kısmi indeks `ix_outgoing_emails_pending (NextAttemptUtc, CreatedOnUtc) WHERE SentOnUtc IS NULL AND
+> DeadLetteredOnUtc IS NULL`. Kayıt, iş yazımıyla **aynı transaction'da** eklenir (`IEmailQueue.Enqueue`
+> SaveChanges çağırmaz); gönderimi `OutgoingEmailDispatcher` üstlenir. Gönderilmiş satırlar retention ile
+> budanır — gövdeleri doğrulama/sıfırlama token'ı taşır, saklama süresi sınırlı olmalıdır.
+> Bkz. [`mimari_inceleme.md`](mimari_inceleme.md) A-04.
+
 ## 2. Merkezi Referanslar (Hub'lar)
 
 - **`Identity.UserAccount.Id`** → öğretmen/öğrenci/veli kullanıcılarının kök kimliği. Çoğu modül `*UserId` ile bağlanır.

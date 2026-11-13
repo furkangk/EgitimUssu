@@ -43,12 +43,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
         services.AddSingleton<IDomainEventMapper, JsonDomainEventMapper>();
         services.AddSingleton<IOutboxStore, EfOutboxStore>();
+        // A-07: Arka plan işleri tur başına kira alır; ikinci bir uygulama örneği aynı turu koşamaz.
+        services.AddSingleton<IJobLeaseStore, JobLeaseStore>();
         services.AddSingleton<IOutboxProcessor, OutboxProcessor>();
         services.AddSingleton<IEventBus, DispatchingEventBus>();
         services.AddHostedService<OutboxDispatcher>();
 
+        // A-01: Kod içinde "localhost:6379" yedeği yok. Boş dize verilirse bağlantı kurulamaz ve
+        // korumalar fail-open'a düşer — bunun üretimde sessizce olmaması RedisOptionsGuard'ın işidir.
         var redisConfiguration = configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>()?.Configuration
-            ?? "localhost:6379";
+            ?? string.Empty;
         services.AddSingleton<IRedisConnectionFactory>(_ => new LazyRedisConnectionFactory(redisConfiguration));
 
         // Y4: Redis destekli dağıtık rate limiting + token blacklist (fail-open) + dayanıklı Redis erişimi.
@@ -71,6 +75,11 @@ public static class ServiceCollectionExtensions
             // C-04: Ölçüm kompozisyon noktasında sarmalanır — hangi sağlayıcı seçilirse seçilsin çalışır.
             return new MeteredEmailSender(sender, provider.GetRequiredService<EgitimUssuMetrics>());
         });
+
+        // A-04: E-posta artık istek yolunda gönderilmez; iş yazımıyla aynı transaction'da kuyruğa
+        // girer, arka planda retry/backoff/dead-letter ile gönderilir (push'un çoktan aldığı tedavi).
+        services.AddSingleton<IEmailQueue, EmailQueue>();
+        services.AddHostedService<OutgoingEmailDispatcher>();
 
         // K-02: Push sağlayıcısı konfigürasyonla seçilir; uygulama kodu FCM'i bilmez.
         services.AddSingleton<IFcmAccessTokenProvider, GoogleFcmAccessTokenProvider>();
@@ -123,10 +132,20 @@ public static class ServiceCollectionExtensions
                 return;
             }
 
-            options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", schema));
+            options.UseNpgsql(connectionString, npgsql =>
+            {
+                npgsql.MigrationsHistoryTable("__ef_migrations_history", schema);
+
+                // A-18: Yönetilen veritabanında (Render/Upstash) kısa kopmalar rutindir; retry olmadan
+                // her biri doğrudan 500'e dönüşür. Komut zaman aşımı da açıkça verilir — varsayılan 30 sn,
+                // ücretsiz plandaki soğuk bir örnekte tarama sorgularına yetmiyor.
+                npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
+                npgsql.CommandTimeout(60);
+            });
         });
 
-        services.AddScoped(typeof(TContext));
+        // A-18: `AddDbContext<TContext>` bu tipi zaten scoped kaydeder; ikinci bir `AddScoped` kaydı
+        // EF'in kendi kaydını gölgeliyordu (son kayıt kazanır). Kaldırıldı.
         services.AddSingleton(new ModuleDbContextDescriptor(moduleName, schema, typeof(TContext)));
 
         return services;

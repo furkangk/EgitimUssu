@@ -35,7 +35,9 @@ public sealed class MembershipModule : ModuleDefinition
             .RequireAuthorization("AuthenticatedUser");
 
         // M17-1: Paywall ekranı, kullanıcı giriş yapmadan da fiyatları göstermek zorundadır → anonim.
+        // A-13: Grup varsayılan olarak kimlik doğrulaması ister; bu uç istisnayı açıkça bildirir.
         group.MapGet("/plans", GetPlansAsync)
+            .AllowAnonymous()
             .WithSummary("Satıştaki üyelik planlarını listeler (anonim)");
 
         var secure = CreateModuleGroup(endpoints);

@@ -150,7 +150,10 @@ public sealed class DemoDataSeederTests
                 ["Seeding__Enabled"] = enabled ? "true" : "false",
                 ["Outbox__DispatchEnabled"] = "false",
                 ["Jwt__SigningKey"] = "integration-test-signing-key-do-not-use-in-production-0123456789",
-                ["Email__FromEmail"] = "no-reply@egitimussu.local"
+                ["Email__FromEmail"] = "no-reply@egitimussu.local",
+                // Production startup guard gerçek bir Redis adresi bekler. Bu test Redis işlemi
+                // yapmaz; çözümlenmeyen test host'u yalnız yapılandırma sözleşmesini karşılar.
+                ["Redis__Configuration"] = "redis.integration.test:6379,abortConnect=false"
             });
 
         public void Dispose()

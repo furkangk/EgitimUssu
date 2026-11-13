@@ -64,6 +64,70 @@ public sealed class RealOutboxIntegrationTests(ContainerFixture fixture)
         }
     }
 
+    /// <summary>
+    /// A-09: İşlenmiş satırlar budanır; <b>bekleyen</b> ve <b>dead-letter</b> satırlara dokunulmaz.
+    /// <para>
+    /// Outbox ve inbox tabloları 15 modülün her birinde tek yönde büyüyordu — satır işlendi diye
+    /// işaretleniyor ama hiç silinmiyordu. Dead-letter satırları bilerek korunur: incelenmek için
+    /// oradadırlar, budama onları da silseydi arıza kaydı kaybolurdu.
+    /// </para>
+    /// </summary>
+    [SkippableFact]
+    public async Task Retention_Removes_Processed_Rows_But_Keeps_Pending_And_Dead_Lettered()
+    {
+        Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
+
+        using var envScope = RealInfrastructure.Use(fixture);
+        await using var factory = new WebApplicationFactory<Program>();
+
+        var oldProcessedId = Guid.NewGuid();
+        var freshProcessedId = Guid.NewGuid();
+        var pendingId = Guid.NewGuid();
+        var deadLetteredId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SchedulingDbContext>();
+
+            var oldProcessed = NewMessage(oldProcessedId, "{}", now.AddDays(-40));
+            oldProcessed.ProcessedOnUtc = now.AddDays(-40);
+
+            var freshProcessed = NewMessage(freshProcessedId, "{}", now.AddDays(-1));
+            freshProcessed.ProcessedOnUtc = now.AddDays(-1);
+
+            var deadLettered = NewMessage(deadLetteredId, "null", now.AddDays(-40));
+            deadLettered.DeadLetteredOnUtc = now.AddDays(-40);
+
+            db.OutboxMessages.AddRange(oldProcessed, freshProcessed, NewMessage(pendingId, "{}", now), deadLettered);
+            db.Set<InboxMessage>().Add(new InboxMessage(Guid.NewGuid(), "A09Handler", "A09Event", now.AddDays(-40)));
+            db.Set<InboxMessage>().Add(new InboxMessage(Guid.NewGuid(), "A09Handler", "A09Event", now.AddDays(-1)));
+            await db.SaveChangesAsync();
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var processor = scope.ServiceProvider.GetRequiredService<IOutboxProcessor>();
+            await processor.PurgeProcessedAsync(TimeSpan.FromDays(14));
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SchedulingDbContext>();
+            var ids = await db.OutboxMessages.AsNoTracking().Select(message => message.Id).ToListAsync();
+
+            Assert.DoesNotContain(oldProcessedId, ids);
+            Assert.Contains(freshProcessedId, ids);
+            Assert.Contains(pendingId, ids);
+            Assert.Contains(deadLetteredId, ids);
+
+            var inbox = await db.Set<InboxMessage>().AsNoTracking()
+                .Where(message => message.Handler == "A09Handler")
+                .ToListAsync();
+            Assert.Single(inbox);
+        }
+    }
+
     private static OutboxMessage NewMessage(Guid id, string payload, DateTime occurredOnUtc) => new()
     {
         Id = id,

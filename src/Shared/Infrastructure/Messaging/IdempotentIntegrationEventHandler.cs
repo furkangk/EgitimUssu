@@ -34,6 +34,31 @@ public abstract class IdempotentIntegrationEventHandler : IIntegrationEventHandl
             return;
         }
 
+        // A-18: Bağlantı dayanıklılığı (`EnableRetryOnFailure`) açıkken EF, kullanıcı tarafından
+        // başlatılan transaction'ı reddeder — çünkü geçici bir hatada neyin yeniden çalıştırılacağını
+        // bilemez. Sınırı biz çiziyoruz: aşağıdaki iş birimi **bir bütün olarak** yeniden denenebilir.
+        var strategy = DbContext.Database.CreateExecutionStrategy();
+        var attempt = 0;
+
+        await strategy.ExecuteAsync(
+            async token =>
+            {
+                // Yeniden denemede önceki denemenin STAGE ettiği yazımlar ChangeTracker'da durur
+                // (rollback yalnız veritabanını geri alır, tracker'ı değil). Temizlenmezse
+                // `ApplyAsync` ikinci kez çalışır ve aynı satırlar iki kez eklenir.
+                if (attempt++ > 0)
+                {
+                    DbContext.ChangeTracker.Clear();
+                }
+
+                await ExecuteUnitOfWorkAsync(envelope, token);
+            },
+            cancellationToken);
+    }
+
+    /// <summary>Guard → uygula → inbox'ı işaretle → tek transaction'da commit. Bir bütün olarak yeniden denenebilir.</summary>
+    private async Task ExecuteUnitOfWorkAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
+    {
         var relational = DbContext.Database.IsRelational();
         await using var transaction = relational
             ? await DbContext.Database.BeginTransactionAsync(cancellationToken)

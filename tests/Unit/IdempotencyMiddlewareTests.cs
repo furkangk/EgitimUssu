@@ -54,6 +54,65 @@ public sealed class IdempotencyMiddlewareTests
         Assert.Equal(storedBody, ReadBody(context));
     }
 
+    /// <summary>
+    /// A-12: Başarısız bir istek "işleniyor" işaretini serbest bırakmalı. Eskiden bırakılmıyordu:
+    /// kullanıcının aynı <c>Idempotency-Key</c> ile yaptığı yeniden deneme, TTL dolana kadar
+    /// <c>409</c> alıyordu — koruma tam da tekrar denenmesi gereken durumda işi engelliyordu.
+    /// </summary>
+    [Fact]
+    public async Task Failed_Response_Releases_The_Processing_Marker()
+    {
+        var store = new FakeIdempotencyStore(IdempotencyOutcome.Proceed);
+        var middleware = new IdempotencyMiddleware(
+            context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                return Task.CompletedTask;
+            },
+            store);
+        var context = MakeContext("POST", "/api/payments/records", idempotencyKey: "abc");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Null(store.Completed);
+        Assert.Equal(1, store.ReleaseCalls);
+    }
+
+    /// <summary>İstisna da başarısızlıktır: anahtar kilitli kalmamalı.</summary>
+    [Fact]
+    public async Task Thrown_Request_Releases_The_Processing_Marker()
+    {
+        var store = new FakeIdempotencyStore(IdempotencyOutcome.Proceed);
+        var middleware = new IdempotencyMiddleware(
+            _ => throw new InvalidOperationException("boom"),
+            store);
+        var context = MakeContext("POST", "/api/payments/records", idempotencyKey: "abc");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.InvokeAsync(context));
+
+        Assert.Equal(1, store.ReleaseCalls);
+    }
+
+    /// <summary>Başarılı yanıtta işaret silinmez — üzerine saklı yanıt yazılır.</summary>
+    [Fact]
+    public async Task Successful_Response_Is_Stored_And_Not_Released()
+    {
+        var store = new FakeIdempotencyStore(IdempotencyOutcome.Proceed);
+        var middleware = new IdempotencyMiddleware(
+            context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status201Created;
+                return context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes("{\"ok\":true}")).AsTask();
+            },
+            store);
+        var context = MakeContext("POST", "/api/payments/records", idempotencyKey: "abc");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.NotNull(store.Completed);
+        Assert.Equal(0, store.ReleaseCalls);
+    }
+
     [Fact]
     public async Task InProgress_Returns_409_Without_Calling_Next()
     {
@@ -144,9 +203,17 @@ public sealed class IdempotencyMiddlewareTests
             return Task.FromResult((outcome, stored));
         }
 
+        public int ReleaseCalls { get; private set; }
+
         public Task CompleteAsync(string key, IdempotentResponse response, CancellationToken cancellationToken = default)
         {
             Completed = response;
+            return Task.CompletedTask;
+        }
+
+        public Task ReleaseAsync(string key, CancellationToken cancellationToken = default)
+        {
+            ReleaseCalls++;
             return Task.CompletedTask;
         }
     }

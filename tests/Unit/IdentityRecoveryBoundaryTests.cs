@@ -17,7 +17,7 @@ public sealed class IdentityRecoveryBoundaryTests
         var session = AddSession(user);
         var repository = new Repository(user);
         var issuer = new TokenIssuer();
-        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new IdGenerator(), new Clock());
+        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new TokenRevocation(), new IdGenerator(), new Clock());
 
         var result = await handler.Handle(new RefreshTokenCommand("refresh", null), CancellationToken.None);
 
@@ -38,7 +38,7 @@ public sealed class IdentityRecoveryBoundaryTests
         var session = AddSession(user);
         var repository = new Repository(user);
         var issuer = new TokenIssuer();
-        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new IdGenerator(), new Clock());
+        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new TokenRevocation(), new IdGenerator(), new Clock());
 
         var result = await handler.Handle(new RefreshTokenCommand("refresh", null), CancellationToken.None);
 
@@ -58,7 +58,7 @@ public sealed class IdentityRecoveryBoundaryTests
         var current = AddSecurityToken(user, "current", SecurityTokenPurpose.PasswordReset);
         var verification = AddSecurityToken(user, "verification", SecurityTokenPurpose.EmailVerification);
         var repository = new Repository(user);
-        var handler = new ResetPasswordCommandHandler(repository, new TokenProtector(), new PasswordHasher(), new Clock());
+        var handler = new ResetPasswordCommandHandler(repository, new TokenProtector(), new PasswordHasher(), new TokenRevocation(), new Clock());
 
         var reset = await handler.Handle(new ResetPasswordCommand(user.Email, "current", "Recovered123!"), CancellationToken.None);
         var replay = await handler.Handle(new ResetPasswordCommand(user.Email, "older", "Compromised123!"), CancellationToken.None);
@@ -80,7 +80,7 @@ public sealed class IdentityRecoveryBoundaryTests
         var user = CreateUser(UserAccountStatus.Active);
         var token = AddSecurityToken(user, "current", SecurityTokenPurpose.PasswordReset);
         var repository = new Repository(user);
-        var handler = new ResetPasswordCommandHandler(repository, new TokenProtector(), new PasswordHasher(), new Clock());
+        var handler = new ResetPasswordCommandHandler(repository, new TokenProtector(), new PasswordHasher(), new TokenRevocation(), new Clock());
 
         var result = await handler.Handle(new ResetPasswordCommand(user.Email, "invalid", "Recovered123!"), CancellationToken.None);
 
@@ -129,6 +129,7 @@ public sealed class IdentityRecoveryBoundaryTests
         public Task<UserAccount?> GetByRefreshTokenHashAsync(string hash, CancellationToken cancellationToken)
             => Task.FromResult<UserAccount?>(user.RefreshSessions.Any(session => session.RefreshTokenHash == hash) ? user : null);
         public Task AddAsync(UserAccount account, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PurgeStaleCredentialsAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task SaveChangesAsync(CancellationToken cancellationToken)
         {
             SaveCount++;
@@ -156,6 +157,12 @@ public sealed class IdentityRecoveryBoundaryTests
     {
         public string Hash(string password) => "hash:" + password;
         public bool Verify(string hashedPassword, string providedPassword) => hashedPassword == Hash(providedPassword);
+    }
+
+    private sealed class TokenRevocation : ITokenRevocationService
+    {
+        public Task RevokeAllAccessTokensAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private sealed class IdGenerator : IIdGenerator { public Guid New() => Guid.NewGuid(); }

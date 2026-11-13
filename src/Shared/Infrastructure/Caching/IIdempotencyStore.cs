@@ -24,4 +24,15 @@ public interface IIdempotencyStore
     Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(string key, CancellationToken cancellationToken = default);
 
     Task CompleteAsync(string key, IdempotentResponse response, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A-12: "İşleniyor" işaretini kaldırır — istek başarısız bittiğinde (2xx dışı yanıt ya da
+    /// istisna) çağrılır. Olmadığında başarısız bir istek anahtarı TTL boyunca kilitli bırakıyor,
+    /// kullanıcının aynı <c>Idempotency-Key</c> ile yaptığı yeniden deneme <c>409</c> alıyordu —
+    /// yani koruma, tam da tekrar denenmesi gereken durumda işi engelliyordu.
+    /// </summary>
+    /// <param name="key">Depo anahtarı.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>İşlem görevi.</returns>
+    Task ReleaseAsync(string key, CancellationToken cancellationToken = default);
 }

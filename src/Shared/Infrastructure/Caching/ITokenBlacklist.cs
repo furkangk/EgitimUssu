@@ -10,4 +10,39 @@ public interface ITokenBlacklist
     Task BlacklistAsync(string tokenId, TimeSpan timeToLive, CancellationToken cancellationToken = default);
 
     Task<bool> IsBlacklistedAsync(string tokenId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A-06: Bir kullanıcının <paramref name="cutoffUtc"/> anından <b>önce</b> verilmiş tüm erişim
+    /// token'larını geçersiz kılar.
+    /// <para>
+    /// Tek tek <c>jti</c> kara listelemek yetmez: parola sıfırlandığında ya da rol alındığında
+    /// saldırganın (ya da eski yetkinin) elindeki token'ın kimliği bilinmez. Refresh oturumlarını
+    /// iptal etmek de yetmiyordu — erişim token'ı ömrünü (60 dk) tamamlayana kadar geçerli kalıyordu.
+    /// </para>
+    /// </summary>
+    /// <param name="userId">Kullanıcı kimliği.</param>
+    /// <param name="cutoffUtc">Bu andan önce verilmiş token'lar reddedilir.</param>
+    /// <param name="timeToLive">Kaydın saklama süresi; erişim token'ı ömründen kısa olmamalı.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>İşlem görevi.</returns>
+    Task RevokeUserTokensIssuedBeforeAsync(
+        string userId,
+        DateTime cutoffUtc,
+        TimeSpan timeToLive,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A-06: Token hem <c>jti</c> kara listesine hem de kullanıcı bazlı iptal damgasına karşı
+    /// denetlenir. İki kontrol tek Redis turunda yapılır — istek başına ek gecikme getirmez.
+    /// </summary>
+    /// <param name="tokenId">Token'ın <c>jti</c> değeri.</param>
+    /// <param name="userId">Token'ın sahibi; yoksa yalnız kara liste denetlenir.</param>
+    /// <param name="issuedAtUtc">Token'ın veriliş anı (<c>iat</c>); yoksa damga denetlenemez.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Token iptal edilmişse <c>true</c>.</returns>
+    Task<bool> IsRevokedAsync(
+        string tokenId,
+        string? userId,
+        DateTime? issuedAtUtc,
+        CancellationToken cancellationToken = default);
 }

@@ -56,6 +56,59 @@ public sealed class EfOutboxStore(
         return processed;
     }
 
+    /// <inheritdoc />
+    public async Task<int> PurgeProcessedAsync(TimeSpan retention, CancellationToken cancellationToken = default)
+    {
+        if (retention <= TimeSpan.Zero)
+        {
+            return 0;
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var descriptors = scope.ServiceProvider.GetServices<ModuleDbContextDescriptor>().ToArray();
+        var cutoff = clock.UtcNow - retention;
+        var deleted = 0;
+
+        foreach (var descriptor in descriptors)
+        {
+            try
+            {
+                var dbContext = (ModuleDbContext)scope.ServiceProvider.GetRequiredService(descriptor.DbContextType);
+
+                // `ExecuteDelete` ilişkisel olmayan sağlayıcıda (test/dev InMemory) desteklenmez.
+                if (!dbContext.Database.IsRelational())
+                {
+                    continue;
+                }
+
+                // Dead-letter satırları BİLEREK dışarıda: incelenmek için duruyorlar, budanmamalılar.
+                deleted += await dbContext.OutboxMessages
+                    .Where(message => message.ProcessedOnUtc != null && message.ProcessedOnUtc < cutoff)
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                deleted += await dbContext.Set<InboxMessage>()
+                    .Where(message => message.ProcessedOnUtc < cutoff)
+                    .ExecuteDeleteAsync(cancellationToken);
+
+                // A-04: Gönderilmiş e-postalar gövdelerinde doğrulama/sıfırlama token'ı taşır;
+                // budamak yalnız tablo boyutu değil, sırrın saklandığı süre açısından da doğrudur.
+                // Dead-letter'a düşenler durur — "e-posta gitmedi" bilgisi kaybolmamalı.
+                deleted += await dbContext.OutgoingEmails
+                    .Where(email => email.SentOnUtc != null && email.SentOnUtc < cutoff)
+                    .ExecuteDeleteAsync(cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(
+                    exception,
+                    "Outbox/inbox budaması {Module} modülü için başarısız oldu; diğer modüllerle devam ediliyor.",
+                    descriptor.ModuleName);
+            }
+        }
+
+        return deleted;
+    }
+
     private async Task<int> ProcessContextAsync(
         ModuleDbContext dbContext,
         ModuleDbContextDescriptor descriptor,
@@ -67,7 +120,7 @@ public sealed class EfOutboxStore(
         // parti `BatchSize` ile sınırlı olduğu için 10.000 mesaj biriktiğinde bile 20'de tavan yapar
         // ve alarm hiç ötmezdi. Bu yüzden gerçek bekleyen sayısı ayrıca sayılır. Boş turda da
         // bildirilir — yoksa kuyruk boşaldığında son yüksek değer takılı kalır ve alarm düşmez.
-        metrics.RecordOutboxPending(await CountPendingAsync(dbContext, cancellationToken));
+        metrics.RecordOutboxPending(descriptor.ModuleName, await CountPendingAsync(dbContext, cancellationToken));
 
         var messages = await ClaimAsync(dbContext, descriptor, settings, cancellationToken);
         if (messages.Count == 0)

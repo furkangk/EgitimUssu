@@ -9,6 +9,9 @@ namespace EgitimUssu.Shared.Infrastructure.Caching;
 /// </summary>
 public sealed class RedisRateLimiter(ResilientRedisExecutor redis, IClock clock) : IRateLimiter
 {
+    /// <summary>A-01: Redis düştüğünde hangi korumanın fail-open geçtiğini ölçen etiket.</summary>
+    private const string Protection = "ratelimit";
+
     private const string KeyPrefix = "ratelimit:";
 
     public async Task<bool> TryAcquireAsync(
@@ -28,6 +31,7 @@ public sealed class RedisRateLimiter(ResilientRedisExecutor redis, IClock clock)
         var redisKey = new RedisKey($"{KeyPrefix}{partitionKey}:{windowIndex}");
 
         var (ok, count) = await redis.TryExecuteAsync(
+            Protection,
             async database =>
             {
                 var value = await database.StringIncrementAsync(redisKey);

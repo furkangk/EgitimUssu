@@ -3,7 +3,7 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
@@ -208,6 +208,43 @@ Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya t
 
 ---
 
+## 🔍 2026-09-05 Denetimi — A Serisi (hepsi ✅ kapatıldı)
+
+> Bu tur, yukarıdaki K/Y/O maddelerinden **bağımsız** bir incelemedir: kapalı görünen ya da hiç yer almayan
+> bulgular arandı. Ayrıntılı gerekçe ve kanıtlar: [`../denetim/2026-09-05_mimari_aciklik_denetimi.md`](../denetim/2026-09-05_mimari_aciklik_denetimi.md).
+> Dal: `fix/mimari-aciklar`. Kapsam dışı bırakılan tek madde **A-19** (e-posta doğrulamasının zorunlu
+> kılınması) — mevcut kullanıcıların akışını değiştiren bir **ürün kararı**, karar bekliyor.
+
+| Kod | Bulgu | Çözüm |
+|-----|-------|-------|
+| 🔴 **A-01** | `RedisOptions` varsayılanı `"localhost:6379"` idi; `Redis__Configuration` verilmeyen üretim dağıtımı sorunsuz açılıyor, hız sınırı + token kara listesi + giriş kilidi + idempotency **birlikte** fail-open'a düşüyordu. `ConfigurationHealthCheck` yalnız "boş mu" baktığı için `/health/ready` yine `Healthy` diyordu. | `RedisOptionsGuard` (üretimde boş/loopback reddedilir) + `RedisConnectionHealthCheck` (gerçek `PING`, sonuç `Degraded`) + `egitimussu.redis.unavailable` sayacı (koruma adına göre etiketli). Varsayılan boş; geliştirme adresi `appsettings.Development.json`'da. |
+| 🔴 **A-02** | İstemci IP'si `X-Forwarded-For`'un **ilk** girdisinden okunuyordu; istemci her istekte uydurma değer gönderip taze kova açabiliyor, `/api/identity/*` 10/dk sınırı tümüyle atlanabiliyordu. | `ClientIpResolver` — IP `RateLimiting:TrustedProxyHopCount` kadar **sondan** okunur (Render 1, yerel 0). Hız sınırı ve giriş kilidi aynı kaynağı kullanır. |
+| 🟠 **A-03** | `DispatchingEventBus` her integration event'i **payload'ıyla** Information seviyesinde logluyordu; `UserRegisteredDomainEvent` e-postayı, `MessageSentDomainEvent` özel mesaj önizlemesini log'a düşürüyordu. | Seviye `Debug`, payload çıkarıldı (`EventId` + `Name` + `Module` korelasyona yeter). |
+| 🟠 **A-04** | E-posta `SaveChanges`'ten sonra, istek içinden SMTP'ye gidiyor ve hatayı yeniden fırlatıyordu: SMTP kapalıyken kullanıcı **oluşmuş** ama istek 500; tekrar deneme `duplicate_email` → çıkmaz sokak. | `outgoing_emails` kuyruğu + `IEmailQueue` (iş yazımıyla **aynı transaction'da** stage) + `OutgoingEmailDispatcher` (retry/backoff/dead-letter). Push'un çoktan aldığı tedavi. |
+| 🟠 **A-05** | `ClaimParentInvite` önce bağı (Parents), **sonra** daveti (Students) yazıyordu; ikinci yazım düşerse **aynı davet kodu tekrar kullanılabiliyordu**. | `MarkClaimedAsync` → `TryConsumeAsync` (atomik koşullu güncelleme) + `ReleaseAsync` (telafi). Davet **önce** tüketilir; bağ yazılamazsa geri verilir. |
+| 🟠 **A-06** | Parola sıfırlama ve rol değişimi dolaşımdaki **erişim token'ını** iptal etmiyordu (60 dk geçerli kalıyordu). | JWT'ye `iat`; `ITokenBlacklist`'e kullanıcı bazlı iptal damgası (`jti` kara listesi + damga tek Redis turunda); Application portu `ITokenRevocationService`. |
+| 🟠 **A-07** | Beş modül arka plan servisi düz `while + Task.Delay` idi; kilit/leader election yoktu → ikinci instance = **çift push bildirimi** (farklı `EventId` ürettiği için inbox dedup'ı da yakalamıyordu). | `job_leases` + `JobLeaseStore` (`ON CONFLICT DO UPDATE … WHERE süresi dolmuş`) + `LeasedBackgroundService` ortak tabanı. |
+| 🟡 **A-08** | Kullanıcı deposu her çağrıda `RefreshSessions` + `SecurityTokens` koleksiyonlarının **tamamını** yüklüyordu (30 gün ömürlü, hiç silinmeyen satırlar; üç `Include` → kartezyen büyüme). | Filtreli `Include` (yalnız etkin oturum / kullanılabilir token) + girişte kullanıcıya özel budama. |
+| 🟡 **A-09** | `outbox_messages` / `inbox_messages` hiç budanmıyordu; tek `HasIndex(ProcessedOnUtc)` claim sorgusunu karşılamıyordu. | Kısmi indeks `ix_outbox_messages_pending` + `Outbox:RetentionDays` (14) budaması. Dead-letter satırlarına dokunulmaz. |
+| 🟡 **A-10** | `outbox.pending` göstergesi etiketsizdi; 15 modül aynı zaman serisine yazdığı için dışa aktarılan değer **son modülünki** oluyordu. | `RecordOutboxPending(module, count)` — `module` etiketi (kardinalite 15). |
+| 🟡 **A-11** | `EntitlementDirectory` her hatayı yutup Free dönüyordu: ödeme yapmış kullanıcı geçici bir DB sorununda **sessizce** premium'unu kaybediyordu. | `egitimussu.entitlement.fallback` sayacı; `OperationCanceledException` artık yutulmuyor. |
+| 🟡 **A-12** | Idempotency kilidi 30 sn'ydi ve yenilenmiyordu; 30 sn'yi aşan istek sürerken işaret düşüyor, tekrar `Proceed` alıp iş **iki kez** koşuyordu. | TTL 5 dk + `IIdempotencyStore.ReleaseAsync` (2xx dışı yanıt ya da istisna işareti hemen bırakır). |
+| 🟡 **A-13** | `CreateModuleGroup` korumasız grup döndürüyordu; koruma her modülün bir satırı hatırlamasına bağlıydı (`Matching`/`Reviews` hiç çağırmamıştı). | Grup **varsayılan-deny**; anonim uçlar istisnayı `AllowAnonymous` ile açıkça bildirir. |
+| 🟡 **A-14** | `MapOpenApi()` ortam koşulsuzdu — `/openapi/v1.json` kimliksiz erişilebilir durumda tüm API yüzeyini yayınlıyordu. | Yalnız `Development`. |
+| 🟡 **A-15** | Rotasyondan sonra iptal edilmiş refresh token tekrar sunulduğunda yalnız 401 dönülüyordu; ele geçirme normal bir oturum sonu gibi görünüyordu. | Yeniden-kullanım tespiti: tüm oturumlar kapatılır + erişim token'ları iptal edilir. Süresi dolmuş token ihlal sayılmaz. |
+| 🟡 **A-16** | Giriş kilidi yalnız e-posta bazlıydı: **hesap kilitleme DoS'u** (5 hatalı denemeyle istediğini 15 dk kilitle) + spraying'e açık. | İki boyutlu: (hesap + kaynak IP) 5/15dk, (kaynak IP) 20/15dk. Küresel hesap kilidi bilinçli olarak kaldırıldı. |
+| ⚪ **A-17** | HTTPS/HSTS/CSP/`nosniff`/`X-Frame-Options` yok, CORS hiç yapılandırılmamış. | `SecurityHeadersMiddleware` + yapılandırmayla açılan adlandırılmış CORS politikası (varsayılan boş). |
+| ⚪ **A-18** | `UseNpgsql` çağrısında retry/komut zaman aşımı yok; `AddScoped(typeof(TContext))` EF'in kaydını gölgeliyordu. | `EnableRetryOnFailure` + `CommandTimeout(60)`; yinelenen kayıt kaldırıldı. Retry stratejisi kullanıcı-başlatımlı transaction'ı reddettiği için `IdempotentIntegrationEventHandler`'ın iş birimi `CreateExecutionStrategy` içine alındı. |
+| ⚪ **A-19** | E-posta doğrulaması hiçbir kapıda zorlanmıyor (kayıtta token verilir, `PendingActivation` girişe kabul edilir, `IsEmailVerified` okunmaz). | **AÇIK — ürün kararı bekliyor.** Bilinçliyse dokümana yazılmalı; değilse kapı authorizer katmanında kurulmalı. |
+
+> **Not (doküman-kod çelişkisi, düzeltilecek):** Yukarıdaki **O5** maddesi "senkron çapraz-modül okuma **hâlâ yasak**"
+> diyor; kodda `Shared/Contracts` altında **21** senkron çapraz-modül kontratı var ve ikisi (`IParentInviteDirectory`,
+> `IParentChildLinkRequestService`) **yazma** portu. Desen modüler monolit için makul; yanlış olan kuralın yazılışı.
+> Önerilen ifade: *"Doğrudan DbContext erişimi yasak; çapraz-modül okuma yalnız `Shared/Contracts` portları üzerinden.
+> Çapraz-modül **yazımı** event ile yapılır."*
+
+---
+
 ## ✅ İyi Yapılmış Olanlar (Korunmalı)
 - Temiz katman ayrımı + **mimari testleriyle** zorlanıyor (Application → Infrastructure yasak vb.).
 - Modül başına ayrı `DbContext` + şema + migration → gerçek veri izolasyonu.
@@ -230,4 +267,4 @@ Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya t
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-09-04 (P07 kapanışı: **O5** read-model deseni + M14 ilk projeksiyon, **O2** authorizer/handler çift sorgusu, **O4** dispatcher delegate önbelleği — üçü de kapatıldı) · 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-05 (**A serisi**: bağımsız açıklık denetiminin 18 maddesi kapatıldı — Redis fail-open guard/health, XFF sahteciliği, PII log sızıntısı, e-posta outbox deseni, davet tüketimi, token iptali, arka plan işi kirası, kimlik eager-loading, outbox indeks+retention, metrik etiketi, entitlement alarmı, idempotency kilidi, varsayılan-deny uç grupları, OpenAPI, refresh yeniden-kullanım tespiti, iki boyutlu giriş kilidi, güvenlik başlıkları/CORS, DB retry; **A-19 açık** — ürün kararı) · 2026-09-04 (P07 kapanışı: **O5** read-model deseni + M14 ilk projeksiyon, **O2** authorizer/handler çift sorgusu, **O4** dispatcher delegate önbelleği — üçü de kapatıldı) · 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

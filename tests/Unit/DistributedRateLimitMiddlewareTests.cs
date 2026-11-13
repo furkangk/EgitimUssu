@@ -54,8 +54,12 @@ public sealed class DistributedRateLimitMiddlewareTests
         Assert.Equal(0, limiter.Calls);
     }
 
+    /// <summary>
+    /// A-02: İstemci IP'si <c>X-Forwarded-For</c>'un <b>sonundan</b> güvenilir proxy sayısı kadar
+    /// geriden okunur — o girdiyi bizim önümüzdeki proxy yazmıştır. Tek proxy (Render) → son girdi.
+    /// </summary>
     [Fact]
-    public async Task Partition_Key_Uses_Forwarded_Client_Ip()
+    public async Task Partition_Key_Uses_Ip_Appended_By_The_Trusted_Proxy()
     {
         var limiter = new FakeRateLimiter(allow: true);
         var middleware = Build(limiter, _ => Task.CompletedTask);
@@ -63,7 +67,75 @@ public sealed class DistributedRateLimitMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        Assert.Equal("auth:9.9.9.9", limiter.LastKey);
+        Assert.Equal("auth:10.0.0.1", limiter.LastKey);
+    }
+
+    /// <summary>
+    /// A-02 regresyonu: İstemcinin uydurduğu <c>X-Forwarded-For</c> partition'ı değiştirememeli.
+    /// Eskiden listenin <b>ilk</b> girdisi alınıyordu; istemci her istekte farklı bir değer
+    /// göndererek kendine taze bir kova açıyor ve kimlik uçlarındaki sınırı tümüyle atlıyordu.
+    /// </summary>
+    [Fact]
+    public async Task Spoofed_Forwarded_For_Cannot_Change_The_Partition()
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask);
+
+        var first = MakeContext(
+            "/api/identity/login", forwardedFor: "1.1.1.1, 203.0.113.7", remoteIp: "10.0.0.1");
+        await middleware.InvokeAsync(first);
+        var firstKey = limiter.LastKey;
+
+        var second = MakeContext(
+            "/api/identity/login", forwardedFor: "2.2.2.2, 203.0.113.7", remoteIp: "10.0.0.1");
+        await middleware.InvokeAsync(second);
+
+        Assert.Equal(firstKey, limiter.LastKey);
+        Assert.Equal("auth:203.0.113.7", limiter.LastKey);
+    }
+
+    /// <summary>
+    /// İstemci başlık göndermediğinde proxy kendi gördüğü adresi tek girdi olarak ekler; bu girdi
+    /// güvenilirdir ve kullanılır (tek proxy → son girdi zaten ilk girdidir).
+    /// </summary>
+    [Fact]
+    public async Task Single_Entry_Chain_Is_The_Proxy_Append()
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask);
+        var context = MakeContext("/api/identity/login", forwardedFor: "203.0.113.7", remoteIp: "10.0.0.1");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("auth:203.0.113.7", limiter.LastKey);
+    }
+
+    /// <summary>Başlık hiç yoksa soket adresine düşülür.</summary>
+    [Fact]
+    public async Task Missing_Forwarded_Header_Falls_Back_To_Socket_Address()
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask);
+        var context = MakeContext("/api/identity/login", remoteIp: "10.0.0.1");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("auth:10.0.0.1", limiter.LastKey);
+    }
+
+    /// <summary>
+    /// Proxy'siz yayında (<c>TrustedProxyHopCount = 0</c>) başlık hiç dikkate alınmaz.
+    /// </summary>
+    [Fact]
+    public async Task Zero_Trusted_Hops_Ignores_The_Header()
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask, trustedProxyHopCount: 0);
+        var context = MakeContext("/api/identity/login", forwardedFor: "9.9.9.9", remoteIp: "10.0.0.1");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("auth:10.0.0.1", limiter.LastKey);
     }
 
     /// <summary>
@@ -141,8 +213,11 @@ public sealed class DistributedRateLimitMiddlewareTests
         Assert.Equal("messaging:1.2.3.4", limiter.LastKey);
     }
 
-    private static DistributedRateLimitMiddleware Build(IRateLimiter limiter, RequestDelegate next)
-        => new(next, limiter, Options.Create(new RateLimitOptions()));
+    private static DistributedRateLimitMiddleware Build(
+        IRateLimiter limiter,
+        RequestDelegate next,
+        int trustedProxyHopCount = 1)
+        => new(next, limiter, Options.Create(new RateLimitOptions { TrustedProxyHopCount = trustedProxyHopCount }));
 
     private static DefaultHttpContext MakeContext(
         string path,

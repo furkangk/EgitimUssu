@@ -410,12 +410,33 @@ public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParen
         var existingPrimary = approved.FirstOrDefault(l => l.IsPrimaryContact);
         var isPrimary = existingPrimary is null; // ilk veli birincil olur; ikinci veli birincil olmaz
 
+        // A-05: Davet ÖNCE atomik olarak tüketilir. Eskiden sıra tersti — önce bağ kaydediliyor,
+        // sonra davet işaretleniyordu; ikinci yazım düşerse bağ kurulmuş ama davet Pending kalmış
+        // oluyor, aynı kod ikinci bir veli tarafından tekrar kullanılabiliyordu. Bağ (Parents) ile
+        // davet (Students) ayrı şemalarda ve ayrı DbContext'lerde olduğu için ikisini saran bir
+        // transaction yok; tek kullanımlık olması gereken kaynağı önce tüketmek doğru sıradır.
+        if (!await _inviteDirectory.TryConsumeAsync(info.InviteId, command.ParentUserId, cancellationToken))
+        {
+            // Yarışı kaybettik: kodu başka bir istek bu arada tüketti.
+            return Result<ChildLinkResponse>.Failure(ParentErrors.InviteNotFound);
+        }
+
         var link = new ParentChildLink(_idGenerator.New(), command.ParentUserId, info.StudentId, info.ChildDisplayName, null, command.InviteCode.Trim(), isPrimary, now);
-        await _repository.AddLinkAsync(link, cancellationToken);
-        // Öğretmen kodu = öğretmen onayı; veli kodu girdi = veli onayı → doğrudan Approved.
-        link.Approve(command.ParentUserId, existingPrimary?.ParentUserId, now);
-        await _repository.SaveChangesAsync(cancellationToken);
-        await _inviteDirectory.MarkClaimedAsync(info.InviteId, command.ParentUserId, cancellationToken);
+
+        try
+        {
+            await _repository.AddLinkAsync(link, cancellationToken);
+            // Öğretmen kodu = öğretmen onayı; veli kodu girdi = veli onayı → doğrudan Approved.
+            link.Approve(command.ParentUserId, existingPrimary?.ParentUserId, now);
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Telafi: bağ kurulamadıysa davet yakılmamalı — veli kendi hatası olmayan bir nedenle
+            // kodunu kaybetmemeli. Geri verme de başarısız olursa asıl hata bastırılmadan yükselir.
+            await _inviteDirectory.ReleaseAsync(info.InviteId, CancellationToken.None);
+            throw;
+        }
 
         return Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }

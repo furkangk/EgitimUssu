@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 
 namespace EgitimUssu.Modules.ProgressTracking.Infrastructure;
 
@@ -137,42 +139,43 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
 /// M10-1: Üretim turunu günde bir koşturan arka plan servisi. Açılıştan hemen sonra koşmaz
 /// (<see cref="StartupDelay"/>), böylece uygulama başlangıcı ve testler tura yakalanmaz.
 /// </summary>
-internal sealed class ProgressSnapshotService : BackgroundService
+/// <summary>A-07: Tur başına kira alır; ikinci bir uygulama örneği aynı günün anlık görüntüsünü tekrar yazamaz.</summary>
+internal sealed class ProgressSnapshotService(
+    IServiceScopeFactory scopeFactory,
+    ILogger<ProgressSnapshotService> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
     private static readonly TimeSpan StartupDelay = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromHours(24);
 
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<ProgressSnapshotService> _logger;
+    protected override string JobName => "progress-snapshot";
 
-    public ProgressSnapshotService(IServiceScopeFactory scopeFactory, ILogger<ProgressSnapshotService> logger)
+    protected override TimeSpan PollInterval => TimeSpan.FromHours(24);
+
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
+        => services.GetRequiredService<ProgressTrackingDbContext>();
+
+    protected override async Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
+        var processor = services.GetRequiredService<IProgressSnapshotProcessor>();
+        var createdCount = await processor.RunAsync(cancellationToken);
+        if (createdCount > 0)
+        {
+            logger.LogInformation("Progress snapshot cycle wrote {CreatedCount} snapshot(s).", createdCount);
+        }
     }
 
+    /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(StartupDelay, stoppingToken);
-
-        while (!stoppingToken.IsCancellationRequested)
+        // Açılışta hemen koşmaz: uygulama daha ısınırken günlük ağır taramayı başlatmanın anlamı yok.
+        try
         {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IProgressSnapshotProcessor>();
-                var createdCount = await processor.RunAsync(stoppingToken);
-                if (createdCount > 0)
-                {
-                    _logger.LogInformation("Progress snapshot cycle wrote {CreatedCount} snapshot(s).", createdCount);
-                }
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Progress snapshot cycle failed.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
+            await Task.Delay(StartupDelay, stoppingToken);
         }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await base.ExecuteAsync(stoppingToken);
     }
 }

@@ -66,10 +66,46 @@ public sealed class EgitimUssuMetricsTests
     {
         using var probe = new MeterProbe("egitimussu.outbox.pending");
 
-        probe.Metrics.RecordOutboxPending(7);
-        probe.Metrics.RecordOutboxPending(3);
+        probe.Metrics.RecordOutboxPending("Scheduling", 7);
+        probe.Metrics.RecordOutboxPending("Scheduling", 3);
 
         Assert.Equal(3, probe.LastValue);
+    }
+
+    /// <summary>
+    /// A-01/A-10: Kuyruk derinliği modül başına ayrı bir zaman serisi olmalıdır. Dispatcher tek turda
+    /// 15 modülü dolaşır; etiket olmasaydı her modül bir öncekinin üzerine yazar ve dışa aktarılan
+    /// değer yalnız <b>son</b> modülünki olurdu — dolu bir kuyruk boş görünür, alarm hiç ötmezdi.
+    /// </summary>
+    [Fact]
+    public void RecordOutboxPending_Should_Keep_Modules_On_Separate_Series()
+    {
+        using var probe = new MeterProbe("egitimussu.outbox.pending");
+
+        probe.Metrics.RecordOutboxPending("Scheduling", 10_000);
+        probe.Metrics.RecordOutboxPending("Teachers", 0);
+
+        Assert.Equal(10_000, probe.LastValueWhere("module", "Scheduling"));
+        Assert.Equal(0, probe.LastValueWhere("module", "Teachers"));
+    }
+
+    /// <summary>
+    /// A-01: Redis'e bağlı korumalar fail-open olduğu için kesinti hiçbir isteği hata döndürmez;
+    /// bu sayaç "sessizce korumasız çalışıyoruz" durumunun tek dışa vurumudur.
+    /// </summary>
+    [Fact]
+    public void RecordRedisUnavailable_Should_Separate_Protections()
+    {
+        using var probe = new MeterProbe("egitimussu.redis.unavailable");
+
+        probe.Metrics.RecordRedisUnavailable("ratelimit");
+        probe.Metrics.RecordEntitlementFallback();
+        probe.Metrics.RecordRedisUnavailable("ratelimit");
+        probe.Metrics.RecordEntitlementFallback();
+        probe.Metrics.RecordRedisUnavailable("blacklist");
+
+        Assert.Equal(2, probe.SumWhere("operation", "ratelimit"));
+        Assert.Equal(1, probe.SumWhere("operation", "blacklist"));
     }
 
     /// <summary>
@@ -81,17 +117,21 @@ public sealed class EgitimUssuMetricsTests
     {
         using var probe = new MeterProbe(instrumentName: null);
 
-        probe.Metrics.RecordOutboxPending(1);
+        probe.Metrics.RecordOutboxPending("Scheduling", 1);
         probe.Metrics.RecordOutboxDispatched("X", success: true);
         probe.Metrics.RecordPushSent("Delivered");
         probe.Metrics.RecordEmailSent(success: true);
+        probe.Metrics.RecordRedisUnavailable("ratelimit");
+        probe.Metrics.RecordEntitlementFallback();
 
         Assert.Equal(
             [
                 "egitimussu.email.sent",
+                "egitimussu.entitlement.fallback",
                 "egitimussu.outbox.dispatched",
                 "egitimussu.outbox.pending",
                 "egitimussu.push.sent",
+                "egitimussu.redis.unavailable",
             ],
             probe.PublishedNames.Order().ToArray());
     }
@@ -170,6 +210,11 @@ public sealed class EgitimUssuMetricsTests
         public List<string> PublishedNames { get; } = [];
 
         public long LastValue => _measurements[^1].Value;
+
+        public long LastValueWhere(string tagKey, string tagValue) => _measurements
+            .Where(row => row.Tags.Any(tag => tag.Key == tagKey && Equals(tag.Value, tagValue)))
+            .Select(row => row.Value)
+            .Last();
 
         public long SumWhere(string tagKey, string tagValue) => _measurements
             .Where(row => row.Tags.Any(tag => tag.Key == tagKey && Equals(tag.Value, tagValue)))
