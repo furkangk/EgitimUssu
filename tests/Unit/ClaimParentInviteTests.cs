@@ -21,8 +21,8 @@ public sealed class ClaimParentInviteTests
         var result = await handler.Handle(new ClaimParentInviteCommand(parentUserId, "123456"), default);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Approved", result.Value.Status);
-        Assert.True(result.Value.IsPrimaryContact);
+        Assert.Equal("Approved", result.Value!.Status);
+        Assert.True(result.Value!.IsPrimaryContact);
         Assert.True(directory.Claimed);
     }
 

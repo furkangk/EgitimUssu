@@ -21,7 +21,7 @@ public sealed class TeacherProfileTests
         };
 
         profile.Update("Ahmet", "Matematik", "İstanbul", "Kadıköy", null, null,
-            TeacherLessonFormat.Online, 5, "Lisans", 400m, "TRY", null,
+            TeacherLessonFormat.Online, 5, "Lisans", 400m, "TRY",
             Array.Empty<TeacherAvailabilitySlot>(), subjects, Array.Empty<TeacherCertificate>(), Now);
 
         Assert.Equal(2, profile.Subjects.Count);
@@ -35,7 +35,7 @@ public sealed class TeacherProfileTests
         var certs = new[] { new TeacherCertificate(Guid.NewGuid(), profile.Id, "ÖABT Başarı", "MEB", 2024, null) };
 
         profile.Update("Ahmet", "Matematik", "İstanbul", "Kadıköy", null, null,
-            TeacherLessonFormat.Online, 5, "Lisans", 400m, "TRY", null,
+            TeacherLessonFormat.Online, 5, "Lisans", 400m, "TRY",
             Array.Empty<TeacherAvailabilitySlot>(), Array.Empty<TeacherSubject>(), certs, Now);
 
         Assert.Single(profile.Certificates);

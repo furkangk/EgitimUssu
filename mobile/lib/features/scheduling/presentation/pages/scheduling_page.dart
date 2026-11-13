@@ -272,7 +272,7 @@ class _SoftActionMenu extends StatelessWidget {
             children: const <Widget>[
               Icon(Icons.edit_rounded, size: 18, color: AppColors.primary),
               SizedBox(width: 10),
-              Text('Duzenle'),
+              Text('Düzenle'),
             ],
           ),
         ),
@@ -332,9 +332,9 @@ class _ViewSwitcher extends StatelessWidget {
             ].map((view) {
               final selected = view == value;
               final label = switch (view) {
-                _CalendarView.day => 'Gunluk',
-                _CalendarView.week => 'Haftalik',
-                _CalendarView.month => 'Aylik',
+                _CalendarView.day => 'Günlük',
+                _CalendarView.week => 'Haftalık',
+                _CalendarView.month => 'Aylık',
               };
               return Expanded(
                 child: InkWell(
@@ -1868,7 +1868,7 @@ class _LessonTile extends StatelessWidget {
                         ),
                       if (cancelled)
                         const _TimePill(
-                          label: 'Iptal',
+                          label: 'İptal',
                           color: AppColors.accentRed,
                         ),
                     ],
@@ -2036,7 +2036,7 @@ List<_CalendarEvent> _seedEvents(DateTime today) {
     _CalendarEvent(
       id: 'event-assignment-1',
       type: _CalendarEventType.assignment,
-      title: 'Odev Hatirlatmasi',
+      title: 'Ödev Hatırlatması',
       start: DateTime(monday.year, monday.month, monday.day + 2, 18),
       end: DateTime(monday.year, monday.month, monday.day + 2, 18, 15),
       status: 'Planlandi',
@@ -2045,7 +2045,7 @@ List<_CalendarEvent> _seedEvents(DateTime today) {
     _CalendarEvent(
       id: 'event-payment-1',
       type: _CalendarEventType.payment,
-      title: 'Odeme Hatirlatmasi',
+      title: 'Ödeme Hatırlatması',
       start: DateTime(monday.year, monday.month, monday.day + 5, 14),
       end: DateTime(monday.year, monday.month, monday.day + 5, 14, 15),
       status: 'Planlandi',
@@ -2082,8 +2082,8 @@ String _eventTypeLabel(_CalendarEventType type) {
   return switch (type) {
     _CalendarEventType.lesson => 'Ders',
     _CalendarEventType.unavailable => 'Tatil / Musait Degil',
-    _CalendarEventType.assignment => 'Odev Hatirlatmasi',
-    _CalendarEventType.payment => 'Odeme Hatirlatmasi',
+    _CalendarEventType.assignment => 'Ödev Hatırlatması',
+    _CalendarEventType.payment => 'Ödeme Hatırlatması',
   };
 }
 

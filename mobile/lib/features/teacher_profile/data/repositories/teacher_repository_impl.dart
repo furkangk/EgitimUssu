@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
@@ -97,4 +99,23 @@ class TeacherRepositoryImpl implements TeacherRepository {
       rethrow;
     }
   }
+
+  /// M02-2/D-05: Profil fotografi yukleme. **Mock fallback yok** — sahte bir basari,
+  /// gercek yukleme hatasini gizler (A-05 ilkesi).
+  @override
+  Future<String> uploadProfilePhoto({
+    required String userId,
+    required String filePath,
+  }) async {
+    final response = await _apiClient.postFile(
+      '/api/teachers/profiles/$userId/photo',
+      filePath: filePath,
+    );
+    return response['photoUrl']?.toString() ??
+        '/api/teachers/profiles/$userId/photo';
+  }
+
+  @override
+  Future<Uint8List?> downloadProfilePhoto(String userId) =>
+      _apiClient.getBytes('/api/teachers/profiles/$userId/photo');
 }

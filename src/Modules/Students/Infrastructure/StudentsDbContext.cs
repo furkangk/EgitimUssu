@@ -102,6 +102,11 @@ internal sealed class StudentSubjectConfiguration : IEntityTypeConfiguration<Stu
     {
         builder.ToTable("student_subjects");
         builder.HasKey(entity => entity.Id);
+        // A-01 deseni: kimlikleri IIdGenerator uretir. ValueGeneratedOnAdd (varsayilan) kalirsa EF,
+        // izlenen profilin koleksiyonuna eklenen yeni brasi "anahtari dolu → zaten var" sayip
+        // INSERT yerine UPDATE uretir ve gercek Postgres'te 0 satir etkilenir
+        // (DbUpdateConcurrencyException). InMemory bunu yakalamaz — bkz. RealStudentSubjectIntegrationTests.
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Subject).HasMaxLength(120).IsRequired();
         builder.Property(entity => entity.TargetLevel).HasMaxLength(120);
         builder.HasIndex(entity => new { entity.StudentProfileId, entity.Subject });

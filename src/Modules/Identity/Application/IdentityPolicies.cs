@@ -13,7 +13,8 @@ public sealed class RegisterUserCommandValidator : ICommandValidator<RegisterUse
         var isValid = !string.IsNullOrWhiteSpace(command.Email)
             && !string.IsNullOrWhiteSpace(command.Password)
             && !string.IsNullOrWhiteSpace(command.FirstName)
-            && !string.IsNullOrWhiteSpace(command.LastName);
+            && !string.IsNullOrWhiteSpace(command.LastName)
+            && command.Roles is not null;
 
         return Task.FromResult(isValid ? Result.Success() : Result.Failure(InvalidRequest));
     }
@@ -127,4 +128,91 @@ public sealed class GetUserByIdQueryAuthorizer : IQueryAuthorizer<GetUserByIdQue
         var isSelf = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == query.UserId;
         return Task.FromResult(isAdmin || isSelf ? Result.Success() : Result.Failure(Forbidden));
     }
+}
+
+// M01-1: /me yalnizca kimligi dogrulanmis kullaniciya acik (varsayilan-deny).
+public sealed class GetCurrentUserQueryAuthorizer : IQueryAuthorizer<GetCurrentUserQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public GetCurrentUserQueryAuthorizer(ICurrentUser currentUser)
+    {
+        _currentUser = currentUser;
+    }
+
+    public Task<Result> Authorize(GetCurrentUserQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>E-07: Hesap silme talebi yalnız oturum açmış kullanıcının <b>kendisi</b> içindir.</summary>
+public sealed class RequestAccountDeletionCommandAuthorizer : ICommandAuthorizer<RequestAccountDeletionCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public RequestAccountDeletionCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(RequestAccountDeletionCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>E-07: Silme talebini yalnız sahibi iptal edebilir.</summary>
+public sealed class CancelAccountDeletionCommandAuthorizer : ICommandAuthorizer<CancelAccountDeletionCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public CancelAccountDeletionCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(CancelAccountDeletionCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>E-07: Silme talebini yalnız sahibi görebilir.</summary>
+public sealed class GetAccountDeletionQueryAuthorizer : IQueryAuthorizer<GetAccountDeletionQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public GetAccountDeletionQueryAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(GetAccountDeletionQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>M01-4: Cihaz oturumları yalnız oturum açmış kullanıcının kendisi içindir.</summary>
+public sealed class GetDeviceSessionsQueryAuthorizer : IQueryAuthorizer<GetDeviceSessionsQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public GetDeviceSessionsQueryAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(GetDeviceSessionsQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>M01-4: Oturum iptali için giriş zorunlu; sahiplik kontrolü handler'da (kendi listesinde arar).</summary>
+public sealed class RevokeDeviceSessionCommandAuthorizer : ICommandAuthorizer<RevokeDeviceSessionCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public RevokeDeviceSessionCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(RevokeDeviceSessionCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>M01-4: Toplu iptal için giriş zorunlu.</summary>
+public sealed class RevokeAllDeviceSessionsCommandAuthorizer : ICommandAuthorizer<RevokeAllDeviceSessionsCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu islem icin giris yapmalisiniz.");
+    private readonly ICurrentUser _currentUser;
+
+    public RevokeAllDeviceSessionsCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    public Task<Result> Authorize(RevokeAllDeviceSessionsCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
 }

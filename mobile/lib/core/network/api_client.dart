@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
@@ -28,6 +29,7 @@ class ApiClient {
     if (onRefreshToken != null) {
       _dio.interceptors.add(
         TokenRefreshInterceptor(
+          dio: _dio,
           onRefresh: onRefreshToken,
           onUnauthorized: _fireUnauthorized,
         ),
@@ -73,9 +75,54 @@ class ApiClient {
       final formData = FormData.fromMap(<String, dynamic>{
         field: await MultipartFile.fromFile(filePath),
       });
-      final response = await _dio.post<Map<String, dynamic>>(path, data: formData);
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: formData,
+      );
       return response.data ?? <String, dynamic>{};
     } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    }
+  }
+
+  /// Cok parcali (multipart) form gonderir: istege bagli bir dosya + ek metin alanlari.
+  /// [postFile]'dan farki, dosyanin yaninda form alanlari da tasimasidir (P04: ders kaynagi).
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    Map<String, String> fields = const <String, String>{},
+    String? filePath,
+    String field = 'file',
+  }) async {
+    try {
+      final payload = <String, dynamic>{...fields};
+      if (filePath != null) {
+        payload[field] = await MultipartFile.fromFile(filePath);
+      }
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: FormData.fromMap(payload),
+      );
+      return response.data ?? <String, dynamic>{};
+    } on DioException catch (error) {
+      throw ApiException.fromDioException(error);
+    }
+  }
+
+  /// Ikili (binary) icerik indirir — yetkili dosya uclari icin (P04: profil fotografi,
+  /// odev eki). Auth interceptor'i devrede oldugu icin Authorization basligi otomatik eklenir.
+  /// Icerik yoksa (404) `null` doner.
+  Future<Uint8List?> getBytes(String path) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        path,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = response.data;
+      return data == null ? null : Uint8List.fromList(data);
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        return null;
+      }
       throw ApiException.fromDioException(error);
     }
   }
@@ -97,7 +144,10 @@ class ApiClient {
     Map<String, dynamic>? data,
   }) async {
     try {
-      final response = await _dio.delete<Map<String, dynamic>>(path, data: data);
+      final response = await _dio.delete<Map<String, dynamic>>(
+        path,
+        data: data,
+      );
       return response.data ?? <String, dynamic>{};
     } on DioException catch (error) {
       throw ApiException.fromDioException(error);

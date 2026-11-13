@@ -1,0 +1,7 @@
+# P13 Task 6 / D-19 (K-12): ARB tabanlı yerelleştirme.
+# Şablon Türkçedir — varsayılan dil tr, en iskelet olarak korunur.
+arb-dir: lib/l10n
+template-arb-file: app_tr.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

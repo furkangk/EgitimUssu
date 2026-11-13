@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart'
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_cubit.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_state.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/widgets/parent_widgets.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/session_required_view.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,9 +14,12 @@ class ParentNotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select(
-      (AuthCubit c) => c.state.session?.userId ?? 'mock-parent-user',
-    );
+    final userId = context.select((AuthCubit c) => c.state.session?.userId);
+    if (userId == null) {
+      // D-17: Sahte kullanici sentinel'i yok — oturum yoksa veri de yok.
+      return const SessionRequiredView();
+    }
+
     final fullName = context.select(
       (AuthCubit c) => c.state.session?.fullName ?? 'Veli',
     );
@@ -168,22 +172,26 @@ class _PrefsFormState extends State<_PrefsForm> {
         ParentCard(
           title: 'Bildirim kanalı',
           icon: Icons.send_rounded,
-          child: Column(
-            children: <Widget>[
-              for (final option in const <List<String>>[
-                <String>['Push', 'Uygulama bildirimi'],
-                <String>['Email', 'E-posta'],
-                <String>['Both', 'Her ikisi'],
-              ])
-                RadioListTile<String>(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.primary,
-                  value: option[0],
-                  groupValue: _channel,
-                  onChanged: (v) => setState(() => _channel = v ?? _channel),
-                  title: Text(option[1]),
-                ),
-            ],
+          // Flutter 3.32'den sonra Radio'nun groupValue/onChanged'i kullanımdan kalktı;
+          // seçim durumu artık ortak bir RadioGroup atasında yaşıyor.
+          child: RadioGroup<String>(
+            groupValue: _channel,
+            onChanged: (v) => setState(() => _channel = v ?? _channel),
+            child: Column(
+              children: <Widget>[
+                for (final option in const <List<String>>[
+                  <String>['Push', 'Uygulama bildirimi'],
+                  <String>['Email', 'E-posta'],
+                  <String>['Both', 'Her ikisi'],
+                ])
+                  RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.primary,
+                    value: option[0],
+                    title: Text(option[1]),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 18),
@@ -255,7 +263,7 @@ class _SwitchRow extends StatelessWidget {
             ),
             Switch(
               value: value,
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               onChanged: onChanged,
             ),
           ],

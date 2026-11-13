@@ -31,8 +31,8 @@ public sealed class StudentPrivacyFilterTests
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
         Assert.True(result.IsSuccess);
-        Assert.False(result.Value.Study.IsShared);
-        Assert.Equal(0, result.Value.Study.WeeklyStudyMinutes);
+        Assert.False(result.Value!.Study.IsShared);
+        Assert.Equal(0, result.Value!.Study.WeeklyStudyMinutes);
     }
 
     [Fact]
@@ -48,7 +48,82 @@ public sealed class StudentPrivacyFilterTests
 
         var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
 
-        Assert.True(result.Value.Study.IsShared);
+        Assert.True(result.Value!.Study.IsShared);
+    }
+
+    // --- M15-4: PrivacyLevel matrisi ---
+
+    [Fact]
+    public async Task Dashboard_Standard_Level_Shows_Full_Study_Detail()
+    {
+        var handler = HandlerWith(new StudentPrivacy(true, true, StudyPrivacyLevel.Standard), out var parentUserId, out var studentId);
+
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        var study = result.Value!.Study;
+        Assert.True(study.IsShared);
+        Assert.Equal(180, study.WeeklyStudyMinutes);
+        Assert.Equal(4, study.StreakDays);
+        Assert.NotEmpty(study.SubjectBreakdown);
+    }
+
+    [Fact]
+    public async Task Dashboard_Limited_Level_Hides_Detail_But_Keeps_Weekly_Total()
+    {
+        var handler = HandlerWith(new StudentPrivacy(true, true, StudyPrivacyLevel.Limited), out var parentUserId, out var studentId);
+
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        var study = result.Value!.Study;
+        Assert.True(study.IsShared);
+        Assert.Equal(180, study.WeeklyStudyMinutes);
+        // Seans/test detayı gizlenir: seri ve ders kırılımı paylaşılmaz.
+        Assert.Equal(0, study.StreakDays);
+        Assert.Empty(study.SubjectBreakdown);
+    }
+
+    [Fact]
+    public async Task Dashboard_Hidden_Level_Masks_All_Study_Data()
+    {
+        var handler = HandlerWith(new StudentPrivacy(true, true, StudyPrivacyLevel.Hidden), out var parentUserId, out var studentId);
+
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        var study = result.Value!.Study;
+        Assert.False(study.IsShared);
+        Assert.Equal(0, study.WeeklyStudyMinutes);
+        Assert.Equal(0, study.StreakDays);
+        Assert.Empty(study.SubjectBreakdown);
+    }
+
+    [Fact]
+    public async Task Dashboard_Most_Restrictive_Wins_When_Sharing_Off_But_Level_Standard()
+    {
+        var handler = HandlerWith(new StudentPrivacy(false, true, StudyPrivacyLevel.Standard), out var parentUserId, out var studentId);
+
+        var result = await handler.Handle(new GetChildDashboardQuery(parentUserId, studentId), default);
+
+        Assert.False(result.Value!.Study.IsShared);
+        Assert.Equal(0, result.Value!.Study.WeeklyStudyMinutes);
+    }
+
+    private static GetChildDashboardQueryHandler HandlerWith(StudentPrivacy privacy, out Guid parentUserId, out Guid studentId)
+    {
+        parentUserId = Guid.NewGuid();
+        studentId = Guid.NewGuid();
+        var link = new ParentChildLink(Guid.NewGuid(), parentUserId, studentId, "Ayşe", "anne", null, true, Now);
+        link.Approve(Guid.NewGuid(), null, Now);
+        var repo = new FakeParentRepository(link, new ChildProgressSnapshot(Guid.NewGuid(), studentId, Now), Guid.NewGuid());
+        return new GetChildDashboardQueryHandler(
+            repo, new FakePrivacyDirectory(privacy), new RichStudyDigest(),
+            new FakeUpcoming(), new FakeLastLesson(), new FakeNotes(), new FakePayments(), new FixedClock(Now));
+    }
+
+    // Dolu bir digest: seviyeye göre hangi alanların kırpıldığını görebilmek için.
+    private sealed class RichStudyDigest : IStudyDigestDirectory
+    {
+        public Task<StudyDigest> GetWeeklyDigestAsync(Guid studentId, DateTime nowUtc, CancellationToken ct)
+            => Task.FromResult(new StudyDigest(180, 4, new[] { new StudySubjectMinutes("Matematik", 120) }));
     }
 
     private sealed class FakePrivacyDirectory : IStudentPrivacyDirectory

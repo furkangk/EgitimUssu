@@ -56,11 +56,34 @@ public sealed class IdentityModule : ModuleDefinition
         authorizedGroup.MapPost("/logout", LogoutAsync)
         .WithSummary("Kullanıcı oturumunu kapatır");
 
+        authorizedGroup.MapGet("/me", GetCurrentUserAsync)
+        .WithSummary("Oturum acmis kullanicinin bilgilerini dondurur");
+
         authorizedGroup.MapGet("/users/{userId:guid}", GetUserByIdAsync)
         .WithSummary("Kullanıcı bilgilerini getirir");
 
         authorizedGroup.MapPost("/users/{userId:guid}/roles", AssignRolesAsync)
         .WithSummary("Kullanıcıya rol atar (yalnızca yönetici)");
+
+        // E-07 (KVKK): Hesap silme. Talep anında hiçbir veri değişmez — 30 günlük bekleme başlar.
+        authorizedGroup.MapPost("/account/deletion-request", RequestAccountDeletionAsync)
+        .WithSummary("Hesap silme talebi açar (30 gün sonra uygulanır)");
+
+        authorizedGroup.MapDelete("/account/deletion-request", CancelAccountDeletionAsync)
+        .WithSummary("Bekleyen hesap silme talebini iptal eder");
+
+        authorizedGroup.MapGet("/account/deletion-request", GetAccountDeletionAsync)
+        .WithSummary("Bekleyen hesap silme talebini döndürür");
+
+        // M01-4 (D-03): Cihaz oturumları — hangi cihazlarda açığım, birini/hepsini kapat.
+        authorizedGroup.MapGet("/sessions", GetDeviceSessionsAsync)
+        .WithSummary("Açık cihaz oturumlarını listeler");
+
+        authorizedGroup.MapPost("/sessions/revoke-all", RevokeAllDeviceSessionsAsync)
+        .WithSummary("Mevcut oturum hariç tüm oturumları kapatır");
+
+        authorizedGroup.MapPost("/sessions/{sessionId:guid}/revoke", RevokeDeviceSessionAsync)
+        .WithSummary("Belirtilen cihaz oturumunu kapatır (yalnız kendi oturumu)");
     }
 
     /// <summary>
@@ -82,6 +105,18 @@ public sealed class IdentityModule : ModuleDefinition
                 request.Roles),
             cancellationToken);
 
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Oturum açmış kullanıcının kendi bilgilerini döndürür (M01-1).
+    /// </summary>
+    private static async Task<IResult> GetCurrentUserAsync(
+        HttpContext context,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetCurrentUserQuery(), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -256,6 +291,79 @@ public sealed class IdentityModule : ModuleDefinition
         };
     }
 
+    /// <summary>
+    /// E-07: Hesap silme talebi açar. Talep <b>30 gün</b> sonra uygulanır; o ana kadar hiçbir veri
+    /// değişmez ve talep iptal edilebilir. Aynı talebi ikinci kez açmak bekleme süresini sıfırlamaz.
+    /// </summary>
+    private static async Task<IResult> RequestAccountDeletionAsync(
+        HttpContext context,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RequestAccountDeletionCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>E-07: Bekleyen hesap silme talebini iptal eder.</summary>
+    private static async Task<IResult> CancelAccountDeletionAsync(
+        HttpContext context,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new CancelAccountDeletionCommand(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>E-07: Bekleyen hesap silme talebini döndürür (yoksa <c>pending=false</c>).</summary>
+    private static async Task<IResult> GetAccountDeletionAsync(
+        HttpContext context,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetAccountDeletionQuery(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M01-4: Kullanıcının açık cihaz oturumları; "bu cihaz" rozeti <c>isCurrent</c> ile gelir.</summary>
+    private static async Task<IResult> GetDeviceSessionsAsync(
+        HttpContext context,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetDeviceSessionsQuery(), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M01-4: Tek bir cihaz oturumunu kapatır.</summary>
+    private static async Task<IResult> RevokeDeviceSessionAsync(
+        HttpContext context,
+        Guid sessionId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RevokeDeviceSessionCommand(sessionId), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// M01-4: Mevcut oturum hariç hepsini kapatır.
+    /// <para>
+    /// Yanıt <b>nesne</b> döner (<c>{ "revokedCount": N }</c>), çıplak sayı değil: çıplak bir skaler
+    /// gövde istemci tarafında JSON nesnesi bekleyen çözümleyicilerle çalışmaz ve ileride alan
+    /// eklenemez.
+    /// </para>
+    /// </summary>
+    private static async Task<IResult> RevokeAllDeviceSessionsAsync(
+        HttpContext context,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new RevokeAllDeviceSessionsCommand(), cancellationToken);
+        return result.IsSuccess
+            ? Results.Ok(new { revokedCount = result.Value })
+            : ToHttpResult(context, Result.Failure(result.Error));
+    }
+
     private static IResult ToHttpResult(HttpContext context, Result result)
     {
         if (result.IsSuccess)
@@ -266,6 +374,8 @@ public sealed class IdentityModule : ModuleDefinition
         return result.Error.Code switch
         {
             "identity.invalid_refresh_token" => ApiErrorHttpResults.FromError(context, StatusCodes.Status401Unauthorized, result.Error),
+            "identity.deletion_request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            "identity.unknown_session" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };

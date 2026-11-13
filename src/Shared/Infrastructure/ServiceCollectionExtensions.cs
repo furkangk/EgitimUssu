@@ -3,12 +3,18 @@ using EgitimUssu.Shared.Infrastructure.Application;
 using EgitimUssu.Shared.Infrastructure.Authentication;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Configuration;
+using EgitimUssu.Shared.Infrastructure.Email;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
+using EgitimUssu.Shared.Infrastructure.Observability;
+using EgitimUssu.Shared.Infrastructure.Push;
+using EgitimUssu.Shared.Infrastructure.Storage;
+using EgitimUssu.Shared.Kernel.Storage;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace EgitimUssu.Shared.Infrastructure;
 
@@ -16,16 +22,23 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddSharedInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // E-07: Saklama süresi dolan teknik kayıtları (işlenmiş outbox/inbox) temizler.
+        services.AddScoped<Persistence.IDataRetentionProcessor, Persistence.DataRetentionProcessor>();
+        services.AddHostedService<Persistence.DataRetentionService>();
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
         services.Configure<RateLimitOptions>(configuration.GetSection(RateLimitOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<PushOptions>(configuration.GetSection(PushOptions.SectionName));
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IIdGenerator, GuidIdGenerator>();
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+        services.AddScoped<IRequestEntityCache, RequestEntityCache>();
         services.AddScoped<ICommandDispatcher, CommandDispatcher>();
         services.AddScoped<IQueryDispatcher, QueryDispatcher>();
         services.AddSingleton<IDomainEventMapper, JsonDomainEventMapper>();
@@ -43,6 +56,47 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRateLimiter, RedisRateLimiter>();
         services.AddSingleton<ITokenBlacklist, RedisTokenBlacklist>();
         services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
+
+        // K-01: E-posta sağlayıcısı konfigürasyonla seçilir; kod hiçbir sağlayıcıya bağlı değildir.
+        services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
+        services.AddScoped<IEmailSender>(provider =>
+        {
+            var emailOptions = provider.GetRequiredService<IOptions<EmailOptions>>().Value;
+
+            IEmailSender sender =
+                string.Equals(emailOptions.Provider, EmailOptions.SmtpProvider, StringComparison.OrdinalIgnoreCase)
+                    ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
+                    : ActivatorUtilities.CreateInstance<LoggingEmailSender>(provider);
+
+            // C-04: Ölçüm kompozisyon noktasında sarmalanır — hangi sağlayıcı seçilirse seçilsin çalışır.
+            return new MeteredEmailSender(sender, provider.GetRequiredService<EgitimUssuMetrics>());
+        });
+
+        // K-02: Push sağlayıcısı konfigürasyonla seçilir; uygulama kodu FCM'i bilmez.
+        services.AddSingleton<IFcmAccessTokenProvider, GoogleFcmAccessTokenProvider>();
+        services.AddHttpClient<FcmPushSender>();
+        services.AddScoped<IPushSender>(provider =>
+        {
+            var pushOptions = provider.GetRequiredService<IOptions<PushOptions>>().Value;
+
+            IPushSender sender =
+                string.Equals(pushOptions.Provider, PushOptions.FcmProvider, StringComparison.OrdinalIgnoreCase)
+                    ? provider.GetRequiredService<FcmPushSender>()
+                    : ActivatorUtilities.CreateInstance<LoggingPushSender>(provider);
+
+            // C-04: Ölçüm kompozisyon noktasında sarmalanır — hangi sağlayıcı seçilirse seçilsin çalışır.
+            return new MeteredPushSender(sender, provider.GetRequiredService<EgitimUssuMetrics>());
+        });
+
+        // K-03: Dosya depolama sağlayıcısı konfigürasyonla seçilir; modüller S3'ü bilmez.
+        services.AddSingleton<IFileStorage>(provider =>
+        {
+            var storageOptions = provider.GetRequiredService<IOptions<StorageOptions>>().Value;
+
+            return string.Equals(storageOptions.Provider, StorageOptions.S3Provider, StringComparison.OrdinalIgnoreCase)
+                ? ActivatorUtilities.CreateInstance<S3FileStorage>(provider)
+                : ActivatorUtilities.CreateInstance<LocalFileStorage>(provider);
+        });
 
         return services;
     }

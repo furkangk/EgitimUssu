@@ -91,7 +91,7 @@ class StudentRepositoryImpl implements StudentRepository {
           teacherUserId: 'mock-teacher-user',
           id: studentId,
           fullName: 'Mehmet Demir',
-          gradeLevel: '8. Sinif',
+          gradeLevel: '8. Sınıf',
         ),
       );
     }
@@ -156,6 +156,44 @@ class StudentRepositoryImpl implements StudentRepository {
       },
     );
     return StudentProfileModel.fromJson(response);
+  }
+
+  /// M03-2: Tek branş ekler. **Mock fallback yok** — sahte bir başarı, gerçek
+  /// hatayı gizler (A-05 ilkesi).
+  @override
+  Future<StudentSubjectTarget> addSubject({
+    required String studentId,
+    required String subject,
+    String? targetLevel,
+  }) async {
+    final response = await _apiClient.post(
+      '/api/students/profiles/$studentId/subjects',
+      data: <String, dynamic>{'subject': subject, 'targetLevel': targetLevel},
+    );
+    return StudentSubjectTargetModel.fromJson(response);
+  }
+
+  /// M03-2: Branşı kimliğiyle siler.
+  @override
+  Future<void> removeSubject({
+    required String studentId,
+    required String subjectId,
+  }) async {
+    await _apiClient.delete(
+      '/api/students/profiles/$studentId/subjects/$subjectId',
+    );
+  }
+
+  /// M03-1: Kayıtlı veli kullanıcısını öğrenciye bağlama talebi açar (onay bekler).
+  @override
+  Future<void> linkParent({
+    required String studentId,
+    required String parentUserId,
+  }) async {
+    await _apiClient.post(
+      '/api/students/profiles/$studentId/link-parent',
+      data: <String, dynamic>{'parentUserId': parentUserId},
+    );
   }
 
   @override

@@ -3,7 +3,7 @@ title: "UX Kuralları"
 summary: "Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları; rol bazlı öncelikler"
 tags: [mimari, ux, navigasyon]
 authority: derived
-updated: 2026-06-27
+updated: 2026-10-16
 ---
 
 # 📐 UX Kuralları — EğitimÜssü
@@ -11,7 +11,7 @@ updated: 2026-06-27
 > **Kapsam:** Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları.
 > Token değerleri → [`design_system.md`](design_system.md). Widget kataloğu → [`widgets.md`](widgets.md).
 >
-> **Güncelleme:** 2026-06-27
+> **Güncelleme:** 2026-10-16
 
 ---
 
@@ -44,7 +44,9 @@ Her rol için öncelik farklıdır — ekran tasarımı bunu yansıtır:
 - Validasyon **submit anında** çalışır, yazarken değil (klavyeyi gizleme).
 - Hata mesajı alanın altında, `accentRed (#FF5A5F)` rengiyle, `caption (12px)` boyutunda.
 - Başarılı submit → `SnackBar` (yeşil) veya bir sonraki sayfaya yönlendirme; asla iki uyarı birden.
+- Başarı bildirimi yalnız gerçek kayıt tamamlandıktan sonra gösterilir. Kayıt hatasında girilen metin korunur; “Tekrar dene” formu yeniden yüklemek yerine aynı kaydı tekrar gönderir (ders notu formu, 2026-10-16).
 - Uzun formlar → bölümlere ayrılır (`SectionHeader` ile), tek sayfada kaydırılır.
+- Dropdown seçenekleri alan genişliğine sığmalı; uzun adlar ve büyük yazı ölçeği için sabit seçenek yüksekliği kullanılmaz (`AppDropdownField`).
 - Tarih/saat → her zaman `AppDateTimeField` (native picker); kullanıcı elle yazmaz.
 
 ---
@@ -61,6 +63,7 @@ Empty    →  EmptyStateView    (ikon + başlık + açıklama)
 
 - **Loading süresi > 300 ms** ise skeleton veya spinner göster; anlık değişimde gösterme.
 - Hata mesajı teknik değil, kullanıcı dostu: "Bağlantı kurulamadı, tekrar deneyin."
+- Ortak hata kartında "Tekrar dene" mesajın altında gösterilir; dar ekranlarda mesaj ile düğme birbirini sıkıştırmaz. Boş durum, kısa görünüm alanında içeriğini kaydırarak erişilebilir tutar.
 - **Optimistik güncelleme:** Liste silme/ekleme işlemlerinde önce UI güncellenir, API başarısız olursa geri alınır.
 - Pull-to-refresh: Tüm liste ekranlarında desteklenir.
 
@@ -121,4 +124,23 @@ Scaffold(
 
 ---
 
-*UX Kuralları | Güncelleme: 2026-06-27*
+## 8. Metin Dili ve Yazım (D-19 / D-20)
+
+Kullanıcıya görünen her metin **eksiksiz Türkçe** yazılır. Bu bir tercih değil, marka kuralıdır:
+Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün özensiz görünmesine yol açar.
+
+| Kural | Nasıl |
+|-------|-------|
+| **Türkçe karakterler eksiksiz** | `ç ğ ı İ ö ş ü` — kısaltma yok. `Çıkış`, `Ödeme`, `Öğrenci`, `Ayarları` |
+| **Uygulama adı** | Görünen metin **EğitimÜssü**. `EgitimUssu` yalnız dosya/klasör/kod tanımlayıcısıdır (kök `CLAUDE.md`) |
+| **Metinler ARB'de** | `AppLocalizations.of(context).<ekran>_<eleman>` — bkz. [`mobile_flutter.md` §10.1](mobile_flutter.md) |
+| **Hizmet ≠ pazarlama dili** | Ders hatırlatması bilgilendirir, kampanya duyurusu izin ister; ikisi aynı tonu paylaşmaz |
+
+> **Bu kural otomatik denetlenir.** `mobile/test/l10n/localization_test.dart` hem ARB değerlerini hem
+> **tüm `lib/**` kaynak dosyalarını** tarar; bozuk yazım bulursa test kırılır. Yani düzeltilen bir metin
+> geri gelemez. Kontrol listesi kesin hataları içerir ("Devam", "Kaydet" gibi zaten doğru yazımlar hariç)
+> ve kelime **başı** sınırıyla eşleşir — "rozet" içindeki "ozet" yanlış alarm üretmez.
+
+---
+
+*UX Kuralları | Güncelleme: 2026-10-16 (hata sonrası kayıt tekrarında form verisini koruma) · 2026-09-05 (P13 Task 6 / D-19+D-20: §8 metin dili ve yazım kuralı — eksiksiz Türkçe, ARB'den metin, otomatik denetim) · 2026-06-27*

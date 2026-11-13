@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Study/**
-updated: 2026-08-19
+updated: 2026-10-16
 ---
 
 # 📚 M08 — Bireysel Çalışma (Study) Modülü — Detaylı Tasarım Dokümanı
@@ -375,7 +375,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - **Net formülü:** `Net = Correct - (Wrong / PenaltyDivisor)`; varsayılan `PenaltyDivisor = 4` (4 yanlış 1 doğruyu götürür).
 - **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/YDS/diğer → 4**, **School → null** (okul denemesi **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
 - `Net` negatif olabilir; saklanır (ham veri).
-- **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
+- **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; düzenlemede `PenaltyDivisor` verilmezse mevcut bölen korunur (LGS `3` ve yanlış götürmeyen okul sınavı metadata düzeltmesiyle `4`'e dönmez); silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
 ### 4.4 Streak & hedef
 - Bir gün **en az 1 tamamlanmış seans** (veya günlük hedef dakikasının karşılanması — konfigüre edilebilir) o günü "çalışılmış" sayar.
@@ -387,12 +387,16 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - **Reşit olmayan öğrenci:** veli erişimi varsayılan **açık** (KVKK velayet ilkesi); reşit öğrencide varsayılan **kapalı**, paylaşım öğrenci onayına tabi (bkz. `m09_parents.md`).
 - Öğretmen yalnızca **bağlı olduğu** öğrencinin, paylaşıma açık verisini görür.
 
-### 4.6 Plan çakışması önceliği (M04 ile)
+### 4.6 Plan çakışması önceliği (M04 ile) — 🟢 kodda (2026-09-04)
 - Öğrencinin kendi çalışma planı ile öğretmenle yapılacak **özel ders** çakışırsa **özel ders önceliklidir**.
-- Çakışma anında öğrenciye **uyarı** gösterilir ve bireysel plan ikinci plana atılır (planlama kuralı `m04_scheduling.md`'de işlenir; M08 yalnızca uyarıyı yüzeye çıkarır).
+- **Oluşturma anında** çakışan bireysel plan zaten reddedilir (`409 scheduling.teacher_conflict`, 2026-07-08).
+- **Sonradan oluşan** çakışma (öğretmen dersi sonradan açtı/erteledi) birleşik takvim yanıtındaki
+  `ConflictsWithLesson` bayrağıyla yüzeye çıkar (M04-2/M08-1): bayrak yalnız `Self` kaynaklı occurrence'larda
+  hesaplanır; mobilde kart uyarı rengine döner ve **"Bu saatte özel dersin var"** etiketi gösterilir
+  (`student_calendar_page.dart` — hem takvim günü hem liste kartı).
 
 ### 4.7 Free/Premium kapıları (Ö-D — PRD §14.3 uyarlaması)
-Öğrencinin üyelik seviyesi `MembershipTier` (`Free=1` / `Premium=2`) M03 `StudentProfile`'da hafifçe tutulur (M17 tam modülü gelene kadar; [`m17_membership.md`](m17_membership.md)). Study, tier'ı modüller-arası `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okur (Students'a doğrudan referans vermez). Karar: **Free geniş** (streak tam + son 30 gün) — büyüme önce; **Premium yalnız derinlik**. Kapı mantığı saf + birim testlidir (`MembershipGate`).
+Öğrencinin üyelik seviyesi `MembershipTier` (`Free=1` / `Premium=2`) M03 `StudentProfile`'da hafifçe tutulur (M17 tam modülü gelene kadar; [`m17_membership.md`](m17_membership.md)). ⚠️ **P09 Task 2:** Study artık tier'ı `IEntitlementDirectory`'den okuyor (`StudyMembershipResolver` gövdesi değişti, imzası aynı); `IMembershipDirectory` yalnız Membership'in okuduğu **geçici köprü** oldu. Karar: **Free geniş** (streak tam + son 30 gün) — büyüme önce; **Premium yalnız derinlik**. Kapı mantığı saf + birim testlidir (`MembershipGate`). ⚠️ **P08 Task 4:** `MembershipGate` ve `PremiumFeature` `Study.Application`'dan **`Shared.Contracts`'a taşındı** — M14-4 PDF raporu aynı kapıyı kullanıyor. Study'nin davranışı değişmedi; **P09 Task 2**'de `IEntitlementDirectory` devraldı — `MembershipGate` (saf kapı mantığı) yerinde duruyor, yalnız tier'ın kaynağı değişti.
 
 | Yetenek | Free | Premium |
 |---------|------|---------|
@@ -480,7 +484,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 - [x] **Streak** (mevcut + rekor) hesaplanır ve gösterilir; seri kırılınca `StreakBrokenDomainEvent` (Outbox) tetiklenir.
 - [x] **Başarım rozeti** seti (10 rozet) tanımlı; kazanımda `AchievementEarnedDomainEvent` yükseltilir. (M11 kutlama bildirimi ⚠️ bekliyor.)
 - [x] Öğrenci, çalışma/test verisinin veli ve öğretmenle **paylaşımını ayrı ayrı** açıp kapatabilir (`sharing`).
-- [ ] Bireysel plan ile özel ders çakışmasında **özel ders öncelikli** ve öğrenciye uyarı gösterilir (M04 entegrasyonu ⚠️ bekliyor).
+- [x] Bireysel plan ile özel ders çakışmasında **özel ders öncelikli** ve öğrenciye uyarı gösterilir (oluşturmada 409; sonradan oluşan çakışmada `ConflictsWithLesson` + mobil uyarı etiketi — M04-2/M08-1, 2026-09-04).
 
 ---
 
@@ -521,8 +525,8 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-08-19 (kod-senkron: API 38 endpoint doğrulandı — seans 13 + test/deneme 7 + hedef/streak/dashboard 5 + paylaşım GET/PUT 2 + katalog 7 + not 4; §3.4'e GET /sharing eklendi). Önceki not — Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-10-16 (test sonucu düzenlemede gönderilmeyen ceza böleni korunur). Önceki: 2026-09-04 (P06/M08-1: bireysel plan ↔ özel ders çakışma uyarısı — `ConflictsWithLesson` + mobil etiket) · 2026-08-19 (kod-senkron: API 38 endpoint doğrulandı — seans 13 + test/deneme 7 + hedef/streak/dashboard 5 + paylaşım GET/PUT 2 + katalog 7 + not 4; §3.4'e GET /sharing eklendi). Önceki not — Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
 
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
-<!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + IMembershipDirectory + MembershipGate; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->
+<!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + MembershipGate; tier kaynağı P09 Task 2'den beri IEntitlementDirectory; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->
 

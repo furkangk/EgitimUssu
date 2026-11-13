@@ -15,7 +15,16 @@ internal sealed class LessonSessionRepository : ILessonSessionRepository
 
     public Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
     {
-        return _dbContext.LessonSessions.FirstOrDefaultAsync(session => session.Id == lessonSessionId, cancellationToken);
+        return _dbContext.LessonSessions.FindAsync(new object?[] { lessonSessionId }, cancellationToken).AsTask();
+    }
+
+    // M05-2: Bir planli dersten en fazla bir oturum turetilir; en eskiyi doner (idempotency).
+    public Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
+    {
+        return _dbContext.LessonSessions
+            .Where(session => session.LessonScheduleId == lessonScheduleId)
+            .OrderBy(session => session.CreatedOnUtc)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<LessonSession>> ListAsync(

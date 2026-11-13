@@ -265,6 +265,14 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             subtitle: 'Bağlı öğretmenlerin ve iletişim',
             onTap: () => context.push('/student/teacher'),
           ),
+          // D-08 (M16): Gelen kutusu — öğretmenlerinle sohbet.
+          _ProfileMenuTile(
+            icon: Icons.chat_bubble_rounded,
+            color: AppColors.accentBlue,
+            title: 'Mesajlar',
+            subtitle: 'Öğretmenlerinle sohbet et',
+            onTap: () => context.push('/messages'),
+          ),
           _ProfileMenuTile(
             icon: Icons.flag_rounded,
             color: AppColors.accentGreen,

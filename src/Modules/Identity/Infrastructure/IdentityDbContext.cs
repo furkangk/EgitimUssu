@@ -24,6 +24,9 @@ public sealed class IdentityDbContext : ModuleDbContext
     public DbSet<RefreshTokenSession> RefreshTokenSessions => Set<RefreshTokenSession>();
     public DbSet<UserSecurityToken> UserSecurityTokens => Set<UserSecurityToken>();
 
+    /// <summary>E-07: Bekleyen/iptal edilen/tamamlanan hesap silme talepleri.</summary>
+    public DbSet<AccountDeletionRequest> AccountDeletionRequests => Set<AccountDeletionRequest>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "Identity";
@@ -63,6 +66,7 @@ internal sealed class UserRoleMembershipConfiguration : IEntityTypeConfiguration
     {
         builder.ToTable("user_role_memberships");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Role).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.AssignedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.UserAccountId, entity.Role }).IsUnique();
@@ -75,10 +79,15 @@ internal sealed class RefreshTokenSessionConfiguration : IEntityTypeConfiguratio
     {
         builder.ToTable("refresh_token_sessions");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.RefreshTokenHash).HasMaxLength(512).IsRequired();
         builder.Property(entity => entity.DeviceName).HasMaxLength(128);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
+        // M01-4: Var olan satırlar için varsayılan CreatedOnUtc'dir (migration onu kopyalar).
+        builder.Property(entity => entity.LastUsedOnUtc).IsRequired();
+        // Cihaz oturumu listesi: kullanıcının AKTİF oturumlarını okur.
+        builder.HasIndex(entity => new { entity.UserAccountId, entity.RevokedOnUtc });
         builder.HasIndex(entity => new { entity.UserAccountId, entity.ExpiresOnUtc });
     }
 }
@@ -89,11 +98,33 @@ internal sealed class UserSecurityTokenConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("user_security_tokens");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Purpose).HasConversion<string>().HasMaxLength(64).IsRequired();
         builder.Property(entity => entity.TokenHash).HasMaxLength(512).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
         builder.Property(entity => entity.UsedOnUtc);
         builder.HasIndex(entity => new { entity.UserAccountId, entity.Purpose, entity.ExpiresOnUtc });
+    }
+}
+
+/// <summary>E-07: Hesap silme talebi eşlemesi.</summary>
+internal sealed class AccountDeletionRequestConfiguration : IEntityTypeConfiguration<AccountDeletionRequest>
+{
+    public void Configure(EntityTypeBuilder<AccountDeletionRequest> builder)
+    {
+        builder.ToTable("account_deletion_requests");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.UserAccountId).IsRequired();
+        builder.Property(entity => entity.RequestedOnUtc).IsRequired();
+        builder.Property(entity => entity.ScheduledForUtc).IsRequired();
+        builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+
+        // Bir kullanıcının aynı anda birden çok BEKLEYEN talebi olamaz; geçmiş talepler (iptal/tamamlanmış)
+        // kayıt olarak kalır, çünkü "ne zaman istedi, ne zaman vazgeçti" hesap verebilirliğin parçasıdır.
+        builder.HasIndex(entity => new { entity.UserAccountId, entity.Status });
+
+        // Bakım servisi "süresi dolan bekleyenler" sorgusunu bu indeksle koşar.
+        builder.HasIndex(entity => new { entity.Status, entity.ScheduledForUtc });
     }
 }

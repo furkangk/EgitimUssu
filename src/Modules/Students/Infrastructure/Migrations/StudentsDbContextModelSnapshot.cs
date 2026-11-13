@@ -162,7 +162,6 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Students.Domain.StudentSubject", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("StudentProfileId")
@@ -304,6 +303,10 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

@@ -167,16 +167,19 @@ public sealed class UpdatePaymentRecordCommandHandler : ICommandHandler<UpdatePa
     private static readonly Error NotFound = new("payments.record_not_found", "Odeme kaydi bulunamadi.");
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly IRequestEntityCache _entityCache;
 
-    public UpdatePaymentRecordCommandHandler(IPaymentRecordRepository repository, IClock clock)
+    public UpdatePaymentRecordCommandHandler(IPaymentRecordRepository repository, IClock clock, IRequestEntityCache entityCache)
     {
         _repository = repository;
         _clock = clock;
+        _entityCache = entityCache;
     }
 
+    /// <summary>O2: Authorizer kaydı yüklediyse istek kapsamından okur; ikinci sorgu yapılmaz.</summary>
     public async Task<Result<PaymentRecordResponse>> Handle(UpdatePaymentRecordCommand command, CancellationToken cancellationToken)
     {
-        var paymentRecord = await _repository.GetByIdAsync(command.PaymentRecordId, cancellationToken);
+        var paymentRecord = await _entityCache.LoadPaymentRecordAsync(_repository, command.PaymentRecordId, cancellationToken);
         if (paymentRecord is null)
         {
             return Result<PaymentRecordResponse>.Failure(NotFound);
@@ -207,16 +210,19 @@ public sealed class GetPaymentRecordByIdQueryHandler : IQueryHandler<GetPaymentR
     private static readonly Error NotFound = new("payments.record_not_found", "Odeme kaydi bulunamadi.");
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly IRequestEntityCache _entityCache;
 
-    public GetPaymentRecordByIdQueryHandler(IPaymentRecordRepository repository, IClock clock)
+    public GetPaymentRecordByIdQueryHandler(IPaymentRecordRepository repository, IClock clock, IRequestEntityCache entityCache)
     {
         _repository = repository;
         _clock = clock;
+        _entityCache = entityCache;
     }
 
+    /// <summary>O2: Authorizer kaydı yüklediyse istek kapsamından okur; ikinci sorgu yapılmaz.</summary>
     public async Task<Result<PaymentRecordResponse>> Handle(GetPaymentRecordByIdQuery query, CancellationToken cancellationToken)
     {
-        var paymentRecord = await _repository.GetByIdAsync(query.PaymentRecordId, cancellationToken);
+        var paymentRecord = await _entityCache.LoadPaymentRecordAsync(_repository, query.PaymentRecordId, cancellationToken);
         return paymentRecord is null
             ? Result<PaymentRecordResponse>.Failure(NotFound)
             : Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_clock.UtcNow));

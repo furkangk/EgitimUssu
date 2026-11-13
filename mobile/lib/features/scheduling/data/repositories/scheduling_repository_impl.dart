@@ -145,7 +145,7 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
           id: lessonId,
           teacherUserId: 'mock-teacher-user',
           studentId: 'student-1',
-          subject: 'Iptal edilen ders',
+          subject: 'İptal edilen ders',
           lessonFormat: 'Online',
           startAtUtc: now,
           endAtUtc: now.add(const Duration(hours: 1)),

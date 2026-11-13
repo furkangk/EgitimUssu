@@ -11,12 +11,30 @@ public abstract class ModuleDefinition : IModule
 
     public abstract string RoutePrefix { get; }
 
+    /// <summary>
+    /// C-10: Modülün uçlarının uyduğu sözleşme sürümü. Bir modül kırıcı bir değişiklik yapmak
+    /// istediğinde <c>/api/v2/...</c> altında <b>ikinci</b> bir grup açar (bkz.
+    /// <c>CreateModuleGroup(endpoints, prefix, version)</c>); bu özellik varsayılan grubun sürümüdür.
+    /// </summary>
+    protected virtual string ApiVersion => ApiVersions.Current;
+
     public abstract void RegisterServices(IServiceCollection services, IConfiguration configuration);
 
     public abstract void MapEndpoints(IEndpointRouteBuilder endpoints);
 
     protected RouteGroupBuilder CreateModuleGroup(IEndpointRouteBuilder endpoints)
     {
-        return endpoints.MapGroup(RoutePrefix);
+        return CreateModuleGroup(endpoints, RoutePrefix, ApiVersion);
+    }
+
+    /// <summary>
+    /// Verilen yol ön eki ve sözleşme sürümüyle bir uç grubu açar. Sürüm etiketi grubun
+    /// metadata'sına yazılır: <c>X-Api-Version</c> başlığı ve OpenAPI etiketi bunu okur.
+    /// </summary>
+    protected RouteGroupBuilder CreateModuleGroup(IEndpointRouteBuilder endpoints, string routePrefix, string apiVersion)
+    {
+        return endpoints
+            .MapGroup(routePrefix)
+            .WithApiVersion(apiVersion);
     }
 }

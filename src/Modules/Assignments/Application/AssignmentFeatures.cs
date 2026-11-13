@@ -34,7 +34,9 @@ public sealed record AssignmentResponse(
     string? AttachmentUrl,
     DateTime CreatedOnUtc,
     DateTime? CompletedOnUtc,
-    string? TeacherFeedback);
+    string? TeacherFeedback,
+    int? Score,
+    DateTime? GradedOnUtc);
 
 public sealed record LessonNoteResponse(
     Guid Id,
@@ -317,7 +319,9 @@ internal static class AssignmentMappings
             assignment.AttachmentUrl,
             assignment.CreatedOnUtc,
             assignment.CompletedOnUtc,
-            assignment.TeacherFeedback);
+            assignment.TeacherFeedback,
+            assignment.Score,
+            assignment.GradedOnUtc);
     }
 
     public static LessonNoteResponse ToResponse(this LessonNote note)

@@ -21,6 +21,10 @@ public sealed class NotificationsDbContext : ModuleDbContext
 
     public DbSet<ParentNotification> ParentNotifications => Set<ParentNotification>();
 
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+
     public DbSet<ProcessedIntegrationEvent> ProcessedIntegrationEvents => Set<ProcessedIntegrationEvent>();
 
     protected override string Schema => SchemaName;
@@ -44,6 +48,9 @@ internal sealed class LessonReminderConfiguration : IEntityTypeConfiguration<Les
         builder.Property(entity => entity.Message).HasMaxLength(1000).IsRequired();
         builder.Property(entity => entity.Channel).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+        // P03 Task 3: push teslimat izleme (başarısız denemeler + son hata).
+        builder.Property(entity => entity.AttemptCount).IsRequired();
+        builder.Property(entity => entity.LastError).HasMaxLength(1000);
         builder.HasIndex(entity => entity.LessonScheduleId).IsUnique();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status, entity.RemindAtUtc });
     }
@@ -71,5 +78,43 @@ internal sealed class ProcessedIntegrationEventConfiguration : IEntityTypeConfig
         builder.HasKey(entity => entity.Id);
         builder.Property(entity => entity.EventName).HasMaxLength(256).IsRequired();
         builder.Property(entity => entity.ProcessedOnUtc).IsRequired();
+    }
+}
+
+internal sealed class DeviceTokenConfiguration : IEntityTypeConfiguration<DeviceToken>
+{
+    public void Configure(EntityTypeBuilder<DeviceToken> builder)
+    {
+        builder.ToTable("device_tokens");
+        builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(entity => entity.Token).HasMaxLength(512).IsRequired();
+        builder.Property(entity => entity.Platform).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.DeviceName).HasMaxLength(128);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Property(entity => entity.LastSeenOnUtc).IsRequired();
+        builder.HasIndex(entity => entity.Token).IsUnique();
+        builder.HasIndex(entity => new { entity.UserId, entity.IsActive });
+    }
+}
+
+/// <summary>M11-3: Rolden bağımsız in-app bildirim. Rozet sorgusu (UserId + okunmamış) indeksli.</summary>
+internal sealed class UserNotificationConfiguration : IEntityTypeConfiguration<UserNotification>
+{
+    public void Configure(EntityTypeBuilder<UserNotification> builder)
+    {
+        builder.ToTable("user_notifications");
+        builder.HasKey(entity => entity.Id);
+        // Id istemcide IIdGenerator ile üretiliyor; EF'in OnAdd sayması güncelleme senaryosunu bozar (Öğrenilenler #3).
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(entity => entity.UserId).IsRequired();
+        builder.Property(entity => entity.Kind).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
+        builder.Property(entity => entity.Body).HasMaxLength(1000).IsRequired();
+        builder.Property(entity => entity.Route).HasMaxLength(256);
+        builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Ignore(entity => entity.IsRead);
+        builder.HasIndex(entity => new { entity.UserId, entity.ReadOnUtc });
+        builder.HasIndex(entity => entity.PushedOnUtc);
     }
 }

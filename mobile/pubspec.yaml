@@ -11,7 +11,6 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  cupertino_icons: ^1.0.8
   dio: ^5.9.0
   equatable: ^2.0.7
   flutter_bloc: ^9.1.1
@@ -24,30 +23,29 @@ dependencies:
   syncfusion_flutter_calendar: ^30.2.7
   syncfusion_localizations: ^30.2.7
   # UI yardımcıları
-  flutter_screenutil: ^5.9.3
-  flutter_svg: ^2.0.17
-  cached_network_image: ^3.4.1
   shimmer: ^3.0.0
-  lottie: ^3.3.1
-  modal_bottom_sheet: ^3.0.0-pre
-  # Model
-  freezed_annotation: ^2.4.4
   # Grafik
   fl_chart: ^0.70.2
   # Bildirim
   firebase_messaging: ^15.2.4
-  flutter_local_notifications: ^18.0.1
-  # Chat & medya
-  flutter_chat_ui: ^1.6.15
+  # Medya
+  # NOT (P10 Task 4 / D-18): `flutter_chat_ui` KALDIRILDI. Sohbet balonları
+  # `features/messaging/presentation/widgets/messaging_widgets.dart` içinde
+  # `AppColors`/`AppShadows` token'larıyla yazıldı — paket kendi teması, kendi
+  # girdi alanı ve kendi model tipleriyle geliyor ve tasarım sistemine uymuyordu.
+  # Kullanılmayan ağır bağımlılık bırakmak D-18'in ta kendisiydi.
   image_picker: ^1.1.2
+  firebase_core: ^3.15.2
+  url_launcher: ^6.3.2
+  # PDF raporu cihazin sistem goruntuleyicisiyle acmak icin (P08 / M14-4).
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  build_runner: ^2.4.13
-  freezed: ^2.5.7
-  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true
+  # D-19: lib/l10n/*.arb dosyalarindan AppLocalizations uretilir (l10n.yaml).
+  generate: true

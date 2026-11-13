@@ -1,6 +1,8 @@
 using EgitimUssu.Modules.Students.Application;
 using EgitimUssu.Modules.Students.Domain;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Tests.Unit.TestDoubles;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -70,6 +72,7 @@ public sealed class StudentFreeLimitTests
         var handler = new CreateStudentProfileCommandHandler(
             new FakeStudentProfileRepository(),
             new CountingLinkRepo(5),
+            new FakeEntitlementDirectory(MembershipTier.Free),
             new FakeIds(),
             new FakeClock());
 
@@ -86,6 +89,25 @@ public sealed class StudentFreeLimitTests
         var handler = new CreateStudentProfileCommandHandler(
             new FakeStudentProfileRepository(),
             linkRepo,
+            new FakeEntitlementDirectory(MembershipTier.Free),
+            new FakeIds(),
+            new FakeClock());
+
+        var result = await handler.Handle(ManualCommand(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, linkRepo.AddedCount);
+    }
+
+    [Fact]
+    public async Task Create_TeacherManaged_Premium_Teacher_Should_Not_Hit_Limit()
+    {
+        // K-09: sınır artık Students'ın sabiti değil, öğretmenin üyelik hakkı (MaxStudents).
+        var linkRepo = new CountingLinkRepo(5);
+        var handler = new CreateStudentProfileCommandHandler(
+            new FakeStudentProfileRepository(),
+            linkRepo,
+            new FakeEntitlementDirectory(MembershipTier.Premium),
             new FakeIds(),
             new FakeClock());
 

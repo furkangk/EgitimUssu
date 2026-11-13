@@ -102,6 +102,12 @@ public sealed class DeclarePaymentPaidCommandHandler : ICommandHandler<DeclarePa
             return Result<ParentPaymentDeclarationResponse>.Failure(ParentPaymentDeclarationErrors.RecordNotFound);
         }
 
+        var validation = payment.ValidateParentConfirmation(command.DeclaredAmount);
+        if (validation.IsFailure)
+        {
+            return Result<ParentPaymentDeclarationResponse>.Failure(validation.Error);
+        }
+
         var declaration = new ParentPaymentDeclaration(
             _idGenerator.New(),
             payment.Id,
@@ -148,11 +154,20 @@ public sealed class ConfirmPaymentDeclarationCommandHandler : ICommandHandler<Co
             return Result<ParentPaymentDeclarationResponse>.Failure(ParentPaymentDeclarationErrors.DeclarationNotPending);
         }
 
-        var now = _clock.UtcNow;
-        declaration.Confirm(now);
-
         var payment = await _paymentRepository.GetByIdAsync(declaration.PaymentRecordId, cancellationToken);
-        payment?.MarkCollectedByParentConfirmation(now);
+        if (payment is null)
+        {
+            return Result<ParentPaymentDeclarationResponse>.Failure(ParentPaymentDeclarationErrors.RecordNotFound);
+        }
+
+        var now = _clock.UtcNow;
+        var collection = payment.MarkCollectedByParentConfirmation(declaration.DeclaredAmount, now);
+        if (collection.IsFailure)
+        {
+            return Result<ParentPaymentDeclarationResponse>.Failure(collection.Error);
+        }
+
+        declaration.Confirm(now);
 
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<ParentPaymentDeclarationResponse>.Success(declaration.ToResponse());

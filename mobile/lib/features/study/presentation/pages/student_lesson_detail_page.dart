@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
+import 'package:egitim_ussu_mobile/features/assignments/presentation/widgets/lesson_resources_section.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/scheduling_format.dart';
@@ -173,6 +174,14 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
           ),
           const SizedBox(height: 24),
           _NotesSection(notes: _notes, lesson: lesson, studentId: studentId),
+          if (studentId.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 24),
+            // M06-1: öğretmenin bu derse (veya tüm öğrencilerine) paylaştığı kaynaklar.
+            LessonResourcesSection(
+              studentId: studentId,
+              lessonSessionId: widget.lessonId,
+            ),
+          ],
         ],
       ),
     );

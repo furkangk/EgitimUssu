@@ -81,6 +81,34 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
 
     public string? Notes { get; private set; }
 
+    /// <summary>
+    /// E-07: Ödeme kaydını kimliksizleştirir — <b>tutar, para birimi, vade ve durum korunur</b>.
+    /// Ticari kayıt yasal saklama süresince (TTK m.82) durmalıdır; silinen yalnız serbest metin
+    /// alanlarıdır, çünkü oraya kişi adı yazılmış olabilir.
+    /// </summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        var changed = false;
+
+        if (Description != PersonalDataPlaceholder.RemovedContent)
+        {
+            Description = PersonalDataPlaceholder.RemovedContent;
+            changed = true;
+        }
+
+        if (Notes is not null)
+        {
+            Notes = null;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>M07-1: Kaydın <see cref="PaymentStatus.Overdue"/> işaretlendiği an; hiç işaretlenmediyse <c>null</c>.</summary>
+    public DateTime? OverdueMarkedOnUtc { get; private set; }
+
     public void UpdateManualTracking(
         Guid? relatedLessonSessionId,
         BillingItemType itemType,
@@ -123,9 +151,65 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
             updatedOnUtc));
     }
 
-    /// <summary>Veli beyanı öğretmence teyit edilince kaydı tam tahsil edilmiş işaretler (Veli V-G).</summary>
-    public void MarkCollectedByParentConfirmation(DateTime nowUtc)
+    /// <summary>
+    /// M07-1: Vadesi geçmiş ve hâlâ açık (<see cref="PaymentStatus.Pending"/> / <see cref="PaymentStatus.PartiallyPaid"/>)
+    /// bir kaydı <see cref="PaymentStatus.Overdue"/> işaretler ve <see cref="PaymentBecameOverdueDomainEvent"/> yayar.
+    /// Tarama turu her saat çalıştığı için işlem <b>idempotenttir</b>: zaten Overdue/Paid/Cancelled olan kayıt
+    /// ya da vadesi gelmemiş kayıt değişmez ve olay üretilmez. Geçiş yapılmaması bir hata değildir —
+    /// bu yüzden <c>Result</c> değil <c>bool</c> döner.
+    /// </summary>
+    /// <param name="nowUtc">Tarama anı (UTC).</param>
+    /// <returns>Durum değiştiyse <c>true</c>.</returns>
+    public bool MarkOverdue(DateTime nowUtc)
     {
+        if (Status is not (PaymentStatus.Pending or PaymentStatus.PartiallyPaid))
+        {
+            return false;
+        }
+
+        if (DueDateUtc >= nowUtc)
+        {
+            return false;
+        }
+
+        Status = PaymentStatus.Overdue;
+        OverdueMarkedOnUtc = nowUtc;
+
+        Raise(new PaymentBecameOverdueDomainEvent(
+            Id,
+            TeacherUserId,
+            StudentId,
+            ExpectedAmount - CollectedAmount,
+            Currency,
+            DueDateUtc,
+            nowUtc));
+
+        return true;
+    }
+
+    /// <summary>Tam ödeme beyanı yalnızca açık kaydın güncel kalan tutarını kapatabilir.</summary>
+    public Result ValidateParentConfirmation(decimal declaredAmount)
+    {
+        if (Status is not (PaymentStatus.Pending or PaymentStatus.PartiallyPaid or PaymentStatus.Overdue)
+            || ExpectedAmount <= CollectedAmount)
+        {
+            return Result.Failure(new Error("payments.record_not_outstanding", "Bu ödeme kaydının açık bakiyesi yok."));
+        }
+
+        return declaredAmount > 0m && declaredAmount == ExpectedAmount - CollectedAmount
+            ? Result.Success()
+            : Result.Failure(new Error("payments.declaration_amount_mismatch", "Beyan tutarı ödeme kaydının güncel kalan tutarına eşit olmalıdır."));
+    }
+
+    /// <summary>Geçerli veli beyanı öğretmence teyit edilince kaydı tam tahsil edilmiş işaretler (Veli V-G).</summary>
+    public Result MarkCollectedByParentConfirmation(decimal declaredAmount, DateTime nowUtc)
+    {
+        var validation = ValidateParentConfirmation(declaredAmount);
+        if (validation.IsFailure)
+        {
+            return validation;
+        }
+
         var previousStatus = Status;
         var previousCollected = CollectedAmount;
 
@@ -134,6 +218,7 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
         CollectedOnUtc = nowUtc;
 
         Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previousStatus, Status, previousCollected, CollectedAmount, nowUtc));
+        return Result.Success();
     }
 }
 
@@ -162,6 +247,19 @@ public sealed record PaymentRecordCreatedDomainEvent(
     string Currency,
     PaymentStatus Status,
     DateTime CreatedOnUtc) : DomainEvent;
+
+/// <summary>
+/// M07-1: Bir ödeme kaydı vadesi geçtiği için <see cref="PaymentStatus.Overdue"/> oldu.
+/// Notifications tüketip öğretmene (ve Premium veliye) bildirim üretir.
+/// </summary>
+public sealed record PaymentBecameOverdueDomainEvent(
+    Guid PaymentRecordId,
+    Guid TeacherUserId,
+    Guid StudentId,
+    decimal OutstandingAmount,
+    string Currency,
+    DateTime DueDateUtc,
+    DateTime MarkedOnUtc) : DomainEvent;
 
 public sealed record PaymentRecordUpdatedDomainEvent(
     Guid PaymentRecordId,
@@ -203,6 +301,19 @@ public sealed class ParentPaymentDeclaration : AggregateRoot<Guid>
     public Guid StudentId { get; private set; }
     public decimal DeclaredAmount { get; private set; }
     public string? Note { get; private set; }
+
+    /// <summary>E-07: Veli beyanındaki serbest metni siler; tutar ve durum korunur.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (Note is null)
+        {
+            return false;
+        }
+
+        Note = null;
+        return true;
+    }
     public ParentPaymentDeclarationStatus Status { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }
     public DateTime? ResolvedOnUtc { get; private set; }

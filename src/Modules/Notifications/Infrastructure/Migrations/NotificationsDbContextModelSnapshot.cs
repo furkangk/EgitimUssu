@@ -23,11 +23,55 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.Notifications.Domain.DeviceToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastSeenOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "IsActive");
+
+                    b.ToTable("device_tokens", "notifications");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.Notifications.Domain.LessonReminder", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Channel")
                         .IsRequired()
@@ -36,6 +80,10 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<Guid>("LessonScheduleId")
                         .HasColumnType("uuid");
@@ -136,6 +184,51 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                     b.ToTable("processed_integration_events", "notifications");
                 });
 
+            modelBuilder.Entity("EgitimUssu.Modules.Notifications.Domain.UserNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("PushedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ReadOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Route")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PushedOnUtc");
+
+                    b.HasIndex("UserId", "ReadOnUtc");
+
+                    b.ToTable("user_notifications", "notifications");
+                });
+
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -204,6 +297,10 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

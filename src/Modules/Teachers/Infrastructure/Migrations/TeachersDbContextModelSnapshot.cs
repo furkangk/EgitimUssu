@@ -26,7 +26,6 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherAvailabilitySlot", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("DayOfWeek")
@@ -59,7 +58,6 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherCertificate", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("FileUrl")
@@ -137,6 +135,11 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("IsVerified")
                         .HasColumnType("boolean");
 
@@ -145,7 +148,7 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<string>("ProfilePhotoUrl")
+                    b.Property<string>("ProfilePhotoKey")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
@@ -173,7 +176,6 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Teachers.Domain.TeacherSubject", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<string>("Subject")
@@ -259,6 +261,10 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

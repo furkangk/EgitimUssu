@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,35 +22,36 @@ internal sealed class QueryDispatcher : IQueryDispatcher
         where TResponse : Result
     {
         var queryType = query.GetType();
+
+        // C-04: Komut tarafıyla aynı gerekçe — sorgunun adı ve yetki adımının maliyeti trace'te görünsün.
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            $"query {queryType.Name}",
+            ActivityKind.Internal);
+
         _logger.LogInformation("Dispatching query {QueryType}", queryType.Name);
 
-        foreach (var validator in _serviceProvider.GetServices(typeof(IQueryValidator<>).MakeGenericType(queryType)).Cast<object>())
+        var invokers = DispatcherInvokerCache.ForQuery(queryType);
+
+        foreach (var validator in _serviceProvider.GetServices(invokers.ValidatorServiceType))
         {
-            var result = await ((dynamic)validator).Validate((dynamic)query, cancellationToken);
+            var result = await invokers.Validate(validator!, query, cancellationToken);
             if (result.IsFailure)
             {
-                return (TResponse)(dynamic)CreateFailureResult<TResponse>(result.Error);
+                return DispatcherFailureFactory<TResponse>.Create(result.Error);
             }
         }
 
-        foreach (var authorizer in _serviceProvider.GetServices(typeof(IQueryAuthorizer<>).MakeGenericType(queryType)).Cast<object>())
+        foreach (var authorizer in _serviceProvider.GetServices(invokers.AuthorizerServiceType))
         {
-            var result = await ((dynamic)authorizer).Authorize((dynamic)query, cancellationToken);
+            var result = await invokers.Authorize(authorizer!, query, cancellationToken);
             if (result.IsFailure)
             {
-                return (TResponse)(dynamic)CreateFailureResult<TResponse>(result.Error);
+                return DispatcherFailureFactory<TResponse>.Create(result.Error);
             }
         }
 
-        var handler = _serviceProvider.GetRequiredService(typeof(IQueryHandler<,>).MakeGenericType(queryType, typeof(TResponse)));
-        return await ((dynamic)handler).Handle((dynamic)query, cancellationToken);
-    }
-
-    private static Result CreateFailureResult<TResponse>(Error error)
-        where TResponse : Result
-    {
-        return typeof(TResponse) == typeof(Result)
-            ? Result.Failure(error)
-            : (Result)typeof(TResponse).GetMethod(nameof(Result<int>.Failure))!.Invoke(null, [error])!;
+        var handlerInvoker = DispatcherHandlerInvokerCache<TResponse>.ForQuery(queryType);
+        var handler = _serviceProvider.GetRequiredService(handlerInvoker.ServiceType);
+        return await handlerInvoker.Invoke(handler, query, cancellationToken);
     }
 }

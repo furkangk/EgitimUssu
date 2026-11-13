@@ -1,0 +1,450 @@
+# P06 — Öğretmen MVP Kapanışı (Beta'ya Hazırlık) Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Öğretmenin günlük iş akışındaki son boşlukları kapatmak: doğrulama rozetini verebilme, öğretmen arama/listeleme ucu, ders oturumu yaşam döngüsü (başlat/iptal + planlı dersten türetme), ödeme otomasyonu (gecikme + ders ücreti), takvimde tekrar açılımı, ödev son teslim uyarısı ve mobil uygunluk düzenleyici.
+
+**Architecture:** Mevcut modüllere ekleme yapılır, yeni modül açılmaz. Ödeme otomasyonu için Payments'a bir `BackgroundService` (`PaymentOverdueScanner`) eklenir; gecikme tespiti `PaymentBecameOverdueDomainEvent` üretir ve outbox üzerinden Notifications'a düşer. Ders tamamlanınca ücret kaydı, `LessonSessionCompleted` integration event'inin Payments'ta idempotent tüketilmesiyle oluşur (`IdempotentIntegrationEventHandler`). Takvim tekrar açılımı, öğrenci birleşik takviminde zaten kullanılan `RecurrenceExpander`'ın öğretmen sorgusuna uygulanmasıdır.
+
+**Tech Stack:** .NET 9, EF Core, xUnit; Flutter (syncfusion_flutter_calendar, flutter_bloc).
+
+**Spec:** `docs/superpowers/specs/2026-09-02-saglamlastirma-master-design.md`
+
+## Global Constraints
+
+- **Yetki:** Doğrulama yalnız `Admin`; ders/ödeme işlemleri yalnız ilgili öğretmen (veya Admin). Her yeni command/query için authorizer.
+- **Idempotency:** Event tüketen her yeni handler `IdempotentIntegrationEventHandler` tabanını kullanır (`inbox_messages`).
+- **Modül sınırı:** Payments, LessonSessions'ın DbContext'ini okumaz; yalnız integration event + `Shared/Contracts`.
+- **Zaman:** `IClock.UtcNow`. **Kimlik:** `IIdGenerator.New()`. **Sonuç:** `Result`/`Result<T>`.
+- **Migration:** `dotnet ef migrations add <Ad> --project src/Modules/<M>/Infrastructure --startup-project src/API.Host --context <M>DbContext`
+- **Commit:** Conventional Commits, görev başına bir commit.
+
+---
+
+### Task 1: Öğretmen doğrulama ucu (M02-1)
+
+**Files:**
+- Modify: `src/Modules/Teachers/Domain/TeachersDomainModel.cs` (`SetVerification` + `TeacherVerifiedDomainEvent`)
+- Modify: `src/Modules/Teachers/Application/TeacherProfileFeatures.cs` (command + handler)
+- Modify: `src/Modules/Teachers/Application/TeacherProfilePolicies.cs` (Admin-only authorizer)
+- Modify: `src/Modules/Teachers/API/TeachersModule.cs`
+- Modify: `src/Modules/Teachers/Infrastructure/DependencyInjection.cs`
+- Test: `tests/Unit/TeacherVerificationTests.cs`
+
+**Interfaces:**
+- Produces:
+  - `TeacherProfile.SetVerification(bool isVerified, DateTime updatedOnUtc)` — `TeacherVerifiedDomainEvent(Guid ProfileId, Guid UserId, bool IsVerified, DateTime OccurredOnUtc)` yayar.
+  - `sealed record SetTeacherVerificationCommand(Guid UserId, bool IsVerified) : ICommand<Result<TeacherProfileResponse>>`
+  - `PUT /api/teachers/profiles/{userId}/verification` (auth, **yalnız Admin**)
+
+- [x] **Step 1: Testi yaz (kırmızı)**
+
+```csharp
+[Fact]
+public void SetVerification_Should_Raise_Event_And_Update_Flag()
+{
+    var profile = NewProfile();                      // TeacherProfileTests içindeki yardımcıyı kullan
+    profile.SetVerification(true, Now);
+
+    Assert.True(profile.IsVerified);
+    Assert.Contains(profile.DomainEvents, e => e is TeacherVerifiedDomainEvent);
+}
+
+[Fact]
+public async Task Non_Admin_Should_Be_Forbidden()
+{
+    var authorizer = new SetTeacherVerificationCommandAuthorizer(new FakeCurrentUser(roles: ["Teacher"]));
+    var result = await authorizer.Authorize(new SetTeacherVerificationCommand(Guid.NewGuid(), true), default);
+    Assert.True(result.IsFailure);
+    Assert.Equal("shared.forbidden", result.Error.Code);
+}
+```
+> `FakeCurrentUser` yoksa `tests/Unit/TestDoubles/` altına ekle (`ICurrentUser` uygulayan basit kayıt).
+
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherVerificationTests"`
+- [x] **Step 3: Domain + command + handler + authorizer + endpoint + DI'yı yaz.**
+- [x] **Step 4: Yeşil gör** — aynı komut → PASS.
+- [x] **Step 5: Doküman + commit**
+
+`doc/modules/m02_teachers.md` (madde `- [x]`), `doc/modules/00_genel_bakis.md`, `doc/roles/admin.md` (yeni yetenek).
+```bash
+git add src/Modules/Teachers tests doc
+git commit -m "feat(teachers): admin dogrulama ucu + TeacherVerified event (M02-1)"
+```
+
+---
+
+### Task 2: Öğretmen arama/listeleme ucu (M02-3) ve pasifleştirme (M02-4)
+
+**Files:**
+- Modify: `src/Modules/Teachers/Application/TeacherProfileFeatures.cs` (query + handler)
+- Modify: `src/Modules/Teachers/Application/TeacherProfilePolicies.cs`
+- Modify: `src/Modules/Teachers/Infrastructure/TeacherProfileRepository.cs`
+- Modify: `src/Modules/Teachers/API/TeachersModule.cs`
+- Test: `tests/Unit/TeacherSearchTests.cs`
+
+**Interfaces:**
+- Produces:
+  - `sealed record SearchTeacherProfilesQuery(string? City, string? District, string? Subject, TeacherLessonFormat? LessonFormat, decimal? MinRate, decimal? MaxRate, bool? OnlyVerified, int Skip, int Take) : IQuery<Result<PagedResult<TeacherSummaryResponse>>>`
+  - `sealed record TeacherSummaryResponse(Guid UserId, string FullName, string Subject, IReadOnlyCollection<string> Subjects, string City, string District, string LessonFormat, decimal HourlyRateAmount, string Currency, bool IsVerified, bool IsActive, int ExperienceYears, string? Headline)`
+    > **Plandan sapma (uygulandı):** `LessonFormat` **string** döner — `TeacherProfileResponse` zaten enum'u `ToString()` ile taşıyor, iki uç arasında tutarsızlık olmasın diye. Liste kartı için `ExperienceYears` + `Headline` eklendi.
+  - `TeacherSearchFilter.Apply(IQueryable<TeacherProfile>, SearchTeacherProfilesQuery)` — **plan dışı, eklendi:** filtre ifadesi tek yerde; hem EF sorgusu hem birim testi aynı ifadeyi kullanır.
+  - `ITeacherProfileSearchRepository.SearchAsync(...)` — **plan dışı, eklendi:** arama için ayrı depo yüzeyi (`TeacherProfileRepository` her iki arayüzü de uygular).
+  - `GET /api/teachers/profiles?city=&district=&subject=&lessonFormat=&minRate=&maxRate=&onlyVerified=&skip=&take=` (auth)
+  - `TeacherProfile.Deactivate(DateTime)` / `Activate(DateTime)` + `bool IsActive` alanı
+  - `POST /api/teachers/profiles/{userId}/deactivate` · `/activate` (sahibi veya Admin)
+
+- [x] **Step 1: Testleri yaz (kırmızı)** — filtre kombinasyonları (şehir+branş, ücret aralığı, yalnız doğrulanmış), sayfalama (`Take` en fazla 50), pasif öğretmenin sonuçlarda çıkmaması.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~TeacherSearchTests"`
+- [x] **Step 3: `IsActive` alanı + migration**
+  Run: `dotnet ef migrations add AddTeacherIsActive --project src/Modules/Teachers/Infrastructure --startup-project src/API.Host --context TeachersDbContext`
+- [x] **Step 4: Repository sorgusu + query handler + authorizer (kimliği doğrulanmış herkes arayabilir) + endpoint'ler.**
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 6: Doküman + commit**
+
+> Not: Bu uç M12'nin (eşleştirme) **geçici** okuma yüzeyidir; P11'de `TeacherSearchProjection` devreye girince bu handler projeksiyonu okuyacak şekilde değiştirilir, dış sözleşme (URL + yanıt) korunur.
+```bash
+git add src/Modules/Teachers tests doc
+git commit -m "feat(teachers): profil arama/listeleme + pasiflestirme (M02-3/M02-4)"
+```
+
+---
+
+### Task 3: Ders oturumu yaşam döngüsü (M05-1/M05-3/M05-4)
+
+**Files:**
+- Modify: `src/Modules/LessonSessions/Domain/LessonSessionsDomainModel.cs`
+- Modify: `src/Modules/LessonSessions/Application/LessonSessionFeatures.cs`
+- Modify: `src/Modules/LessonSessions/Application/LessonSessionPolicies.cs`
+- Modify: `src/Modules/LessonSessions/API/LessonSessionsModule.cs`
+- Modify: `src/Modules/LessonSessions/Infrastructure/DependencyInjection.cs` + migration
+- Test: `tests/Unit/LessonSessionTests.cs` (mevcut dosyaya ekleme)
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (**plan dışı, gerekli:** handler/authorizer testleri için `LessonSessions.Application` proje referansı — Öğrenilenler #5 deseni)
+- Modify: `mobile/lib/features/lesson_sessions/{domain,data}/**` + `mobile/test/.../lesson_session_repository_impl_test.dart` (Step 6)
+
+**Interfaces:**
+- Produces:
+  - `LessonSession.Start(DateTime actualStartUtc)` — yalnız `Planned` → `InProgress`; aksi halde `lesson_sessions.invalid_transition`.
+    > **Plandan sapma (uygulandı):** domain metotları `Shared.Kernel.Result` **döner** (fırlatmaz). Repodaki ilk örnek; geçiş kuralı domain'de kalır, handler hatayı taşır ve `SaveChanges` çağırmaz. `Complete()` de artık `Result` döner.
+  - `LessonSession.Cancel(string? reason, DateTime nowUtc)` — `Planned`/`InProgress` → `Cancelled`.
+  - `LessonSession.Complete(...)` içinde **`ActualEnd > ActualStart` doğrulaması** (`lesson_sessions.invalid_time_range`).
+  - Yeni alanlar: `string? MeetingUrl`, `string? RecordingUrl`, `string? CancellationReason`.
+  - `POST /api/lesson-sessions/{id}/start` · `POST /api/lesson-sessions/{id}/cancel` — sahibi öğretmen/Admin; geçersiz geçiş **409**.
+  - `CancelLessonSessionRequest(string? Reason)` — gövde opsiyonel.
+
+- [x] **Step 1: Domain testlerini yaz (kırmızı)** — 5 test: geçerli start; ikinci start hata; complete'te ters zaman aralığı hata; cancel sonrası complete hata; `MeetingUrl` set edilebiliyor.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LessonSessionTests"`
+- [x] **Step 3: Domain + alanlar + migration**
+  Run: `dotnet ef migrations add AddSessionLifecycleFields --project src/Modules/LessonSessions/Infrastructure --startup-project src/API.Host --context LessonSessionsDbContext`
+- [x] **Step 4: Command/handler/authorizer + 2 endpoint.**
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 6: Mobil (kapsam düzeltildi)** — `LessonSessionRepository.startSession/cancelSession` + model alanları (`meetingUrl`/`recordingUrl`/`cancellationReason`) + 3 test.
+  > **Plandan sapma (gerekçeli):** `lesson_detail_page.dart` bir **`LessonSchedule`** taşır, oturum kimliği taşımaz — start/cancel düğmeleri bağlanamaz.
+  > Köprü `POST /from-schedule/{id}` (Task 4) ile kurulur; **düğme bağlantısı Task 4 Step 5'e taşındı.**
+  > "Derse katıl" butonu (`MeetingUrl`, harici tarayıcı) **zaten vardı** (`_JoinMeetingCard`, Dilim A/M04) — yeni iş çıkmadı.
+- [x] **Step 7: Doküman + commit**
+
+`doc/modules/m05_lesson_sessions.md` (durum geçiş diyagramı + yeni uçlar), `doc/pages/lesson_detail.md`.
+```bash
+git add src/Modules/LessonSessions mobile tests doc
+git commit -m "feat(lesson-sessions): baslat/iptal gecisleri + zaman dogrulamasi + MeetingUrl (M05-1/3/4)"
+```
+
+---
+
+### Task 4: Planlı dersten oturum türetme (M05-2)
+
+**Files:**
+- Modify: `src/Modules/LessonSessions/Application/LessonSessionFeatures.cs`
+- Modify: `src/Modules/LessonSessions/API/LessonSessionsModule.cs`
+- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs` (yeni)
+- Modify: `src/Modules/Scheduling/Infrastructure/*` (contract implementasyonu)
+- Test: `tests/Unit/CreateSessionFromScheduleTests.cs`
+- **Plan dışı ama gerekli (uygulandı):** `src/Modules/LessonSessions/Application/LessonSessionPolicies.cs` (authorizer) ·
+  `src/Modules/LessonSessions/Infrastructure/{LessonSessionRepository,DependencyInjection}.cs` ·
+  `src/Modules/Scheduling/Infrastructure/DependencyInjection.cs` (sözleşme kaydı) ·
+  `tests/Integration/LessonSessionListAuthorizationTests.cs` (arayüz büyüdü, sahte güncellendi — Öğrenilenler #46) ·
+  `mobile/lib/features/lesson_sessions/**` + `mobile/test/.../lesson_session_repository_impl_test.dart`
+
+**Interfaces:**
+- Produces:
+  - ```csharp
+    namespace EgitimUssu.Shared.Contracts;
+
+    public sealed record LessonScheduleDetails(
+        Guid LessonScheduleId, Guid TeacherUserId, Guid StudentId,
+        DateTime StartAtUtc, DateTime EndAtUtc, string Subject, string? MeetingUrl, string Status);
+
+    /// <summary>Scheduling'in dışa açtığı okuma sözleşmesi (LessonSessions tüketir).</summary>
+    public interface ILessonScheduleDirectory
+    {
+        Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken);
+    }
+    ```
+  - `sealed record CreateSessionFromScheduleCommand(Guid LessonScheduleId) : ICommand<Result<LessonSessionResponse>>`
+  - `ILessonSessionRepository.GetByScheduleIdAsync(Guid, CancellationToken)` — **plan dışı, eklendi:** idempotency anahtarı.
+  - `CreateSessionFromScheduleCommandAuthorizer` — **plan dışı, eklendi:** oturum henüz yok, yetki **planın** öğretmenine bakar.
+  - Hata kodları: `lesson_sessions.schedule_not_found` (**404**) · `lesson_sessions.schedule_not_derivable` (**409**, iptal/tamamlanmış plan).
+  > **Not (uygulama kararı):** `LessonScheduleDetails` sözleşmesinde `Topic` yok; türetilen oturumun `TopicTitle`'ı **`Subject`**'ten doldurulur (öğretmen tamamlarken düzeltir). Öğretmensiz (self, Ç-06) plan sözleşmeden `null` döner → türetilemez.
+  - `POST /api/lesson-sessions/from-schedule/{lessonScheduleId}` (öğretmen)
+
+- [x] **Step 1: Testleri yaz (kırmızı)** — plandan oturum üretilir (öğrenci/öğretmen/saat/`MeetingUrl` kopyalanır); aynı plan için ikinci çağrı **yeni oturum açmaz**, mevcut oturumu döndürür (idempotent); iptal edilmiş plandan oturum üretilemez.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~CreateSessionFromScheduleTests"`
+- [x] **Step 3: Sözleşmeyi + Scheduling implementasyonunu + handler'ı yaz.**
+  > `LessonSessions` **Scheduling'e proje referansı vermez**; yalnız `Shared.Contracts`'ı kullanır (mimari test bunu zorlar).
+- [x] **Step 4: Endpoint + DI + yeşil test** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 5: Mobil (kısmen taşındı)** — `createSessionFromSchedule` repository ucu + **Task 3'ten devralınan düğmeler bağlandı**: `lesson_detail_page.dart`'ta "Dersi Başlat" / "Dersi İptal Et" (iptalde neden sorulur), akış `from-schedule` → `start`/`cancel`; **409** → "Bu ders zaten başlamış veya iptal edilmiş."
+  > **Plandan sapma (gerekçeli):** "Ders notu gir → `/lesson-notes/new`" tek adımı **yapılmadı**. `LessonNoteFormPage` hâlâ sabit öğrenci/ders listeleriyle çalışan **demo** ekrandır ve `lessonSessionId` almaz — backend'e bağlanması M06 işidir (P06 Task 6 / M06-3-4 adayı). Köprü (`from-schedule`) hazır; not formu bağlanınca tek adım kolayca eklenir.
+- [x] **Step 6: Doküman + commit**
+
+```bash
+git add src/Shared/Contracts src/Modules mobile tests doc
+git commit -m "feat(lesson-sessions): planli dersten oturum turetme (M05-2)"
+```
+
+---
+
+### Task 5: Ödeme otomasyonu — gecikme taraması ve ders ücreti (M07-1/M07-2)
+
+**Files:**
+- Modify: `src/Modules/Payments/Domain/PaymentsDomainModel.cs` (`MarkOverdue` + `PaymentBecameOverdueDomainEvent`)
+- Create: `src/Modules/Payments/Infrastructure/PaymentOverdueScanner.cs` (BackgroundService)
+- Create: `src/Modules/Payments/Infrastructure/LessonSessionCompletedPaymentHandler.cs`
+- Modify: `src/Modules/Payments/Infrastructure/DependencyInjection.cs` + migration
+- Create: `src/Modules/Notifications/Infrastructure/PaymentOverdueNotificationHandler.cs` + `DependencyInjection.cs` (yeni event tüketimi → `UserNotification`)
+- Test: `tests/Unit/PaymentOverdueScannerTests.cs`, `tests/Unit/LessonSessionCompletedPaymentHandlerTests.cs`
+- **Plan dışı ama gerekli (uygulandı):**
+  `src/Shared/Contracts/StudentDirectoryContract.cs` (`AgreedLessonRate` + `IStudentDirectory.GetAgreedLessonRateAsync`) ·
+  `src/Shared/Contracts/LessonSessionReadContract.cs` (`LessonSessionDetails.IsChargeable`, varsayılan `false`) ·
+  `src/Modules/Students/Infrastructure/StudentDirectory.cs` + `src/Modules/LessonSessions/Infrastructure/LessonSessionAccessService.cs` (sözleşme uygulamaları) ·
+  `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Payments.Infrastructure proje referansı — Öğrenilenler #5) ·
+  `tests/Unit/SelfLessonPolicyTests.cs` (arayüz büyüdü, sahte güncellendi — Öğrenilenler #46) ·
+  `tests/Unit/PaymentOverdueNotificationHandlerTests.cs` (Step 5'in testi)
+
+**Interfaces:**
+- Produces:
+  - `PaymentRecord.MarkOverdue(DateTime nowUtc)` — yalnız `Pending`/`PartiallyPaid` ve `DueDate < now` iken; `Status = Overdue` + `PaymentBecameOverdueDomainEvent`.
+  - `PaymentOverdueScanner : BackgroundService` — saatte bir tarar, `MarkOverdue` uygular (idempotent: zaten `Overdue` olanı atlar).
+    > **Plandan sapma (uygulandı):** tur mantığı `IPaymentOverdueScanProcessor`/`PaymentOverdueScanProcessor`'a ayrıldı; `BackgroundService` yalnız zamanlayıcıdır. Repodaki mevcut desen (`NotificationDispatcher`/`NotificationDispatchProcessor`) birebir izlendi — `BackgroundService`'in kendisi birim testinden koşturulamaz.
+    > `MarkOverdue` **`Result` değil `bool`** döner: geçiş yapılmaması bir hata değil, taramanın normal akışıdır (Öğrenilenler #58'in sınırı).
+  - `LessonSessionCompletedPaymentHandler : IdempotentIntegrationEventHandler` — `IsChargeable == true` olan tamamlanan oturum için `PaymentRecord` (tutar = öğrenci bazlı ders ücreti) oluşturur.
+    > **Plandan sapma (gerekli):** olay yükü `IsChargeable` **taşımıyordu**; alan `LessonSessionDetails` sözleşmesine varsayılan `false` ile eklendi (Öğrenilenler #56 deseni — çağrı yerleri değişmedi).
+    > **Uygulama kararı:** ücret `IStudentDirectory`'ye eklenen `GetAgreedLessonRateAsync` ile okunur ve **ders başına** ücret kabul edilir (`m03_students.md`: "Öğrenci bazlı anlaşılan ders ücreti") — süreyle çarpılmaz. Vade = tamamlanma + **7 gün** (`LessonFeeDueDays`). Oturum başına tek kayıt (`RelatedLessonSessionId`) — ders yeniden tamamlanabildiği için EventId guard'ı tek başına yetmez.
+
+- [x] **Step 1: Testleri yaz (kırmızı)**
+```csharp
+[Fact]
+public void MarkOverdue_Should_Only_Apply_To_Outstanding_Past_Due()
+{
+    // Paid kayıt → durum değişmez; vadesi gelmemiş Pending → değişmez;
+    // vadesi geçmiş Pending → Overdue + event
+}
+
+[Fact]
+public async Task Scanner_Should_Be_Idempotent()
+{
+    // İki tur çalıştır → ikinci turda yeni event üretilmemeli
+}
+
+[Fact]
+public async Task Completed_Chargeable_Session_Should_Create_Payment_Record()
+{
+    // Aynı EventId ikinci kez gelirse ikinci kayıt oluşmamalı (inbox guard)
+}
+
+[Fact]
+public async Task Non_Chargeable_Session_Should_Not_Create_Payment()
+{
+}
+```
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Payment"` → derleme hatası (tipler yok), beklenen kırmızı.
+- [x] **Step 3: Domain + migration** (`Status` zaten enum; `OverdueMarkedOnUtc` alanı ekle)
+  Run: `dotnet ef migrations add AddOverdueTracking --project src/Modules/Payments/Infrastructure --startup-project src/API.Host --context PaymentsDbContext`
+- [x] **Step 4: Scanner + handler'ı yaz, DI'ya `AddHostedService<PaymentOverdueScanner>()` ekle.**
+  > Ders ücreti: `Shared/Contracts/IStudentDirectory` üzerinden öğrenci bazlı ücret (`B-07` ile eklenen `rate`) okunur; yoksa öğretmenin `HourlyRateAmount`'u kullanılmaz — ücret yoksa kayıt **oluşturulmaz** ve `LogInformation` düşülür (sessiz yanlış tutar üretme).
+- [x] **Step 5: Notifications tarafında vade bildirimi** — `PaymentOverdueNotificationHandler`: öğretmene **koşulsuz**, öğrencinin onaylı velilerine **Premium + `Prefs.Payments`** kapılı `UserNotification(Kind=PaymentOverdue)`. Push burada gönderilmez; `NotificationDispatcher` turu gönderir (Öğrenilenler #40/#55).
+- [x] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx` → 4 mimari / 389 birim / 21 integration, **başarısız 0**; ayrıca `dotnet build EgitimUssu.slnx -warnaserror --no-incremental` → 0 hata (CS8907 yakalandı ve düzeltildi).
+- [x] **Step 7: Doküman + commit**
+
+`doc/modules/m07_payments.md` (otomasyon + yeni event), `doc/modules/m11_notifications.md` (yeni tüketici), `doc/modules/veri_modeli.md`.
+```bash
+git add src/Modules tests doc
+git commit -m "feat(payments): gecikme taramasi + ders tamamlaninca ucret kaydi (M07-1/M07-2)"
+```
+
+---
+
+### Task 6: Takvimde tekrar açılımı ve çakışma uyarısı (M04-1, M04-2/M08-1)
+
+**Files:**
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (`ListLessonSchedulesForTeacherQuery` handler + DTO + repo arayüzü)
+- Modify: `src/Modules/Scheduling/Application/StudentCalendarQuery.cs` (çakışma bayrağı) — *plandaki `StudentCalendarFeatures.cs` adı yanlıştı*
+- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (**plan dışı, gerekli:** `ScheduleOccurrence.OriginalStartAtUtc`/`RecurrenceIdUtc` + **COUNT** desteği)
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (**plan dışı, gerekli:** `ListActiveForTeacherUntilAsync`)
+- Test: `tests/Unit/TeacherLessonExpansionTests.cs` (**yeni** — plan bu testleri `RecurrenceExpanderTests`'e koyuyordu, ama bunlar handler testi), `tests/Unit/RecurrenceExpanderTests.cs` (COUNT), `tests/Unit/StudentCalendarQueryTests.cs` (çakışma)
+- Modify: `tests/Unit/{LessonScheduleTests,SelfLessonPolicyTests}.cs` + `tests/Integration/TeacherWorkflowIntegrationTests.cs` (**plan dışı, gerekli:** repo arayüzü büyüdü / yanıt sözleşmesi değişti — Öğrenilenler #46)
+- Modify: `mobile/lib/features/scheduling/{domain/scheduling_contracts.dart,data/models/study_schedule_models.dart}` + `mobile/test/features/scheduling/data/calendar_occurrence_model_test.dart`
+- Modify: `mobile/lib/features/study/presentation/pages/student_calendar_page.dart`
+- *`scheduling_page.dart` **değişmedi**: açılım tamamen backend'de yapıldığı ve yanıt `startAtUtc`'yi occurrence saatiyle doldurduğu için öğretmen takvimi kod değişikliği olmadan tekrarları gösterir.*
+
+**Interfaces:**
+- `GET /api/scheduling/teachers/{teacherUserId}/lessons` yanıtı artık **açılmış occurrence'lar** döner; `LessonOccurrenceException` istisnaları uygulanır, iptal edilen seri/oluşum listelenmez.
+  > **Uygulama kararı:** `StartAtUtc`/`EndAtUtc` **somut oluşumu** taşır (mobil kod değişmeden doğru saati gösterir), yeni `OccurrenceStartAtUtc` alanı ise iCal RECURRENCE-ID'dir — ertelenmiş oluşumda **orijinal** saati taşır, çünkü tek-oluşum iptal/erteleme uçları istisnayı bu anahtarla yazar.
+- Öğrenci takvim yanıtındaki bireysel plan öğelerine `bool ConflictsWithLesson` alanı eklenir (yalnız `Self` kaynaklı occurrence'larda hesaplanır).
+
+- [x] **Step 1: Testleri yaz (kırmızı)** — haftalık tekrar eden ders 4 occurrence döner; iptal edilen occurrence çıkmaz; ertelenen occurrence orijinal anahtarı korur; `UNTIL` ile kısaltılmış seri durur; bireysel plan özel dersle çakışıyorsa `ConflictsWithLesson = true` (tekrarlı öğretmen dersinin ikinci haftasıyla çakışma dahil).
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj` → derleme hatası (yeni alanlar yok).
+- [x] **Step 3: Öğretmen sorgusuna `RecurrenceExpander`'ı uygula** — ortak yardımcı çağrıldı; istisnalar tek sorguda (`ListExceptionsForTeacherAsync`) yüklenip seriye göre gruplanır (öğrenci tarafındaki N+1 deseni tekrarlanmadı).
+- [x] **Step 4: Çakışma bayrağını hesapla ve yanıta ekle.**
+- [x] **Step 5: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+  > **Plandan sapma (gerekçeli):** Bu adımda `TeacherWorkflowIntegrationTests` kırıldı ve **`RecurrenceExpander`'ın `COUNT` kuralını yok saydığını** ortaya çıkardı (`FREQ=WEEKLY;COUNT=4` sonsuza kadar açılıyordu). Açılım artık öğretmen takvimini beslediği için bu üretimde görünür bir hata olurdu; 2 birim testiyle kapatıldı. Integration iddiası yeni sözleşmeye göre güncellendi (1 satır → 2 occurrence + anahtar kontrolü).
+- [x] **Step 6: Mobil** — `CalendarOccurrence.conflictsWithLesson` + JSON eşlemesi + 2 test; öğrenci takviminde çakışan kart `AppColors.warning` rengine döner ve "Bu saatte özel dersin var" rozetini gösterir (takvim günü + liste modu). Öğretmen takviminde kod değişikliği gerekmedi (yukarıya bkz.).
+- [x] **Step 7: Doküman + commit**
+
+`doc/modules/m04_scheduling.md` (iki açık madde `- [x]`), `doc/modules/m08_study.md` (çakışma maddesi), `doc/pages/scheduling.md`, `doc/pages/study_student.md`.
+```bash
+git add src/Modules/Scheduling mobile tests doc
+git commit -m "feat(scheduling): ogretmen takviminde tekrar acilimi + cakisma uyarisi (M04-1/M04-2/M08-1)"
+```
+
+---
+
+### Task 7: Ödev son teslim uyarısı ve değerlendirme (M06-3/M06-4)
+
+**Files:**
+- Create: `src/Modules/Assignments/Infrastructure/AssignmentDueScanner.cs` (BackgroundService)
+- Modify: `src/Modules/Assignments/Domain/AssignmentsDomainModel.cs` (`Grade` + `AssignmentDueSoonDomainEvent` + `AssignmentMissedDomainEvent`)
+- Modify: `src/Modules/Assignments/Application/AssignmentTeacherFeatures.cs` (puanlama komutu)
+- Modify: `src/Modules/Assignments/API/AssignmentsModule.cs`
+- Modify: `src/Modules/Notifications/Infrastructure/*` (iki yeni tüketici)
+- Test: `tests/Unit/AssignmentDueScannerTests.cs`, `tests/Unit/AssignmentGradeTests.cs`
+
+**Interfaces:**
+- Produces:
+  - `Assignment.Grade(int score, string? feedback, DateTime nowUtc)` — 0–100; `Approved` durumundayken geçerli.
+  - `AssignmentDueScanner` — saatte bir: son teslime **24 saat** kalan ve teslim edilmemiş ödevler için `AssignmentDueSoonDomainEvent` (ödev başına bir kez, `DueSoonNotifiedOnUtc` alanıyla); vadesi geçmiş ve teslim edilmemişler için `AssignmentMissedDomainEvent` (bir kez).
+  - `POST /api/assignments/{assignmentId}/grade` (öğretmen)
+
+- [x] **Step 1: Testleri yaz (kırmızı)** — puan aralığı doğrulaması; scanner'ın aynı ödev için ikinci kez event üretmemesi; teslim edilmiş ödev için event üretmemesi.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~Assignment"`
+- [x] **Step 3: Domain + alanlar + migration**
+  Run: `dotnet ef migrations add AddAssignmentGradeAndDueTracking --project src/Modules/Assignments/Infrastructure --startup-project src/API.Host --context AssignmentsDbContext`
+- [x] **Step 4: Scanner + puanlama komutu + endpoint + DI.**
+- [x] **Step 5: Notifications tüketicileri (M09-3)** — öğrenciye "Ödev teslimine 24 saat kaldı", öğrenci+veliye "Ödev teslim edilmedi" (tercih kapısı P05'ten geçer). Veli tarafı M09-3'ü kapatır.
+- [x] **Step 6: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 7: Mobil** — Öğretmen ödev detayında puan + geri bildirim alanı; öğrenci ödev kartında puan rozeti.
+- [x] **Step 8: Doküman + commit**
+
+```bash
+git add src/Modules mobile tests doc
+git commit -m "feat(assignments): son teslim uyarisi + odev puanlama (M06-3/M06-4)"
+```
+
+---
+
+### Task 8: Mobil — öğretmen uygunluk düzenleyici (D-04) ve M02-5 ✅
+
+**Files:**
+- Create: `mobile/lib/features/teacher_profile/presentation/widgets/availability_editor.dart`
+- Modify: `mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart`
+- Modify: `mobile/lib/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart` *(plan sonradan düzeltildi: `saveAvailability` burada yaşıyor)*
+- Modify: `mobile/lib/features/teacher_profile/domain/teacher_profile_contracts.dart` *(plan sonradan düzeltildi: `TeacherProfile.copyWith`)*
+- ~~Modify: `mobile/lib/features/teacher_profile/data/repositories/teacher_repository_impl.dart`~~ **gerekmedi** — `toCreatePayload()/toUpdatePayload()` zaten `availabilitySlots` taşıyor
+- Test: `mobile/test/features/teacher_profile/availability_editor_test.dart`
+- Modify: `doc/pages/teacher_profile.md`, `doc/architecture/widgets.md`, `doc/modules/m02_teachers.md`
+
+**Interfaces:**
+- `AvailabilityEditor` widget'ı: haftanın 7 günü × saat aralıkları ızgarası; slot ekle/sil, her slotta "Online"/"Yüz yüze" anahtarları. Değişiklik `TeacherProfileCubit.saveAvailability(List<AvailabilitySlot>)` ile `PUT /api/teachers/profiles/{userId}` gövdesindeki `availabilitySlots` alanına yazılır (P01 Task 1'deki merge sayesinde tekrar kaydetme güvenli).
+- **Uygulanan:** `AvailabilityEditor` **kontrollü** (controlled) widget'tır — listeyi sahiplenmez, `onChanged` ile yukarı verir; sayfa state'i tutar. Doğrulama UI'dan ayrı: `availabilitySlotOverlaps` + `availabilitySlotError`. `saveAvailability` yüklü profili `copyWith(availabilitySlots:)` ile kopyalar (PUT gövdesi profilin tamamını ister).
+
+- [x] **Step 1: Widget testini yaz (kırmızı)** — slot ekleme sonrası listede görünmesi, çakışan slot eklenememesi (aynı gün + kesişen saat), silme.
+- [x] **Step 2: Kırmızı gör** — Run: `cd mobile && flutter test test/features/teacher_profile/availability_editor_test.dart`
+- [x] **Step 3: Widget'ı yaz** — `doc/architecture/design_system.md` token'ları + mevcut ortak widget'lar; yeni renk/spacing icat etme.
+- [x] **Step 4: Profil sayfasına yerleştir + kaydetme akışını bağla.**
+- [x] **Step 5: Testler** — Run: `cd mobile && flutter test && flutter analyze` → yeşil.
+- [x] **Step 6: Doküman + commit**
+
+```bash
+git add mobile doc
+git commit -m "feat(mobile): ogretmen uygunluk duzenleyici (D-04/M02-5)"
+```
+
+---
+
+### Task 9: Öğrenci profili tamamlayıcı uçlar (M03-1/M03-2/M03-3) ✅
+
+**Files:**
+- Modify: `src/Modules/Students/Application/StudentProfileFeatures.cs`
+- Modify: `src/Modules/Students/Application/StudentProfilePolicies.cs`
+- Modify: `src/Modules/Students/API/StudentsModule.cs`
+- Modify: `src/Modules/Students/Domain/StudentsDomainModel.cs` *(plan sonradan düzeltildi: `AddSubject`/`RemoveSubject` + `StudentErrors`)*
+- Modify: `src/Modules/Students/Infrastructure/DependencyInjection.cs` — ~~`StudentProfileRepository.cs`~~ **gerekmedi** (EF izleme + zorunlu FK cascade sayesinde yeni depo metodu gerekmedi)
+- Create: `src/Shared/Contracts/ParentChildLinkRequestContract.cs` · Modify: `src/Shared/Contracts/ParentAccessContract.cs` *(plan sonradan düzeltildi)*
+- Create: `src/Modules/Parents/Infrastructure/ParentChildLinkRequestService.cs` · Modify: `ParentAccessDirectory.cs`, `DependencyInjection.cs` *(plan sonradan düzeltildi: bağ Parents'ta yaşıyor)*
+- Modify: `mobile/lib/features/students/{domain/student_contracts,data/models/student_model,data/repositories/student_repository_impl,presentation/cubit/student_detail_cubit,presentation/pages/student_detail_page}.dart` *(plan yalnız sayfayı listeliyordu)*
+- Test: `tests/Unit/StudentProfileSubjectsTests.cs`, `tests/Unit/StudentParentLinkTests.cs`, `mobile/test/features/students/student_subject_link_test.dart`
+- Modify: `doc/modules/{m03_students,m09_parents,00_genel_bakis}.md`, `doc/pages/students_detail.md`, `doc/roles/{ogretmen,veli}.md`
+
+**Interfaces:**
+- Produces:
+  - `POST /api/students/profiles/{studentId}/link-parent` — `{ parentUserId }`; **veli daima kayıtlı kullanıcıdır** (`students.parent_user_required`). Onay akışı Parents modülündeki `children/link` ile aynı kurala tabidir: bağ `Pending` başlar, öğrenci/öğretmen onaylar. (M03-1)
+  - `POST /api/students/profiles/{studentId}/subjects` — `{ subject, targetLevel }` · `DELETE /api/students/profiles/{studentId}/subjects/{subjectId}` (M03-2)
+  - `GET /api/students/profiles/by-parent/{parentUserId}` — velinin **onaylı** çocukları (`IParentAccessDirectory` ile doğrulanır) (M03-3)
+
+- **Uygulanan (plandan sapma):** `link-parent` ucu `StudentProfile.ParentUserId`'yi **doldurmaz**. Bağın sahibi Parents modülüdür; Students yeni `IParentChildLinkRequestService` sözleşmesi üzerinden `Pending` bağ açar, onay mevcut `POST /api/parents/children/{linkId}/approve` ucundadır, `ParentUserId` ancak `ParentChildLinkApproved` olayıyla dolar. Aksi hâlde Students, Parents'ın DbContext'ine yazmış olurdu (modül sınırı ihlali).
+- **Uygulanan:** `StudentSubjectResponse` `Id` alanı kazandı (silme ucu kimlikle çalışır); `IParentAccessDirectory` `ListApprovedStudentIdsAsync` ile büyüdü; `by-parent` için ayrı hafif yanıt `ParentChildSummaryResponse`.
+
+- [x] **Step 1: Testleri yaz (kırmızı)** — kayıtlı olmayan veli kimliğiyle bağlama reddediliyor; aynı branş iki kez eklenemiyor (`students.duplicate_subject`); `by-parent` yalnız **onaylı** bağları döndürüyor; başka velinin kimliğiyle sorgu 403.
+- [x] **Step 2: Kırmızı gör** — Run: `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~StudentProfileSubjectsTests|FullyQualifiedName~StudentParentLinkTests"`
+- [x] **Step 3: Command/query + handler + authorizer + uçları yaz.**
+- [x] **Step 4: Yeşil gör** — Run: `dotnet test EgitimUssu.slnx`
+- [x] **Step 5: Mobil** — Öğrenci detayında "Branş ekle/çıkar" ve "Veli bağla" bölümleri. ⚠️ **Veli e-postasıyla arama yapılamadı:** Identity'de kullanıcı arama ucu yok; alan şimdilik **veli kullanıcı kimliği** alıyor (ILERLEME Öğrenilenler #79).
+- [x] **Step 6: Doküman + commit**
+
+`doc/modules/m03_students.md` (§ eksik uçlar `- [x]`), `doc/modules/00_genel_bakis.md` (Students bloğu 13 → 16 uç).
+```bash
+git add src/Modules/Students mobile tests doc
+git commit -m "feat(students): veli baglama + brans yonetimi + veli listesi (M03-1/2/3)"
+```
+
+---
+
+### Task 10: Beta hazırlığı — kapanış ve saha doğrulaması ✅
+
+- [x] **Step 1: Tam testler** — Run: `./scripts/test-with-docker.sh && cd mobile && flutter test` → başarısız 0, atlanan 0.
+- [x] **Step 2: Öğretmen günlük akış senaryosunu baştan sona koş** — **script'le, gerçek Postgres + çalışan API üzerinde** (elle mobil gezinti yerine HTTP; 41 adım, tamamı yeşil). Koşum **4 gerçek hata** ortaya çıkardı ve dördü de bu görevde düzeltilip gerçek-Postgres regresyon testine bağlandı:
+  1. `StudentSubject.Id` `ValueGeneratedOnAdd` → branş ekleme `UPDATE` üretip 500 veriyordu (`ValueGeneratedNever` + `StudentSubjectValueGeneratedNever` migration)
+  2. `TeacherSearchFilter` kültüre bağlı `ToLower()` → tr-TR'de "Istanbul" araması boş dönüyordu (`NormalizeForSearch`)
+  3. `ParentNotificationDirectory` sorgusu SQL'e çevrilemiyordu → **tüm outbox zinciri ölüydü** (otomatik ders ücreti + bildirimler hiç işlenmiyordu)
+  4. Bildirim listesi ucunda sorgu parametresi varsayılanı yoktu → eksik parametre 500
+  ⚠️ **Doğrulanamayanlar:** gerçek e-posta gönderimi (Q7), gerçek cihaz push'u (Q8), mobil ekranların cihazda elle gezilmesi.
+
+  1. ✅ Kayıt → e-posta doğrulama **token'ı** (P02; *gerçek gönderim Q7'ye bağlı*) → profil + uygunluk (Task 8). *Fotoğraf yükleme (P04) canlıda koşulmadı — MinIO'ya karşı P04'te doğrulanmıştı.*
+  2. ✅ Öğrenci ekle → davet gönder → öğrenci 6 haneli kodla devraldı (claim)
+  3. ✅ Haftalık tekrar eden ders planla → takvimde 4 occurrence (Task 6)
+  4. ✅ "Dersi başlat" → "Tamamla" → oturum notu + ödev + 0–100 puanlama (Task 3, 4, 7)
+  5. ⚠️ Ödev son teslim uyarısı **canlıda koşulmadı** (saatlik tarama + geçmiş vade gerekiyor) — birim testiyle kapsanıyor. Aynı desendeki `PaymentOverdueScanner` zinciri canlıda uçtan uca doğrulandı.
+  6. ✅ Ödeme kaydı otomatik oluştu (500 TRY, vade +7 gün, oturuma bağlı) → vade geriye alınıp tarama koşuldu → `Overdue` + öğretmene in-app bildirim + rozet düşüşü
+  Expected: her adım hatasız; kırılan adım varsa ilgili task'a geri dön. → **4 adım kırıldı, dördü de düzeltildi.**
+- [x] **Step 3: Dokümanlar** — `doc/roles/ogretmen.md` kontrol listesi; `doc/yol_haritasi.md` Faz 1 durumu; `doc/modules/00_genel_bakis.md` endpoint envanteri (Teachers 3 → 8, LessonSessions 4 → 7, Assignments → +1); `doc/denetim/2026-09-02_eksik_analizi.md` ilgili maddeler `✅ (P06)`.
+- [x] **Step 4: Commit**
+
+```bash
+git add -A
+git commit -m "docs: P06 ogretmen MVP kapanisi"
+```
+
+---
+
+## Kabul Kriterleri
+
+- [x] Admin öğretmeni doğrulayabiliyor; öğretmen kendini doğrulayamıyor
+- [x] `GET /api/teachers/profiles` filtreli, sayfalı ve yalnız aktif profilleri döndürüyor
+- [x] Oturum `Planned → InProgress → Completed` ve `→ Cancelled` geçişleri çalışıyor; ters zaman aralığı reddediliyor — *canlıda başlat/tamamla + ters aralık (400) doğrulandı; `Cancelled` yolu birim testiyle*
+- [x] Planlı dersten tek çağrıyla oturum türetiliyor, ikinci çağrı yeni oturum açmıyor
+- [x] Vadesi geçen ödeme otomatik `Overdue` oluyor ve bildirim gidiyor
+- [x] Tamamlanan ücretli oturum için ödeme kaydı otomatik oluşuyor (tekrar eden event'te çift kayıt yok)
+- [x] Öğretmen takviminde tekrar eden dersler görünüyor
+- [x] Ödev son teslim uyarısı ve puanlama çalışıyor — *puanlama (0–100 + sınır reddi) canlıda doğrulandı; son teslim taraması birim testiyle (saatlik tarama + geçmiş vade gerektirir). Aynı sınıftaki `PaymentOverdueScanner` → bildirim zinciri canlıda uçtan uca doğrulandı*
+- [x] Mobilde uygunluk düzenlenip kaydedilebiliyor — *widget testi (16 test) + sunucu tarafı `availabilitySlots` yazımı canlıda doğrulandı; **cihazda elle gezinti yapılmadı***
+- [x] Tam test paketi (Docker'lı) yeşil

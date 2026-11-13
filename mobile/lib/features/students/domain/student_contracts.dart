@@ -2,8 +2,12 @@ class StudentSubjectTarget {
   const StudentSubjectTarget({
     required this.subject,
     required this.targetLevel,
+    this.id = '',
   });
 
+  /// Sunucudaki branş kimliği (M03-2). Silme ucu **kimlikle** çalışır; henüz
+  /// kaydedilmemiş (yerel) branşlarda boştur.
+  final String id;
   final String subject;
   final String targetLevel;
 }
@@ -34,6 +38,25 @@ class StudentProfile {
   final String? levelNotes;
   final List<StudentSubjectTarget> subjects;
   final bool isActive;
+
+  StudentProfile copyWith({
+    List<StudentSubjectTarget>? subjects,
+    bool? isActive,
+  }) {
+    return StudentProfile(
+      id: id,
+      fullName: fullName,
+      gradeLevel: gradeLevel,
+      origin: origin,
+      subjects: subjects ?? this.subjects,
+      teacherUserId: teacherUserId,
+      contactEmail: contactEmail,
+      contactPhone: contactPhone,
+      goalSummary: goalSummary,
+      levelNotes: levelNotes,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 }
 
 abstract interface class StudentRepository {
@@ -50,5 +73,25 @@ abstract interface class StudentRepository {
     required String userId,
     required String fullName,
     required String gradeLevel,
+  });
+
+  /// M03-2: Profili baştan güncellemeden tek branş ekler; sunucunun verdiği kimlikle döner.
+  Future<StudentSubjectTarget> addSubject({
+    required String studentId,
+    required String subject,
+    String? targetLevel,
+  });
+
+  /// M03-2: Tek branşı kimliğiyle siler.
+  Future<void> removeSubject({
+    required String studentId,
+    required String subjectId,
+  });
+
+  /// M03-1: Kayıtlı bir veli kullanıcısını öğrenciye bağlama talebi açar.
+  /// Bağ **onay bekler** (`Pending`); profil velisi ancak onaydan sonra dolar.
+  Future<void> linkParent({
+    required String studentId,
+    required String parentUserId,
   });
 }

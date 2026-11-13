@@ -15,7 +15,7 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
 
     public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
     {
-        return _dbContext.LessonSchedules.FirstOrDefaultAsync(lesson => lesson.Id == lessonId, cancellationToken);
+        return _dbContext.LessonSchedules.FindAsync(new object?[] { lessonId }, cancellationToken).AsTask();
     }
 
     public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken)
@@ -53,6 +53,17 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
     {
         return await _dbContext.LessonSchedules
             .Where(lesson => lesson.StudentId == studentId
+                && lesson.Status != LessonScheduleStatus.Cancelled
+                && lesson.StartAtUtc <= untilUtc)
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken)
+    {
+        // M04-1: Alt sınır yok — tekrar kuralı uygulama katmanında genişletildiği için pencereden
+        // önce başlamış seriler de gerekir. İptal edilen seriler takvimde gösterilmez.
+        return await _dbContext.LessonSchedules
+            .Where(lesson => lesson.TeacherUserId == teacherUserId
                 && lesson.Status != LessonScheduleStatus.Cancelled
                 && lesson.StartAtUtc <= untilUtc)
             .ToArrayAsync(cancellationToken);

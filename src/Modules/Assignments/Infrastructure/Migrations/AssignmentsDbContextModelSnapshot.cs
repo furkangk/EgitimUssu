@@ -29,6 +29,21 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AttachmentContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("AttachmentFileName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long?>("AttachmentSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AttachmentStorageKey")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<string>("AttachmentUrl")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
@@ -46,8 +61,20 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                     b.Property<DateTime?>("DueDateUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DueSoonNotifiedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("GradedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("LessonSessionId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("MissedNotifiedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Score")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -72,6 +99,8 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LessonSessionId");
+
+                    b.HasIndex("Status", "DueDateUtc");
 
                     b.HasIndex("StudentId", "Status");
 
@@ -120,6 +149,73 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("lesson_notes", "assignments");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Assignments.Domain.LessonResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ArchivedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("LessonSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid?>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TeacherUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LessonSessionId");
+
+                    b.HasIndex("StudentId", "IsActive");
+
+                    b.HasIndex("TeacherUserId", "IsActive");
+
+                    b.ToTable("lesson_resources", "assignments");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage", b =>
@@ -190,6 +286,10 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

@@ -14,6 +14,9 @@ class LessonSession {
     this.actualEndAtUtc,
     this.durationMinutes,
     this.attendanceStatus,
+    this.meetingUrl,
+    this.recordingUrl,
+    this.cancellationReason,
   });
 
   final String id;
@@ -30,10 +33,30 @@ class LessonSession {
   final DateTime? actualEndAtUtc;
   final int? durationMinutes;
   final String? attendanceStatus;
+
+  /// M05-4: Online dersin toplanti baglantisi (varsa "Derse katil" icin).
+  final String? meetingUrl;
+
+  /// M05-4: Ders kaydinin baglantisi.
+  final String? recordingUrl;
+
+  /// M05-1: Ders iptal edildiyse nedeni.
+  final String? cancellationReason;
 }
 
 abstract interface class LessonSessionRepository {
+  Future<List<LessonSession>> listTeacherSessions(String teacherUserId);
   Future<LessonSession> createSession(LessonSession lessonSession);
   Future<LessonSession> getSession(String lessonSessionId);
   Future<LessonSession> completeSession(LessonSession lessonSession);
+
+  /// M05-1: Planli dersi baslatir (Planned -> InProgress).
+  Future<LessonSession> startSession(String lessonSessionId);
+
+  /// M05-1: Planli veya devam eden dersi iptal eder.
+  Future<LessonSession> cancelSession(String lessonSessionId, {String? reason});
+
+  /// M05-2: Planli dersten (M04) oturum turetir. Ayni plan icin idempotent:
+  /// ikinci cagri yeni oturum acmaz, mevcut oturumu doner.
+  Future<LessonSession> createSessionFromSchedule(String lessonScheduleId);
 }

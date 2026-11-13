@@ -32,7 +32,7 @@ internal sealed class ProgressRepository : IProgressRepository
         _dbContext.TopicMasteries.AddAsync(mastery, cancellationToken).AsTask();
 
     public Task<TopicGoal?> GetGoalAsync(Guid goalId, CancellationToken cancellationToken) =>
-        _dbContext.TopicGoals.FirstOrDefaultAsync(x => x.Id == goalId, cancellationToken);
+        _dbContext.TopicGoals.FindAsync(new object?[] { goalId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyList<TopicGoal>> ListGoalsAsync(Guid studentId, TopicGoalStatus? status, CancellationToken cancellationToken)
     {
@@ -52,6 +52,43 @@ internal sealed class ProgressRepository : IProgressRepository
 
     public Task AddGoalAsync(TopicGoal goal, CancellationToken cancellationToken) =>
         _dbContext.TopicGoals.AddAsync(goal, cancellationToken).AsTask();
+
+    public async Task<IReadOnlyList<ProgressSnapshot>> ListSnapshotsAsync(
+        Guid studentId,
+        string? subject,
+        SnapshotPeriod? period,
+        DateOnly? from,
+        DateOnly? to,
+        CancellationToken cancellationToken)
+    {
+        var query = _dbContext.ProgressSnapshots.Where(x => x.StudentId == studentId);
+
+        if (!string.IsNullOrWhiteSpace(subject))
+        {
+            query = query.Where(x => x.Subject == subject);
+        }
+
+        if (period.HasValue)
+        {
+            query = query.Where(x => x.Period == period.Value);
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(x => x.PeriodStart >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(x => x.PeriodStart <= to.Value);
+        }
+
+        return await query
+            .OrderBy(x => x.Subject)
+            .ThenBy(x => x.Period)
+            .ThenBy(x => x.PeriodStart)
+            .ToArrayAsync(cancellationToken);
+    }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         _dbContext.SaveChangesAsync(cancellationToken);

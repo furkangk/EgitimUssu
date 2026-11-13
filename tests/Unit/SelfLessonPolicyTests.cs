@@ -75,6 +75,9 @@ public sealed class SelfLessonPolicyTests
 
     private sealed class FakeStudentDirectory : IStudentDirectory
     {
+
+        public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<Guid>>([]);
         private readonly Guid _ownerUserId;
         public Guid? StudentId { get; init; }
 
@@ -82,13 +85,23 @@ public sealed class SelfLessonPolicyTests
 
         public Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult<Guid?>(StudentId is null || StudentId == studentId ? _ownerUserId : null);
-    }
+
+        public Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<AgreedLessonRate?>(null);
+
+        public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult(false);
+    
+        public Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken)
+            => Task.FromResult<string?>("Test Öğrenci");
+}
 
     private sealed class StubLessonRepository : ILessonScheduleRepository
     {
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken) => Task.FromResult<LessonSchedule?>(null);
         public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyCollection<LessonSchedule>>(Array.Empty<LessonSchedule>());
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => Task.CompletedTask;

@@ -1,8 +1,8 @@
 namespace EgitimUssu.Shared.Contracts;
 
 /// <summary>
-/// Öğrencinin üyelik (Free/Premium) seviyesi. Free = çekirdek alışkanlık; Premium = derinlik (Ö-D §14.3).
-/// M17 (Membership) tam modülü gelene kadar Students modülünde hafifçe tutulur.
+/// Üyelik (Free/Premium) seviyesi. Free = çekirdek alışkanlık; Premium = derinlik (Ö-D §14.3).
+/// Seviyenin kaynağı M17 (Membership) modülüdür; hak kontrolü için <see cref="IEntitlementDirectory"/> okunur.
 /// </summary>
 public enum MembershipTier
 {
@@ -11,8 +11,15 @@ public enum MembershipTier
 }
 
 /// <summary>
-/// Modüller-arası salt-okunur üyelik sözleşmesi. Students bu sözleşmeyi uygular; Study gibi diğer
-/// modüller Free/Premium kapılarını bu sözleşmeden okuyarak Students'a doğrudan referans vermez.
+/// ⚠️ <b>LEGACY — P12'de kaldırılacak.</b> K-09'dan (P09 Task 2) sonra üyeliğin tek kaynağı
+/// <see cref="IEntitlementDirectory"/>'dir; kapılar artık bu sözleşmeyi <b>okumaz</b>.
+/// <para>
+/// Sözleşme yalnız <b>geçiş köprüsü</b> olarak yaşıyor: eski profil alanlarını
+/// (<c>StudentProfile.MembershipTier</c>, <c>ParentProfile.MembershipTier</c>) Membership modülüne
+/// taşır ve <c>EntitlementDirectory</c> dışında hiçbir tüketicisi yoktur. Bu yüzden birden çok
+/// uygulaması aynı anda kayıtlıdır (Students + Parents) ve <c>IEnumerable&lt;IMembershipDirectory&gt;</c>
+/// olarak çözülür — tekil olarak enjekte etme.
+/// </para>
 /// </summary>
 public interface IMembershipDirectory
 {

@@ -83,6 +83,9 @@ public sealed class LessonSessionListAuthorizationTests
         public Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
+        public Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
         public Task AddAsync(LessonSession lessonSession, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 

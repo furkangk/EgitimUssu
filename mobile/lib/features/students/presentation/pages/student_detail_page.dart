@@ -1,6 +1,8 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/open_conversation_action.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
@@ -24,7 +26,7 @@ class StudentDetailPage extends StatefulWidget {
 }
 
 class _StudentDetailPageState extends State<StudentDetailPage> {
-  static const _tabs = <String>['Genel', 'Dersler', 'Performans', 'Odemeler'];
+  static const _tabs = <String>['Genel', 'Dersler', 'Performans', 'Ödemeler'];
 
   int _selectedTab = 0;
 
@@ -96,7 +98,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                     ),
                     Expanded(
                       child: EmptyStateView(
-                        title: 'Ogrenci bulunamadi',
+                        title: 'Öğrenci bulunamadı',
                         subtitle:
                             state.errorMessage ?? 'Lutfen yeniden deneyin.',
                       ),
@@ -150,6 +152,118 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     );
   }
 
+  /// M03-2: Branş ekleme alt sayfası. Sunucu aynı branşı ikinci kez kabul etmez;
+  /// hata mesajı ekranın ortak SnackBar dinleyicisinden gösterilir.
+  void _showAddSubjectSheet(BuildContext context) {
+    final cubit = context.read<StudentDetailCubit>();
+    final subjectCtrl = TextEditingController();
+    final targetCtrl = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const Text(
+              'Brans ekle',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 12),
+            _FormField(controller: subjectCtrl, label: 'Ders'),
+            const SizedBox(height: 10),
+            _FormField(controller: targetCtrl, label: 'Hedef seviye'),
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const Key('student-subject-save'),
+              onPressed: () {
+                final subject = subjectCtrl.text.trim();
+                if (subject.isEmpty) return;
+                Navigator.pop(sheetContext);
+                cubit.addSubject(
+                  subject: subject,
+                  targetLevel: targetCtrl.text.trim().isEmpty
+                      ? null
+                      : targetCtrl.text.trim(),
+                );
+              },
+              child: const Text('Ekle'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      subjectCtrl.dispose();
+      targetCtrl.dispose();
+    });
+  }
+
+  /// M03-1: Veli bağlama alt sayfası.
+  /// ⚠️ Veliyi **e-postayla arama** ucu yok (Identity'de kullanıcı arama yok);
+  /// bu yüzden şimdilik veli kullanıcı kimliği girilir.
+  void _showLinkParentSheet(BuildContext context) {
+    final cubit = context.read<StudentDetailCubit>();
+    final parentCtrl = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const Text(
+              'Veli bagla',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Veli kayıtlı bir kullanıcı olmalıdır. Bağlantı onay bekler.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            _FormField(
+              controller: parentCtrl,
+              label: 'Veli kullanici kimligi',
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const Key('student-link-parent-save'),
+              onPressed: () {
+                final parentUserId = parentCtrl.text.trim();
+                if (parentUserId.isEmpty) return;
+                Navigator.pop(sheetContext);
+                cubit.linkParent(parentUserId);
+              },
+              child: const Text('Bagla'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(parentCtrl.dispose);
+  }
+
   void _showMoreMenu(BuildContext context, StudentProfile student) {
     final cubit = context.read<StudentDetailCubit>();
     showModalBottomSheet<void>(
@@ -168,7 +282,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   Icons.edit_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text('Duzenle'),
+                title: const Text('Düzenle'),
                 onTap: () {
                   Navigator.pop(context);
                   _showEditSheet(context, student, cubit);
@@ -221,7 +335,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-          willDeactivate ? 'Ogrenciyi Pasifles' : 'Ogrenciyi Aktifles',
+          willDeactivate ? 'Öğrenciyi Pasifleştir' : 'Öğrenciyi Aktifleştir',
         ),
         content: Text(
           willDeactivate
@@ -231,7 +345,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Iptal'),
+            child: const Text('İptal'),
           ),
           TextButton(
             onPressed: () {
@@ -264,6 +378,10 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         payments: payments,
         onPlanLesson: () => _openLessonForm(context, student, lessons),
         onAddPayment: () => context.push('/payments'),
+        onAddSubject: () => _showAddSubjectSheet(context),
+        onRemoveSubject: (subjectId) =>
+            context.read<StudentDetailCubit>().removeSubject(subjectId),
+        onLinkParent: () => _showLinkParentSheet(context),
       ),
       1 => _LessonsTab(
         lessons: lessons,
@@ -332,7 +450,7 @@ class _TopBar extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Ogrenci Detayi',
+            'Öğrenci Detayı',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -523,6 +641,9 @@ class _OverviewTab extends StatelessWidget {
     required this.payments,
     required this.onPlanLesson,
     required this.onAddPayment,
+    required this.onAddSubject,
+    required this.onRemoveSubject,
+    required this.onLinkParent,
   });
 
   final StudentProfile student;
@@ -530,6 +651,9 @@ class _OverviewTab extends StatelessWidget {
   final List<PaymentRecord> payments;
   final VoidCallback onPlanLesson;
   final VoidCallback onAddPayment;
+  final VoidCallback onAddSubject;
+  final ValueChanged<String> onRemoveSubject;
+  final VoidCallback onLinkParent;
 
   @override
   Widget build(BuildContext context) {
@@ -553,7 +677,7 @@ class _OverviewTab extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'Odeme',
+                label: 'Ödeme',
                 value: outstanding.toStringAsFixed(0),
                 caption: 'Bekleyen TRY',
                 color: outstanding > 0
@@ -579,7 +703,7 @@ class _OverviewTab extends StatelessWidget {
               child: _MetricCard(
                 label: 'Durum',
                 value: outstanding > 0 ? 'Takip' : 'Temiz',
-                caption: outstanding > 0 ? 'Odeme var' : 'Borcsuz',
+                caption: outstanding > 0 ? 'Ödeme var' : 'Borcsuz',
                 color: outstanding > 0
                     ? AppColors.accentRed
                     : AppColors.accentGreen,
@@ -589,7 +713,7 @@ class _OverviewTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _InfoCard(
-          title: 'Ogrenci notlari',
+          title: 'Öğrenci notları',
           children: <Widget>[
             _InfoLine(
               icon: Icons.track_changes_rounded,
@@ -614,7 +738,13 @@ class _OverviewTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _SubjectTargetsCard(student: student),
+        _SubjectTargetsCard(
+          student: student,
+          onAdd: onAddSubject,
+          onRemove: onRemoveSubject,
+        ),
+        const SizedBox(height: 16),
+        _ParentLinkCard(onLinkParent: onLinkParent),
         const SizedBox(height: 16),
         Row(
           children: <Widget>[
@@ -628,12 +758,24 @@ class _OverviewTab extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _ActionButton(
-                label: 'Odeme Ekle',
+                label: 'Ödeme Ekle',
                 icon: Icons.payments_rounded,
                 onTap: onAddPayment,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // D-08 (M16): Ogrenciyle sohbet. Ogrencinin KULLANICI kimligi bu ekranda yok
+        // (profil kimligi var); karsi tarafi sunucu studentId'den cozer.
+        _ActionButton(
+          label: 'Mesaj Gonder',
+          icon: Icons.chat_bubble_outline_rounded,
+          onTap: () => openConversationAndGo(
+            context,
+            counterpartRole: kParticipantRoleStudent,
+            studentId: student.id,
+          ),
         ),
       ],
     );
@@ -669,8 +811,8 @@ class _LessonsTab extends StatelessWidget {
         const SizedBox(height: 12),
         if (sortedLessons.isEmpty)
           const EmptyStateView(
-            title: 'Ders kaydi yok',
-            subtitle: 'Bu ogrenci icin planli ders bulunamadi.',
+            title: 'Ders kaydı yok',
+            subtitle: 'Bu öğrenci için planlı ders bulunamadı.',
           )
         else
           ...List<Widget>.generate(sortedLessons.length, (index) {
@@ -705,7 +847,7 @@ class _PerformanceTab extends StatelessWidget {
     return Column(
       children: <Widget>[
         _InfoCard(
-          title: 'Performans ozeti',
+          title: 'Performans özeti',
           children: <Widget>[
             _ProgressLine(
               label: 'Ders tamamlama',
@@ -806,15 +948,15 @@ class _PaymentsTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _SectionHeader(
-          title: 'Odeme gecmisi',
-          actionText: 'Odeme ekle',
+          title: 'Ödeme geçmişi',
+          actionText: 'Ödeme ekle',
           onActionTap: onAddPayment,
         ),
         const SizedBox(height: 12),
         if (payments.isEmpty)
           const EmptyStateView(
-            title: 'Odeme kaydi yok',
-            subtitle: 'Bu ogrenci icin tahsilat kaydi bulunamadi.',
+            title: 'Ödeme kaydı yok',
+            subtitle: 'Bu öğrenci için tahsilat kaydı bulunamadı.',
           )
         else
           ...List<Widget>.generate(payments.length, (index) {
@@ -967,31 +1109,99 @@ class _InfoLine extends StatelessWidget {
   }
 }
 
+/// M03-2: Branş ekle/sil. Silme sunucudaki **branş kimliğiyle** yapılır; kimliği
+/// olmayan (eski gövdeden gelen) satırlarda silme düğmesi gösterilmez.
 class _SubjectTargetsCard extends StatelessWidget {
-  const _SubjectTargetsCard({required this.student});
+  const _SubjectTargetsCard({
+    required this.student,
+    required this.onAdd,
+    required this.onRemove,
+  });
 
   final StudentProfile student;
+  final VoidCallback onAdd;
+  final ValueChanged<String> onRemove;
 
   @override
   Widget build(BuildContext context) {
     return _InfoCard(
       title: 'Hedef dersler',
-      children: student.subjects.isEmpty
-          ? <Widget>[
-              const Text(
-                'Ogrenci hedefleri eklendiginde burada gorunur.',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ]
-          : student.subjects
-                .map(
-                  (target) => _InfoLine(
-                    icon: Icons.menu_book_rounded,
-                    label: target.subject,
-                    value: target.targetLevel,
+      children: <Widget>[
+        if (student.subjects.isEmpty)
+          const Text(
+            'Öğrenci hedefleri eklendiğinde burada görünür.',
+            style: TextStyle(color: AppColors.textSecondary),
+          )
+        else
+          ...student.subjects.map(
+            (target) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _InfoLine(
+                      icon: Icons.menu_book_rounded,
+                      label: target.subject,
+                      value: target.targetLevel.isEmpty
+                          ? 'Hedef yok'
+                          : target.targetLevel,
+                    ),
                   ),
-                )
-                .toList(),
+                  if (target.id.isNotEmpty)
+                    IconButton(
+                      key: Key('student-subject-remove-\${target.id}'),
+                      tooltip: 'Bransi sil',
+                      onPressed: () => onRemove(target.id),
+                      icon: const Icon(Icons.close_rounded),
+                      color: AppColors.accentRed,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('student-subject-add'),
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Brans ekle'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// M03-1: Kayıtlı bir veli kullanıcısını öğrenciye bağlama kartı.
+/// Bağ **onay bekler**; onaylandığında profilin velisi dolar.
+class _ParentLinkCard extends StatelessWidget {
+  const _ParentLinkCard({required this.onLinkParent});
+
+  final VoidCallback onLinkParent;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoCard(
+      title: 'Veli',
+      children: <Widget>[
+        const Text(
+          'Kayıtlı bir veli kullanıcısını bu öğrenciye bağlayabilirsin. '
+          'Bağlantı onay bekler; onaylandıktan sonra veli öğrencinin gelişimini görür.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 6),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('student-link-parent'),
+            onPressed: onLinkParent,
+            icon: const Icon(Icons.family_restroom_rounded),
+            label: const Text('Veli bagla'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1479,7 +1689,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Ogrenci Guncelle',
+                      'Öğrenci Güncelle',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -1503,9 +1713,9 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
               const SizedBox(height: 12),
               _FormField(
                 controller: _gradeLevelCtrl,
-                label: 'Sinif / Seviye',
+                label: 'Sınıf / Seviye',
                 validator: (v) =>
-                    (v == null || v.trim().length < 2) ? 'Sinif giriniz' : null,
+                    (v == null || v.trim().length < 2) ? 'Sınıf giriniz' : null,
               ),
               const SizedBox(height: 12),
               _FormField(controller: _subjectCtrl, label: 'Ders'),
@@ -1540,7 +1750,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Aktif Ogrenci',
+                      'Aktif Öğrenci',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,

@@ -16,10 +16,21 @@ public static class DependencyInjection
 
         services.AddScoped<IUserSettingRepository, UserSettingRepository>();
         services.AddScoped<IStudentPrivacyDirectory, StudentPrivacyDirectory>();
+        services.AddScoped<IUserNotificationPreferences, UserNotificationPreferencesDirectory>();
+        services.AddScoped<ISessionPolicyDirectory, SessionPolicyDirectory>();
 
         services.AddScoped<ICommandHandler<SetStudySharingCommand, Result<StudySharingResponse>>, SetStudySharingCommandHandler>();
         services.AddScoped<ICommandValidator<SetStudySharingCommand>, SetStudySharingCommandValidator>();
         services.AddScoped<ICommandAuthorizer<SetStudySharingCommand>, SettingsAuthorizer>();
+
+        services.AddScoped<IQueryHandler<GetUserSettingsQuery, Result<UserSettingsResponse>>, GetUserSettingsQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetUserSettingsQuery>, GetUserSettingsQueryAuthorizer>();
+        services.AddScoped<ICommandHandler<UpdateUserSettingsCommand, Result<UserSettingsResponse>>, UpdateUserSettingsCommandHandler>();
+        services.AddScoped<ICommandValidator<UpdateUserSettingsCommand>, UpdateUserSettingsCommandValidator>();
+        services.AddScoped<ICommandAuthorizer<UpdateUserSettingsCommand>, UpdateUserSettingsCommandAuthorizer>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, SettingsPersonalDataAnonymizer>();
+
 
         return services;
     }

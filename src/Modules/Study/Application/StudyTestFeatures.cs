@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Study.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Study.Application;
@@ -156,7 +157,8 @@ public sealed class EditTestResultCommandHandler
             return Result<TestResultResponse>.Failure(NotFound);
         }
 
-        var penaltyDivisor = command.PenaltyDivisor is > 0 ? command.PenaltyDivisor.Value : 4;
+        // Düzenlemede hedef sınav tekrar gönderilmez; belirtilmeyen bölen mevcut puanlama kuralını korur.
+        var penaltyDivisor = command.PenaltyDivisor is > 0 ? command.PenaltyDivisor.Value : test.PenaltyDivisor;
         test.Edit(
             command.Subject.Trim(),
             command.Topic,

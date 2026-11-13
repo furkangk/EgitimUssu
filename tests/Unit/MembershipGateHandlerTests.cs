@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Study.Application;
 using EgitimUssu.Modules.Study.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Tests.Unit.TestDoubles;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
@@ -80,15 +81,8 @@ public sealed class MembershipGateHandlerTests
         public bool IsAuthenticated => true;
     }
 
-    private sealed class FakeMembershipDirectory : IMembershipDirectory
-    {
-        private readonly MembershipTier _tier;
-        public FakeMembershipDirectory(MembershipTier tier) => _tier = tier;
-        public Task<MembershipTier> GetTierAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(_tier);
-    }
-
     private static StudyMembershipResolver Resolver(MembershipTier tier) =>
-        new(new FakeCurrentUser { UserId = UserId.ToString() }, new FakeMembershipDirectory(tier));
+        new(new FakeCurrentUser { UserId = UserId.ToString() }, new FakeEntitlementDirectory(tier));
 
     private static StudyLinkResolver NoopLinkResolver() =>
         new(new FakeCurrentUser { UserId = UserId.ToString() }, new CapturingStudyRepository(), new FakeClock());

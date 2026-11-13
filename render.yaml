@@ -36,9 +36,12 @@ services:
       - key: Jwt__SigningKey
         generateValue: true   # Render otomatik güvenli bir değer üretir
 
-      # Uygulama başlarken migration'ları uygula
+      # E-05: Üretimde migration AÇILIŞTA UYGULANMAZ. Şema değişikliği ayrı ve gözetilen bir
+      # deploy adımıdır (doc/architecture/backup_restore.md §4). Bu değer yanlışlıkla "true"
+      # yapılsa bile MigrationStartupGuard uygulamaz; burada "false" olması, uyarı log'u
+      # üretmemesi ve niyetin blueprint'ten okunabilmesi içindir.
       - key: Database__ApplyMigrationsOnStartup
-        value: "true"
+        value: "false"
 
       - key: Outbox__DispatchEnabled
         value: "true"
@@ -47,8 +50,96 @@ services:
       - key: Outbox__PollIntervalSeconds
         value: "15"
 
+      # C-04 / K-10: Gozlemlenebilirlik (OpenTelemetry). Anahtarlar burada TANIMLI ama
+      # "Enabled" bilerek "false": OtlpEndpoint bos birakilirsa kod konsol exporter'a duser
+      # ve her SQL komutu servis log'una akar (Render stdout'u ucretsiz planda bogar).
+      # Bir toplayici (Grafana Cloud / Honeycomb / self-hosted otelcol) secilince:
+      #   1) OtlpEndpoint'i Render panelinden gir  2) Enabled -> "true"
+      # Ayrinti: doc/architecture/environments.md §Gozlemlenebilirlik
+      - key: Observability__Enabled
+        value: "false"
+      - key: Observability__OtlpEndpoint
+        sync: false
+      - key: Observability__ServiceName
+        value: egitimussu-api
+
+  # ---------------------------------------------------------------------------
+  # E-06: Staging — üretimin provasi. Ayri servis, AYRI VERITABANI.
+  # Uretim verisine hicbir bicimde dokunmaz; demo veri yalniz burada tohumlanir.
+  # Detay: doc/architecture/environments.md
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: egitimussu-api-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    port: 8080
+    healthCheckPath: /health/live
+
+    envVars:
+      # Staging, Production DEGILDIR: DemoDataSeedGuard yalnizca bu sayede tohumlamaya izin verir.
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Staging
+
+      # Ayri veritabani — staging'i sifirlamak uretimi etkilemesin.
+      - key: ConnectionStrings__Postgres
+        fromDatabase:
+          name: egitimussu-staging-db
+          property: connectionString
+
+      - key: Redis__Configuration
+        sync: false
+
+      - key: Jwt__Issuer
+        value: EgitimUssu
+      - key: Jwt__Audience
+        value: EgitimUssu.Clients
+      - key: Jwt__ExpiryMinutes
+        value: "60"
+      # Uretimden AYRI anahtar: staging token'i uretimde gecerli olmamali.
+      - key: Jwt__SigningKey
+        generateValue: true
+
+      - key: Database__ApplyMigrationsOnStartup
+        value: "true"
+
+      # Demo veri: idempotent, her acilista yalniz eksikleri tamamlar.
+      - key: Seeding__Enabled
+        value: "true"
+
+      # Gercek e-posta/push GONDERILMEZ — demo hesaplarin adresleri gercek degil, gonderim
+      # denemeleri hem bounce uretir hem sagayici itibarini yakar.
+      - key: Email__Provider
+        value: Logging
+      - key: Email__FromEmail
+        value: no-reply@egitimussu.local
+      - key: Push__Provider
+        value: Logging
+
+      - key: Outbox__DispatchEnabled
+        value: "true"
+      - key: Outbox__BatchSize
+        value: "20"
+      - key: Outbox__PollIntervalSeconds
+        value: "15"
+
+      # C-04 / K-10: Gozlemlenebilirlik. Uretimden AYRI servis adi — trace'ler karismasin.
+      # Acma yordami ve varsayilanin neden "false" oldugu icin uretim servisindeki nota bakin.
+      - key: Observability__Enabled
+        value: "false"
+      - key: Observability__OtlpEndpoint
+        sync: false
+      - key: Observability__ServiceName
+        value: egitimussu-api-staging
+
 databases:
   - name: egitimussu-db
     plan: free            # 90 gün sonra sona erer; ücretli plana geçebilirsiniz
     databaseName: egitimussu
     user: egitimussu_user
+
+  - name: egitimussu-staging-db
+    plan: free
+    databaseName: egitimussu_staging
+    user: egitimussu_staging_user

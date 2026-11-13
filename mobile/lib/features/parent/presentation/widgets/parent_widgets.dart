@@ -92,35 +92,51 @@ class ParentBottomNav extends StatelessWidget {
 
 /// Sayfa üst başlığı (veli paneli). Basit; öğretmen [AppPageHeader]'ından bağımsız.
 class ParentHeader extends StatelessWidget {
-  const ParentHeader({super.key, required this.title, this.subtitle});
+  const ParentHeader({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+  });
 
   final String title;
   final String? subtitle;
+
+  /// Sağ üstteki aksiyon (ör. D-08 mesajlar kısayolu).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            title,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (subtitle != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (subtitle != null) ...<Widget>[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
+          if (trailing != null) trailing!,
         ],
       ),
     );

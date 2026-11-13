@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -35,6 +37,12 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
 
     public async Task<int> RunAsync(DateTime nowUtc, CancellationToken cancellationToken = default)
     {
+        // C-04: Periyodik işin kendi span'ı. Olmazsa Npgsql bu turun her sorgusunu ayrı bir
+        // **kök trace** olarak yayar (bkz. EgitimUssuActivitySource).
+        using var activity = EgitimUssuActivitySource.Instance.StartActivity(
+            "scan.notifications.parent_weekly",
+            ActivityKind.Internal);
+
         var isoWeek = ISOWeek.GetWeekOfYear(nowUtc);
         var isoYear = ISOWeek.GetYear(nowUtc);
         var created = 0;

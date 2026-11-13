@@ -6,7 +6,7 @@ status: "🟢/🟡"
 authority: code
 code_refs:
   - src/Modules/Students/**
-updated: 2026-07-19
+updated: 2026-09-04
 ---
 
 # 🎓 Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım Dokümanı
@@ -43,7 +43,7 @@ updated: 2026-07-19
 | Komut + sorgu yetkilendirmesi | ✅ var | `CreateStudentProfileCommandAuthorizer`, `StudentProfileQueryAuthorizer` |
 | **Öğrenci güncelleme / pasifleştirme** | ✅ var | `UpdateStudentProfileCommand`, `PUT /profiles/{studentId}`, sahiplik yetkisi |
 | **Çoklu öğretmen bağlantısı** (`TeacherStudentLink`) | ✅ var (Dilim C) | Bir öğrenci birden fazla öğretmene bağlanabilir; listeleme link üzerinden |
-| **Free plan limiti (5 öğrenci)** | ✅ var (Dilim C) | `students.free_limit_reached` (409); premium bypass yok — `// TODO(M17)` |
+| **Free plan limiti (5 öğrenci)** | ✅ var (Dilim C) | `students.free_limit_reached` (409); sınır **`IEntitlementDirectory.MaxStudents`**'ten okunur — Premium öğretmende sınır yok (P09 Task 2 / M03-4) |
 | **Öğrenci arşivleme / arşivden çıkarma** | ✅ var (Dilim C) | `Archive/Unarchive`; arşivli öğrenci varsayılan listede gizli, limit sayımına dahil |
 | **Öğrenci bazlı ücret** (B-07) | ✅ var (Dilim C) | `AgreedRateAmount` + `Currency` link üzerinde |
 | **Manuel öğrenciyi gerçek hesaba bağlama (davet/kabul)** | ✅ var (Dilim C) | `Invite` → `Accept`; kabul eden `currentUser` profile bağlanır (`LinkUser`) |
@@ -184,9 +184,13 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 **`StudentParentInvite` aggregate (Veli V-D):** Öğretmenin bir öğrenci için ürettiği veli davet kodu (`InviteCode` 6 haneli, `TeacherStudentLink.GenerateInviteCode()` deseni). Alanlar: `Id, StudentId, TeacherUserId, InviteCode, ChildDisplayName?, Status (Pending→Claimed), ClaimedByParentUserId?, CreatedOnUtc, ClaimedOnUtc?`. `Claim(parentUserId, now)` yalnız `Pending`'den çalışır (tekrar → `InvalidOperationException`). Tablo `student_parent_invites`. Veli tarafı bu kodu **`IParentInviteDirectory`** (`ResolveAsync`/`MarkClaimedAsync`, Students uygular) ile çözer; claim, Parents'ta `ParentChildLink` oluşturup **onaylar** (öğretmen kodu = öğretmen onayı, veli kod girer = veli onayı).
 
 **Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
-`IStudentDirectory` (`GetOwnerUserIdAsync(studentId) → Guid?`) sözleşmesini `StudentDirectory` ile uygular
-(2026-07-07). Diğer modüller (ör. M04 Scheduling, öğrenci-kapsamlı ders listesi yetkilendirmesi) bu sözleşmeyi
-tüketerek sahiplik doğrular — M03'ün `DbContext`'ine doğrudan erişmeden, proje referansı olmadan (anti-corruption).
+`IStudentDirectory` sözleşmesini `StudentDirectory` ile uygular (2026-07-07):
+`GetOwnerUserIdAsync(studentId) → Guid?`, **`GetAgreedLessonRateAsync(teacherUserId, studentId) → AgreedLessonRate?`**
+(M07-2, 2026-09-04 — B-07 ücretini `TeacherStudentLink`'ten okur; ücret girilmemişse `null`, çağıran tahmini tutar üretmez)
+ve **`IsLinkedTeacherOfStudentAsync(teacherUserId, studentId) → bool`** (M10-2, 2026-09-04 — yaşayan bağ
+`Manual`/`InviteSent`/`Linked` ve `IsArchived == false`; `Rejected`/`Disconnected`/arşivli bağ erişim vermez).
+Diğer modüller (ör. M04 Scheduling sahiplik doğrulaması, M07 Payments ders ücretlendirmesi) bu sözleşmeyi
+tüketerek okur — M03'ün `DbContext`'ine doğrudan erişmeden, proje referansı olmadan (anti-corruption).
 Aynı desenin M05'teki karşılığı `ILessonSessionAccessService`.
 
 **İstek/yanıt sözleşmeleri (koddan):**
@@ -233,6 +237,11 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
 | `shared.forbidden` | **403** | Bu işlemi yapma / bu kaynağa erişim yetkiniz yok. |
 | `students.invalid_origin` | 400 | Öğrenci profili kaynağı ile kimlik bilgileri uyumsuz. |
 | `students.invalid_request` | 400 | (Validator) Ad soyad ve sınıf seviyesi zorunlu. |
+| `students.duplicate_subject` | **409** | Bu branş zaten ekli. (M03-2; büyük/küçük harf duyarsız) |
+| `students.subject_not_found` | **404** | Branş bulunamadı. (M03-2 silme ucu) |
+| `students.invalid_subject` | 400 | Branş adı boş olamaz. (M03-2) |
+| `students.parent_user_required` | 400 | Veli kayıtlı bir kullanıcı olmalıdır. (M03-1; veli profili yoksa) |
+| `students.parent_link_exists` | **409** | Bu veli zaten bu öğrenciye bağlı veya onay bekliyor. (M03-1) |
 
 > **Not:** `StudentProfileQueryAuthorizer`, tekil getirme uçlarında profili önce yükler; bulunamazsa `shared.forbidden` yerine
 > `students.profile_not_found` (404) döner (varlık sızdırmadan, sahip değilse yetki reddi).
@@ -244,9 +253,33 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
 - [ ] **`PATCH /profiles/{studentId}/status`** — ayrı pasifleştirme ucu (şimdilik PUT ile `isActive: false` göndererek yapılıyor).
 - [x] **Manuel öğrenciyi gerçek hesaba bağlama** — `.../invite` + `/links/{linkId}/accept` ile karşılandı (Dilim C).
 - [x] **Davet kodu ile devralma + profil birleştirme** — `.../invite` 6 haneli kod üretir; `POST /links/claim` ile öğrenci devralır, mevcut self-profil varsa merge (Ö-C).
-- [ ] **`POST /profiles/{studentId}/link-parent`** — gerçek veli kullanıcısı bağlama (kural: veli daima kayıtlı kullanıcı).
-- [ ] **`POST` / `DELETE /profiles/{studentId}/subjects`** — branş ekleme/çıkarma (şu an yalnız create'te).
-- [ ] **`GET /profiles/by-parent/{parentUserId}`** — velinin çocuklarını listeleme (M09 ile).
+- [x] **`POST /profiles/{studentId}/link-parent`** — gerçek veli kullanıcısı bağlama (2026-09-04, P06/M03-1). Bkz. §3.4.
+- [x] **`POST` / `DELETE /profiles/{studentId}/subjects[/{subjectId}]`** — branş ekleme/çıkarma (2026-09-04, P06/M03-2). Bkz. §3.4.
+- [x] **`GET /profiles/by-parent/{parentUserId}`** — velinin **onaylı** çocuklarını listeleme (2026-09-04, P06/M03-3). Bkz. §3.4.
+
+### 3.4 Tamamlayıcı uçlar (P06 Task 9, 2026-09-04)
+
+> ⚠️ **`StudentSubject.Id` `ValueGeneratedNever` olmalıdır (P06 Task 10, 2026-09-04).** Varsayılan
+> `ValueGeneratedOnAdd` ile EF, izlenen profilin `Subjects` koleksiyonuna eklenen yeni branşı
+> "anahtarı dolu → zaten var" sayıp `INSERT` yerine `UPDATE` üretiyor; gerçek Postgres'te 0 satır
+> etkileniyor ve `DbUpdateConcurrencyException` → **500** oluyordu. InMemory sağlayıcısı bu hatayı
+> üretmez; A-01'de Teachers için aynı düzeltme yapılmıştı. Regresyon: `RealStudentSubjectIntegrationTests`.
+> **Kural:** kimlikleri `IIdGenerator` üreten her çocuk koleksiyonunda anahtar `ValueGeneratedNever` olmalı.
+
+| Uç | Yetki | Davranış |
+|----|-------|----------|
+| `POST /profiles/{studentId}/link-parent` `{ parentUserId }` | Admin · profili oluşturan öğretmen · profilin sahibi öğrenci | Bağ **Parents**'ta `Pending` açılır; yanıt `{ studentId, parentUserId, status: "Pending" }`. Veli profili yoksa `students.parent_user_required` (400), açık bağ varsa `students.parent_link_exists` (409). |
+| `POST /profiles/{studentId}/subjects` `{ subject, targetLevel }` | aynı üçlü | Yanıt `StudentSubjectResponse` (**`id` dahil**). Aynı branş (harf duyarsız) → `students.duplicate_subject` (409). |
+| `DELETE /profiles/{studentId}/subjects/{subjectId}` | aynı üçlü | 204. Branş bu profile ait değilse `students.subject_not_found` (404). |
+| `GET /profiles/by-parent/{parentUserId}` | Admin · **yalnız o veli** | `ParentChildSummaryResponse[]` (id, ad, sınıf, hedef sınav, aktiflik, oluşturulma). Onaylı bağ listesi `IParentAccessDirectory.ListApprovedStudentIdsAsync` ile Parents'tan okunur. Başka velinin kimliğiyle → `shared.forbidden` (403). |
+
+> **Modül sınırı (önemli):** `link-parent` ucu `StudentProfile.ParentUserId`'yi **doldurmaz**. Bağın sahibi Parents modülüdür;
+> talep `IParentChildLinkRequestService` (Shared.Contracts, Parents uygular) üzerinden açılır, onay mevcut
+> `POST /api/parents/children/{linkId}/approve` ucundadır ve `ParentUserId` ancak `ParentChildLinkApproved` olayı
+> Students'a düştüğünde dolar (bkz. `ParentChildLinkApprovedIntegrationEventHandler`).
+>
+> ⚠️ **Sözleşme değişikliği:** `StudentSubjectResponse` artık `Id` alanı taşır (silme ucu kimlikle çalışır). Alan
+> **eklendi**, mevcut alanlar değişmedi — eski istemciler etkilenmez.
 
 ---
 
@@ -261,6 +294,7 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
 5. **🔑 Veli daima gerçek kullanıcı:** `ParentUserId`, varsa **Identity'deki gerçek bir `UserAccount`'a** işaret eder. Manuel/sahte veli kaydı yoktur. Veli bağlama akışı [`m09_parents.md`](m09_parents.md)'de detaylanır.
 6. **Varsayılan aktiflik:** Create'te `IsActive = true` set edilir; sonradan PUT ile `isActive: false` göndererek pasifleştirilebilir.
 7. **Branş yeniden yazımı:** PUT isteğindeki `Subjects` mevcut branşları **tamamen değiştirir** (merge değil). Boş/whitespace olanlar atlanır; kalanlar `Trim()` edilir.
+   **7.1 (M03-2):** Tek branş ekleme/silme uçları PUT'tan bağımsızdır ve **birleştirici** davranır: `AddSubject` yalnız ekler, `RemoveSubject` yalnız siler. Aynı branş (büyük/küçük harf duyarsız) ikinci kez eklenemez — kural `StudentProfile.AddSubject` içinde, tek yerde durur.
 8. **Validator:** `FullName` ve `GradeLevel` zorunlu (hem create hem update için `students.invalid_request`).
 9. **Create yetkisi (`CreateStudentProfileCommandAuthorizer`):**
    - **Admin** → her zaman.
@@ -276,7 +310,7 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
     - Aksi halde `shared.forbidden` (403). Diğer öğretmen 403 alır (sahiplik testi entegrasyon testinde doğrulanmıştır).
 12. **Sahiplik üçlüsü:** Bir profile erişebilen taraflar = bağlı öğrenci (UserId) + ekleyen öğretmen (CreatedByTeacherUserId) + bağlı veli (ParentUserId). Bu, öğretmen-öğrenci-veli ilişkisinin yetki temelidir.
 13. **🔑 Çoklu öğretmen (Dilim C):** Bir öğrenci **birden fazla öğretmene** bağlanabilir; her bağ ayrı bir `TeacherStudentLink`'tir. Öğretmenin öğrenci listesi `CreatedByTeacherUserId` yerine link tablosu üzerinden yürür. `(TeacherUserId, StudentId)` benzersizdir (aynı öğretmen-öğrenci ikilisi tek link).
-14. **Free limit=5 (`students.free_limit_reached`):** Bir öğretmen `TeacherManaged` öğrenci eklerken aktif (reddedilmemiş) link sayısı 5'e ulaştıysa yeni ekleme 409 ile reddedilir. **Arşivli linkler limite dâhildir** (arşiv, kotayı boşaltmaz). Premium bypass yoktur (`// TODO(M17)`).
+14. **Free limit=5 (`students.free_limit_reached`):** Bir öğretmen `TeacherManaged` öğrenci eklerken aktif (reddedilmemiş) link sayısı sınıra ulaştıysa yeni ekleme 409 ile reddedilir. **Arşivli linkler limite dâhildir** (arşiv, kotayı boşaltmaz). Sınırın kaynağı artık Students'ın sabiti değil, **öğretmenin üyelik hakkı**: `IEntitlementDirectory.GetAsync(teacherUserId).MaxStudents` (Free 5, Premium sınırsız — P09 Task 2 / M03-4).
 15. **Arşivleme (B-04):** `Archive`/`Unarchive` link'in `IsArchived` bayrağını değiştirir. Arşivli öğrenci varsayılan listede gizlenir; `?includeArchived=true` ile görünür. Reddedilmiş (`Rejected`) linkler listede ve limitte sayılmaz.
 16. **Öğrenci bazlı ücret (B-07):** `SetRate(amount, currency)` link üzerinde anlaşılan ders ücretini tutar; ücret öğrenci-öğretmen ikilisine özeldir (öğretmen bazlı sabit ücrete bağlı değil).
 17. **Davet/kabul (B-06):** Öğretmen mevcut link'i `Invite` ile `InviteSent` yapar (hedef kullanıcı opsiyonel). Kabulde (`Accept`) link `Linked` olur ve **kabul eden `currentUser`** öğrenci profiline `LinkUser` ile bağlanır. Belirli hedef varsa yalnız o kullanıcı yanıtlayabilir; admin serbest. Identity'de e-posta/telefonla kullanıcı araması **yapılmaz** (kararı: 2026-07-18).
@@ -322,9 +356,10 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 | `/students/:studentId` | `StudentDetailPage` | ✅ | Öğrenci detayı + düzenleme formu (`_EditStudentSheet`) + aktif/pasif toggle |
 
 ### Eksik / planlanan mobil ekranlar ⚠️
-- [ ] **Öğrenci ekleme formu zenginleştirme** — `StudentSubject` (branş + hedef seviye) çoklu giriş + **veli bağlama** alanı.
-- [ ] **Öğrenci self-register akışı** — öğrencinin kendi profilini oluşturduğu ekran (`SelfRegistered`).
-- [ ] **Manuel→gerçek bağlama** — öğretmenin öğrenciyi davet etmesi / öğrencinin daveti kabul etmesi.
+- [x] **Öğrenci detayında branş ekle/sil + veli bağla** — `StudentDetailPage` genel bakış sekmesi (2026-09-04, P06/M03-1/M03-2). ⚠️ Veli, **kullanıcı kimliğiyle** bağlanır: Identity'de e-postayla kullanıcı arama ucu olmadığı için "veli e-postasıyla arama" yapılamadı.
+- [ ] **Öğrenci ekleme formu zenginleştirme** — `StudentSubject` çoklu giriş hâlâ tek satır (`_EditStudentSheet` yalnız ilk branşı düzenler); detay ekranındaki ekle/sil bunu telafi ediyor.
+- [x] **Öğrenci self-register akışı** (`SelfRegistered`) — backend `POST /profiles` (`Origin=SelfRegistered`) + mobilde ayrı ekran yerine **otomatik profil oluşturma** (`StudentScope` / `StudyHomeCubit` → `createSelfProfile`).
+- [ ] **Manuel→gerçek bağlama (mobil ekranlar)** — backend uçları **hazır**: `POST /teachers/{teacherUserId}/students/{studentId}/invite`, `POST /links/{linkId}/accept`, `POST /links/{linkId}/reject`, `POST /links/claim`. Mobilde davet formu şu an yalnız arayüz taslağı (repository çağrısı yok), kabul/red/claim ekranı yok — (P06).
 
 ---
 
@@ -339,12 +374,15 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 - [x] **Öğrenci güncellenebilir / pasifleştirilebilir** — `PUT /profiles/{studentId}`, `IsActive`, branş yeniden yazımı, sahiplik yetki testi.
 - [x] **Başka öğretmen başkasının öğrencisini güncelleyemez** (403) — entegrasyon testinde doğrulandı.
 - [x] **Bir öğrenci birden fazla öğretmene bağlanabilir** — `TeacherStudentLink` (Dilim C).
-- [x] **Free planda öğretmen en fazla 5 öğrenci ekleyebilir** — `students.free_limit_reached` (409), birim testinde doğrulandı.
+- [x] **Free planda öğretmen en fazla 5 öğrenci ekleyebilir** — `students.free_limit_reached` (409), birim testinde doğrulandı. **Premium öğretmen sınıra takılmaz** (P09 Task 2, `Create_TeacherManaged_Premium_Teacher_Should_Not_Hit_Limit`).
 - [x] **Öğrenci arşivlenip arşivden çıkarılabilir**; arşivli varsayılan listede gizli, `includeArchived=true` ile görünür — birim testinde doğrulandı.
 - [x] **Öğretmen öğrenci bazlı ücret belirleyebilir** (B-07) — link üzerinde `AgreedRateAmount`/`Currency`.
 - [x] **Manuel öğrenci, davet/kabul ile gerçek öğrenci hesabına bağlanabilir** (B-06) — kabul eden `currentUser` profile bağlanır; birim testinde doğrulandı.
 - [x] **Öğrenci 6 haneli davet koduyla profili devralır** (Ö-C) — `POST /links/claim`; geçersiz/eksik kod `invite_not_found`/`invite_invalid`; birim testinde doğrulandı.
 - [x] **Mevcut self-profil varsa claim'de profiller birleşir** (Ö-C/B5) — manuel profil `IsMerged`, `StudentProfilesMergedDomainEvent` yayılır; birim testinde doğrulandı. Modüller-arası `StudentId` yeniden atama Testcontainers entegrasyon testinde doğrulanır (gerçek Postgres gerekli).
+- [x] **Öğretmen mevcut veli kullanıcısını bağlayabilir** (2026-09-04, M03-1) — bağ `Pending` açılır; kayıtlı olmayan veli `students.parent_user_required`, açık bağ `students.parent_link_exists`; birim testinde doğrulandı.
+- [x] **Branş profil güncellemesinden bağımsız eklenip silinebilir** (2026-09-04, M03-2) — aynı branş harf duyarsız reddedilir (`students.duplicate_subject`); birim testinde doğrulandı.
+- [x] **Veli yalnız kendi onaylı çocuklarını listeler** (2026-09-04, M03-3) — başka velinin kimliğiyle sorgu 403; onaysız bağ listeye girmez; birim testinde doğrulandı.
 - [x] **Self-register mobil akışı** uçtan uca çalışır — öğrenci ilk `study` girişinde profili yoksa `SelfRegistered` olarak oluşturulur (`getByUser` → yoksa `createSelfProfile`).
 
 ---
@@ -376,4 +414,4 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P09 Task 2 / M03-4: öğretmen öğrenci limiti artık `StudentLimits.FreeStudentLimit` sabitinden değil `IEntitlementDirectory.MaxStudents`'ten okunuyor (Free 5, Premium sınırsız); `StudentProfile.MembershipTier` **LEGACY** işaretlendi — karar bu alandan okunmuyor, yalnız geçiş köprüsünün girdisi (P12'de silinecek). Önceki not — 2026-09-04 (P08 Task 4 / M14-4: `IStudentDirectory`'ye `GetDisplayNameAsync` eklendi — öğrenci adı Reporting'in PDF rapor başlığına açıldı; profil yoksa `null` döner, çağıran uydurma ad üretmez) · 2026-09-04 (P08 Task 2 / M10-2: `IStudentDirectory`'ye `IsLinkedTeacherOfStudentAsync` eklendi — öğretmen–öğrenci bağı ProgressTracking'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **branş ekleme gerçek Postgres'te 500 veriyordu** — `StudentSubject.Id` `ValueGeneratedNever` yapıldı, migration `StudentSubjectValueGeneratedNever`) · 2026-09-04 (P06 Task 9 / M03-1+M03-2+M03-3: `link-parent` (Pending bağ, `IParentChildLinkRequestService`), branş ekle/sil uçları + `StudentSubjectResponse.Id`, `by-parent` onaylı çocuk listesi; mobil öğrenci detayında branş ekle/sil + veli bağla) · 2026-09-04 (P06 Task 5 / M07-2: `IStudentDirectory`'ye `GetAgreedLessonRateAsync` eklendi — B-07 ücreti Payments'a açıldı) · 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

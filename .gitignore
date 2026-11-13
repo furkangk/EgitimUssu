@@ -67,6 +67,10 @@ mobile/artifacts/
 
 # Kişisel/yerel Claude skill'leri (bu PC'ye özel — main'e commit edilmez)
 .claude/skills/
+.claude/worktrees/
+
+# Yerel denetim ve ekran görüntüsü çıktıları
+/output/
 
 # Obsidian — kişisel/oturum durumu (paylaşılabilir config commit'lenir)
 doc/.obsidian/workspace.json
@@ -74,3 +78,12 @@ doc/.obsidian/workspace-mobile.json
 doc/.obsidian/plugins/
 doc/.obsidian/themes/
 doc/.obsidian/snippets/
+
+# P04: yerel dosya depolama kok dizini (Storage:LocalRootPath) — repoya girmez.
+# DIKKAT: desen kok-baglantili olmali. Basit "storage/" macOS'un buyuk/kucuk harf
+# duyarsiz dosya sisteminde src/Shared/**/Storage/ kaynak klasorunu de gizler.
+/storage/
+/src/API.Host/storage/
+
+# E-05: yerel veritabani yedekleri (scripts/backup-db.sh varsayilan cikti dizini)
+/backups/

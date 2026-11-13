@@ -51,6 +51,23 @@ public sealed class ParentProfile : AggregateRoot<Guid>
 
     public string? ContactEmail { get; private set; }
 
+    /// <summary>E-07: Veli profilini kimliksizleştirir; profil satırı bağ kayıtları için kalır.</summary>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData(DateTime nowUtc)
+    {
+        if (FullName == PersonalDataPlaceholder.FullName && ContactPhone is null && ContactEmail is null)
+        {
+            return false;
+        }
+
+        FullName = PersonalDataPlaceholder.FullName;
+        ContactPhone = null;
+        ContactEmail = null;
+        UpdatedOnUtc = nowUtc;
+        return true;
+    }
+
     public bool NotifyMissedAssignment { get; private set; }
 
     public bool NotifyWeeklyProgressSummary { get; private set; }
@@ -63,7 +80,11 @@ public sealed class ParentProfile : AggregateRoot<Guid>
 
     public ParentNotificationChannel NotificationChannel { get; private set; }
 
-    /// <summary>Velinin üyelik seviyesi (Free/Premium). Veli bildirimleri yalnız Premium'a gider (Veli V-E, PRD 9.3).</summary>
+    /// <summary>
+    /// ⚠️ <b>LEGACY (P12'de silinecek)</b> — üyelik seviyesi. K-09'dan (P09 Task 2) sonra hak kararları
+    /// bu alandan <b>okunmaz</b>; tek kaynak Membership modülü (<c>IEntitlementDirectory</c>). Alan yalnız
+    /// geçiş köprüsünün girdisidir (veri göçü riski nedeniyle henüz silinmedi).
+    /// </summary>
     public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
 
     public bool IsActive { get; private set; }
@@ -147,6 +168,25 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
     public string? ChildDisplayName { get; private set; }
 
     public string? Relationship { get; private set; }
+
+    /// <summary>
+    /// E-07: Veli–çocuk bağındaki kişisel alanları siler. Bağın <b>kendisi</b> (durum, tarih) kalır:
+    /// hangi hesabın hangi öğrenciye erişebildiği yetki geçmişidir, hesap verebilirliğin parçasıdır.
+    /// </summary>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData(DateTime nowUtc)
+    {
+        if (ChildDisplayName is null && Relationship is null)
+        {
+            return false;
+        }
+
+        ChildDisplayName = null;
+        Relationship = null;
+        UpdatedOnUtc = nowUtc;
+        return true;
+    }
 
     public string? InviteCode { get; private set; }
 

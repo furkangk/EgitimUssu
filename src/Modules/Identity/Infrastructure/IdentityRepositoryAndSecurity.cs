@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using EgitimUssu.Modules.Identity.Application;
 using EgitimUssu.Modules.Identity.Domain;
+using EgitimUssu.Shared.Infrastructure.Authentication;
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,34 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace EgitimUssu.Modules.Identity.Infrastructure;
+
+/// <summary>E-07: Hesap silme taleplerinin kalıcılığı.</summary>
+internal sealed class AccountDeletionRequestRepository : IAccountDeletionRequestRepository
+{
+    private readonly IdentityDbContext _dbContext;
+
+    public AccountDeletionRequestRepository(IdentityDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public Task<AccountDeletionRequest?> GetPendingAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return _dbContext.AccountDeletionRequests
+            .FirstOrDefaultAsync(
+                request => request.UserAccountId == userId
+                    && request.Status == AccountDeletionRequestStatus.Pending,
+                cancellationToken);
+    }
+
+    public async Task AddAsync(AccountDeletionRequest request, CancellationToken cancellationToken)
+    {
+        await _dbContext.AccountDeletionRequests.AddAsync(request, cancellationToken);
+    }
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken)
+        => _dbContext.SaveChangesAsync(cancellationToken);
+}
 
 internal sealed class UserAccountRepository : IUserAccountRepository
 {
@@ -84,13 +113,16 @@ internal sealed class JwtTokenIssuer : ITokenIssuer
         _jwtOptions = jwtOptions.Value;
     }
 
-    public (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount)
+    public (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount, Guid sessionId)
     {
         var expiresAtUtc = DateTime.UtcNow.AddMinutes(_jwtOptions.ExpiryMinutes);
         var claims = new List<Claim>
         {
             // Y4: jti — token blacklist (anlık iptal) için benzersiz token kimliği.
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
+            // M01-4: Bu jetonun hangi cihaz oturumundan geldiği. "Bu cihaz" rozeti ve
+            // "diğer oturumları kapat" bu talebe dayanır; jti her jetonda değişir, oturumu göstermez.
+            new(HttpContextCurrentUser.SessionIdClaimType, sessionId.ToString()),
             new(JwtRegisteredClaimNames.Sub, userAccount.Id.ToString()),
             new(ClaimTypes.NameIdentifier, userAccount.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, userAccount.Email),
@@ -127,10 +159,4 @@ internal sealed class Sha256TokenProtector : ITokenProtector
         var bytes = RandomNumberGenerator.GetBytes(48);
         return Convert.ToBase64String(bytes);
     }
-}
-
-internal sealed class NullIdentityNotificationService : IIdentityNotificationService
-{
-    public Task SendPasswordResetAsync(string email, string token, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task SendEmailVerificationAsync(string email, string token, CancellationToken cancellationToken) => Task.CompletedTask;
 }

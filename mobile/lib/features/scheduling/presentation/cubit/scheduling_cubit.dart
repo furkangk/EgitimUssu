@@ -48,7 +48,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       );
     } on ApiException catch (error) {
       final message = error.isConflict
-          ? 'Bu saat araliginda zaten planli bir ders var. Haftalik gorunumden bos bir aralik sec.'
+          ? 'Bu saat aralığında zaten planlı bir ders var. Haftalık görünümden boş bir aralık seç.'
           : error.message;
       if (isClosed) return;
       emit(state.copyWith(isSaving: false, errorMessage: message));
@@ -76,7 +76,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
       );
     } on ApiException catch (error) {
       final message = error.isConflict
-          ? 'Bu saat araliginda zaten planli bir ders var. Haftalik gorunumden bos bir aralik sec.'
+          ? 'Bu saat aralığında zaten planlı bir ders var. Haftalık görünümden boş bir aralık seç.'
           : error.message;
       if (isClosed) return;
       emit(state.copyWith(isSaving: false, errorMessage: message));

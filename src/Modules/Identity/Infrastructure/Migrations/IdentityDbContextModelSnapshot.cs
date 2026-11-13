@@ -23,10 +23,44 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.RefreshTokenSession", b =>
+            modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.AccountDeletionRequest", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CompletedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("RequestedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ScheduledForUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("UserAccountId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status", "ScheduledForUtc");
+
+                    b.HasIndex("UserAccountId", "Status");
+
+                    b.ToTable("account_deletion_requests", "identity");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.RefreshTokenSession", b =>
+                {
+                    b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedOnUtc")
@@ -37,6 +71,9 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                         .HasColumnType("character varying(128)");
 
                     b.Property<DateTime>("ExpiresOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LastUsedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RefreshTokenHash")
@@ -53,6 +90,8 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UserAccountId", "ExpiresOnUtc");
+
+                    b.HasIndex("UserAccountId", "RevokedOnUtc");
 
                     b.ToTable("refresh_token_sessions", "identity");
                 });
@@ -120,7 +159,6 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.UserRoleMembership", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("AssignedOnUtc")
@@ -145,7 +183,6 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.UserSecurityToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedOnUtc")
@@ -245,6 +282,10 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

@@ -31,6 +31,8 @@
     <ProjectReference Include="..\Modules\Reviews\API\EgitimUssu.Modules.Reviews.API.csproj" />
     <ProjectReference Include="..\Modules\Reporting\API\EgitimUssu.Modules.Reporting.API.csproj" />
     <ProjectReference Include="..\Modules\Settings\API\EgitimUssu.Modules.Settings.API.csproj" />
+    <ProjectReference Include="..\Modules\Membership\API\EgitimUssu.Modules.Membership.API.csproj" />
+    <ProjectReference Include="..\Modules\Messaging\API\EgitimUssu.Modules.Messaging.API.csproj" />
     <ProjectReference Include="..\Shared\Kernel\EgitimUssu.Shared.Kernel.csproj" />
     <ProjectReference Include="..\Shared\Application\EgitimUssu.Shared.Application.csproj" />
     <ProjectReference Include="..\Shared\Contracts\EgitimUssu.Shared.Contracts.csproj" />

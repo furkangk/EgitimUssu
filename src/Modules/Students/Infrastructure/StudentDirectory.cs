@@ -1,3 +1,4 @@
+using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,12 +16,61 @@ internal sealed class StudentDirectory : IStudentDirectory
         _dbContext = dbContext;
     }
 
+    public async Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        // E-07: Birleştirilmiş (IsMerged) profiller de döner — kişisel verisi hâlâ orada durur.
+        return await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .Where(profile => profile.UserId == userId)
+            .Select(profile => profile.Id)
+            .ToArrayAsync(cancellationToken);
+    }
+
     public async Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken)
     {
         return await _dbContext.StudentProfiles
             .AsNoTracking()
             .Where(profile => profile.Id == studentId)
             .Select(profile => profile.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        // B-07: Ücret öğretmen-öğrenci ikilisine özeldir. Ücret girilmemişse (null) tahmini bir tutar
+        // üretmeyiz — çağıran (Payments/M07-2) kayıt açmadan geçer.
+        return await _dbContext.TeacherStudentLinks
+            .AsNoTracking()
+            .Where(link => link.TeacherUserId == teacherUserId
+                && link.StudentId == studentId
+                && link.AgreedRateAmount != null)
+            .Select(link => new AgreedLessonRate(link.AgreedRateAmount!.Value, link.Currency))
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        // M10-2: Yaşayan bağ = Manual (öğretmenin kendi açtığı kayıt), InviteSent (davet yolda) veya
+        // Linked (öğrenci devraldı). Rejected/Disconnected ve arşivlenmiş kayıt erişim vermez.
+        return _dbContext.TeacherStudentLinks
+            .AsNoTracking()
+            .AnyAsync(
+                link => link.TeacherUserId == teacherUserId
+                    && link.StudentId == studentId
+                    && !link.IsArchived
+                    && (link.Status == TeacherStudentLinkStatus.Manual
+                        || link.Status == TeacherStudentLinkStatus.InviteSent
+                        || link.Status == TeacherStudentLinkStatus.Linked),
+                cancellationToken);
+    }
+
+    public async Task<string?> GetDisplayNameAsync(Guid studentId, CancellationToken cancellationToken)
+    {
+        // M14-4: Rapor başlığı için ad. Profil yoksa null döner; Reporting yer tutucu yazar.
+        return await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .Where(profile => profile.Id == studentId)
+            .Select(profile => profile.FullName)
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

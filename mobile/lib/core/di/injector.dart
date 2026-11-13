@@ -1,26 +1,40 @@
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
+import 'package:egitim_ussu_mobile/core/push/firebase_push_binding.dart';
+import 'package:egitim_ussu_mobile/core/push/push_service.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/core/storage/token_storage.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/repositories/assignment_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
-import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
-import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
-import 'package:egitim_ussu_mobile/features/parent/data/repositories/parent_repository_impl.dart';
-import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/domain/dashboard_contracts.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/data/repositories/lesson_session_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/membership/data/repositories/membership_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/membership/domain/membership_contracts.dart';
+import 'package:egitim_ussu_mobile/features/messaging/data/repositories/messaging_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
+import 'package:egitim_ussu_mobile/features/more/data/repositories/device_session_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/more/domain/device_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/notifications/data/repositories/device_token_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
+import 'package:egitim_ussu_mobile/features/parent/data/repositories/parent_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/data/repositories/payment_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/progress/data/repositories/progress_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/progress/domain/progress_contracts.dart';
+import 'package:egitim_ussu_mobile/features/reporting/data/repositories/reporting_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/reporting/data/services/device_report_file_opener.dart';
+import 'package:egitim_ussu_mobile/features/reporting/domain/reporting_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/repositories/scheduling_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
+import 'package:egitim_ussu_mobile/features/settings/data/repositories/settings_repository_impl.dart';
+import 'package:egitim_ussu_mobile/features/settings/domain/settings_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/data/repositories/student_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/data/repositories/study_repository_impl.dart';
@@ -31,7 +45,7 @@ import 'package:get_it/get_it.dart';
 
 final GetIt injector = GetIt.instance;
 
-Future<void> configureDependencies() async {
+Future<void> configureDependencies({bool firebaseAvailable = false}) async {
   if (injector.isRegistered<AppConfig>()) {
     return;
   }
@@ -118,6 +132,18 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<ProgressRepository>(
       () => ProgressRepositoryImpl(apiClient: injector<ApiClient>()),
     )
+    ..registerLazySingleton<MembershipRepository>(
+      () => MembershipRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<MessagingRepository>(
+      () => MessagingRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<ReportingRepository>(
+      () => ReportingRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<ReportFileOpener>(
+      () => const DeviceReportFileOpener(),
+    )
     ..registerLazySingleton<SchedulingRepository>(
       () => SchedulingRepositoryImpl(
         apiClient: injector<ApiClient>(),
@@ -150,10 +176,27 @@ Future<void> configureDependencies() async {
         config: injector<AppConfig>(),
       ),
     )
+    ..registerLazySingleton<SettingsRepository>(
+      () => SettingsRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
     ..registerLazySingleton<NotificationRepository>(
       () => NotificationRepositoryImpl(
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
+      ),
+    )
+    // A-04/M11-2: cihaz push token kaydı + FCM'e bağlı push servisi.
+    // M01-4 (D-03): Cihaz oturumları ekranı.
+    ..registerLazySingleton<DeviceSessionRepository>(
+      () => DeviceSessionRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<DeviceTokenRepository>(
+      () => DeviceTokenRepositoryImpl(apiClient: injector<ApiClient>()),
+    )
+    ..registerLazySingleton<PushService>(
+      () => FirebasePushBinding.createService(
+        repository: injector<DeviceTokenRepository>(),
+        firebaseAvailable: firebaseAvailable,
       ),
     )
     ..registerLazySingleton<ParentRepository>(

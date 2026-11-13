@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Identity.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Identity.Application;
@@ -16,6 +17,10 @@ public sealed record GetUserByIdQuery(Guid UserId) : IQuery<Result<UserAccountRe
 public sealed record AssignRolesCommand(Guid UserId, IReadOnlyCollection<UserRole> Roles) : ICommand<Result<UserAccountResponse>>;
 
 public sealed record AuthResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, string AccessToken, DateTime ExpiresAtUtc, string RefreshToken);
+public sealed record GetCurrentUserQuery : IQuery<Result<CurrentUserResponse>>;
+
+public sealed record CurrentUserResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles, bool IsEmailConfirmed, string Status);
+
 public sealed record UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName, string? PhoneNumber, string Status, bool IsEmailConfirmed, bool IsProfileVerified, IReadOnlyCollection<string> Roles, DateTime CreatedOnUtc, DateTime UpdatedOnUtc);
 
 public interface IUserAccountRepository
@@ -35,7 +40,8 @@ public interface ILoginAttemptThrottle
     Task RecordFailureAsync(string normalizedEmail, CancellationToken cancellationToken);
     Task ResetAsync(string normalizedEmail, CancellationToken cancellationToken);
 }
-public interface ITokenIssuer { (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount); }
+/// <summary>M01-4: Erişim jetonu, hangi <b>cihaz oturumundan</b> geldiğini <c>sid</c> talebiyle taşır.</summary>
+public interface ITokenIssuer { (string AccessToken, DateTime ExpiresAtUtc) Issue(UserAccount userAccount, Guid sessionId); }
 public interface ITokenProtector { string Hash(string token); string GenerateToken(); }
 public interface IIdentityNotificationService
 {
@@ -59,7 +65,7 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
     public async Task<Result<AuthResponse>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(command.Password) || command.Password.Length < 8) return Result<AuthResponse>.Failure(InvalidPassword);
-        if (command.Roles.Count == 0) return Result<AuthResponse>.Failure(MissingRole);
+        if (command.Roles is not { Count: > 0 }) return Result<AuthResponse>.Failure(MissingRole);
         if (command.Roles.Any(role => !SelfAssignableRoles.Contains(role))) return Result<AuthResponse>.Failure(RoleNotSelfAssignable);
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
         if (await _repository.GetByEmailAsync(normalizedEmail, cancellationToken) is not null) return Result<AuthResponse>.Failure(DuplicateEmail);
@@ -67,13 +73,14 @@ public sealed class RegisterUserCommandHandler : ICommandHandler<RegisterUserCom
         var user = new UserAccount(_idGenerator.New(), command.Email.Trim(), normalizedEmail, _passwordHasher.Hash(command.Password), command.FirstName.Trim(), command.LastName.Trim(), string.IsNullOrWhiteSpace(command.PhoneNumber) ? null : command.PhoneNumber.Trim(), UserAccountStatus.Active, false, false, now);
         foreach (var role in command.Roles.Distinct()) user.RoleMemberships.Add(new UserRoleMembership(_idGenerator.New(), user.Id, role, now));
         var refreshToken = _tokenProtector.GenerateToken();
-        user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), null, now, now.AddDays(30)));
+        var session = new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), null, now, now.AddDays(30));
+        user.RefreshSessions.Add(session);
         var verificationToken = _tokenProtector.GenerateToken();
         user.SecurityTokens.Add(new UserSecurityToken(_idGenerator.New(), user.Id, SecurityTokenPurpose.EmailVerification, _tokenProtector.Hash(verificationToken), now, now.AddHours(24)));
         await _repository.AddAsync(user, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
         await _notificationService.SendEmailVerificationAsync(user.Email, verificationToken, cancellationToken);
-        var access = _tokenIssuer.Issue(user);
+        var access = _tokenIssuer.Issue(user, session.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));
     }
 }
@@ -83,8 +90,8 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
     private static readonly Error InvalidCredentials = new("identity.invalid_credentials", "E-posta veya sifre hatali.");
     private static readonly Error UserInactive = new("identity.user_inactive", "Kullanici hesabi aktif degil.");
     private static readonly Error TooManyAttempts = new("identity.too_many_attempts", "Cok fazla basarisiz giris denemesi. Lutfen bir sure sonra tekrar deneyin.");
-    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
-    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _idGenerator = idGenerator; _clock = clock; }
+    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly ISessionPolicyDirectory _sessionPolicy; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
+    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, ISessionPolicyDirectory sessionPolicy, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _sessionPolicy = sessionPolicy; _idGenerator = idGenerator; _clock = clock; }
     public async Task<Result<AuthResponse>> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
@@ -100,9 +107,16 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
         await _throttle.ResetAsync(normalizedEmail, cancellationToken);
         var now = _clock.UtcNow;
         var refreshToken = _tokenProtector.GenerateToken();
-        user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), command.DeviceName, now, now.AddDays(30)));
+        var session = new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), command.DeviceName, now, now.AddDays(30));
+        user.RefreshSessions.Add(session);
+        // M15-3: "Diğer oturumları sonlandır" seçiliyse önceki refresh oturumları iptal edilir.
+        if (await _sessionPolicy.ShouldTerminateOtherSessionsAsync(user.Id, cancellationToken))
+        {
+            user.RevokeOtherSessions(session.Id, now);
+        }
+
         await _repository.SaveChangesAsync(cancellationToken);
-        var access = _tokenIssuer.Issue(user);
+        var access = _tokenIssuer.Issue(user, session.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));
     }
 }
@@ -118,12 +132,22 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
         var hashed = _tokenProtector.Hash(command.RefreshToken.Trim());
         var user = await _repository.GetByRefreshTokenHashAsync(hashed, cancellationToken);
         var session = user?.RefreshSessions.FirstOrDefault(x => x.RefreshTokenHash == hashed);
-        if (user is null || session is null || !session.IsActive(now)) return Result<AuthResponse>.Failure(InvalidRefresh);
+        if (user is null || session is null || !session.IsActive(now)
+            || user.Status is not UserAccountStatus.Active and not UserAccountStatus.PendingActivation)
+        {
+            return Result<AuthResponse>.Failure(InvalidRefresh);
+        }
         session.Revoke(now);
         var newRefresh = _tokenProtector.GenerateToken();
-        user.RefreshSessions.Add(new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(newRefresh), command.DeviceName, now, now.AddDays(30)));
+        // M01-4: Jeton döndürülüyor ama oturum AYNI cihazın oturumu; başlangıç anı devralınır,
+        // "son kullanım" şimdiye çekilir. Aksi halde her yenilemede oturum yeni doğmuş görünürdü.
+        var rotated = new RefreshTokenSession(
+            _idGenerator.New(), user.Id, _tokenProtector.Hash(newRefresh),
+            command.DeviceName ?? session.DeviceName, session.CreatedOnUtc, now.AddDays(30),
+            lastUsedOnUtc: now);
+        user.RefreshSessions.Add(rotated);
         await _repository.SaveChangesAsync(cancellationToken);
-        var access = _tokenIssuer.Issue(user);
+        var access = _tokenIssuer.Issue(user, rotated.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, newRefresh));
     }
 }
@@ -174,7 +198,13 @@ public sealed class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordC
         var hash = _tokenProtector.Hash(command.Token.Trim());
         var token = user.SecurityTokens.FirstOrDefault(x => x.Purpose == SecurityTokenPurpose.PasswordReset && x.TokenHash == hash && x.IsUsable(now));
         if (token is null) return Result.Failure(InvalidToken);
-        token.MarkUsed(now);
+        // A successful reset invalidates every outstanding reset link for the old password.
+        // Otherwise an earlier email can still overwrite the newly recovered password.
+        foreach (var resetToken in user.SecurityTokens.Where(x =>
+            x.Purpose == SecurityTokenPurpose.PasswordReset && x.IsUsable(now)))
+        {
+            resetToken.MarkUsed(now);
+        }
         user.UpdatePassword(_passwordHasher.Hash(command.NewPassword), now);
         foreach (var session in user.RefreshSessions.Where(x => x.IsActive(now))) session.Revoke(now);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -229,6 +259,43 @@ public sealed class GetUserByIdQueryHandler : IQueryHandler<GetUserByIdQuery, Re
         var user = await _repository.GetByIdAsync(query.UserId, cancellationToken);
         if (user is null) return Result<UserAccountResponse>.Failure(NotFound);
         return Result<UserAccountResponse>.Success(new UserAccountResponse(user.Id, user.Email, user.FirstName, user.LastName, user.PhoneNumber, user.Status.ToString(), user.IsEmailConfirmed, user.IsProfileVerified, user.RoleMemberships.Select(role => role.Role.ToString()).ToArray(), user.CreatedOnUtc, user.UpdatedOnUtc));
+    }
+}
+
+
+// M01-1: Oturum acmis kullanicinin kendi bilgisi. Kimlik mobilde token'dan degil, bu uctan okunur.
+public sealed class GetCurrentUserQueryHandler : IQueryHandler<GetCurrentUserQuery, Result<CurrentUserResponse>>
+{
+    private static readonly Error NotFound = new("identity.user_not_found", "Kullanici bulunamadi.");
+    private readonly IUserAccountRepository _repository;
+    private readonly ICurrentUser _currentUser;
+
+    public GetCurrentUserQueryHandler(IUserAccountRepository repository, ICurrentUser currentUser)
+    {
+        _repository = repository;
+        _currentUser = currentUser;
+    }
+
+    public async Task<Result<CurrentUserResponse>> Handle(GetCurrentUserQuery query, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(_currentUser.UserId, out var userId))
+        {
+            return Result<CurrentUserResponse>.Failure(NotFound);
+        }
+
+        var user = await _repository.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+        {
+            return Result<CurrentUserResponse>.Failure(NotFound);
+        }
+
+        return Result<CurrentUserResponse>.Success(new CurrentUserResponse(
+            user.Id,
+            user.Email,
+            $"{user.FirstName} {user.LastName}".Trim(),
+            user.RoleMemberships.Select(membership => membership.Role.ToString()).ToArray(),
+            user.IsEmailConfirmed,
+            user.Status.ToString()));
     }
 }
 

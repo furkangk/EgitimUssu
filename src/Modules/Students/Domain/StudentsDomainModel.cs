@@ -77,11 +77,43 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     /// <summary>Öğrencinin hedeflediği sınav; net formülü ve deneme türetimlerinde kullanılır (S-03.9).</summary>
     public TargetExam TargetExam { get; private set; }
 
-    /// <summary>Öğrencinin üyelik seviyesi (Free/Premium). Free/Premium kapılarını belirler (Ö-D §14.3).</summary>
+    /// <summary>
+    /// ⚠️ <b>LEGACY (P12'de silinecek)</b> — üyelik seviyesi. K-09'dan (P09 Task 2) sonra hak kararları
+    /// bu alandan <b>okunmaz</b>; tek kaynak Membership modülü (<c>IEntitlementDirectory</c>). Alan yalnız
+    /// geçiş köprüsünün girdisidir (veri göçü riski nedeniyle henüz silinmedi).
+    /// </summary>
     public MembershipTier MembershipTier { get; private set; } = MembershipTier.Free;
 
     /// <summary>Öğrencinin doğum tarihi (opsiyonel). Yaş türetimi + veli claim eşleşmesi için temel (Veli V-A).</summary>
     public DateTime? DateOfBirth { get; private set; }
+
+    /// <summary>
+    /// E-07: Öğrenci profilini kimliksizleştirir.
+    /// <para>
+    /// Satır silinmez — ders, ödev ve ödeme kayıtları bu <c>StudentId</c>'ye bağlıdır ve bir kısmı
+    /// yasal saklama süresince durmak zorundadır. Kişiyi gösteren alanlar temizlenir; sınıf düzeyi
+    /// gibi kişiyi tek başına göstermeyen alanlar istatistik bütünlüğü için kalır.
+    /// </para>
+    /// </summary>
+    /// <param name="nowUtc">Anonimleştirme anı (UTC).</param>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData(DateTime nowUtc)
+    {
+        if (FullName == PersonalDataPlaceholder.FullName && ContactEmail is null && ContactPhone is null
+            && GoalSummary is null && LevelNotes is null && DateOfBirth is null)
+        {
+            return false;
+        }
+
+        FullName = PersonalDataPlaceholder.FullName;
+        ContactEmail = null;
+        ContactPhone = null;
+        GoalSummary = null;
+        LevelNotes = null;
+        DateOfBirth = null;
+        UpdatedOnUtc = nowUtc;
+        return true;
+    }
 
     public DateTime CreatedOnUtc { get; private set; }
 
@@ -146,6 +178,43 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     }
 
     /// <summary>
+    /// M03-2: Profili baştan güncellemeden tek bir branş ekler. Aynı branş (büyük/küçük harf
+    /// duyarsız) zaten ekliyse <c>students.duplicate_subject</c> döner — kural burada, tek yerde durur.
+    /// </summary>
+    public Result<StudentSubject> AddSubject(Guid subjectId, string subject, string? targetLevel, DateTime updatedOnUtc)
+    {
+        var normalized = subject?.Trim() ?? string.Empty;
+        if (normalized.Length == 0)
+        {
+            return Result<StudentSubject>.Failure(StudentErrors.InvalidSubject);
+        }
+
+        if (Subjects.Any(existing => string.Equals(existing.Subject, normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Result<StudentSubject>.Failure(StudentErrors.DuplicateSubject);
+        }
+
+        var entity = new StudentSubject(subjectId, Id, normalized, targetLevel?.Trim());
+        Subjects.Add(entity);
+        UpdatedOnUtc = updatedOnUtc;
+        return Result<StudentSubject>.Success(entity);
+    }
+
+    /// <summary>M03-2: Tek bir branşı kaldırır. Branş bu profile ait değilse <c>students.subject_not_found</c>.</summary>
+    public Result RemoveSubject(Guid subjectId, DateTime updatedOnUtc)
+    {
+        var existing = Subjects.FirstOrDefault(subject => subject.Id == subjectId);
+        if (existing is null)
+        {
+            return Result.Failure(StudentErrors.SubjectNotFound);
+        }
+
+        Subjects.Remove(existing);
+        UpdatedOnUtc = updatedOnUtc;
+        return Result.Success();
+    }
+
+    /// <summary>
     /// Bu (manuel) profili, öğrencinin mevcut kanonik self-profil'ine birleştirir (Ö-C claim/merge).
     /// Profil pasifleştirilir ve modüller-arası <c>StudentId</c> yeniden atamasını tetikleyecek
     /// <see cref="StudentProfilesMergedDomainEvent"/> yayılır (Outbox → integration event).
@@ -158,6 +227,14 @@ public sealed class StudentProfile : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
         Raise(new StudentProfilesMergedDomainEvent(Id, canonicalStudentId, updatedOnUtc));
     }
+}
+
+/// <summary>Students modülünün domain kuralı hataları (Application ve API aynı kodları taşır).</summary>
+public static class StudentErrors
+{
+    public static readonly Error InvalidSubject = new("students.invalid_subject", "Branş adı boş olamaz.");
+    public static readonly Error DuplicateSubject = new("students.duplicate_subject", "Bu branş zaten ekli.");
+    public static readonly Error SubjectNotFound = new("students.subject_not_found", "Branş bulunamadı.");
 }
 
 public sealed class StudentSubject : Entity<Guid>
@@ -345,6 +422,19 @@ public sealed class StudentParentInvite : AggregateRoot<Guid>
     public Guid TeacherUserId { get; private set; }
     public string InviteCode { get; private set; } = string.Empty;
     public string? ChildDisplayName { get; private set; }
+
+    /// <summary>E-07: Davetteki çocuk adını siler; davet kaydının kendisi (durum/tarih) kalır.</summary>
+    /// <returns>Bir değişiklik yapıldıysa <c>true</c>.</returns>
+    public bool AnonymizePersonalData()
+    {
+        if (ChildDisplayName is null)
+        {
+            return false;
+        }
+
+        ChildDisplayName = null;
+        return true;
+    }
     public ParentInviteStatus Status { get; private set; }
     public Guid? ClaimedByParentUserId { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }

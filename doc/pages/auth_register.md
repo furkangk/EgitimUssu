@@ -7,13 +7,13 @@ authority: code
 code_refs:
   - mobile/lib/features/auth/presentation/pages/register_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-06-28
+updated: 2026-10-16
 ---
 
 # Kayıt / Register (`/register`)
 
 > **Feature:** `auth` · **Dosya:** `mobile/lib/features/auth/presentation/pages/register_page.dart`
-> **State:** `AuthCubit` / `AuthState` · **Veri:** Gerçek API · **Güncelleme:** 2026-06-28
+> **State:** `AuthCubit` / `AuthState` · **Veri:** Gerçek API · **Güncelleme:** 2026-10-16
 
 ## Amaç
 Öğretmen kaydı: ad, soyad, telefon, e-posta, şifre (tümü zorunlu).
@@ -30,3 +30,9 @@ updated: 2026-06-28
 
 ## İlgili
 - Modül: [`../modules/m01_identity.md`](../modules/m01_identity.md) (M01)
+
+## 2026-10-16 ekran düzeltmesi
+
+Ad/soyad alanları dar ekranlarda metni kesmemesi için tam genişliktedir. Kayıt alanları demo kişi ve parola ile önceden doldurulmaz. Şifre girildiği biçimde gönderilir; başındaki/sonundaki boşluklar korunur. 320 px ekran ve iki kat metin ölçeğinde form taşması regresyon testiyle kontrol edilir.
+
+Güncelleme: 2026-10-16

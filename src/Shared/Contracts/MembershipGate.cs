@@ -1,0 +1,63 @@
+namespace EgitimUssu.Shared.Contracts;
+
+/// <summary>
+/// Premium'a özel (derinlik) özellikler (Ö-D §14.3). Başlangıçta yalnız Study modülünün öğrenci
+/// kapılarıydı; M14-4 (PDF rapor) ile Reporting de aynı kapıyı kullandığı için <c>Shared.Contracts</c>'a
+/// taşındı. <b>Geçici</b>: P09'da <c>IEntitlementDirectory</c> gelince bu tip tek satırda değiştirilir.
+/// </summary>
+public enum PremiumFeature
+{
+    /// <summary>Aylık çalışma/deneme analizi.</summary>
+    MonthlyAnalysis,
+
+    /// <summary>Hedef net/puan takibi.</summary>
+    TargetTracking,
+
+    /// <summary>Konu bazlı zayıflık analizi.</summary>
+    TopicWeakness,
+
+    /// <summary>Streak (seri) dondurma hakkı.</summary>
+    StreakFreeze,
+
+    /// <summary>PDF rapor çıktısı.</summary>
+    PdfReport
+}
+
+/// <summary>
+/// Free/Premium kapı mantığı — saf, birim testli. Free = çekirdek alışkanlık
+/// (kronometre, test, streak tam, son 30 gün geçmiş, temel haftalık analiz);
+/// Premium = derinlik (sınırsız geçmiş + tüm <see cref="PremiumFeature"/> özellikleri).
+/// </summary>
+public static class MembershipGate
+{
+    /// <summary>Free için son 30 günlük geçmiş penceresi; Premium için sınırsız (null).</summary>
+    public const int FreeHistoryWindowDays = 30;
+
+    /// <summary>
+    /// Geçmiş sorgularının alt sınırını belirleyen pencere (gün). Free → 30, Premium → null (sınırsız).
+    /// </summary>
+    public static int? HistoryWindowDays(MembershipTier tier) => tier switch
+    {
+        MembershipTier.Premium => null,
+        _ => FreeHistoryWindowDays
+    };
+
+    /// <summary>Verilen premium özelliğe erişim: Free hepsi false; Premium hepsi true.</summary>
+    public static bool Allows(MembershipTier tier, PremiumFeature feature) => tier == MembershipTier.Premium;
+
+    /// <summary>
+    /// Geçmiş sorgusunun alt sınırını tier penceresine göre kısar (clamp). Premium (sınırsız) → istek
+    /// değiştirilmez. Free → <c>Max(istenenBaşlangıç, now - 30gün)</c>; istek yoksa pencere başlangıcı.
+    /// </summary>
+    public static DateTime? ClampFrom(MembershipTier tier, DateTime? requestedFromUtc, DateTime nowUtc)
+    {
+        var window = HistoryWindowDays(tier);
+        if (window is null)
+        {
+            return requestedFromUtc;
+        }
+
+        var lowerBound = nowUtc.AddDays(-window.Value);
+        return requestedFromUtc is { } from && from > lowerBound ? from : lowerBound;
+    }
+}

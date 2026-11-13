@@ -10,6 +10,9 @@ class AssignmentItemModel extends AssignmentItem {
     super.attachmentUrl,
     super.status,
     super.createdOnUtc,
+    super.teacherFeedback,
+    super.score,
+    super.gradedOnUtc,
   });
 
   factory AssignmentItemModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +25,9 @@ class AssignmentItemModel extends AssignmentItem {
       attachmentUrl: json['attachmentUrl']?.toString(),
       status: json['status']?.toString(),
       createdOnUtc: _parseDate(json['createdOnUtc']),
+      teacherFeedback: json['teacherFeedback']?.toString(),
+      score: _parseInt(json['score']),
+      gradedOnUtc: _parseDate(json['gradedOnUtc']),
     );
   }
 
@@ -68,6 +74,12 @@ class AssignmentItemModel extends AssignmentItem {
     if (value == null) return null;
     return DateTime.tryParse(value.toString())?.toUtc();
   }
+
+  static int? _parseInt(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
+  }
 }
 
 class LessonNoteModel extends LessonNote {
@@ -104,6 +116,7 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
     required super.coveredTopics,
     required super.recommendations,
     required super.assignments,
+    super.visibility,
   });
 
   factory FollowUpAssignmentModel.fromJson(Map<String, dynamic> json) {
@@ -120,6 +133,7 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
           note?['recommendations']?.toString() ??
           json['recommendations']?.toString() ??
           '',
+      visibility: note?['visibility']?.toString() ?? 'Private',
       assignments: ((json['assignments'] as List<dynamic>? ?? <dynamic>[]))
           .whereType<Map<String, dynamic>>()
           .map(AssignmentItemModel.fromJson)
@@ -148,6 +162,11 @@ class FollowUpAssignmentModel extends FollowUpAssignment {
       'summary': summary,
       'coveredTopics': coveredTopics,
       'recommendations': recommendations,
+      'visibility': switch (visibility) {
+        'Student' => 2,
+        'StudentAndParent' => 3,
+        _ => 1,
+      },
       'assignments': assignments
           .map(
             (a) => AssignmentItemModel(

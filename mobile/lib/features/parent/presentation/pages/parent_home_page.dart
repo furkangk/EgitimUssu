@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/parent/domain/parent_contracts.dart'
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_cubit.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/cubit/parent_state.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/widgets/parent_widgets.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/session_required_view.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,9 +15,12 @@ class ParentHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select(
-      (AuthCubit c) => c.state.session?.userId ?? 'mock-parent-user',
-    );
+    final userId = context.select((AuthCubit c) => c.state.session?.userId);
+    if (userId == null) {
+      // D-17: Sahte kullanici sentinel'i yok — oturum yoksa veri de yok.
+      return const SessionRequiredView();
+    }
+
     final fullName = context.select(
       (AuthCubit c) => c.state.session?.fullName ?? 'Veli',
     );
@@ -32,6 +36,20 @@ class ParentHomePage extends StatelessWidget {
               ParentHeader(
                 title: 'Merhaba, ${fullName.split(' ').first}',
                 subtitle: 'Çocuğunuzun bu haftaki gelişimi',
+                // D-08 (M16): Öğretmenle sohbet. Veli sohbeti **başlatamaz** —
+                // veli panelinde öğretmenin kullanıcı kimliği yok; öğretmen
+                // yazınca sohbet burada görünür ve veli yanıtlar.
+                trailing: Semantics(
+                  button: true,
+                  label: 'Mesajlar',
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppColors.primary,
+                    ),
+                    onPressed: () => context.push('/messages'),
+                  ),
+                ),
               ),
               Expanded(
                 child: BlocBuilder<ParentCubit, ParentState>(

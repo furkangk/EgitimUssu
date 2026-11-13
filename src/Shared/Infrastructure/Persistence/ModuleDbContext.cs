@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
@@ -38,6 +39,9 @@ public abstract class ModuleDbContext : DbContext
             builder.Property(item => item.Module).HasMaxLength(128).IsRequired();
             builder.Property(item => item.Type).HasMaxLength(512).IsRequired();
             builder.Property(item => item.Payload).IsRequired();
+            // W3C traceparent sabit 55 karakterdir; alan sınırsız bırakılırsa şema, taşımayacağı
+            // bir esnekliği ima eder ve yanlışlıkla başka bir şey yazılmasını kolaylaştırır.
+            builder.Property(item => item.TraceParent).HasMaxLength(55);
             builder.HasIndex(item => item.ProcessedOnUtc);
         });
 
@@ -91,7 +95,10 @@ public abstract class ModuleDbContext : DbContext
                         Module = integrationEvent.SourceModule,
                         Type = integrationEvent.Name,
                         Payload = JsonSerializer.Serialize(integrationEvent, integrationEvent.GetType(), IntegrationEventSerialization.Options),
-                        OccurredOnUtc = integrationEvent.OccurredOnUtc
+                        OccurredOnUtc = integrationEvent.OccurredOnUtc,
+                        // C-04: Bağlamı **burada** yakalamak zorunludur — dispatch dakikalar sonra,
+                        // başka bir thread'de koşar ve o an `Activity.Current` çoktan boştur.
+                        TraceParent = Activity.Current?.Id
                     });
                 }
             }

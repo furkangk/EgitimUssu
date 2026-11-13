@@ -1,38 +1,165 @@
 ---
 title: "M17 — Üyelik ve Para Kazanma"
-summary: "Planlanan üyelik/gelir modülü; backend klasörü kodda yok, Study'de geçici hafif Free/Premium çekirdeği (MembershipTier) var"
+summary: "Üyelik/gelir modülü: 4 katmanlı iskelet + SubscriptionPlan/UserSubscription/ReferralCode domain'i + membership şeması + IEntitlementDirectory (tek hak kaynağı) + plan kataloğu, ücretsiz deneme ve referans kampanyası uçları + mobil üyelik/paywall ekranları kodda; deneme→kilit açma→süre dolunca yeniden kilit zinciri gerçek Postgres'te uçtan uca doğrulandı (P09 Task 1-3, 6, 7 kısmi kapanış); ödeme (Q1) ve reklam (Q3) hâlâ yok"
 tags: [modul, membership, uyelik, planlanan, faz-5]
-status: "🔴"
-authority: product
-updated: 2026-08-19
+status: "🟡"
+authority: code
+code_refs:
+  - src/Modules/Membership/API/MembershipModule.cs
+  - src/Modules/Membership/Application/MembershipFeatures.cs
+  - src/Modules/Membership/Domain/MembershipDomainModel.cs
+  - src/Modules/Membership/Infrastructure/EntitlementDirectory.cs
+  - src/Modules/Membership/Infrastructure/MembershipPlanSeeder.cs
+  - src/Shared/Contracts/EntitlementContract.cs
+  - mobile/lib/features/membership/presentation/cubit/membership_cubit.dart
+  - mobile/lib/shared/widgets/premium_lock.dart
+  - tests/Integration/RealMembershipEntitlementTests.cs
+updated: 2026-09-05
 ---
 
 # 💳 Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım Dokümanı
 
-> **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🔴 YENİ — kodda HİÇ YOK (tüm domain ⚠️ Önerilen, planlanan)**
+> **PRD: M17 (YENİ)** · **Faz 5 — Premium & Analitik (gelir)** · **Durum: 🟡 Domain + entitlement + plan/kampanya uçları + mobil üyelik/paywall kodda ve üyelik zinciri gerçek Postgres'te uçtan uca doğrulanmış (P09 Task 1-3, 6 ve 7 kısmi kapanış, 2026-09-04); ödeme (Task 4/Q1) ve reklam (Task 5/Q3) yok — bu yüzden 🟢 değil**
+> — `src/Modules/Membership` (4 katman) + `membership` şeması + `SubscriptionPlan`/`UserSubscription`/`ReferralCode`/`ReferralRedemption`
+> aggregate'leri, `MembershipChangedDomainEvent`, **K-09 entitlement sözleşmesi** (`IEntitlementDirectory` + `GET /api/membership/me`)
+> ve **plan kataloğu + ücretsiz deneme + referans kampanyası uçları** **kodda**; Study/Students/Reporting/Parents kapıları
+> bu tek kaynağa devredildi; mobil üyelik ekranı ve paywall (Task 6) da kodda. **Ödeme (Task 4 / Q1) ve
+> reklam (Task 5 / Q3) hâlâ planlanan** — para tahsil edilemiyor, premium'a yalnız deneme/referans/admin
+> köprüsüyle çıkılıyor.
 >
 > **Amaç:** Platformun gelir modelini taşımak. PRD: **ücretsiz ve ücretli (premium) üyelik** vardır; gelir
 > **reklam + üyelik** ikilisinden gelir. **Ücretli üyeler reklam görmez, kısıtlamalara takılmaz ve ekstra
 > özelliklere erişir.** Kullanıcı çekmek için **ilk ay ücretsiz** ve **arkadaşını getir → 1 ay ücretsiz (referans)**
 > kampanyaları planlanır (bkz. [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md) §9 ve Faz 5).
 
-> Rol bazlı premium özellik setleri PRD §9 (Free vs. Premium karşılaştırması) ile birebir uyumludur:
-> öğretmen (gelir analizi, PDF rapor, profil öne çıkarma), öğrenci (geçmiş, haftalık/aylık analiz, streak,
-> hedef, motivasyon), veli (detaylı grafik, haftalık rapor, geçmiş, bildirimler).
+> Rol bazlı premium özellik setleri PRD §9 ile hizalıdır:
+> öğretmen (gelir analizi, PDF rapor, profil öne çıkarma, sınırsız öğrenci), öğrenci (**sınırsız geçmiş**,
+> aylık analiz, hedef net/puan takibi, konu zayıflık analizi, streak **dondurma**), veli (detaylı grafik,
+> haftalık rapor, geçmiş, zengin bildirim).
+> ⚠️ **Streak'in kendisi ve rozetler Free'dir** — Premium olan yalnız *seri dondurma hakkı*
+> (`PremiumFeature.StreakFreeze`). PRD §9.2 bunu 2026-09-05'te koda göre düzeltti; gerekçe:
+> [`../denetim/2026-09-05_rakip_paritesi_analizi.md`](../denetim/2026-09-05_rakip_paritesi_analizi.md) §3.
 
 ---
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
-🔴 **Kodda hiçbir karşılığı yoktur.** Tamamen planlama aşamasındadır:
+### 🟢 Kodda olan (P09 Task 1-3 + Task 6, 2026-09-04)
 
-- **Backend:** `src/Modules/Membership/` **yok** — `MembershipDbContext`, `ModuleDefinition`, DI, migration, `/status` endpoint'i **yok**.
-- **Mobil:** abonelik/paywall/reklam feature'ı **yok**.
-- **Şema:** PostgreSQL'de `membership` şeması **yok**.
-- **Ödeme:** Herhangi bir ödeme sağlayıcısı entegrasyonu (App Store/Google Play/Iyzico vb.) **yok**.
-- **Kısıtlama uygulaması:** Tam entitlement altyapısı henüz yok. **İstisna (Ö-D, 2026-07-19):** Study modülü hafif bir Free/Premium kapısı uygular — öğrencinin `MembershipTier`'ı (Free/Premium) M03 `StudentProfile`'da tutulur ve `Shared/Contracts` `IMembershipDirectory` sözleşmesinden okunur. Bugün zorlanan: Free geçmiş/net-trend son 30 güne kısılı, hedef net/puan takibi Premium'a özel (`study.premium_required` → 402). Bu, M17 tam modülü gelene kadar geçici bir çekirdektir; M17 açılınca tier depolama + entitlement bu modüle taşınır (bkz. [`m08_study.md`](m08_study.md) §4.7).
+- **Backend:** `src/Modules/Membership/{Domain,Application,Infrastructure,API}` — 4 csproj, `EgitimUssu.slnx`
+  girdileri, `ModuleAssemblies.cs` kaydı, `MembershipModule` (`/api/membership`: `/status`, `GET /me`,
+  `GET /plans`, `POST /subscriptions/start-trial`, `POST /subscriptions/cancel`, `GET /referral-code`,
+  `POST /referral/redeem`, Admin `POST /plans` + `PUT /plans/{planId}`).
+- **Şema:** `membership` — `subscription_plans`, `user_subscriptions`, `referral_codes`,
+  `referral_redemptions` + ortak `outbox_messages` / `inbox_messages` / `module_states`
+  (migration `InitialCreate` + `AddReferralAndTrial`).
+- **Domain:** `SubscriptionPlan` (kod/rol/tier/periyot/fiyat/deneme + `NextPeriodEnd` takvim-ayı hesabı),
+  `UserSubscription` (yaşam döngüsü + erişim kuralı), `SubscriptionStatus`, `BillingPeriod`,
+  `MembershipChangedDomainEvent`. 12 birim testi (`tests/Unit/SubscriptionTests.cs`).
+  ⚠️ `UserSubscription.PlanId` **nullable**'dır (P09 Task 3): kampanya ödülüyle açılan abonelik
+  satın alınmış bir plana bağlı değildir.
+- **Entitlement (K-09 / M17-5 / M03-4 — P09 Task 2):**
+  - `Shared/Contracts/EntitlementContract.cs` → `record Entitlement(Tier, EffectiveUntilUtc, MaxStudents,
+    CanSeeAds, DetailedAnalytics, PdfReports, RichNotifications)` + `IEntitlementDirectory`
+    (`GetAsync`, toplu tarama için `GetManyAsync`).
+  - `Membership.Application/MembershipFeatures.cs` → `EntitlementPolicy` (seviye → hak eşlemesinin **tek**
+    yeri: Free = 5 öğrenci + reklam, Premium = sınırsız + reklamsız + PDF/analiz/zengin bildirim),
+    `IMembershipReader`, `GetMyMembershipQuery` + handler + authorizer.
+  - `Membership.Infrastructure/EntitlementDirectory.cs` → aboneliğe bakar; `HasAccess` dönemi açıksa Premium.
+    **Fail-safe:** kaynak okunamazsa `LogWarning` + Free (fail-closed değil).
+  - `GET /api/membership/me` (auth) → `{ tier, effectiveUntilUtc, planCode, status, entitlement }`.
+  - **Devralınan kapılar:** `Study/StudyMembershipResolver`, `Students` öğretmen öğrenci limiti
+    (`entitlement.MaxStudents`), `Reporting/ReportEntitlementResolver` (PDF), `Parents`
+    `ParentNotificationDirectory` (veli bildirim seviyesi). 11 birim testi
+    (`tests/Unit/EntitlementDirectoryTests.cs`).
+- **Plan kataloğu, deneme ve kampanya (M17-1 / M17-3 — P09 Task 3):**
+  - Domain: `ReferralCode` (kullanıcı başına tek, kod kimlikten **deterministik** türetilir —
+    `ReferralCodeFactory`, karıştırılabilir `0/O/1/I/L` karakterleri alfabede yok),
+    `ReferralRedemption` (`RedeemerUserId` benzersiz → kullanıcı ömrü boyunca **tek** ödül),
+    `UserSubscription.GrantCampaignMonths` (ödül mevcut dönemi **ezmez, uzatır**),
+    `SubscriptionPlan.UpdatePricing` (kod/rol/periyot değişmez — kararlı anahtarlar).
+  - Uçlar: `GET /plans?role=` (**anonim** — paywall giriş yapmadan fiyat gösterebilmeli),
+    `POST /subscriptions/start-trial`, `POST /subscriptions/cancel`, `GET /referral-code`
+    (GET ama komut gönderir: kod yoksa üretilir), `POST /referral/redeem`,
+    Admin `POST /plans` + `PUT /plans/{planId}` (`AdminOnlyMembershipAuthorizer`).
+  - Kampanya kuralı tek yerde: `MembershipCampaigns.ReferralRewardMonths = 1` — davet edene **ve**
+    gelene 1 ay premium.
+  - **Plan tohumlama:** `MembershipPlanSeeder` idempotenttir (yalnız eksik kodları ekler) ve
+    `Program.cs`'te **yalnız `Development`** ortamında koşar. Fiyatlar
+    `codex/03_paket_fiyatlandirma.md` §4 lansman aralığının **alt sınırıdır** ve **hipotezdir**;
+    nihai liste **Q2** ile onaylanmadan üretime çıkmaz (üretimde planlar Admin ucundan girilir).
+  - 23 birim testi (`tests/Unit/TrialTests.cs`, `ReferralTests.cs`, `SubscriptionPlanTests.cs`).
+- **Mobil üyelik ekranı ve paywall (D-10 / D-15 — P09 Task 6):**
+  - `mobile/lib/features/membership/{domain,data,presentation}` + `shared/widgets/premium_lock.dart`.
+  - `MembershipCubit` **uygulama kökünde** (`app/app.dart`) tek örnektir ve oturum değişince
+    `GET /me` + `GET /plans?role=` çağırır. K-09'un mobil karşılığı: premium kararı tek yerde.
+  - `MembershipRepository`: `me()`, `listPlans(role)`, `startTrial(code)`, `cancel()`,
+    `referralCode()`, `redeemReferral(code)`. ⚠️ `checkout()` **bilinçli olarak yok** — uç Task 4'te
+    gelecek, olmayan uca istek atan metot "sessiz başarısızlık yok" ilkesini çiğnerdi.
+  - Ekranlar: `/membership` (durum, iptal, referans kodu, kod kullan) ve `/membership/paywall`
+    (rol bazlı karşılaştırma, plan kartları, deneme, kampanyalar). `/more` "Uyelik" satırı aktif;
+    profil kartındaki "Plus üye" rozeti artık gerçek üyelikten geliyor (sabit `true` sahtesi silindi).
+  - `PremiumLock` / `PremiumLockCard` sunucunun **gerçekten uyguladığı** kapıların önünde:
+    hedef net alanı (`study.premium_required`) ve PDF rapor kartı (`reporting.premium_required`).
+  - 24 mobil test (`membership_cubit_test.dart` 12, `premium_lock_test.dart` 4,
+    `membership_pages_test.dart` 8).
+- ⚠️ **Geçiş köprüsü (P12'de silinecek):** abonelik kaydı yokken eski profil alanları
+  (`StudentProfile.MembershipTier`, `ParentProfile.MembershipTier`) hâlâ okunur — `IMembershipDirectory`
+  artık **yalnız** bu köprünün sözleşmesidir (Students + Parents uygular, tek tüketicisi
+  `EntitlementDirectory`). Köprü olmasaydı admin'in `PUT .../membership-tier` ile verdiği premium,
+  abonelik akışı (Task 3-4) gelene kadar sessizce kaybolurdu. Karar noktası yine tek: hiçbir modül
+  o alanları kendisi okumaz.
+- ⚠️ **`MembershipTier` burada yeniden tanımlanmadı:** kanonik tanım `Shared/Contracts`'tadır
+  (`MembershipDirectoryContract.cs`) ve Students/Parents/Study/Reporting onu kullanır. Aynı gerekçeyle
+  plandaki `MembershipTierContract` enum'u da **yazılmadı**.
 
-> ⚠️ Bu dokümandaki **tüm** içerik **önerilen / planlanan**dır. PRD §10.1'e göre bu modül **en geç açılan**
+### 🔴 Hâlâ kodda olmayan
+
+- **Olay yayılımı:** `MembershipChangedIntegrationEvent` (outbox) — bugün entitlement her okumada
+  taze hesaplanıyor, tüketici-tarafı önbellek/tazeleme yok (Task 4).
+- **Uçlar:** ücretli abonelik **başlatma** (ödeme jetonuyla) — deneme/iptal/referans kodda,
+  satın alma Task 4'te.
+- **Mobil:** reklam yerleşimi (`AdSlot`) **yok** (Task 5 — Q3 bloke). Üyelik ekranı ve paywall
+  Task 6'da geldi (yukarı bak); mobilde eksik kalan tek şey **satın alma akışı** (Task 4).
+- **Ödeme:** Herhangi bir ödeme sağlayıcısı entegrasyonu (iyzico vb.) **yok** (Task 4 — **Q1 bloke**).
+- **Reklam:** `ad-placements` ucu **yok** (Task 5 — **Q3 bloke**).
+- **Kısıtlama uygulaması (kısmen):** Kapılar tek kaynağa bağlandı (yukarı), ama uygulanan kısıt kümesi
+  hâlâ dar: Free geçmiş 30 güne kısılı + hedef net/puan Premium (`study.premium_required` → 402),
+  öğretmen öğrenci limiti 5, PDF raporu Premium (402), veli zengin bildirimleri. PRD §9'daki tam
+  özellik matrisi (reklam, mesajlaşma limitleri, profil öne çıkarma, streak/motivasyon) hâlâ
+  uygulanmadı. **Bu yüzden mobil paywall tablosu PRD §9'un tamamını göstermez**: uygulanmayan
+  satırlar ayrı bir "yakında" bölümünde durur (bkz. [`../pages/paywall.md`](../pages/paywall.md) §2).
+
+### ✅ Uçtan uca doğrulanan (P09 Task 7 — **kısmi kapanış**, 2026-09-04)
+
+Zincirin bugün çalışan kısmı **gerçek Postgres'e karşı** otomatik regresyon testine bağlandı
+(`tests/Integration/RealMembershipEntitlementTests.cs`, 2 test). Birim testiyle görülemeyen şey burada
+kanıtlanır: sınırın `membership` şemasındaki abonelik kaydından okunup `students` şemasındaki uca kadar
+taşınması — yani iki ayrı şemanın tek istekte doğru bağlanması.
+
+| Adım | Beklenen | Doğrulandı |
+|------|----------|------------|
+| Free öğretmen `GET /me` | `Free` · `maxStudents = 5` · `canSeeAds = true` | ✅ |
+| 1–5. öğrenci | `200 OK` | ✅ |
+| 6. öğrenci | `409` + `students.free_limit_reached` (paywall tetikleyicisi) | ✅ |
+| `POST /subscriptions/start-trial` | `200` · `Trialing` · `planCode` dolu | ✅ |
+| Deneme sonrası `GET /me` | `Premium` · `maxStudents = int.MaxValue` · `canSeeAds = false` | ✅ |
+| 6. öğrenci (deneme açıkken) | `200 OK` — kilit gerçekten aboneliğe bağlı | ✅ |
+| Dönem kapanınca `GET /me` | `Free` · `effectiveUntilUtc = null` | ✅ |
+| 7. öğrenci (deneme bitince) | yeniden `409` | ✅ |
+| Aynı kullanıcıya ikinci deneme | `membership.trial_already_used` — dönem kapansa bile verilmez | ✅ |
+
+> ⚠️ **Kapanış kısmidir; M17 bilerek 🟡 bırakıldı.** Kabul kriterlerinden ikisi **doğrulanamadı** çünkü
+> ilgili görevler açık soruya bloke: **"premium kullanıcı hiç reklam görmüyor"** (`ad-placements` ucu yok
+> — Task 5 / **Q3**) ve **"webhook imzasız istekte 401, aynı olay iki kez gelince abonelik iki kez
+> uzamıyor"** (ödeme sağlayıcısı yok — Task 4 / **Q1**). Yani **para hâlâ tahsil edilemiyor**: bugünkü
+> premium'a yalnız ücretsiz deneme, referans ödülü ve admin köprüsüyle çıkılabilir. Bu iki kalem
+> P09'un devamına bırakıldı; 🟢'ye geçiş onlara bağlıdır.
+
+> ⚠️ §2'den itibaren içerik **önerilen / planlanan**dır; kodda olan kısım yukarıda §1'de listelenmiştir.
+> §2.1/§2.2'deki alan adları ile kodun **birebir aynı olmadığına** dikkat: kodda `Tier` doğrudan
+> `Shared.Contracts.MembershipTier`'dır (ayrı `PlanTier` yok) ve rol alanı `string Role`'dur
+> (`UserRole` enum'una bağlanması Task 3'e bırakıldı). PRD §10.1'e göre bu modül **en geç açılan**
 > bileşenlerdendir: Faz 1-3 gerçek kullanıcıda doğrulanmadan premium'a geçilmez.
 
 ---
@@ -109,6 +236,15 @@ updated: 2026-08-19
 
 ### 2.4 `ReferralCode` (AggregateRoot)
 
+> ✅ **Kodda olan (P09 Task 3) aşağıdaki öneriden sadeleşti:** `ReferralCode`
+> (`OwnerUserId` benzersiz, `Code` benzersiz, `IsActive`, `RedemptionCount`) **çok kullanımlıdır** —
+> tek davetlik `InvitedUserId`/`Status` alanları yerine, her kullanım ayrı bir
+> **`ReferralRedemption`** satırıdır (`ReferralCodeId`, `ReferrerUserId`, `RedeemerUserId`,
+> `RewardMonths`, `RedeemedOnUtc`; `RedeemerUserId` **benzersiz** → bir kullanıcı ömrü boyunca tek ödül).
+> Ödül kodun kullanıldığı anda **her iki tarafa** yazılır (ayrı `Rewarded` durumu yok); kod
+> kullanıcı kimliğinden deterministik türetilir (`ReferralCodeFactory`).
+
+
 | Alan | Tip | Açıklama |
 |------|-----|----------|
 | `Id` | Guid | |
@@ -164,33 +300,61 @@ Her modülün "bu kullanıcı premium mu / limiti ne?" sorusunu ucuz yanıtlamas
 
 ---
 
-## 3. API Sözleşmesi (⚠️ Önerilen — `/api/membership`)
+## 3. API Sözleşmesi (`/api/membership`)
+
+**Kodda olan (P09 Task 2-3):**
 
 ```
-# Planlar & abonelik
-GET  /api/membership/plans?role={role}                  → role uygun plan listesi (free + premium)
-GET  /api/membership/users/{userId}/subscription        → kullanıcının aktif aboneliği + entitlement
-POST /api/membership/users/{userId}/subscribe           → premium başlat (plan + ödeme jetonu)
-POST /api/membership/users/{userId}/start-trial         → ilk ay ücretsiz (deneme) başlat
-POST /api/membership/users/{userId}/cancel              → otomatik yenilemeyi durdur / iptal
-GET  /api/membership/users/{userId}/entitlements        → premium bayrakları + limitler
+GET  /api/membership/me                                 → { tier, effectiveUntilUtc, planCode, status,
+     (auth)                                                 entitlement: { maxStudents, canSeeAds,
+                                                             detailedAnalytics, pdfReports,
+                                                             richNotifications } }
 
-# Kampanya & referans
-POST /api/membership/campaigns/redeem                   → kampanya kodu uygula
-GET  /api/membership/users/{userId}/referral-code       → kullanıcının davet kodu (yoksa üretir)
-POST /api/membership/referrals/redeem                   → davet kodunu kullan (kayıt sırasında)
+GET  /api/membership/plans?role={role}                  → satıştaki planlar (rol filtresi opsiyonel)
+     (ANONİM — IAllowAnonymous)                            [{ id, code, role, tier, period, price,
+                                                              currency, trialDays, isActive }]
 
-# Reklam politikası (istemci tüketir)
-GET  /api/membership/ad-placements?userId={userId}      → kullanıcıya uygun reklam yerleşimleri
+POST /api/membership/subscriptions/start-trial          → { planCode } · kullanıcı başına BİR KEZ
+     (auth)                                                → üyelik durumu (Trialing)
+                                                          409 membership.trial_already_used
+                                                          404 membership.plan_not_found
+                                                          400 membership.trial_not_available
+
+POST /api/membership/subscriptions/cancel               → iptal; erişim dönem sonuna kadar sürer
+     (auth)                                                404 membership.subscription_not_found
+
+GET  /api/membership/referral-code                      → { code, redemptionCount, rewardMonths }
+     (auth)                                                (kod yoksa üretilir — GET ama komut)
+
+POST /api/membership/referral/redeem                    → { code } · HER İKİ tarafa 1 ay premium
+     (auth)                                                400 membership.invalid_referral
+                                                          400 membership.self_referral
+                                                          409 membership.referral_already_used
+
+POST /api/membership/plans                              → yeni plan (YALNIZ Admin)
+     (auth, Admin)                                         409 membership.plan_code_conflict
+                                                          400 membership.invalid_plan
+PUT  /api/membership/plans/{planId}                     → fiyat/deneme/satış durumu (YALNIZ Admin)
+     (auth, Admin)                                         404 membership.plan_not_found
+```
+
+**⚠️ Önerilen (henüz kodda değil):**
+
+```
+# Ücretli abonelik (Task 4 — Q1 bloke)
+POST /api/membership/subscriptions/subscribe            → premium başlat (plan + ödeme jetonu)
+POST /api/membership/webhooks/payment                   → sağlayıcı yenileme/iptal bildirimi (imzalı)
+
+# Reklam politikası (Task 5 — Q3 bloke)
+GET  /api/membership/ad-placements                      → kullanıcıya uygun yerleşimler
                                                           (premium → boş liste)
-
-# Ödeme sağlayıcı webhook'ları (Faz 5)
-POST /api/membership/webhooks/payment                   → store/sağlayıcı yenileme/iptal bildirimi
 ```
 
-> **Yetki:** Kullanıcı yalnızca **kendi** aboneliğini yönetir (sahiplik authorizer'ı — bkz.
-> [`mimari_inceleme.md`](mimari_inceleme.md)). Plan/kampanya tanımları ve raporlar **admin**'e açıktır
-> (bkz. [`../roles/admin.md`](../roles/admin.md)). Webhook'lar imza ile doğrulanır.
+> **Yetki:** Kullanıcı yalnızca **kendi** aboneliğini yönetir — hedef kullanıcı gövdeden değil
+> **oturumdan** gelir (`AuthenticatedMembershipAuthorizer`), bu yüzden uçlarda `{userId}` yoktur.
+> Plan yazma uçları **yalnız Admin**'e açıktır (`AdminOnlyMembershipAuthorizer`; bkz.
+> [`../roles/admin.md`](../roles/admin.md)). `GET /plans` bilinçli olarak anonimdir: paywall ekranı
+> kullanıcı giriş yapmadan da fiyatları gösterebilmelidir. Webhook'lar imza ile doğrulanır (Task 4).
 
 ---
 
@@ -204,7 +368,7 @@ POST /api/membership/webhooks/payment                   → store/sağlayıcı y
 6. **Free'ye düşüş:** `Expired/Cancelled` olunca entitlement free'ye döner; modüller (öğretmen öğrenci limiti, geçmiş erişimi vb.) kısıtlamaları yeniden uygular.
 7. **Rol bazlı özellikler (PRD §9):**
    - **Öğretmen:** aylık kazanç/gelir analizi, geciken ödeme listesi, otomatik ödeme hesaplama, PDF öğrenci raporu, öğrenci performans analizi, boş zaman analizi, **profil öne çıkarma**, sınırsız öğrenci, ders/ödev + WhatsApp/SMS hatırlatma.
-   - **Öğrenci:** geçmiş çalışma kayıtları, haftalık/aylık analiz, hedef belirleme, **streak (seri)**, motivasyon sistemi, gelişmiş çalışma sayacı, öğretmenle detaylı veri paylaşımı.
+   - **Öğrenci:** **sınırsız** geçmiş (Free 30 gün), aylık analiz, hedef net/puan takibi, konu bazlı zayıflık analizi, **streak dondurma**, PDF gelişim raporu. ⚠️ Kronometre, streak, rozet, günlük hedef ve temel haftalık analiz **Free**'dir (`MembershipGate`).
    - **Veli:** detaylı gelişim grafikleri, haftalık rapor, çalışma süresi geçmişi, bildirimler.
 8. **Kısıtlamanın tek noktası:** Limitler `Membership` entitlement'ında tanımlanır; her modül kendi sınırını bu projeksiyondan okur (örn. M03 öğretmen öğrenci sayısı, M16 mesaj eki/hız, M14 PDF rapor).
 9. **Ödeme/KVKK & mağaza:** Tahsilat App Store/Google Play (mobil) ve/veya yerel sağlayıcı üzerinden; uygulama mağazası abonelik kuralları ve KVKK uyumu gözetilir (PRD §10.3). Backend **kart verisi tutmaz**, yalnızca `ExternalSubscriptionId`.
@@ -245,32 +409,44 @@ POST /webhooks/payment (imza doğrulanır)
 
 ---
 
-## 6. Mobil Ekranlar (Planlanan)
+## 6. Mobil Ekranlar
 
-`mobile/lib/features/membership/`:
+`mobile/lib/features/membership/` — **P09 Task 6'da yazıldı** (D-10/D-15).
+Ayrıntı: [`../pages/membership.md`](../pages/membership.md) · [`../pages/paywall.md`](../pages/paywall.md).
 
-- **paywall / upgrade** — rol bazlı premium özellik vitrini (PRD §9 tablolarından), fiyat, "ilk ay ücretsiz" rozeti, satın al.
-- **subscription-manage** — mevcut plan, dönem bitişi, otomatik yenileme aç/kapa, iptal.
-- **referral-invite** — kullanıcının davet kodu/linki, paylaş, "arkadaşını getir → 1 ay ücretsiz" durumu.
-- **redeem-code** — kampanya/referans kodu girişi (kayıt akışında da).
-- **ad-slot widget** — free kullanıcıda banner/native reklam (premium'da gizli) — `AdPlacement` konfigine göre.
+| Ekran / bileşen | Rota | Durum |
+|-----------------|------|-------|
+| **Paywall** — rol bazlı karşılaştırma, plan kartları, "ilk ay ücretsiz" rozeti, kampanyalar | `/membership/paywall` | 🟡 **kodda** — satın alma düğmesi pasif (checkout ucu Task 4) |
+| **Üyelik yönetimi** — mevcut plan, dönem bitişi, iptal | `/membership` | 🟡 **kodda** — otomatik yenileme anahtarı yok (`AutoRenew` ne dönülüyor ne değiştirilebiliyor) |
+| **Referans** — kod, kopyala, kaç kişi kullandı | `/membership` içinde bölüm | 🟢 **kodda** |
+| **Kod kullan** — referans/kampanya kodu girişi | `/membership` içinde bölüm | 🟢 **kodda** (kayıt akışına henüz bağlı değil) |
+| **`PremiumLock` / `PremiumLockCard`** — premium kilidi + paywall köprüsü | `shared/widgets/premium_lock.dart` | 🟢 **kodda** |
+| **`AdSlot`** — free kullanıcıda banner reklam | — | 🔴 **yok** (Task 5, Q3 bloke) |
 
 > Premium vitrini ve reklam dışı yüzeyler kurumsal renk `0xFF082B4F` ile. Reklam SDK entegrasyonu (örn. AdMob) istemci tarafındadır.
 
 ---
 
-## 7. Kabul Kriterleri (⚠️ Önerilen)
+## 7. Kabul Kriterleri
 
-- [ ] Her rol için free + premium plan tanımlı; kullanıcı planını ve aktif aboneliğini görebiliyor.
-- [ ] Premium kullanıcı **hiç reklam görmüyor** (`ad-placements` boş dönüyor).
-- [ ] Premium kullanıcıda free limitleri kalkıyor (örn. öğretmen sınırsız öğrenci).
-- [ ] İlk ay ücretsiz: deneme başlatma çalışıyor, kullanıcı başına bir kez, süre sonunda doğru geçiş.
-- [ ] Referans: kod üretimi + davet edilen kayıt → her iki tarafa 1 ay ücretsiz.
-- [ ] Otomatik yenileme/iptal ve süre sonu free'ye düşüş çalışıyor.
-- [ ] Entitlement değişimi integration event ile diğer modüllere yayılıyor; kısıtlamalar tek noktadan uygulanıyor.
-- [ ] Rol bazlı premium özellikler (PRD §9) ilgili modüllerde entitlement'a bağlı.
-- [ ] Ödeme sağlayıcı webhook'u imza doğrulamalı ve aboneliği güncelliyor.
-- [ ] Admin plan/kampanya tanımlayıp gelir/dönüşüm raporu görebiliyor.
+P09 Task 7 (kısmi kapanış, 2026-09-04) itibarıyla durum. ✅ olanlar koşulmuş test çıktısına dayanır
+(`tests/Integration/RealMembershipEntitlementTests.cs` + birim/mobil paket).
+
+- [x] Her rol için free + premium plan tanımlı; kullanıcı planını ve aktif aboneliğini görebiliyor
+      (`GET /plans?role=` + `GET /me`). ⚠️ Fiyat değerleri **Q2** ile onaylanmadı; tohumlama yalnız Development.
+- [ ] Premium kullanıcı **hiç reklam görmüyor** (`ad-placements` boş dönüyor) — **doğrulanamadı**, uç yok (Task 5 / **Q3**).
+- [x] Premium kullanıcıda free limitleri kalkıyor — öğretmen 6. öğrenciyi ekleyebiliyor (uçtan uca §1).
+- [x] İlk ay ücretsiz: deneme başlatma çalışıyor, **kullanıcı başına bir kez**, süre sonunda Free'ye geçiş.
+- [x] Referans: kod üretimi + davet edilen kayıt → her iki tarafa 1 ay ücretsiz (`ReferralTests`, 23 birim testi).
+- [x] İptal ve süre sonu free'ye düşüş çalışıyor (iptalde erişim dönem sonuna kadar sürer).
+      ⚠️ **Otomatik yenileme yok** — yenileme ödemeye bağlı (Task 4).
+- [ ] Entitlement değişimi **integration event** ile yayılıyor — **yok**; bugün her okumada taze hesaplanıyor (Task 4).
+- [x] Rol bazlı premium özellikler ilgili modüllerde entitlement'a bağlı — ⚠️ **kısmen**: PRD §9'un
+      uygulanan alt kümesi (limit, geçmiş/hedef, PDF, veli bildirim seviyesi); reklam / mesajlaşma
+      limitleri / profil öne çıkarma hâlâ yok.
+- [ ] Ödeme sağlayıcı webhook'u imza doğrulamalı ve aboneliği güncelliyor — **doğrulanamadı**, sağlayıcı yok (Task 4 / **Q1**).
+- [ ] Admin plan/kampanya tanımlayıp gelir/dönüşüm raporu görebiliyor — plan CRUD ✅, kampanya yönetimi ve
+      gelir/dönüşüm raporu **yok**.
 
 ---
 
@@ -279,16 +455,16 @@ POST /webhooks/payment (imza doğrulanır)
 > ⚠️ **Önkoşul (PRD §10.1):** Faz 1-3 gerçek kullanıcıda doğrulanmadan açılmaz; "kısıtlamaları uygulama"
 > (Faz 5.2) ve "abonelik altyapısı + ödeme" (Faz 5.1) kritik kalemlerdir.
 
-1. **Modül iskeleti** — `Membership` modülü, `MembershipDbContext`, `membership` şeması, DI + `ModuleDefinition` + ilk migration.
-2. **Domain** — `SubscriptionPlan`, `UserSubscription`, `Campaign`, `ReferralCode`, `AdPlacement` + enum'lar + event'ler.
-3. **Entitlement projeksiyonu + integration event** — `UserSubscriptionChangedIntegrationEvent` (tüm modüllerin tükettiği).
-4. **Free/Premium kısıtlama uygulaması (Faz 5.2)** — her modülün limit/özellik kapısını entitlement'a bağla (M03 öğrenci limiti, M14 PDF/analiz, M16 mesaj eki/hız).
-5. **İlk ay ücretsiz + referans kampanyaları** — trial + referral ödül akışı.
-6. **Yenileme/expire BackgroundService.**
+1. ✅ **Modül iskeleti** (P09 Task 1) — `Membership` modülü, `MembershipDbContext`, `membership` şeması, DI + `ModuleDefinition` + `InitialCreate`.
+2. 🟡 **Domain** — `SubscriptionPlan`, `UserSubscription`, `ReferralCode`, `ReferralRedemption` + enum'lar + `MembershipChangedDomainEvent` **kodda** (Task 1, 3); `Campaign` ve `AdPlacement` **yok** (Task 5 / sonrası).
+3. 🟡 **Entitlement** (P09 Task 2 / K-09) — `IEntitlementDirectory` + `EntitlementPolicy` + `GET /me` **kodda**; `MembershipChangedIntegrationEvent` (outbox) hâlâ yok (Task 4).
+4. 🟡 **Free/Premium kısıtlama uygulaması (Faz 5.2)** — M03 öğrenci limiti, M08 geçmiş/hedef, M14 PDF, M09/M11 bildirim seviyesi entitlement'a bağlandı; reklam ve mesajlaşma limitleri kaldı.
+5. ✅ **İlk ay ücretsiz + referans kampanyaları** (P09 Task 3) — `POST /subscriptions/start-trial` (kullanıcı başına bir kez) + `GET /referral-code` / `POST /referral/redeem` (iki tarafa 1 ay). Plan tohumlaması yalnız Development'ta; **fiyatlar Q2 ile onaylanmadı**.
+6. **Yenileme/expire BackgroundService.** — `ExpireIfDue` domain'de var ama **onu çağıran zamanlanmış iş yok**: dönemi geçmiş abonelik kaydı `Expired`'a yazılmaz, yalnız okuma anında Free görünür (`HasAccess`). Kullanıcıya etkisi doğru, veri tarafı tembel.
 7. **Ödeme sağlayıcı entegrasyonu (Faz 5.1)** — store abonelikleri + imzalı webhook; backend kart verisi tutmaz.
 8. **Reklam politikası + mobil SDK** — `AdPlacement` + istemci reklam gösterimi (premium gizli).
-9. **Mobil paywall/abonelik/referans/reklam ekranları.**
-10. **Admin paneli** — plan/kampanya yönetimi + gelir/dönüşüm raporu (M14 ile).
+9. 🟡 **Mobil paywall/abonelik/referans ekranları** (P09 Task 6) — üyelik ekranı, paywall, referans akışları ve `PremiumLock` **kodda**; satın alma (Task 4) ve reklam yerleşimi (Task 5) kaldı.
+10. 🟡 **Admin paneli** — plan CRUD uçları (`POST/PUT /plans`) **kodda** (Task 3); kampanya yönetimi ve gelir/dönüşüm raporu (M14 ile) kaldı.
 11. **KVKK + mağaza uyumu** — abonelik şeffaflığı, iptal kolaylığı, veri saklama.
 
 ---
@@ -312,4 +488,4 @@ POST /webhooks/payment (imza doğrulanır)
 
 ---
 
-*Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Güncelleme: 2026-08-19 (Ö-D: Study'de hafif Free/Premium çekirdeği — `StudentProfile.MembershipTier` + `IMembershipDirectory` — kalıcı; M17 modül klasörü hâlâ kodda yok)*
+*Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Durum: 🟡 İskelet + domain + entitlement + plan/kampanya + mobil paywall, uçtan uca doğrulanmış | Güncelleme: 2026-09-05 (**doküman düzeltmesi**: PRD §9 kopyası koda göre güncellendi — streak ve rozetler **Free**, Premium olan yalnız `StreakFreeze`; ayrıntı `../denetim/2026-09-05_rakip_paritesi_analizi.md` §3. Önceki not — 2026-09-04 (**P09 Task 7 — kısmi kapanış**: üyelik zinciri gerçek Postgres'e karşı otomatik regresyona bağlandı (`tests/Integration/RealMembershipEntitlementTests.cs`, 2 test): Free öğretmen 6. öğrenciyi ekleyemiyor (409 `students.free_limit_reached`) → deneme başlıyor (`Trialing`, `maxStudents` sınırsız, `canSeeAds=false`) → 6. öğrenci eklenebiliyor → dönem kapanınca `GET /me` Free dönüyor ve 7. öğrenci yeniden 409; ikinci deneme `membership.trial_already_used`. §7 kabul kriterleri gerçeğe göre işaretlendi. **M17 bilerek 🟡 kaldı** — reklam (Task 5 / Q3) ve ödeme+webhook (Task 4 / Q1) doğrulanamadı, para tahsil edilemiyor; ayrıca `ExpireIfDue`'yu çağıran zamanlanmış iş yok (dönem sonu yalnız okuma anında Free görünür). Önceki not — P09 Task 3 / M17-1+M17-3: `ReferralCode`/`ReferralRedemption` domain'i (kod kimlikten deterministik türetilir), `UserSubscription.PlanId` **nullable** (kampanya ödülü plana bağlı değil) + `GrantCampaignMonths` (ezmez, uzatır), `SubscriptionPlan.UpdatePricing`; uçlar: anonim `GET /plans`, `POST /subscriptions/start-trial`, `POST /subscriptions/cancel`, `GET /referral-code`, `POST /referral/redeem`, Admin `POST/PUT /plans`; migration `AddReferralAndTrial` (`referral_codes`, `referral_redemptions`, `PlanId` nullable); `MembershipPlanSeeder` **yalnız Development** — fiyatlar `codex/03_paket_fiyatlandirma.md` alt sınırı ve **Q2 ile onaylanmadı**. Önceki not — P09 Task 2 / K-09+M17-5+M03-4: `IEntitlementDirectory` + `Entitlement` sözleşmesi (`Shared.Contracts`), `EntitlementPolicy` (seviye→hak eşlemesinin tek yeri), `EntitlementDirectory` (fail-safe, aboneliğe bakar), `GET /api/membership/me`; Study/Students/Reporting/Parents kapıları devralındı; eski `MembershipTier` alanları **geçici köprüye** indirildi (`IMembershipDirectory` artık yalnız köprü sözleşmesi, P12'de silinecek). Plandaki `MembershipTierContract` enum'u yazılmadı; plandaki `D-09` etiketi yanlıştı (doğrusu K-09/M17-5/M03-4). Önceki not — P09 Task 1 / M17-1: `src/Modules/Membership` 4 katman + `membership` şeması (`subscription_plans`, `user_subscriptions`, `InitialCreate`) + `SubscriptionPlan`/`UserSubscription` domain'i + `MembershipChangedDomainEvent`; `MembershipTier` **yeniden tanımlanmadı**, `Shared.Contracts`'taki kanonik enum kullanıldı. İptal ≠ anında kapanma: erişim dönem sonuna kadar sürer, Free'ye düşüş yalnız `ExpireIfDue`'da. Önceki not — 2026-08-19 (Ö-D: Study'de hafif Free/Premium çekirdeği — `StudentProfile.MembershipTier` + `IMembershipDirectory` — kalıcı; M17 modül klasörü hâlâ kodda yok))*

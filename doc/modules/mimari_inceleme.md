@@ -3,7 +3,7 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-08-26
+updated: 2026-09-04
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
@@ -94,13 +94,17 @@ Olay mesajları `outbox_messages` tablosunda birikir ama asla işlenmez. Demo/de
 `IsVerified`, `UpsertTeacherProfileRequest`, `UpdateTeacherProfileCommand` ve `TeacherProfile.Update()` metodundan kaldırıldı. Client `toUpdatePayload()` artık `isVerified` göndermez; regresyon testi eklendi.
 > **Kalan:** Admin-only `PUT /profiles/{userId}/verification` endpoint + `TeacherVerifiedDomainEvent` henüz eklenmedi.
 
-### 🟡 Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar — **JWT kısmı düzeltildi 2026-07-01**
+### ✅ Y2 — JWT imza anahtarı ve DB parolası repoda + zayıf varsayılanlar — **JWT 2026-07-01 · DB 2026-09-02 (P01)**
 `appsettings.json`: `Jwt:SigningKey = "change-this-development-signing-key"`, Postgres `Password=postgres`; kod-içi varsayılan `"replace-with-a-long-development-key"`. Prod'da override edilmezse token **taklit edilebilir**.
 
 **Öneri:** Sırları environment/secret manager'dan al; varsayılanı boş bırak + **prod'da yoksa fail-fast**.
 
 ✅ _JWT düzeltmesi (comp. denetim Y3, 2026-07-01):_ Gömülü anahtar `appsettings.json`'dan çıkarıldı (`SigningKey: ""`), `JwtOptions` varsayılanı da boş. Yeni `JwtSigningKeyGuard` startup'ta fail-fast doğrular: boş/yer-tutucu/`< 32 bayt` anahtar reddedilir (`Program.cs` + `ConfigurationHealthCheck` aynı guard'ı kullanır). Dev anahtarı yalnız `appsettings.Development.json`'da (prod'da yüklenmez). Birim testi: `tests/Unit/JwtSigningKeyGuardTests.cs`.
-⚠️ _Kalan:_ Postgres `Password=postgres` hâlâ `appsettings.json`'da (sır yönetimi ayrı bir iş).
+✅ _DB düzeltmesi (A-06, 2026-09-02, P01):_ Bağlantı dizesi `appsettings.json`'dan çıkarıldı (`"Postgres": ""`); üretimde
+`ConnectionStrings__Postgres` ortam değişkeninden gelir (Render'da managed DB'ye bağlı). Yeni `ConnectionStringGuard`
+startup'ta (`Program.cs`) ve `/health/ready`'de (`ConfigurationHealthCheck`) doğrular: boş dize her ortamda,
+varsayılan/zayıf parola (`postgres`, `changeme`, boş parola vb.) yalnız üretimde reddedilir; `InMemory:` önekli dizeler muaftır.
+Geliştirme dizesi yalnız `appsettings.Development.json`'da (`InMemory:development`). Birim testi: `tests/Unit/ConnectionStringGuardTests.cs`.
 
 ### ✅ Y3 — Mobil: token yenileme (refresh) akışı yok → kullanıcı 60 dk'da bir atılıyor — **Düzeltildi 2026-06-25**
 `TokenStorage`'a `readRefreshToken`/`writeRefreshToken` eklendi. `TokenRefreshInterceptor` (`QueuedInterceptorsWrapper`) 401'de `POST /api/identity/refresh` ile sessiz yenileme yapar; yenileme de başarısız olursa `_onUnauthorized` callback'i tetikler. `ApiClient` lazy closure ile `AuthRepository.refreshSession()`'ı çağırır (döngüsel bağımlılık önlendi).
@@ -112,10 +116,12 @@ Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegration
 
 ✅ _Çözüm (2026-08-26):_ Paylaşılan `InboxMessage` entity'si + `inbox_messages` tablosu (composite PK `(EventId, Handler)`) her modül `DbContext`'ine eklendi, ve ortak `IdempotentIntegrationEventHandler` taban sınıfı yazıldı: handler önce `(EventId, Handler)` ile inbox'ta bir kayıt olup olmadığına bakar (guard), yoksa `ApplyAsync` iş yazımlarını **staged** (henüz kaydedilmemiş) olarak hazırlar, taban sınıf inbox-işaretleme + iş yazımını **tek transaction'da atomik commit** eder — ya ikisi de yazılır ya hiçbiri (at-least-once teslimat artık güvenli, çift kayıt riski yok). 11 mantıksal tüketici handler (15 somut sınıf) bu taban sınıfa geçirildi: ProgressTracking (×2), Parents (×4 projeksiyon), Notifications (×2), Assignments (×1), Students (×1), ve 5 `StudentMerged` handler (Payments/Study/Assignments/Scheduling/LessonSessions). Eski modül-bazlı dedup tabloları — ProgressTracking'in `processed_events`'i ve Parents'ın `processed_integration_events`'i — kaldırıldı; Notifications'ın `processed_integration_events`'i **korundu** (yalnızca `ParentWeeklySummaryService` haftalık-özet dedup'ı için, event idempotency'siyle ilgisiz). 12 modül context'i için migration üretildi. Bkz. [`veri_modeli.md`](veri_modeli.md) (`inbox_messages` ER) ve [`00_genel_bakis.md`](00_genel_bakis.md) (handler envanteri).
 
-### Y5 — Bildirimler gerçekten gönderilmiyor (yalnızca "gönderildi" işaretleniyor)
-`NotificationDispatchProcessor.DispatchDueRemindersAsync` `reminder.MarkSent(...)` diyor ama **FCM/APNs'e hiçbir şey göndermiyor**. Push altyapısı (PRD Faz 0.7) bağlı değil (bkz. [`m11_notifications.md`](m11_notifications.md)).
+### ✅ Y5 — Bildirimler gerçekten gönderilmiyor (yalnızca "gönderildi" işaretleniyor) — **Düzeltildi 2026-09-03 (P03 Task 1-3)**
+`NotificationDispatchProcessor.DispatchDueRemindersAsync` `reminder.MarkSent(...)` diyor ama **FCM/APNs'e hiçbir şey göndermiyor**du. Push altyapısı (PRD Faz 0.7) bağlı değildi (bkz. [`m11_notifications.md`](m11_notifications.md)).
 
-**Öneri:** Gerçek push entegrasyonu (FCM) + cihaz token kaydı.
+**Öneri (eski):** Gerçek push entegrasyonu (FCM) + cihaz token kaydı.
+
+✅ _Çözüm (2026-09-03, P03):_ (1) `DeviceToken` aggregate + `POST`/`DELETE /api/notifications/device-tokens` ile cihaz token kaydı (Task 1). (2) `Shared/Infrastructure/Push`: `IPushSender` soyutlaması, `FcmPushSender` (FCM HTTP v1 + service-account OAuth2) ve `LoggingPushSender`; sağlayıcı `Push:Provider` ile seçilir, `PushOptionsGuard` startup'ta fail-fast eder (K-02, Task 2). (3) Dispatcher artık alıcının aktif token'larına **gerçekten gönderir**: en az biri teslim edilirse `MarkSent`, hiçbiri edilemezse `MarkFailed` — durum `Pending` kalır ve bir sonraki turda tekrar denenir, 5. denemede `Failed`; FCM `UNREGISTERED`/`INVALID_ARGUMENT` yanıtında token `Deactivate` edilir (Task 3). Kalan alt madde: kendi-ders (Ç-06) hatırlatmalarında `TeacherUserId` boş olduğu için öğrenciye teslim yok — `StudentId → UserId` eşlemesi P07 read-model'e bağlı.
 
 ---
 
@@ -126,19 +132,38 @@ Mevcut integration event handler'ları (örn. `LessonSessionCompletedIntegration
 
 ✅ _Çözüm (2026-07-01):_ Yerleşik `AddRateLimiter` yerine `DistributedRateLimitMiddleware` — Redis destekli, IP-partition'lı, **yol tabanlı** politika: `/api/identity/*` → `auth` (10/dk), diğer `/api/*` → `default` (120/dk), gerisi limitsiz. Böylece **tüm iş uçları** otomatik `default` limitine tabi. Redis erişilemezse **fail-open** (ADR-0004 kararı). Ayarlar `appsettings.json:RateLimiting`. Testler: `tests/Unit/DistributedRateLimitMiddlewareTests.cs` + ✅ gerçek Redis'e karşı `tests/Integration/RealRedisIntegrationTests.cs` (M14, 2026-07-06 — limit aşımında 429, fail-open değil).
 
-### O2 — Sorgu authorizer'ları varlığı iki kez yüklüyor (çift DB sorgusu)
+### ✅ O2 — Sorgu authorizer'ları varlığı iki kez yüklüyor (çift DB sorgusu) — **Düzeltildi 2026-09-04 (P07)**
 Örn. `GetStudentProfileByIdQuery`: authorizer profili yükler, handler **aynı** profili tekrar yükler. **Öneri:** request-context cache veya erişim kontrolünü handler'a entegre et.
+
+✅ _Düzeltildi (2026-09-04, P07 Task 3):_ İki mekanizma, bkz. [`../architecture/backend.md`](../architecture/backend.md) §7.2.
+(a) **Birincil anahtar aramaları** repository katmanında `FindAsync`'e çevrildi (19 metot, 14 dosya) — varlık aynı
+`DbContext`'te izleniyorsa ikinci `SELECT` hiç üretilmez. (b) **Anahtar dışı / `Include`'lu** yüklemeler için
+`IRequestEntityCache` (scoped) + `GetOrLoadAsync` eklendi; Students profil ve Payments kayıt yolları bağlandı.
+Ölçüm gerçek Postgres'te EF `Executed DbCommand` günlüğü sayılarak yapıldı (`tests/Integration/RealSingleEntityLoadTests.cs`):
+`student_profiles` → 1 `SELECT`, `lesson_schedules` → 2'den 1'e düştü.
 
 ### ✅ O3 — `MarkProcessedAsync` `DateTime.UtcNow` kullanıyor (IClock değil) — **Düzeltildi 2026-07-01**
 Kod tabanı test edilebilirlik için `IClock` kullanırken `EfOutboxStore` doğrudan `DateTime.UtcNow` çağırıyor — tutarsız.
 
 ✅ K5 refactor'ünde `MarkProcessedAsync` kaldırıldı; `EfOutboxStore` artık `IClock` enjekte ediyor (`clock.UtcNow`), böylece işleme zaman damgaları test edilebilir (`FixedClock` ile).
 
-### O4 — `CommandDispatcher`/`QueryDispatcher` ağır `dynamic` + reflection
+### ✅ O4 — `CommandDispatcher`/`QueryDispatcher` ağır `dynamic` + reflection — **Düzeltildi 2026-09-04 (P07)**
 Her dispatch'te `MakeGenericType` + `dynamic` + `GetMethod(...).Invoke`. Cache/pipeline yok. **Öneri:** tip başına derlenmiş delegate cache veya MediatR benzeri pipeline.
 
-### O5 — Modüller arası okuma (read-model) mekanizması yok
+✅ _Düzeltildi (2026-09-04, P07 Task 4):_ İstek tipi başına **derlenmiş delegate önbelleği** eklendi
+(`DispatcherInvokerCache`, `DispatcherHandlerInvokerCache<TResponse>`, `DispatcherFailureFactory<TResponse>` —
+`Shared/Infrastructure/Application`), bkz. [`../architecture/backend.md`](../architecture/backend.md) §4.2.
+`MakeGenericType` + `Expression.Compile` maliyeti tip başına **bir kez** ödenir; sonrası `ConcurrentDictionary` araması.
+`dynamic` üç yerden kalktı: validator/authorizer çağrısı, handler çağrısı ve hata sonucu üretimi
+(`GetMethod("Failure").Invoke(...)` → derlenmiş fabrika). Dış sözleşme (`ICommandDispatcher`/`IQueryDispatcher`) değişmedi;
+`grep -rn "dynamic" src/Shared/Infrastructure/Application` **boş**. Testler: `tests/Unit/DispatcherCacheTests.cs` (7 test —
+önbellek tip başına bir kez kuruluyor, validator → authorizer → handler sırası, hata durumunda kısa devre).
+**Hâlâ yok:** genel bir pipeline kancası (logging/transaction/behavior zinciri) — öneri parçası olarak açık.
+
+### ✅ O5 — Modüller arası okuma (read-model) mekanizması yok — **Düzeltildi 2026-09-04 (P07)**
 Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) birden çok modülün verisini birleştirecek. Şu an yalnız integration event var; **senkron sorgu/kontrat** yok. **Öneri:** `Shared/Contracts` read kontratları veya ACL/projeksiyon. (Bu, M09/M12/M14 için **kritik önkoşul**.)
+
+✅ _Düzeltildi (2026-09-04, P07):_ Kanonik **projeksiyon deseni** kuruldu — `ProjectionEntity` (Shared.Kernel) + `ProjectionHandler<TEvent>` + `IProjectionRebuilder` (Shared.Infrastructure/Projections), bkz. [`../architecture/backend.md`](../architecture/backend.md) §7.1. İlk gerçek tüketici: **M14 öğretmen dashboard projeksiyonu** (`teacher_dashboard_projections`, event-beslemeli, idempotent, canlı doğrulandı). Senkron çapraz-modül okuma **hâlâ yasak**.
 
 ### O6 — `LessonSchedule` durum yaşam döngüsü kısmen
 ✅ _Düzeltme (2026-06-24):_ **Ders çakışması kontrolü ASLINDA mevcut** — `HasTeacherConflictAsync` → `scheduling.teacher_conflict` (409) ve `scheduling.invalid_range` (400) koddan doğrulandı; teacher-lesson liste endpoint'i `startAtUtc`/`endAtUtc` tarih filtresi alıyor.
@@ -149,12 +174,14 @@ Payments özeti, veli paneli (M09), eşleştirme arama (M12), raporlama (M14) bi
 ### O7 — Test kapsamı çok düşük
 Yalnız ~5 test dosyası. Handler/authorizer/outbox/domain davranışları test edilmiyor; Y1, K3 bir test olsa yakalanırdı.
 
-### O8 — Dosya yükleme/depolama servisi (kısmen çözüldü 🟡 — 2026-07-09)
-**Öğrenci ödev yükleme çözüldü:** M06'da `IAssignmentFileStorage`/`LocalAssignmentFileStorage` (yerel disk) +
-`POST /api/assignments/{id}/submission` (multipart) + modül-içi yetkili indirme eklendi. **Kalan:** `Shared/`'da
-ortak `IFileStorage`/blob soyutlaması hâlâ yok; `TeacherProfile.ProfilePhotoUrl`, ders **kaynağı (LessonResource)**
-düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya (S3/Blob) taşınmalı.
-**Öneri:** `Shared/Infrastructure`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob).
+### ✅ O8 — Dosya yükleme/depolama servisi — **Düzeltildi 2026-09-03 (P04)**
+**Öneri (eski):** `Shared/`'da `IFileStorage` soyutlaması + sağlayıcı (yerel/S3/Azure Blob).
+
+✅ _Çözüm (2026-09-03, P04/K-03):_ Port **`Shared.Kernel/Storage`**'da (`IFileStorage`, `StoredFile`, `FileValidation` — `IClock`/`ICurrentUser` deseni; Application katmanı Infrastructure'ı referanslamadığı için port Kernel'de durur), implementasyonlar `Shared.Infrastructure/Storage`'da: `LocalFileStorage` (dev, **path traversal** korumalı) ve `S3FileStorage` (AWSSDK.S3; AWS S3 / Cloudflare R2 / MinIO — `ServiceUrl` doluysa path-style). Sağlayıcı `Storage:Provider` ile seçilir; `StorageOptionsGuard` eksik S3 ayarında startup'ı fail-fast durdurur. Ortak kural: 10 MB + 13 uzantılık beyaz liste (`storage.file_too_large`/`storage.unsupported_type`/`storage.empty_file`). **Public bucket yok** — her indirme uygulama üzerinden yetkiyle akıtılır.
+
+Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya taşındı, eski sınıflar silindi, göç script'i yazıldı (`scripts/migrate-assignment-files.sh`); (2) `TeacherProfile.ProfilePhotoUrl` → `ProfilePhotoKey` + `POST`/`GET /api/teachers/profiles/{userId}/photo`; (3) **`LessonResource`** aggregate'i eklendi (dosya veya bağlantı, 4 uç, yumuşak silme).
+
+**Canlı doğrulama (2026-09-03):** Yerel **MinIO** (S3-uyumlu) bucket'ına karşı uçtan uca tur — profil fotoğrafı ve ders kaynağı yüklendi, bucket'ta nesne oluştu, indirme aynı içeriği döndürdü; yabancı kullanıcı **403**, kimliksiz **401**, `.exe` **400**, 11 MB **400**. Bu turda gerçek iki hata yakalandı ve düzeltildi: `DisablePayloadSigning` yalnız HTTPS'te geçerli, ve AWS SDK `PutObjectAsync` sonrası akışı kapattığı için boyut çağrıdan önce okunmalı (ikisi de regresyon testine bağlandı).
 
 ---
 
@@ -164,6 +191,11 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 - **D3** — Placeholder dosyalar: `Shared/*/Class1.cs` ve boş `AssemblyReference.cs` kaldırılmalı.
 - **D4** — ✅ _Düzeltildi._ Doküman tutarsızlığı (.NET 8/10) gerçek hedef **.NET 9** ile hizalandı.
 - **D5** — `StudentProfileQueryAuthorizer` 3 arayüzle 3 kez `AddScoped` → 3 instance (gereksiz).
+- **D7** — ✅ _Düzeltildi (2026-09-02, P01)._ CI derleme adımı (`dotnet build EgitimUssu.slnx -warnaserror`) 13 hata veriyordu:
+  3× `CS1573` (eksik XML `<param>` — `StudySession.Pause/Complete`), 1× `CS8604` (`LessonSchedule.LessonFormat` nullable enum
+  → `LessonScheduleResponse`), 9× `CS8602` (`Result.Value` dereference, 4 birim test dosyası). Hepsi kapatıldı; davranış değişmedi.
+- **D8** — `src/Shared/Infrastructure/Design/DesignTimeDbContextFactoryBase.cs` hâlâ `Password=postgres` içeren bir varsayılan
+  taşıyor. Yalnız `dotnet ef` tasarım zamanını besliyor (çalışma zamanına girmiyor) — yine de temizlenmeli (**P13**).
 - **D6** — İskelet modüller (`Matching`, `Reviews`, `Reporting`) yalnız `/status` döndürüyor — beklenen (yol haritası), tasarımları [`m12`](m12_matching.md)/[`m13`](m13_reviews.md)/[`m14`](m14_reporting.md)'te. (`Study` 🟢, `Parents` 🟢, `ProgressTracking` 🟡 artık gerçek endpoint'ler.)
 
 ---
@@ -191,11 +223,11 @@ düz string. Üretimde M06 yerel depolaması ortak soyutlama + nesne depolamaya 
 2. **K1** — Outbox'ı aç + startup uyarısı.
 3. **K3** — Eksik authorizer'lar + startup guard.
 4. **K2 + Y4** — Outbox hata izolasyonu/retry + idempotent handler.
-5. **Y2** — Sırları config'ten çıkar, prod fail-fast.
+5. ✅ **Y2** — Sırları config'ten çıkar, prod fail-fast. *(JWT 2026-07-01, DB 2026-09-02)*
 6. **Y3** — Mobil refresh token akışı.
-7. **O5 + O8** — Modüller arası okuma + dosya depolama (yeni modüllerin önkoşulu).
-8. **O7** — Regresyon testleri.
+7. ~~**O5** — Modüller arası okuma (yeni modüllerin önkoşulu).~~ ✅ **(P07, 2026-09-04)** *(O8 dosya depolama 2026-09-03'te kapatıldı.)*
+8. **O7** — Regresyon testleri. *(O2 ve O4 performans maddeleri 2026-09-04'te P07 ile kapatıldı.)*
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-09-04 (P07 kapanışı: **O5** read-model deseni + M14 ilk projeksiyon, **O2** authorizer/handler çift sorgusu, **O4** dispatcher delegate önbelleği — üçü de kapatıldı) · 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*

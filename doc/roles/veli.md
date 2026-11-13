@@ -4,7 +4,7 @@ summary: "Veli, çocuğun gelişimini ve öğretmen etkileşimlerini şeffaf gra
 tags: [rol, veli, read-model]
 status: "🟡"
 authority: derived
-updated: 2026-08-19
+updated: 2026-10-16
 ---
 
 # 👪 Veli Rolü — Detaylı Tasarım Dokümanı
@@ -15,7 +15,7 @@ updated: 2026-08-19
 > ödemeleri ve öğretmen etkileşimlerini izlesin.
 >
 > İlgili: [`00_roller_genel_bakis.md`](00_roller_genel_bakis.md) · [`ogrenci.md`](ogrenci.md) · [`ogretmen.md`](ogretmen.md) · [`../modules/m09_parents.md`](../modules/m09_parents.md)
-> **Güncelleme:** 2026-08-19
+> **Güncelleme:** 2026-09-04
 
 ---
 
@@ -50,13 +50,13 @@ Veli, **kendi verisi üretmeyen**, çoğunlukla diğer modüllerin verisini veli
 | Zengin panel: çalışma dağılımı + yaklaşan/son ders + öğretmen notları + ödeme detay | [`m09_parents`](../modules/m09_parents.md) | 🟢 (Veli V-F) |
 | Bildirim tercihleri (ödev kaçırma/haftalık özet/ders/test/ödeme + kanal) | [`m09_parents`](../modules/m09_parents.md) | 🟢 |
 | Çocuğun ders durumu/programı | [`m04_scheduling`](../modules/m04_scheduling.md) / [`m05_lesson_sessions`](../modules/m05_lesson_sessions.md) | 👁️ |
-| Çocuğun **hedef + gelişim** (grafik/rapor) | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) / [`m14_reporting`](../modules/m14_reporting.md) | 🔴 |
+| Çocuğun **hedef + gelişim** (grafik/rapor) | [`m10_progress_tracking`](../modules/m10_progress_tracking.md) / [`m14_reporting`](../modules/m14_reporting.md) | 🟢 Gelişim özeti (`GET /parents/{id}/children/{id}/overview`) + **mobil grafikler** — `/parent/child-detail` içinde haftalık çalışma çubuk grafiği ve ders bazlı net (M14-2/M14-3 uçlarından, onaylı bağ + gizlilik kapılı) → [`../pages/teacher_reports.md`](../pages/teacher_reports.md) §3 |
 | Bireysel çalışma verisi (süre/test/seri) | [`m08_study`](../modules/m08_study.md) | 🔴 |
 | **Özel ders ödemeleri** (paylaşılırsa) | [`m07_payments`](../modules/m07_payments.md) | 🟢 veri / ⚠️ paylaşım bayrağı |
 | **"Ödedim" beyanı** (öğretmen teyitli mutabakat) | [`m07_payments`](../modules/m07_payments.md) | 🟢 (Veli V-G) |
 | Öğretmen-öğrenci **etkileşimleri** | [`m05`](../modules/m05_lesson_sessions.md)/[`m06`](../modules/m06_assignments.md) | 👁️ |
-| Öğretmenle **mesajlaşma** | [`m16_messaging`](../modules/m16_messaging.md) | 🔴 |
-| Bildirimler (ödev kaçırma vb.) | [`m11_notifications`](../modules/m11_notifications.md) | 🟡 |
+| Öğretmenle **mesajlaşma** | [`m16_messaging`](../modules/m16_messaging.md) | 🟡 (P10: veli ana sayfa başlık ikonundan gelen kutusu; okur ve **yanıtlar**. Sohbeti **başlatamaz** — veli panelinde öğretmenin kullanıcı kimliği yok, öğretmen başlatır) |
+| Bildirimler (ödev kaçırma vb.) | [`m11_notifications`](../modules/m11_notifications.md) | 🟢 (M09-3 kapandı — 2026-09-04, P06/M06-3) |
 | **Veli bildirim motoru** (olay + haftalık özet, **Premium**) | [`m11_notifications`](../modules/m11_notifications.md) | 🟢 (Veli V-E) |
 | Profil/bildirim/üyelik | [`m15_settings`](../modules/m15_settings.md) / [`m17_membership`](../modules/m17_membership.md) | 🟡/🔴 |
 
@@ -81,10 +81,10 @@ Kayıt (Parent, gerçek kişi) → çocuğa bağlan (davet/e-posta → onay)
 3. **Çoklu çocuk:** Bir veli birden çok öğrenciye bağlanabilir; panelde çocuk seçici bulunur.
 4. **Yalnız görüntüleme:** Veli ders/ödev/ödeme verisini **düzenleyemez**, yalnızca görüntüler.
 5. **Gizlilik:** Öğrenci, hangi verilerin veliye yansıyacağını kontrol edebilir (M15); ödeme yalnızca `IsSharedWithParent` ise görünür (M07). **(Veli V-B, 2026-07-19 — uygulandı)** Öğrenci `PUT /api/settings/users/{userId}/study-sharing` ile çalışma verisi paylaşımını kapatabilir; kapalıysa veli panelinde çalışma alanları (haftalık dakika, streak) **"paylaşılmıyor"** işaretiyle (`IsShared=false`, değer 0) döner — değer sızmaz. **Değişmez kural:** çocuğun kişisel seans notu veliye hiçbir koşulda açılmaz.
-6. **Ödev kaçırma bildirimi:** Öğrenci ödevini son tarihten önce yüklemezse veliye bildirim gider (M06 + M11).
+6. **Ödev kaçırma bildirimi (🟢 kodda, 2026-09-04 — M09-3):** Öğrenci ödevini son teslim tarihine kadar teslim etmezse, `AssignmentDueScanner` `AssignmentMissedDomainEvent` üretir; `AssignmentMissedNotificationHandler` **onaylı Premium** veliye (`Prefs.MissedAssignment` açıksa) hem `ParentNotification` hem `UserNotification(Kind=AssignmentMissed)` yazar (M06-3 + M11).
 7. **Sessizce bağlanma yok + birincil veli (Veli V-C, 2026-07-19 — uygulandı):** Bir bağ onaylandığında şeffaflık olayı (`ParentLinkConnectionNoticeDomainEvent`) yayılır — çocuk ve varsa mevcut birincil veli "X hesabı veli olarak bağlandı" bilgilendirilir (teslim V-E). Bir çocuğun tek **birincil velisi** olabilir; ikinci veli birincil olmak isterse mevcut birincil veli (veya admin) onaylamadıkça olamaz (`parents.primary_exists`, 409). Yani veli, çocuk/mevcut veli **haberdar edilmeden bağlanamaz**.
 8. **Öğretmen→veli davet kodu (Veli V-D, 2026-07-19 — uygulandı):** Öğretmen bir öğrenci için veli davet kodu üretir (`POST /api/students/profiles/{studentId}/parent-invite`); veli kaydolup kodu `POST /api/parents/children/claim-invite` ile girerek çocuğuna bağlanır. Kod girmek onay eylemidir → bağ doğrudan **Approved** (öğretmen kodu = öğretmen onayı, veli kod = veli onayı). İlk veli birincil olur. Telefon eşleştirme yok; kod modeli.
-9. **"Ödedim" beyanı (Veli V-G, 2026-07-19 — uygulandı):** Veli bir ödeme kaydı için "ödedim" beyan eder (`POST /api/payments/records/{id}/declare-paid`) → öğretmene bildirim gider (teslim V-E) → öğretmen **teyit** edince (`.../confirm`) kayıt tam tahsil edilmiş (`Paid`) işaretlenir; reddederse kayıt değişmez. **Para transferi değildir**, mutabakat kaydıdır (PRD "platform para tahsil etmez" korunur). Yetki: yalnız onaylı veli beyan eder, yalnız ilgili öğretmen teyit eder.
+9. **"Ödedim" beyanı (Veli V-G, 2026-07-19 — uygulandı):** Veli bir ödeme kaydı için "ödedim" beyan eder (`POST /api/payments/records/{id}/declare-paid`) → öğretmene bildirim gider (teslim V-E) → öğretmen **teyit** edince (`.../confirm`) kayıt tam tahsil edilmiş (`Paid`) işaretlenir; reddederse kayıt değişmez. **Para transferi değildir**, mutabakat kaydıdır (PRD "platform para tahsil etmez" korunur). Yetki: yalnız onaylı veli beyan eder, yalnız ilgili öğretmen teyit eder. Beyan tutarı güncel kalan borca eşit olmalıdır; iptal edilmiş/ödenmiş kayıtlar veya beyan sonrası değişen bakiye için teyit reddedilir, yanlış tahsilat yazılmaz.
 10. **Bildirimler Premium (Veli V-E, 2026-07-19 — uygulandı):** Veli bildirimleri (yeni ödev, ders tamamlandı, ödeme güncellemesi, bağlantı bildirimi + haftalık özet) yalnız **Premium** veliye gider (`ParentProfile.MembershipTier`; PRD 9.3) ve velinin tercih anahtarlarına saygılıdır. Bağlantı bildirimi güvenlik gereği koşulsuz (yine de Premium). Satın alma altyapısı olmadığından başlangıçta tüm veliler Free — Premium yalnız Admin `PUT /membership-tier` ile verilir. Liste: `GET /api/notifications/parents/{parentUserId}/notifications`.
 11. **Zenginleştirilmiş panel (Veli V-F, 2026-07-19 — uygulandı):** Veli paneli artık canlı digest'lerle beslenir: çalışma süresi + **ders bazlı dağılım** (panelde "hep 0" bug'ı düzeltildi), yaklaşan dersler, son ders özeti (konu), **veli-görünür öğretmen notları** (yalnız Student/StudentAndParent; Private asla), ödeme kalem listesi. Çalışma verisi gizlilik kapalıysa maskeli döner (V-B); kişisel seans notu hiçbir koşulda görünmez.
 
@@ -118,7 +118,9 @@ Veli rolü **yapamadıklarıyla** tanımlanır — read-model rolüdür. Arşivl
 (çalışma/ders/ödev/ödeme detayı), `parent_notifications_page` (bildirim tercihleri + kanal seçimi), `parent_profile_page` (profil + çıkış).
 Rol bazlı yönlendirme uygulandı: `session.roles` 'Parent' içeriyorsa `/parent`.
 
-**Planlanan ⚠️:** Öğretmenle mesajlaşma; M08 verisi gelince gerçek çalışma süresi/streak; gelişim grafikleri (donut/line, M10/M14).
+**Planlanan ⚠️:** ~~Öğretmenle mesajlaşma (M16, P10)~~ ✅ **P10 Task 4 — kısmi**: veli gelen kutusunu görür ve yanıtlar; sohbeti öğretmen başlatır (veli panelinde `teacherUserId` yok — bkz. §Eksikler). ~~Gelişim grafikleri (M10/M14)~~ ✅ P08 Task 5 — çocuk detayında
+haftalık çalışma çubuk grafiği + ders bazlı net. ⚠️ Sunucu gizlilik kapalıyken 403 değil **boş liste** döndürdüğü
+için ekran "veri yok" ile "paylaşım kapalı"yı ayırt edemez; boş durum metni iki olasılığı birden söyler.
 
 ---
 
@@ -128,6 +130,24 @@ Rol bazlı yönlendirme uygulandı: `session.roles` 'Parent' içeriyorsa `/paren
 
 ## 9. Üyelik Etkisi (Free/Premium)
 Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalışma süresi geçmişi, gelişmiş bildirimler. Free: temel özet + reklam (PRD §9.3, [`../modules/m17_membership.md`](../modules/m17_membership.md)).
+
+> **Yeni (P09 Task 3, 2026-09-04 — backend, mobil arayüz yok):** Kullanıcı **ilk ay ücretsiz** denemesini
+> `POST /api/membership/subscriptions/start-trial` ile başlatır (**kullanıcı başına bir kez** — iptal, hakkı geri vermez),
+> `POST /api/membership/subscriptions/cancel` ile iptal eder (**erişim dönem sonuna kadar sürer**), referans kodunu
+> `GET /api/membership/referral-code` ile alır ve `POST /api/membership/referral/redeem` ile kullanır — davet edene **ve**
+> gelene **1 ay premium** yazılır (ödül mevcut dönemi ezmez, uzatır). Fiyat listesi hâlâ hipotez (**Q2**); paywall ekranı Task 6'da geldi.
+
+> **Yeni (P09 Task 6, 2026-09-04 — mobil arayüz geldi):** `Diğer → Üyelik` → **Üyelik** ekranı (`/membership`)
+> mevcut planı, dönem sonunu, iptali ve referans kodunu gösterir; **Paywall** (`/membership/paywall`)
+> rol bazlı Free/Premium karşılaştırmasını, plan kartlarını ve ücretsiz denemeyi taşır. Premium'a özel
+> alanlar ortak `PremiumLock` ile kilitlenir ve kilit kartı paywall'a götürür.
+> ⚠️ **Satın alma düğmesi pasiftir** — ödeme entegrasyonu P09 Task 4 (Q1 bloke).
+
+> **Kapanış (P09 Task 7, 2026-09-04 — kısmi):** Üyelik zinciri (deneme → premium → dönem sonu → Free)
+> gerçek Postgres'te uçtan uca doğrulandı; velinin bildirim seviyesi bu tek kaynaktan okunuyor.
+> ⚠️ Velinin bugün premium olmasının tek yolu **deneme veya referans ödülüdür** — **satın alma yok**
+> (Task 4 / Q1) ve **reklamsızlık uygulanmıyor** (reklam altyapısı yok, Task 5 / Q3).
+
 > **Kod gerçeği (Veli V-E, 2026-07-19):** `ParentProfile.MembershipTier` (Free/Premium) eklendi ve **veli bildirim motoru (M11) Premium kapılı** çalışır. Satın alma/aile paketi altyapısı henüz yok — tier yalnız Admin `PUT /api/parents/{id}/membership-tier` ile set edilir (sonraki faz: V-Premium).
 
 ## 10. Kabul Kriterleri
@@ -138,7 +158,7 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 **Faz 3 (öğretmen verisi):**
 - [ ] Son ders, ödevler, öğretmen notları, ödeme özeti.
-- [ ] Öğretmenle mesajlaşma + ödev kaçırma bildirimi.
+- [~] Öğretmenle mesajlaşma — **kısmi** (P10 Task 4): veli okur ve yanıtlar; **başlatamaz**, çünkü veli dashboard sözleşmesi öğretmenin kullanıcı kimliğini taşımıyor. Sohbeti başlatabilmesi için `ParentChildDashboard`'a `teacherUserId` eklenmeli. *(Ödev kaçırma bildirimi ✅ 2026-09-04, P06/M06-3.)*
 
 ## 11. İlişkili Dokümanlar
 - Çocuğun verisi → [`ogrenci.md`](ogrenci.md) · Öğretmen verisi → [`ogretmen.md`](ogretmen.md)
@@ -146,4 +166,4 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 
 ---
 
-*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-08-19 (doküman temizliği: §6.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı) · 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*
+*Veli Rolü — Detaylı Tasarım | Güncelleme: 2026-10-16 (ödeme beyanında açık bakiye/tutar uyuşması; geçersiz teyit engellenir). Önceki: 2026-09-04 (**P10 Task 4 / M16-1 + D-08 — kısmi**: veli ana sayfa başlık ikonundan gelen kutusuna girer, öğretmenin başlattığı sohbeti okur ve yanıtlar. Sohbeti **başlatamaz**: veli dashboard sözleşmesi öğretmenin kullanıcı kimliğini taşımıyor — `ParentChildDashboard`'a `teacherUserId` eklenmeli. Önceki not — **P09 Task 7 — kısmi kapanış**: üyelik zinciri (deneme → premium → dönem sonu → Free) gerçek Postgres'te doğrulandı, veli bildirim seviyesi tek kaynaktan okunuyor; satın alma (Q1) ve reklam (Q3) hâlâ yok. Önceki not — P09 Task 6 / D-10+D-15: üyelik ekranı (`/membership`) ve paywall (`/membership/paywall`) **mobilde**; ücretsiz deneme ve referans akışları arayüzden çalışıyor, satın alma pasif (Task 4/Q1). Önceki not — 2026-09-04 (P09 Task 3 / M17-3: ücretsiz deneme (kullanıcı başına bir kez), abonelik iptali (erişim dönem sonuna kadar) ve referans kampanyası (iki tarafa 1 ay) **backend'de** — mobil arayüz Task 6'da. Önceki not — P08 kapanış / Task 5+6: veli çocuk detayına **gelişim grafikleri** eklendi (haftalık çalışma + ders bazlı net); M10 ve M14 🟢. Önceki not — P08 Task 3 / M14-2 + M14-3: onaylı veli çocuğunun haftalık çalışma analizini ve ders bazlı aylık performansını `GET /api/reporting/students/{id}/study-analysis` ve `.../performance` uçlarından okur; gizlilik `Hidden`/kapalı ise boş, `Limited` ise yalnız haftalık toplam süre) · 2026-09-04 (P08 Task 2 / M10-2: veli **onaylı** bağı olan çocuğunun gelişim özetini okuyabilir (`GET /api/progress-tracking/parents/{parentUserId}/children/{studentId}/overview`); onaysız bağda 403, öğrencinin veli paylaşımı kapalıysa veya `PrivacyLevel.Hidden` ise **boş özet**, `Limited` ise yalnız sayaçlar — konu kırılımı gizli) · 2026-09-04 (P06 Task 9 / M03-1 + M03-3: öğretmen artık kayıtlı bir veliyi öğrenciye **doğrudan** bağlama talebi açabilir — davet kodu tek yol değil; bağ yine `Pending` başlar ve mevcut `children/{linkId}/approve` akışıyla onaylanır. Ayrıca `GET /api/students/profiles/by-parent/{parentUserId}` ile velinin **onaylı** çocukları doğrudan listelenebilir; veli yalnız kendi listesini görür) · 2026-09-04 (P06/M06-3 → M09-3 kapandı: ödev kaçırma bildirimi gerçek — `AssignmentDueScanner` → `AssignmentMissedNotificationHandler` → onaylı **Premium** veliye `Prefs.MissedAssignment` kapısıyla `ParentNotification` + `UserNotification`) · 2026-08-19 (doküman temizliği: §6.1 "Neyi Yapamaz" yetki sınırları matrisi arşivlenen fonksiyonel dokümandan taşındı) · 2026-07-19 (Veli V-F: zenginleştirilmiş panel — canlı digest'ler + çalışma verisi bug fix + öğretmen notları görünürlük filtreli; Veli V-E: Premium veli bildirim motoru + `MembershipTier`; Veli V-G: "ödedim" beyanı öğretmen teyitli; Veli V-D: öğretmen→veli davet kodu claim; Veli V-C: bağlantı şeffaflığı + birincil veli; Veli V-B: gizlilik filtresi — çalışma verisi paylaşım kontrolü)*

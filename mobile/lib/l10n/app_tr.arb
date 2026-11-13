@@ -1,0 +1,303 @@
+{
+  "@@locale": "tr",
+  "app_title": "EğitimÜssü",
+  "@app_title": {
+    "description": "Uygulama adı — görünen metinde her zaman Türkçe karakterlerle"
+  },
+  "auth_alreadyHaveAccount": "Zaten hesabım var ",
+  "auth_backToRoleSelection": "Rol seçim ekranına geri dön",
+  "auth_changeRole": "Hesap türünü değiştir",
+  "auth_codeFromEmail": "E-postadaki kod",
+  "auth_emailAddress": "E-posta adresin",
+  "auth_firstName": "Ad",
+  "auth_firstNameHint": "Adınız",
+  "auth_forgotPassword": "Şifremi unuttum",
+  "auth_google": "Google",
+  "auth_googleNotReady": "Google ile giriş akışı henüz eklenmedi.",
+  "auth_hasAccount": "Zaten hesabın var mı? ",
+  "auth_haveCodeAlready": "Kodum zaten var",
+  "auth_lastName": "Soyad",
+  "auth_lastNameHint": "Soyadınız",
+  "auth_loginSubtitle": "{role} hesabınızla devam edin.",
+  "@auth_loginSubtitle": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "auth_loginTitle": "Giriş Yapın",
+  "auth_newPassword": "Yeni şifre",
+  "auth_newPasswordRepeat": "Yeni şifre (tekrar)",
+  "auth_noAccount": "Hesabın yok mu? ",
+  "auth_orContinueWith": "veya şununla devam et",
+  "auth_passwordsDoNotMatch": "Şifreler eşleşmiyor.",
+  "auth_phone": "Telefon",
+  "auth_phoneHint": "5xx xxx xx xx",
+  "auth_registerSubtitle": "{role} hesabınızı oluşturarak başlayın.",
+  "@auth_registerSubtitle": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "auth_rememberMe": "Beni hatırla",
+  "auth_resendCode": "Kodu tekrar gönder",
+  "auth_resetCode": "Sıfırlama kodu",
+  "auth_resetCodeRequired": "Sıfırlama kodunu gir.",
+  "auth_resetConfirmIntro": "E-postana gönderdiğimiz sıfırlama kodunu ve yeni şifreni gir.",
+  "auth_resetConfirmSuccess": "Şifren güncellendi, giriş yapabilirsin.",
+  "auth_resetConfirmTitle": "Yeni şifre belirle",
+  "auth_resetRequestIntro": "Kayıtlı e-posta adresini gir; sana bir sıfırlama kodu göndereceğiz.",
+  "auth_roleParent": "Veli",
+  "auth_roleParentDescription": "Çocuğunuzun ilerlemesini sade özetlerle takip edin.",
+  "auth_roleSelectionSubtitle": "Size en uygun deneyimi yaşatalım.",
+  "auth_roleSelectionTitle": "Hesap türünü seçin",
+  "auth_roleStudent": "Öğrenci",
+  "auth_roleStudentDescription": "Çalışma sürecinizi planlayın, gelişiminizi izleyin.",
+  "auth_roleTeacher": "Öğretmen",
+  "auth_roleTeacherDescription": "Derslerinizi yönetin, öğrencilerinizi takip edin.",
+  "auth_sendResetCode": "Sıfırlama kodu gönder",
+  "auth_sending": "Gönderiliyor...",
+  "auth_serverWaking": "Sunucu uyandırılıyor, lütfen bekleyin...",
+  "auth_signIn": "Giriş Yap",
+  "auth_signUp": "Kayıt Ol",
+  "auth_updatePassword": "Şifremi güncelle",
+  "auth_updating": "Güncelleniyor...",
+  "auth_verificationCode": "Doğrulama kodu",
+  "auth_verificationCodeRequired": "Doğrulama kodunu gir.",
+  "auth_verify": "Doğrula",
+  "auth_verifyEmailCodeResent": "Yeni doğrulama kodu e-postana gönderildi.",
+  "auth_verifyEmailConfirmed": "E-posta adresin doğrulandı.",
+  "auth_verifyEmailEnterFirst": "Önce e-posta adresini gir.",
+  "auth_verifyEmailIntro": "Hesabını etkinleştirmek için e-postana gönderdiğimiz kodu gir.",
+  "auth_verifyEmailTitle": "E-posta doğrulama",
+  "auth_verifying": "Doğrulanıyor...",
+  "auth_welcomeBadge": "Eğitim odaklı güçlü bir başlangıç alanı",
+  "auth_welcomeLiveTracking": "Canlı takip",
+  "auth_welcomeSlideExperience": "Öğretmen, öğrenci ve veli deneyimi tek mobil akışta.",
+  "auth_welcomeSlidePlanning": "Planlama, takip, ödev ve gelişim ekranlarını tek merkezden yönetin.",
+  "auth_welcomeTagline": "Özel ders süreçlerinizi tek bir yerde yönetin.",
+  "common_cancel": "Vazgeç",
+  "common_continue": "Devam et",
+  "common_email": "E-posta",
+  "common_emailHint": "örnek@mail.com",
+  "common_invalidEmail": "Geçerli bir e-posta gir.",
+  "common_password": "Şifre",
+  "common_passwordHint": "••••••••",
+  "common_passwordTooShort": "Şifre en az 8 karakter olmalı.",
+  "common_requiredField": "Bu alan zorunlu.",
+  "common_save": "Kaydet",
+  "dashboard_activitiesEmptySubtitle": "Son hareketler bu alanda listelenecek.",
+  "dashboard_activitiesEmptyTitle": "Henüz aktivite yok",
+  "dashboard_activitiesTitle": "Son aktiviteler",
+  "dashboard_activityAssignmentSubmitted": "Ödev teslim edildi",
+  "dashboard_activityLessonPlanned": "Ders planlandı",
+  "dashboard_activityPaymentAdded": "Ödeme eklendi",
+  "dashboard_activityPaymentReceived": "Ödeme alındı",
+  "dashboard_activityTime": "{day} {time}",
+  "@dashboard_activityTime": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboard_addAssignment": "Ödev ver",
+  "dashboard_addLesson": "Ders ekle",
+  "dashboard_addNote": "Not ekle",
+  "dashboard_addPayment": "Ödeme ekle",
+  "dashboard_assignmentsCount": "{count} ödev",
+  "@dashboard_assignmentsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_assignmentsEmptySubtitle": "Tüm ödevler tamamlandı.",
+  "dashboard_assignmentsEmptyTitle": "Bekleyen ödev yok",
+  "dashboard_assignmentsOverdue": "{count} gecikti",
+  "@dashboard_assignmentsOverdue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_assignmentsTitle": "Bekleyen Ödevler",
+  "dashboard_dailyStreak": "Günlük seri",
+  "dashboard_dayCount": "{count} gün",
+  "@dashboard_dayCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_dueInDays": "{count} gün",
+  "@dashboard_dueInDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_dueNoDate": "Tarih yok",
+  "dashboard_dueOverdue": "Gecikti!",
+  "dashboard_dueToday": "Bugün!",
+  "dashboard_dueTomorrow": "Yarın!",
+  "dashboard_durationHours": "{hours}s",
+  "@dashboard_durationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_durationHoursMinutes": "{hours}s {minutes}dk",
+  "@dashboard_durationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_durationMinutes": "{minutes}dk",
+  "@dashboard_durationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_lessonsEmptySubtitle": "Planlanan dersler burada görünecek.",
+  "dashboard_lessonsEmptyTitle": "Ders bulunmuyor",
+  "dashboard_lessonsTitle": "Dersler",
+  "dashboard_modeInPerson": "Yüz yüze",
+  "dashboard_modeOnline": "Online",
+  "dashboard_paymentsOverdueBadge": "{count} gün gecikti",
+  "@dashboard_paymentsOverdueBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboard_paymentsTitle": "Geciken Ödemeler",
+  "dashboard_quickActionsTitle": "Hızlı işlemler",
+  "dashboard_statusCancelled": "İptal",
+  "dashboard_statusCompleted": "Tamamlandı",
+  "dashboard_statusDraft": "Taslak",
+  "dashboard_statusPending": "Bekliyor",
+  "dashboard_statusPlanned": "Planlandı",
+  "dashboard_studentFallback": "Öğrenci",
+  "dashboard_teacherFallback": "Öğretmen",
+  "dashboard_today": "Bugün",
+  "dashboard_todayLessonsTitle": "Bugünün Dersleri",
+  "dashboard_tomorrow": "Yarın",
+  "dashboard_totalDuration": "Toplam {duration}",
+  "@dashboard_totalDuration": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboard_viewAll": "Tümünü gör",
+  "dashboard_yesterday": "Dün",
+  "more_aboutBody": "EğitimÜssü; öğretmenlerin ders planlama, öğrenci takibi, ödev, tahsilat ve veli bilgilendirme süreçlerini tek mobil deneyimde yönetmesi için tasarlanır.",
+  "more_aboutSubtitle": "EğitimÜssü ve uygulama bilgileri",
+  "more_aboutTitle": "Hakkımızda",
+  "more_accountSubtitle": "E-posta, rol ve oturum bilgileri",
+  "more_accountTitle": "Hesap bilgileri",
+  "more_contactMessageHint": "Bir hata, istek veya geliştirme fikri yazın.",
+  "more_contactMessageLabel": "Mesajınız",
+  "more_contactSend": "Gönder",
+  "more_contactSent": "Mesajınız alındı.",
+  "more_contactSubtitle": "Hata, talep veya geliştirme fikri",
+  "more_contactTitle": "Bize ulaşın",
+  "more_faqHolidayAnswer": "Tatil günlerini kapat seçeneği açıkken yeni ders slotları varsayılan olarak kapalı gelir.",
+  "more_faqHolidayQuestion": "Tatil günleri takvimi etkiler mi?",
+  "more_faqNotificationsAnswer": "Ders ve ödeme hatırlatmaları aktifse ilgili saatlerden önce hazır bildirim oluşturulur.",
+  "more_faqNotificationsQuestion": "Bildirimler ne zaman gider?",
+  "more_faqProfileAnswer": "Profil bilgileri öğrenci ve veli tarafında öğretmen vitrinini oluşturur.",
+  "more_faqProfileQuestion": "Profil bilgilerim nerede görünür?",
+  "more_helpSheetTitle": "Yardım",
+  "more_helpSubtitle": "Sık sorulan sorular",
+  "more_helpTitle": "Yardım (SSS)",
+  "more_holidaySubtitle": "Kapalı günler ve tatil takvimi",
+  "more_holidayTitle": "Tatil ayarları",
+  "more_logoutConfirm": "Hesabınızdan çıkış yapmak istiyor musunuz?",
+  "more_logoutSubtitle": "Oturumu kapat ve giriş ekranına dön",
+  "more_logoutTitle": "Çıkış yap",
+  "more_membershipSubtitleFree": "Planı gör, ücretsiz dene ve referans kodunu kullan",
+  "more_membershipSubtitlePremium": "Premium plan, dönem sonu ve referans kodu",
+  "more_membershipTitle": "Üyelik",
+  "more_messagesSubtitle": "Öğrenci ve velilerle sohbet",
+  "more_messagesTitle": "Mesajlar",
+  "more_navLabel": "Diğer",
+  "more_notificationSettingsSubtitle": "Ders, ödev, ödeme ve haftalık özet",
+  "more_notificationSettingsTitle": "Bildirim ayarları",
+  "more_plusBadge": "Plus üye",
+  "more_privacySubtitle": "Çalışma verisi paylaşımı ve oturum politikası",
+  "more_privacyTitle": "Gizlilik ve güvenlik",
+  "more_profileSubtitle": "Vitrin, branş, biyografi ve müsaitlik",
+  "more_profileTitle": "Profil Bilgileri",
+  "more_ratingCount": "({count} değerlendirme)",
+  "@more_ratingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "more_reportsSubtitle": "Aylık ders/tahsilat özeti ve boş zamanlar",
+  "more_reportsTitle": "Raporlar",
+  "more_roleTeacherFallback": "Öğretmen",
+  "more_sessionsSubtitle": "Hesabının açık olduğu cihazlar",
+  "more_studySettingsSubtitle": "Ders biçimi ve müsaitlik (profil)",
+  "more_studySettingsTitle": "Çalışma ayarları",
+  "sessions_close": "Kapat",
+  "sessions_closeOneConfirm": "Bu cihazın oturumu kapatılacak. O cihazda yeniden giriş yapılması gerekir.",
+  "sessions_closeOthers": "Diğer tüm oturumları kapat",
+  "sessions_closeOthersConfirm": "Bu cihaz dışındaki tüm oturumlar kapatılacak. Diğer cihazlarda yeniden giriş yapman gerekir.",
+  "sessions_closedCount": "{count} oturum kapatıldı.",
+  "@sessions_closedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sessions_connectedOn": "Bağlandı: {date}",
+  "@sessions_connectedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "sessions_empty": "Açık oturum yok",
+  "sessions_emptyHint": "Bu hesapta şu an başka bir cihaz oturumu görünmüyor.",
+  "sessions_lastUsed": "Son kullanım: {date}",
+  "@sessions_lastUsed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "sessions_loadFailed": "Oturumlar yüklenemedi.",
+  "sessions_subtitle": "Hesabının açık olduğu cihazlar. Tanımadığın bir cihaz görürsen kapat.",
+  "sessions_thisDevice": "Bu cihaz",
+  "sessions_title": "Cihaz oturumları",
+  "sessions_unknownDevice": "Bilinmeyen cihaz"
+}

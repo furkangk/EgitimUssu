@@ -14,13 +14,13 @@ internal sealed class StudyRepository : IStudyRepository
     }
 
     public Task<StudyStudent?> GetLinkAsync(Guid studentId, CancellationToken cancellationToken) =>
-        _dbContext.StudyStudents.FirstOrDefaultAsync(x => x.Id == studentId, cancellationToken);
+        _dbContext.StudyStudents.FindAsync(new object?[] { studentId }, cancellationToken).AsTask();
 
     public Task AddLinkAsync(StudyStudent link, CancellationToken cancellationToken) =>
         _dbContext.StudyStudents.AddAsync(link, cancellationToken).AsTask();
 
     public Task<StudySession?> GetSessionAsync(Guid sessionId, CancellationToken cancellationToken) =>
-        _dbContext.StudySessions.FirstOrDefaultAsync(x => x.Id == sessionId, cancellationToken);
+        _dbContext.StudySessions.FindAsync(new object?[] { sessionId }, cancellationToken).AsTask();
 
     public Task<StudySession?> GetActiveSessionAsync(Guid studentId, CancellationToken cancellationToken) =>
         _dbContext.StudySessions.FirstOrDefaultAsync(
@@ -91,7 +91,7 @@ internal sealed class StudyRepository : IStudyRepository
             .ToArrayAsync(cancellationToken);
 
     public Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken) =>
-        _dbContext.TestResults.FirstOrDefaultAsync(x => x.Id == testResultId, cancellationToken);
+        _dbContext.TestResults.FindAsync(new object?[] { testResultId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyList<TestResult>> ListTestsAsync(
         Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken)
@@ -162,7 +162,7 @@ internal sealed class StudyRepository : IStudyRepository
             .ToArrayAsync(cancellationToken);
 
     public Task<StudentSubjectCatalog?> GetCatalogSubjectAsync(Guid subjectId, CancellationToken cancellationToken) =>
-        _dbContext.StudentSubjectCatalogs.FirstOrDefaultAsync(x => x.Id == subjectId, cancellationToken);
+        _dbContext.StudentSubjectCatalogs.FindAsync(new object?[] { subjectId }, cancellationToken).AsTask();
 
     public Task AddCatalogSubjectAsync(StudentSubjectCatalog subject, CancellationToken cancellationToken) =>
         _dbContext.StudentSubjectCatalogs.AddAsync(subject, cancellationToken).AsTask();
@@ -187,7 +187,7 @@ internal sealed class StudyRepository : IStudyRepository
             .ToArrayAsync(cancellationToken);
 
     public Task<StudentTopicCatalog?> GetCatalogTopicAsync(Guid topicId, CancellationToken cancellationToken) =>
-        _dbContext.StudentTopicCatalogs.FirstOrDefaultAsync(x => x.Id == topicId, cancellationToken);
+        _dbContext.StudentTopicCatalogs.FindAsync(new object?[] { topicId }, cancellationToken).AsTask();
 
     public Task AddCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) =>
         _dbContext.StudentTopicCatalogs.AddAsync(topic, cancellationToken).AsTask();
@@ -205,7 +205,7 @@ internal sealed class StudyRepository : IStudyRepository
             .ToArrayAsync(cancellationToken);
 
     public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) =>
-        _dbContext.StudyNotes.FirstOrDefaultAsync(x => x.Id == noteId, cancellationToken);
+        _dbContext.StudyNotes.FindAsync(new object?[] { noteId }, cancellationToken).AsTask();
 
     public Task AddNoteAsync(StudyNote note, CancellationToken cancellationToken) =>
         _dbContext.StudyNotes.AddAsync(note, cancellationToken).AsTask();

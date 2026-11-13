@@ -22,6 +22,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         state.copyWith(
           status: NotificationsStatus.loaded,
           reminders: reminders,
+          unreadCount: await _readUnreadCount(teacherUserId),
         ),
       );
     } on ApiException catch (e) {
@@ -42,4 +43,19 @@ class NotificationsCubit extends Cubit<NotificationsState> {
   }
 
   Future<void> refresh(String teacherUserId) => load(teacherUserId);
+
+  /// M11-4: Bildirim merkezinde okundu işaretlendiğinde rozet anında güncellensin diye
+  /// dışarıdan set edilebilir (yeniden istek atmadan).
+  void setUnreadCount(int count) {
+    emit(state.copyWith(unreadCount: count < 0 ? 0 : count));
+  }
+
+  /// Rozet sayısı liste yüklemesini bloke etmemeli: hata olursa 0 kabul edilir.
+  Future<int> _readUnreadCount(String userId) async {
+    try {
+      return await _repository.unreadNotificationCount(userId);
+    } catch (_) {
+      return 0;
+    }
+  }
 }

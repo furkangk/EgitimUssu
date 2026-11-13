@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Modules.Parents.Infrastructure;
 
@@ -15,7 +16,11 @@ public static class DependencyInjection
         services.AddModuleDbContext<ParentsDbContext>(configuration, "Parents", ParentsDbContext.SchemaName);
         services.AddScoped<IParentRepository, ParentRepository>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IParentAccessDirectory, ParentAccessDirectory>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.IParentChildLinkRequestService, ParentChildLinkRequestService>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IParentNotificationDirectory, ParentNotificationDirectory>();
+
+        // ⚠️ Geçici köprü (P12): eski ParentProfile.MembershipTier alanını EntitlementDirectory okusun diye.
+        services.AddScoped<EgitimUssu.Shared.Contracts.IMembershipDirectory, ParentMembershipDirectory>();
 
         // Command handler'ları
         services.AddScoped<ICommandHandler<CreateParentProfileCommand, Result<ParentProfileResponse>>, CreateParentProfileCommandHandler>();
@@ -54,6 +59,9 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, ParentAssignmentProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentPaymentProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentStudentDirectoryProjectionHandler>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, ParentsPersonalDataAnonymizer>();
+
 
         return services;
     }

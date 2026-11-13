@@ -48,13 +48,36 @@ public sealed class ParentNotificationTests
         });
         var repo = new FakeRepo();
         await using var db = NewDbContext();
-        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new UserNotificationTests.FakeUserNotificationRepository(), new SeqIdGen(), new FixedClock(Now));
 
         await handler.HandleAsync(AssignmentCreatedEnvelope(studentId), default);
 
         Assert.Single(repo.Added);
         Assert.Equal(ParentNotificationType.NewAssignment, repo.Added[0].Type);
         Assert.Equal(parentUserId, repo.Added[0].ParentUserId);
+    }
+
+    /// <summary>M11-3: Aynı olay, veli bildiriminin yanında rolden bağımsız bildirim merkezine de yazılır.</summary>
+    [Fact]
+    public async Task AssignmentCreated_Should_Also_Create_UserNotification()
+    {
+        var parentUserId = Guid.NewGuid();
+        var directory = new FakeDirectory(new[]
+        {
+            new ParentNotificationTarget(parentUserId, MembershipTier.Premium, AllOn())
+        });
+        var userNotifications = new UserNotificationTests.FakeUserNotificationRepository();
+        await using var db = NewDbContext();
+        var handler = new ParentEventNotificationHandler(db, directory, new FakeRepo(), userNotifications, new SeqIdGen(), new FixedClock(Now));
+
+        await handler.HandleAsync(AssignmentCreatedEnvelope(Guid.NewGuid()), default);
+
+        var created = await userNotifications.ListPendingPushAsync(10, default);
+        var notification = Assert.Single(created);
+        Assert.Equal(parentUserId, notification.UserId);
+        Assert.Equal(UserNotificationKind.AssignmentCreated, notification.Kind);
+        Assert.Equal("/parent/assignments", notification.Route);
+        Assert.Null(notification.PushedOnUtc);
     }
 
     [Fact]
@@ -67,7 +90,7 @@ public sealed class ParentNotificationTests
         });
         var repo = new FakeRepo();
         await using var db = NewDbContext();
-        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new UserNotificationTests.FakeUserNotificationRepository(), new SeqIdGen(), new FixedClock(Now));
 
         await handler.HandleAsync(AssignmentCreatedEnvelope(studentId), default);
 
@@ -85,7 +108,7 @@ public sealed class ParentNotificationTests
         });
         var repo = new FakeRepo();
         await using var db = NewDbContext();
-        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new UserNotificationTests.FakeUserNotificationRepository(), new SeqIdGen(), new FixedClock(Now));
 
         await handler.HandleAsync(AssignmentCreatedEnvelope(studentId), default);
 
@@ -102,7 +125,7 @@ public sealed class ParentNotificationTests
         });
         var repo = new FakeRepo();
         await using var db = NewDbContext();
-        var handler = new ParentEventNotificationHandler(db, directory, repo, new SeqIdGen(), new FixedClock(Now));
+        var handler = new ParentEventNotificationHandler(db, directory, repo, new UserNotificationTests.FakeUserNotificationRepository(), new SeqIdGen(), new FixedClock(Now));
         var envelope = AssignmentCreatedEnvelope(studentId);
 
         await handler.HandleAsync(envelope, default);

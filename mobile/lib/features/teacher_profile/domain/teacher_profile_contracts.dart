@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class TeacherAvailability {
   const TeacherAvailability({
     required this.dayOfWeek,
@@ -50,10 +52,44 @@ class TeacherProfile {
   final bool isVerified;
   final String? profilePhotoUrl;
   final List<TeacherAvailability> availabilitySlots;
+
+  /// Tek alani degistirip geri kalanini koruyan kopya. PUT govdesi profilin
+  /// **tamamini** tasidigi icin (sunucu slot listesini bastan yazar) kismi
+  /// kaydetmelerde kullanilir.
+  TeacherProfile copyWith({List<TeacherAvailability>? availabilitySlots}) {
+    return TeacherProfile(
+      id: id,
+      userId: userId,
+      fullName: fullName,
+      subject: subject,
+      city: city,
+      district: district,
+      biography: biography,
+      headline: headline,
+      lessonFormat: lessonFormat,
+      experienceYears: experienceYears,
+      educationLevel: educationLevel,
+      hourlyRateAmount: hourlyRateAmount,
+      currency: currency,
+      isVerified: isVerified,
+      profilePhotoUrl: profilePhotoUrl,
+      availabilitySlots: availabilitySlots ?? this.availabilitySlots,
+    );
+  }
 }
 
 abstract interface class TeacherRepository {
   Future<TeacherProfile> createProfile(TeacherProfile profile);
   Future<TeacherProfile> updateProfile(TeacherProfile profile);
   Future<TeacherProfile> getProfile(String userId);
+
+  /// M02-2/D-05: Profil fotografini yukler; sunucunun dondugu indirme rotasini verir.
+  /// Fotograf `profilePhotoUrl` alanina **istemciden yazilmaz** — yalniz bu uc set eder.
+  Future<String> uploadProfilePhoto({
+    required String userId,
+    required String filePath,
+  });
+
+  /// Profil fotografinin baytlarini yetkili ucdan indirir; fotograf yoksa `null`.
+  Future<Uint8List?> downloadProfilePhoto(String userId);
 }

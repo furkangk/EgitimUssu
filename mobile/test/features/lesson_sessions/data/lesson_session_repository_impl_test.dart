@@ -8,6 +8,21 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../helpers.dart';
 
 void main() {
+  test('lists actual sessions scoped to the current teacher', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final sessions = await repository.listTeacherSessions('teacher-1');
+
+    expect(apiClient.lastPath, '/api/lesson-sessions');
+    expect(apiClient.lastQuery, {'teacherUserId': 'teacher-1'});
+    expect(sessions.single.id, 'session-completed');
+    expect(sessions.single.status, 'Completed');
+  });
+
   test('createSession posts to lesson sessions endpoint', () async {
     final apiClient = _FakeApiClient();
     final repository = LessonSessionRepositoryImpl(
@@ -64,6 +79,65 @@ void main() {
       expect(session.status, 'Completed');
     },
   );
+
+  test('startSession posts to start endpoint and returns InProgress', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.startSession('session-1');
+
+    expect(apiClient.lastPath, '/api/lesson-sessions/session-1/start');
+    expect(session.status, 'InProgress');
+  });
+
+  test('cancelSession posts reason and returns Cancelled', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.cancelSession(
+      'session-1',
+      reason: 'Ogrenci hastalandi',
+    );
+
+    expect(apiClient.lastPath, '/api/lesson-sessions/session-1/cancel');
+    expect(apiClient.lastData?['reason'], 'Ogrenci hastalandi');
+    expect(session.status, 'Cancelled');
+    expect(session.cancellationReason, 'Ogrenci hastalandi');
+  });
+
+  test('createSessionFromSchedule posts to from-schedule endpoint', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.createSessionFromSchedule('lesson-1');
+
+    expect(apiClient.lastPath, '/api/lesson-sessions/from-schedule/lesson-1');
+    expect(session.id, 'session-1');
+    expect(session.status, 'Planned');
+    expect(session.meetingUrl, 'https://meet.example.com/abc');
+  });
+
+  test('session model reads meeting and recording urls', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+
+    final session = await repository.startSession('session-1');
+
+    expect(session.meetingUrl, 'https://meet.example.com/abc');
+    expect(session.recordingUrl, 'https://kayit.example.com/1');
+  });
 }
 
 const _config = AppConfig(
@@ -78,6 +152,25 @@ class _FakeApiClient extends ApiClient {
 
   String? lastPath;
   Map<String, dynamic>? lastData;
+  Map<String, dynamic>? lastQuery;
+
+  @override
+  Future<List<dynamic>> getList(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    lastPath = path;
+    lastQuery = queryParameters;
+    return [
+      {
+        'id': 'session-completed',
+        'teacherUserId': 'teacher-1',
+        'studentId': 'student-1',
+        'subject': 'Matematik',
+        'status': 'Completed',
+      },
+    ];
+  }
 
   @override
   Future<Map<String, dynamic>> post(
@@ -92,7 +185,15 @@ class _FakeApiClient extends ApiClient {
       'teacherUserId': 'teacher-1',
       'studentId': 'student-1',
       'subject': 'Matematik',
-      'status': path.endsWith('/complete') ? 'Completed' : 'Planned',
+      'status': switch (path) {
+        final String p when p.endsWith('/complete') => 'Completed',
+        final String p when p.endsWith('/start') => 'InProgress',
+        final String p when p.endsWith('/cancel') => 'Cancelled',
+        _ => 'Planned',
+      },
+      'meetingUrl': 'https://meet.example.com/abc',
+      'recordingUrl': 'https://kayit.example.com/1',
+      'cancellationReason': data?['reason'],
       'topicTitle': data?['topicTitle'] ?? 'Denklemler',
       'coveredContent': data?['coveredContent'],
       'actualStartAtUtc': data?['actualStartAtUtc'],

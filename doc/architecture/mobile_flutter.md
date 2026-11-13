@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-08-20
+updated: 2026-10-16
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -18,7 +18,7 @@ updated: 2026-08-20
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-08-20 (kod-drift düzeltmesi: `study`/`progress` §8 tablosunda ve §9 feature listesinde "Planlanan"dan gerçek/uygulandı'ya taşındı — ikisi de tam kodlu; "Mevcut feature'lar" listesine eksik `notifications`/`progress`/`study`/`parent` eklendi)
+> **Güncelleme:** 2026-10-16 (token yenileme sonrası tekrar isteği: yapılandırılmış taşıma katmanı korunur, multipart gövdesi klonlanır, 401 dışındaki tekrar hataları oturumu düşürmez).
 
 ---
 
@@ -156,8 +156,10 @@ Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/
 1. **Request interceptor** — `TokenStorage`'dan access token okuyup `Authorization: Bearer` ekler.
 2. **`TokenRefreshInterceptor`** (`QueuedInterceptorsWrapper`) — 401 yanıtını yakalar; `onRefreshToken` callback'i ile `POST /api/identity/refresh` çağırır.
    - Refresh **başarılıysa:** orijinal isteği yeni token ile yeniden gönderir (caller'a şeffaftır).
+   - Tekrar isteği, aynı Dio adapter/transformer ayarlarını taşıyan interceptor'sız bir klonla gönderilir; yeniden 401 gelmesi sonsuz döngüye veya kuyruk kilitlenmesine yol açmaz. Multipart gövdesi ilk gönderimde tüketildiği için tekrar öncesi klonlanır.
+   - Refresh başarılı olup tekrar isteği **500, zaman aşımı veya validasyon hatası** verirse gerçek hata ekrana iletilir; oturum kapanmaz. Tekrar isteği de **401** dönerse oturum kapanır.
    - Refresh **başarısızsa:** `unauthorizedEvents` stream'ine event basar → `AuthCubit.expireSession()` → oturumu kapat.
-   - Eş zamanlı birden fazla 401 geldiğinde **tek bir refresh isteği** gönderilir; diğerleri kuyrukta bekler.
+   - Eş zamanlı 401 yanıtlarının yenileme ve tekrar işlemleri kuyrukta **sırayla** yürütülür; dönen refresh token bir sonraki yenilemede kullanılır.
 
 > Metotlar: `get`/`getList`/`post`/`put`/`delete` (2026-07-08: `delete` eklendi — öğrenci kişisel program girdisi silme için, `DELETE /api/scheduling/study-entries/{id}`).
 
@@ -173,14 +175,38 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 |----------|------------|----------|
 | `API_BASE_URL` | platforma göre: Android `http://10.0.2.2:5296`, iOS/masaüstü `http://localhost:5296` | Backend taban URL (`API.Host` varsayılan portu 5296; verilirse override eder) |
 | `APP_ENV` | `development` | `development` / `beta` / `production` |
-| `USE_MOCK_FALLBACK` | `true` | Geliştirmede mock'a düşme |
-| `MOCK_FALLBACK_FEATURES` | `*` | Hangi feature'lar mock'a düşer |
+| `USE_MOCK_FALLBACK` | **`false`** (A-05, 2026-09-02) | Sahte veriye düşme; yalnız açık niyetle `--dart-define=USE_MOCK_FALLBACK=true` ile açılır |
+| `MOCK_FALLBACK_FEATURES` | `*` | Hangi feature'lar mock'a düşer (`USE_MOCK_FALLBACK` kapalıyken etkisiz) |
 
-`isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır; geliştirmede backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
+`isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır **ve 2026-09-02'den itibaren geliştirmede de varsayılan kapalıdır**: bayrak verilmedikçe uygulama daima gerçek API'yi kullanır, API hatası ekranda görünür (A-05 — sahte veri gerçek entegrasyon hatalarını gizliyordu). Bayrak açıkken backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
 
 **Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
 
 > **Güvenlik (Y7, 2026-07-02):** Oturum önbelleği (`user_session` → `LocalCache`/SharedPreferences) **token içermez** — yalnız gizli-olmayan profil (userId/email/fullName/roles/expiry). Access/refresh token'lar **yalnız** secure storage'da tutulur; `restoreSession` token'ı oradan okuyup profille birleştirir. `AndroidManifest`'te `allowBackup="false"`. Önceden `toCache()` token'ları düz-metin yazıyordu (denetim Y7).
+
+### 7.1 Push Bildirim (A-04, 2026-09-03)
+
+`core/push/` iki parçadır:
+
+| Dosya | Sorumluluk |
+|-------|-----------|
+| `push_service.dart` | `PushService` — izin isteği, cihaz token kaydı/silme, token yenileme aboneliği, `taps` akışı. **Firebase'e bağlı değildir**: `tokenProvider` / `permissionRequester` / `tokenRefreshes` / `incomingTaps` dışarıdan verilir → platform kanalı olmadan test edilebilir. |
+| `firebase_push_binding.dart` | `FirebasePushBinding` — `Firebase.initializeApp()`, arka plan handler'ı ve `FirebaseMessaging` kaynaklarının `PushService`'e bağlanması. |
+
+**Yaşam döngüsü:** `AuthCubit` giriş / kayıt / oturum geri yükleme sonrasında `PushService.registerForUser(userId)`,
+çıkış ve oturum düşmesinde `PushService.unregister()` çağırır. Kayıt `POST /api/notifications/device-tokens`
+(`DeviceTokenRepositoryImpl`), silme `DELETE /api/notifications/device-tokens/{token}`.
+`DevicePlatform` **sayısal** gönderilir (`android=1`, `ios=2`, `web=3`) — backend enum'u JSON'da sayıdır.
+
+**Derin bağlantı:** `app.dart` `PushService.taps` akışını dinler; `tap.route` doluysa `router.push(route)`.
+Backend push gövdesine `data.route` koyar (ders hatırlatması → `/scheduling`, in-app bildirim → kendi rotası).
+
+> **Bilinçli fail-open:** `google-services.json` / `GoogleService-Info.plist` yoksa `Firebase.initializeApp()`
+> başarısız olur; uygulama **açılmaya devam eder** ve konsola bir **uyarı** basılır. Push o oturumda çalışmaz.
+> (Backend tarafı bunun tersi: `PushOptionsGuard` eksik ayarda fail-fast eder.) Kurulum adımları:
+> [`mobile/README_PUSH.md`](../../mobile/README_PUSH.md).
+
+---
 
 ## 8. Feature ↔ Backend Modül Eşlemesi
 
@@ -207,32 +233,117 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 - **Veli:** Ana Sayfa · Çocuklar · Bildirim · Profil — kodda **uygulandı**: `ParentBottomNav` + `/parent` rota grubu (`parent_home`/`children`/`child_detail`/`notifications`/`profile`). Redirect: `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir; veli öğretmen ekranlarına ya da öğretmen veli ekranlarına düşerse geri alınır. `role_selection_page` 'Veli' kartı `/register?role=veli`'ye gider.
 - **Öğrenci:** kodda **uygulandı** — dedike alt navigasyon `StudentBottomNav` (`lib/features/study/presentation/widgets/student_bottom_nav.dart`, `study` feature). **4 sekme** (`StudentNavTab`): 🏠 Çalışma (`/student-home`) · 📚 Derslerim (`/student/lessons`) · 📊 Performans (`/student/performance`) · 👤 Profil (`/student/profile`). Sekme dışı push sayfalar: ⏱️ Kronometre (`/study/timer`, Çalışmaya Başla girişinden açılır) · 📖 Ders Detayı (`/student/lessons/:id`, ders kartından açılır). Eski **Keşfet** sekmesi kaldırıldı — `/student/discover` artık `/student/lessons`'a redirect eder; **Öğretmenlerim** (`/student/teacher`) artık sekme değil, Profil'in Ayarlar menüsünden erişilir. Redirect: `session.roles` içinde `'Student'` (ve `'Teacher'` yok) ise `/student-home`'a yönlendirir; öğrenci öğretmene özel ekranlara (`/dashboard`, `/students`, `/scheduling`, `/lesson-sessions`, `/assignments`, `/payments`, `/teacher-profile`) düşerse geri alınır. Öğrenci StudentId'si M03 `by-user` ile çözülür; profil yoksa `SelfRegistered` olarak otomatik oluşturulur.
 
-Feature klasörü **uygulandı:** `parent` (M09), `study` (M08), `progress` (M10). Planlanan: `messaging` (M16),
-`listings` (M12), `reviews` (M13), `membership` (M17 — paywall + reklam yerleşimi), `feedback` (M18).
+Feature klasörü **uygulandı:** `parent` (M09), `study` (M08), `progress` (M10), `membership` (M17 — üyelik + paywall),
+`messaging` (M16 — gelen kutusu + sohbet). Planlanan: `listings` (M12), `reviews` (M13), `feedback` (M18),
+`membership`in reklam yerleşimi (P09 Task 5).
 Detay: [`../roles/`](../roles/00_roller_genel_bakis.md).
 
 ## 10. Paketler
 
+**Kaynak: `mobile/pubspec.yaml`** (aşağıdaki liste 2026-09-05'te ona karşı doğrulandı).
+
 ```yaml
 dependencies:
-  flutter_bloc: ^8        # state (Cubit)  ← kanonik
-  go_router: ^14          # routing
-  dio: ^5                 # ağ
-  get_it: ^7              # DI
-  flutter_secure_storage  # token
-  shared_preferences      # local cache
+  flutter_localizations    # l10n (§10.1)
+  intl                     # tarih/sayı biçimlendirme + ARB araç zinciri
+  flutter_bloc             # state (Cubit) ← kanonik
+  go_router                # routing
+  dio                      # ağ
+  get_it                   # DI
+  equatable                # değer eşitliği
+  flutter_secure_storage   # token
+  shared_preferences       # yerel önbellek
   syncfusion_flutter_calendar + syncfusion_localizations  # takvim
-  google_fonts            # Inter
-  fl_chart                # grafik (donut/line) — öğrenci/veli ekranları
-  table_calendar          # (alternatif takvim)
-  percent_indicator       # circular progress
-  intl                    # tarih/locale
-  file_picker             # dosya ekleme (ders notu)
-  cached_network_image    # avatar/görsel
-  flutter_animate         # mikro animasyon
+  shimmer                  # iskelet yükleme
+  fl_chart                 # grafik (donut/line) — öğrenci/veli ekranları
+  firebase_core            # Firebase başlatma (push — A-04)
+  firebase_messaging       # FCM push (A-04)
+  file_picker              # dosya ekleme (ders notu)
+  image_picker             # profil fotoğrafı
+  url_launcher             # dış bağlantı / toplantı linki
+  open_filex               # indirilen dosyayı sistem görüntüleyicisinde açma (M14-4)
+
+dev_dependencies:
+  flutter_test · flutter_lints
 ```
 
-> Sürümleri `mobile/pubspec.yaml` belirler (burada anlamsal/yön gösterici). `pubspec.lock` `main`'e commit edilmez (bkz. `CLAUDE.md`).
+### Kaldırılan paketler (D-18)
+
+| Paket | Ne zaman | Neden |
+|-------|----------|-------|
+| `flutter_chat_ui` | P10 Task 4 | Kendi teması/girdi alanı/model tipleriyle geliyordu; sohbet balonları tasarım sistemi token'larıyla yazıldı |
+| `flutter_local_notifications` | **P13 Task 6** | ⚠️ Plan "kullanılıyor" diyordu — **kullanılmıyordu**. Push tamamen `firebase_messaging` üzerinden çalışıyor; `lib/` ve `test/` altında tek bir import'u yoktu |
+| `cupertino_icons` | P13 Task 6 | `CupertinoIcons` hiç kullanılmıyor |
+| `flutter_screenutil`, `flutter_svg`, `cached_network_image`, `lottie`, `modal_bottom_sheet` | P13 Task 6 | Hiçbir dosyada import edilmiyordu |
+| `freezed`, `freezed_annotation`, `json_serializable`, `build_runner` | P13 Task 6 | Kod üretimi hiç kullanılmamış — repoda tek bir `*.freezed.dart` / `*.g.dart` yok |
+
+> **Ölçüt:** bir paket, `lib/` veya `test/` altında `package:<ad>/` biçiminde import edilmiyorsa
+> kullanılmıyordur. İstisnalar bilinçlidir: `flutter_lints` `analysis_options.yaml`'dan,
+> `flutter_localizations` `l10n.yaml` araç zincirinden gelir.
+
+---
+
+## 10.1 Yerelleştirme (l10n) — D-19 / K-12
+
+Kullanıcıya görünen metinler **ARB dosyalarında** yaşar; varsayılan dil **Türkçe**, `en` iskelet olarak korunur.
+
+| Dosya | Rol |
+|-------|-----|
+| `mobile/l10n.yaml` | Araç yapılandırması (`arb-dir: lib/l10n`, şablon `app_tr.arb`, `nullable-getter: false`) |
+| `mobile/lib/l10n/app_tr.arb` | **Şablon** — anahtar kümesinin kaynağı |
+| `mobile/lib/l10n/app_en.arb` | İngilizce karşılıklar (anahtar kümesi tr ile **birebir aynı** olmalı) |
+| `mobile/lib/l10n/app_localizations*.dart` | **Üretilir** — `flutter pub get` (pubspec `generate: true`) yazar, `.gitignore`'dadır |
+
+**Kullanım:** `AppLocalizations.of(context).<anahtar>`
+**Anahtar adı:** `<ekran>_<eleman>` — `more_logoutTitle`, `auth_signIn`, `common_cancel`.
+
+```dart
+// Widget testlerinde delegate ve yerel ayar açıkça verilmelidir; yoksa
+// AppLocalizations.of(context) null döner ya da İngilizce değer render edilir.
+MaterialApp(
+  locale: const Locale('tr', 'TR'),
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  home: ...,
+)
+```
+
+### Taşıma durumu
+
+Taşıma **feature feature** yürür (P13 Task 6b) ve her tur `localization_test.dart`'taki
+`_migratedFeatures` listesine bir feature ekler. Liste yalnız **kanıtlanmış** feature'ları taşır:
+tarayıcı o feature'da kullanıcıya görünen tek bir sabit metin bulursa test kırılır.
+
+| Alan | Durum |
+|------|-------|
+| Altyapı + `app.dart` delegate | 🟢 Tamam |
+| `features/dashboard` (179 ARB anahtarının 48'i) | 🟢 ARB'de — taramayla kilitli |
+| `features/auth` · `features/more` | 🟡 **Kısmi** — `more_page` ve giriş/kayıt ekranları taşındı, ama `account_info_page`, `device_sessions_page`, rol etiketleri ve hata mesajları hâlâ kaynakta (auth 38 · more 53 kalıntı) |
+| Kalan ~48 ekran | 🟡 **Sırada** — `scheduling` → `lesson_sessions` → `students` → … |
+
+**Kural — görünen metin üretimi presentation katmanındadır.** Cubit/state sabit Türkçe metin
+üretmez; anlamsal veri taşır (`DashboardActivityKind` enum'u, `DateTime occurredAt`, `Duration`)
+ve etiketi ekran çözer. Yedek metinler de öyle: cubit `null` döndürür, ekran
+`dashboard_studentFallback`'i koyar.
+
+**Gün/ay kısaltmaları ARB'ye girmez** — `DateFormat('EEE'/'d MMM', locale)` kullanılır; yerel
+ayarın kendi kısaltmasını verir ve 19 anahtar tasarruf ettirir.
+
+**Sözleşme değerleri çevrilmez.** `'Online'`, `'InPerson'`, `'Planned'`, `'TRY'` gibi API/sayfa-arası
+değerler kaynakta kalır; testteki `_contractLiterals` haritasında gerekçesiyle listelenir.
+
+**Sahte/önizleme verisi kapsam dışıdır**: `// l10n-ignore-start` … `// l10n-ignore-end` bloğuyla
+işaretlenir (`DashboardState.preview()`, `DashboardRepositoryImpl._mockSummary()`).
+
+> **Metinlerin Türkçe karakter doğruluğu ekrandan bağımsız olarak sağlanmıştır** (D-20): taşınmamış
+> ekranlarda da metin doğru yazılır ve `test/l10n/localization_test.dart` bunu **tüm `lib/**`** için
+> her koşumda denetler. Yani ARB'ye taşıma teknik borç kapatır, marka kalitesi zaten kapalıdır.
+
+> **Widget testlerinde taşma:** test yazı tipi her glifi tam kare çizer, metinler gerçek
+> uygulamadan belirgin geniştir. Sabit genişlikli kartlarda (ör. 172 px ders kartı) yalnız testte
+> `RenderFlex overflowed` çıkar; `while (tester.takeException() != null) {}` ile yutulur.
+
+---
 
 ---
 
@@ -387,8 +498,12 @@ bugünkü çalışma süresi (koyu lacivert büyük kart + progress/circular), h
 **Flutter:** `Timer.periodic`; arka plan için lifecycle yönetimi; local cache + backend sync. _(planlanan, M08)_
 
 ### 13.13 Gelişim Analizi
-**Amaç:** Çalışma süresi + test başarısı + ders performansı. **UI:** segment (Haftalık/Aylık), ders dağılımı donut,
-test başarı kartı (`%82`), haftalık line chart. **Paket:** `fl_chart` (`PieChart`/`LineChart`). _(planlanan, M10)_
+**Amaç:** Çalışma süresi + test başarısı + ders performansı. **UI:** konu dağılımı sayaçları, ders başına
+**snapshot çizgi grafiği** (0–100 hâkimiyet skoru), haftalık çalışma **çubuk grafiği**, ders bazlı **net oranı**
+çubukları. **Paket:** `fl_chart` (`LineChart`/`BarChart`).
+**Uygulandı (2026-09-04, P08 Task 5):** `features/progress` (`ProgressCubit` + `ProgressSnapshotChart`) ve
+`features/reporting` (`WeeklyStudyBarChart`, `SubjectNetChart`, `ReportCard`).
+→ `pages/progress_overview.md` · `pages/teacher_reports.md`
 
 ### 13.14 Veli Paneli
 **Amaç:** Velinin sade takibi. **UI:** karşılama, çocuk kartı, 3 metrik (Bu Hafta Çalışma `08:45`, Ders Saati `03`, Ortalama `%88`), haftalık bar chart. _(planlanan, M09)_
@@ -408,6 +523,37 @@ test başarı kartı (`%82`), haftalık line chart. **Paket:** `fl_chart` (`PieC
 ### 13.19 Bildirimler
 **Amaç:** Ders/ödev/not/ödeme hatırlatmaları. **UI:** segment (Tümü/Okunmamış/Önemli), bildirim kartı (ikon+başlık+açıklama+tarih).
 Tipler: Ders mor/pembe · Ödev yeşil · Not mavi · Ödeme kırmızı.
+
+### 13.19b Üyelik ve Paywall (P09 Task 6)
+**Amaç:** Üyelik durumu, iptal, referans kampanyası ve premium vitrini.
+**UI:** `/membership` — seviye rozeti + dönem sonu kartı, referans kodu (kopyala) ve kod kullanma alanı;
+`/membership/paywall` — rol bazlı Free/Premium tablosu, plan kartları, kampanyalar, "yakında" listesi.
+→ `pages/membership.md`, `pages/paywall.md`
+
+**Kural (K-09'un mobil karşılığı):** premium kararı **tek** kaynaktan gelir — `MembershipCubit`
+uygulama kökünde (`app/app.dart`) `AuthCubit`/`NotificationsCubit` ile birlikte sağlanır ve oturum
+değişince tazelenir. Ekranlar kendi tier alanını taşımaz; kilit için ortak `PremiumLock` /
+`PremiumLockCard` kullanılır (bkz. [`widgets.md`](widgets.md) §3). Kilit yalnız **sunucunun gerçekten
+uyguladığı** kapıların önüne konur; uygulanmayan bir kısıtı istemcide taklit etmek yasaktır.
+
+### 13.19c Mesajlaşma (P10 Task 4)
+**Amaç:** Öğretmen↔öğrenci ve öğretmen↔veli sohbeti.
+**UI:** `/messages` — sohbet listesi (avatar baş harfi, son mesaj önizlemesi, göreli zaman, okunmamış rozeti);
+`/messages/:conversationId` — balonlar (kendi sağda primary zeminde), 1-5 satır büyüyen yazma alanı, engelleme menüsü.
+→ `pages/messaging_inbox.md`, `pages/messaging_chat.md`
+
+**Kurallar:**
+- **Keyset sayfalama.** Liste `reverse: true` çizilir; geçmişe kaydırma imleci son görülen mesajın
+  `sentOnUtc`'sidir. Offset kullanılsaydı yeni mesaj geldiğinde satırlar kayar, kullanıcı bir mesajı
+  iki kez görürdü. Sonsuz scroll — "daha fazla yükle" düğmesi yok (ux_rules §6).
+- **İyimser gönderim.** Mesaj sunucu yanıtı beklenmeden listeye girer; hata olursa **kaybolmaz**,
+  "Tekrar dene" aynı metni yeniden gönderir (ux_rules §4 optimistik güncelleme).
+- **Sohbet balonları paket değil, token.** `flutter_chat_ui` bağımlılığı **kaldırıldı** (D-18):
+  paket kendi teması, kendi girdi alanı ve kendi model tipleriyle geliyordu ve tasarım sistemine
+  uymuyordu. Balonlar `features/messaging/presentation/widgets/messaging_widgets.dart` içinde
+  `AppColors`/`AppShadows` token'larıyla yazıldı.
+- **Push'tan derin bağlantı ek kod istemez:** sunucu bildirimi `route = "/messages/{conversationId}"`
+  ile yazar, kökteki push dinleyicisi bu rotayı olduğu gibi `push` eder.
 
 ### 13.20 Profil
 **Amaç:** Hesap/güvenlik/bildirim/yardım/çıkış. **UI:** avatar+ad+rol, menü (Kişisel Bilgiler, Şifre Değiştir,
@@ -447,6 +593,22 @@ form hatası için sade error text. Paketler: `flutter_animate`, `animations`.
 - Sabit string'ler localization'a (`app_strings.dart`); renkler `AppColors`, metin `AppTextStyles` üzerinden — **doğrudan değer yazma**.
 - Dosya adı: `*_page.dart`, `*_cubit.dart`, `*_state.dart`, `*_tile.dart`, `*_card.dart`, `*_repository_impl.dart`.
 
+### 17.1 Test sahteleri (`test/helpers/`) — tek nokta kuralı
+
+Bir repository arayüzünün sahtesi (`Fake*`) **test dosyası içinde tanımlanmaz**; `mobile/test/helpers/` altında
+tek bir dosyada tutulur ve tüm testler onu import eder. Gerekçe: arayüze yeni metot/parametre eklendiğinde
+her test dosyasındaki kopya sessizce eskiyor ve **testler derlenmeyip "atlanıyor"** (A-02 kök nedeni).
+
+| Sahte | Dosya | Ayar noktaları |
+|-------|-------|----------------|
+| `FakeAuthRepository` | `test/helpers/fake_auth_repository.dart` | `session` (restore/login/register dönüşü), `hangOnRestore` (restore hiç tamamlanmaz), `loginCallCount` / `logoutCount` sayaçları, `FakeAuthRepository.defaultSession(...)` |
+| `FakeSchedulingRepository` | `test/helpers/fake_scheduling_repository.dart` | `teacherLessons`, `studentLessons`, `studentCalendar`; yazma metotları `UnimplementedError` atar |
+| `FakeMembershipRepository` | `test/helpers/fake_membership_repository.dart` | `snapshot`, `plans`, `referral`; **çağrı başına ayrı hata alanı** (`meError`/`trialError`/…) ve komut sonrası durum (`afterTrial`/`afterCancel`/`afterRedeem`) + çağrı kayıtları |
+| `FakeMessagingRepository` | `test/helpers/fake_messaging_repository.dart` | `inbox`, `store` (sunucudaki mesajlar), `detail`; çağrı başına ayrı hata alanı (`inboxError`/`sendError`/…). **`sendError` değiştirilebilir** — "önce hata, sonra başarı" (tekrar dene) senaryosu tek sahteyle kurulur. Sayfalama **gerçek keyset semantiğini** taşır (`beforeUtc`'den eski, yeniden eskiye, `take` kadar): aksi hâlde sayfalama testi yalnız çağrının yapıldığını doğrular, doğruluğunu değil |
+
+Kural: **arayüz imzası değişince yalnız `test/helpers/` altındaki sahte güncellenir.** Yeni bir repository için
+ikinci kez yerel sahte yazmak yerine buraya bir `Fake*` eklenir.
+
 ```dart
 class SectionHeader extends StatelessWidget {        // örnek reusable widget
   final String title; final String? actionText; final VoidCallback? onActionTap;
@@ -465,4 +627,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

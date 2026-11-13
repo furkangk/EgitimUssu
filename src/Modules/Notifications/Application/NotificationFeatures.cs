@@ -118,3 +118,213 @@ internal static class LessonReminderMappings
             reminder.UpdatedOnUtc);
     }
 }
+
+// M11-2: Cihaz push token'i. Kayit idempotenttir — ayni token yeniden gonderilirse
+// yeni satir acilmaz, mevcut satir tazelenir (FCM token'lari rotasyona ugrar).
+public sealed record RegisterDeviceTokenCommand(Guid UserId, string Token, DevicePlatform Platform, string? DeviceName)
+    : ICommand<Result>;
+
+public sealed record UnregisterDeviceTokenCommand(Guid UserId, string Token) : ICommand<Result>;
+
+public interface IDeviceTokenRepository
+{
+    Task<DeviceToken?> GetByTokenAsync(string token, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task AddAsync(DeviceToken deviceToken, CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
+public sealed class RegisterDeviceTokenCommandHandler : ICommandHandler<RegisterDeviceTokenCommand, Result>
+{
+    private static readonly Error InvalidToken = new("notifications.invalid_device_token", "Cihaz token'i gecersiz.");
+
+    private readonly IDeviceTokenRepository _repository;
+    private readonly IIdGenerator _idGenerator;
+    private readonly IClock _clock;
+
+    public RegisterDeviceTokenCommandHandler(IDeviceTokenRepository repository, IIdGenerator idGenerator, IClock clock)
+    {
+        _repository = repository;
+        _idGenerator = idGenerator;
+        _clock = clock;
+    }
+
+    public async Task<Result> Handle(RegisterDeviceTokenCommand command, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command.Token))
+        {
+            return Result.Failure(InvalidToken);
+        }
+
+        var existing = await _repository.GetByTokenAsync(command.Token, cancellationToken);
+        if (existing is null)
+        {
+            await _repository.AddAsync(
+                new DeviceToken(
+                    _idGenerator.New(),
+                    command.UserId,
+                    command.Token,
+                    command.Platform,
+                    command.DeviceName,
+                    _clock.UtcNow),
+                cancellationToken);
+        }
+        else
+        {
+            existing.Touch(_clock.UtcNow);
+        }
+
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+}
+
+public sealed class UnregisterDeviceTokenCommandHandler : ICommandHandler<UnregisterDeviceTokenCommand, Result>
+{
+    private readonly IDeviceTokenRepository _repository;
+    private readonly IClock _clock;
+
+    public UnregisterDeviceTokenCommandHandler(IDeviceTokenRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result> Handle(UnregisterDeviceTokenCommand command, CancellationToken cancellationToken)
+    {
+        // Idempotent: bilinmeyen token da basarili sayilir (cikis akisi hata gostermemeli).
+        var existing = await _repository.GetByTokenAsync(command.Token, cancellationToken);
+        if (existing is null)
+        {
+            return Result.Success();
+        }
+
+        existing.Deactivate(_clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+}
+
+// M11-3/M11-4: Rolden bagimsiz in-app bildirim merkezi (liste + rozet + okundu).
+public sealed record ListUserNotificationsQuery(Guid UserId, bool OnlyUnread, int Skip, int Take)
+    : IQuery<Result<PagedResult<UserNotificationResponse>>>;
+
+public sealed record GetUnreadNotificationCountQuery(Guid UserId) : IQuery<Result<int>>;
+
+public sealed record MarkNotificationReadCommand(Guid NotificationId) : ICommand<Result>;
+
+public sealed record UserNotificationResponse(
+    Guid Id,
+    Guid UserId,
+    string Kind,
+    string Title,
+    string Body,
+    string? Route,
+    bool IsRead,
+    DateTime CreatedOnUtc,
+    DateTime? ReadOnUtc);
+
+public interface IUserNotificationRepository
+{
+    Task<(IReadOnlyList<UserNotification> Items, int TotalCount)> ListAsync(
+        Guid userId,
+        bool onlyUnread,
+        int skip,
+        int take,
+        CancellationToken cancellationToken);
+
+    Task<int> CountUnreadAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken);
+
+    /// <summary>Henuz push edilmemis bildirimler (dispatcher turu bunlari gonderir).</summary>
+    Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken);
+
+    Task AddAsync(UserNotification notification, CancellationToken cancellationToken);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
+public sealed class ListUserNotificationsQueryHandler
+    : IQueryHandler<ListUserNotificationsQuery, Result<PagedResult<UserNotificationResponse>>>
+{
+    /// <summary>Istemcinin asiri sayfa istemesini engeller (varsayilan-guvenli ust sinir).</summary>
+    public const int MaxTake = 100;
+
+    private readonly IUserNotificationRepository _repository;
+
+    public ListUserNotificationsQueryHandler(IUserNotificationRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<PagedResult<UserNotificationResponse>>> Handle(
+        ListUserNotificationsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var skip = Math.Max(query.Skip, 0);
+        var take = Math.Clamp(query.Take <= 0 ? 20 : query.Take, 1, MaxTake);
+
+        var (items, totalCount) = await _repository.ListAsync(query.UserId, query.OnlyUnread, skip, take, cancellationToken);
+        var payload = items.Select(ToResponse).ToArray();
+
+        // PagedResult sayfa numarasi bekliyor; skip/take'ten 1-tabanli sayfa turetilir.
+        return Result<PagedResult<UserNotificationResponse>>.Success(
+            new PagedResult<UserNotificationResponse>(payload, (skip / take) + 1, take, totalCount));
+    }
+
+    private static UserNotificationResponse ToResponse(UserNotification notification)
+        => new(
+            notification.Id,
+            notification.UserId,
+            notification.Kind.ToString(),
+            notification.Title,
+            notification.Body,
+            notification.Route,
+            notification.IsRead,
+            notification.CreatedOnUtc,
+            notification.ReadOnUtc);
+}
+
+public sealed class GetUnreadNotificationCountQueryHandler : IQueryHandler<GetUnreadNotificationCountQuery, Result<int>>
+{
+    private readonly IUserNotificationRepository _repository;
+
+    public GetUnreadNotificationCountQueryHandler(IUserNotificationRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Result<int>> Handle(GetUnreadNotificationCountQuery query, CancellationToken cancellationToken)
+        => Result<int>.Success(await _repository.CountUnreadAsync(query.UserId, cancellationToken));
+}
+
+public sealed class MarkNotificationReadCommandHandler : ICommandHandler<MarkNotificationReadCommand, Result>
+{
+    private static readonly Error NotFound = new("notifications.notification_not_found", "Bildirim bulunamadi.");
+
+    private readonly IUserNotificationRepository _repository;
+    private readonly IClock _clock;
+
+    public MarkNotificationReadCommandHandler(IUserNotificationRepository repository, IClock clock)
+    {
+        _repository = repository;
+        _clock = clock;
+    }
+
+    public async Task<Result> Handle(MarkNotificationReadCommand command, CancellationToken cancellationToken)
+    {
+        var notification = await _repository.GetByIdAsync(command.NotificationId, cancellationToken);
+        if (notification is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        notification.MarkRead(_clock.UtcNow);
+        await _repository.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+}

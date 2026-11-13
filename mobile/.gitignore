@@ -43,3 +43,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase (P03/A-04) — proje sırları repoya girmez
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# D-19: flutter gen-l10n ciktisi (pubspec generate: true ile "flutter pub get" uretir)
+lib/l10n/app_localizations*.dart

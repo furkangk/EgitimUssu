@@ -17,7 +17,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenIssuer, JwtTokenIssuer>();
         services.AddScoped<ITokenProtector, Sha256TokenProtector>();
         services.AddScoped<ILoginAttemptThrottle, RedisLoginAttemptThrottle>();
-        services.AddScoped<IIdentityNotificationService, NullIdentityNotificationService>();
+        services.AddScoped<IIdentityNotificationService, EmailIdentityNotificationService>();
         services.AddScoped<ICommandHandler<RegisterUserCommand, Result<AuthResponse>>, RegisterUserCommandHandler>();
         services.AddScoped<ICommandHandler<LoginUserCommand, Result<AuthResponse>>, LoginUserCommandHandler>();
         services.AddScoped<ICommandHandler<RefreshTokenCommand, Result<AuthResponse>>, RefreshTokenCommandHandler>();
@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<RequestEmailVerificationCommand, Result>, RequestEmailVerificationCommandHandler>();
         services.AddScoped<ICommandHandler<ConfirmEmailVerificationCommand, Result>, ConfirmEmailVerificationCommandHandler>();
         services.AddScoped<IQueryHandler<GetUserByIdQuery, Result<UserAccountResponse>>, GetUserByIdQueryHandler>();
+        services.AddScoped<IQueryHandler<GetCurrentUserQuery, Result<CurrentUserResponse>>, GetCurrentUserQueryHandler>();
         services.AddScoped<ICommandHandler<AssignRolesCommand, Result<UserAccountResponse>>, AssignRolesCommandHandler>();
         services.AddScoped<ICommandValidator<RegisterUserCommand>, RegisterUserCommandValidator>();
         services.AddScoped<ICommandValidator<LoginUserCommand>, LoginUserCommandValidator>();
@@ -37,7 +38,26 @@ public static class DependencyInjection
         services.AddScoped<ICommandValidator<RequestEmailVerificationCommand>, RequestEmailVerificationCommandValidator>();
         services.AddScoped<ICommandValidator<ConfirmEmailVerificationCommand>, ConfirmEmailVerificationCommandValidator>();
         services.AddScoped<IQueryAuthorizer<GetUserByIdQuery>, GetUserByIdQueryAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetCurrentUserQuery>, GetCurrentUserQueryAuthorizer>();
         services.AddScoped<ICommandValidator<AssignRolesCommand>, AssignRolesCommandValidator>();
+        // E-07: KVKK hesap silme
+        services.AddScoped<IAccountDeletionRequestRepository, AccountDeletionRequestRepository>();
+        services.AddScoped<IAccountDeletionProcessor, AccountDeletionProcessor>();
+        services.AddHostedService<AccountDeletionService>();
+        services.AddScoped<ICommandHandler<RequestAccountDeletionCommand, Result<AccountDeletionResponse>>, RequestAccountDeletionCommandHandler>();
+        services.AddScoped<ICommandHandler<CancelAccountDeletionCommand, Result>, CancelAccountDeletionCommandHandler>();
+        services.AddScoped<IQueryHandler<GetAccountDeletionQuery, Result<AccountDeletionResponse>>, GetAccountDeletionQueryHandler>();
+        services.AddScoped<ICommandAuthorizer<RequestAccountDeletionCommand>, RequestAccountDeletionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<CancelAccountDeletionCommand>, CancelAccountDeletionCommandAuthorizer>();
+        services.AddScoped<IQueryAuthorizer<GetAccountDeletionQuery>, GetAccountDeletionQueryAuthorizer>();
+        // M01-4: Cihaz oturumları
+        services.AddScoped<IQueryHandler<GetDeviceSessionsQuery, Result<IReadOnlyCollection<DeviceSessionResponse>>>, GetDeviceSessionsQueryHandler>();
+        services.AddScoped<ICommandHandler<RevokeDeviceSessionCommand, Result>, RevokeDeviceSessionCommandHandler>();
+        services.AddScoped<ICommandHandler<RevokeAllDeviceSessionsCommand, Result<int>>, RevokeAllDeviceSessionsCommandHandler>();
+        services.AddScoped<IQueryAuthorizer<GetDeviceSessionsQuery>, GetDeviceSessionsQueryAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RevokeDeviceSessionCommand>, RevokeDeviceSessionCommandAuthorizer>();
+        services.AddScoped<ICommandAuthorizer<RevokeAllDeviceSessionsCommand>, RevokeAllDeviceSessionsCommandAuthorizer>();
+
         services.AddScoped<ICommandAuthorizer<AssignRolesCommand>, AssignRolesCommandAuthorizer>();
         return services;
     }

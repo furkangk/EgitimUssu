@@ -27,7 +27,8 @@ internal sealed class LessonSessionAccessService : ILessonSessionAccessService
                 session.CompletedOnUtc,
                 session.TopicTitle,
                 session.CoveredContent,
-                session.TeacherNotes))
+                session.TeacherNotes,
+                session.IsChargeable))
             .FirstOrDefaultAsync(cancellationToken);
     }
 }

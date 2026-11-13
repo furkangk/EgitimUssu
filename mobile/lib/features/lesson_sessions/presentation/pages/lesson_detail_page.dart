@@ -1,6 +1,11 @@
+import 'package:egitim_ussu_mobile/core/di/injector.dart';
+import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
+import 'package:egitim_ussu_mobile/features/assignments/presentation/widgets/lesson_resources_section.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
@@ -64,7 +69,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       sourceFilePath: null,
     ),
     const _NoteFileItem(
-      title: 'Fonksiyonlar Ozet Notu.pdf',
+      title: 'Fonksiyonlar Özet Notu.pdf',
       meta: '860 KB  18 Mayis',
       accent: AppColors.accentGreen,
       noteText:
@@ -73,11 +78,16 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     ),
   ];
 
-  static const _tabs = <String>['Ders notu', 'Odevler', 'Odeme'];
+  static const _tabs = <String>['Ders notu', 'Ödevler', 'Kaynaklar', 'Ödeme'];
 
   LessonDetailPayload? _editedPayload;
   SchedulingCubit? _schedulingCubit;
   String? _lessonStatus;
+
+  /// M05-2: Plandan turetilen ders oturumunun durumu (`Planned`/`InProgress`/`Cancelled`).
+  /// Ekran bir `LessonSchedule` tasir; oturum kimligi `from-schedule` ile elde edilir.
+  String? _sessionStatus;
+  bool _sessionBusy = false;
 
   /// Bu detayda kalici bir degisiklik (tamamlama/duzenleme) olduysa geri
   /// donulurken kaynak ekran (dersler listesi / ana sayfa) tazelensin diye
@@ -98,6 +108,13 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
 
   bool get _canComplete =>
       _payload.lessonId != null && _lessonStatus == 'Planned';
+
+  /// M05-1: Ders henuz baslamadiysa "baslat" gosterilir.
+  bool get _canStartSession =>
+      _canComplete && _sessionStatus != 'InProgress' && _sessionStatus != 'Cancelled';
+
+  /// M05-1: Planli veya devam eden ders iptal edilebilir.
+  bool get _canCancelSession => _canComplete && _sessionStatus != 'Cancelled';
 
   @override
   void initState() {
@@ -145,7 +162,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.edit_calendar_rounded,
-                      label: 'Dersi Duzenle',
+                      label: 'Dersi Düzenle',
                       onTap: _showEditLessonSheet,
                     ),
                   ),
@@ -161,7 +178,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.post_add_rounded,
-                      label: 'Odev Ekle',
+                      label: 'Ödev Ekle',
                       onTap: () => context.push(
                         '/assignments/demo-lesson-session',
                         extra: AssignmentFormContext(
@@ -210,6 +227,66 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                     },
                   ),
                 ),
+              ],
+              if (_canStartSession || _canCancelSession) ...<Widget>[
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    if (_canStartSession)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _sessionBusy ? null : _startSession,
+                          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                          label: Text(
+                            _sessionBusy ? 'Isleniyor...' : 'Dersi Baslat',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.accentGreen,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_canStartSession && _canCancelSession)
+                      const SizedBox(width: 10),
+                    if (_canCancelSession)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _sessionBusy ? null : _cancelSession,
+                          icon: const Icon(Icons.cancel_outlined, size: 18),
+                          label: const Text('Dersi İptal Et'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.accentRed,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (_sessionStatus == 'InProgress') ...<Widget>[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.circle,
+                        size: 8,
+                        color: AppColors.accentGreen,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Ders devam ediyor',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.accentGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
               if (payload.modeLabel == 'Online' &&
                   (payload.meetingUrl?.trim().isNotEmpty ?? false)) ...<Widget>[
@@ -279,7 +356,120 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     );
   }
 
+  /// M05-1 + M05-2: Plandan oturum turetir (idempotent) ve dersi baslatir.
+  Future<void> _startSession() => _runSessionAction(
+    (repository, sessionId) => repository.startSession(sessionId),
+    'Ders baslatildi.',
+  );
+
+  /// M05-1: Iptal nedeni sorar, sonra oturumu iptal eder.
+  Future<void> _cancelSession() async {
+    final reason = await _askCancellationReason();
+    if (reason == null) {
+      return;
+    }
+
+    await _runSessionAction(
+      (repository, sessionId) => repository.cancelSession(
+        sessionId,
+        reason: reason.isEmpty ? null : reason,
+      ),
+      'Ders iptal edildi.',
+    );
+  }
+
+  /// Iptal nedenini sorar. `null` = vazgecildi, bos metin = neden girilmedi.
+  Future<String?> _askCancellationReason() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dersi iptal et'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'İptal nedeni (isteğe bağlı)',
+            hintText: 'Örnek: Öğrenci hastalandı',
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Vazgec'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accentRed,
+            ),
+            child: const Text('Dersi iptal et'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  /// Ortak akis: plandan oturum turet -> eylemi calistir -> durumu/mesaji guncelle.
+  /// Ekranin elinde yalnizca `LessonSchedule` kimligi vardir; oturum kimligi
+  /// `POST /from-schedule/{id}` ile alinir (ayni plan icin idempotent).
+  Future<void> _runSessionAction(
+    Future<LessonSession> Function(LessonSessionRepository, String) action,
+    String successMessage,
+  ) async {
+    final scheduleId = _payload.lessonId;
+    if (scheduleId == null || _sessionBusy) {
+      return;
+    }
+
+    setState(() => _sessionBusy = true);
+    try {
+      final repository = injector<LessonSessionRepository>();
+      final session = await repository.createSessionFromSchedule(scheduleId);
+      final updated = await action(repository, session.id);
+      if (!mounted) return;
+      setState(() {
+        _sessionStatus = updated.status;
+        _didChange = true;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(successMessage)));
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      // 409: gecersiz durum gecisi (lesson_sessions.invalid_transition).
+      final message = error.isConflict
+          ? 'Bu ders zaten baslamis veya iptal edilmis.'
+          : error.message;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: AppColors.accentRed),
+        );
+    } finally {
+      if (mounted) {
+        setState(() => _sessionBusy = false);
+      }
+    }
+  }
+
   Widget _buildTabContent() {
+    // M06-1: "Kaynaklar" sekmesi (index 2) ders materyallerini yonetir; odeme sekmesi 3'e kaydi.
+    if (_selectedTab == 2) {
+      final teacherUserId = context.read<AuthCubit>().state.session?.userId;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: LessonResourcesSection(
+          teacherUserId: teacherUserId,
+          lessonSessionId: _payload.lessonId,
+          canManage: true,
+        ),
+      );
+    }
+
     switch (_selectedTab) {
       case 0:
         return ListView(
@@ -328,14 +518,14 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           padding: const EdgeInsets.only(bottom: 24),
           children: const <Widget>[
             _PaymentCard(
-              title: 'Mayis Dersi Odeme Kaydi',
+              title: 'Mayıs Dersi Ödeme Kaydı',
               subtitle: '2 Saat  20 Mayis 2025',
               amountLabel: '2.000 TL',
               statusLabel: 'Odendi',
             ),
             SizedBox(height: 12),
             _PaymentCard(
-              title: 'Ek Etut Odeme Kaydi',
+              title: 'Ek Etüt Ödeme Kaydı',
               subtitle: '1 Saat  23 Mayis 2025',
               amountLabel: '1.000 TL',
               statusLabel: 'Beklemede',
@@ -420,7 +610,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Dosya secimi',
+                          'Dosya seçimi',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 color: AppColors.textPrimary,
@@ -721,7 +911,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                'Dersi Duzenle',
+                                'Dersi Düzenle',
                                 style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(
                                       color: AppColors.textPrimary,

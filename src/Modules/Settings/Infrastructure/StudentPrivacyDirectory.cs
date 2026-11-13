@@ -1,3 +1,4 @@
+using EgitimUssu.Modules.Settings.Domain;
 using EgitimUssu.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,12 +14,21 @@ internal sealed class StudentPrivacyDirectory : IStudentPrivacyDirectory
     {
         var row = await _dbContext.UserSettings
             .Where(s => s.UserId == userId)
-            .Select(s => new { s.ShareStudyDataWithParent, s.ShareStudyDataWithTeacher })
+            .Select(s => new { s.ShareStudyDataWithParent, s.ShareStudyDataWithTeacher, s.PrivacyLevel })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Kayıt yoksa paylaşım açık varsayılır (öğrenci henüz kısıtlamadı).
+        // Kayıt yoksa paylaşım açık ve seviye Standard varsayılır (öğrenci henüz kısıtlamadı).
         return row is null
-            ? new StudentPrivacy(true, true)
-            : new StudentPrivacy(row.ShareStudyDataWithParent, row.ShareStudyDataWithTeacher);
+            ? new StudentPrivacy(true, true, StudyPrivacyLevel.Standard)
+            : new StudentPrivacy(row.ShareStudyDataWithParent, row.ShareStudyDataWithTeacher, ToContract(row.PrivacyLevel));
     }
+
+    // M15-4: Settings.Domain enum'u → Shared.Contracts enum'u (modül sınırı).
+    private static StudyPrivacyLevel ToContract(PrivacyLevel level)
+        => level switch
+        {
+            PrivacyLevel.Limited => StudyPrivacyLevel.Limited,
+            PrivacyLevel.Hidden => StudyPrivacyLevel.Hidden,
+            _ => StudyPrivacyLevel.Standard
+        };
 }

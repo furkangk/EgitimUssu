@@ -85,6 +85,7 @@ class CalendarOccurrence {
     this.recurrenceRule,
     this.notes,
     this.completed = false,
+    this.conflictsWithLesson = false,
   });
 
   /// Kaynak girdinin (ders planı ya da program girdisi) kimliği.
@@ -107,6 +108,10 @@ class CalendarOccurrence {
 
   /// Ç-06: bu occurrence'ın gününde derse bağlı tamamlanmış bir çalışma seansı var mı (çalışıldı rozeti).
   final bool completed;
+
+  /// M04-2/M08-1: Bu bireysel plan öğesi aynı saatteki bir özel dersle çakışıyor mu?
+  /// Yalnız `Self` kaynaklı öğelerde anlamlıdır; öğretmen dersleri için her zaman `false`.
+  final bool conflictsWithLesson;
 
   bool get isTeacher => source == 'Teacher';
   bool get isSelf => source == 'Self';

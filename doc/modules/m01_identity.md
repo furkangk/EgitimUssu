@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-07-01
+updated: 2026-10-16
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -55,7 +55,7 @@ updated: 2026-07-01
 ## 2. Domain Modeli
 
 Tüm kaynak: `src/Modules/Identity/Domain/IdentityDomainModel.cs`. Şema: **`identity`** (`IdentityDbContext.SchemaName`).
-Tablolar: `user_accounts`, `user_role_memberships`, `refresh_token_sessions`, `user_security_tokens`.
+Tablolar: `user_accounts`, `user_role_memberships`, `refresh_token_sessions`, `user_security_tokens`, **`account_deletion_requests`** (E-07).
 
 ### 2.1 🟢 Mevcut (koddan) — `UserAccount` (AggregateRoot&lt;Guid&gt;)
 
@@ -142,6 +142,51 @@ UserRegisteredDomainEvent(Guid UserId, string Email, DateTime RegisteredOnUtc)
 
 ---
 
+### 2.5 🟢 `AccountDeletionRequest` (E-07, AggregateRoot&lt;Guid&gt;)
+
+KVKK "hesabımı sil" talebi. **Bir zamanlayıcıdır, silmenin kendisi değildir**: `ScheduledForUtc`
+gelene kadar hiçbir veri değişmez ve talep iptal edilebilir.
+
+| Alan | Tip | Açıklama |
+|------|-----|----------|
+| `UserAccountId` | Guid | Talebi açan kullanıcı |
+| `RequestedOnUtc` | DateTime | Talep anı |
+| `ScheduledForUtc` | DateTime | `RequestedOnUtc + AccountDeletionPolicy.WaitingPeriod` (**30 gün**) |
+| `Status` | enum | `Pending` / `Cancelled` / `Completed` |
+| `CancelledOnUtc`, `CompletedOnUtc` | DateTime? | Sonuç damgaları |
+
+Davranış: `IsDue(now)` · `Cancel(now)` · `Complete(now)` — üçü de idempotent.
+
+`UserAccount.Anonymize(surrogateEmail, unusablePasswordHash, now)` hesabı kimliksizleştirir:
+ad/e-posta/telefon üzerine yazılır, oturum ve güvenlik jetonları **silinir**, `Status = Closed`.
+Vekil e-posta silinen adresten **türetilmez** (hash kullanılmaz — bkz.
+[`../architecture/kvkk.md`](../architecture/kvkk.md) §3).
+
+
+### 2.6 🟢 Cihaz oturumları (M01-4)
+
+`RefreshTokenSession` bir **cihaz oturumudur**. Erişim jetonu, hangi oturumdan geldiğini `sid`
+talebiyle taşır (`JwtTokenIssuer`); `ICurrentUser.SessionId` bunu okur ve "bu cihaz" rozeti ile
+"diğerlerini kapat" kararı buna dayanır.
+
+| Alan | Not |
+|------|-----|
+| `CreatedOnUtc` | Cihazın **ilk** bağlandığı an — jeton yenilendiğinde yeni satıra **devredilir** |
+| `LastUsedOnUtc` | Jetonun en son yenilendiği an (E-07 sonrası eklendi; migration mevcut satırlara `CreatedOnUtc`'yi kopyalar) |
+| `RevokedOnUtc` | İptal anı; `IsActive(now)` bunu ve süreyi birlikte değerlendirir |
+
+> **Neden iki tarih?** Refresh akışı jetonu **döndürüyor**: eski satır iptal edilip yenisi
+> açılıyor. Başlangıç anı devralınmasaydı 30 gün boyunca her yenilemede oturum "az önce açılmış"
+> görünür ve kullanıcı cihazı ne zaman bağladığını asla göremezdi.
+
+> **Listede yalnız aktif oturumlar var.** Rotasyon her yenilemede bir "ölü" satır bırakıyor;
+> hepsi gösterilseydi tek cihaz onlarca oturum olarak görünürdü.
+
+> ⚠️ **M01-5 (telefon/SMS doğrulama) ertelendi — karar bekliyor.** SMS sağlayıcı sözleşmesi ve
+> maliyet kararı gerektiriyor; hiçbir akış buna bağlı değil (kimlik doğrulama e-posta üzerinden
+> çalışıyor). Karar verilince ayrı bir plan açılır (master tasarım §5.1).
+
+
 ## 3. API Sözleşmesi
 
 Tüm uçlar `RoutePrefix = /api/identity` altında ve `DistributedRateLimitMiddleware` tarafından **yol tabanlı `auth` politikasıyla** (IP-partition, Redis, fail-open) sınırlandırılmıştır (2026-07-01, Y4).
@@ -158,6 +203,13 @@ Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToH
 | Şifre sıfırlama onayı | `POST /password-reset/confirm` | herkese açık | `PasswordResetConfirmRequest` | `200 OK` |
 | E-posta doğrulama isteği | `POST /email-verification/request` | herkese açık | `EmailVerificationRequest` | `200 OK` |
 | E-posta doğrulama onayı | `POST /email-verification/confirm` | herkese açık | `EmailVerificationConfirmRequest` | `200 OK` |
+| **Hesap silme talebi (E-07)** | `POST /account/deletion-request` | oturum | — | `AccountDeletionResponse` |
+| **Silme talebini iptal (E-07)** | `DELETE /account/deletion-request` | oturum | — | `200 OK` · yoksa `404` |
+| **Silme talebini oku (E-07)** | `GET /account/deletion-request` | oturum | — | `AccountDeletionResponse` |
+| **Cihaz oturumları (M01-4)** | `GET /sessions` | oturum | — | `DeviceSessionResponse[]` |
+| **Oturum kapat (M01-4)** | `POST /sessions/{sessionId}/revoke` | oturum | — | `200 OK` · başkasınınki `403` |
+| **Diğerlerini kapat (M01-4)** | `POST /sessions/revoke-all` | oturum | — | `{ revokedCount }` · `sid` yoksa `409` |
+| Oturum açmış kullanıcı | `GET /me` | **AuthenticatedUser** | — | `CurrentUserResponse` |
 | Oturum kapat | `POST /logout` | **AuthenticatedUser** | `LogoutRequest` | `200 OK` |
 | Kullanıcı getir | `GET /users/{userId:guid}` | **AuthenticatedUser** | — | `UserAccountResponse` |
 | Rol ata (yalnız Admin) | `POST /users/{userId:guid}/roles` | **AuthenticatedUser** + `AssignRolesCommandAuthorizer` (Admin) | `AssignRolesRequest` | `UserAccountResponse` |
@@ -179,6 +231,8 @@ EmailVerificationConfirmRequest(string Email, string Token)
 
 AuthResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles,
              string AccessToken, DateTime ExpiresAtUtc, string RefreshToken)
+CurrentUserResponse(Guid UserId, string Email, string FullName, IReadOnlyCollection<string> Roles,
+                    bool IsEmailConfirmed, string Status)
 UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName, string? PhoneNumber,
                     string Status, bool IsEmailConfirmed, bool IsProfileVerified,
                     IReadOnlyCollection<string> Roles, DateTime CreatedOnUtc, DateTime UpdatedOnUtc)
@@ -205,7 +259,7 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 ### 3.3 Eksik / Önerilen Endpoint'ler ⚠️
 
 - [ ] `POST /refresh` için mobilde **otomatik yenileme** (dio interceptor) — sunucu ucu var, istemci akışı yok (**Y3**).
-- [ ] `GET /me` — token'daki `sub`'a göre o anki kullanıcı (her seferinde `userId` taşımadan).
+- [x] `GET /me` — token'daki `sub`'a göre o anki kullanıcı **eklendi (2026-09-02, P02/M01-1)**; `GetCurrentUserQuery` + `GetCurrentUserQueryAuthorizer` (kimlik doğrulanmamışsa 401).
 - [ ] `PUT /users/{userId}/status` (admin) — `Active`/`Suspended`/`Closed` geçişi.
 - [x] `POST /users/{userId}/roles` (admin) — rol atama **eklendi (2026-07-01)**. `DELETE /users/{userId}/roles/{role}` (rol kaldırma) hâlâ önerilen.
 - [ ] `POST /sessions/revoke-all` — kullanıcının tüm cihaz oturumlarını kapatma.
@@ -217,15 +271,16 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 ## 4. İş Kuralları
 
 1. **Parola politikası:** En az **8 karakter** (`identity.invalid_password`). Kayıtta ve şifre sıfırlamada uygulanır.
-2. **En az bir rol:** Kayıtta `Roles` boş olamaz (`identity.missing_role`); roller `Distinct()` ile tekilleştirilir.
+2. **En az bir rol:** Kayıtta `Roles` boş olamaz (`identity.missing_role`); eksik veya `null` roller doğrulamada `identity.invalid_request` ile reddedilir (500 oluşmaz); roller `Distinct()` ile tekilleştirilir.
 3. **E-posta normalizasyonu:** Tüm aramalar `Email.Trim().ToUpperInvariant()` ile yapılır; benzersizlik `NormalizedEmail` üzerinden.
 4. **Mükerrer e-posta:** Aynı normalize e-posta varsa kayıt `identity.duplicate_email` (409) ile reddedilir.
 5. **Kayıt sonrası durum:** Yeni kullanıcı `Status = Active`, `IsEmailConfirmed = false`, `IsProfileVerified = false` ile oluşur; **24 saatlik** e-posta doğrulama token'ı üretilir ve doğrulama e-postası gönderilir.
+   > **2026-09-02:** Bu e-posta artık gerçekten gönderiliyor (`EmailIdentityNotificationService`). Ayrıca aynı turda bir EF tuzağı kapatıldı: `UserSecurityToken`/`RefreshTokenSession`/`UserRoleMembership` yapılandırmalarına `ValueGeneratedNever()` eklendi — izlenen bir `UserAccount`'a yeni token eklenince EF satırı UPDATE etmeye çalışıyor ve `password-reset/request` ile `email-verification/request` uçları **500** dönüyordu.
 6. **Giriş koşulu:** Parola PBKDF2 ile doğrulanır; hesap yalnızca `Active` **veya** `PendingActivation` ise giriş yapılabilir (`Suspended`/`Closed` → `identity.user_inactive`). Hatalı e-posta/şifre tek tip `identity.invalid_credentials` döner (kullanıcı sayımı/enumeration engeli).
-7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token `identity.invalid_refresh_token` (401) verir.
+7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token ve `Suspended`/`Closed` hesaplar `identity.invalid_refresh_token` (401) verir; hesap durumu giriş koşuluyla aynı şekilde denetlenir.
 8. **Refresh ömrü:** Tüm refresh oturumları **30 gün** geçerlidir.
 9. **Şifre sıfırlama gizliliği:** `password-reset/request`, kullanıcı **bulunsa da bulunmasa da** `200 OK` döner (e-posta enumeration engeli). Token **1 saat** geçerlidir.
-10. **Şifre sıfırlama yan etkisi:** Başarılı sıfırlamada token "kullanıldı" işaretlenir, parola güncellenir ve **tüm aktif refresh oturumları iptal edilir** (tüm cihazlardan çıkış).
+10. **Şifre sıfırlama yan etkisi:** Başarılı sıfırlamada hesaba ait **tüm kullanılabilir şifre sıfırlama token’ları** "kullanıldı" işaretlenir (önceki e-postalar yeni parolayı değiştiremez), e-posta doğrulama token’ları korunur, parola güncellenir ve **tüm aktif refresh oturumları iptal edilir** (tüm cihazlardan çıkış).
 11. **E-posta doğrulama gizliliği:** `email-verification/request`, kullanıcı yoksa veya zaten doğrulanmışsa sessizce `200 OK` döner; aksi halde **24 saatlik** yeni token üretir.
 12. **Token tek kullanımlık:** `UserSecurityToken` `MarkUsed` ile bir kez tüketilir; tekrar kullanım `IsUsable` kontrolünde başarısız olur.
 13. **GetUserById yetkisi:** Yalnızca **admin** veya **kendi kaydı** (`isSelf`) erişebilir (`GetUserByIdQueryAuthorizer`); aksi halde `shared.forbidden` (403).
@@ -252,10 +307,12 @@ Kayıt başarılı            → UserRegisteredDomainEvent (UserId, Email, Regi
 E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificationAsync (kayıt + istek anında)
 Şifre sıfırlama token'ı    → IIdentityNotificationService.SendPasswordResetAsync
 Şifre sıfırlandı           → tüm aktif RefreshTokenSession.Revoke (toplu çıkış)
+Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOtherSessions ise
+                             UserAccount.RevokeOtherSessions(yeniOturum.Id, now) → tek cihaz
 ```
 
 > Olaylar **Outbox pattern** ile güvenilir biçimde yayılır (`Shared/Infrastructure/Messaging`).
-> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır (gerçek e-posta/SMS sağlayıcısı Infrastructure'da takılır).
+> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır. **2026-09-02 (P02/A-03):** `NullIdentityNotificationService` kaldırıldı; yerine `EmailIdentityNotificationService` geldi — `EmailTemplates` ile HTML+metin gövde üretir ve `Shared/Infrastructure/Email`'deki `IEmailSender`'a verir. Sağlayıcı `Email:Provider` ile seçilir (`Logging` = log'a basar, `Smtp` = MailKit relay). E-postadaki derin bağlantı `egitimussu://password-reset?token=…` / `egitimussu://verify-email?token=…` biçimindedir; token base64 olduğu için bağlantıda **URL-kodlanır**, elle yapıştırma için ham kod da metin gövdede yer alır.
 
 ---
 
@@ -271,10 +328,10 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 | `/register` | `RegisterPage` | ✅ | Kayıt; seçilen rol(ler) `Roles` olarak gönderilir |
 
 ### Eksik / planlanan mobil ekranlar ⚠️
-- [ ] **Şifremi unuttum** akışı (request + confirm ekranları) — sunucu ucu hazır.
-- [ ] **E-posta doğrulama** ekranı / derin bağlantı (deep link) ile token onayı.
-- [ ] **Token yenileme interceptor'ı** (dio): 401 → `/refresh` → tekrar dene; başarısızsa `/login`'e yönlendir (**Y3**).
-- [ ] **Güvenli depolama:** access + refresh token'ın `flutter_secure_storage` ile saklanması.
+- [x] **Şifremi unuttum** akışı (request + confirm ekranları) — **eklendi (2026-09-02, P02/D-01)**: `/password-reset`, `/password-reset/confirm` · [`../pages/auth_password_reset.md`](../pages/auth_password_reset.md)
+- [x] **E-posta doğrulama** ekranı / derin bağlantı — **eklendi (2026-09-02, P02/D-02)**: `/verify-email` + `egitimussu://` şeması (Android manifest + iOS `CFBundleURLTypes`) · [`../pages/auth_email_verification.md`](../pages/auth_email_verification.md)
+- [x] **Token yenileme interceptor'ı** (dio): 401 → `/refresh` → tekrar dene; başarısızsa `/login`'e yönlendir — ✅ 2026-07 (Y3), `mobile/lib/core/network/token_refresh_interceptor.dart`.
+- [x] **Güvenli depolama:** access + refresh token `flutter_secure_storage` ile saklanıyor — ✅ 2026-07 (Y7), `mobile/lib/core/storage/token_storage.dart`.
 - [ ] **Cihaz oturumları** ekranı (aktif `DeviceName` listesi + uzaktan çıkış).
 
 ---
@@ -299,10 +356,10 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 1. **Mobil refresh akışı (Y3)** — dio interceptor + güvenli token depolama; en yüksek kullanıcı etkisi.
 2. **JWT imza anahtarı gizli yönetimi (Y2)** — secret store/env, anahtar rotasyonu, üretim öncesi zorunlu.
-3. **`GET /me` ucu** — token'a dayalı geçerli kullanıcı; mobil/web için pratik.
+3. ~~**`GET /me` ucu**~~ — **2026-09-02'de eklendi** (P02/M01-1).
 4. **Admin kullanıcı yönetimi** — durum geçişi (`PUT /users/{id}/status`) + `UserStatusChangedDomainEvent`.
 5. **Rol yönetimi uçları** — kayıt sonrası rol ekle/çıkar (örn. öğretmen aynı zamanda veli olduğunda).
-6. **Oturum yönetimi** — `GET /sessions`, `POST /sessions/revoke-all`.
+6. **Oturum yönetimi** — `GET /sessions`, `POST /sessions/revoke-all`. (Kısmen: "diğer oturumları sonlandır" P05/M15-3 ile girişte otomatik uygulanıyor; kullanıcıya oturum **listesi** hâlâ yok.)
 7. ✅ **Kaba kuvvet sertleştirme (2026-07-01, Y4)** — Redis tabanlı hesap kilidi (`RedisLoginAttemptThrottle`) + dağıtık rate limiting; DB alanı gerektirmedi.
 8. **Telefon (SMS/OTP) doğrulama** — `PhoneNumberConfirmed` + yeni `SecurityTokenPurpose`.
 
@@ -321,4 +378,4 @@ E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificat
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

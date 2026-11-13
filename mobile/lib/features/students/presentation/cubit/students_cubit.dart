@@ -41,7 +41,7 @@ class StudentsCubit extends Cubit<StudentsState> {
         state.copyWith(
           isSaving: false,
           students: <StudentProfile>[...state.students, created],
-          successMessage: 'Ogrenci eklendi.',
+          successMessage: 'Öğrenci eklendi.',
           clearMessages: true,
         ),
       );

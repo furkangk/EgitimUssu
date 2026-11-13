@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Shared.Kernel.Storage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -37,6 +38,93 @@ public sealed class TeachersModule : ModuleDefinition
 
         group.MapGet("/profiles/{userId:guid}", GetTeacherProfileAsync)
         .WithSummary("Öğretmen profilini getirir");
+
+        group.MapPost("/profiles/{userId:guid}/photo", UploadTeacherPhotoAsync)
+        .WithSummary("Öğretmen profil fotoğrafını yükler (M02-2)")
+        .DisableAntiforgery();
+
+        group.MapGet("/profiles/{userId:guid}/photo", DownloadTeacherPhotoAsync)
+        .WithSummary("Öğretmen profil fotoğrafını yetkiyle akıtır (M02-2)");
+
+        group.MapPut("/profiles/{userId:guid}/verification", SetTeacherVerificationAsync)
+        .WithSummary("Öğretmenin doğrulama rozetini verir/geri alır — yalnız Admin (M02-1)");
+
+        group.MapGet("/profiles", SearchTeacherProfilesAsync)
+        .WithSummary("Öğretmen profillerini filtreleyerek listeler — yalnız aktif profiller (M02-3)");
+
+        group.MapPost("/profiles/{userId:guid}/deactivate", DeactivateTeacherProfileAsync)
+        .WithSummary("Öğretmen profilini arama sonuçlarından çıkarır (M02-4)");
+
+        group.MapPost("/profiles/{userId:guid}/activate", ActivateTeacherProfileAsync)
+        .WithSummary("Öğretmen profilini tekrar aramaya açar (M02-4)");
+    }
+
+    /// <summary>
+    /// Profil fotoğrafını yükler (P04/M02-2). Dosya belleğe alınır ve komuta verilir; doğrulama, yetki ve
+    /// depolama yazımı handler'da yapılır. Boyut/tür kuralı `FileValidation` (10 MB + beyaz liste).
+    /// </summary>
+    private static async Task<IResult> UploadTeacherPhotoAsync(
+        HttpContext context,
+        Guid userId,
+        IFormFile? file,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status400BadRequest,
+                new Error("teachers.invalid_request", "Yüklenecek dosya bulunamadı."));
+        }
+
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
+
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        var result = await dispatcher.Dispatch(
+            new UploadTeacherPhotoCommand(userId, file.FileName, contentType, buffer.Length, buffer),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// Profil fotoğrafını akıtır (P04/M02-2). Dosya doğrudan URL ile sunulmaz; anahtar yetki kontrolünden
+    /// **sonra** `IFileStorage`'tan okunur.
+    /// </summary>
+    private static async Task<IResult> DownloadTeacherPhotoAsync(
+        HttpContext context,
+        Guid userId,
+        IQueryDispatcher dispatcher,
+        IFileStorage fileStorage,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetTeacherPhotoQuery(userId), cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                "teachers.profile_not_found" or "teachers.photo_not_found"
+                    => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
+        }
+
+        var photo = result.Value!;
+        var content = await fileStorage.OpenReadAsync(photo.StorageKey, cancellationToken);
+        if (content is null)
+        {
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status404NotFound,
+                new Error("teachers.photo_not_found", "Profil fotoğrafı bulunamadı."));
+        }
+
+        return Results.File(content, photo.ContentType);
     }
 
     /// <summary>
@@ -79,6 +167,64 @@ public sealed class TeachersModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>
+    /// M02-1: Öğretmenin doğrulama rozetini verir veya geri alır. Yetki yalnız Admin'dedir
+    /// (<c>SetTeacherVerificationCommandAuthorizer</c>); öğretmen kendini doğrulayamaz.
+    /// </summary>
+    private static async Task<IResult> SetTeacherVerificationAsync(
+        HttpContext context,
+        Guid userId,
+        SetTeacherVerificationRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new SetTeacherVerificationCommand(userId, request.IsVerified), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>
+    /// M02-3: Öğretmen profillerini filtreleyerek listeler. Yalnız <c>IsActive</c> profiller döner;
+    /// sayfa boyutu handler tarafından en fazla 50'ye çekilir.
+    /// </summary>
+    private static async Task<IResult> SearchTeacherProfilesAsync(
+        HttpContext context,
+        string? city,
+        string? district,
+        string? subject,
+        TeacherLessonFormat? lessonFormat,
+        decimal? minRate,
+        decimal? maxRate,
+        bool? onlyVerified,
+        int? skip,
+        int? take,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch<Result<PagedResult<TeacherSummaryResponse>>>(
+            new SearchTeacherProfilesQuery(
+                city, district, subject, lessonFormat, minRate, maxRate, onlyVerified,
+                skip ?? 0, take ?? SearchTeacherProfilesQueryHandler.DefaultTake),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M02-4: Profili arama sonuçlarından çıkarır (sahibi öğretmen veya Admin).</summary>
+    private static async Task<IResult> DeactivateTeacherProfileAsync(
+        HttpContext context, Guid userId, ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new SetTeacherActivationCommand(userId, IsActive: false), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>M02-4: Profili tekrar aramaya açar (sahibi öğretmen veya Admin).</summary>
+    private static async Task<IResult> ActivateTeacherProfileAsync(
+        HttpContext context, Guid userId, ICommandDispatcher dispatcher, CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new SetTeacherActivationCommand(userId, IsActive: true), cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)
     {
         if (result.IsSuccess)
@@ -95,6 +241,12 @@ public sealed class TeachersModule : ModuleDefinition
         };
     }
 }
+
+/// <summary>
+/// M02-1: Doğrulama rozeti isteği.
+/// </summary>
+/// <param name="IsVerified">Rozet verilsin mi (false = geri al).</param>
+public sealed record SetTeacherVerificationRequest(bool IsVerified);
 
 /// <summary>
 /// Öğretmenin haftalık tekrar eden müsaitlik aralığını ve ders formatı tercihlerini taşır.
@@ -131,7 +283,6 @@ public sealed record UpsertTeacherProfileRequest(
     string EducationLevel,
     decimal HourlyRateAmount,
     string Currency,
-    string? ProfilePhotoUrl,
     IReadOnlyCollection<TeacherAvailabilityItem> AvailabilitySlots,
     IReadOnlyCollection<string> Subjects,
     IReadOnlyCollection<TeacherCertificateItem> Certificates)
@@ -151,7 +302,6 @@ public sealed record UpsertTeacherProfileRequest(
             EducationLevel,
             HourlyRateAmount,
             Currency,
-            ProfilePhotoUrl,
             AvailabilitySlots
                 .Select(slot => new TeacherAvailabilityRequest(
                     slot.DayOfWeek,
@@ -185,7 +335,6 @@ public sealed record UpsertTeacherProfileRequest(
             EducationLevel,
             HourlyRateAmount,
             Currency,
-            ProfilePhotoUrl,
             AvailabilitySlots
                 .Select(slot => new TeacherAvailabilityRequest(
                     slot.DayOfWeek,

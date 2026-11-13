@@ -115,32 +115,143 @@ public sealed class UpdateStudentProfileCommandAuthorizer : ICommandAuthorizer<U
     }
 }
 
-public sealed class StudentProfileQueryAuthorizer :
-    IQueryAuthorizer<GetStudentProfileByIdQuery>,
-    IQueryAuthorizer<GetStudentProfileByUserIdQuery>,
-    IQueryAuthorizer<ListStudentsByTeacherQuery>
+/// <summary>
+/// M03-1/M03-2: Öğrenci profilinin alt kaynaklarını (branş, veli bağı) değiştirme yetkisi.
+/// Admin · profili oluşturan öğretmen · profilin sahibi öğrenci. Sahibi öğrenciyi de kapsar,
+/// çünkü self-register profillerin <c>CreatedByTeacherUserId</c>'si yoktur.
+/// </summary>
+public sealed class StudentSubjectCommandAuthorizer :
+    ICommandAuthorizer<AddStudentSubjectCommand>,
+    ICommandAuthorizer<RemoveStudentSubjectCommand>
 {
-    private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
-    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
     private readonly ICurrentUser _currentUser;
     private readonly IStudentProfileRepository _repository;
 
-    public StudentProfileQueryAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    public StudentSubjectCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
     {
         _currentUser = currentUser;
         _repository = repository;
     }
 
+    public Task<Result> Authorize(AddStudentSubjectCommand command, CancellationToken cancellationToken)
+        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+
+    public Task<Result> Authorize(RemoveStudentSubjectCommand command, CancellationToken cancellationToken)
+        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+}
+
+/// <summary>M03-1: Veli bağlama yetkisi — Admin · profili oluşturan öğretmen · profilin sahibi öğrenci.</summary>
+public sealed class LinkStudentParentCommandAuthorizer : ICommandAuthorizer<LinkStudentParentCommand>
+{
+    private readonly ICurrentUser _currentUser;
+    private readonly IStudentProfileRepository _repository;
+
+    public LinkStudentParentCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    {
+        _currentUser = currentUser;
+        _repository = repository;
+    }
+
+    public Task<Result> Authorize(LinkStudentParentCommand command, CancellationToken cancellationToken)
+        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+}
+
+/// <summary>Öğrenci profili alt kaynaklarının ortak yetki kuralı (tek yerde durur).</summary>
+internal static class StudentProfileAccess
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+
+    public static async Task<Result> AuthorizeManage(
+        ICurrentUser currentUser,
+        IStudentProfileRepository repository,
+        Guid studentId,
+        CancellationToken cancellationToken)
+    {
+        if (!currentUser.IsAuthenticated)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var profile = await repository.GetByIdAsync(studentId, cancellationToken);
+        if (profile is null)
+        {
+            return Result.Failure(NotFound);
+        }
+
+        if (!Guid.TryParse(currentUser.UserId, out var userId))
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        var isOwningTeacher = currentUser.Roles.Contains("Teacher") && profile.CreatedByTeacherUserId == userId;
+        var isOwningStudent = profile.UserId == userId;
+        return isOwningTeacher || isOwningStudent ? Result.Success() : Result.Failure(Forbidden);
+    }
+}
+
+public sealed class StudentProfileQueryAuthorizer :
+    IQueryAuthorizer<GetStudentProfileByIdQuery>,
+    IQueryAuthorizer<GetStudentProfileByUserIdQuery>,
+    IQueryAuthorizer<ListStudentsByTeacherQuery>,
+    IQueryAuthorizer<ListStudentsByParentQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
+    private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
+    private readonly ICurrentUser _currentUser;
+    private readonly IStudentProfileRepository _repository;
+    private readonly IRequestEntityCache _entityCache;
+
+    public StudentProfileQueryAuthorizer(
+        ICurrentUser currentUser,
+        IStudentProfileRepository repository,
+        IRequestEntityCache entityCache)
+    {
+        _currentUser = currentUser;
+        _repository = repository;
+        _entityCache = entityCache;
+    }
+
     public async Task<Result> Authorize(GetStudentProfileByIdQuery query, CancellationToken cancellationToken)
     {
-        var profile = await _repository.GetByIdAsync(query.StudentId, cancellationToken);
+        var profile = await _entityCache.GetOrLoadAsync(
+            StudentProfileCacheKeys.ById(query.StudentId),
+            ct => _repository.GetByIdAsync(query.StudentId, ct),
+            cancellationToken);
+
         return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
     }
 
     public async Task<Result> Authorize(GetStudentProfileByUserIdQuery query, CancellationToken cancellationToken)
     {
-        var profile = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
+        var profile = await _entityCache.GetOrLoadAsync(
+            StudentProfileCacheKeys.ByUserId(query.UserId),
+            ct => _repository.GetByUserIdAsync(query.UserId, ct),
+            cancellationToken);
+
         return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
+    }
+
+    /// <summary>M03-3: Veli yalnız <b>kendi</b> çocuk listesini sorgulayabilir; Admin hepsini.</summary>
+    public Task<Result> Authorize(ListStudentsByParentQuery query, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Task.FromResult(Result.Failure(Forbidden));
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        var ownsList = Guid.TryParse(_currentUser.UserId, out var currentUserId) && currentUserId == query.ParentUserId;
+        return Task.FromResult(ownsList ? Result.Success() : Result.Failure(Forbidden));
     }
 
     public Task<Result> Authorize(ListStudentsByTeacherQuery query, CancellationToken cancellationToken)
@@ -177,4 +288,15 @@ public sealed class StudentProfileQueryAuthorizer :
 
         return hasAccess ? Result.Success() : Result.Failure(Forbidden);
     }
+}
+
+/// <summary>
+/// O2: Öğrenci profilinin istek kapsamı önbellek anahtarları. Aynı profil iki farklı yoldan
+/// (id / kullanıcı id) aranabildiği için anahtarlar ayrıştırılır.
+/// </summary>
+internal static class StudentProfileCacheKeys
+{
+    public static object ById(Guid studentId) => ("students.profile.byId", studentId);
+
+    public static object ByUserId(Guid userId) => ("students.profile.byUserId", userId);
 }

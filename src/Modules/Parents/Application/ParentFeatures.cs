@@ -517,14 +517,25 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
             return Result<ChildDashboardResponse>.Failure(ParentErrors.LinkNotApproved);
         }
 
-        // Gizlilik: öğrenci çalışma verisini veli ile paylaşmıyorsa çalışma alanları maskelenir (Veli V-B).
-        // Ayar kaydı yoksa (KnownStudent/UserId çözülemezse) paylaşım açık varsayılır.
+        // Gizlilik (Veli V-B + M15-4): iki ayar birlikte değerlendirilir — **en kısıtlayıcı kazanır**.
+        //   ShareStudyDataWithParent = false  → hiç paylaşılmaz (Hidden gibi davranır)
+        //   PrivacyLevel = Hidden             → hiç paylaşılmaz
+        //   PrivacyLevel = Limited            → yalnız haftalık toplam süre; seri + ders kırılımı gizlenir
+        //   PrivacyLevel = Standard           → tam detay
+        // Ayar kaydı yoksa (KnownStudent/UserId çözülemezse) paylaşım açık + Standard varsayılır.
         var isStudyShared = true;
+        var privacyLevel = StudyPrivacyLevel.Standard;
         var known = await _repository.GetKnownStudentAsync(query.StudentId, cancellationToken);
         if (known?.UserId is { } studentUserId)
         {
             var privacy = await _privacy.GetForUserAsync(studentUserId, cancellationToken);
             isStudyShared = privacy.ShareStudyDataWithParent;
+            privacyLevel = privacy.Level;
+        }
+
+        if (privacyLevel == StudyPrivacyLevel.Hidden)
+        {
+            isStudyShared = false;
         }
 
         // Çalışma verisi canlı digest'ten gelir (Veli V-F): ChildProgressSnapshot'taki WeeklyStudyMinutes/StudyStreakDays
@@ -533,8 +544,11 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
         if (isStudyShared)
         {
             var digest = await _studyDigest.GetWeeklyDigestAsync(query.StudentId, _clock.UtcNow, cancellationToken);
-            var hasData = digest.WeeklyStudyMinutes > 0 || digest.StreakDays > 0 || digest.SubjectBreakdown.Count > 0;
-            study = new StudySummaryResponse(digest.WeeklyStudyMinutes, digest.StreakDays, hasData, true, digest.SubjectBreakdown);
+            var isLimited = privacyLevel == StudyPrivacyLevel.Limited;
+            var streakDays = isLimited ? 0 : digest.StreakDays;
+            var subjects = isLimited ? NoSubjects : digest.SubjectBreakdown;
+            var hasData = digest.WeeklyStudyMinutes > 0 || streakDays > 0 || subjects.Count > 0;
+            study = new StudySummaryResponse(digest.WeeklyStudyMinutes, streakDays, hasData, true, subjects);
         }
         else
         {

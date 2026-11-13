@@ -13,7 +13,7 @@ internal sealed class TimeOffBlockRepository : ITimeOffBlockRepository
         => _dbContext.TimeOffBlocks.AddAsync(block, cancellationToken).AsTask();
 
     public Task<TimeOffBlock?> GetByIdAsync(Guid timeOffId, CancellationToken cancellationToken)
-        => _dbContext.TimeOffBlocks.FirstOrDefaultAsync(b => b.Id == timeOffId, cancellationToken);
+        => _dbContext.TimeOffBlocks.FindAsync(new object?[] { timeOffId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyCollection<TimeOffBlock>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
         => await _dbContext.TimeOffBlocks

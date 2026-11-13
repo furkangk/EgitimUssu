@@ -21,6 +21,8 @@ public sealed class ProgressTrackingDbContext : ModuleDbContext
 
     public DbSet<TopicGoal> TopicGoals => Set<TopicGoal>();
 
+    public DbSet<ProgressSnapshot> ProgressSnapshots => Set<ProgressSnapshot>();
+
     protected override string Schema => SchemaName;
 
     protected override string ModuleName => "ProgressTracking";
@@ -66,5 +68,21 @@ internal sealed class TopicGoalConfiguration : IEntityTypeConfiguration<TopicGoa
         builder.Property(e => e.SetByRole).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(e => e.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.HasIndex(e => new { e.StudentId, e.Status });
+    }
+}
+
+internal sealed class ProgressSnapshotConfiguration : IEntityTypeConfiguration<ProgressSnapshot>
+{
+    public void Configure(EntityTypeBuilder<ProgressSnapshot> builder)
+    {
+        builder.ToTable("progress_snapshots");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Subject).HasMaxLength(120).IsRequired();
+        builder.Property(e => e.Period).HasConversion<string>().HasMaxLength(32).IsRequired();
+        builder.Property(e => e.AverageNet).HasPrecision(6, 4);
+
+        // Aynı öğrenci-ders-dönem için ikinci bir anlık görüntü yazılamaz (üretim turunun idempotency guard'ı).
+        builder.HasIndex(e => new { e.StudentId, e.Subject, e.Period, e.PeriodStart }).IsUnique();
+        builder.HasIndex(e => new { e.StudentId, e.Period, e.PeriodStart });
     }
 }

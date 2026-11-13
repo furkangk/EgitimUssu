@@ -23,6 +23,54 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.ProgressTracking.Domain.ProgressSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AverageNet")
+                        .HasPrecision(6, 4)
+                        .HasColumnType("numeric(6,4)");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("MasteryScore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("StudyMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("TestCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId", "Period", "PeriodStart");
+
+                    b.HasIndex("StudentId", "Subject", "Period", "PeriodStart")
+                        .IsUnique();
+
+                    b.ToTable("progress_snapshots", "progress_tracking");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.ProgressTracking.Domain.TopicGoal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -86,6 +134,9 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AttendedLessonCount")
+                        .HasColumnType("integer");
+
                     b.Property<decimal?>("AverageNetRatio")
                         .HasPrecision(6, 4)
                         .HasColumnType("numeric(6,4)");
@@ -140,6 +191,9 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
+
+                    b.Property<int>("TotalLessonMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<int>("TotalStudyMinutes")
                         .HasColumnType("integer");
@@ -227,6 +281,10 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

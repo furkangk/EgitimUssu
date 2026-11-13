@@ -1,32 +1,45 @@
-import 'dart:async';
 
+import 'dart:async';
+import 'package:egitim_ussu_mobile/core/routing/deep_links.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignments_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/student_assignments_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/pages/email_verification_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/pages/password_reset_confirm_page.dart';
+import 'package:egitim_ussu_mobile/features/auth/presentation/pages/password_reset_request_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/register_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/role_selection_page.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/pages/welcome_page.dart';
 import 'package:egitim_ussu_mobile/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_sessions_page.dart';
+import 'package:egitim_ussu_mobile/features/membership/presentation/pages/membership_page.dart';
+import 'package:egitim_ussu_mobile/features/membership/presentation/pages/paywall_page.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/chat_page.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/messaging_inbox_page.dart';
+import 'package:egitim_ussu_mobile/features/more/presentation/pages/account_info_page.dart';
+import 'package:egitim_ussu_mobile/features/more/presentation/pages/device_sessions_page.dart';
+import 'package:egitim_ussu_mobile/features/more/presentation/pages/more_page.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_child_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_children_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_home_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_notifications_page.dart';
 import 'package:egitim_ussu_mobile/features/parent/presentation/pages/parent_profile_page.dart';
-import 'package:egitim_ussu_mobile/features/progress/presentation/pages/progress_overview_page.dart';
-import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
-import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_form_page.dart';
-import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
-import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_sessions_page.dart';
-import 'package:egitim_ussu_mobile/features/more/presentation/pages/account_info_page.dart';
-import 'package:egitim_ussu_mobile/features/more/presentation/pages/more_page.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payment_form_page.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/pages/payments_page.dart';
+import 'package:egitim_ussu_mobile/features/progress/presentation/pages/progress_overview_page.dart';
+import 'package:egitim_ussu_mobile/features/reporting/presentation/pages/student_analysis_page.dart';
+import 'package:egitim_ussu_mobile/features/reporting/presentation/pages/teacher_reports_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
+import 'package:egitim_ussu_mobile/features/settings/presentation/pages/notification_settings_page.dart';
+import 'package:egitim_ussu_mobile/features/settings/presentation/pages/privacy_settings_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/student_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/pages/students_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/achievements_page.dart';
@@ -54,12 +67,25 @@ class AppRouter {
       initialLocation: initialLocation,
       refreshListenable: _refreshListenable,
       redirect: (context, state) {
+        // D-02: Sema-bazli derin baglanti (egitimussu://verify-email?token=...)
+        // yol tasimaz; once uygulama-ici bir rotaya cevrilir.
+        final deepLink = normalizeDeepLink(state.uri);
+        if (deepLink != null) {
+          return deepLink;
+        }
+
         final status = authCubit.state.status;
         final onAuthScreen =
             state.matchedLocation == '/' ||
             state.matchedLocation == '/role-selection' ||
             state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
+
+        // Hesap kurtarma ekranlari (sifre sifirlama / e-posta dogrulama) hem
+        // oturumsuz hem oturumlu kullaniciya acik; rol yonlendirmesi bunlari kacirmaz.
+        final onAccountRecoveryScreen =
+            state.matchedLocation.startsWith('/password-reset') ||
+            state.matchedLocation.startsWith('/verify-email');
         final onPreviewScreen =
             state.matchedLocation == '/teacher-panel-preview' ||
             state.matchedLocation == '/account-info-preview';
@@ -69,14 +95,22 @@ class AppRouter {
         }
 
         if (status == AuthStatus.initial) {
-          return state.matchedLocation == '/' || onPreviewScreen ? null : '/';
+          return state.matchedLocation == '/' ||
+                  onPreviewScreen ||
+                  onAccountRecoveryScreen
+              ? null
+              : '/';
         }
 
         if (status == AuthStatus.unauthenticated) {
-          if (onPreviewScreen) {
+          if (onPreviewScreen || onAccountRecoveryScreen) {
             return null;
           }
           return onAuthScreen ? null : '/';
+        }
+
+        if (onAccountRecoveryScreen) {
+          return null;
         }
 
         // Rol bazlı yönlendirme: veli kendi paneline, öğrenci çalışma paneline,
@@ -233,6 +267,26 @@ class AppRouter {
           ),
         ),
         GoRoute(
+          path: '/verify-email',
+          builder: (context, state) => EmailVerificationPage(
+            email: state.uri.queryParameters['email'] ?? '',
+            initialToken: state.uri.queryParameters['token'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/password-reset',
+          builder: (context, state) => PasswordResetRequestPage(
+            initialEmail: state.uri.queryParameters['email'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/password-reset/confirm',
+          builder: (context, state) => PasswordResetConfirmPage(
+            email: state.extra is String ? state.extra! as String : '',
+            initialToken: state.uri.queryParameters['token'] ?? '',
+          ),
+        ),
+        GoRoute(
           path: '/register',
           builder: (context, state) => RegisterPage(
             role: state.uri.queryParameters['role'] ?? 'ogretmen',
@@ -251,9 +305,45 @@ class AppRouter {
           builder: (context, state) => const TeacherProfilePage(),
         ),
         GoRoute(path: '/more', builder: (context, state) => const MorePage()),
+        // D-10/D-15 (M17): Üyelik yönetimi + paywall. `MembershipCubit` uygulama
+        // kökünde sağlanır, bu yüzden rotalar kendi provider'ını kurmaz.
+        GoRoute(
+          path: '/membership',
+          builder: (context, state) => const MembershipPage(),
+        ),
+        GoRoute(
+          path: '/membership/paywall',
+          builder: (context, state) => const PaywallPage(),
+        ),
+        // D-08 (M16): Gelen kutusu + sohbet. Sohbet rotası push bildiriminin
+        // `route` alanıyla birebir aynıdır (`/messages/{conversationId}`), böylece
+        // bildirime dokunmak doğrudan doğru sohbeti açar.
+        GoRoute(
+          path: '/messages',
+          builder: (context, state) => const MessagingInboxPage(),
+        ),
+        GoRoute(
+          path: '/messages/:conversationId',
+          builder: (context, state) => ChatPage(
+            conversationId: state.pathParameters['conversationId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/settings/notifications',
+          builder: (context, state) => const NotificationSettingsPage(),
+        ),
+        GoRoute(
+          path: '/settings/privacy',
+          builder: (context, state) => const PrivacySettingsPage(),
+        ),
         GoRoute(
           path: '/account-info',
           builder: (context, state) => const AccountInfoPage(),
+        ),
+        // M01-4 (D-03): "Hesabım hangi cihazlarda açık?"
+        GoRoute(
+          path: '/account/sessions',
+          builder: (context, state) => const DeviceSessionsPage(),
         ),
         GoRoute(
           path: '/account-info-preview',
@@ -316,6 +406,19 @@ class AppRouter {
           builder: (context, state) => ProgressOverviewPage(
             studentId: state.uri.queryParameters['studentId'] ?? '',
           ),
+        ),
+        // M14-2/3/4: Çalışma analizi + PDF rapor. Öğrenci kendi kimliğiyle, öğretmen/veli
+        // bağlı öğrencinin kimliğiyle açar; yetki ve gizlilik sunucuda uygulanır.
+        GoRoute(
+          path: '/student/reports',
+          builder: (context, state) => StudentAnalysisPage(
+            studentId: state.uri.queryParameters['studentId'] ?? '',
+          ),
+        ),
+        // M14-1/5: Öğretmenin aylık ders/tahsilat özeti + boş zaman analizi.
+        GoRoute(
+          path: '/teacher/reports',
+          builder: (context, state) => const TeacherReportsPage(),
         ),
         GoRoute(
           path: '/assignments/new',

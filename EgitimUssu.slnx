@@ -56,6 +56,32 @@
   <Folder Name="/src/Modules/Matching/Infrastructure/">
     <Project Path="src/Modules/Matching/Infrastructure/EgitimUssu.Modules.Matching.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Messaging/" />
+  <Folder Name="/src/Modules/Messaging/API/">
+    <Project Path="src/Modules/Messaging/API/EgitimUssu.Modules.Messaging.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Messaging/Application/">
+    <Project Path="src/Modules/Messaging/Application/EgitimUssu.Modules.Messaging.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Messaging/Domain/">
+    <Project Path="src/Modules/Messaging/Domain/EgitimUssu.Modules.Messaging.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Messaging/Infrastructure/">
+    <Project Path="src/Modules/Messaging/Infrastructure/EgitimUssu.Modules.Messaging.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/" />
+  <Folder Name="/src/Modules/Membership/API/">
+    <Project Path="src/Modules/Membership/API/EgitimUssu.Modules.Membership.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/Application/">
+    <Project Path="src/Modules/Membership/Application/EgitimUssu.Modules.Membership.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/Domain/">
+    <Project Path="src/Modules/Membership/Domain/EgitimUssu.Modules.Membership.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Membership/Infrastructure/">
+    <Project Path="src/Modules/Membership/Infrastructure/EgitimUssu.Modules.Membership.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/" />
   <Folder Name="/src/Modules/Notifications/API/">
     <Project Path="src/Modules/Notifications/API/EgitimUssu.Modules.Notifications.API.csproj" />

@@ -19,6 +19,8 @@ public sealed class TestModuleDbContext : ModuleDbContext
 
     public DbSet<Widget> Widgets => Set<Widget>();
 
+    public DbSet<TestCounterProjection> CounterProjections => Set<TestCounterProjection>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -28,6 +30,13 @@ public sealed class TestModuleDbContext : ModuleDbContext
             builder.ToTable("widgets");
             builder.HasKey(item => item.Id);
         });
+
+        modelBuilder.Entity<TestCounterProjection>(builder =>
+        {
+            builder.ToTable("counter_projections");
+            builder.HasKey(item => item.Id);
+            builder.Property(item => item.Id).ValueGeneratedNever();
+        });
     }
 }
 
@@ -35,6 +44,18 @@ public sealed class TestModuleDbContext : ModuleDbContext
 public sealed class Widget
 {
     public Guid Id { get; set; }
+}
+
+/// <summary>Testler için basit bir projeksiyon entity'si (<see cref="ProjectionEntity"/> davranışını doğrulamak için).</summary>
+public sealed class TestCounterProjection : ProjectionEntity
+{
+    public Guid Id { get; set; }
+
+    public Guid OwnerId { get; set; }
+
+    public int Count { get; private set; }
+
+    public void Add(int amount) => Count += amount;
 }
 
 public sealed class NoOpDomainEventMapper : IDomainEventMapper

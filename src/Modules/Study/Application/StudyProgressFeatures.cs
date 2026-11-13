@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Study.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Study.Application;

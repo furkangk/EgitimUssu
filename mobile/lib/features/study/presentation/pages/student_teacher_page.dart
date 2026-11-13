@@ -3,6 +3,8 @@ import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
+import 'package:egitim_ussu_mobile/features/messaging/presentation/open_conversation_action.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
@@ -128,7 +130,7 @@ class _StudentTeacherPageState extends State<StudentTeacherPage> {
           else
             ..._teachers.map((TeacherProfile t) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _TeacherCard(teacher: t),
+                  child: _TeacherCard(teacher: t, studentId: _studentId ?? ''),
                 )),
         ],
       ),
@@ -141,9 +143,12 @@ class _StudentTeacherPageState extends State<StudentTeacherPage> {
 /// ad + doğrulama + branş rozeti; altında beyaz gövdede deneyim/branş/ücret istatistik
 /// satırı, konum/format meta bilgisi ve "Hakkında" bölümü.
 class _TeacherCard extends StatefulWidget {
-  const _TeacherCard({required this.teacher});
+  const _TeacherCard({required this.teacher, required this.studentId});
 
   final TeacherProfile teacher;
+
+  /// D-08: Sohbetin bağlamı olan öğrenci profili — "Mesaj gönder" bunu gönderir.
+  final String studentId;
 
   @override
   State<_TeacherCard> createState() => _TeacherCardState();
@@ -222,6 +227,32 @@ class _TeacherCardState extends State<_TeacherCard> {
           _statRow(),
           const SizedBox(height: 14),
           _metaRow(),
+          // D-08 (M16): Öğrenci öğretmenine yazar. Öğrenci kendi profil kimliğini
+          // bildiğinden sohbet bağlamı burada tamdır.
+          if (widget.studentId.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton.icon(
+                onPressed: () => openConversationAndGo(
+                  context,
+                  counterpartUserId: teacher.userId,
+                  counterpartRole: kParticipantRoleTeacher,
+                  studentId: widget.studentId,
+                ),
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                label: const Text('Mesaj gönder'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (hasBio) ...<Widget>[
             const SizedBox(height: 14),
             const Divider(height: 1, color: AppColors.divider),

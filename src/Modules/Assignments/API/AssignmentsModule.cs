@@ -2,6 +2,7 @@ using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Modules.Assignments.Domain;
 using EgitimUssu.Modules.Assignments.Infrastructure;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Kernel.Storage;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Infrastructure.Modules;
 using EgitimUssu.Shared.Kernel;
@@ -53,6 +54,149 @@ public sealed class AssignmentsModule : ModuleDefinition
 
         group.MapPost("/{assignmentId:guid}/return", ReturnAssignmentAsync)
         .WithSummary("Öğretmen ödevi geri bildirimle geri gönderir");
+
+        group.MapPost("/{assignmentId:guid}/grade", GradeAssignmentAsync)
+        .WithSummary("Öğretmen onayladığı ödeve puan verir (M06-4)");
+
+        group.MapPost("/lesson-resources", CreateLessonResourceAsync)
+        .WithSummary("Ders kaynağı ekler — dosya veya bağlantı (M06-1)")
+        .DisableAntiforgery();
+
+        group.MapGet("/lesson-resources", ListLessonResourcesAsync)
+        .WithSummary("Ders kaynaklarını listeler (öğretmen kendi, öğrenci kendisine açık olanlar)");
+
+        group.MapGet("/lesson-resources/{resourceId:guid}/file", DownloadLessonResourceAsync)
+        .WithSummary("Ders kaynağı dosyasını yetkiyle indirir");
+
+        group.MapDelete("/lesson-resources/{resourceId:guid}", ArchiveLessonResourceAsync)
+        .WithSummary("Ders kaynağını arşivler (yumuşak silme)");
+    }
+
+    /// <summary>
+    /// Ders kaynağı ekler (M06-1). `file` alanı doluysa dosya, `url` alanı doluysa bağlantı kaynağı üretilir.
+    /// Multipart form olarak gelir; doğrulama ve depolama yazımı handler'da yapılır.
+    /// </summary>
+    private static async Task<IResult> CreateLessonResourceAsync(
+        HttpContext context,
+        HttpRequest request,
+        ICurrentUser currentUser,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(currentUser.UserId, out var teacherUserId))
+        {
+            return ApiErrorHttpResults.Forbidden(context, "Bu işlemi yapma yetkiniz yok.");
+        }
+
+        var form = await request.ReadFormAsync(cancellationToken);
+        var title = form["title"].ToString();
+        var description = form["description"].ToString();
+        var url = form["url"].ToString();
+        var studentId = Guid.TryParse(form["studentId"], out var parsedStudentId) ? parsedStudentId : (Guid?)null;
+        var lessonSessionId = Guid.TryParse(form["lessonSessionId"], out var parsedSessionId) ? parsedSessionId : (Guid?)null;
+
+        var file = form.Files.GetFile("file");
+        MemoryStream? buffer = null;
+
+        try
+        {
+            if (file is not null && file.Length > 0)
+            {
+                buffer = new MemoryStream();
+                await file.CopyToAsync(buffer, cancellationToken);
+                buffer.Position = 0;
+            }
+
+            var result = await dispatcher.Dispatch(
+                new CreateLessonResourceCommand(
+                    teacherUserId,
+                    studentId,
+                    lessonSessionId,
+                    title,
+                    string.IsNullOrWhiteSpace(description) ? null : description,
+                    string.IsNullOrWhiteSpace(url) ? null : url,
+                    file?.FileName,
+                    file?.ContentType,
+                    buffer?.Length ?? 0,
+                    buffer),
+                cancellationToken);
+
+            return ToHttpResult(context, result);
+        }
+        finally
+        {
+            buffer?.Dispose();
+        }
+    }
+
+    /// <summary>Ders kaynaklarını listeler (M06-1). Yetki: öğretmen kendi, öğrenci kendisine açık olanlar.</summary>
+    private static async Task<IResult> ListLessonResourcesAsync(
+        HttpContext context,
+        Guid? teacherUserId,
+        Guid? studentId,
+        Guid? lessonSessionId,
+        IQueryDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new ListLessonResourcesQuery(teacherUserId, studentId, lessonSessionId),
+            cancellationToken);
+
+        return ToHttpResult(context, result);
+    }
+
+    /// <summary>Ders kaynağı dosyasını akıtır (M06-1). Public URL yok; anahtar yetkiden sonra okunur.</summary>
+    private static async Task<IResult> DownloadLessonResourceAsync(
+        HttpContext context,
+        Guid resourceId,
+        IQueryDispatcher dispatcher,
+        IFileStorage fileStorage,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new GetLessonResourceFileQuery(resourceId), cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                "assignments.resource_not_found" or "assignments.resource_not_a_file"
+                    => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
+        }
+
+        var resource = result.Value!;
+        var content = await fileStorage.OpenReadAsync(resource.StorageKey, cancellationToken);
+        if (content is null)
+        {
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status404NotFound,
+                new EgitimUssu.Shared.Kernel.Error("assignments.resource_not_found", "Ders kaynağı bulunamadı."));
+        }
+
+        return Results.File(content, resource.ContentType, resource.FileName);
+    }
+
+    /// <summary>Ders kaynağını arşivler — yumuşak silme (M06-1).</summary>
+    private static async Task<IResult> ArchiveLessonResourceAsync(
+        HttpContext context,
+        Guid resourceId,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(new ArchiveLessonResourceCommand(resourceId), cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Results.Ok();
+        }
+
+        return result.Error.Code switch
+        {
+            "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+            "assignments.resource_not_found"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+            _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+        };
     }
 
     /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>
@@ -79,6 +223,20 @@ public sealed class AssignmentsModule : ModuleDefinition
         return ToHttpResult(context, result);
     }
 
+    /// <summary>Öğretmen onayladığı ödeve 0–100 arası puan verir (M06-4).</summary>
+    private static async Task<IResult> GradeAssignmentAsync(
+        HttpContext context,
+        Guid assignmentId,
+        GradeAssignmentRequest request,
+        ICommandDispatcher dispatcher,
+        CancellationToken cancellationToken)
+    {
+        var result = await dispatcher.Dispatch(
+            new GradeAssignmentCommand(assignmentId, request.Score, request.Feedback),
+            cancellationToken);
+        return ToHttpResult(context, result);
+    }
+
     /// <summary>Öğrenci kendi ödevini tamamlandı olarak işaretler.</summary>
     private static async Task<IResult> CompleteAssignmentAsync(
         HttpContext context,
@@ -91,18 +249,17 @@ public sealed class AssignmentsModule : ModuleDefinition
     }
 
     /// <summary>
-    /// Öğrenci ödev çözümünü yükler. Dosya önce belleğe alınır; yetki/komut başarılıysa depolamaya yazılır
-    /// (aksi halde başka bir öğrencinin dosyasının üzerine yazılmasını önlemek için hiç kaydedilmez).
+    /// Öğrenci ödev çözümünü yükler (P04). Dosya belleğe alınır ve komuta verilir; doğrulama, yetki ve
+    /// depolama yazımı handler'da yapılır — yetkisiz istek depoya hiçbir şey bırakmaz.
+    /// Boyut/tür kuralı `FileValidation` (10 MB + beyaz liste).
     /// </summary>
     private static async Task<IResult> SubmitAssignmentAsync(
         HttpContext context,
         Guid assignmentId,
         IFormFile? file,
         ICommandDispatcher dispatcher,
-        IAssignmentFileStorage storage,
         CancellationToken cancellationToken)
     {
-        const long maxBytes = 20 * 1024 * 1024;
         if (file is null || file.Length == 0)
         {
             return ApiErrorHttpResults.FromError(
@@ -110,48 +267,55 @@ public sealed class AssignmentsModule : ModuleDefinition
                 new EgitimUssu.Shared.Kernel.Error("assignments.invalid_request", "Yüklenecek dosya bulunamadı."));
         }
 
-        if (file.Length > maxBytes)
-        {
-            return ApiErrorHttpResults.FromError(
-                context, StatusCodes.Status400BadRequest,
-                new EgitimUssu.Shared.Kernel.Error("assignments.file_too_large", "Dosya boyutu 20 MB sınırını aşıyor."));
-        }
-
         using var buffer = new MemoryStream();
         await file.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
 
-        var attachmentUrl = $"/api/assignments/{assignmentId}/attachment";
-        var result = await dispatcher.Dispatch(new SubmitAssignmentWorkCommand(assignmentId, attachmentUrl), cancellationToken);
-        if (result.IsSuccess)
-        {
-            buffer.Position = 0;
-            await storage.SaveAsync(assignmentId, file.FileName, buffer, cancellationToken);
-        }
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType)
+            ? "application/octet-stream"
+            : file.ContentType;
+
+        var result = await dispatcher.Dispatch(
+            new SubmitAssignmentWorkCommand(assignmentId, file.FileName, contentType, buffer.Length, buffer),
+            cancellationToken);
 
         return ToHttpResult(context, result);
     }
 
-    /// <summary>Ödev ekini (öğrenci teslimi) yetkili kullanıcıya (öğrenci/öğretmen/admin) döner.</summary>
+    /// <summary>
+    /// Ödev ekini (öğrenci teslimi) yetkili kullanıcıya (öğrenci/öğretmen/admin) akıtır (P04).
+    /// Dosya doğrudan URL ile sunulmaz; anahtar `IFileStorage`'tan yetki kontrolünden **sonra** okunur.
+    /// </summary>
     private static async Task<IResult> DownloadAttachmentAsync(
         HttpContext context,
         Guid assignmentId,
         IQueryDispatcher dispatcher,
-        IAssignmentFileStorage storage,
+        IFileStorage fileStorage,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(new GetAssignmentQuery(assignmentId), cancellationToken);
+        var result = await dispatcher.Dispatch(new GetAssignmentAttachmentQuery(assignmentId), cancellationToken);
         if (!result.IsSuccess)
         {
-            return ToHttpResult(context, result);
+            return result.Error.Code switch
+            {
+                "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
+                "assignments.assignment_not_found" or "assignments.attachment_not_found"
+                    => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
+                _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
+            };
         }
 
-        var file = await storage.OpenAsync(assignmentId, cancellationToken);
-        if (file is null)
+        var attachment = result.Value!;
+        var content = await fileStorage.OpenReadAsync(attachment.StorageKey, cancellationToken);
+        if (content is null)
         {
-            return Results.NotFound();
+            // Kayıt var ama dosya yok (elle silinmiş / göç eksik): sessizce boş dönmek yerine 404.
+            return ApiErrorHttpResults.FromError(
+                context, StatusCodes.Status404NotFound,
+                new EgitimUssu.Shared.Kernel.Error("assignments.attachment_not_found", "Ödev eki bulunamadı."));
         }
 
-        return Results.File(file.Content, file.ContentType, file.FileName);
+        return Results.File(content, attachment.ContentType, attachment.FileName);
     }
 
     /// <summary>
@@ -231,6 +395,9 @@ public sealed record ApproveAssignmentRequest(string? Feedback);
 
 /// <summary>Öğretmen ödevi geri gönderirken zorunlu geri bildirim.</summary>
 public sealed record ReturnAssignmentRequest(string Feedback);
+
+/// <summary>M06-4: Ödev puanı (0–100) ve isteğe bağlı geri bildirim.</summary>
+public sealed record GradeAssignmentRequest(int Score, string? Feedback);
 
 /// <summary>
 /// Ders sonrası özet, işlenen konular, öneriler ve isteğe bağlı ödev listesini taşır.  

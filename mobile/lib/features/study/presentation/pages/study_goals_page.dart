@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/premium_lock.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 
@@ -125,7 +126,20 @@ class _StudyGoalsPageState extends State<StudyGoalsPage> {
                     const _SectionTitle('Çalışma hedefleri'),
                     _field(_daily, 'Günlük hedef (dakika)', number: true),
                     _field(_weekly, 'Haftalık hedef (dakika, opsiyonel)', number: true),
-                    _field(_targetNet, 'Hedef net (opsiyonel)', number: true),
+                    // P09 Task 6: Hedef net/puan takibi sunucuda Premium'a kapalı
+                    // (`study.premium_required`, 402). Free kullanıcı alanı görsün
+                    // ama dolduramasın — kaydedince 402 yemek yerine kilidi önden görür.
+                    PremiumLock(
+                      message:
+                          'Hedef net takibi Premium üyeliğe özeldir. Günlük ve '
+                          'haftalık süre hedefleri ücretsiz üyelikte de çalışır.',
+                      child: _field(
+                        _targetNet,
+                        'Hedef net (opsiyonel)',
+                        number: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     const SizedBox(height: 12),
                     AppPrimaryButton(label: 'Hedefleri kaydet', isLoading: _saving, onPressed: _saveGoals),
                     const SizedBox(height: 28),

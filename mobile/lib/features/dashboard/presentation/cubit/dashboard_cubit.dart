@@ -183,13 +183,11 @@ class DashboardCubit extends Cubit<DashboardState> {
     return upcoming.take(6).map((lesson) {
       final start = lesson.startAtUtc.toLocal();
       final end = lesson.endAtUtc.toLocal();
-      final studentName = namesById[lesson.studentId] ?? 'Ogrenci';
       final isOnline = lesson.lessonFormat.toLowerCase().contains('online');
       return DashboardUpcomingLesson(
         title: lesson.subject,
-        studentName: studentName,
+        studentName: namesById[lesson.studentId],
         timeRange: '${_formatTime(start)} - ${_formatTime(end)}',
-        modeLabel: isOnline ? 'Online' : 'Yuz yuze',
         isOnline: isOnline,
         startAtUtc: lesson.startAtUtc,
         status: lesson.status,
@@ -216,14 +214,13 @@ class DashboardCubit extends Cubit<DashboardState> {
         continue;
       }
 
-      final studentName = namesById[lesson.studentId] ?? 'Ogrenci';
       activities.add(
         _TimedActivity(
           time: lessonTime,
           activity: DashboardActivity(
-            studentName: studentName,
-            description: 'Ders planlandi',
-            timeLabel: _relativeTimeLabel(lessonTime, now),
+            studentName: namesById[lesson.studentId],
+            kind: DashboardActivityKind.lessonPlanned,
+            occurredAt: lessonTime,
             accent: AppColors.accentBlue,
           ),
         ),
@@ -236,16 +233,15 @@ class DashboardCubit extends Cubit<DashboardState> {
       if (paymentTime == null) {
         continue;
       }
-      final studentName = namesById[payment.studentId] ?? 'Ogrenci';
       activities.add(
         _TimedActivity(
           time: paymentTime,
           activity: DashboardActivity(
-            studentName: studentName,
-            description: payment.collectedAmount > 0
-                ? 'Odeme alindi'
-                : 'Odeme eklendi',
-            timeLabel: _relativeTimeLabel(paymentTime, now),
+            studentName: namesById[payment.studentId],
+            kind: payment.collectedAmount > 0
+                ? DashboardActivityKind.paymentReceived
+                : DashboardActivityKind.paymentAdded,
+            occurredAt: paymentTime,
             accent: payment.collectedAmount > 0
                 ? AppColors.accentGreen
                 : AppColors.amber,
@@ -269,8 +265,10 @@ class DashboardCubit extends Cubit<DashboardState> {
       final student = students[index];
       return DashboardActivity(
         studentName: student.fullName,
-        description: 'Odev teslim edildi',
-        timeLabel: index == 0 ? 'Bugun 10:30' : 'Dun 18:40',
+        kind: DashboardActivityKind.assignmentSubmitted,
+        occurredAt: index == 0
+            ? _dateOnly(now).add(const Duration(hours: 10, minutes: 30))
+            : _dateOnly(now).subtract(const Duration(hours: 5, minutes: 20)),
         accent: index.isEven ? AppColors.accentGreen : AppColors.accentBlue,
       );
     });
@@ -288,18 +286,6 @@ class DashboardCubit extends Cubit<DashboardState> {
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
-  }
-
-  String _relativeTimeLabel(DateTime dateTime, DateTime now) {
-    final date = _dateOnly(dateTime);
-    final today = _dateOnly(now);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final prefix = _sameDate(date, today)
-        ? 'Bugun'
-        : _sameDate(date, yesterday)
-        ? 'Dun'
-        : '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}';
-    return '$prefix ${_formatTime(dateTime)}';
   }
 }
 

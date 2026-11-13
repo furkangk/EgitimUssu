@@ -43,7 +43,6 @@ public sealed class UpdateTeacherProfileCommandValidator : ICommandValidator<Upd
                 command.EducationLevel,
                 command.HourlyRateAmount,
                 command.Currency,
-                command.ProfilePhotoUrl,
                 command.AvailabilitySlots,
                 command.Subjects,
                 command.Certificates),
@@ -53,7 +52,8 @@ public sealed class UpdateTeacherProfileCommandValidator : ICommandValidator<Upd
 
 public sealed class TeacherProfileCommandAuthorizer :
     ICommandAuthorizer<CreateTeacherProfileCommand>,
-    ICommandAuthorizer<UpdateTeacherProfileCommand>
+    ICommandAuthorizer<UpdateTeacherProfileCommand>,
+    ICommandAuthorizer<UploadTeacherPhotoCommand>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
@@ -73,6 +73,12 @@ public sealed class TeacherProfileCommandAuthorizer :
         return Task.FromResult(CanManageTeacherProfile(command.UserId) ? Result.Success() : Result.Failure(Forbidden));
     }
 
+    // P04 (M02-2): Fotografi yalniz profil sahibi ogretmen (veya Admin) yukler.
+    public Task<Result> Authorize(UploadTeacherPhotoCommand command, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(CanManageTeacherProfile(command.UserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
     private bool CanManageTeacherProfile(Guid userId)
     {
         if (!_currentUser.IsAuthenticated)
@@ -86,7 +92,9 @@ public sealed class TeacherProfileCommandAuthorizer :
     }
 }
 
-public sealed class TeacherProfileQueryAuthorizer : IQueryAuthorizer<GetTeacherProfileByUserIdQuery>
+public sealed class TeacherProfileQueryAuthorizer :
+    IQueryAuthorizer<GetTeacherProfileByUserIdQuery>,
+    IQueryAuthorizer<GetTeacherPhotoQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
@@ -101,5 +109,92 @@ public sealed class TeacherProfileQueryAuthorizer : IQueryAuthorizer<GetTeacherP
         // Öğretmen profilleri tüm kimlik doğrulanmış kullanıcılara (öğretmen/öğrenci/veli/admin) açıktır.
         // Dispatcher bu authorizer olmaksızın çağrıya izin veriyordu (K3); artık açık onay gerekiyor.
         return Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    // P04: Profil fotografi profil verisiyle ayni gorunurluktedir (kimlik dogrulanmis her kullanici).
+    public Task<Result> Authorize(GetTeacherPhotoQuery query, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+    }
+}
+
+/// <summary>
+/// M02-1: Doğrulama rozeti **yalnız Admin** tarafından verilir. Öğretmen kendini doğrulayamaz —
+/// bu yüzden sahiplik kontrolü (<c>CanManageTeacherProfile</c>) burada kullanılmaz.
+/// </summary>
+public sealed class SetTeacherVerificationCommandAuthorizer : ICommandAuthorizer<SetTeacherVerificationCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Öğretmen doğrulama yetkisi yalnızca yöneticidedir.");
+    private readonly ICurrentUser _currentUser;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    public SetTeacherVerificationCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public Task<Result> Authorize(SetTeacherVerificationCommand command, CancellationToken cancellationToken)
+        => Task.FromResult(
+            _currentUser.IsAuthenticated && _currentUser.Roles.Contains("Admin")
+                ? Result.Success()
+                : Result.Failure(Forbidden));
+}
+
+/// <summary>
+/// M02-3: Öğretmen araması kimlik doğrulanmış her kullanıcıya açıktır (öğrenci/veli de arar).
+/// Anonim erişim yoktur — K3 gereği açık onay.
+/// </summary>
+public sealed class TeacherSearchQueryAuthorizer : IQueryAuthorizer<SearchTeacherProfilesQuery>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu kaynağa erişim yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    public TeacherSearchQueryAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="query">Sorgu.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public Task<Result> Authorize(SearchTeacherProfilesQuery query, CancellationToken cancellationToken)
+        => Task.FromResult(_currentUser.IsAuthenticated ? Result.Success() : Result.Failure(Forbidden));
+}
+
+/// <summary>
+/// M02-4: Profili yalnız sahibi öğretmen (veya Admin) pasifleştirip aktifleştirebilir.
+/// </summary>
+public sealed class TeacherActivationCommandAuthorizer : ICommandAuthorizer<SetTeacherActivationCommand>
+{
+    private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private readonly ICurrentUser _currentUser;
+
+    /// <summary>Yeni örnek oluşturur.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    public TeacherActivationCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+
+    /// <summary>Yetkiyi denetler.</summary>
+    /// <param name="command">Komut.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Yetki sonucu.</returns>
+    public Task<Result> Authorize(SetTeacherActivationCommand command, CancellationToken cancellationToken)
+    {
+        if (!_currentUser.IsAuthenticated)
+        {
+            return Task.FromResult(Result.Failure(Forbidden));
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Task.FromResult(Result.Success());
+        }
+
+        var isOwner = _currentUser.Roles.Contains("Teacher")
+            && Guid.TryParse(_currentUser.UserId, out var currentUserId)
+            && currentUserId == command.UserId;
+
+        return Task.FromResult(isOwner ? Result.Success() : Result.Failure(Forbidden));
     }
 }

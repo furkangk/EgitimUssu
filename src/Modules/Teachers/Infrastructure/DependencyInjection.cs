@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EgitimUssu.Modules.Teachers.Application;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Teachers.Infrastructure;
@@ -20,7 +21,24 @@ public static class DependencyInjection
         services.AddScoped<ICommandValidator<UpdateTeacherProfileCommand>, UpdateTeacherProfileCommandValidator>();
         services.AddScoped<ICommandAuthorizer<CreateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<UpdateTeacherProfileCommand>, TeacherProfileCommandAuthorizer>();
+        services.AddScoped<ICommandHandler<UploadTeacherPhotoCommand, Result<TeacherPhotoResponse>>, UploadTeacherPhotoCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<UploadTeacherPhotoCommand>, TeacherProfileCommandAuthorizer>();
+        services.AddScoped<ICommandHandler<SetTeacherVerificationCommand, Result<TeacherProfileResponse>>, SetTeacherVerificationCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<SetTeacherVerificationCommand>, SetTeacherVerificationCommandAuthorizer>();
+        services.AddScoped<ITeacherProfileSearchRepository>(sp => (ITeacherProfileSearchRepository)sp.GetRequiredService<ITeacherProfileRepository>());
+        services.AddScoped<IQueryHandler<SearchTeacherProfilesQuery, Result<PagedResult<TeacherSummaryResponse>>>, SearchTeacherProfilesQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<SearchTeacherProfilesQuery>, TeacherSearchQueryAuthorizer>();
+        services.AddScoped<ICommandHandler<SetTeacherActivationCommand, Result<TeacherProfileResponse>>, SetTeacherActivationCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<SetTeacherActivationCommand>, TeacherActivationCommandAuthorizer>();
+        services.AddScoped<IQueryHandler<GetTeacherPhotoQuery, Result<TeacherPhotoFileResponse>>, GetTeacherPhotoQueryHandler>();
+        services.AddScoped<IQueryAuthorizer<GetTeacherPhotoQuery>, TeacherProfileQueryAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetTeacherProfileByUserIdQuery>, TeacherProfileQueryAuthorizer>();
+        services.AddScoped<ITeacherAvailabilityDirectory, TeacherAvailabilityDirectory>();
+        services.AddScoped<ITeacherDirectory, TeacherDirectory>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, TeachersPersonalDataAnonymizer>();
+
+
         return services;
     }
 }

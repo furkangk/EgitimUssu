@@ -29,6 +29,9 @@ jobs:
         run: dotnet build EgitimUssu.slnx --configuration Release --no-restore -warnaserror
 
       - name: Testler
+        # A-06: Bağlantı dizesi artık appsettings.json'da yok; testler bellek-içi sağlayıcıyla koşar.
+        env:
+          ConnectionStrings__Postgres: "InMemory:ci"
         run: dotnet test EgitimUssu.slnx --configuration Release --no-build --verbosity normal
 
       - name: Zafiyetli paket taraması
@@ -40,6 +43,12 @@ jobs:
             exit 1
           fi
           echo "Zafiyetli paket bulunamadı."
+
+      - name: Migration geri alma kontrolü
+        # E-05: Up() bir şey yapıyorsa Down() de yapmalı. Boş (ya da yalnız "throw" içeren)
+        # bir Down(), üretimde sorun çıkaran migration'ın tek geri dönüş yolunu yedekten
+        # geri yüklemeye indirir.
+        run: scripts/check-migration-down.sh
 
       - name: Migration drift kontrolü
         run: |

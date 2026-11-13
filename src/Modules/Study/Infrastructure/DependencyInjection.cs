@@ -5,6 +5,7 @@ using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Modules.Study.Infrastructure;
 
@@ -129,6 +130,9 @@ public static class DependencyInjection
 
         // Ö-C: profil birleştirmede kaynak öğrenciye ait tüm çalışma verisini kanonik öğrenciye taşır.
         services.AddScoped<IIntegrationEventHandler, StudyStudentMergedHandler>();
+        // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
+        services.AddScoped<IPersonalDataAnonymizer, StudyPersonalDataAnonymizer>();
+
 
         return services;
     }

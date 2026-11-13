@@ -14,6 +14,8 @@ using EgitimUssu.Modules.Matching.API;
 using EgitimUssu.Modules.Reviews.API;
 using EgitimUssu.Modules.Reporting.API;
 using EgitimUssu.Modules.Settings.API;
+using EgitimUssu.Modules.Membership.API;
+using EgitimUssu.Modules.Messaging.API;
 
         namespace EgitimUssu.API.Host;
 
@@ -35,6 +37,8 @@ using EgitimUssu.Modules.Settings.API;
         typeof(MatchingModule).Assembly,
         typeof(ReviewsModule).Assembly,
         typeof(ReportingModule).Assembly,
-        typeof(SettingsModule).Assembly
+        typeof(SettingsModule).Assembly,
+        typeof(MembershipModule).Assembly,
+        typeof(MessagingModule).Assembly
             ];
         }

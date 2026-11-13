@@ -30,6 +30,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
   }
 
   TeacherDashboardSummary _mockSummary() {
+    // l10n-ignore-start: API kapalıyken kullanılan sahte veri — ürün metni değil.
     final now = DateTime.now().toUtc();
     final today = DateTime.utc(now.year, now.month, now.day);
     return TeacherDashboardSummary(
@@ -115,5 +116,6 @@ class DashboardRepositoryImpl implements DashboardRepository {
         ),
       ],
     );
+    // l10n-ignore-end
   }
 }

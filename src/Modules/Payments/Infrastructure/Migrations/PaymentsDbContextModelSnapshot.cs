@@ -114,6 +114,9 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<DateTime?>("OverdueMarkedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("RelatedLessonSessionId")
                         .HasColumnType("uuid");
 
@@ -205,6 +208,10 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TraceParent")
+                        .HasMaxLength(55)
+                        .HasColumnType("character varying(55)");
 
                     b.Property<string>("Type")
                         .IsRequired()

@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/notifications/data/models/notification_model.dart';
+import 'package:egitim_ussu_mobile/features/notifications/data/models/user_notification_model.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
 
 class NotificationRepositoryImpl implements NotificationRepository {
@@ -34,6 +35,48 @@ class NotificationRepositoryImpl implements NotificationRepository {
     } on ApiException {
       rethrow;
     }
+  }
+
+  /// M11-3: Bildirim merkezi listesi. **Mock fallback yok** — sahte bildirim,
+  /// gerçek teslimat hatasını gizler (A-05 kararı).
+  @override
+  Future<UserNotificationPage> listUserNotifications({
+    required String userId,
+    bool onlyUnread = false,
+    int skip = 0,
+    int take = 20,
+  }) async {
+    final response = await _apiClient.get(
+      '/api/notifications/users/$userId/notifications',
+      queryParameters: <String, dynamic>{
+        'onlyUnread': onlyUnread,
+        'skip': skip,
+        'take': take,
+      },
+    );
+
+    final items = (response['items'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<Map<String, dynamic>>()
+        .map(UserNotificationModel.fromJson)
+        .toList();
+
+    return UserNotificationPage(
+      items: items,
+      totalCount: response['totalCount'] as int? ?? items.length,
+    );
+  }
+
+  @override
+  Future<int> unreadNotificationCount(String userId) async {
+    final response = await _apiClient.get(
+      '/api/notifications/users/$userId/unread-count',
+    );
+    return response['count'] as int? ?? 0;
+  }
+
+  @override
+  Future<void> markNotificationRead(String notificationId) async {
+    await _apiClient.post('/api/notifications/$notificationId/read');
   }
 
   List<LessonReminder> _mockReminders(String teacherUserId) {

@@ -25,4 +25,17 @@ public sealed class OutboxMessage
 
     /// <summary>Maksimum deneme aşıldığında zehirli mesajın dead-letter'a taşındığı an. Set ise kuyruktan çıkarılır.</summary>
     public DateTime? DeadLetteredOnUtc { get; set; }
+
+    /// <summary>
+    /// C-04: Mesajı üreten isteğin W3C <c>traceparent</c> değeri (55 karakter,
+    /// <c>00-&lt;32 hex trace&gt;-&lt;16 hex span&gt;-&lt;2 hex bayrak&gt;</c>).
+    /// <para>
+    /// Outbox asenkron bir hop'tur: üretici işlem çoktan bitmiş olur, tüketici dakikalar sonra
+    /// başka bir thread'de koşar. Bağlam mesajla birlikte taşınmazsa zincir orada kopar ve
+    /// "HTTP → command → EF → outbox → handler" iki ayrı trace olarak görünür. Dispatch bu değeri
+    /// okuyup span'ın ebeveyni yapar; böylece zincir tek trace'te kalır.
+    /// </para>
+    /// <para>Trace yokken (tohumlama, zamanlanmış tarayıcılar) <c>null</c>'dur — akış etkilenmez.</para>
+    /// </summary>
+    public string? TraceParent { get; set; }
 }

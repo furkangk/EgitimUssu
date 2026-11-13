@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Rakip Analizi (2026-09)</title><meta name="description" content="Doping Hafıza, Pakodemy, Net Up, DUS Club, VeliCep ve özel ders operasyon/pazar yeri kuşağının (Tilki, Öğretsen, Özel Ders Alanı, Öğretmenim.app, Özel Ders Takip Sistemi) mağaza verisiyle doğrulanmış karşılaştırması: ürün, fiyat, konumlandırma, mağaza kuralları ve EğitimÜssü&#x27;ye çıkarımları"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"><style>
+:root {
+  --ground:#EEF1F5; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --line:#D3DBE4; --line-soft:#E4EAF0;
+  --ink:#0E1A26; --ink-2:#3C4E60; --ink-3:#6C7E90;
+  --navy:#082B4F; --teal:#0F7D8C; --quote:#EDF3F4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#0B131C; --surface:#121C27; --surface-2:#17222E;
+    --line:#2A3949; --line-soft:#1F2C3A;
+    --ink:#E6EDF4; --ink-2:#AFC0D0; --ink-3:#7C8FA2;
+    --navy:#7FB2E4; --teal:#4FBECB; --quote:#152631;
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#0B131C; --surface:#121C27; --surface-2:#17222E;
+  --line:#2A3949; --line-soft:#1F2C3A;
+  --ink:#E6EDF4; --ink-2:#AFC0D0; --ink-3:#7C8FA2;
+  --navy:#7FB2E4; --teal:#4FBECB; --quote:#152631;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--ground); color: var(--ink);
+  font-family: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16.5px; line-height: 1.62;
+  margin: 0; padding: 40px 20px 96px;
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1000px; margin: 0 auto; }
+h1, h2, h3, h4 {
+  font-family: Newsreader, Georgia, "Times New Roman", serif;
+  font-weight: 500; letter-spacing: -.015em; line-height: 1.15; text-wrap: balance;
+}
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); margin: 0 0 24px;
+     border-bottom: 2px solid var(--ink); padding-bottom: 18px; }
+h2 { font-size: clamp(1.45rem, 3vw, 1.95rem); margin: 48px 0 14px;
+     border-top: 1px solid var(--line); padding-top: 16px; }
+h3 { font-size: 1.2rem; margin: 28px 0 8px; color: var(--ink); }
+h4 { font-size: 1.02rem; margin: 20px 0 6px; color: var(--ink-2);
+     font-family: "IBM Plex Sans", sans-serif; font-weight: 600; }
+p { margin: 0 0 15px; max-width: 78ch; }
+ul, ol { margin: 0 0 15px; padding-left: 24px; max-width: 78ch; }
+li { margin-bottom: 6px; }
+li > ul, li > ol { margin-top: 6px; }
+strong { font-weight: 600; }
+a { color: var(--teal); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+blockquote {
+  margin: 18px 0; padding: 14px 18px;
+  background: var(--quote); border-left: 3px solid var(--teal);
+  color: var(--ink-2); max-width: 82ch;
+}
+blockquote p { margin-bottom: 10px; }
+blockquote p:last-child { margin-bottom: 0; }
+.tw { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); margin: 0 0 20px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+     color: var(--ink-3); background: var(--surface-2);
+     border-bottom: 1px solid var(--line); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+code {
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, "Courier New", monospace;
+  font-size: .87em; background: var(--surface-2); color: var(--ink-2);
+  padding: 1px 5px; border: 1px solid var(--line-soft);
+}
+pre {
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, "Courier New", monospace;
+  font-size: 13px; line-height: 1.55; background: var(--surface);
+  border: 1px solid var(--line); padding: 14px 16px;
+  overflow-x: auto; margin: 0 0 20px;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 32px 0; }
+@media (max-width: 620px) { body { padding: 28px 16px 72px; font-size: 16px; } }
+@media print {
+  body { background: #FFF; color: #000; padding: 0; font-size: 10.5pt; }
+  .tw { overflow: visible; border: 0; }
+  h2 { break-after: avoid; } table, pre, blockquote { break-inside: avoid; }
+}
+</style></head><body><main><h1>🔭 EğitimÜssü — Rakip Analizi (2026-09-05)</h1>
+<blockquote><p><strong>Ne için okunur:</strong> EğitimÜssü&#x27;nün hangi pazarda kiminle yarıştığını, rakiplerin ne sattığını, nasıl fiyatladığını ve hangi ürün/gelir kararlarının dışarıda nasıl çözüldüğünü gösterir. <strong>Kanonik gerçeği ezmez</strong> (bkz. <a href="../INDEX.md"><code>../INDEX.md</code></a> §0); ürün kararları için esas doküman <a href="../ozel_ders_platformu_PRD.md"><code>../ozel_ders_platformu_PRD.md</code></a>&#x27;dir.</p><p><strong>Bu analizin uygulama tarafı ayrı dokümanda:</strong> <a href="../denetim/2026-09-05_rakip_paritesi_analizi.md"><code>../denetim/2026-09-05_rakip_paritesi_analizi.md</code></a> — parite (R-01…R-14) ve üstünlük (Ü-01…Ü-10) maddeleri, her biri kod gerçeğine karşı doğrulanmış, çözüm taslağı + kabul kriteri + risk ile.</p><p><strong>Veri kaynağı ve tarih:</strong> Tüm mağaza rakamları 2026-09-05&#x27;te Apple iTunes Lookup API (TR mağazası) ve Google Play / APKCombo listelerinden alındı; ham döküm <a href="../raw/2026-09-05_rakip_magaza_verisi.md"><code>../raw/2026-09-05_rakip_magaza_verisi.md</code></a>. Play indirme sayıları <strong>kova değeridir</strong> (<code>50+</code>, <code>1.000+</code> …), kesin sayı değildir. Şirketlerin kendi sitelerindeki büyüme rakamları &quot;<strong>iddia</strong>&quot; olarak işaretlendi ve bağımsız doğrulanmadı.</p></blockquote>
+<hr>
+<h2>0. Yönetici özeti</h2>
+<ol>
+<li><strong>Talep edilen altı isimden beşi doğrulandı</strong>, <code>northcreative</code> Türkiye eğitim pazarında bulunamadı (§8).</li>
+<li><strong>Bu beş ürünün hiçbiri EğitimÜssü&#x27;nün doğrudan rakibi değil.</strong> Liste üç ayrı pazarı karıştırıyor; EğitimÜssü yalnız birinde (§2). Gerçek rakip kuşağı listede yoktu — analize eklendi (§5).</li>
+<li><strong>Doğrudan rakip: Tilki</strong> (öğretmen SaaS, 120 ₺/aktif öğrenci/ay). Öğrenci uygulaması ve eşleştirmesi yok.</li>
+<li><strong>Saf eşleştirme ölü bir model:</strong> Öğretsen dört yılda 41 değerlendirme, Öğretmenim.app 2022&#x27;den beri güncellenmemiş. PRD §10.1&#x27;in &quot;eşleştirmeyi en son aç&quot; kararı dışarıdan doğrulanıyor.</li>
+<li><strong>İncelenen 11 üründen hiçbiri reklam göstermiyor.</strong> Gelir aboneliktir.</li>
+<li><strong>Ödeme yolu ikiye ayrılıyor:</strong> premium abonelik mağaza içi satın alma (Apple 3.1.1), bire-bir ders ücreti harici ödeme (Apple 3.1.3(d), kural metninde örnek olarak <em>&quot;tutoring students&quot;</em> geçiyor) — §7.</li>
+<li><strong>Öğrenci tarafındaki mekaniklerin çoğu EğitimÜssü&#x27;de zaten var</strong> (streak, 10 rozet, deneme, net trendi). Eksik olan sosyal katman ve dış kanal — ayrıntı parite dokümanında.</li>
+</ol>
+<hr>
+<h2>1. Talep edilen listede kim kimdir</h2>
+<div class="tw"><table><tr><th>#</th><th>Talep edilen ad</th><th>Gerçek ürün</th><th>Yayıncı</th><th>Ne yapar</th></tr>
+<tr><td>1</td><td><code>northcreative</code></td><td><strong>❓ Doğrulanamadı</strong></td><td>—</td><td>Türkiye eğitim pazarında eşleşme bulunamadı (§8)</td></tr>
+<tr><td>2</td><td><code>netup lgs hazırlık</code></td><td><strong>Net Up: LGS Hazırlık</strong> (<code>com.netup.app</code>)</td><td>Net Up Eğitim Uygulamaları (iOS satıcısı: Yusuf Öksüz)</td><td>Oyunlaştırılmış LGS mikro-öğrenme (6–8. sınıf)</td></tr>
+<tr><td>3</td><td><code>velicepapp</code></td><td><strong>VeliCep: Okul Bilgi Sistemi</strong> (<code>com.tmgames.velicepapp</code>)</td><td>TMGAMES Oyun Yazılım Tekn. ve Paz. Ltd. Şti.</td><td>Anaokulu ↔ veli iletişimi (kuruma satılır)</td></tr>
+<tr><td>4</td><td><code>pakodemy</code></td><td><strong>Pakodemy: KPSS YKS LGS</strong> (<code>com.tosanalytics.pakodemy</code>)</td><td>TOS Analytics Yapay Zeka A.Ş.</td><td>Çok-yayınevili soru bankası + hazırlık platformu</td></tr>
+<tr><td>5</td><td><code>dopinghafıza</code></td><td><strong>Doping Hafıza</strong> (<code>com.dopinghafiza.mobile.app</code>)</td><td>Doping Bilişim Teknolojileri A.Ş.</td><td>Türkiye&#x27;nin en büyük dijital hazırlık platformu</td></tr>
+<tr><td>6</td><td><code>dusclupapp</code></td><td><strong>DUS Club: DUS&#x27;a Hazırlık</strong> (<code>com.denthall.dusclub</code>)</td><td>Denthall Club (iOS satıcısı: Oğuzhan Arslan)</td><td>DUS adayları için çalışma yoldaşı + kulüp</td></tr>
+</table></div>
+<h3>1.1 Ölçek ve olgunluk (mağaza verisi, 2026-09-05)</h3>
+<div class="tw"><table><tr><th>Ürün</th><th>Play indirme</th><th>Play puanı</th><th>App Store (TR) puanı</th><th>İlk yayın</th><th>Son sürüm</th><th>Boyut</th></tr>
+<tr><td><strong>Doping Hafıza</strong></td><td><strong>1.000.000+</strong></td><td>4,2 (28.386)</td><td>4,56 (15.342)</td><td>2021-02-26</td><td>2026-08-24 (v3.0.22)</td><td>129 MB</td></tr>
+<tr><td><strong>Pakodemy</strong></td><td><em>(sayfa alınamadı)</em></td><td>—</td><td>4,62 (7.897)</td><td>2019-12-28</td><td>2026-08-28</td><td>—</td></tr>
+<tr><td><strong>Net Up</strong></td><td>1.000+</td><td>—</td><td>4,85 (13)</td><td><strong>2026-05-27</strong></td><td>2026-08-31 (v1.4.3)</td><td>59,6 MB</td></tr>
+<tr><td><strong>VeliCep</strong></td><td>100+</td><td>—</td><td>5,0 (11)</td><td><strong>2026-03-08</strong></td><td>2026-08-25 (v1.3.0)</td><td>—</td></tr>
+<tr><td><strong>DUS Club</strong></td><td>50+</td><td>—</td><td>4,77 (22)</td><td><strong>2026-03-03</strong></td><td>2026-08-21 (v2.1.5)</td><td>65 MB</td></tr>
+</table></div>
+<blockquote><p><strong>Okuma:</strong> Liste <strong>iki ayrı ligi</strong> karıştırıyor. <strong>Kurumsal ölçek:</strong> Doping (1M+ indirme, A.Ş., çağrı merkezi) ve Pakodemy (2019&#x27;dan beri, A.Ş., 20+ yayınevi anlaşması) — bunlar pazarın gerilim çizgisini belirler: aile bütçesi ve beklenti seviyesi. <strong>Yeni ve küçük:</strong> Net Up, VeliCep ve DUS Club <strong>2026&#x27;da doğmuş</strong>, tek kişi/küçük ekip ürünleri — EğitimÜssü&#x27;nün gerçek karşılaştırma ölçütü bunlar, çünkü aynı kaynak ölçeğinde çalışıyorlar. Üçünün de son sürümü <strong>Ağustos 2026</strong> — hepsi aktif geliştiriliyor.</p></blockquote>
+<hr>
+<h2>2. Kritik tespit: bunlar <strong>üç ayrı pazar</strong>, ikisi bizim pazarımız değil</h2>
+<div class="tw"><table><tr><th>Pazar</th><th>Kim satar</th><th>Kime satar</th><th>Ürün neyi çözer</th><th>Gelir modeli</th><th>Listedeki oyuncular</th></tr>
+<tr><td><strong>A. İçerik / sınav hazırlık</strong></td><td>Yayıncı-platform</td><td>Öğrenci + aile</td><td>&quot;Çalışacak materyalim yok&quot;</td><td>Yıllık paket / abonelik</td><td>Doping Hafıza, Pakodemy, Net Up, DUS Club</td></tr>
+<tr><td><strong>B. Kurum ↔ veli iletişimi</strong></td><td>SaaS</td><td><strong>Okul yönetimi</strong> (B2B2C)</td><td>&quot;Veli ne olduğunu bilmiyor&quot;</td><td>Kurum lisansı</td><td>VeliCep</td></tr>
+<tr><td><strong>C. Özel ders operasyonu + eşleştirme</strong></td><td>SaaS / pazar yeri</td><td>Öğretmen (ve öğrenci/veli)</td><td>&quot;Dersimi Excel + WhatsApp ile yönetiyorum&quot;</td><td>Öğretmenden abonelik</td><td><strong>← EğitimÜssü burada</strong> · Tilki, Özel Ders Alanı, Öğretsen, Öğretmenim.app, Özel Ders Takip Sistemi</td></tr>
+</table></div>
+<p><strong>Dolayısıyla:</strong> Talep edilen listedeki 5 üründen <strong>hiçbiri EğitimÜssü&#x27;nün doğrudan rakibi değil.</strong> Yine de üçü de bizi etkiliyor:</p>
+<ol>
+<li><strong>A grubu = cüzdan rakibi.</strong> Pakodemy YKS paketi 10.999 ₺/yıl; Doping paketleri üçüncü taraf kaynaklara göre 2.799–37.900 ₺. Bu para <strong>ailenin aynı eğitim bütçesinden</strong> çıkıyor. Aile &quot;Doping aldım, ayrıca özel ders de mi?&quot; diye soruyor — ve özel ders zaten aylık binlerce lira.</li>
+<li><strong>A grubu = alışkanlık rakibi.</strong> Streak, lig ve akşam bildirimleriyle öğrencinin <strong>aynı günlük zaman dilimini</strong> istiyorlar — M08 çalışma takibinin istediği dilimi. Ekran zamanı sıfır toplamlı.</li>
+<li><strong>B grubu = beklenti çıpası.</strong> Veli anaokulundan beri günlük bilgilendirme + fotoğraf + anlık mesaj görüyor. M09 veli paneli bu çıpaya göre değerlendirilecek — &quot;az&quot; değil, &quot;VeliCep kadar değil&quot; denecek.</li>
+</ol>
+<p><strong>Gerçek rakip kuşağını (C) bu analize ekledim</strong> (§5) — istenen listede yoktu ama karşılaştırmayı anlamlı kılan grup bu.</p>
+<hr>
+<h2>3. A grubu — içerik / sınav hazırlık platformları</h2>
+<h3>3.1 Doping Hafıza — pazar lideri, yüksek dokunuşlu satış</h3>
+<div class="tw"><table><tr><th></th><th></th></tr>
+<tr><td><strong>Şirket</strong></td><td>Doping Bilişim Teknolojileri A.Ş.</td></tr>
+<tr><td><strong>Ölçek</strong></td><td>Play 1.000.000+ indirme · Play 4,2 (28.386 yorum) · App Store TR 4,56 (15.342)</td></tr>
+<tr><td><strong>Yaş</strong></td><td>iOS uygulaması 2021-02&#x27;den beri; şirket &quot;16 yıl&quot; iddiasında; Webrazzi 2021: 120 bin+ öğrenci (<strong>iddia</strong>)</td></tr>
+<tr><td><strong>Fiyat</strong></td><td><strong>Sitede yayınlanmıyor</strong> — yalnız &quot;Peşin fiyatına 12 taksit&quot; + form / WhatsApp (0533 236 2005) / 444 59 63</td></tr>
+</table></div>
+<p><strong>Kapsam — 13 ayrı paket ailesi:</strong> YKS 2027 (TYT + AYT: Sayısal / Eşit Ağırlık / Sözel / Tüm Dersler), LGS 2027, 9-11. sınıf, 5-7. sınıf, 1-4. sınıf, KPSS (Lisans / Ön Lisans / Ortaöğretim), AGS, DGS 2027, ALES, YDT İngilizce, Almanca, Kariyer Yolum, Okul Öncesi.</p>
+<p><strong>Ürün:</strong></p>
+<ul>
+<li>&quot;Dopi&quot; — yapay zekâ destekli kişiselleştirilmiş öğrenme patikası</li>
+<li>Günlük çalışma süresine göre <strong>otomatik ders programı</strong> (en çok kullanılan özellik olarak anlatılıyor)</li>
+<li>Her soruya <strong>çözüm videosu</strong>; video ardı sorularla pekiştirme; video izlerken not alma</li>
+<li>Çok formatlı anlatım: hafıza teknikleri, akıl haritaları, infografikler, &quot;refleksler&quot;, &quot;serüvenler&quot;</li>
+<li>Akıllı testler (eksik kazanıma yönelik), deneme sınavları ve yönlendirme</li>
+<li>Birebir rehberlik/koçluk + branş uzmanıyla <strong>ekspres birebir görüşme</strong></li>
+<li>&quot;Her Güne 1 Doping&quot; — günlük motivasyon</li>
+</ul>
+<p><strong>Veli tarafı:</strong> Ayrı bir <strong>veli başarı takip uygulaması</strong>, düzenli gelişim raporu, veli bilgilendirme sistemi, rehberlik uzmanıyla birebir görüşme, sınav sürecinde profesyonel destek.</p>
+<p><strong>Gelir modeli — telesatış:</strong> Fiyat gizli, form doldurtup arıyorlar. Bu, dershane satışının dijitali: yüksek bilet, insan kapanışı, 12 taksit. Üçüncü taraf kaynaklar 2.799 ₺ (TYT+AYT Eşit Ağırlık) ile 37.900 ₺ (aylık 3.158 ₺ × 12) arasında rakamlar veriyor — <strong>üreticinin resmî beyanı değil</strong>.</p>
+<p><strong>EğitimÜssü için ne öğretiyor:</strong></p>
+<ol>
+<li>Türkiye&#x27;de eğitim ürününde <strong>yüksek fiyat + insan satış</strong> hâlâ çalışıyor; her şey self-servis olmak zorunda değil.</li>
+<li>Pazar lideri veliye <strong>ayrı bir uygulama yazacak kadar</strong> veli ilgisine yatırım yapıyor — M09&#x27;un stratejik değerinin dış kanıtı.</li>
+<li>Play puanı (4,2) iOS puanından (4,56) belirgin düşük ve yorum sayısı iki katı — büyük ölçekte memnuniyetsizlik görünür hâle geliyor. Yüksek bilet + telesatış modelinin bilinen bedeli.</li>
+</ol>
+<h3>3.2 Pakodemy — agregatör: içerik üretmiyor, içerik <em>toplayıp</em> kişiselleştiriyor</h3>
+<div class="tw"><table><tr><th></th><th></th></tr>
+<tr><td><strong>Şirket</strong></td><td>TOS Analytics Yapay Zeka A.Ş.</td></tr>
+<tr><td><strong>Ölçek</strong></td><td>App Store TR 4,62 (7.897) · Site iddiası: 2M+ aktif öğrenci, 4,7/5 (23.148 yorum), YKS ilk 100&#x27;de 42 öğrenci</td></tr>
+<tr><td><strong>Yaş</strong></td><td>iOS 2019-12&#x27;den beri — listedeki en eski ürün</td></tr>
+<tr><td><strong>Platform</strong></td><td>iOS, Android, <strong>Huawei AppGallery</strong>, tarayıcı</td></tr>
+</table></div>
+<p><strong>İçerik — asıl ayırt edici:</strong> 20&#x27;den fazla <strong>yayınevinden</strong> derlenmiş 400–500 bin soru. Uygulama açıklamasında yayınevleri tek tek sayılıyor: Test Okul, VİP, M+, Anka, Delta Kültür, Köşebilgi, Yanıt, Nego, Strateji, Cevap, 4K, Yeniyorum, Teknotest, Şah-Mat, Açı, Polimat, Pano, Aday, Paylaşım, Eğitim Vadisi, Taktik Bende, Karat, Röntgen, Step Set, Adrenalin, En, Spoiler, Buga… + ÖSYM ve ÖSS çıkmış soruları (son 20 yıl). Ayrıca 6.000+ kazanım videosu (YKS) / 1.000+ (LGS) — <strong>iddia</strong>.</p>
+<p><strong>Öğrenci seçiyor:</strong> &quot;Sana göre bir yayınevinin Türkçe soruları, diğerinin Matematik soruları mı daha iyi? İstediğin yayınevini seç, derslerin soru sıklığını belirle.&quot; Yani kişiselleştirme yalnız algoritmada değil, <strong>kaynak seçiminde</strong>.</p>
+<p><strong>Diğer ürün özellikleri:</strong> Seviyeye göre zorluk kalibrasyonu; haftalık <strong>10 özel görev</strong> seçme; canlı dersler; PakoLAB (deneysel öğrenme); <strong>düello</strong> (öğrenciler arası soru yarışı); Türkiye geneli denemeler + detaylı analiz; yanlışlara video çözüm; tercih simülatörü; psikolog ve dereceli öğrencilerden koçluk; <strong>öğretmenin ödev atayabilmesi</strong>.</p>
+<p><strong>En akıllı kancası:</strong> <em>&quot;Uygulama dışında çalıştıklarını programa ekle&quot;</em> — evde, okulda, dershanede, kütüphanede geçen süreyi, kullanılan kaynağı ve girilen denemeyi içeri alıyor. Ürün, dışındaki hayatı da kendi verisine dönüştürüyor.</p>
+<p><strong>Fiyat:</strong></p>
+<div class="tw"><table><tr><th>Paket</th><th>Liste</th><th>İndirimli</th><th>Taksit</th></tr>
+<tr><td>YKS 2027 Premium</td><td>20.999 ₺</td><td><strong>10.999 ₺</strong></td><td>916 ₺ × 12</td></tr>
+<tr><td>LGS 2027 Premium</td><td>20.999 ₺</td><td><strong>10.999 ₺</strong></td><td>916 ₺ × 12</td></tr>
+<tr><td>KPSS 2026 Premium</td><td>14.999 ₺</td><td><strong>7.999 ₺</strong></td><td>666 ₺/ay</td></tr>
+</table></div>
+<p>%47 indirim kampanyası, <strong>7 gün iade garantisi</strong>, 7/24 WhatsApp destek. Doping&#x27;in aksine fiyat <strong>açık</strong>.</p>
+<p><strong>EğitimÜssü için ne öğretiyor:</strong></p>
+<ol>
+<li>&quot;Dışarıda çalıştığını da kaydet&quot; deseni M08&#x27;de zaten var (manuel süre girişi) — <strong>doğru yoldayız</strong>.</li>
+<li>Öğretmen → ödev akışının bir <strong>içerik</strong> platformuna bile eklendiğini gösteriyor: bizde çekirdek olan şey onlarda eklenti. Bu, ödev akışının değerini doğruluyor.</li>
+<li>İçerik <strong>satın alınabilir</strong> (yayınevi anlaşması), üretilmesi şart değil — ama yine de 20+ anlaşma demek, kurumsal satın alma ekibi demek. Bizim ölçeğimizde yol bu değil.</li>
+</ol>
+<h3>3.3 Net Up — listedeki en öğretici ürün</h3>
+<div class="tw"><table><tr><th></th><th></th></tr>
+<tr><td><strong>Yayıncı</strong></td><td>Net Up Eğitim Uygulamaları (Play) / Yusuf Öksüz (App Store) — <strong>tek kişi/küçük ekip</strong></td></tr>
+<tr><td><strong>Ölçek</strong></td><td>Play 1.000+ · App Store TR 4,85 (13 değerlendirme)</td></tr>
+<tr><td><strong>Yaş</strong></td><td><strong>2026-05-27</strong> — dört aylık ürün</td></tr>
+<tr><td><strong>Hedef</strong></td><td>6, 7 ve 8. sınıf (11–14 yaş)</td></tr>
+</table></div>
+<p><strong>Tez:</strong> <em>&quot;Günde 10 dakika yeter.&quot;</em> Uzun çalışma yerine <strong>alışkanlık</strong>. Açıklamada gerekçesi de var: &quot;Bilim, alışkanlıkla, küçük ve düzenli tekrarla öğrenildiğini söylüyor.&quot;</p>
+<p><strong>Mekanikler:</strong> Maskot <strong>Neto</strong> (yol arkadaşı olarak konumlanıyor — &quot;soyut bir uygulama değil, sevdiğin bir karakter&quot;), günlük seri sayacı, <strong>haftalık lig tablosu</strong>, ödül sandığı, rozet, XP, avatar özelleştirme, arkadaşla düello.</p>
+<p><strong>Pedagoji:</strong> Yanlış yapılan soru akıllıca tekrar sorulur; D2/D3 zorluk seviyeleri; geometri sorularında (üçgen, dikdörtgen, çember, prizma, koni, küre) <strong>otomatik görsel üretimi</strong>; akşam 19:00 hatırlatıcı + 20:00 günlük seri uyarısı.</p>
+<p><strong>Veli:</strong> Haftalık özet rapor — kaç soru çözüldü, hangi konuda zorlanıldı, günlük seri durumu — <strong>WhatsApp / e-posta / SMS ile paylaşılabilir</strong>. Vurgu: &quot;gerçek çalışma dakikası, ekran süresi değil.&quot;</p>
+<p><strong>Fiyat ve paketleme:</strong></p>
+<ul>
+<li><strong>Ücretsiz katman gerçekten kullanılabilir:</strong> günlük görev, lig, binlerce soru, seri ve rozet.</li>
+<li><strong>Pro: 99,99 ₺/ay veya 499,99 ₺/yıl</strong> — yıllık, aylığın <strong>5 katı</strong> (yani 7 ay bedava; agresif yıllık indirim).</li>
+<li>Pro&#x27;nun sattığı: <strong>sınırsız can</strong> (yanlış cevap stresi yok), D2/D3 zorluk, detaylı konu analizi, sınırsız alıştırma, &quot;Veli raporu Pro&quot;.</li>
+<li>Lansman: <strong>ilk hafta tüm Pro özellikleri ücretsiz</strong>.</li>
+</ul>
+<p><strong>Konumlandırma cümlesi:</strong> <em>&quot;Aylık 99,99 TL — yıllık toplam, ortalama bir dershane ücretinin yaklaşık 100&#x27;de biri. Sonuçlar dershane gibi.&quot;</em> Sitede dershane maliyeti 70–80 bin ₺/yıl olarak veriliyor.</p>
+<p><strong>Hedef kitle tanımı (açıklamadan, aynen):</strong> 6/7/8. sınıf öğrencileri · LGS&#x27;ye 1 yıl ve daha kısa süre kalanlar · <strong>dershane masrafından kaçınmak isteyen aileler</strong> · çocuğunun her gün ne kadar çalıştığını takip etmek isteyen veliler · eğlenerek öğrenmeyi sevenler.</p>
+<p><strong>⚠️ Tutarsızlık:</strong> Site &quot;8.500+ / ~10.000 soru&quot; derken App Store açıklaması &quot;1500+/2000+ Türkçe sorusu, 38 matematik konusu&quot; diyor. Ürün henüz içerik derinliğini kurmuş değil — <strong>büyümesi mekanikten geliyor, içerikten değil.</strong> Dört ayda 4,85 puan alması da bunu destekliyor: az içerikle iyi his.</p>
+<p><strong>EğitimÜssü için ne öğretiyor — üç ders:</strong></p>
+<ol>
+<li><strong>Alışkanlık kancası ücretsiz olmalı.</strong> Net Up streak&#x27;i, ligi ve rozeti Free verip parayı <em>sınırsız can, analiz, veli raporu</em> arkasına koyuyor. ✅ <strong>EğitimÜssü kodu zaten aynı modelde</strong> (<code>MembershipGate</code>: Free = kronometre + streak tam + rozet + son 30 gün; Premium = derinlik). PRD §9.2 bunun tersini yazıyordu, <strong>2026-09-05&#x27;te koda göre düzeltildi</strong> — bkz. <a href="../denetim/2026-09-05_rakip_paritesi_analizi.md">parite analizi</a> §3 (X-01).</li>
+<li><strong>Asıl açık streak değil, lig ve günlük görev.</strong> Karşılaştırmalı hiçbir mekaniğimiz yok (R-01, R-03).</li>
+<li><strong>Az içerikle de iyi ürün olunur</strong> — mekanik ve his, içerik hacminden önce geliyor. Bu, R-14&#x27;ü (soru bankası) iptal önerisini destekleyen en somut kanıt.</li>
+</ol>
+<h3>3.4 DUS Club — niş, topluluk odaklı; EğitimÜssü&#x27;nün öğrenci moduna en benzer ürün</h3>
+<div class="tw"><table><tr><th></th><th></th></tr>
+<tr><td><strong>Yayıncı</strong></td><td>Denthall Club (Play) / Oğuzhan Arslan (App Store)</td></tr>
+<tr><td><strong>Ölçek</strong></td><td>Play 50+ · App Store TR 4,77 (22)</td></tr>
+<tr><td><strong>Yaş</strong></td><td><strong>2026-03-03</strong> — altı aylık ürün</td></tr>
+<tr><td><strong>Hedef</strong></td><td>DUS (Diş Hekimliğinde Uzmanlık Sınavı) adayları — dar ve profesyonel bir niş</td></tr>
+</table></div>
+<p><strong>Ürün — kendi başlıklarıyla:</strong></p>
+<ul>
+<li><strong>Odak modu:</strong> Kronometre ve <strong>Pomodoro</strong>; hangi derse ne kadar süre ayırdığını otomatik kaydeder</li>
+<li><strong>Soru havuzu:</strong> Soru bankası, çıkmış benzeri sorular, <strong>vaka soruları</strong>, <strong>yanlış defteri</strong></li>
+<li><strong>Hafıza merkezi:</strong> Flashcard ile aktif tekrar; kendi kartın + <strong>topluluk kartları</strong> + mnemonics/şifreler</li>
+<li><strong>Çalışma ekibim:</strong> Kendi ekibini kur <strong>ya da bir koda dahil ol</strong>; ekip içi günlük çalışma sıralaması</li>
+<li><strong>Çalışma takvimim:</strong> Haftalık / iki haftalık / aylık görünüm, günlük görev ekleme</li>
+<li><strong>İstatistik merkezi:</strong> Derse göre saat, haftalık grafik</li>
+</ul>
+<p><strong>Gelir:</strong> Ücretsiz + <strong>DUSClubber</strong> aboneliği (mağaza içi satın alma, fiyat uygulama içinde).</p>
+<p><strong>Konumlandırma:</strong> <em>&quot;DUS bir maraton, DUS Club ise bir kulüp. Bu yolda yalnız değilsin.&quot;</em> Ürünün sattığı şey içerik değil, <strong>yalnız olmama hissi</strong>.</p>
+<p><strong>EğitimÜssü için ne öğretiyor:</strong></p>
+<ol>
+<li>Kronometre + istatistik + takvim + not — hepsi bizde <strong>zaten var ve daha derin</strong> (M08 38 uç, M04 20 uç).</li>
+<li>Eksik olan iki şey: <strong>flashcard/aralıklı tekrar</strong> (R-05) ve <strong>kod ile katılınan ekip + sıralama</strong> (R-02).</li>
+<li><strong>En önemli içgörü:</strong> DUS Club&#x27;da kullanıcı ekibini <strong>kendi kurmak zorunda</strong>; bizde ekip <strong>doğal olarak var</strong> — öğretmenin öğrenci listesi. Sıfır kurulumla aynı mekanik, üstelik ligi gören bir öğretmenle. Bu, taklit değil <strong>üstünlük</strong> olur (Ü-07).</li>
+<li>Niş bir dikeyde 22 değerlendirmeyle 4,77 tutmak, dar hedefin işe yaradığını gösteriyor.</li>
+</ol>
+<hr>
+<h2>4. B grubu — kurum ↔ veli iletişimi</h2>
+<h3>4.1 VeliCep — küçük ama bizim veli modülümüzün aynası</h3>
+<div class="tw"><table><tr><th></th><th></th></tr>
+<tr><td><strong>Şirket</strong></td><td>TMGAMES Oyun Yazılım Teknoloji ve Pazarlama Ltd. Şti.</td></tr>
+<tr><td><strong>Ölçek</strong></td><td>Play 100+ · App Store TR 5,0 (11)</td></tr>
+<tr><td><strong>Yaş</strong></td><td><strong>2026-03-08</strong></td></tr>
+<tr><td><strong>Kapsam</strong></td><td>Yalnız <strong>anaokulu ve oyun evi</strong>. Kurum satın alır, veli ücretsiz indirir</td></tr>
+</table></div>
+<p><strong>Veli tarafı:</strong> Günlük değerlendirme (devamsızlık, <strong>yemek</strong>, not) · <strong>galeri</strong> (öğretmenin paylaştığı fotoğraf/video, <strong>tarihe göre</strong>, indirilebilir) · okul ve sınıf duyuruları + okunmamış bildirim · öğretmenle doğrudan mesajlaşma · yeni değerlendirme/duyuru/mesajda anlık bildirim.</p>
+<p><strong>Öğretmen tarafı:</strong> Tüm sınıfın devamsızlık/yemek/not bilgisini toplu girme · fotoğraf-video yükleme · <strong>sınıf veya okul genelinde anlık duyuru</strong> · velilerle bireysel organize mesajlaşma · <strong>çoklu sınıfı tek hesapla</strong> yönetme.</p>
+<p><strong>Güvenlik anlatısı:</strong> Şifreli iletişim, oturum bilgisi cihazda güvenli saklama, yalnız okulun yetkili hesaplarıyla erişim. (Küçük bir üründe bile güvenliğin <strong>pazarlama malzemesi</strong> olması dikkat çekici — veli tarafında güven, özellikten önce geliyor.)</p>
+<p><strong>EğitimÜssü için ne öğretiyor:</strong></p>
+<ol>
+<li>M16 (mesajlaşma) + M09 (veli) + M11 (bildirim) üçlüsü zaten paritede.</li>
+<li><strong>Sizde olmayan iki şey:</strong> <strong>bire-çok duyuru</strong> (R-06) ve <strong>tarih eksenli medya galerisi</strong> (R-07). Duyuru, VeliCep&#x27;in öğretmen tarafındaki üç ana özelliğinden biri — bizde M16 yalnız 1-1 sohbet modellediği için öğretmen 10 öğrenciye tek mesaj atamıyor.</li>
+<li>Veli beklentisi anaokulundan başlıyor: günlük bilgilendirme + fotoğraf + anında bildirim. Özel derse geldiğinde bu alışkanlıkla geliyor.</li>
+</ol>
+<hr>
+<h2>5. C grubu — asıl rakip kuşağı <em>(istenen listede yoktu, eklendi)</em></h2>
+<h3>5.1 Karşılaştırma</h3>
+<div class="tw"><table><tr><th>Ürün</th><th>Model</th><th>Kime satar</th><th>Fiyat</th><th>Kapsam</th><th>Durum</th></tr>
+<tr><td><strong>Tilki</strong> (<code>tilki.app</code>)</td><td>Öğretmen SaaS</td><td>Öğretmen</td><td><strong>120 ₺/aktif öğrenci/ay</strong> (150 ₺&#x27;den %20 tanıtım indirimi) · 30 gün ücretsiz, <strong>kart istemiyor</strong> · aylık, taahhütsüz</td><td>Öğrenci profili · tekrarlayan ders planı + otomatik takvim + <strong>görüntülü ders linki</strong> · ödev <strong>WhatsApp ile dağıtım</strong> + tamamlanma takibi + gecikme hatırlatması · bakiye/gecikme/aylık kazanç raporu · veli <strong>WhatsApp bildirimi (uygulama indirmeden)</strong> · iOS + Android + <strong>web</strong></td><td><strong>En yakın rakip</strong> · aktif</td></tr>
+<tr><td><strong>Özel Ders Alanı</strong> (<code>com.ozeldersalani.mobileapp</code>)</td><td>Pazar yeri</td><td>Öğretmen (görünürlük)</td><td><strong>Eko 1 ay · Bronz 3 ay · Silver 6 ay · Gold ve Platinum 1 yıl</strong> otomatik yenilenen abonelik + <strong>ders talebi kontörü</strong>; bazı paketlerde ek branş / ek şehir avantajı · <strong>ödeme Apple ID üzerinden</strong></td><td>Branş/konum/fiyat/ders biçimi filtresi · öğretmen profili · ders talebi · mesajlaşma · ders planlama · satın alınan paket ve tamamlanan ders takibi</td><td>2026-07 çıkışlı · iOS 4,57 (14) · aktif</td></tr>
+<tr><td><strong>Öğretsen</strong> (<code>com.ogretsen.app</code>)</td><td>Pazar yeri</td><td>Öğretmen</td><td>Öğretmene <strong>ücretsiz</strong> profil</td><td>Konuma göre öğretmen bulma · <strong>harita üzerinden filtreleme</strong> · profil + kullanıcı yorumları · doğrudan mesajlaşma · fiyat/branş/mesafe filtresi · akademik, spor, sanat, hobi kategorileri</td><td>2022-03&#x27;ten beri · iOS 4,32 (<strong>41</strong>) · son güncelleme 2026-08</td></tr>
+<tr><td><strong>Öğretmenim.app</strong> (<code>com.ogretmenim.ios</code>)</td><td>Pazar yeri</td><td>—</td><td>Öğrenciye <strong>ücretsiz</strong> (&quot;ücretsiz kalacaktır&quot;)</td><td>Onaylı öğretmen profilleri (diploması doğrulanmış) · konuma göre listeleme · takvim · <strong>soru havuzu</strong> (öğrenci soru yükler, öğretmenler çözümüyle yanıtlar)</td><td>iOS sürümü <strong>2022-10&#x27;dan beri güncellenmemiş</strong> → fiilen terk edilmiş</td></tr>
+<tr><td><strong>Özel Ders Takip Sistemi</strong> (<code>com.karolbilisim.ozeldersapp</code>)</td><td>Cihaz-içi defter</td><td>Öğretmen</td><td><strong>Ücretsiz (2 öğrenci) · Başlangıç (5) · Standart (10) · Pro (sınırsız)</strong> — tüm özellikler her pakette</td><td>Öğrenci + veli kaydı, aktif/arşiv · ders kaydı (tarih, konu, süre) · saatlik ücret + tahsilat + <strong>otomatik bakiye</strong> · <strong>profesyonel PDF döküm</strong> · Google Drive / e-posta yedekleme · <strong>internet gerektirmez, veri yalnız cihazda</strong></td><td>2026-04 · iOS 5,0 (4) · niş</td></tr>
+</table></div>
+<h3>5.2 Bu kuşaktan çıkan dört ders</h3>
+<ol>
+<li><strong>Öğrenci başına fiyatlama tavan yapıyor.</strong> Tilki 120 ₺/aktif öğrenci/ay → 10 öğrencili öğretmen <strong>1.200 ₺/ay</strong> öder. EğitimÜssü&#x27;nün <strong>sabit aylık premium</strong>&#x27;u burada net bir fiyat silahı: <em>&quot;Tilki&#x27;de 10 öğrenci 1.200 ₺, bizde tek fiyat.&quot;</em> PRD §9.1 zaten sabit paket öngörüyor — eksik olan bunu <strong>pazarlama mesajına çevirmek</strong>.</li>
+<li><strong>Saf eşleştirme ölmüş bir model.</strong> Öğretsen 2022&#x27;den beri yayında ve dört yılda <strong>41 değerlendirme</strong>; Öğretmenim.app 2022&#x27;den beri hiç güncellenmemiş. İkisi de &quot;öğretmen bul&quot; vaadiyle başlamış, ders sonrası hiçbir şey sunmamış. PRD §10.1&#x27;in <em>&quot;eşleştirmeyi en son aç&quot;</em> kararı <strong>dışarıdan doğrulanıyor</strong>.</li>
+<li><strong>Veliyi uygulamaya sokmak zorunda değilsiniz.</strong> Tilki velinin uygulama indirmesini <strong>hiç istemiyor</strong>, her şeyi WhatsApp&#x27;tan yolluyor; Net Up raporu WhatsApp/SMS/e-posta ile paylaştırıyor. EğitimÜssü&#x27;nün M09&#x27;u indirme + hesap + veli bağı gerektiriyor → <strong>sürtünme</strong>. En ucuz çözüm: paylaşılabilir özet metni/link (R-08).</li>
+<li><strong>Bulut karşıtı bir niş var.</strong> &quot;Özel Ders Takip Sistemi&quot; <em>&quot;veriniz yalnız cihazınızda, %100 gizlilik&quot;</em> diyerek pazar açmış. Bu, bulut ürünlerine duyulan güvensizliğin kanıtı — bizde <code>sharing</code> ayarı ve M15 sözleşmeleri zaten var, bunu <strong>duruşa</strong> çevirmek bedava (Ü-09).</li>
+</ol>
+<hr>
+<h2>6. Özellik karşılaştırma matrisi</h2>
+<p>Ölçüt: EğitimÜssü&#x27;nün <strong>bugünkü kod gerçeği</strong> (<a href="../modules/00_genel_bakis.md"><code>../modules/00_genel_bakis.md</code></a> + endpoint envanteri).</p>
+<div class="tw"><table><tr><th>Yetenek</th><th>EğitimÜssü</th><th>Tilki</th><th>Doping</th><th>Pakodemy</th><th>Net Up</th><th>DUS Club</th><th>VeliCep</th></tr>
+<tr><td>Öğretmen ders takvimi / planlama</td><td>🟢 M04 (20 uç)</td><td>🟢</td><td>❌</td><td>❌</td><td>❌</td><td>🟡 kişisel</td><td>🟡 sınıf</td></tr>
+<tr><td>Ders oturumu / yoklama kaydı</td><td>🟢 M05</td><td>🟢</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>🟢 devamsızlık</td></tr>
+<tr><td>Ödev atama + teslim + puanlama</td><td>🟢 M06</td><td>🟢 (WhatsApp)</td><td>🟡</td><td>🟡 öğretmen ödevi</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td>Ödeme/tahsilat takibi (öğretmen)</td><td>🟢 M07</td><td>🟢</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td>Bireysel çalışma kronometresi</td><td>🟢 M08 (38 uç)</td><td>❌</td><td>🟢</td><td>🟢</td><td>🟡 XP</td><td>🟢 + Pomodoro</td><td>❌</td></tr>
+<tr><td>Deneme + net trendi</td><td>🟢 M08</td><td>❌</td><td>🟢</td><td>🟢</td><td>🟡</td><td>🟢</td><td>❌</td></tr>
+<tr><td>Konu/kazanım hâkimiyeti + hedef</td><td>🟢 M10</td><td>🟡 not</td><td>🟢</td><td>🟢</td><td>🟢</td><td>🟡</td><td>❌</td></tr>
+<tr><td>Veli görünümü</td><td>🟢 M09</td><td>🟢 WhatsApp</td><td>🟢 ayrı uygulama</td><td>🟢</td><td>🟢 haftalık</td><td>❌</td><td>🟢</td></tr>
+<tr><td>Rapor / analiz + PDF</td><td>🟢 M14</td><td>🟢</td><td>🟢</td><td>🟢</td><td>🟡</td><td>🟡 grafik</td><td>❌</td></tr>
+<tr><td>Bildirim / push</td><td>🟢 M11</td><td>🟢 WhatsApp</td><td>🟢</td><td>🟢</td><td>🟢 zamanlı</td><td>🟢</td><td>🟢</td></tr>
+<tr><td>Mesajlaşma</td><td>🟡 M16</td><td>🟡 WhatsApp</td><td>🟡 koçluk</td><td>🟡 koçluk</td><td>❌</td><td>❌</td><td>🟢</td></tr>
+<tr><td>Üyelik / paywall</td><td>🟡 M17</td><td>🟢</td><td>🟢</td><td>🟢</td><td>🟢</td><td>🟢</td><td>—</td></tr>
+<tr><td><strong>Gerçek para tahsilatı</strong></td><td>❌ <em>(Q1 bloke)</em></td><td>🟢 kart</td><td>🟢 havale</td><td>🟢 havale</td><td>🟢 IAP</td><td>🟢 IAP</td><td>—</td></tr>
+<tr><td>Öğretmen–öğrenci eşleştirme</td><td>🔴 M12</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td>Puanlama &amp; yorum</td><td>🔴 M13</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td>Öğretmen boş zaman analizi</td><td>🟢 <strong>tek bizde</strong></td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td><strong>Soru bankası / içerik</strong></td><td>❌ <em>(kapsam dışı)</em></td><td>❌</td><td>🟢 dev</td><td>🟢 dev</td><td>🟢</td><td>🟢</td><td>❌</td></tr>
+<tr><td><strong>Video ders / çözüm</strong></td><td>❌</td><td>❌</td><td>🟢</td><td>🟢</td><td>❌</td><td>❌</td><td>❌</td></tr>
+<tr><td><strong>Oyunlaştırma (seri + rozet)</strong></td><td>🟡 seri + <strong>10 rozet</strong> var, lig/XP yok</td><td>❌</td><td>🟡</td><td>🟡 düello</td><td>🟢 <strong>çekirdek</strong></td><td>🟡 ekip sıralaması</td><td>❌</td></tr>
+<tr><td><strong>Flashcard / aralıklı tekrar</strong></td><td>❌</td><td>❌</td><td>🟢 hafıza teknikleri</td><td>🟡</td><td>🟡 yanlış tekrarı</td><td>🟢</td><td>❌</td></tr>
+<tr><td><strong>Sosyal / kulüp / ekip</strong></td><td>❌</td><td>❌</td><td>❌</td><td>🟡 düello</td><td>🟡 lig</td><td>🟢 ekip + kod</td><td>❌</td></tr>
+<tr><td><strong>Bire-çok duyuru</strong></td><td>❌</td><td>🟡</td><td>🟢</td><td>🟢</td><td>❌</td><td>❌</td><td>🟢</td></tr>
+<tr><td><strong>Medya galerisi (tarihe göre)</strong></td><td>🟡 dosya var</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>🟢</td></tr>
+<tr><td><strong>WhatsApp / dış kanal</strong></td><td>❌</td><td>🟢 <strong>çekirdek</strong></td><td>🟢 satış+destek</td><td>🟢 destek</td><td>🟢 rapor paylaşımı</td><td>❌</td><td>❌</td></tr>
+<tr><td>Web erişimi</td><td>❌ <em>(P14)</em></td><td>🟢</td><td>🟢</td><td>🟢</td><td>❌</td><td>❌</td><td>❌</td></tr>
+</table></div>
+<p><strong>Sonuç:</strong> EğitimÜssü <strong>operasyon sütununda (ilk yedi satır) listedeki hiçbir rakibin yaklaşamadığı bir derinlikte</strong> — ve tek başına Tilki bu sütunda yarışıyor, o da öğrenci tarafı olmadan. Boşluklar üç kümede:</p>
+<ol>
+<li><strong>İçerik</strong> (soru bankası, video) — bilinçli kapsam dışı, öyle kalmalı.</li>
+<li><strong>Oyunlaştırmanın sosyal kısmı</strong> (lig, ekip, günlük görev) — seri ve rozet zaten var.</li>
+<li><strong>Para akışı ve dış kanal</strong> (tahsilat, WhatsApp/paylaşım, duyuru, galeri) — en yüksek getirili küme.</li>
+</ol>
+<hr>
+<h2>7. İş modeli, fiyat ve mağaza kuralları</h2>
+<h3>7.1 Gelir modeli haritası</h3>
+<div class="tw"><table><tr><th>Model</th><th>Kim uyguluyor</th><th>Rakam</th><th>Kime uygun</th></tr>
+<tr><td>Yıllık yüksek paket + <strong>telesatış</strong></td><td>Doping Hafıza</td><td>Fiyat gizli; 3. taraf: 2.799–37.900 ₺, 12 taksit</td><td>Yüksek bilet, satış ekibi olan</td></tr>
+<tr><td>Yıllık paket, <strong>açık fiyat</strong> + kampanya</td><td>Pakodemy</td><td>10.999 ₺ (liste 20.999 ₺), %47 indirim, 7 gün iade</td><td>İçeriği hazır olan</td></tr>
+<tr><td><strong>Aylık/yıllık freemium abonelik</strong></td><td>Net Up, DUS Club</td><td>99,99 ₺/ay · 499,99 ₺/yıl (yıllık = 5 aylık)</td><td>← <strong>EğitimÜssü&#x27;nün modeli</strong></td></tr>
+<tr><td><strong>Kullanım başına</strong> SaaS</td><td>Tilki</td><td>120 ₺/aktif öğrenci/ay</td><td>Değeri öğrenci başına ölçülebilen</td></tr>
+<tr><td><strong>Görünürlük aboneliği + kontör</strong></td><td>Özel Ders Alanı</td><td>Eko/Bronz/Silver/Gold/Platinum + ders talebi kontörü</td><td>Pazar yeri (M12 açılınca bizde de)</td></tr>
+<tr><td>Öğrenci sayısı <strong>kademeli lisans</strong></td><td>Özel Ders Takip Sistemi</td><td>Ücretsiz 2 / 5 / 10 / sınırsız</td><td>Basit araç</td></tr>
+<tr><td><strong>Reklam</strong></td><td><strong>Hiçbiri</strong></td><td>—</td><td>—</td></tr>
+</table></div>
+<h3>7.2 Üç somut çıkarım</h3>
+<p><strong>(a) Reklam bu pazarda yok.</strong> İncelenen <strong>11 üründen hiçbiri</strong> reklam göstermiyor. Türkiye eğitim pazarında — özellikle çocuk ve veli tarafında — reklam marka güvenini düşüren bir sinyal olarak görülüyor. PRD §9.4&#x27;ün reklam kararı ve P09 Task 5 (AdMob / <strong>Q3</strong>) bu yüzden <strong>düşük öncelikli</strong> değerlendirilmeli; gelir abonelikten gelmeli.</p>
+<p><strong>(b) Ücretsiz katman gerçekten kullanılabilir olmalı.</strong> Net Up ücretsizde lig, günlük görev, seri, rozet ve binlerce soru veriyor; parayı *sınırsız can + analiz + veli raporu*na koyuyor. Doping ve Pakodemy&#x27;nin ücretsiz katmanı yok denecek kadar dar, ama onların satış ekibi var. Bizim kanalımız ürün — o yüzden ücretsiz katman geniş olmalı. <strong>Kodumuz zaten böyle</strong> (<code>MembershipGate</code>).</p>
+<p><strong>(c) Yıllık indirim agresif olabilir.</strong> Net Up yıllığı aylığın 5 katına satıyor (7 ay bedava). Bu, nakit akışını öne çeken ve terk oranını düşüren bilinen bir taktik; M17 plan kataloğunda değerlendirilmeli.</p>
+<h3>7.3 Mağaza kuralları — Q1 (ödeme) kararına doğrudan girdi</h3>
+<p>Apple iki farklı para akışını <strong>farklı</strong> ele alıyor:</p>
+<div class="tw"><table><tr><th>Para akışı</th><th>Apple kuralı</th><th>Sonuç</th></tr>
+<tr><td><strong>Uygulama özelliklerini açan premium abonelik</strong> (M17)</td><td><strong>3.1.1</strong> — dijital içerik/özellik → <strong>IAP zorunlu</strong></td><td>Net Up, DUS Club ve <strong>Özel Ders Alanı</strong> premium paketlerini <em>Apple ID üzerinden</em> satıyor; Özel Ders Alanı&#x27;nın App Store açıklamasında bu <strong>açıkça yazıyor</strong></td></tr>
+<tr><td><strong>Öğrencinin öğretmene ödediği ders ücreti</strong></td><td><strong>3.1.3(d) Person-to-Person Services</strong> — <em>&quot;real-time person-to-person services between two individuals (for example <strong>tutoring students</strong>, medical consultations…) you may use purchase methods other than in-app purchase&quot;</em></td><td>Bire-bir özel ders tahsilatı iyzico/havale ile yapılabilir. ⚠️ <em>&quot;One-to-few and one-to-many real-time services <strong>must</strong> use in-app purchase&quot;</em> → <strong>grup dersi bu istisnanın dışında</strong></td></tr>
+</table></div>
+<p><strong>Pratik yol:</strong> <em>premium üyelik = StoreKit / Play Billing · ders ücreti = iyzico.</em> Mevcut plan (her ikisi de iyzico) mobilde ret riski taşıyor. Ayrıca mağaza komisyonu (%15–30) fiyatlandırmaya yansıtılmalı — Net Up&#x27;ın 99,99 ₺&#x27;si bu komisyonla belirlenmiş bir fiyat.</p>
+<hr>
+<h2>8. ❓ Çözülemeyen: <code>northcreative</code></h2>
+<p>Taranan kaynaklar: Apple iTunes Search API (<code>attribute=softwareDeveloper</code> ile yayıncı araması), Google Play arama ve geliştirici sayfaları, APKCombo paket dizini, genel web araması ve <strong>sekiz alan adı denemesi</strong>. <strong>Türkiye eğitim pazarında eşleşme bulunamadı.</strong></p>
+<p>Bulunan üç ayrı &quot;North Creative&quot; kaydının <strong>hiçbiri eğitim ürünü değil</strong>:</p>
+<div class="tw"><table><tr><th>Kayıt</th><th>Ne</th><th>Not</th></tr>
+<tr><td><strong>North Creative</strong> (App Store yayıncısı)</td><td>Tek uygulaması <em>That Run Club</em> (<code>com.vs.thatrunclub</code>, ABD, Sağlık &amp; Fitness) — koşu kulübü kur/katıl, grup koşusu planla, uygulama içi sohbet, rota keşfi</td><td><em>Kulüp mekaniği</em> açısından DUS Club&#x27;a benziyor; kastedilen buysa ilgi noktası <strong>topluluk/kulüp deseni</strong> olabilir</td></tr>
+<tr><td><strong>northcreative.io</strong></td><td>ABD merkezli video prodüksiyon / pazarlama ajansı</td><td>Eğitimle ilgisi yok</td></tr>
+<tr><td><strong>northcreative.net</strong></td><td>Birleşik Krallık (Oldham) merkezli fotoğrafçılık şirketi</td><td>Eğitimle ilgisi yok</td></tr>
+</table></div>
+<p>Alan adı denemeleri: <code>northcreative.com</code> (Cloudflare 403), <code>.com.tr</code> / <code>.co</code> / <code>.dev</code> / <code>.app</code> (çözülmedi), <code>.net</code> (UK fotoğrafçılık), <code>.io</code> (ABD video ajansı), <code>north-creative.com</code> (North Creative, LLC).</p>
+<p><strong>Gerekli:</strong> Mağaza linki, alan adı veya ekran görüntüsü. Verilirse bu doküman ve parite analizi güncellenecek.</p>
+<hr>
+<h2>9. EğitimÜssü için ne yapmalı</h2>
+<p>Bu bölümün ayrıntısı ayrı dokümanda — orada her madde kod gerçeğine karşı doğrulanmış, çözüm taslağı, kabul kriteri ve riskiyle birlikte: <strong><a href="../denetim/2026-09-05_rakip_paritesi_analizi.md"><code>../denetim/2026-09-05_rakip_paritesi_analizi.md</code></a></strong></p>
+<p>Özet yönlendirme:</p>
+<div class="tw"><table><tr><th>Bulgu</th><th>Madde</th><th>Dalga</th></tr>
+<tr><td>Veli veriyi görmek için uygulama indirmek zorunda (Tilki bunu bilerek terk etmiş)</td><td><strong>R-08</strong> paylaşım</td><td>1</td></tr>
+<tr><td>Öğretmen 10 öğrenciye tek mesaj atamıyor (VeliCep&#x27;in ana özelliği)</td><td><strong>R-06</strong> duyuru</td><td>1</td></tr>
+<tr><td>Streak var ama hatırlatan yok (Net Up 19:00/20:00)</td><td><strong>R-10</strong> yerel hatırlatıcı</td><td>1</td></tr>
+<tr><td>Medya tarihe göre gezilemiyor (VeliCep galerisi)</td><td><strong>R-07</strong> galeri</td><td>1</td></tr>
+<tr><td>Karşılaştırmalı hiçbir mekanik yok (Net Up ligi, DUS Club ekibi)</td><td><strong>R-01 + R-02 + Ü-07</strong></td><td>2</td></tr>
+<tr><td>&quot;Bugün ne yapmalıyım&quot; cevabı yok (Net Up günlük görev)</td><td><strong>R-03</strong></td><td>2</td></tr>
+<tr><td>Ürün para alamıyor (11 rakipten 10&#x27;u alıyor)</td><td><strong>R-09</strong> IAP + iyzico</td><td>3</td></tr>
+<tr><td>İçerik boşluğu (Doping/Pakodemy&#x27;nin sermaye oyunu)</td><td><strong>Ü-03</strong> öğretmen içerik havuzu — içeriğe girmeden</td><td>4</td></tr>
+<tr><td>Rakiplerin yapısal olarak kopyalayamayacağı fırsatlar</td><td><strong>Ü-01…Ü-10</strong></td><td>2–5</td></tr>
+</table></div>
+<hr>
+<h2>10. Kaynaklar ve veri kalitesi</h2>
+<p><strong>Mağaza verisi (2026-09-05):</strong></p>
+<ul>
+<li>Apple iTunes Lookup / Search API (TR mağazası) — <code>com.netup.app</code>, <code>com.tmgames.velicepapp</code>, <code>com.denthall.dusclub</code>, <code>com.tosanalytics.pakodemy</code>, <code>com.dopinghafiza.mobile.app</code>, <code>com.ozeldersalani.mobileapp</code>, <code>com.ogretsen.app</code>, <code>com.karolbilisim.ozeldersapp</code>, <code>com.ogretmenim.ios</code></li>
+<li>Google Play / APKCombo listeleri — indirme kovası, geliştirici adı, sürüm ve güncelleme tarihi</li>
+<li>Ham döküm: <a href="../raw/2026-09-05_rakip_magaza_verisi.md"><code>../raw/2026-09-05_rakip_magaza_verisi.md</code></a></li>
+</ul>
+<p><strong>Ürün siteleri:</strong></p>
+<ul>
+<li>Net Up — https://netup.website/</li>
+<li>Pakodemy — https://pakodemy.com/</li>
+<li>Doping Hafıza — https://www.dopinghafiza.com/ · https://www.dopinghafiza.com/shop</li>
+<li>Tilki — https://www.tilki.app/</li>
+<li>Öğretmenim.app — https://ogretmenim.app/</li>
+<li>Özel Ders Alanı — https://www.ozeldersalani.com/</li>
+</ul>
+<p><strong>Kural referansı:</strong></p>
+<ul>
+<li>Apple App Store Review Guidelines <strong>3.1.1</strong> (dijital içerik → IAP) ve <strong>3.1.3(d)</strong> <em>Person-to-Person Services</em> — https://developer.apple.com/app-store/review/guidelines/</li>
+</ul>
+<p><strong>Veri kalitesi notları:</strong></p>
+<ul>
+<li><strong>Play indirme sayıları kova değeridir</strong> (<code>50+</code>, <code>100+</code>, <code>1.000+</code>, <code>1.000.000+</code>) — kesin sayı değil, büyüklük mertebesi olarak okunmalı.</li>
+<li><strong>Şirketlerin kendi büyüme iddiaları doğrulanmadı</strong> (Pakodemy &quot;2M+ aktif öğrenci&quot;, Doping &quot;16 yıl&quot;, Net Up &quot;8.500 soru&quot;). Bağımsız kaynak yok; mağaza değerlendirme sayıları tek bağımsız gösterge.</li>
+<li><strong>Doping Hafıza fiyatları sitede yayınlanmıyor</strong>; 2.799–37.900 ₺ aralığı <strong>üçüncü taraf haber kaynaklarından</strong> alınmıştır, üreticinin resmî beyanı değildir.</li>
+<li><strong>Pakodemy&#x27;nin Play sayfası alınamadı</strong> (404) — Play tarafı rakamları eksik.</li>
+<li>Net Up&#x27;ın site ve mağaza açıklaması <strong>soru sayısında çelişiyor</strong> (8.500+ vs 2.000+); ikisi de rapor edildi.</li>
+</ul>
+<hr>
+<h2>İlgili dokümanlar</h2>
+<ul>
+<li><a href="../denetim/2026-09-05_rakip_paritesi_analizi.md"><code>../denetim/2026-09-05_rakip_paritesi_analizi.md</code></a> — <strong>bu analizin devamı</strong>: parite (R-01…R-14) + üstünlük (Ü-01…Ü-10) maddeleri, kod gerçeğine karşı</li>
+<li><a href="../ozel_ders_platformu_PRD.md"><code>../ozel_ders_platformu_PRD.md</code></a> — §9 free/premium (2026-09-05&#x27;te koda göre düzeltildi) ve §10 stratejik notlar</li>
+<li><a href="../modules/00_genel_bakis.md"><code>../modules/00_genel_bakis.md</code></a> — modül durum tablosu (karşılaştırmanın kod tarafı)</li>
+<li><a href="../modules/m17_membership.md"><code>../modules/m17_membership.md</code></a> — üyelik/entitlement/kampanya tasarımı</li>
+<li><a href="../modules/m12_matching.md"><code>../modules/m12_matching.md</code></a> — eşleştirme (🔴), §5.2&#x27;deki uyarı buraya bakar</li>
+<li><a href="../roles/00_roller_genel_bakis.md"><code>../roles/00_roller_genel_bakis.md</code></a> — rol×yetenek matrisi</li>
+</ul>
+<p><em>Güncelleme: 2026-09-05</em></p></main></body></html>

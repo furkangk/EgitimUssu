@@ -52,14 +52,19 @@ internal sealed class TeacherProfileConfiguration : IEntityTypeConfiguration<Tea
         builder.Property(entity => entity.EducationLevel).HasMaxLength(120).IsRequired();
         builder.Property(entity => entity.HourlyRateAmount).HasPrecision(18, 2);
         builder.Property(entity => entity.Currency).HasMaxLength(8).IsRequired();
-        builder.Property(entity => entity.ProfilePhotoUrl).HasMaxLength(512);
+        // P04: artik URL degil, IFileStorage anahtari saklanir.
+        builder.Property(entity => entity.ProfilePhotoKey).HasMaxLength(512);
+        builder.Property(entity => entity.IsActive).IsRequired().HasDefaultValue(true);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => entity.UserId).IsUnique();
         builder.HasIndex(entity => new { entity.City, entity.Subject });
-        builder.HasMany(entity => entity.AvailabilitySlots).WithOne().HasForeignKey(entity => entity.TeacherProfileId);
-        builder.HasMany(entity => entity.Subjects).WithOne().HasForeignKey(entity => entity.TeacherProfileId);
-        builder.HasMany(entity => entity.Certificates).WithOne().HasForeignKey(entity => entity.TeacherProfileId);
+        builder.HasMany(entity => entity.AvailabilitySlots).WithOne()
+            .HasForeignKey(entity => entity.TeacherProfileId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(entity => entity.Subjects).WithOne()
+            .HasForeignKey(entity => entity.TeacherProfileId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasMany(entity => entity.Certificates).WithOne()
+            .HasForeignKey(entity => entity.TeacherProfileId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
@@ -69,6 +74,7 @@ internal sealed class TeacherSubjectConfiguration : IEntityTypeConfiguration<Tea
     {
         builder.ToTable("teacher_subjects");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Subject).HasMaxLength(120).IsRequired();
         builder.HasIndex(entity => entity.TeacherProfileId);
     }
@@ -80,6 +86,7 @@ internal sealed class TeacherCertificateConfiguration : IEntityTypeConfiguration
     {
         builder.ToTable("teacher_certificates");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.Title).HasMaxLength(200).IsRequired();
         builder.Property(entity => entity.Institution).HasMaxLength(200);
         builder.Property(entity => entity.FileUrl).HasMaxLength(512);
@@ -93,6 +100,7 @@ internal sealed class TeacherAvailabilitySlotConfiguration : IEntityTypeConfigur
     {
         builder.ToTable("teacher_availability_slots");
         builder.HasKey(entity => entity.Id);
+        builder.Property(entity => entity.Id).ValueGeneratedNever();
         builder.Property(entity => entity.DayOfWeek).HasConversion<string>().HasMaxLength(16).IsRequired();
         builder.Property(entity => entity.StartTime).IsRequired();
         builder.Property(entity => entity.EndTime).IsRequired();

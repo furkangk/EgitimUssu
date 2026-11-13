@@ -39,6 +39,16 @@ Tetikleyiciler ve yapılacaklar:
 
 Kural: **Kod gerçeği ile doküman çelişirse, dokümanı koda göre düzelt** (kodu doğruluk kaynağı kabul et) ve değişikliği bildir.
 
+## 🔁 Oturum devamlılığı (sağlamlaştırma programı)
+
+2026-09-02 denetiminden çıkan 14 planlık program **oturum oturum** yürütülür: her görev sonunda bağlam `/clear` ile temizlenir.
+Bu yüzden ilerleme bilgisi konuşmada değil, **dosyada** tutulur.
+
+- **Tek hafıza:** [`docs/superpowers/ILERLEME.md`](docs/superpowers/ILERLEME.md) — aktif plan, sıradaki görev, dal, tamamlananlar, öğrenilenler, bloke kararlar.
+- **Planlar:** `docs/superpowers/plans/2026-09-02-01…14-*.md` · **Master tasarım (kararlar K-01…K-12):** `docs/superpowers/specs/2026-09-02-saglamlastirma-master-design.md` · **Kaynak envanter:** `doc/denetim/2026-09-02_eksik_analizi.md`
+- **Döngü:** `/devam` (sıradaki görevi yürüt) → `/gorev-bitir` (doğrula + commit + ILERLEME.md güncelle) → `/clear` → `/devam`
+- **Kural:** Bu programa dair bir iş isteniyorsa **önce `docs/superpowers/ILERLEME.md` okunur**. Görev bitmeden ILERLEME.md güncellenmeden oturum kapatılmaz.
+
 ## Adlandırma
 Görünen metin/başlık: **EğitimÜssü**. Dosya adı / klasör / kod tanımlayıcısı: **EgitimUssu** (Türkçe karaktersiz). `EgittimUssu` (çift t) yanlıştır.
 

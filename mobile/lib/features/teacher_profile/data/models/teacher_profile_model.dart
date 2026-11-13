@@ -137,7 +137,6 @@ class TeacherProfileModel extends TeacherProfile {
       'educationLevel': educationLevel,
       'hourlyRateAmount': hourlyRateAmount,
       'currency': currency,
-      'profilePhotoUrl': profilePhotoUrl,
       'availabilitySlots': availabilitySlots
           .map(
             (slot) => TeacherAvailabilityModel(

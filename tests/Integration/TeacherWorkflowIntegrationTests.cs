@@ -146,7 +146,18 @@ public sealed class TeacherWorkflowIntegrationTests
         var teacherLessonsResponse = await client.GetAsync($"/api/scheduling/teachers/{teacherUserId}/lessons?startAtUtc={Uri.EscapeDataString(startAtUtc.AddDays(-1).ToString("O"))}&endAtUtc={Uri.EscapeDataString(endAtUtc.AddDays(7).ToString("O"))}");
         teacherLessonsResponse.EnsureSuccessStatusCode();
         var teacherLessonsPayload = await ReadJsonAsync(teacherLessonsResponse);
-        Assert.Single(teacherLessonsPayload.EnumerateArray());
+        // M04-1: Liste artık seriyi değil somut oluşumları döner. Haftalık ders (COUNT=4) 8 günlük
+        // pencerede 2 kez görünür; her satır aynı seri kimliğini ama kendi saatini taşır.
+        var teacherOccurrences = teacherLessonsPayload.EnumerateArray().ToArray();
+        Assert.Equal(2, teacherOccurrences.Length);
+        Assert.All(teacherOccurrences, item => Assert.Equal(lessonId, item.GetProperty("id").GetGuid()));
+        Assert.Equal(
+            teacherOccurrences[0].GetProperty("startAtUtc").GetDateTime().AddDays(7),
+            teacherOccurrences[1].GetProperty("startAtUtc").GetDateTime());
+        // Tek oluşum iptal/erteleme uçlarının hedef anahtarı yanıtta taşınır.
+        Assert.All(teacherOccurrences, item => Assert.Equal(
+            item.GetProperty("startAtUtc").GetDateTime(),
+            item.GetProperty("occurrenceStartAtUtc").GetDateTime()));
 
         var conflictResponse = await client.PostAsJsonAsync("/api/scheduling/lessons", new
         {
@@ -880,6 +891,53 @@ public sealed class TeacherWorkflowIntegrationTests
             reactivateResponse.EnsureSuccessStatusCode();
             var reactivatedPayload = await ReadJsonAsync(reactivateResponse);
             Assert.True(reactivatedPayload.GetProperty("isActive").GetBoolean());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", previousConnectionString);
+        }
+    }
+
+    [Fact]
+    public async Task Me_Should_Return_Authenticated_User()
+    {
+        var previousConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres");
+        Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", "InMemory:me-tests");
+
+        try
+        {
+            await using var factory = new WebApplicationFactory<Program>();
+            using var client = factory.CreateClient();
+
+            var anonymousResponse = await client.GetAsync("/api/identity/me");
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+
+            var registerResponse = await client.PostAsJsonAsync("/api/identity/register", new
+            {
+                email = "me1@example.com",
+                password = "Teacher123!",
+                firstName = "Mehmet",
+                lastName = "Demir",
+                phoneNumber = "5551110000",
+                roles = new[] { 2 }
+            });
+
+            registerResponse.EnsureSuccessStatusCode();
+            var authPayload = await ReadJsonAsync(registerResponse);
+            var userId = authPayload.GetProperty("userId").GetGuid();
+            var accessToken = authPayload.GetProperty("accessToken").GetString();
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var meResponse = await client.GetAsync("/api/identity/me");
+            meResponse.EnsureSuccessStatusCode();
+            var me = await ReadJsonAsync(meResponse);
+
+            Assert.Equal(userId, me.GetProperty("userId").GetGuid());
+            Assert.Equal("me1@example.com", me.GetProperty("email").GetString());
+            Assert.Equal("Mehmet Demir", me.GetProperty("fullName").GetString());
+            Assert.False(me.GetProperty("isEmailConfirmed").GetBoolean());
+            Assert.Contains("Teacher", me.GetProperty("roles").EnumerateArray().Select(role => role.GetString()));
         }
         finally
         {

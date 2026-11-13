@@ -128,6 +128,8 @@ class AppDropdownField<T> extends StatelessWidget {
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
           initialValue: value,
+          isExpanded: true,
+          itemHeight: null,
           decoration: appInputDecoration(labelText),
           items: items,
           onChanged: onChanged,
