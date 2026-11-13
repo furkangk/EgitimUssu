@@ -3,7 +3,7 @@ title: "Kapsamlı Proje İncelemesi — 2026-11-13 (N serisi)"
 summary: "P01–P13 main'e merge edildikten sonra tüm projenin koda karşı incelemesi: mantık hataları, rol bazlı eksik özellikler, profesyonellik açıkları"
 tags: [denetim, mantik-hatasi, guvenlik, urun, mobil, operasyon]
 authority: derived
-updated: 2026-11-13
+updated: 2026-11-14
 ---
 
 # 🔎 Kapsamlı Proje İncelemesi — 2026-11-13
@@ -97,7 +97,7 @@ Hemen arkasından: **N-41** arka plan işleri kendi kirasını yenileyemediği i
 | N-43 | 🟠 Yüksek | Boş zaman analizi yerel uygunluk saatlerini UTC sayıyor | `Reporting/.../FreeSlotCalculator.cs:43-49` | "Pzt 18:00–21:00" şablonu 18:00Z olarak yayılır, dolu aralıklar gerçek UTC → sonuç 3 saat kayık | Slotu İstanbul gününde kur, sonra UTC'ye çevir | ◐ |
 | N-44 | 🟠 Yüksek | Ödev durum makinesinde koruma yok | `Assignments/Domain/AssignmentsDomainModel.cs:109-127,153-166` · `AssignmentStudentFeatures.cs:117-142` | Onaylanıp puanlanmış ödeve öğrenci yeni dosya yükleyebilir; **puanlanan eski dosya depodan silinir**, durum `Approved` kalır. `MarkCompleted` `Approved/Cancelled/ReturnedForRevision`'ı ezer (revizyon atlanır). Hiç teslim edilmemiş ödev onaylanabilir. Revizyona dönen ödevde eski `Score` kalır. Teslim anı ve gecikme tutulmuyor | Geçişleri domain'de `Result` ile kısıtla; `SubmittedOnUtc`/`IsLate` ekle | ◐ |
 | N-45 | 🟠 Yüksek | Son tarih tarayıcısında açlık ve yanlış "teslim edilmedi" | `Assignments/Infrastructure/AssignmentDueScanner.cs:66-74` · `AssignmentsDomainModel.cs:203-229` | 24 saatlik "az kaldı" penceresini kaçıran bekleyen ödevde `DueSoonNotifiedOnUtc` hiç dolmaz → `OrderBy(DueDate).Take(200)` hep bu eski satırları alır; 200 biriktiğinde **yeni ödevlere hiç uyarı gitmez**. Zamanında teslim edilip son tarihten sonra revizyona dönen ödev için öğrenci+veliye "teslim edilmedi" gider | Koşul `(DueSoon==null && Due>now) \|\| Missed==null`; "Missed"'i yalnız hiç teslim yoksa üret | ◐ |
-| N-46 | 🟠 Yüksek | Mesajlaşmada ilişki yalnız sohbet açılırken kontrol ediliyor | `Messaging/Application/MessagingFeatures.cs:333-339,479-492` · `MessagingPolicies.cs:146-147` | Bağı iptal edilen veli / bağı biten öğrenci yazmaya ve geçmişi okumaya devam eder | Gönderme/listelemede `EnsureAllowedAsync` veya bağ iptalinde sohbeti salt-okunur yap | ◐ |
+| N-46 ✅ (P15 T5) | 🟠 Yüksek | Mesajlaşmada ilişki yalnız sohbet açılırken kontrol ediliyor | `Messaging/Application/MessagingFeatures.cs:333-339,479-492` · `MessagingPolicies.cs:146-147` | Bağı iptal edilen veli / bağı biten öğrenci yazmaya ve geçmişi okumaya devam eder | Gönderme/listelemede `EnsureAllowedAsync` veya bağ iptalinde sohbeti salt-okunur yap | ◐ |
 | N-47 | 🟡 Orta | Düzenleme/silme olay üretmiyor | `StudyDomainModel.cs:248-265,381-422,500-503` · `StudyTestFeatures.cs:154-204` · `StudySessionFeatures.cs:486-505` | Silinen/düzeltilen test ve seans `TopicMastery`'de, Reporting projeksiyonlarında ve `MockExam.TotalNet`'te kalır (`ReportingProjections.cs:169-171`'deki yorum yanlış) | `Edited/Deleted` olayları + tüketicide yeniden hesap | ◐ |
 | N-48 | 🟡 Orta | Olay sırası bozulunca hayalet kayıt / ters trend | `TeacherDashboardProjectionHandlers.cs:79-117` · `ProgressTrackingDomainModel.cs:74-84` | `Scheduled` backoff'a düşüp `Cancelled` önce işlenirse, sonra gelen `Scheduled` iptal edilmiş dersi panele ve hatırlatmalara geri ekler. Trend `TakenOnUtc`'ye değil işlenme sırasına göre → geriye dönük girilen eski test trendi tersine çevirir | İptal için tombstone/sürüm; trendi tarihe göre hesapla | ❔ |
 | N-49 | 🟡 Orta | Öğretmen panelinde "bugünkü ders" yanlış | `TeacherDashboardProjectionHandlers.cs:282` · `TeacherDashboardProjection.cs:29-33,51-59` | Payload'da RRULE yok → tekrar eden ders yalnız ilk tarihinde sayılır; gün UTC; geçmiş ders satırları hiç budanmıyor, her istekte tümü yükleniyor | Oluşum bazlı satır, yerel gün, budama | ◐ |
@@ -255,4 +255,4 @@ Kullanıcı saat dilimi + **sessiz saatler** (tarayıcılar UTC'de saat başı k
 | **5 — Büyüme** | Duyuru, özet paylaşımı, paket/kredi, iCal, oyunlaştırma, Matching/Reviews (P11) | Rakip paritesi |
 
 ---
-Güncelleme: 2026-11-13
+Güncelleme: 2026-11-14 (P15 T5: N-46 ✅)

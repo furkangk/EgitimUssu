@@ -4,7 +4,13 @@ summary: "Mesajlaşma modülü uçtan uca çalışıyor (P10 Task 1-5, gerçek P
 tags: [modul, messaging, faz-2, faz-3]
 status: "🟡"
 authority: code
-updated: 2026-10-16
+code_refs:
+  - src/Modules/Messaging/Domain/MessagingDomainModel.cs
+  - src/Modules/Messaging/Application/MessagingFeatures.cs
+  - src/Modules/Messaging/Application/MessagingPolicies.cs
+  - src/Modules/Messaging/Infrastructure/MessagingStudentMergedHandler.cs
+  - src/Modules/Messaging/API/MessagingModule.cs
+updated: 2026-11-14
 ---
 
 # 💬 Mesajlaşma Modülü (M16) — Detaylı Tasarım Dokümanı
@@ -50,6 +56,11 @@ updated: 2026-10-16
   mobilde `messaging_cubit_test` (15) + `messaging_pages_test` (8).
 - **Doğrulama (P10 Task 5):** `tests/Integration/RealMessagingChainTests.cs` — **gerçek Postgres + Redis**,
   3 test / 12 adım; kabul kriterleri ve doğrulamada çıkan hata için bkz. §7.
+- **Süregelen ilişki (P15 Task 5 / N-46, K-28):** ilişki artık yalnız açılışta değil **her gönderimde** ve her
+  gelen kutusu/açma yanıtında kaynaktan sorulur — bağ biterse gönderim `403 messaging.relationship_ended`, geçmiş
+  okunur, yanıtlar `isReadOnly: true`. Messaging öğrenci profili birleşmesini tüketir
+  (`MessagingStudentMergedHandler`, #189). Testler `MessagingRelationshipTests` (13) +
+  `RealMessagingRelationshipTests` (gerçek Postgres, 4).
 
 ---
 
@@ -63,8 +74,9 @@ updated: 2026-10-16
 > (son mesaj önizlemesi/zamanı, engel bayrakları) taşır, mesajlar keyset sayfalamayla ayrı okunur.
 
 > Modül sınırı kuralı: `Messaging`, `Identity`/`Students`/`Parents` tablolarına **doğrudan erişmez**.
-> İlişki doğrulaması `Shared/Contracts` üzerinden yapılır: öğretmen↔öğrenci bağı `IStudentDirectory`,
-> veli↔öğrenci onaylı bağı `IParentAccessDirectory` (P10 Task 2).
+> İlişki doğrulaması `Shared/Contracts` üzerinden yapılır: öğretmen↔öğrenci erişim kapsamı `ITeacherStudentAccess`
+> (`== Private` — P15 T5; K-17 gereği sınıf kapsamı mesaj yetkisi vermez), öğrenci profilinin sahibi
+> `IStudentDirectory`, veli↔öğrenci onaylı bağı `IParentAccessDirectory` (P10 Task 2).
 
 ### 2.1 `Conversation` (AggregateRoot) — 🟢 kodda
 
@@ -99,6 +111,11 @@ updated: 2026-10-16
 | `HideDeletedMessagePreview(message)` | `void` | Silinen mesajın zaman ve içerikle eşleşen önizlemesini temizler; farklı son mesajın önizlemesi ve sohbet sıralama zamanı korunur |
 | `CanSend(senderUserId)` | `bool` | Engel **çift yönlüdür**: taraflardan biri engellediyse hiçbir taraf gönderemez |
 | `HasParticipant(userId)` / `RecipientOf(senderUserId)` | `bool` / `Guid?` | Yetki kontrolleri ve bildirim alıcısı için |
+| `MoveToStudent(canonicalStudentId)` | `void` | P15 T5 / #189: profil birleşince bağlamı kanonik profile taşır; sohbet kimliği değişmez (bildirim rotaları geçerli kalır) |
+| `Absorb(merged)` | `void` | P15 T5 / #189: kanonikte aynı üçlü varsa birleşen kopyanın özetini emer — daha yeni son mesaj/önizleme alınır, engel bayrakları VEYA'lanır, açılış anı en eskisi; taraflar farklıysa `InvalidOperationException` |
+
+> **İlişki domainde değil:** `SendMessage` ilişkinin yaşadığını bilmez — bu dış durumdur (Students/Parents) ve
+> açılıştaki gibi uygulama katmanında, `IConversationRelationshipPolicy` ile denetlenir (§4 kural 12).
 
 **Domain event'i:** `MessageSentDomainEvent(ConversationId, MessageId, SenderUserId, RecipientUserId, Preview, SentOnUtc)`
 — alıcıyı yalnız sohbet bilir, bu yüzden olay `Conversation`'dan yayılır (Notifications bunu tüketir, P10 Task 3).
@@ -142,7 +159,8 @@ updated: 2026-10-16
 | `messaging.blocked` | Sohbet engellenmiş, gönderim kapalı |
 | `messaging.empty_body` | Mesaj boş |
 | `messaging.body_too_long` | Mesaj 4000 karakteri aşıyor |
-| `messaging.relationship_required` | Taraflar arasında aktif bağ yok (P10 Task 2'de kullanılır) |
+| `messaging.relationship_required` | Sohbet **açılırken** taraflar arasında aktif bağ yok (P10 Task 2) |
+| `messaging.relationship_ended` | Sohbet açıldıktan sonra ilişki bitti — gönderim kapalı, geçmiş okunur (P15 T5 / K-28). Engelden farkı: katılımcılar kaldıramaz; ilişki yeniden kurulursa kendiliğinden açılır |
 | `messaging.conversation_not_found` / `messaging.message_not_found` | Kayıt yok (P10 Task 2'de kullanılır) |
 
 > ⚠️ Önceki tasarımdaki `ConversationParticipant` entity'si, `ConversationStatus`/`MessageStatus` enum'ları ve
@@ -159,7 +177,7 @@ GET  /api/messaging/status                                              → mod�
 POST   /api/messaging/conversations                        (auth) → { counterpartUserId, counterpartRole, studentId }
                                                                     → sohbeti aç; varsa mevcudu dön (get-or-create)
 GET    /api/messaging/conversations?skip=&take=             (auth) → gelen kutusu: karşı taraf + son önizleme
-                                                                    + okunmamış sayısı + engel bayrağı
+                                                                    + okunmamış sayısı + engel bayrağı + isReadOnly
 GET    /api/messaging/conversations/{id}/messages?beforeUtc=&take=
                                                             (auth) → mesaj geçmişi (keyset, yeniden eskiye)
 POST   /api/messaging/conversations/{id}/messages           (auth) → { body } · dakikada 30 mesaj sınırı
@@ -174,9 +192,15 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 | Hata kodu | Durum | Neden |
 |-----------|-------|-------|
 | `shared.forbidden`, `messaging.not_participant` | 403 | Oturum yok / sohbetin tarafı değilsin |
+| `messaging.relationship_ended` | 403 | İlişki bitti (K-28). Kod korunur — `FromError(ctx, 403, …)`; `.Forbidden(...)` kodu `shared.forbidden`'a çevirirdi |
 | `messaging.conversation_not_found`, `messaging.message_not_found` | 404 | Kayıt yok |
 | `messaging.pair_not_allowed`, `messaging.self_conversation`, `messaging.relationship_required`, `messaging.blocked` | 409 | Kural çakışması |
 | `messaging.empty_body`, `messaging.body_too_long`, `messaging.invalid_role` | 400 | Geçersiz istek |
+
+> **`isReadOnly` (P15 T5, yalnız ekleme):** `POST /conversations` (yeni ya da var olan sohbet), `block`/`unblock`
+> yanıtı (`ConversationResponse`) ve gelen kutusu satırı (`ConversationSummaryResponse`) taşır. Saklanmaz; istek
+> anında ilişki kaynağından hesaplanır. `GET …/messages` dizi biçimi **değişmedi**. Var olan bir sohbeti açmak, ilişki
+> bitmiş olsa da `409` değil `200 + isReadOnly: true` döner (kullanıcı kendi geçmişini görebilmeli).
 
 > **Yetki:** Bütün uçlar `RequireAuthorization("AuthenticatedUser")`. Authorizer yalnız "oturum açık mı"
 > sorusunu sorar; **kayıt bazlı** yetki (katılımcı mısın, gönderen misin) handler'ın içinde, veriyi
@@ -197,7 +221,7 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 | # | Kural | Nerede zorlanıyor | Durum |
 |---|-------|-------------------|-------|
 | 1 | **Çift kuralı (en kritik):** yalnız öğretmen↔öğrenci ve öğretmen↔veli. Tam olarak bir taraf öğretmen olmalı | `Conversation.Create` → `messaging.pair_not_allowed` | 🟢 |
-| 2 | **İlişki önkoşulu:** öğretmenin o öğrenciyle yaşayan bağı olmalı; karşı taraf öğrenciyse o profilin **sahibi**, veliyse **onaylı** veli olmalı | `ConversationRelationshipPolicy` (`IStudentDirectory` + `IParentAccessDirectory`) → `messaging.relationship_required` | 🟢 |
+| 2 | **İlişki önkoşulu:** öğretmenin o öğrenciyle yaşayan **özel ders** bağı olmalı (`GetScopeAsync == Private`; sınıf kapsamı yetmez — K-17); karşı taraf öğrenciyse o profilin **sahibi**, veliyse **onaylı** veli olmalı | `ConversationRelationshipPolicy` (`ITeacherStudentAccess` + `IStudentDirectory` + `IParentAccessDirectory`) → `messaging.relationship_required` | 🟢 |
 | 3 | **Tekillik:** aynı `(TeacherUserId, CounterpartUserId, StudentId)` için tek sohbet; "aç" çağrısı varsa mevcudu döner | `OpenConversationCommandHandler` (get-or-create) + UNIQUE indeks | 🟢 |
 | 4 | **Gönderim:** yalnız katılımcı gönderebilir | `Conversation.SendMessage` → `messaging.not_participant` | 🟢 |
 | 5 | **Engelleme:** taraflardan biri engellerse gönderim **iki taraf için de** kapanır; engeli yalnız koyan taraf kaldırır | `Conversation.CanSend` / `Block` / `Unblock` → `messaging.blocked` | 🟢 |
@@ -207,6 +231,13 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 | 9 | **Moderasyon:** mesaj şikayeti → M18 `AbuseReport` | — | 🔴 P12 |
 | 10 | **Bildirim:** yeni mesajda alıcıya in-app + push (tercihe saygıyla) | `MessageSentNotificationHandler` + `NotificationDispatcher` tercih kapısı | 🟢 |
 | 11 | **Premium farkı:** ek/dosya gönderimi, geçmiş derinliği | — | 🔴 kapsam dışı (v1'de ek yok) |
+| 12 | **Süregelen ilişki (K-28, N-46):** kural 2'nin yüklemi **her gönderimde** yeniden sorulur. İlişki biterse (bağ arşivlendi/koptu, veli bağı iptal/ret, öğrencinin hesabı profilden ayrıldı) gönderim **iki taraf için de** kapanır; öğretmenin bağı biterse veli sohbeti de kapanır. Yalnız gönderim kapanır: geçmiş listeleme, okundu, kendi mesajını silme, engelle/kaldır ve var olan sohbeti açma açık kalır. İlişki yeniden kurulursa gönderim kendiliğinden açılır (bilgi saklanmaz, #191). Sıra: katılımcı mı → ilişki → domain (engel, gövde) — yabancı ilişkinin durumunu öğrenmez | `SendMessageCommandHandler` + `IConversationRelationshipPolicy.IsActiveAsync` → `messaging.relationship_ended` (403); yanıtlarda `isReadOnly` | 🟢 |
+| 13 | **Profil birleşmesi (#189):** öğrencinin manuel profili kanonik profile birleşince sohbetler de taşınır; kanonikte aynı üçlü varsa mesajlar kanonik sohbete katılır, kopya silinir (kanonik kazanır, engel kaybolmaz) | `MessagingStudentMergedHandler` (`StudentProfilesMerged` tüketicisi, idempotent) | 🟢 |
+
+> **Gelen kutusu maliyeti:** her satırın ilişkisi canlı sorulur; aynı (öğretmen, öğrenci), öğrenci sahipliği ve
+> (veli, öğrenci) sorusu sayfa içinde bir kez sorulur (`GetActiveStatesAsync`), sorgular **sırayla** gider (scoped
+> DbContext). En kötü durumda sayfa başına (en fazla 100 satır) satır sayısı kadar kapsam sorgusu — toplu bir
+> sözleşme metodu (`GetScopesAsync(teacher, studentIds)`) gerekirse ölçümle eklenir.
 
 > **Hız sınırı neden kullanıcı başına?** Diğer politikalar istemci IP'sine göre sayar; mesaj gönderimi
 > kullanıcı kimliğine göre sayılır. IP'ye göre sayılsaydı aynı ev veya okul ağındaki iki öğrenci
@@ -226,6 +257,9 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 
 [Mesaj gönderme] — 🟢 kodda
 İstemci → POST /conversations/{id}/messages { body }        (kullanıcı başına 30/dk)
+   → katılımcı değilse 403 messaging.not_participant
+   → ConversationRelationshipPolicy ilişkiyi kaynaktan yeniden sorar (P15 T5 / K-28)
+      → bitmişse 403 messaging.relationship_ended (geçmiş okunur, isReadOnly: true)
    → Conversation.SendMessage() → MessageSentDomainEvent(ConversationId, MessageId,
                                      SenderUserId, RecipientUserId, Preview, SentOnUtc)
       → (ortak Outbox; JsonDomainEventMapper) SourceModule="Messaging", Name="MessageSentDomainEvent"
@@ -238,6 +272,15 @@ DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak 
 Alıcı sohbeti açar → POST /conversations/{id}/read
    → gelen mesajların Message.ReadOnUtc'si ilk okumada damgalanır (idempotent) → 204
 
+[Profil birleşmesi] — 🟢 kodda (P15 T5 / #189)
+Students: StudentProfilesMergedDomainEvent(From, To)   (Ö-C claim/merge; öğretmen bağı aynı transaction'da kanoniğe)
+   → (Outbox) Messaging: MessagingStudentMergedHandler (IdempotentIntegrationEventHandler)
+      → StudentId = From olan her sohbet için kanonikte aynı (öğretmen, karşı taraf) sohbeti var mı?
+         → yoksa Conversation.MoveToStudent(To) — kimlik aynı, bildirim rotaları geçerli
+         → varsa mesajlar kanonik sohbete taşınır, Conversation.Absorb(kopya), kopya silinir
+   ⚠️ Olay işlenene kadar (outbox turu) birleşen profildeki sohbet salt-okunur görünür; öğretmen bağı zaten
+      kanonikte, veli bağı Parents tüketicisiyle taşınır.
+
 [Şikayet] — 🔴 P12 (M18)
 Uç yok; mesaj şikayeti M18 AbuseReport ile gelecek.
 ```
@@ -248,8 +291,8 @@ Uç yok; mesaj şikayeti M18 AbuseReport ile gelecek.
 > Ayrı bir sözleşme sınıfı, aynı alanların ikinci bir kopyası olurdu.
 
 > **İlişki için projeksiyon beslemesi de yok.** Önceki tasarım Students/Parents olaylarından beslenen
-> yerel bir "izinli çift" projeksiyonu öngörüyordu; bunun yerine ilişki her sohbet açılışında
-> `Shared/Contracts` dizinlerine **canlı** sorulur. Yerel kopya, bağ koptuktan sonra mesajlaşmayı
+> yerel bir "izinli çift" projeksiyonu öngörüyordu; bunun yerine ilişki her sohbet açılışında, **her gönderimde
+> ve her gelen kutusu/açma yanıtında** (P15 T5) `Shared/Contracts` dizinlerine **canlı** sorulur. Yerel kopya, bağ koptuktan sonra mesajlaşmayı
 > açık bırakma riskini taşırdı — ilişki bilgisinin sahibi Students ve Parents'tır.
 
 ---
@@ -309,6 +352,8 @@ kökteki push dinleyicisi `data.route`'u olduğu gibi `push` eder (P03 Task 5).
 | 8 | Yumuşak silmede içerik gizleniyor, satır kalıyor | ✅ | Zincir testi adım 12 (`isDeleted: true`, `body: null`) |
 | 9 | Dakikada 30 mesaj sınırı aşılınca 429 | ✅ | `Thirty_First_Message_In_A_Minute_Should_Be_Rate_Limited` — gerçek Redis; aynı IP'deki ikinci kullanıcı **etkilenmiyor** (kota kullanıcı başına) |
 | 10 | Tam test paketi (Docker'lı) yeşil | ✅ | 4 mimari / 665 birim / 44 integration (atlanan 0) / 193 mobil |
+| 11 | İlişki bitince gönderim kapanıyor, geçmiş okunuyor, ilişki dönünce açılıyor (P15 T5 / K-28) | ✅ | `RealMessagingRelationshipTests` (gerçek Postgres): arşiv → iki taraf 403 `relationship_ended` → geçmiş 200 + `isReadOnly: true` → arşivden çıkar → 200; veli iptali outbox boşaltılmadan 403 |
+| 12 | Birleşen profildeki sohbet kanonik profilde yazılabilir kalıyor (#189) | ✅ | aynı dosya: taşıma + çakışma yolu (mesajlar kanoniğe, engel korunur); tüketici kaydı kapatılınca iki test kırmızı (mutasyon) |
 
 > **Doğrulama bir hata ortaya çıkardı.** Kullanıcı başına kota, `UseAuthentication()` rate-limit
 > middleware'inden **sonra** çalıştığı için `HttpContext.User` boştu ve partition sessizce IP'ye
@@ -336,6 +381,7 @@ bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu +
 | 7 | **Premium farkları (M17)** — ek gönderimi, geçmiş derinliği, kota seviyeleri | Ek/dosya v1 kapsamında değil; kota şu an herkes için 30/dk | M17-2 sonrası |
 | 8 | **İzinli çift projeksiyonu** | **Bilerek yapılmadı**: ilişki `Shared/Contracts` üzerinden canlı sorulur. Yerel kopya, bağ koptuktan sonra mesajlaşmayı açık bırakırdı | — (karar) |
 | 9 | **Sohbet susturma** | Bildirim tercihlerine (M15) devredildi | — (karar) |
+| 10 | **Mobilde salt-okunur sohbet** | Sunucu `isReadOnly` ve `403 messaging.relationship_ended` dönüyor; mobil henüz okumuyor — `ChatCubit.canSend` yalnız `isBlocked`'a bakar, gönderilen mesaj "gönderilemedi" olur (403 oturumu kapatmaz) | **P21** |
 
 ---
 
@@ -357,4 +403,4 @@ bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu +
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-10-16 (denetim: silinen mesaj metninin gelen kutusu önizlemesinde kalması düzeltildi; gönderen/Admin silme, eski mesaj silme ve yetkisiz erişim `MessageDeletionPreviewTests` ile kapsandı) · 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-11-14 (**P15 Task 5 / N-46, K-28**: ilişki her gönderimde kaynaktan yeniden sorulur — bitince `403 messaging.relationship_ended`, geçmiş okunur, yanıtlarda `isReadOnly`; kapı `ITeacherStudentAccess == Private`'a geçti; Messaging `StudentProfilesMerged`'i tüketir (#189 — sohbet kanoniğe taşınır, çakışmada mesajlar kanoniğe katılır); §1–§5, §7 #11–12, §8 #10) · 2026-10-16 (denetim: silinen mesaj metninin gelen kutusu önizlemesinde kalması düzeltildi; gönderen/Admin silme, eski mesaj silme ve yetkisiz erişim `MessageDeletionPreviewTests` ile kapsandı) · 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*

@@ -139,6 +139,11 @@ public sealed class MessagingModule : ModuleDefinition
             // Katılımcı olmayan kullanıcı için 403: kaynağın varlığını doğrulamak sorun değil,
             // içeriği görmemesi yeterli. Kayıt gerçekten yoksa 404.
             "messaging.not_participant" => ApiErrorHttpResults.Forbidden(context, error.Message),
+
+            // P15 T5 / K-28: ilişki bitti — gönderim yasak (403), geçmiş okunur. `.Forbidden(...)` kodu
+            // `shared.forbidden`'a çevirirdi; istemci "bağ bitti"yi engelden ayırabilsin diye kod korunur (#182).
+            "messaging.relationship_ended"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status403Forbidden, error),
             "messaging.conversation_not_found" or "messaging.message_not_found"
                 => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, error),
 

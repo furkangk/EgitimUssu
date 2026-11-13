@@ -150,8 +150,11 @@ public sealed class MessagePagingTests
     private static async Task<IReadOnlyList<ConversationSummaryResponse>> InboxAsync(
         FakeMessagingRepository repository, Guid userId)
     {
+        // Sayfalama ilişkiden bağımsızdır; bağsız dizinle her satır salt-okunur gelir, bu testin konusu değil.
+        var students = new FakeMessagingStudentDirectory();
+        var policy = new ConversationRelationshipPolicy(students, students, new FakeMessagingParentAccessDirectory());
         var result = await new ListConversationsQueryHandler(
-                new FakeMessagingCurrentUser(userId, "Teacher"), repository)
+                new FakeMessagingCurrentUser(userId, "Teacher"), repository, policy)
             .Handle(new ListConversationsQuery(0, 20), CancellationToken.None);
 
         Assert.True(result.IsSuccess);

@@ -99,8 +99,13 @@ internal sealed class FakeMessagingRepository : IMessagingRepository
     }
 }
 
-/// <summary>Öğretmen↔öğrenci bağı ve öğrenci sahipliği için sahte dizin.</summary>
-internal sealed class FakeMessagingStudentDirectory : IStudentDirectory
+/// <summary>
+/// Öğretmen↔öğrenci bağı, erişim kapsamı ve öğrenci sahipliği için sahte dizin. <see cref="Links"/> yaşayan özel
+/// ders bağıdır (<see cref="TeacherAccessScope.Private"/>); <see cref="ClassMembers"/> P22'nin sınıf kapsamını taklit
+/// eder (mesaj yetkisi vermemeli — K-17). <see cref="ScopeQueryCount"/> gelen kutusunun aynı soruyu tekrar
+/// sormadığını doğrulamak içindir.
+/// </summary>
+internal sealed class FakeMessagingStudentDirectory : IStudentDirectory, ITeacherStudentAccess
 {
 
     public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -108,6 +113,19 @@ internal sealed class FakeMessagingStudentDirectory : IStudentDirectory
     public Dictionary<Guid, Guid?> Owners { get; } = [];
 
     public HashSet<(Guid TeacherUserId, Guid StudentId)> Links { get; } = [];
+
+    public HashSet<(Guid TeacherUserId, Guid StudentId)> ClassMembers { get; } = [];
+
+    public int ScopeQueryCount { get; private set; }
+
+    public Task<TeacherAccessScope> GetScopeAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        ScopeQueryCount++;
+        var scope = Links.Contains((teacherUserId, studentId))
+            ? TeacherAccessScope.Private
+            : ClassMembers.Contains((teacherUserId, studentId)) ? TeacherAccessScope.Class : TeacherAccessScope.None;
+        return Task.FromResult(scope);
+    }
 
     public Task<Guid?> GetOwnerUserIdAsync(Guid studentId, CancellationToken cancellationToken)
         => Task.FromResult(Owners.TryGetValue(studentId, out var owner) ? owner : null);

@@ -30,7 +30,7 @@ public sealed class MessageDeletionPreviewTests
         foreach (var userId in new[] { conversation.TeacherUserId, conversation.CounterpartUserId })
         {
             var inbox = await repository.ListInboxAsync(userId, 0, 10, CancellationToken.None);
-            Assert.Null(MessagingResponseFactory.From(Assert.Single(inbox), userId).LastMessagePreview);
+            Assert.Null(MessagingResponseFactory.From(Assert.Single(inbox), userId, isReadOnly: false).LastMessagePreview);
         }
     }
 

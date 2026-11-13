@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Messaging.Application;
 using EgitimUssu.Shared.Application;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,9 @@ public static class DependencyInjection
             provider => provider.GetRequiredService<AuthenticatedMessagingAuthorizer>());
         // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
         services.AddScoped<IPersonalDataAnonymizer, MessagingPersonalDataAnonymizer>();
+
+        // P15 T5 / #189: öğrenci profili birleşince sohbetler kanonik profile taşınır.
+        services.AddScoped<IIntegrationEventHandler, MessagingStudentMergedHandler>();
 
 
         return services;

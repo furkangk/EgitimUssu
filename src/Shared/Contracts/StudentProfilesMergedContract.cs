@@ -3,7 +3,7 @@ namespace EgitimUssu.Shared.Contracts;
 /// <summary>
 /// İki öğrenci profili birleştirildiğinde (Ö-C claim/merge) Students modülünün Outbox üzerinden yaydığı
 /// integration event yükü (payload). Tüketen modüller (Scheduling, Assignments, Payments, LessonSessions,
-/// Study, Parents, ProgressTracking) kendi kayıtlarındaki <c>StudentId = FromStudentId</c> satırlarını kanonik
+/// Study, Parents, ProgressTracking, Messaging) kendi kayıtlarındaki <c>StudentId = FromStudentId</c> satırlarını kanonik
 /// <c>ToStudentId</c>'ye yeniden atar. Domain event adı <c>StudentProfilesMergedDomainEvent</c> ile eşleşir.
 /// <para>
 /// P15 / N-28: Öğrenci kimliğiyle <b>benzersiz</b> satırı olan tüketici körü körüne yeniden atayamaz — kanonikte

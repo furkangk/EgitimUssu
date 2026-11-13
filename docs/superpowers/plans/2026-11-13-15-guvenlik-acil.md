@@ -164,21 +164,23 @@
 
 ---
 
-### Task 5: Mesajlaşmada süregelen ilişki kontrolü (N-46, K-28)
+### Task 5: Mesajlaşmada süregelen ilişki kontrolü (N-46, K-28) ✅
 
 **Files:**
 - Modify: `src/Modules/Messaging/Application/MessagingFeatures.cs` (gönderimde ilişki kontrolü), `MessagingPolicies.cs`
 - Modify: `src/Modules/Messaging/Domain/MessagingDomainModel.cs` (`Conversation.IsReadOnly` hesaplanan alanı yanıtta)
 - Test: `tests/Unit/MessagingRelationshipTests.cs`
+- **Yürütmede eklenen (2026-11-14):** `src/Modules/Messaging/API/MessagingModule.cs` (`messaging.relationship_ended` → `FromError(ctx, 403, …)` — `.Forbidden(...)` kodu `shared.forbidden`'a çevirirdi, #182), Create `src/Modules/Messaging/Infrastructure/MessagingStudentMergedHandler.cs` + `DependencyInjection.cs` kaydı (#189 devri — birleşme tüketicisi seçildi), `src/Shared/Contracts/StudentProfilesMergedContract.cs` (yalnız açıklama: tüketici listesine Messaging), `tests/Unit/MessagingSupport.cs` + `tests/Unit/MessagingAccessTests.cs` + `tests/Unit/MessagePagingTests.cs` + `tests/Unit/MessageDeletionPreviewTests.cs` (politika artık `ITeacherStudentAccess` alıyor; handler kurucuları ve yanıt fabrikası imzası değişti), Create `tests/Integration/RealMessagingRelationshipTests.cs` (master §1 senaryo testi + HTTP eşlemesi), dokümanlar `m16`, `00_genel_bakis.md`, `roles/*`.
+- **Kararlar (yürütmede):** (1) **Tek yüklem** açma ve gönderme için: öğretmen tarafı `ITeacherStudentAccess.GetScopeAsync == Private` (K-17: `Class` mesaj yetkisi vermez), karşı taraf öğrenciyse profil sahibi = karşı taraf, veliyse `IParentAccessDirectory` onaylı bağ (#191). İki katılımcıyı da kapatır: öğretmenin bağı arşivlenince öğrenci/veli de yazamaz. (2) Gönderim sırası: katılımcı mı → ilişki yaşıyor mu → domain (`SendMessage` imzası değişmez; ilişki dış durumdur, açmada olduğu gibi uygulama katmanında). (3) `IsReadOnly` **saklanmaz**, sorgu anında hesaplanır (saklı bayrak #191'i tekrarlardı); `ConversationResponse` ve `ConversationSummaryResponse`'a eklenir, `ListMessages` dizi biçimi değişmez. Gelen kutusunda aynı (öğretmen, öğrenci) / (veli, öğrenci) sorusu sayfa içinde bir kez sorulur, sırayla (scoped DbContext). (4) Yalnız **gönderim** kapanır; listeleme, okundu, kendi mesajını silme, engelle/kaldır ve var olan sohbeti açma (200 + `isReadOnly`) açık kalır (K-28). (5) #189: Messaging `StudentProfilesMerged`'i tüketir — kanonikte aynı üçlü yoksa `StudentId` yeniden atanır; varsa mesajlar kanonik sohbete taşınır, yeni olan son mesaj/önizleme alınır, engel bayrakları VEYA'lanır, kaynak sohbet silinir.
 - **T3'ten devreden (2026-11-14, Öğrenilenler #189):** `Conversation` öğrenciyi `StudentId` ile tutar (benzersiz `(TeacherUserId, CounterpartUserId, StudentId)`) ve Messaging `StudentProfilesMerged`'i **tüketmiyor**. T3 birleşmede öğretmen bağını kanonik kimliğe taşıdığı için birleşen (manuel) kimlikte kapsam `None` olur → bu görevin ilişki kontrolü, birleşmiş öğrencinin ilişkisi **süren** eski sohbetini `relationship_ended` / salt-okunur sayar. Ya bir Messaging birleşme tüketicisi eklenir (kanonikte aynı üçlü varsa benzersiz indeks çakışır → mesajlar kanonik sohbete taşınıp kaynak sohbet silinir/kapatılır; yoksa `StudentId` yeniden atanır) ya da ilişki kontrolü birleşmiş kimliği kanoniğe çözer (`MergedIntoStudentId`, `IStudentDirectory` üzerinden). **Ek kırmızı test:** birleşme sonrası eski sohbette gönderim 200 ve `isReadOnly: false`.
 
 **Interfaces:**
 - Produces: gönderim → `403 messaging.relationship_ended`; `ConversationSummaryResponse.IsReadOnly` (yalnız ekleme).
 - Consumes: `ITeacherStudentAccess` (T2), `IParentAccessDirectory`.
 
-- [ ] **Step 1: Kırmızı testler** — bağı arşivlenen öğretmen–öğrenci sohbetinde gönderim 403; geçmiş listeleme 200 ve `isReadOnly: true`; veli bağı iptal edilen veli gönderemez; ilişki sürüyorsa davranış değişmez.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m16_messaging.md`; rapor N-46 ✅.
+- [x] **Step 1: Kırmızı testler** — bağı arşivlenen öğretmen–öğrenci sohbetinde gönderim 403; geçmiş listeleme 200 ve `isReadOnly: true`; veli bağı iptal edilen veli gönderemez; ilişki sürüyorsa davranış değişmez. (13 birim `MessagingRelationshipTests` + 4 integration `RealMessagingRelationshipTests`: arşiv → iki taraf 403 → arşivden çıkar → 200 pozitif kontrolü, veli iptali outbox boşaltılmadan 403, sınıf kapsamı mesaj açmaz, birleşmede taşıma + çakışma yolu.)
+- [x] **Step 2: Kırmızı gör.** (Önce derleme CS1729/CS1061; sonra iskeletle 11/13 birim + 4/4 integration davranışsal kırmızı — 2 yeşil birim test koruma testi.) **Step 3: Uygula.** **Step 4: Yeşil gör.** (4 / 941 / 88, başarısız 0, atlanan 0; `-warnaserror` 0 uyarı; drift 0. Mutasyon: birleşme tüketicisinin kaydı kapatılınca 2 integration kırmızı.)
+- [x] **Step 5: Doküman + commit** — `m16_messaging.md`; rapor N-46 ✅. (Ek: `00_genel_bakis.md`, `roles/ogretmen|ogrenci|veli.md`.)
   ```bash
   git commit -m "fix(messaging): iliski bitince gonderim kapanir, gecmis salt-okunur (N-46)"
   ```
