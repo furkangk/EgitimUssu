@@ -36,17 +36,20 @@ public sealed class CreateParentInviteCommandHandler : ICommandHandler<CreatePar
     private static readonly Error StudentNotFound = new("students.student_not_found", "Öğrenci bulunamadı.");
     private readonly IStudentParentInviteRepository _repository;
     private readonly IStudentProfileRepository _profileRepository;
+    private readonly ISecureCodeGenerator _codes;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateParentInviteCommandHandler(
         IStudentParentInviteRepository repository,
         IStudentProfileRepository profileRepository,
+        ISecureCodeGenerator codes,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
         _profileRepository = profileRepository;
+        _codes = codes;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -59,14 +62,16 @@ public sealed class CreateParentInviteCommandHandler : ICommandHandler<CreatePar
             return Result<ParentInviteResponse>.Failure(StudentNotFound);
         }
 
-        var inviteCode = TeacherStudentLink.GenerateInviteCode();
+        var inviteCode = _codes.NewCode();
+        var now = _clock.UtcNow;
         var invite = new StudentParentInvite(
             _idGenerator.New(),
             command.StudentId,
             command.TeacherUserId,
             inviteCode,
             command.ChildDisplayName,
-            _clock.UtcNow);
+            now,
+            now.AddDays(InvitePolicy.ExpiryDays));
 
         await _repository.AddAsync(invite, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);

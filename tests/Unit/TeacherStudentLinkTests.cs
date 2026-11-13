@@ -131,7 +131,7 @@ public sealed class TeacherStudentLinkTests
         var profile = new StudentProfile(studentId, null, teacherId, null, "Ali", "9", null, null, null, null, StudentOrigin.TeacherManaged, true, Now);
         var linkRepo = new SingleLinkRepo(link);
 
-        var invite = new InviteStudentCommandHandler(linkRepo, new FakeClock());
+        var invite = new InviteStudentCommandHandler(linkRepo, new EgitimUssu.Shared.Infrastructure.SecureCodeGenerator(), new FakeClock());
         var inviteResult = await invite.Handle(new InviteStudentCommand(teacherId, studentId, studentUserId), CancellationToken.None);
 
         Assert.True(inviteResult.IsSuccess);
@@ -181,7 +181,7 @@ public sealed class TeacherStudentLinkTests
     {
         var target = Guid.NewGuid();
         var link = New();
-        link.MarkInviteSent("123456", target, Now);
+        link.MarkInviteSent("123456", target, Now.AddDays(7), Now);
         Assert.Equal(TeacherStudentLinkStatus.InviteSent, link.Status);
         Assert.Equal(target, link.InviteTargetUserId);
 
@@ -189,7 +189,7 @@ public sealed class TeacherStudentLinkTests
         Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
 
         var link2 = New();
-        link2.MarkInviteSent("654321", target, Now);
+        link2.MarkInviteSent("654321", target, Now.AddDays(7), Now);
         link2.Reject(Now);
         Assert.Equal(TeacherStudentLinkStatus.Rejected, link2.Status);
     }

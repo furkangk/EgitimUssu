@@ -356,6 +356,10 @@ public sealed class StudentsModule : ModuleDefinition
             "students.link_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "students.invite_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "students.invite_invalid" => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error),
+            "students.invite_expired" => ApiErrorHttpResults.FromError(context, StatusCodes.Status410Gone, result.Error),
+            "students.cannot_claim_own_invite" or "students.claim_requires_student_role"
+                => ApiErrorHttpResults.FromError(context, StatusCodes.Status403Forbidden, result.Error),
+            "shared.too_many_attempts" => ApiErrorHttpResults.FromError(context, StatusCodes.Status429TooManyRequests, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
         };

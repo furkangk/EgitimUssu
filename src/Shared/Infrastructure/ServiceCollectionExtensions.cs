@@ -61,6 +61,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITokenBlacklist, RedisTokenBlacklist>();
         services.AddSingleton<IIdempotencyStore, RedisIdempotencyStore>();
 
+        // P15 / N-20: Davet ve katılım kodları kriptografik rastgelelikle üretilir; kod tahmini
+        // kullanıcı başına sınırlanır (Redis, fail-open).
+        services.AddSingleton<ISecureCodeGenerator, SecureCodeGenerator>();
+        services.AddSingleton<IInviteClaimAttemptLimiter, InviteClaimAttemptLimiter>();
+
         // K-01: E-posta sağlayıcısı konfigürasyonla seçilir; kod hiçbir sağlayıcıya bağlı değildir.
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddScoped<IEmailSender>(provider =>

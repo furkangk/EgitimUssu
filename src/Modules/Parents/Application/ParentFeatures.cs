@@ -375,27 +375,59 @@ public sealed class SetParentMembershipTierCommandHandler : ICommandHandler<SetP
     }
 }
 
+/// <summary>
+/// Veli, öğretmenin ürettiği kodu girerek çocuğa bağlanır (Veli V-D); bağ doğrudan onaylıdır.
+/// <para>
+/// P15 / N-20: kod normalize edilir; süresi dolmuş kod ve daveti üretenin kendi kodunu kullanması
+/// reddedilir; bulunamayan/süresi dolmuş her deneme kullanıcı başına sayılır, eşik aşılınca doğru kod da
+/// reddedilir (<see cref="IInviteClaimAttemptLimiter"/>). Rol kontrolü authorizer'dadır.
+/// </para>
+/// </summary>
 public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>
 {
     private readonly IParentRepository _repository;
     private readonly IParentInviteDirectory _inviteDirectory;
+    private readonly IInviteClaimAttemptLimiter _attempts;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
-    public ClaimParentInviteCommandHandler(IParentRepository repository, IParentInviteDirectory inviteDirectory, IClock clock, IIdGenerator idGenerator)
+    public ClaimParentInviteCommandHandler(
+        IParentRepository repository,
+        IParentInviteDirectory inviteDirectory,
+        IInviteClaimAttemptLimiter attempts,
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _repository = repository;
         _inviteDirectory = inviteDirectory;
+        _attempts = attempts;
         _clock = clock;
         _idGenerator = idGenerator;
     }
 
     public async Task<Result<ChildLinkResponse>> Handle(ClaimParentInviteCommand command, CancellationToken cancellationToken)
     {
-        var info = await _inviteDirectory.ResolveAsync(command.InviteCode.Trim(), cancellationToken);
+        if (await _attempts.IsBlockedAsync(command.ParentUserId, cancellationToken))
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.TooManyAttempts);
+        }
+
+        var info = await _inviteDirectory.ResolveAsync(SecureCode.Normalize(command.InviteCode), cancellationToken);
         if (info is null)
         {
+            await _attempts.RecordFailureAsync(command.ParentUserId, cancellationToken);
             return Result<ChildLinkResponse>.Failure(ParentErrors.InviteNotFound);
+        }
+
+        if (_clock.UtcNow >= info.ExpiresOnUtc)
+        {
+            await _attempts.RecordFailureAsync(command.ParentUserId, cancellationToken);
+            return Result<ChildLinkResponse>.Failure(ParentErrors.InviteExpired);
+        }
+
+        if (info.InviterUserId == command.ParentUserId)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.CannotClaimOwnInvite);
         }
 
         var existing = await _repository.GetActiveLinkAsync(command.ParentUserId, info.StudentId, cancellationToken);
@@ -438,6 +470,7 @@ public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParen
             throw;
         }
 
+        await _attempts.ResetAsync(command.ParentUserId, cancellationToken);
         return Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
 }
@@ -603,6 +636,10 @@ public static class ParentErrors
     public static readonly Error LinkNotApproved = new("parents.link_not_approved", "Bu çocuğun verilerine erişmek için bağın onaylı olması gerekir.");
     public static readonly Error PrimaryExists = new("parents.primary_exists", "Bu çocuğun zaten bir birincil velisi var; birincil bağ için mevcut birincil velinin (veya yöneticinin) onayı gerekir.");
     public static readonly Error InviteNotFound = new("parents.invite_not_found", "Davet kodu bulunamadı veya kullanılmış.");
+    public static readonly Error InviteExpired = new("parents.invite_expired", "Davet kodunun süresi dolmuş. Öğretmenden yeni bir kod isteyin.");
+    public static readonly Error CannotClaimOwnInvite = new("parents.cannot_claim_own_invite", "Kendi oluşturduğunuz daveti kullanamazsınız.");
+    public static readonly Error ClaimRequiresParentRole = new("parents.claim_requires_parent_role", "Veli davet kodunu yalnız veli hesabı kullanabilir.");
+    public static readonly Error TooManyAttempts = new("shared.too_many_attempts", "Çok fazla hatalı kod denemesi. Lütfen daha sonra tekrar deneyin.");
     public static readonly Error InvalidRequest = new("parents.invalid_request", "Veli isteği bilgileri eksik veya hatalı.");
 }
 

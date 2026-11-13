@@ -324,8 +324,14 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
 
     public Guid? InviteTargetUserId { get; private set; }
 
-    /// <summary>Öğrencinin hesabını devralmak (claim) için girdiği tekil davet kodu (6 haneli, rakam) (Ö-C).</summary>
+    /// <summary>
+    /// Öğrencinin hesabını devralmak (claim) için girdiği tekil davet kodu (Ö-C). P15 / N-20: 8 karakter,
+    /// <see cref="SecureCode.Alphabet"/>'ten; eski 6 haneli sayısal kodlar süreleri dolana kadar geçerli kalır.
+    /// </summary>
     public string? InviteCode { get; private set; }
+
+    /// <summary>P15 / N-20: Davetin son geçerlilik anı; <c>null</c> = davet yok.</summary>
+    public DateTime? InviteExpiresOnUtc { get; private set; }
 
     public DateTime CreatedOnUtc { get; private set; }
 
@@ -350,18 +356,27 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
-    public void MarkInviteSent(string inviteCode, Guid? targetUserId, DateTime updatedOnUtc)
+    /// <summary>Daveti gönderilmiş işaretler. Kod <see cref="ISecureCodeGenerator"/> ile üretilip buraya geçilir.</summary>
+    /// <param name="inviteCode">Davet kodu (normalize edilerek saklanır).</param>
+    /// <param name="targetUserId">Daveti yalnız bu kullanıcı yanıtlayabilir; <c>null</c> = açık davet.</param>
+    /// <param name="expiresOnUtc">Son geçerlilik anı.</param>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>İşlem sonucu.</returns>
+    public Result MarkInviteSent(string inviteCode, Guid? targetUserId, DateTime expiresOnUtc, DateTime nowUtc)
     {
         Status = TeacherStudentLinkStatus.InviteSent;
-        InviteCode = inviteCode;
+        InviteCode = SecureCode.Normalize(inviteCode);
         InviteTargetUserId = targetUserId;
-        UpdatedOnUtc = updatedOnUtc;
-        Raise(new TeacherStudentInviteSentDomainEvent(Id, TeacherUserId, StudentId, targetUserId, updatedOnUtc));
+        InviteExpiresOnUtc = expiresOnUtc;
+        UpdatedOnUtc = nowUtc;
+        Raise(new TeacherStudentInviteSentDomainEvent(Id, TeacherUserId, StudentId, targetUserId, nowUtc));
+        return Result.Success();
     }
 
-    /// <summary>6 haneli rakamsal davet kodu üretir (Ö-C). Handler tarafından üretilip <see cref="MarkInviteSent"/>'e geçilir.</summary>
-    public static string GenerateInviteCode()
-        => Random.Shared.Next(0, 1_000_000).ToString("D6");
+    /// <summary>Davetin süresi dolmuş mu? Süre bilgisi olmayan davet (göç öncesi) dolmuş sayılmaz.</summary>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>Dolmuşsa <c>true</c>.</returns>
+    public bool IsInviteExpired(DateTime nowUtc) => InviteExpiresOnUtc is { } expires && nowUtc >= expires;
 
     public void Accept(DateTime updatedOnUtc)
     {
@@ -375,6 +390,13 @@ public sealed class TeacherStudentLink : AggregateRoot<Guid>
         Status = TeacherStudentLinkStatus.Rejected;
         UpdatedOnUtc = updatedOnUtc;
     }
+}
+
+/// <summary>P15 / N-20 (K-24): Davet kodu kuralları.</summary>
+public static class InvitePolicy
+{
+    /// <summary>Öğrenci ve veli davetlerinin geçerlilik süresi (gün).</summary>
+    public const int ExpiryDays = 7;
 }
 
 public enum TeacherStudentLinkStatus
@@ -407,16 +429,25 @@ public sealed class StudentParentInvite : AggregateRoot<Guid>
 {
     private StudentParentInvite() { }
 
-    public StudentParentInvite(Guid id, Guid studentId, Guid teacherUserId, string inviteCode, string? childDisplayName, DateTime createdOnUtc)
+    public StudentParentInvite(Guid id, Guid studentId, Guid teacherUserId, string inviteCode, string? childDisplayName, DateTime createdOnUtc, DateTime expiresOnUtc)
     {
         Id = id;
         StudentId = studentId;
         TeacherUserId = teacherUserId;
-        InviteCode = inviteCode;
+        InviteCode = SecureCode.Normalize(inviteCode);
         ChildDisplayName = childDisplayName?.Trim();
         Status = ParentInviteStatus.Pending;
         CreatedOnUtc = createdOnUtc;
+        ExpiresOnUtc = expiresOnUtc;
     }
+
+    /// <summary>P15 / N-20: Davetin son geçerlilik anı.</summary>
+    public DateTime ExpiresOnUtc { get; private set; }
+
+    /// <summary>Davetin süresi dolmuş mu?</summary>
+    /// <param name="nowUtc">Şu an.</param>
+    /// <returns>Dolmuşsa <c>true</c>.</returns>
+    public bool IsExpired(DateTime nowUtc) => nowUtc >= ExpiresOnUtc;
 
     public Guid StudentId { get; private set; }
     public Guid TeacherUserId { get; private set; }

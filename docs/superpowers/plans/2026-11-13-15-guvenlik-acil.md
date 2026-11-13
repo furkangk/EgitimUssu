@@ -25,7 +25,7 @@
 
 ---
 
-### Task 1: Güvenli kod üreteci + davet kodlarının sertleştirilmesi (N-20)
+### Task 1: Güvenli kod üreteci + davet kodlarının sertleştirilmesi (N-20) ✅
 
 **Files:**
 - Create: `src/Shared/Kernel/ISecureCodeGenerator.cs`, `src/Shared/Infrastructure/SecureCodeGenerator.cs`
@@ -38,6 +38,7 @@
 - Create: `src/Shared/Infrastructure/Caching/InviteClaimAttemptLimiter.cs` (Redis; kullanıcı başına 10 başarısız/saat)
 - Migration: `HardenInviteCodes` (Students)
 - Test: `tests/Unit/SecureCodeGeneratorTests.cs`, `tests/Unit/InviteCodeHardeningTests.cs`, `tests/Integration/RealInviteClaimTests.cs`
+- **Yürütmede eklenen (2026-11-13):** `src/Shared/Application/IInviteClaimAttemptLimiter.cs` (arayüz Students ve Parents'ın ortak bağımlılığı olduğu için Shared/Application'da), `src/Shared/Contracts/ParentInviteContract.cs` (`ParentInviteInfo` + `InviterUserId`, `ExpiresOnUtc`), `src/Modules/Students/Infrastructure/TeacherStudentLinkRepository.cs` (bekleyen davet öncelikli arama), `src/Modules/Students/API/StudentsModule.cs` + `src/Modules/Parents/API/ParentsModule.cs` (410/403/429 eşlemeleri), mevcut testler `ClaimParentInviteTests`, `StudentClaimTests`, `TeacherStudentLinkTests`, `StudentParentInviteTests` (yeni imzalar; veli claim sertleştirme testleri `ClaimParentInviteTests`'e eklendi). `InviteOptions.ExpiryDays` yerine domain sabiti `InvitePolicy.ExpiryDays = 7` (YAGNI). Kendi kodunu kullanma hatası iki modülde ayrı: `students.cannot_claim_own_invite`, `parents.cannot_claim_own_invite`; öğrenci claim'i için ayrıca `students.claim_requires_student_role`.
 
 **Interfaces:**
 - Produces:
@@ -47,17 +48,17 @@
   - Hatalar: `students.invite_expired`, `parents.invite_expired`, `shared.too_many_attempts` (429), `parents.claim_requires_parent_role`, `students.cannot_claim_own_invite`.
 - Consumes: `IClock`, `IRedisConnection` (mevcut).
 
-- [ ] **Step 1: Kırmızı testleri yaz**
+- [x] **Step 1: Kırmızı testleri yaz**
   - `SecureCodeGeneratorTests`: 8 karakter, yalnız alfabe, 10.000 üretimde çakışma yok, `Random.Shared` kullanılmıyor (kaynak taraması: `grep "Random.Shared" src/Modules/Students` boş).
   - `InviteCodeHardeningTests`: süresi geçmiş veli daveti claim → `parents.invite_expired`; `Teacher` rolündeki kullanıcı veli kodu claim → `parents.claim_requires_parent_role`; daveti üreten kullanıcı kendi kodunu claim → `students.cannot_claim_own_invite`; küçük harfli kod normalize edilip kabul.
   - `RealInviteClaimTests` (Testcontainers): 10 yanlış kod denemesinden sonra 11. deneme **429**; doğru kod da o saat içinde 429 (kilit).
-- [ ] **Step 2: Kırmızı gör** — `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~SecureCodeGenerator|FullyQualifiedName~InviteCodeHardening"`
-- [ ] **Step 3: Üreteci yaz + DI kaydı; iki handler'ı üreteci kullanacak şekilde değiştir.** Davet süresi 7 gün (`InviteOptions.ExpiryDays`, varsayılan 7).
-- [ ] **Step 4: Migration** — `InviteExpiresOnUtc` kolonları; **mevcut bekleyen davetler için `Up`: `UPDATE ... SET "InviteExpiresOnUtc" = now() + interval '7 days' WHERE status = Pending`**; filtreli benzersiz indeks `(InviteCode) WHERE Status = Pending`. Önce aynı kodlu bekleyen tekrarları SQL ile en yenisi hariç `Expired` yap.
+- [x] **Step 2: Kırmızı gör** — `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~SecureCodeGenerator|FullyQualifiedName~InviteCodeHardening"`
+- [x] **Step 3: Üreteci yaz + DI kaydı; iki handler'ı üreteci kullanacak şekilde değiştir.** Davet süresi 7 gün (`InviteOptions.ExpiryDays`, varsayılan 7).
+- [x] **Step 4: Migration** — `InviteExpiresOnUtc` kolonları; **mevcut bekleyen davetler için `Up`: `UPDATE ... SET "InviteExpiresOnUtc" = now() + interval '7 days' WHERE status = Pending`**; filtreli benzersiz indeks `(InviteCode) WHERE Status = Pending`. Önce aynı kodlu bekleyen tekrarları SQL ile en yenisi hariç `Expired` yap.
   `dotnet ef migrations add HardenInviteCodes --project src/Modules/Students/Infrastructure --startup-project src/API.Host --context StudentsDbContext` → `./scripts/check-migration-down.sh`
-- [ ] **Step 5: Claim yolları** — `ClaimParentInvite` ve öğrenci `links/claim`: rol kontrolü, süre, kendi kodu, limiter (başarısızda artır, başarıda sıfırla).
-- [ ] **Step 6: Yeşil gör** — `dotnet test EgitimUssu.slnx` + `./scripts/test-with-docker.sh` (integration atlanmamalı)
-- [ ] **Step 7: Doküman + commit** — `doc/modules/m03_students.md`, `m09_parents.md` (kod biçimi, süre, limit), rapor N-20 ✅.
+- [x] **Step 5: Claim yolları** — `ClaimParentInvite` ve öğrenci `links/claim`: rol kontrolü, süre, kendi kodu, limiter (başarısızda artır, başarıda sıfırla).
+- [x] **Step 6: Yeşil gör** — `dotnet test EgitimUssu.slnx` + `./scripts/test-with-docker.sh` (integration atlanmamalı)
+- [x] **Step 7: Doküman + commit** — `doc/modules/m03_students.md`, `m09_parents.md` (kod biçimi, süre, limit), rapor N-20 ✅.
   ```bash
   git commit -m "fix(security): davet kodlari CSPRNG + sureli + deneme limitli + rol kontrollu (N-20)"
   ```

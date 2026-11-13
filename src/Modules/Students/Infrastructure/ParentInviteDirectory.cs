@@ -24,13 +24,16 @@ internal sealed class ParentInviteDirectory : IParentInviteDirectory
     /// <inheritdoc />
     public async Task<ParentInviteInfo?> ResolveAsync(string inviteCode, CancellationToken cancellationToken)
     {
+        var normalized = SecureCode.Normalize(inviteCode);
         var invite = await _dbContext.StudentParentInvites
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                item => item.InviteCode == inviteCode && item.Status == ParentInviteStatus.Pending,
+                item => item.InviteCode == normalized && item.Status == ParentInviteStatus.Pending,
                 cancellationToken);
 
-        return invite is null ? null : new ParentInviteInfo(invite.Id, invite.StudentId, invite.ChildDisplayName);
+        return invite is null
+            ? null
+            : new ParentInviteInfo(invite.Id, invite.StudentId, invite.ChildDisplayName, invite.TeacherUserId, invite.ExpiresOnUtc);
     }
 
     /// <inheritdoc />

@@ -6,7 +6,7 @@ status: "🟢/🟡"
 authority: code
 code_refs:
   - src/Modules/Students/**
-updated: 2026-09-04
+updated: 2026-11-13
 ---
 
 # 🎓 Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım Dokümanı
@@ -47,7 +47,7 @@ updated: 2026-09-04
 | **Öğrenci arşivleme / arşivden çıkarma** | ✅ var (Dilim C) | `Archive/Unarchive`; arşivli öğrenci varsayılan listede gizli, limit sayımına dahil |
 | **Öğrenci bazlı ücret** (B-07) | ✅ var (Dilim C) | `AgreedRateAmount` + `Currency` link üzerinde |
 | **Manuel öğrenciyi gerçek hesaba bağlama (davet/kabul)** | ✅ var (Dilim C) | `Invite` → `Accept`; kabul eden `currentUser` profile bağlanır (`LinkUser`) |
-| **Davet kodu ile claim (Ö-C)** | ✅ var (Ö-C) | `InviteStudent` 6 haneli `InviteCode` üretir; öğrenci `ClaimStudentLinkCommand` ile kodu girip profili devralır (`POST /links/claim`) |
+| **Davet kodu ile claim (Ö-C)** | ✅ var (Ö-C) | `InviteStudent` 8 karakterli güvenli `InviteCode` üretir (P15 / N-20: `ISecureCodeGenerator`, 7 gün geçerli); öğrenci `ClaimStudentLinkCommand` ile kodu girip profili devralır (`POST /links/claim`) |
 | **Tam profil birleştirme (merge, Ö-C/B5)** | ✅ var (Ö-C) | Öğrencinin mevcut self-profil'i varsa claim'de kanonik=self, manuel profil `MarkMerged`; `StudentProfilesMergedDomainEvent` → Outbox → modüller-arası `StudentId` yeniden atama |
 | ContactEmail benzersizlik kontrolü | 🟡 kısmi | `ExistsByContactEmailAsync` repo'da var ama create handler'da kullanılmıyor |
 | Self-register mobil akışı | 🟢 var | `by-user` çözümü + yoksa `SelfRegistered` otomatik oluşturma (`StudentRepository.getByUser`/`createSelfProfile`), öğrenci `study` feature ilk girişinde tetiklenir |
@@ -129,10 +129,11 @@ StudentProfilesMergedDomainEvent(Guid FromStudentId, Guid ToStudentId, DateTime 
 | `Status` | enum `TeacherStudentLinkStatus` | Bağlantı durumu (string olarak saklanır) |
 | `IsArchived` | bool | Arşiv bayrağı (listede gizle; limit sayımını etkilemez) |
 | `InviteTargetUserId` | Guid? | Davet belirli bir kullanıcıya yöneldiyse hedef |
-| `InviteCode` | string? | Öğrencinin claim için gireceği 6 haneli davet kodu (Ö-C); `students` şemasında indeksli, `varchar(8)` |
+| `InviteCode` | string? | Öğrencinin claim için gireceği davet kodu (Ö-C). P15 / N-20: 8 karakter, `SecureCode.Alphabet` (karışan `0 O 1 I L` yok), büyük harfe normalize; `varchar(8)`; **bekleyen (`InviteSent`) davetler arasında benzersiz** (filtreli indeks `IX_teacher_student_links_InviteCode_pending`) |
+| `InviteExpiresOnUtc` | DateTime? | P15 / N-20: davetin son geçerlilik anı (`InvitePolicy.ExpiryDays` = 7 gün); `null` = davet yok |
 | `CreatedOnUtc`, `UpdatedOnUtc` | DateTime | Oluşturma / güncelleme (UTC) |
 
-**Davranış:** `SetRate(amount, currency, ...)`, `Archive(...)` / `Unarchive(...)`, `MarkInviteSent(inviteCode, targetUserId?, ...)` (→ `TeacherStudentInviteSentDomainEvent`; kod handler'da `GenerateInviteCode()` ile üretilir — 6 haneli rakam), `Accept(...)` (→ `TeacherStudentLinkAcceptedDomainEvent`), `Reject(...)`.
+**Davranış:** `SetRate(amount, currency, ...)`, `Archive(...)` / `Unarchive(...)`, `MarkInviteSent(inviteCode, targetUserId?, expiresOnUtc, now)` → `Result` (→ `TeacherStudentInviteSentDomainEvent`; kod handler'da `ISecureCodeGenerator.NewCode()` ile üretilir — P15 / N-20; eski `GenerateInviteCode()` / `Random.Shared` kaldırıldı), `IsInviteExpired(now)`, `Accept(...)` (→ `TeacherStudentLinkAcceptedDomainEvent`), `Reject(...)`.
 
 | Enum | Değerler |
 |------|----------|
@@ -178,10 +179,10 @@ Tüm uçlar `RoutePrefix = /api/students` altında ve grup **`RequireAuthorizati
 | Öğrenci davet et (B-06) | `POST /teachers/{teacherUserId:guid}/students/{studentId:guid}/invite` | `TeacherStudentLinkAuthorizer` | `InviteStudentRequest` | `204` |
 | Daveti kabul et | `POST /links/{linkId:guid}/accept` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
 | Daveti reddet | `POST /links/{linkId:guid}/reject` | `TeacherStudentLinkResponseAuthorizer` | — (`currentUser`) | `204` |
-| **Davet kodu ile profili devral (Ö-C)** | `POST /links/claim` | `TeacherStudentLinkResponseAuthorizer` (açık claim: kimliği doğrulanmış herhangi bir öğrenci; kod bilgisi sahiplik yerine geçer) | `ClaimLinkRequest` (`currentUser` = devralan) | `204` |
+| **Davet kodu ile profili devral (Ö-C)** | `POST /links/claim` | `TeacherStudentLinkResponseAuthorizer` (açık claim: kod bilgisi sahiplik yerine geçer; P15 / N-20: **yalnız `Student` (veya Admin) rolü** → aksi `403 students.claim_requires_student_role`) | `ClaimLinkRequest` (`currentUser` = devralan) | `204` |
 | **Veli davet kodu üret (Veli V-D)** | `POST /profiles/{studentId:guid}/parent-invite` | `CreateParentInviteCommandAuthorizer` (öğretmen = `TeacherUserId` / Admin) | `CreateParentInviteRequest(TeacherUserId, ChildDisplayName?)` | `ParentInviteResponse(Id, InviteCode)` · öğrenci yoksa `404 students.student_not_found` |
 
-**`StudentParentInvite` aggregate (Veli V-D):** Öğretmenin bir öğrenci için ürettiği veli davet kodu (`InviteCode` 6 haneli, `TeacherStudentLink.GenerateInviteCode()` deseni). Alanlar: `Id, StudentId, TeacherUserId, InviteCode, ChildDisplayName?, Status (Pending→Claimed), ClaimedByParentUserId?, CreatedOnUtc, ClaimedOnUtc?`. `Claim(parentUserId, now)` yalnız `Pending`'den çalışır (tekrar → `InvalidOperationException`). Tablo `student_parent_invites`. Veli tarafı bu kodu **`IParentInviteDirectory`** (`ResolveAsync`/`MarkClaimedAsync`, Students uygular) ile çözer; claim, Parents'ta `ParentChildLink` oluşturup **onaylar** (öğretmen kodu = öğretmen onayı, veli kod girer = veli onayı).
+**`StudentParentInvite` aggregate (Veli V-D):** Öğretmenin bir öğrenci için ürettiği veli davet kodu (P15 / N-20: `InviteCode` 8 karakter, `ISecureCodeGenerator`; bekleyenler arasında benzersiz — `IX_student_parent_invites_InviteCode_pending`). Alanlar: `Id, StudentId, TeacherUserId, InviteCode, ChildDisplayName?, Status (Pending→Claimed), ClaimedByParentUserId?, CreatedOnUtc, ExpiresOnUtc (7 gün), ClaimedOnUtc?`; `IsExpired(now)`. `Claim(parentUserId, now)` yalnız `Pending`'den çalışır (tekrar → `InvalidOperationException`). Tablo `student_parent_invites`. Veli tarafı bu kodu **`IParentInviteDirectory`** (`ResolveAsync`/`MarkClaimedAsync`, Students uygular) ile çözer (P15: `ResolveAsync` kodu normalize eder ve `ParentInviteInfo`'ya **daveti üreten** + **son geçerlilik** bilgisini koyar; süre kararı Parents'tadır); claim, Parents'ta `ParentChildLink` oluşturup **onaylar** (öğretmen kodu = öğretmen onayı, veli kod girer = veli onayı).
 
 **Modüller-arası sözleşme (Shared.Contracts):** M03, öğrenci↔kullanıcı bağının otoritesidir ve
 `IStudentDirectory` sözleşmesini `StudentDirectory` ile uygular (2026-07-07):
@@ -221,7 +222,7 @@ StudentProfileSummaryResponse(Guid Id, string FullName, string GradeLevel, strin
 
 SetStudentRateRequest(decimal AgreedRateAmount, string Currency)   // B-07
 InviteStudentRequest(Guid? TargetUserId)                            // B-06; hedef opsiyonel (açık davet)
-ClaimLinkRequest(string InviteCode)                                 // Ö-C; öğretmenin verdiği 6 haneli kod
+ClaimLinkRequest(string InviteCode)                                 // Ö-C; öğretmenin verdiği 8 karakterli kod (büyük/küçük harf duyarsız)
 ```
 
 ### 3.2 Hata Kodları → HTTP Eşleme (koddan)
@@ -234,6 +235,10 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
 | `students.link_not_found` | **404** | Ogrenci baglantisi bulunamadi. (arşiv/ücret/davet uçları) |
 | `students.invite_not_found` | **404** | Davet kodu bulunamadi. (claim ucu) |
 | `students.invite_invalid` | **400** | Davet kodu artik gecerli degil. (claim ucu; link `InviteSent` değil) |
+| `students.invite_expired` | **410** | P15 / N-20: davetin süresi dolmuş (7 gün) |
+| `students.cannot_claim_own_invite` | **403** | P15 / N-20: daveti üreten öğretmen kendi kodunu kullanamaz |
+| `students.claim_requires_student_role` | **403** | P15 / N-20: claim yalnız öğrenci hesabı |
+| `shared.too_many_attempts` | **429** | P15 / N-20: kullanıcı başına saatte 10 başarısız deneme (`IInviteClaimAttemptLimiter`, Redis, fail-open); eşik aşılınca doğru kod da reddedilir |
 | `shared.forbidden` | **403** | Bu işlemi yapma / bu kaynağa erişim yetkiniz yok. |
 | `students.invalid_origin` | 400 | Öğrenci profili kaynağı ile kimlik bilgileri uyumsuz. |
 | `students.invalid_request` | 400 | (Validator) Ad soyad ve sınıf seviyesi zorunlu. |
@@ -252,7 +257,7 @@ ClaimLinkRequest(string InviteCode)                                 // Ö-C; ö�
 
 - [ ] **`PATCH /profiles/{studentId}/status`** — ayrı pasifleştirme ucu (şimdilik PUT ile `isActive: false` göndererek yapılıyor).
 - [x] **Manuel öğrenciyi gerçek hesaba bağlama** — `.../invite` + `/links/{linkId}/accept` ile karşılandı (Dilim C).
-- [x] **Davet kodu ile devralma + profil birleştirme** — `.../invite` 6 haneli kod üretir; `POST /links/claim` ile öğrenci devralır, mevcut self-profil varsa merge (Ö-C).
+- [x] **Davet kodu ile devralma + profil birleştirme** — `.../invite` 8 karakterli güvenli kod üretir (P15 / N-20; 7 gün, rol kontrolü, deneme limiti); `POST /links/claim` ile öğrenci devralır, mevcut self-profil varsa merge (Ö-C).
 - [x] **`POST /profiles/{studentId}/link-parent`** — gerçek veli kullanıcısı bağlama (2026-09-04, P06/M03-1). Bkz. §3.4.
 - [x] **`POST` / `DELETE /profiles/{studentId}/subjects[/{subjectId}]`** — branş ekleme/çıkarma (2026-09-04, P06/M03-2). Bkz. §3.4.
 - [x] **`GET /profiles/by-parent/{parentUserId}`** — velinin **onaylı** çocuklarını listeleme (2026-09-04, P06/M03-3). Bkz. §3.4.
@@ -414,4 +419,4 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 
 ---
 
-*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P09 Task 2 / M03-4: öğretmen öğrenci limiti artık `StudentLimits.FreeStudentLimit` sabitinden değil `IEntitlementDirectory.MaxStudents`'ten okunuyor (Free 5, Premium sınırsız); `StudentProfile.MembershipTier` **LEGACY** işaretlendi — karar bu alandan okunmuyor, yalnız geçiş köprüsünün girdisi (P12'de silinecek). Önceki not — 2026-09-04 (P08 Task 4 / M14-4: `IStudentDirectory`'ye `GetDisplayNameAsync` eklendi — öğrenci adı Reporting'in PDF rapor başlığına açıldı; profil yoksa `null` döner, çağıran uydurma ad üretmez) · 2026-09-04 (P08 Task 2 / M10-2: `IStudentDirectory`'ye `IsLinkedTeacherOfStudentAsync` eklendi — öğretmen–öğrenci bağı ProgressTracking'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **branş ekleme gerçek Postgres'te 500 veriyordu** — `StudentSubject.Id` `ValueGeneratedNever` yapıldı, migration `StudentSubjectValueGeneratedNever`) · 2026-09-04 (P06 Task 9 / M03-1+M03-2+M03-3: `link-parent` (Pending bağ, `IParentChildLinkRequestService`), branş ekle/sil uçları + `StudentSubjectResponse.Id`, `by-parent` onaylı çocuk listesi; mobil öğrenci detayında branş ekle/sil + veli bağla) · 2026-09-04 (P06 Task 5 / M07-2: `IStudentDirectory`'ye `GetAgreedLessonRateAsync` eklendi — B-07 ücreti Payments'a açıldı) · 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*
+*Öğrenci Profili (Students) Modülü (M03) — Detaylı Tasarım | Güncelleme: 2026-11-13 (P15 Task 1 / N-20: öğrenci ve veli davet kodları `ISecureCodeGenerator` ile 8 karakter, 7 gün geçerli, bekleyenler arasında benzersiz; claim rol kontrollü, kendi kodunu kullanma yasak, kullanıcı başına deneme kilidi; migration `HardenInviteCodes`). Önceki not — 2026-09-04 (P09 Task 2 / M03-4: öğretmen öğrenci limiti artık `StudentLimits.FreeStudentLimit` sabitinden değil `IEntitlementDirectory.MaxStudents`'ten okunuyor (Free 5, Premium sınırsız); `StudentProfile.MembershipTier` **LEGACY** işaretlendi — karar bu alandan okunmuyor, yalnız geçiş köprüsünün girdisi (P12'de silinecek). Önceki not — 2026-09-04 (P08 Task 4 / M14-4: `IStudentDirectory`'ye `GetDisplayNameAsync` eklendi — öğrenci adı Reporting'in PDF rapor başlığına açıldı; profil yoksa `null` döner, çağıran uydurma ad üretmez) · 2026-09-04 (P08 Task 2 / M10-2: `IStudentDirectory`'ye `IsLinkedTeacherOfStudentAsync` eklendi — öğretmen–öğrenci bağı ProgressTracking'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **branş ekleme gerçek Postgres'te 500 veriyordu** — `StudentSubject.Id` `ValueGeneratedNever` yapıldı, migration `StudentSubjectValueGeneratedNever`) · 2026-09-04 (P06 Task 9 / M03-1+M03-2+M03-3: `link-parent` (Pending bağ, `IParentChildLinkRequestService`), branş ekle/sil uçları + `StudentSubjectResponse.Id`, `by-parent` onaylı çocuk listesi; mobil öğrenci detayında branş ekle/sil + veli bağla) · 2026-09-04 (P06 Task 5 / M07-2: `IStudentDirectory`'ye `GetAgreedLessonRateAsync` eklendi — B-07 ücreti Payments'a açıldı) · 2026-09-02 (F-02: self-register kodda; davet/kabul/red/claim uçları hazır, mobil ekranlar eksik) · 2026-07-19 (Veli V-D: `StudentParentInvite` veli davet kodu + `POST /profiles/{id}/parent-invite` + `IParentInviteDirectory` kontratı + `student_parent_invites` migration; Veli V-A: `StudentProfile.DateOfBirth` doğum tarihi alanı — create/update/response + `date` sütun migration; yaş-bazlı politika/KVKK yok; Ö-C: davet kodu `InviteCode` + kod tabanlı claim `POST /links/claim` + tam profil birleştirme merge `StudentProfilesMergedDomainEvent` → modüller-arası `StudentId` yeniden atama; Ö-B: `TargetExam` hedef sınavı S-03.9 — M08 net formülü böleni; Dilim C: `TeacherStudentLink` çoklu öğretmen bağlantısı, free limit=5, arşivleme, öğrenci bazlı ücret B-07, davet/kabul B-06)*

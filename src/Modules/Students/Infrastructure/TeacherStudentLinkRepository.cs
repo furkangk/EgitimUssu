@@ -32,7 +32,13 @@ internal sealed class TeacherStudentLinkRepository : ITeacherStudentLinkReposito
 
     public Task<TeacherStudentLink?> GetByInviteCodeAsync(string inviteCode, CancellationToken cancellationToken)
     {
-        return _dbContext.TeacherStudentLinks.FirstOrDefaultAsync(link => link.InviteCode == inviteCode, cancellationToken);
+        // P15 / N-20: Bekleyen davet önceliklidir. Kullanılmış (Linked) eski kayıtlar aynı kodu taşıyabilir —
+        // eski 6 haneli kodlar çakışabiliyordu; bekleyen davet varsa o döner, yoksa "artık geçersiz" yanıtı
+        // için geçmiş kayıt döner.
+        return _dbContext.TeacherStudentLinks
+            .Where(link => link.InviteCode == inviteCode)
+            .OrderBy(link => link.Status == TeacherStudentLinkStatus.InviteSent ? 0 : 1)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public Task<int> CountByTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken)

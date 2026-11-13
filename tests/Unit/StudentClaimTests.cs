@@ -56,11 +56,18 @@ public sealed class StudentClaimTests
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;
     }
 
+    private sealed class NoopLimiter : EgitimUssu.Shared.Application.IInviteClaimAttemptLimiter
+    {
+        public Task<bool> IsBlockedAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(false);
+        public Task RecordFailureAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ResetAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
     [Fact]
     public void MarkInviteSent_StoresCode()
     {
         var link = new TeacherStudentLink(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), TeacherStudentLinkStatus.Manual, Now);
-        link.MarkInviteSent("123456", null, Now);
+        link.MarkInviteSent("123456", null, Now.AddDays(7), Now);
         Assert.Equal("123456", link.InviteCode);
         Assert.Equal(TeacherStudentLinkStatus.InviteSent, link.Status);
     }
@@ -72,12 +79,12 @@ public sealed class StudentClaimTests
         var studentId = Guid.NewGuid();
         var claimingUserId = Guid.NewGuid();
         var link = new TeacherStudentLink(Guid.NewGuid(), teacherId, studentId, TeacherStudentLinkStatus.Manual, Now);
-        link.MarkInviteSent("123456", null, Now);
+        link.MarkInviteSent("123456", null, Now.AddDays(7), Now);
         var manualProfile = new StudentProfile(studentId, null, teacherId, null, "Ali", "9", null, null, null, null, StudentOrigin.TeacherManaged, true, Now);
 
         var linkRepo = new ClaimLinkRepo(link);
         var profileRepo = new ClaimProfileRepo(manualProfile, byUserId: null);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("123456", claimingUserId), CancellationToken.None);
 
@@ -95,13 +102,13 @@ public sealed class StudentClaimTests
         var claimingUserId = Guid.NewGuid();
 
         var link = new TeacherStudentLink(Guid.NewGuid(), teacherId, manualStudentId, TeacherStudentLinkStatus.Manual, Now);
-        link.MarkInviteSent("123456", null, Now);
+        link.MarkInviteSent("123456", null, Now.AddDays(7), Now);
         var manualProfile = new StudentProfile(manualStudentId, null, teacherId, null, "Ali", "9", null, null, null, null, StudentOrigin.TeacherManaged, true, Now);
         var selfProfile = new StudentProfile(selfStudentId, claimingUserId, null, null, "Ali Veli", "9", null, null, null, null, StudentOrigin.SelfRegistered, true, Now);
 
         var linkRepo = new ClaimLinkRepo(link);
         var profileRepo = new ClaimProfileRepo(manualProfile, byUserId: selfProfile);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("123456", claimingUserId), CancellationToken.None);
 
@@ -124,7 +131,7 @@ public sealed class StudentClaimTests
     {
         var linkRepo = new ClaimLinkRepo(null);
         var profileRepo = new ClaimProfileRepo(null, null);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("000000", Guid.NewGuid()), CancellationToken.None);
 
@@ -138,12 +145,12 @@ public sealed class StudentClaimTests
         var link = new TeacherStudentLink(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), TeacherStudentLinkStatus.Manual, Now);
         // Manuel durumda kod atanmış ama davet gönderilmemiş varsay: kodu doğrudan set edemeyiz,
         // bu yüzden InviteSent yapıp ardından Accept ile Linked'e çekerek "artık geçersiz" durumu kurarız.
-        link.MarkInviteSent("123456", null, Now);
+        link.MarkInviteSent("123456", null, Now.AddDays(7), Now);
         link.Accept(Now);
 
         var linkRepo = new ClaimLinkRepo(link);
         var profileRepo = new ClaimProfileRepo(null, null);
-        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new FakeClock());
+        var handler = new ClaimStudentLinkCommandHandler(linkRepo, profileRepo, new NoopLimiter(), new FakeClock());
 
         var result = await handler.Handle(new ClaimStudentLinkCommand("123456", Guid.NewGuid()), CancellationToken.None);
 

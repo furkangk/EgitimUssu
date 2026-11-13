@@ -95,8 +95,18 @@ public sealed class ParentAuthorizer :
         => Task.FromResult(RequireSelfOrAdmin(command.ParentUserId));
 
     // Davet kodu claim: kodu bilen, kendi kimliğiyle işlem yapan veli (veya Admin). Kod bilgisi onay kanıtıdır.
+    // P15 / N-20: veli rolü zorunlu — öğretmen ya da öğrenci hesabı veli bağı kuramaz.
     public Task<Result> Authorize(ClaimParentInviteCommand command, CancellationToken cancellationToken)
-        => Task.FromResult(RequireSelfOrAdmin(command.ParentUserId));
+    {
+        var self = RequireSelfOrAdmin(command.ParentUserId);
+        if (self.IsFailure || IsAdmin)
+        {
+            return Task.FromResult(self);
+        }
+
+        return Task.FromResult(
+            _currentUser.Roles.Contains("Parent") ? Result.Success() : Result.Failure(ParentErrors.ClaimRequiresParentRole));
+    }
 
     // Üyelik seviyesi değişimi: yalnız Admin (satın alma altyapısı gelene kadar; Veli V-E).
     public Task<Result> Authorize(SetParentMembershipTierCommand command, CancellationToken cancellationToken)
