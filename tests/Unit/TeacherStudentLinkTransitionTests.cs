@@ -247,6 +247,8 @@ public sealed class TeacherStudentLinkTransitionTests
         var studentUserId = Guid.NewGuid();
         var link = InvitedLink(studentUserId, manualId, teacherId);
         var manual = ManualProfile(manualId, teacherId);
+        var approvedParent = Guid.NewGuid();
+        manual.LinkParent(approvedParent, Now);
         var canonical = SelfProfile(canonicalId, studentUserId);
         var store = new LinkStore(link);
         var invites = new ParentInviteStore(new StudentParentInvite(Guid.NewGuid(), manualId, teacherId, "PQRS2345", "Ali", Now, Now.AddDays(7)));
@@ -261,6 +263,8 @@ public sealed class TeacherStudentLinkTransitionTests
         Assert.Equal(canonicalId, link.StudentId);
         Assert.Equal(TeacherStudentLinkStatus.Linked, link.Status);
         Assert.Equal(canonicalId, Assert.Single(invites.Invites).StudentId);
+        // Kanonik profilin velisi boştu → birleşenin onaylı velisi taşındı.
+        Assert.Equal(approvedParent, canonical.ParentUserId);
         // Kabul olayı kanonik kimliği taşır (Reporting'in birleştirme tüketicisi yok).
         Assert.Equal(canonicalId, Assert.Single(link.DomainEvents.OfType<TeacherStudentLinkAcceptedDomainEvent>()).StudentId);
         Assert.Equal(1, store.SaveCount);

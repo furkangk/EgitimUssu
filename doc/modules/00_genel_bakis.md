@@ -165,7 +165,7 @@ POST /profiles/{studentId}/subjects   DELETE /profiles/{studentId}/subjects/{sub
 GET /profiles/by-parent/{parentUserId}   (velinin ONAYLI çocukları; yalnız o veli veya Admin, M03-3 2026-09-04)
 [expose] IParentInviteDirectory (Shared.Contracts) — Parents claim bunu tüketir
 [expose] IStudentDirectory.GetDisplayNameAsync (Shared.Contracts) — Reporting PDF rapor başlığı (M14-4)
-[expose] ITeacherStudentAccess.GetScopeAsync (Shared.Contracts) — öğretmen–öğrenci erişim kapsamı None/Private/Class (K-13, P15 T2); Scheduling/Payments/LessonSessions yazma uçları + Students veli daveti tüketir, IsLinkedTeacherOfStudentAsync buna delege
+[expose] ITeacherStudentAccess.GetScopeAsync (Shared.Contracts) — öğretmen–öğrenci erişim kapsamı None/Private/Class (K-13, P15 T2); Scheduling/Payments/LessonSessions yazma uçları + Students veli daveti ve profil okuma (P15 T3) tüketir, IsLinkedTeacherOfStudentAsync buna delege
 [consume] IParentChildLinkRequestService + IParentAccessDirectory (Parents uygular) — veli bağı talebi + onaylı çocuk listesi
 ```
 ### Scheduling — `/api/scheduling`

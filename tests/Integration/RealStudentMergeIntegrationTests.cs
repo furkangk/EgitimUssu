@@ -127,6 +127,7 @@ public sealed class RealStudentMergeIntegrationTests(ContainerFixture fixture)
         var studentUserId = await RegisterAsync(student, role: 3, "Birlesme-Ogrenci");
         await RegisterAsync(secondParent, role: 4, "Birlesme-Veli2");
         var firstParentUserId = Guid.NewGuid();
+        var canonicalParentUserId = Guid.NewGuid();
 
         // Öğrencinin kendi açtığı profil (kanonik) ve öğretmenin aynı öğrenci için açtığı manuel profil.
         var canonicalId = await CreateProfileAsync(student, userId: studentUserId, createdByTeacherUserId: null, origin: 2);
@@ -162,6 +163,12 @@ public sealed class RealStudentMergeIntegrationTests(ContainerFixture fixture)
                 approvedOnManual.Approve(firstParentUserId, null, now);
                 parents.ParentChildLinks.Add(approvedOnManual);
                 parents.ParentChildLinks.Add(new ParentChildLink(Guid.NewGuid(), firstParentUserId, canonicalId, "Ada", "Anne", null, true, now));
+                // Kanonik profilin kendi onaylı birincil velisi (daha erken bağlanmış): birleşmede iki onaylı birincil
+                // aynı öğrenciye gelir — fazlası TAŞIMADAN ÖNCE düşürülmeli (P15 T4'ün kısmi benzersiz indeksi).
+                var approvedOnCanonical = new ParentChildLink(
+                    Guid.NewGuid(), canonicalParentUserId, canonicalId, "Ada", "Baba", null, true, now.AddMinutes(-5));
+                approvedOnCanonical.Approve(canonicalParentUserId, null, now.AddMinutes(-5));
+                parents.ParentChildLinks.Add(approvedOnCanonical);
                 var manualSnapshot = new ChildProgressSnapshot(Guid.NewGuid(), manualId, now);
                 manualSnapshot.RegisterPlannedLesson(now);
                 manualSnapshot.RegisterPlannedLesson(now);
@@ -209,13 +216,14 @@ public sealed class RealStudentMergeIntegrationTests(ContainerFixture fixture)
                 Assert.False(link.IsArchived);
                 Assert.Equal(750m, link.AgreedRateAmount);
                 Assert.Equal(canonicalId, (await students.StudentParentInvites.AsNoTracking().SingleAsync(x => x.InviteCode == parentInviteCode)).StudentId);
-                // Manuel profildeki onaylı veli, boş olan kanonik profile taşınır (T4'e kadar veli okuması bu alana bakar).
-                Assert.Equal(firstParentUserId, (await students.StudentProfiles.AsNoTracking().SingleAsync(x => x.Id == canonicalId)).ParentUserId);
+                // Kanonik profilin kendi velisi korunur — birleşenin velisi yalnız alan boşsa taşınır (birim testinde).
+                Assert.Equal(canonicalParentUserId, (await students.StudentProfiles.AsNoTracking().SingleAsync(x => x.Id == canonicalId)).ParentUserId);
 
                 var access = scope.ServiceProvider.GetRequiredService<ITeacherStudentAccess>();
                 Assert.Equal(TeacherAccessScope.Private, await access.GetScopeAsync(teacherId, canonicalId, CancellationToken.None));
 
-                // Parents: aynı velinin tek yaşayan bağı kanonikte (onaylı + birincil), manuel profil hiçbir veliye görünmez.
+                // Parents: aynı velinin tek yaşayan bağı kanonikte (onaylı), manuel profil hiçbir veliye görünmez;
+                // öğrencinin tek onaylı birincil velisi kalır — en erken bağlanan (kanoniğin velisi).
                 var parents = scope.ServiceProvider.GetRequiredService<ParentsDbContext>();
                 Assert.Equal(0, await parents.ParentChildLinks.CountAsync(x => x.StudentId == manualId));
                 var liveLinks = await parents.ParentChildLinks.AsNoTracking()
@@ -225,7 +233,11 @@ public sealed class RealStudentMergeIntegrationTests(ContainerFixture fixture)
                 var live = Assert.Single(liveLinks);
                 Assert.Equal(canonicalId, live.StudentId);
                 Assert.Equal(ParentChildLinkStatus.Approved, live.Status);
-                Assert.True(live.IsPrimaryContact);
+                Assert.False(live.IsPrimaryContact);
+                var primary = Assert.Single(await parents.ParentChildLinks.AsNoTracking()
+                    .Where(x => x.StudentId == canonicalId && x.Status == ParentChildLinkStatus.Approved && x.IsPrimaryContact)
+                    .ToListAsync());
+                Assert.Equal(canonicalParentUserId, primary.ParentUserId);
                 Assert.Equal(0, await parents.KnownStudents.CountAsync(x => x.StudentId == manualId));
                 Assert.Equal(studentUserId, (await parents.KnownStudents.AsNoTracking().SingleAsync(x => x.StudentId == canonicalId)).UserId);
                 Assert.Equal(0, await parents.ChildProgressSnapshots.CountAsync(x => x.StudentId == manualId));

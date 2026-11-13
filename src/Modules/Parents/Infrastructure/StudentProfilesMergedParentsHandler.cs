@@ -14,8 +14,9 @@ namespace EgitimUssu.Modules.Parents.Infrastructure;
 /// <list type="bullet">
 /// <item><b>Veli bağları</b> (benzersiz indeks yok — çakışma sessizdir): aynı velinin iki profildeki yaşayan
 /// (<c>Pending</c>/<c>Approved</c>) bağlarından biri kalır — onaylı olan, eşitlikte kanoniktekine; diğerleri
-/// <c>Revoked</c> olur (satır geçmiş olarak kalır). Sonra bütün bağlar kanonik kimliğe taşınır. Birden çok onaylı
-/// birincil veli kalırsa en erken bağlanan birincil kalır (V-C, P15 T4'ün kısmi benzersiz indeksi).</item>
+/// <c>Revoked</c> olur (satır geçmiş olarak kalır). Birden çok onaylı birincil veli kalacaksa en erken bağlanan
+/// birincil kalır, diğerleri <b>taşımadan önce</b> düşürülür (V-C; P15 T4'ün kısmi benzersiz indeksi taşıma ifadesini
+/// reddederdi). Sonra bütün bağlar kanonik kimliğe taşınır.</item>
 /// <item><b>Öğrenci→kullanıcı eşlemesi</b> (<c>known_students</c>, benzersiz): kanonik satır doğru kullanıcıyı
 /// taşır, kaynak satır silinir; kanonik satır henüz yoksa kaynak taşınır (kanoniğin oluşturma olayı düzeltir).</item>
 /// <item><b>Veli paneli özeti</b> (<c>child_progress_snapshots</c>, benzersiz): kanonikte yoksa taşınır, varsa
@@ -97,14 +98,9 @@ internal sealed class StudentProfilesMergedParentsHandler : IdempotentIntegratio
                     cancellationToken);
         }
 
-        await ParentsDb.ParentChildLinks
-            .Where(link => link.StudentId == from)
-            .ExecuteUpdateAsync(
-                setters => setters
-                    .SetProperty(link => link.StudentId, to)
-                    .SetProperty(link => link.UpdatedOnUtc, now),
-                cancellationToken);
-
+        // Fazla birincil veli TAŞIMADAN ÖNCE düşürülür: iki profilin onaylı birincilleri aynı anda kanonik
+        // kimliğe gelirse "öğrenci başına tek onaylı birincil" kısmi benzersiz indeksi (P15 T4) taşıma ifadesini
+        // reddeder ve mesaj outbox'ta sonsuza dek yeniden denenir. En erken bağlanan birincil kalır.
         var demotedPrimaries = survivors
             .Where(link => link.Status == ParentChildLinkStatus.Approved && link.IsPrimaryContact)
             .OrderBy(link => link.LinkedOnUtc ?? link.RequestedOnUtc)
@@ -121,6 +117,14 @@ internal sealed class StudentProfilesMergedParentsHandler : IdempotentIntegratio
                         .SetProperty(link => link.UpdatedOnUtc, now),
                     cancellationToken);
         }
+
+        await ParentsDb.ParentChildLinks
+            .Where(link => link.StudentId == from)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(link => link.StudentId, to)
+                    .SetProperty(link => link.UpdatedOnUtc, now),
+                cancellationToken);
     }
 
     private async Task MergeKnownStudentAsync(Guid from, Guid to, CancellationToken cancellationToken)

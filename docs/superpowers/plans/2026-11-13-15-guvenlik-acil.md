@@ -168,6 +168,7 @@
 - Modify: `src/Modules/Messaging/Application/MessagingFeatures.cs` (gönderimde ilişki kontrolü), `MessagingPolicies.cs`
 - Modify: `src/Modules/Messaging/Domain/MessagingDomainModel.cs` (`Conversation.IsReadOnly` hesaplanan alanı yanıtta)
 - Test: `tests/Unit/MessagingRelationshipTests.cs`
+- **T3'ten devreden (2026-11-14, Öğrenilenler #189):** `Conversation` öğrenciyi `StudentId` ile tutar (benzersiz `(TeacherUserId, CounterpartUserId, StudentId)`) ve Messaging `StudentProfilesMerged`'i **tüketmiyor**. T3 birleşmede öğretmen bağını kanonik kimliğe taşıdığı için birleşen (manuel) kimlikte kapsam `None` olur → bu görevin ilişki kontrolü, birleşmiş öğrencinin ilişkisi **süren** eski sohbetini `relationship_ended` / salt-okunur sayar. Ya bir Messaging birleşme tüketicisi eklenir (kanonikte aynı üçlü varsa benzersiz indeks çakışır → mesajlar kanonik sohbete taşınıp kaynak sohbet silinir/kapatılır; yoksa `StudentId` yeniden atanır) ya da ilişki kontrolü birleşmiş kimliği kanoniğe çözer (`MergedIntoStudentId`, `IStudentDirectory` üzerinden). **Ek kırmızı test:** birleşme sonrası eski sohbette gönderim 200 ve `isReadOnly: false`.
 
 **Interfaces:**
 - Produces: gönderim → `403 messaging.relationship_ended`; `ConversationSummaryResponse.IsReadOnly` (yalnız ekleme).
