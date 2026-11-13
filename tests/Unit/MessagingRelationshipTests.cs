@@ -253,6 +253,37 @@ public sealed class MessagingRelationshipTests
         Assert.Equal(queriesBefore + 1, teacher.Students.ScopeQueryCount);
     }
 
+    /// <summary>
+    /// #189 çakışma yolu: kopya sohbet açılışta oluşur (mesajsız, <c>LastMessageOnUtc = açılış</c>, önizleme yok).
+    /// Mesajsız ama daha yeni bir kopya kanoniğin son mesajını <c>null</c> önizlemeyle ezmemeli ve sıralamasını
+    /// öne çekmemeli; engeli yine de korunmalı. Mesajlı daha yeni kopyanın son mesajı alınır.
+    /// </summary>
+    [Fact]
+    public void Absorb_Takes_The_Newer_Last_Message_But_Ignores_An_Empty_Copy()
+    {
+        var canonical = Conversation.Create(
+            Guid.NewGuid(), ParticipantRole.Teacher, TeacherUserId, ParticipantRole.Parent, ParentUserId, OtherStudentId, Now).Value!;
+        canonical.SendMessage(Guid.NewGuid(), TeacherUserId, "Kanonik mesaj", Now);
+        var emptyCopy = Conversation.Create(
+            Guid.NewGuid(), ParticipantRole.Teacher, TeacherUserId, ParticipantRole.Parent, ParentUserId, StudentId, Now.AddMinutes(5)).Value!;
+        emptyCopy.Block(ParentUserId, Now.AddMinutes(6));
+
+        canonical.Absorb(emptyCopy, copyHasMessages: false);
+
+        Assert.Equal("Kanonik mesaj", canonical.LastMessagePreview);
+        Assert.Equal(Now, canonical.LastMessageOnUtc);
+        Assert.True(canonical.IsBlockedByCounterpart);
+
+        var fullCopy = Conversation.Create(
+            Guid.NewGuid(), ParticipantRole.Teacher, TeacherUserId, ParticipantRole.Parent, ParentUserId, StudentId, Now).Value!;
+        fullCopy.SendMessage(Guid.NewGuid(), ParentUserId, "Daha yeni", Now.AddMinutes(10));
+
+        canonical.Absorb(fullCopy, copyHasMessages: true);
+
+        Assert.Equal("Daha yeni", canonical.LastMessagePreview);
+        Assert.Equal(Now.AddMinutes(10), canonical.LastMessageOnUtc);
+    }
+
     /// <summary>Aynı depo ve dizinleri paylaşan, kullanıcısı değiştirilebilen kurulum (sohbetin iki tarafı tek testte).</summary>
     private sealed class Fixture
     {

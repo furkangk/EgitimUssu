@@ -66,13 +66,14 @@ internal sealed class MessagingStudentMergedHandler : IdempotentIntegrationEvent
             }
 
             // Mesajlar önce taşınır (tabanın transaction'ında); sonra kanonik özet güncellenir ve kopya silinir.
-            await MessagingDb.Messages
+            // Taşınan satır sayısı Absorb'a gider: mesajsız kopyanın "son hareketi" yalnız açılış anıdır.
+            var movedMessages = await MessagingDb.Messages
                 .Where(message => message.ConversationId == source.Id)
                 .ExecuteUpdateAsync(
                     setters => setters.SetProperty(message => message.ConversationId, canonical.Id),
                     cancellationToken);
 
-            canonical.Absorb(source);
+            canonical.Absorb(source, copyHasMessages: movedMessages > 0);
             MessagingDb.Conversations.Remove(source);
         }
 

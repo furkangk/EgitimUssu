@@ -112,7 +112,7 @@ updated: 2026-11-14
 | `CanSend(senderUserId)` | `bool` | Engel **çift yönlüdür**: taraflardan biri engellediyse hiçbir taraf gönderemez |
 | `HasParticipant(userId)` / `RecipientOf(senderUserId)` | `bool` / `Guid?` | Yetki kontrolleri ve bildirim alıcısı için |
 | `MoveToStudent(canonicalStudentId)` | `void` | P15 T5 / #189: profil birleşince bağlamı kanonik profile taşır; sohbet kimliği değişmez (bildirim rotaları geçerli kalır) |
-| `Absorb(merged)` | `void` | P15 T5 / #189: kanonikte aynı üçlü varsa birleşen kopyanın özetini emer — daha yeni son mesaj/önizleme alınır, engel bayrakları VEYA'lanır, açılış anı en eskisi; taraflar farklıysa `InvalidOperationException` |
+| `Absorb(merged, copyHasMessages)` | `void` | P15 T5 / #189: kanonikte aynı üçlü varsa birleşen kopyanın özetini emer — kopyadan mesaj taşındıysa ve daha yeniyse son mesaj/önizleme alınır (mesajsız kopya kanoniğin önizlemesini ezmez, sırasını öne çekmez), engel bayrakları her durumda VEYA'lanır, açılış anı en eskisi; taraflar farklıysa `InvalidOperationException` |
 
 > **İlişki domainde değil:** `SendMessage` ilişkinin yaşadığını bilmez — bu dış durumdur (Students/Parents) ve
 > açılıştaki gibi uygulama katmanında, `IConversationRelationshipPolicy` ile denetlenir (§4 kural 12).

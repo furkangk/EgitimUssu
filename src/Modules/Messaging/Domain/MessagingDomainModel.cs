@@ -291,14 +291,17 @@ public sealed class Conversation : AggregateRoot<Guid>
     /// birleşmeyle kalkmamalı), açılış anı en eskisidir.
     /// </summary>
     /// <param name="merged">Aynı üçlünün birleşen profildeki kopyası.</param>
-    public void Absorb(Conversation merged)
+    /// <param name="copyHasMessages">Kopyadan kanoniğe en az bir mesaj taşındı mı.</param>
+    public void Absorb(Conversation merged, bool copyHasMessages)
     {
         if (merged.TeacherUserId != TeacherUserId || merged.CounterpartUserId != CounterpartUserId)
         {
             throw new InvalidOperationException("Yalnız aynı taraflar arasındaki sohbetler birleştirilebilir.");
         }
 
-        if (merged.LastMessageOnUtc > LastMessageOnUtc)
+        // Mesajsız kopyanın LastMessageOnUtc'si yalnız açılış anıdır, önizlemesi yoktur: kanoniğin son mesajını
+        // null önizlemeyle ezmemeli, gelen kutusu sırasını boş bir sohbetle öne çekmemeli.
+        if (copyHasMessages && merged.LastMessageOnUtc > LastMessageOnUtc)
         {
             LastMessageOnUtc = merged.LastMessageOnUtc;
             LastMessagePreview = merged.LastMessagePreview;
