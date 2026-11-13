@@ -107,6 +107,54 @@ public sealed class RealParentAccessRevocationTests(ContainerFixture fixture)
         Assert.Equal("Approved", (await ReadJsonAsync(approve)).GetProperty("status").GetString());
     }
 
+    /// <summary>
+    /// Yetki testi kuralı (plan Global Constraints): N-27 onay yetkisini davetle bağlanan öğrenciye genişletti — genişleme
+    /// yalnız <b>kendi</b> profiline olmalı. Başka bir profile davetle bağlanmış öğrenci, ilgisiz veli ve talebi açan velinin
+    /// kendisi başkasının bağını onaylayamaz/reddedemez; iptal de yalnız bağın velisi, öğrencisi ya da Admin'indir.
+    /// </summary>
+    [SkippableFact]
+    public async Task Only_The_Linked_Student_Decides_On_A_Parent_Request()
+    {
+        Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
+
+        using var _ = RealInfrastructure.Use(fixture);
+        await using var factory = new WebApplicationFactory<Program>();
+
+        var teacher = NewClient(factory, "10.154.5.1");
+        var student = NewClient(factory, "10.154.5.2");
+        var otherStudent = NewClient(factory, "10.154.5.3");
+        var parent = NewClient(factory, "10.154.5.4");
+        var unrelatedParent = NewClient(factory, "10.154.5.5");
+        var teacherUserId = await RegisterAsync(teacher, role: 2, "Yetki-Ogretmen");
+        var studentUserId = await RegisterAsync(student, role: 3, "Yetki-Ogrenci");
+        var otherStudentUserId = await RegisterAsync(otherStudent, role: 3, "Yetki-Baska-Ogrenci");
+        var parentUserId = await RegisterAsync(parent, role: 4, "Yetki-Veli");
+        await RegisterAsync(unrelatedParent, role: 4, "Yetki-Ilgisiz-Veli");
+        var studentId = await CreateTeacherProfileAsync(teacher, teacherUserId);
+        var otherStudentId = await CreateTeacherProfileAsync(teacher, teacherUserId);
+        await StudentLinkTestHelper.LinkStudentAccountAsync(factory, teacher, student, teacherUserId, studentId, studentUserId);
+        await StudentLinkTestHelper.LinkStudentAccountAsync(factory, teacher, otherStudent, teacherUserId, otherStudentId, otherStudentUserId);
+        await DrainOutboxAsync(factory);
+
+        var linkId = await RequestLinkAsync(parent, parentUserId, studentId);
+
+        foreach (var outsider in new[] { otherStudent, unrelatedParent })
+        {
+            foreach (var action in new[] { "approve", "reject", "revoke" })
+            {
+                var response = await outsider.PostAsync($"/api/parents/children/{linkId}/{action}", null);
+                Assert.True(response.StatusCode == HttpStatusCode.Forbidden, $"{action}: {(int)response.StatusCode}");
+            }
+        }
+
+        // Veli kendi talebini onaylayamaz/reddedemez (iptal edebilir — kendi bağı).
+        Assert.Equal(HttpStatusCode.Forbidden, (await parent.PostAsync($"/api/parents/children/{linkId}/approve", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await parent.PostAsync($"/api/parents/children/{linkId}/reject", null)).StatusCode);
+
+        // Bağ hâlâ bekliyor; karar profilin öğrencisinde.
+        Assert.Equal(HttpStatusCode.OK, (await student.PostAsync($"/api/parents/children/{linkId}/approve", null)).StatusCode);
+    }
+
     [SkippableFact]
     public async Task Hidden_Privacy_Of_A_Student_Linked_By_Invite_Is_Respected_On_The_Parent_Dashboard()
     {
@@ -124,6 +172,13 @@ public sealed class RealParentAccessRevocationTests(ContainerFixture fixture)
         var studentId = await CreateTeacherProfileAsync(teacher, teacherUserId);
         await StudentLinkTestHelper.LinkStudentAccountAsync(factory, teacher, student, teacherUserId, studentId, studentUserId);
         await ClaimParentInviteAsync(parent, await CreateParentInviteAsync(teacher, studentId, teacherUserId));
+        await DrainOutboxAsync(factory);
+
+        // Pozitif kontrol: öğrenci henüz kısıtlamadı → paylaşım açık. Bu, eşlemenin gerçekten geldiğini kanıtlar;
+        // yoksa aşağıdaki "gizli" sonucu tüketiciden değil fail-closed varsayılandan da gelebilirdi.
+        var before = await parent.GetAsync($"/api/parents/{parentUserId}/children/{studentId}/dashboard");
+        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
+        Assert.True((await ReadJsonAsync(before)).GetProperty("study").GetProperty("isShared").GetBoolean());
 
         var hidden = await student.PutAsJsonAsync($"/api/settings/users/{studentUserId}", new
         {
