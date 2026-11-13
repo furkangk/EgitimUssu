@@ -12,6 +12,7 @@
 - Yeni/değişen her ekran: ARB, widget testi, `doc/pages/<ekran>.md` + `00_pages_index.md`.
 - Davet kodları K-24 biçiminde gösterilir/girilir (8 karakter, büyük harf, karışmayan alfabe); paylaşım `share_plus` ile.
 - Para girişleri `Money.parseTr` (P18 T4); yazma çağrıları `idempotent: true`.
+- **Görsel referans (2026-11-14):** [ekran taslakları tuvali](https://claude.ai/artifact/6e7YYdH63gdDy8yeQFf77Q) — 54 ekran, design system'e göre. Çelişkide **özellik ve alanlar koddan**, görsel dil taslaktan alınır; taslağın koddan saptığı yerler (ör. veli "Çocuk bağla" satır içi davet kodu kartı, sohbette karşı tarafın adı) öneridir, Task 0'da kapsama alınıp alınmayacağı yazılır.
 
 ---
 
@@ -33,6 +34,7 @@
 - **Kabul:** veli kodu girer → bağ **anında onaylı**, panoda çocuk görünür; hiçbir ekranda GUID istenmez.
 
 ### Task 4: Öğretmen takvim işlemleri (rapor 2.1-3, §4-7)
+- **K-30 (kullanıcı onaylı 2026-11-14):** öğretmen alt menüsü 6 → 5 sekme — Ana sayfa · Program · Öğrenciler · Finans · Diğer; "Program" Takvim ve Dersler'i `Takvim | Dersler` bölümlü seçiciyle birleştirir (taslak O04/O08). Derin bağlantılar `/scheduling` ve `/lesson-sessions` çalışmaya devam eder.
 - Tatil bloğu oluştur/listele/sil (P16 T4 çakışma uyarısıyla); öğrenci erteleme talepleri gelen kutusu (kabul/ret, oluşum bazlı — P17 T1); online ders linkine dokununca `url_launcher` ile açılır (kopyala ikincil).
 - **Kabul:** tatil bloğu takvimde görünür ve içine ders açmak uyarı verir; talep kabulü yalnız o oluşumu taşır.
 

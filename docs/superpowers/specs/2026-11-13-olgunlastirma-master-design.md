@@ -59,6 +59,7 @@ Bu vizyon PRD v2.1'i genişletir: PRD ürünü "Özel Ders Yönetim ve Eşleşti
 | **K-27** | **Yayın kapısı** (bkz. §3.2). Kapı maddeleri bitmeden ilgili yayın yapılmaz. | Mağaza reddi ve hukuki risk. | — | Öneri (Q15) |
 | **K-28** | **Mesajlaşma:** ilişki (özel bağ / veli bağı) bitince sohbete **gönderim kapanır**, geçmiş **salt-okunur** kalır. | N-46; kullanıcının kendi geçmişini görmesi meşru, yeni temas değil. | Sohbeti tamamen gizlemek | Öneri |
 | **K-29** | **Migration konsolidasyonu (P-13) en son**, açık özellik planı yokken (P26 son görevi). Konsolidasyonda outbox/inbox modül şemasında kalır; `job_leases`, `outgoing_emails`, `module_states` tek `infra` şemasına taşınır; eski migration'lar squash edilip yeni baseline alınır. | Concurrency token ve yeni modül migration'larıyla çakışmasın. | Hemen squash | Öneri |
+| **K-30** | **Öğretmen alt menüsü 5 sekme:** Ana sayfa · **Program** · Öğrenciler · Finans · Diğer. "Program" bugünkü Dersler ve Takvim sekmelerini birleştirir; üstte `Takvim \| Dersler` bölümlü seçici. Uygulama P21 T4 (öğretmen takvim işlemleri), rota tablosu P20. Görsel referans: [ekran taslakları](https://claude.ai/artifact/6e7YYdH63gdDy8yeQFf77Q) O04/O08. | Kodda 6 sekme var; `ux_rules.md` en fazla 5 diyor. Takvim ve ders listesi aynı işin iki görünümü. | 6 sekmeyi korumak; Takvim'i Diğer'e taşımak | ✅ kullanıcı 2026-11-14 |
 
 ---
 
@@ -282,4 +283,4 @@ P26'nın barındırma/Sentry/CI görevleri (T1–T6) ve P27'nin kod-dışı işl
 
 ---
 
-*Master Tasarım | Güncelleme: 2026-11-13*
+*Master Tasarım | Güncelleme: 2026-11-14 (K-30: öğretmen alt menüsü 5 sekme — kullanıcı onaylı) · 2026-11-13*
