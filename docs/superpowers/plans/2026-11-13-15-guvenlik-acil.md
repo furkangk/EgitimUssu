@@ -111,6 +111,7 @@
 - Modify: `src/Modules/Students/API/StudentsModule.cs` (istek gövdesinden `UserId`/`ParentUserId` almayı bırak)
 - Create: `src/Modules/Parents/Infrastructure/StudentProfilesMergedParentsHandler.cs`, `src/Modules/ProgressTracking/Infrastructure/StudentProfilesMergedProgressHandler.cs`
 - Test: `tests/Unit/TeacherStudentLinkTransitionTests.cs`, `tests/Unit/StudentProfileOwnershipTests.cs`, `tests/Integration/RealStudentMergeIntegrationTests.cs` (genişlet)
+- **T2'den devreden (2026-11-13, Öğrenilenler #179–#181):** `src/API.Host/Seeding/DemoDataSeeder.cs` (`EnsureStudentWithOwnAccountAsync` gövdeye `UserId` yazıyor → davet + claim'e geçmeli; veli bağı onayı `KnownStudent.UserId` boş kalacağı için veli davet kodu claim'iyle kurulmalı ya da T4 sırası gözetilmeli), `tests/Integration/RealMessagingChainTests.cs` + `tests/Integration/RealAccountDeletionTests.cs` (aynı `userId` yardımcıları). Merge kabul testi: birleşme sonrası kanonik profilde `ITeacherStudentAccess.GetScopeAsync == Private`.
 
 **Interfaces:**
 - Produces:
@@ -266,7 +267,7 @@
 - Modify: `tests/Integration/AuthorizationCoverageTests.cs` (yüklenemeyen assembly → **test başarısız**, sessiz atlama yok)
 - Modify: `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md` (§1.2, §1.6 satırları ✅), `doc/modules/mimari_inceleme.md`
 
-- [ ] **Step 1: Çapraz-kiracı paketi** — iki öğretmen, iki öğrenci, iki veli ile gerçek Postgres'te: öğretmen B, öğretmen A'nın öğrencisine ders/ödeme/oturum/veli daveti/mesaj **yazamaz** ve profil/ödeme/oturum **okuyamaz**; veli B, veli A'nın çocuğunu göremez; iptal edilen veli artık göremez.
+- [ ] **Step 1: Çapraz-kiracı paketi** — iki öğretmen, iki öğrenci, iki veli ile gerçek Postgres'te: öğretmen B, öğretmen A'nın öğrencisine ders/ödeme/oturum/veli daveti/mesaj **yazamaz** ve profil/ödeme/oturum **okuyamaz**; veli B, veli A'nın çocuğunu göremez; iptal edilen veli artık göremez. **T2'den devreden (Öğrenilenler #185):** bağı arşivlenmiş öğretmen eski planından `from-schedule` → ücretli tamamlama yaptığında **otomatik ders ücreti oluşmaz** (bugün oluşuyor — `GetAgreedLessonRateAsync` arşivi elemiyor); `link-parent` ve ödev uçlarının arşiv davranışı karara bağlanır. T2'nin `RealWriteLinkAuthorizationTests`'i bu pakete taşınabilir/genişletilebilir.
 - [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh` → başarısız 0, atlanan 0.
 - [ ] **Step 3: Doküman kapanışı** + ILERLEME "Öğrenilenler".
   ```bash

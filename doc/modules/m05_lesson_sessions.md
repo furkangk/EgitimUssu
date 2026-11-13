@@ -163,6 +163,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 | `lesson_sessions.invalid_time_range` | `400` (varsayılan eşleme) |
 | `lesson_sessions.schedule_not_found` | `404` (P06/M05-2 — plan yok ya da öğretmensiz self ders) |
 | `lesson_sessions.schedule_not_derivable` | **`409`** (P06/M05-2 — iptal/tamamlanmış plandan oturum açılamaz) |
+| `lesson_sessions.schedule_not_owned` | **`403`** (P15 T2 / N-08 — manuel oturuma bağlanan plan başka öğretmenin, başka öğrencinin ya da bilinmiyor; kod korunur) |
 | (varsayılan) | `400` |
 
 ### 3.2 ⚠️ Eksik / Önerilen Endpoint'ler
