@@ -63,7 +63,16 @@ internal sealed class ParentChildLinkConfiguration : IEntityTypeConfiguration<Pa
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
         builder.HasIndex(entity => new { entity.ParentUserId, entity.StudentId });
         builder.HasIndex(entity => entity.StudentId);
+        // P15 / N-32: öğrenci başına tek onaylı birincil veli. Uygulamadaki "zaten birincil var mı" kontrolü eşzamanlı
+        // iki onayı göremez; son söz bu indekste (ihlal ParentRepository.SaveLinkChangesAsync'te primary_exists olur).
+        // Aynı kolonda ikinci indeks olduğu için adlı HasIndex aşırı yüklemesi şart.
+        builder.HasIndex(entity => entity.StudentId, PrimaryContactIndexName)
+            .IsUnique()
+            .HasFilter("\"IsPrimaryContact\" AND \"Status\" = 'Approved'");
     }
+
+    /// <summary>Kısmi benzersiz birincil veli indeksinin adı (migration ve ihlal çevirisi aynı adı kullanır).</summary>
+    internal const string PrimaryContactIndexName = "IX_parent_child_links_StudentId_primary";
 }
 
 internal sealed class ChildProgressSnapshotConfiguration : IEntityTypeConfiguration<ChildProgressSnapshot>

@@ -160,6 +160,10 @@ namespace EgitimUssu.Modules.Parents.Infrastructure.Migrations
 
                     b.HasIndex("ParentUserId", "StudentId");
 
+                    b.HasIndex(new[] { "StudentId" }, "IX_parent_child_links_StudentId_primary")
+                        .IsUnique()
+                        .HasFilter("\"IsPrimaryContact\" AND \"Status\" = 'Approved'");
+
                     b.ToTable("parent_child_links", "parents");
                 });
 

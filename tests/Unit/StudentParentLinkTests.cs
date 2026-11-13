@@ -142,7 +142,8 @@ public sealed class StudentParentLinkTests
             new FakeCurrentUser(Guid.NewGuid().ToString(), "Parent"),
             new FakeRepository(null),
             new FakeRequestEntityCache(),
-            new FakeTeacherStudentAccess(TeacherAccessScope.None));
+            new FakeTeacherStudentAccess(TeacherAccessScope.None),
+            new FakeParentAccessDirectory());
 
         var result = await authorizer.Authorize(new ListStudentsByParentQuery(ParentUserId), CancellationToken.None);
 
@@ -157,7 +158,8 @@ public sealed class StudentParentLinkTests
             new FakeCurrentUser(ParentUserId.ToString(), "Parent"),
             new FakeRepository(null),
             new FakeRequestEntityCache(),
-            new FakeTeacherStudentAccess(TeacherAccessScope.None));
+            new FakeTeacherStudentAccess(TeacherAccessScope.None),
+            new FakeParentAccessDirectory());
 
         var result = await authorizer.Authorize(new ListStudentsByParentQuery(ParentUserId), CancellationToken.None);
 

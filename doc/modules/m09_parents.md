@@ -113,9 +113,18 @@ public enum NotificationChannel { Push = 1, Email = 2, Both = 3 }
 public enum ParentChildLinkStatus { Pending = 1, Approved = 2, Rejected = 3, Revoked = 4 }
 ```
 
-**Davranışlar:** ctor `Pending` doğurur; `Approve(byUserId, nowUtc)` → `Approved` + `LinkedOnUtc`;
-`Reject(...)`; `Revoke(...)`. Olaylar: `ParentChildLinkRequestedDomainEvent`, `ParentChildLinkApprovedDomainEvent`,
-`ParentChildLinkRejectedDomainEvent`, `ParentChildLinkRevokedDomainEvent`. Bir veli **birden çok** çocuğa bağlanabilir (çoklu link).
+**Davranışlar:** ctor `Pending` doğurur; `Approve(byUserId, existingPrimary?, nowUtc)` → `Result` — **yalnız `Pending`'den**
+`Approved` + `LinkedOnUtc` (P15 / N-26: reddedilmiş/iptal edilmiş bağ yeniden onaylanamaz, onaylı bağın ikinci onayı da
+reddedilir → `parents.invalid_link_transition`); `Reject(...)` (`Pending`/`Approved` → `Rejected`); `Revoke(...)` (→ `Revoked`).
+Olaylar: `ParentChildLinkRequestedDomainEvent`, `ParentChildLinkApprovedDomainEvent`, `ParentLinkConnectionNoticeDomainEvent`,
+**`ParentChildLinkEndedDomainEvent(LinkId, ParentUserId, StudentId, Reason, EndedOnUtc)`** — yalnız **yaşayan** (`Pending`/`Approved`)
+bağ reddedilir ya da iptal edilirken (`Reason` = `Rejected`/`Revoked`, `Shared.Contracts.ParentChildLinkEndReason`); eski bir ret
+kaydını iptale çekmek olay üretmez. Tüketicisi olmayan eski `ParentChildLinkRejected`/`RevokedDomainEvent` kaldırıldı (P15 T4).
+Bir veli **birden çok** çocuğa bağlanabilir (çoklu link).
+
+**Bütünlük (P15 / N-32):** kısmi benzersiz indeks `IX_parent_child_links_StudentId_primary` — `(StudentId) WHERE "IsPrimaryContact"
+AND "Status" = 'Approved'` (öğrenci başına tek onaylı birincil veli). Migration `ParentLinkIntegrity` indeksten önce mevcut fazla
+birincilleri en erken bağlanan hariç ikincile çevirir. İhlal `ParentRepository.SaveLinkChangesAsync`'te `parents.primary_exists`'e çevrilir.
 
 ### 2.3 Read-model tabloları (`parents` şeması — integration event ile beslenir)
 
@@ -125,7 +134,7 @@ Veli paneli, kaynak modüllerin verisini **doğrudan cross-module DB erişimiyle
 | Tablo | İçerik |
 |-------|--------|
 | `ChildProgressSnapshot` | Öğrenci başına: tamamlanan/planlanan ders sayısı + son ders tarihi; toplam/açık/tamamlanan ödev; beklenen/tahsil/kalan ödeme + para birimi; haftalık çalışma dk + streak (**M08 gelince**) |
-| `KnownStudent` | `StudentId → UserId` eşlemesi (Students `StudentProfileCreated` ile beslenir); bağ onay yetkisi kontrolü için. ⚠️ Davetle bağlanan öğrencinin kullanıcısı (`StudentProfileLinkedToUser`, P15 T3) **P15 T4'e kadar tüketilmiyor** — o öğrencinin `UserId`'si boş kalır, veli talebini onaylayamaz (fail-closed) |
+| `KnownStudent` | `StudentId → UserId` eşlemesi; bağ onay/ret yetkisi ve veli panelindeki gizlilik ayarı için. Students `StudentProfileCreated` **ve** (P15 T4 / N-27) `StudentProfileLinkedToUser` (davetle bağlanan öğrenci) ile beslenir; bilinen bir kullanıcı hiçbir olayla `null`'a çekilmez. Eskiden ikinci olay tüketilmiyordu: davetle bağlanan öğrenci veli talebini onaylayamıyor, "Gizli" ayarı veli panelinde okunamıyordu |
 
 **Profil birleşmesi (P15 T3 / N-28) — `StudentProfilesMergedParentsHandler`:** Students iki öğrenci profilini birleştirince
 (`StudentProfilesMergedDomainEvent`) veli tarafı kanonik kimliğe geçer — eskiden Parents bu olayı tüketmiyordu, birleşme
@@ -143,7 +152,8 @@ olur, kaynak silinir. Bekleyen veli davetleri Students'ta, birleşmeyle aynı tr
 > Parents bunu paylaşmaz.)
 
 **Integration event handler'ları (Parents tüketir):** LessonSessions (`LessonSessionCreated`/`Completed`),
-Assignments (`AssignmentCreated`/`Completed`), Payments (`PaymentRecordCreated`/`Updated`), Students (`StudentProfileCreated`).
+Assignments (`AssignmentCreated`/`Completed`), Payments (`PaymentRecordCreated`/`Updated`), Students (`StudentProfileCreated`,
+`StudentProfileLinkedToUser` — P15 T4, `StudentProfilesMerged` — P15 T3).
 
 ### 2.4 Domain Olayları (özet)
 
@@ -151,9 +161,8 @@ Assignments (`AssignmentCreated`/`Completed`), Payments (`PaymentRecordCreated`/
 |------|-----------|---------|
 | `ParentProfileCreatedDomainEvent` | `ParentProfile` ctor | — |
 | `ParentChildLinkRequestedDomainEvent` | bağ talebi | M11 (öğrenci/öğretmene onay bildirimi) |
-| `ParentChildLinkApprovedDomainEvent` | `Approve` | **M03 Students** (`StudentProfile.LinkParent` → `ParentUserId` set), M11 |
-| `ParentChildLinkRejectedDomainEvent` | `Reject` | M11 |
-| `ParentChildLinkRevokedDomainEvent` | `Revoke` | M03, M11 |
+| `ParentChildLinkApprovedDomainEvent` | `Approve` | **M03 Students** (`StudentProfile.LinkParent` → `ParentUserId` birincil veli göstergesi; **yetki vermez**), M11 |
+| `ParentChildLinkEndedDomainEvent` | `Reject` / `Revoke` (yalnız yaşayan bağ) | **M03 Students** (`StudentProfile.UnlinkParent` — alan o veliyi gösteriyorsa temizlenir; P15 T4 / N-26) |
 
 ---
 
@@ -178,9 +187,13 @@ POST /api/parents/children/link
              inviteCode?, isPrimaryContact }                       → link (Pending)
 POST /api/parents/children/claim-invite                            → link (Approved; Veli V-D — öğretmen davet kodu claim)
      body: { inviteCode }                                             (currentUser = veli; bkz. 4.2.2)
-POST /api/parents/children/{linkId}/approve                        → 200 (öğrenci/öğretmen/Admin; veli kendi bağını onaylayamaz)
+                                                                     409 parents.primary_exists — eşzamanlı başka veli birincil
+                                                                     oldu; kod geri verilir, tekrar denemede ikincil bağlanır
+POST /api/parents/children/{linkId}/approve                        → 200 (öğrenci/Admin; veli kendi bağını onaylayamaz)
+                                                                     409 parents.invalid_link_transition (bağ Pending değil)
+                                                                     409 parents.primary_exists (onaylı birincil zaten var)
 POST /api/parents/children/{linkId}/reject                         → 200
-POST /api/parents/children/{linkId}/revoke                         → 200
+POST /api/parents/children/{linkId}/revoke                         → 200 (veli/öğrenci/Admin; erişim anında kesilir — 4.2)
 GET  /api/parents/{parentUserId}/children                          → 200 bağlı çocuklar (durum + onaylıysa gelişim özeti)
 ```
 
@@ -208,7 +221,9 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 > `KnownStudent` read-model'i ile `StudentId → UserId` çözer ve `IStudentPrivacyDirectory` (Settings uygular) üzerinden
 > `ShareStudyDataWithParent`'ı okur. Paylaşım **kapalıysa** çalışma alanları maskelenir: `WeeklyStudyMinutes=0`,
 > `StreakDays=0`, `HasData=false` ve **`IsShared=false`** ("Ayşe bu veriyi paylaşmıyor" — değer sızmadan, şeffaf işaret).
-> Ayar kaydı yoksa paylaşım **açık** varsayılır (`IsShared=true`). **Değişmez kural:** çocuğun kişisel seans notu hiçbir
+> Ayar kaydı yoksa paylaşım **açık** varsayılır (`IsShared=true` — öğrenci henüz kısıtlamadı). **P15 / N-27 fail-closed:** öğrencinin
+> **kullanıcısı** çözülemezse (`KnownStudent` yok ya da `UserId` boş — eşleme henüz gelmedi veya öğrencinin hesabı yok) ayar okunamaz
+> ve `Hidden` varsayılır (`IsShared=false`); hesabı olmayan öğrencinin çalışma verisi zaten yoktur. **Değişmez kural:** çocuğun kişisel seans notu hiçbir
 > koşulda dashboard'da dönmez (zaten read-model'de yer almaz). `StudySummaryResponse(WeeklyStudyMinutes, StreakDays, HasData, IsShared)`.
 > Öğrenci tercihini `PUT /api/settings/users/{userId}/study-sharing` (M15) ile ayarlar.
 
@@ -240,7 +255,7 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 
 | Sözleşme | Tüketen | Amaç |
 |----------|---------|------|
-| `IParentAccessDirectory.IsApprovedParentOfStudentAsync` | Payments | Veli bir öğrencinin **onaylı** velisi mi? |
+| `IParentAccessDirectory.IsApprovedParentOfStudentAsync` | Payments, Students (profil okuma — P15 T4), ProgressTracking, Reporting, Messaging | Veli bir öğrencinin **onaylı** velisi mi? |
 | `IParentAccessDirectory.ListApprovedStudentIdsAsync` | Students | Velinin **onaylı** çocuk kimlikleri (M03-3, 2026-09-04) |
 | `IParentChildLinkRequestService.RequestPendingLinkAsync` | Students | Öğretmenin doğrudan veli bağlama talebi (M03-1, 2026-09-04) — `ParentProfile` yoksa `ParentNotRegistered`, açık bağ varsa `AlreadyLinked`, aksi halde `Pending` bağ açılır. İlk onaylı birincil veli yoksa yeni bağ `IsPrimaryContact = true` başlar (V-C tekilliği korunur). |
 
@@ -258,7 +273,13 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
 - Veli–çocuk bağı **onaya** dayanır: bağ `Pending` doğar, **öğrenci / öğretmen / Admin** onaylar (`Approved`); **veli kendi bağını onaylayamaz**.
 - **Reşit olmayan öğrenci:** velinin erişimi velayet gereği varsayılan kabul edilir; yine de bağ kaydı (`Approved`) oluşturulur.
 - **Reşit öğrenci:** bağ ve veri paylaşımı **öğrenci onayı** gerektirir; öğrenci dilediğinde bağı reddedebilir/iptal ettirebilir.
-- Onaylanan bağ M03'te `StudentProfile.ParentUserId`'yi (birincil veli için) güncelleyebilir.
+- Onaylanan bağ M03'te `StudentProfile.ParentUserId`'yi (birincil veli için) günceller; bağ bitince (ret/iptal) alan o veliyi
+  gösteriyorsa temizlenir (`ParentChildLinkEndedDomainEvent`).
+- **Erişim bağdan okunur (P15 / N-26):** öğrenci profilini okuma yetkisi `ParentUserId`'ye değil Parents'taki **onaylı bağa**
+  (`IParentAccessDirectory.IsApprovedParentOfStudentAsync`, yalnız `Parent` rolünde) bakar — iptal/ret anında kesilir (olayın
+  işlenmesini beklemez); birincil olmayan onaylı veli de okuyabilir (`ListStudentsByParent` ile aynı kural). Eskiden alan yalnız
+  onayda yazıldığı için bağı iptal edilen veli iletişim/doğum tarihi/hedefleri okumaya devam ediyordu.
+- **Yalnız bekleyen bağ onaylanır:** reddedilmiş/iptal edilmiş bağ için veli yeni talep açar (`409 parents.invalid_link_transition`).
 
 ### 4.2.1 "Sessizce bağlanma yok" + birincil veli tekilliği (Veli V-C, 2026-07-19 — uygulandı)
 - **Şeffaflık olayı:** Bir bağ onaylandığında (`Approve`), `ParentChildLinkApprovedDomainEvent`'e ek olarak
@@ -269,7 +290,9 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
   birincil olacaksa ve zaten onaylı bir birincil veli varsa, **onaylayan kişi mevcut birincil veli değilse** onay reddedilir →
   `parents.primary_exists` (**409**). Kural admin onayında da geçerlidir (veri tutarlılığı — mevcut birincil varken ikinci
   birincil oluşturulamaz). Handler, `ListApprovedLinksForStudentAsync` ile mevcut birincil veliyi çözer ve
-  `Approve(approvedByUserId, existingPrimaryParentUserId?, nowUtc)` imzasına geçirir.
+  `Approve(approvedByUserId, existingPrimaryParentUserId?, nowUtc)` imzasına geçirir. **P15 / N-32:** bu kontrol eşzamanlı iki
+  onayı (ya da iki claim'i) göremez; son söz kısmi benzersiz indekstedir (§2.2) — kaybeden istek `409 parents.primary_exists` alır
+  (claim'de davet kodu geri verilir). Gerçek Postgres doğrulaması: `tests/Integration/RealParentAccessRevocationTests.cs`.
 - **Öğretmen teyidi** bu dilimde YOK (karar 2026-07-19); doğrulama seviyesi = bildirim şeffaflığı + birincil tekilliği.
 
 ### 4.2.2 Öğretmen→veli davet kodu claim (Veli V-D, 2026-07-19 — uygulandı)
@@ -310,6 +333,9 @@ GET /api/parents/{parentUserId}/children/{studentId}/dashboard
      → ParentChildLink(Pending) + ParentChildLinkRequestedDomainEvent → M11 (öğrenci/öğretmene onay isteği)
 [Onay] → /approve → ParentChildLink(Approved) + ParentChildLinkApprovedDomainEvent
      → M03 Students handler: StudentProfile.LinkParent → ParentUserId güncelle → M11 (veliye "bağ onaylandı")
+[Ret / iptal] → /reject | /revoke → ParentChildLink(Rejected | Revoked) + ParentChildLinkEndedDomainEvent (yalnız yaşayan bağ)
+     → profil okuma ANINDA 403 (yetki onaylı bağdan okunur)
+     → M03 Students handler: StudentProfile.UnlinkParent → ParentUserId (o veliyse) temizlenir (P15 T4)
 ```
 
 ### 5.2 Veli paneli beslenmesi (read-model)
@@ -400,4 +426,4 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 
 ---
 
-*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-11-14 (P15 Task 3 / N-28: yeni tüketici `StudentProfilesMergedParentsHandler` — profil birleşmesinde veli bağları tekilleşip kanonik kimliğe taşınır, `known_students` kaynağı silinir, veli paneli özeti `ChildProgressSnapshot.Absorb` ile toplanır; §2.3, §5.2). Önceki not — 2026-11-13 (P15 Task 1 / N-20: veli davet kodu claim'i sertleştirildi — güvenli 8 karakterli kod, 7 gün, `Parent` rolü, kendi kodunu kullanma yasağı, kullanıcı başına deneme kilidi; §4.2.2). Önceki not — 2026-09-04 (P09 Task 2 / K-09: `ParentNotificationDirectory` üyelik seviyesini artık `ParentProfile.MembershipTier` alanından değil `IEntitlementDirectory.GetManyAsync` ile Membership'ten okuyor (toplu tarama tek turda); eski alan **geçici köprüye** indirildi — yeni `ParentMembershipDirectory : IMembershipDirectory`, tek tüketicisi `EntitlementDirectory`, P12'de silinecek). Önceki not — 2026-09-04 (P06 Task 10 canlı doğrulama: **`ParentNotificationDirectory` sorgusu gerçek Postgres'te çevrilemiyordu** — tüm outbox zinciri ölüydü; filtre projeksiyondan öne alındı) · 2026-09-04 (P06 Task 9 / M03-1 + M03-3: iki modüller-arası sözleşme — `IParentChildLinkRequestService` (yeni, Pending bağ açar) ve `IParentAccessDirectory.ListApprovedStudentIdsAsync`; bkz. §3.1) · 2026-09-03 (P05/M15-4: gizlilik seviyesi matrisi dashboard'a bağlandı — Standard/Limited/Hidden) · 2026-09-02 (F-06: Faz 3 kabul kriterleri kodla karşılaştırıldı — dashboard ✅, ödev-kaçırma ~ (P03), gelişim ⬜ (P08)). Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*
+*M09 Veli (Parents) Modülü — Detaylı Tasarım | Faz 2-3 | Durum: 🟢 Uygulandı | Güncelleme: 2026-11-14 (P15 Task 4 / N-26, N-27, N-32: `Approve` yalnız `Pending`'den → `Result` + `409 parents.invalid_link_transition`; ret/iptal tek `ParentChildLinkEndedDomainEvent` yayar, Students `ParentUserId`'yi temizler; profil okuma onaylı bağdan; `KnownStudent` `StudentProfileLinkedToUser` ile de beslenir; panel gizliliği kullanıcı bilinmiyorsa fail-closed; kısmi benzersiz birincil veli indeksi + `ParentLinkIntegrity` göçü; §2.2, §2.3, §2.4, §3.1, §3.2, §4.2, §4.2.1, §5.1). Önceki not — 2026-11-14 (P15 Task 3 / N-28: yeni tüketici `StudentProfilesMergedParentsHandler` — profil birleşmesinde veli bağları tekilleşip kanonik kimliğe taşınır, `known_students` kaynağı silinir, veli paneli özeti `ChildProgressSnapshot.Absorb` ile toplanır; §2.3, §5.2). Önceki not — 2026-11-13 (P15 Task 1 / N-20: veli davet kodu claim'i sertleştirildi — güvenli 8 karakterli kod, 7 gün, `Parent` rolü, kendi kodunu kullanma yasağı, kullanıcı başına deneme kilidi; §4.2.2). Önceki not — 2026-09-04 (P09 Task 2 / K-09: `ParentNotificationDirectory` üyelik seviyesini artık `ParentProfile.MembershipTier` alanından değil `IEntitlementDirectory.GetManyAsync` ile Membership'ten okuyor (toplu tarama tek turda); eski alan **geçici köprüye** indirildi — yeni `ParentMembershipDirectory : IMembershipDirectory`, tek tüketicisi `EntitlementDirectory`, P12'de silinecek). Önceki not — 2026-09-04 (P06 Task 10 canlı doğrulama: **`ParentNotificationDirectory` sorgusu gerçek Postgres'te çevrilemiyordu** — tüm outbox zinciri ölüydü; filtre projeksiyondan öne alındı) · 2026-09-04 (P06 Task 9 / M03-1 + M03-3: iki modüller-arası sözleşme — `IParentChildLinkRequestService` (yeni, Pending bağ açar) ve `IParentAccessDirectory.ListApprovedStudentIdsAsync`; bkz. §3.1) · 2026-09-03 (P05/M15-4: gizlilik seviyesi matrisi dashboard'a bağlandı — Standard/Limited/Hidden) · 2026-09-02 (F-06: Faz 3 kabul kriterleri kodla karşılaştırıldı — dashboard ✅, ödev-kaçırma ~ (P03), gelişim ⬜ (P08)). Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedIntegrationEvent`/`processed_integration_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; Notifications'ın kendi `processed_integration_events`'i ayrı ve korunmuştur). Önceki not — 2026-08-19 kod-senkron: API 11 endpoint doğrulandı — §3.1'e `POST /children/claim-invite` eklendi. Daha önceki not — Veli V-F: entegre dashboard zenginleştirme — canlı digest'ler `IStudyDigestDirectory`/`IStudentUpcomingLessonsDirectory`/`IStudentLastLessonDirectory`/`IStudentNotesDirectory`/`IStudentPaymentDigestDirectory`; çalışma "hep 0" bug fix; öğretmen notları Student+StudentAndParent; Veli V-E: `ParentProfile.MembershipTier` Free/Premium + `PUT /membership-tier` (Admin) + `IParentNotificationDirectory`; bildirim tercihleri M11 motorunca fiilen tüketiliyor; Veli V-D: öğretmen→veli davet kodu claim `POST /children/claim-invite` → Approved bağ; Veli V-C: "sessizce bağlanma yok" — `ParentLinkConnectionNoticeDomainEvent` + birincil veli tekilliği `parents.primary_exists` 409; Veli V-B: dashboard gizlilik filtresi — `ShareStudyDataWithParent` → çalışma alanları maskelenir + `StudySummaryResponse.IsShared`; `IStudentPrivacyDirectory` kontratı)*

@@ -6,8 +6,8 @@ namespace EgitimUssu.Shared.Contracts;
 /// <c>StudentProfileLinkedToUserDomainEvent</c> ile eşleşir.
 /// <para>
 /// Profilin kullanıcısı yalnız bu yolla dolar (oluşturma gövdesinden gelmez). Parents'ın öğrenci→kullanıcı
-/// eşlemesi (<c>KnownStudent.UserId</c>) bu olayı P15 Task 4'te tüketir; o zamana kadar davetle bağlanan
-/// öğrencinin veli talebini onaylama yetkisi görünmez (fail-closed).
+/// eşlemesi (<c>KnownStudent.UserId</c>) bu olayı tüketir (P15 Task 4): davetle bağlanan öğrenci veli talebini
+/// onaylayabilir ve gizlilik ayarı veli panelinde okunur.
 /// </para>
 /// </summary>
 /// <param name="StudentId">Bağlanan öğrenci profili.</param>

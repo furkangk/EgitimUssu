@@ -177,9 +177,20 @@ internal sealed class ParentPaymentProjectionHandler : ParentReadModelProjection
         DateTime UpdatedOnUtc);
 }
 
-/// <summary>M03 Students → öğrenci→kullanıcı eşlemesi (bağ onayı yetkisi için).</summary>
+/// <summary>
+/// M03 Students → öğrenci→kullanıcı eşlemesi (bağ onayı yetkisi ve gizlilik ayarı için).
+/// <para>
+/// P15 / N-27: Eşleme iki olaydan dolar — profil oluşturma (öğrencinin kendi açtığı profil hesabıyla doğar) ve
+/// <c>StudentProfileLinkedToUser</c> (öğretmenin açtığı profil davet kabulüyle hesaba bağlanır). Eskiden yalnız ilki
+/// tüketiliyordu: davetle bağlanan öğrenci veli talebini onaylayamıyor, "Gizli" ayarı veli panelinde okunamıyordu.
+/// Bilinen bir kullanıcı hiçbir olayla <c>null</c>'a çekilmez (oluşturma olayı sonradan işlense bile).
+/// </para>
+/// </summary>
 internal sealed class ParentStudentDirectoryProjectionHandler : ParentReadModelProjectionHandler
 {
+    private const string ProfileCreated = "StudentProfileCreatedDomainEvent";
+    private const string ProfileLinkedToUser = "StudentProfileLinkedToUserDomainEvent";
+
     public ParentStudentDirectoryProjectionHandler(ParentsDbContext dbContext, IIdGenerator idGenerator, IClock clock)
         : base(dbContext, idGenerator, clock)
     {
@@ -187,27 +198,36 @@ internal sealed class ParentStudentDirectoryProjectionHandler : ParentReadModelP
 
     public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent.SourceModule == "Students"
-            && integrationEvent.Name == "StudentProfileCreatedDomainEvent";
+            && integrationEvent.Name is ProfileCreated or ProfileLinkedToUser;
 
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var payload = Deserialize<StudentProfileCreatedPayload>(envelope);
-        if (payload is null)
+        if (envelope.Name == ProfileLinkedToUser)
+        {
+            var linked = Deserialize<StudentProfileLinkedToUserIntegrationEvent>(envelope);
+            return linked is not null && await UpsertAsync(linked.StudentId, linked.UserId, cancellationToken);
+        }
+
+        var created = Deserialize<StudentProfileCreatedPayload>(envelope);
+        return created is not null && await UpsertAsync(created.StudentProfileId, created.UserId, cancellationToken);
+    }
+
+    private async Task<bool> UpsertAsync(Guid studentId, Guid? userId, CancellationToken cancellationToken)
+    {
+        var existing = await ParentsDb.KnownStudents
+            .FirstOrDefaultAsync(student => student.StudentId == studentId, cancellationToken);
+        if (existing is null)
+        {
+            ParentsDb.KnownStudents.Add(new KnownStudent(IdGenerator.New(), studentId, userId, Clock.UtcNow));
+            return true;
+        }
+
+        if (userId is null || existing.UserId == userId)
         {
             return false;
         }
 
-        var existing = await ParentsDb.KnownStudents
-            .FirstOrDefaultAsync(student => student.StudentId == payload.StudentProfileId, cancellationToken);
-        if (existing is null)
-        {
-            ParentsDb.KnownStudents.Add(new KnownStudent(IdGenerator.New(), payload.StudentProfileId, payload.UserId, Clock.UtcNow));
-        }
-        else
-        {
-            existing.SetUserId(payload.UserId, Clock.UtcNow);
-        }
-
+        existing.SetUserId(userId, Clock.UtcNow);
         return true;
     }
 

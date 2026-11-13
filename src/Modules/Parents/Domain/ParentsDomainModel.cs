@@ -133,6 +133,10 @@ public sealed class ParentProfile : AggregateRoot<Guid>
 /// </summary>
 public sealed class ParentChildLink : AggregateRoot<Guid>
 {
+    private static readonly Error InvalidTransition = new(
+        "parents.invalid_link_transition",
+        "Bu bağ artık onaylanamaz; yalnız onay bekleyen bir bağ onaylanabilir.");
+
     private ParentChildLink()
     {
     }
@@ -204,11 +208,19 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
 
     public bool IsApproved => Status == ParentChildLinkStatus.Approved;
 
-    public void Approve(Guid approvedByUserId, Guid? existingPrimaryParentUserId, DateTime nowUtc)
+    /// <summary>
+    /// Bekleyen bağı onaylar. P15 / N-26: yalnız <c>Pending</c>'den — reddedilmiş ya da iptal edilmiş bağ yeniden
+    /// onaylanamaz (veli yeni talep açar), onaylı bağın ikinci onayı da reddedilir (bağlanma anı ve olaylar tekrarlanmaz).
+    /// </summary>
+    /// <param name="approvedByUserId">Onaylayan kullanıcı (öğrenci, Admin ya da davet kodunu kullanan veli).</param>
+    /// <param name="existingPrimaryParentUserId">Bildirim için mevcut birincil veli (varsa).</param>
+    /// <param name="nowUtc">Onay anı.</param>
+    /// <returns>Geçiş geçersizse <c>parents.invalid_link_transition</c>.</returns>
+    public Result Approve(Guid approvedByUserId, Guid? existingPrimaryParentUserId, DateTime nowUtc)
     {
-        if (Status == ParentChildLinkStatus.Approved)
+        if (Status != ParentChildLinkStatus.Pending)
         {
-            return;
+            return Result.Failure(InvalidTransition);
         }
 
         Status = ParentChildLinkStatus.Approved;
@@ -219,8 +231,12 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
         Raise(new ParentChildLinkApprovedDomainEvent(Id, ParentUserId, StudentId, IsPrimaryContact, nowUtc));
         Raise(new ParentLinkConnectionNoticeDomainEvent(
             Id, StudentId, ParentUserId, existingPrimaryParentUserId, IsPrimaryContact, nowUtc));
+        return Result.Success();
     }
 
+    /// <summary>Bekleyen ya da onaylı bağı reddeder; yaşayan bağ biterken <see cref="ParentChildLinkEndedDomainEvent"/> yayar.</summary>
+    /// <param name="rejectedByUserId">Reddeden kullanıcı.</param>
+    /// <param name="nowUtc">Ret anı.</param>
     public void Reject(Guid rejectedByUserId, DateTime nowUtc)
     {
         if (Status is ParentChildLinkStatus.Rejected or ParentChildLinkStatus.Revoked)
@@ -232,9 +248,14 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
         ApprovedByUserId = rejectedByUserId;
         UpdatedOnUtc = nowUtc;
 
-        Raise(new ParentChildLinkRejectedDomainEvent(Id, ParentUserId, StudentId, nowUtc));
+        Raise(new ParentChildLinkEndedDomainEvent(Id, ParentUserId, StudentId, ParentChildLinkEndReason.Rejected, nowUtc));
     }
 
+    /// <summary>
+    /// Bağı iptal eder. Bitiş olayı yalnız <b>yaşayan</b> (<c>Pending</c>/<c>Approved</c>) bağ biterken yayılır: eski bir
+    /// ret kaydını iptale çekmek, aynı velinin daha yeni onaylı bağını etkileyecek bir olay üretmemeli.
+    /// </summary>
+    /// <param name="nowUtc">İptal anı.</param>
     public void Revoke(DateTime nowUtc)
     {
         if (Status == ParentChildLinkStatus.Revoked)
@@ -242,10 +263,14 @@ public sealed class ParentChildLink : AggregateRoot<Guid>
             return;
         }
 
+        var wasLive = Status is ParentChildLinkStatus.Pending or ParentChildLinkStatus.Approved;
         Status = ParentChildLinkStatus.Revoked;
         UpdatedOnUtc = nowUtc;
 
-        Raise(new ParentChildLinkRevokedDomainEvent(Id, ParentUserId, StudentId, nowUtc));
+        if (wasLive)
+        {
+            Raise(new ParentChildLinkEndedDomainEvent(Id, ParentUserId, StudentId, ParentChildLinkEndReason.Revoked, nowUtc));
+        }
     }
 
     public void SetChildDisplayName(string? childDisplayName, DateTime nowUtc)
@@ -288,17 +313,17 @@ public sealed record ParentChildLinkApprovedDomainEvent(
     bool IsPrimaryContact,
     DateTime ApprovedOnUtc) : DomainEvent;
 
-public sealed record ParentChildLinkRejectedDomainEvent(
+/// <summary>
+/// P15 / N-26: Yaşayan bir bağ bitti (ret ya da iptal). Integration yükü <c>ParentChildLinkEndedIntegrationEvent</c>
+/// (Shared/Contracts); Students profilin <c>ParentUserId</c>'sini temizler. Tüketicisi olmayan eski
+/// <c>ParentChildLinkRejected</c>/<c>Revoked</c> olaylarının yerini aldı (nedeni <see cref="Reason"/> taşır).
+/// </summary>
+public sealed record ParentChildLinkEndedDomainEvent(
     Guid LinkId,
     Guid ParentUserId,
     Guid StudentId,
-    DateTime RejectedOnUtc) : DomainEvent;
-
-public sealed record ParentChildLinkRevokedDomainEvent(
-    Guid LinkId,
-    Guid ParentUserId,
-    Guid StudentId,
-    DateTime RevokedOnUtc) : DomainEvent;
+    ParentChildLinkEndReason Reason,
+    DateTime EndedOnUtc) : DomainEvent;
 
 /// <summary>
 /// "Sessizce bağlanma yok" (Veli V-C): bir veli–çocuk bağı onaylandığında şeffaflık için yayılır.

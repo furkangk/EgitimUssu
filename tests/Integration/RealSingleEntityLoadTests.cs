@@ -45,7 +45,9 @@ public sealed class RealSingleEntityLoadTests(ContainerFixture fixture)
         sql.Reset();
         // Profili açan öğretmen ucuz kontrolle geçer — kapsam sorgusu (P15 T3) bu yolda hiç çalışmaz.
         var access = scope.ServiceProvider.GetRequiredService<ITeacherStudentAccess>();
-        var authorization = await new StudentProfileQueryAuthorizer(new StubCurrentUser(teacherUserId, "Teacher"), repository, cache, access)
+        var authorization = await new StudentProfileQueryAuthorizer(
+                new StubCurrentUser(teacherUserId, "Teacher"), repository, cache, access,
+                scope.ServiceProvider.GetRequiredService<IParentAccessDirectory>())
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByIdQueryHandler(repository, cache).Handle(query, CancellationToken.None);
 

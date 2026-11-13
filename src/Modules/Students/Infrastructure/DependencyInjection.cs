@@ -54,6 +54,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<ListStudentsByParentQuery>, StudentProfileQueryAuthorizer>();
 
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
+        // P15 / N-26: bağ bitince (ret/iptal) profilin ParentUserId'si temizlenir.
+        services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkEndedIntegrationEventHandler>();
 
         // Veli davet kodu (Veli V-D)
         services.AddScoped<IStudentParentInviteRepository, StudentParentInviteRepository>();

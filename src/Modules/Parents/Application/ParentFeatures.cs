@@ -151,6 +151,20 @@ public interface IParentRepository
     Task AddLinkAsync(ParentChildLink link, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// P15 / N-32: Bağ değişikliklerini kaydeder; öğrenci başına tek onaylı birincil veli kuralını veritabanı
+    /// (kısmi benzersiz indeks) reddederse <c>parents.primary_exists</c> döner. Uygulamadaki "zaten birincil var mı"
+    /// kontrolü eşzamanlı iki onayı göremez; son söz indekstedir. Varsayılan üye: test sahteleri değişmeden derlenir
+    /// (Öğrenilenler #162) — gerçek depo ihlali çevirir.
+    /// </summary>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Kayıt sonucu.</returns>
+    async Task<Result> SaveLinkChangesAsync(CancellationToken cancellationToken)
+    {
+        await SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -294,9 +308,18 @@ public sealed class ApproveChildLinkCommandHandler : ICommandHandler<ApproveChil
             return Result<ChildLinkResponse>.Failure(ParentErrors.PrimaryExists);
         }
 
-        link.Approve(command.ApprovedByUserId, existingPrimary?.ParentUserId, _clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
-        return Result<ChildLinkResponse>.Success(link.ToResponse(null));
+        // P15 / N-26: yalnız Pending onaylanır — geçersiz geçiş hiçbir şey kaydetmeden döner.
+        var approved = link.Approve(command.ApprovedByUserId, existingPrimary?.ParentUserId, _clock.UtcNow);
+        if (approved.IsFailure)
+        {
+            return Result<ChildLinkResponse>.Failure(approved.Error);
+        }
+
+        // N-32: yukarıdaki kontrol eşzamanlı ikinci birincil onayı göremez; indeks ihlali primary_exists olur.
+        var saved = await _repository.SaveLinkChangesAsync(cancellationToken);
+        return saved.IsFailure
+            ? Result<ChildLinkResponse>.Failure(saved.Error)
+            : Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
 }
 
@@ -455,12 +478,14 @@ public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParen
 
         var link = new ParentChildLink(_idGenerator.New(), command.ParentUserId, info.StudentId, info.ChildDisplayName, null, command.InviteCode.Trim(), isPrimary, now);
 
+        Result saved;
         try
         {
             await _repository.AddLinkAsync(link, cancellationToken);
             // Öğretmen kodu = öğretmen onayı; veli kodu girdi = veli onayı → doğrudan Approved.
+            // Yeni bağ Pending doğduğu için onay geçişi her zaman geçerlidir.
             link.Approve(command.ParentUserId, existingPrimary?.ParentUserId, now);
-            await _repository.SaveChangesAsync(cancellationToken);
+            saved = await _repository.SaveLinkChangesAsync(cancellationToken);
         }
         catch
         {
@@ -468,6 +493,14 @@ public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParen
             // kodunu kaybetmemeli. Geri verme de başarısız olursa asıl hata bastırılmadan yükselir.
             await _inviteDirectory.ReleaseAsync(info.InviteId, CancellationToken.None);
             throw;
+        }
+
+        if (saved.IsFailure)
+        {
+            // N-32: eşzamanlı başka bir veli bu arada birincil oldu (kısmi benzersiz indeks). Kod geri verilir;
+            // veli tekrar denediğinde birincil var göründüğü için ikincil veli olarak bağlanır.
+            await _inviteDirectory.ReleaseAsync(info.InviteId, CancellationToken.None);
+            return Result<ChildLinkResponse>.Failure(saved.Error);
         }
 
         await _attempts.ResetAsync(command.ParentUserId, cancellationToken);
@@ -576,9 +609,12 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
         //   PrivacyLevel = Hidden             → hiç paylaşılmaz
         //   PrivacyLevel = Limited            → yalnız haftalık toplam süre; seri + ders kırılımı gizlenir
         //   PrivacyLevel = Standard           → tam detay
-        // Ayar kaydı yoksa (KnownStudent/UserId çözülemezse) paylaşım açık + Standard varsayılır.
-        var isStudyShared = true;
-        var privacyLevel = StudyPrivacyLevel.Standard;
+        // P15 / N-27 fail-closed: öğrencinin kullanıcısı çözülemezse (eşleme henüz gelmedi ya da öğrencinin hesabı yok)
+        // ayarı okunamaz → Hidden varsayılır. Eskiden "açık + Standard" varsayılıyordu; davetle bağlanan öğrencinin
+        // eşlemesi hiç gelmediği için "Gizli" seçimi veli panelinde yok sayılıyordu. Hesabı olmayan öğrencinin çalışma
+        // verisi zaten yoktur; kayıp yalnız gecikmedir.
+        var isStudyShared = false;
+        var privacyLevel = StudyPrivacyLevel.Hidden;
         var known = await _repository.GetKnownStudentAsync(query.StudentId, cancellationToken);
         if (known?.UserId is { } studentUserId)
         {

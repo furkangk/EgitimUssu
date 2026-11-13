@@ -27,7 +27,7 @@ public sealed class StudentProfileRequestCacheTests
         var currentUser = new FakeCurrentUser(TeacherId.ToString(), "Teacher");
         var query = new GetStudentProfileByIdQuery(profile.Id);
 
-        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None))
+        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None), new FakeParentAccessDirectory())
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByIdQueryHandler(repository, cache)
             .Handle(query, CancellationToken.None);
@@ -76,7 +76,7 @@ public sealed class StudentProfileRequestCacheTests
         var currentUser = new FakeCurrentUser(StudentUserId.ToString(), "Student");
         var query = new GetStudentProfileByUserIdQuery(StudentUserId);
 
-        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None))
+        var authorization = await new StudentProfileQueryAuthorizer(currentUser, repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None), new FakeParentAccessDirectory())
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByUserIdQueryHandler(repository, cache)
             .Handle(query, CancellationToken.None);
@@ -96,7 +96,7 @@ public sealed class StudentProfileRequestCacheTests
         var query = new GetStudentProfileByIdQuery(profile.Id);
 
         var authorization = await new StudentProfileQueryAuthorizer(
-                new FakeCurrentUser(Guid.NewGuid().ToString(), "Admin"), repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None))
+                new FakeCurrentUser(Guid.NewGuid().ToString(), "Admin"), repository, cache, new FakeTeacherStudentAccess(TeacherAccessScope.None), new FakeParentAccessDirectory())
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByIdQueryHandler(repository, cache)
             .Handle(query, CancellationToken.None);

@@ -237,17 +237,20 @@ public sealed class StudentProfileQueryAuthorizer :
     private readonly IStudentProfileRepository _repository;
     private readonly IRequestEntityCache _entityCache;
     private readonly ITeacherStudentAccess _teacherAccess;
+    private readonly IParentAccessDirectory _parentAccess;
 
     public StudentProfileQueryAuthorizer(
         ICurrentUser currentUser,
         IStudentProfileRepository repository,
         IRequestEntityCache entityCache,
-        ITeacherStudentAccess teacherAccess)
+        ITeacherStudentAccess teacherAccess,
+        IParentAccessDirectory parentAccess)
     {
         _currentUser = currentUser;
         _repository = repository;
         _entityCache = entityCache;
         _teacherAccess = teacherAccess;
+        _parentAccess = parentAccess;
     }
 
     public async Task<Result> Authorize(GetStudentProfileByIdQuery query, CancellationToken cancellationToken)
@@ -301,11 +304,17 @@ public sealed class StudentProfileQueryAuthorizer :
     }
 
     /// <summary>
-    /// Profil okuma: sahibi öğrenci, profili açan öğretmen, onaylı veli — ve P15 / N-28'den beri profille
-    /// <b>yaşayan özel ders bağı</b> olan öğretmen (<see cref="ITeacherStudentAccess"/> = <c>Private</c>).
+    /// Profil okuma: sahibi öğrenci, profili açan öğretmen, <b>onaylı bağı süren</b> veli — ve P15 / N-28'den beri
+    /// profille <b>yaşayan özel ders bağı</b> olan öğretmen (<see cref="ITeacherStudentAccess"/> = <c>Private</c>).
     /// Birleşme sonrası kanonik profil öğrencinin kendi açtığıdır (<c>CreatedByTeacherUserId</c> boş); bağı taşınan
-    /// öğretmen öğrenciyi listesinde görür, profilini de açabilmeli. Kapsam sorgusu yalnız ucuz kontroller
-    /// başarısızsa çalışır (O2: ek yükleme yok). Profil <b>yazma</b> yetkisi bilinçli olarak genişletilmedi.
+    /// öğretmen öğrenciyi listesinde görür, profilini de açabilmeli. Profil <b>yazma</b> yetkisi bilinçli olarak genişletilmedi.
+    /// <para>
+    /// P15 / N-26: veli erişimi profildeki <c>ParentUserId</c>'den değil Parents'taki onaylı bağdan
+    /// (<see cref="IParentAccessDirectory"/>) okunur. Alan yalnız onay olayında yazılıyordu; bağı iptal/ret edilen veli
+    /// okumaya devam ediyordu. Artık iptal anında kesilir (olayın işlenmesini beklemez) ve birincil olmayan onaylı veli de
+    /// okuyabilir — <c>ListStudentsByParent</c> ile aynı kural. Kapsam/bağ sorguları yalnız ucuz kontroller başarısızsa ve
+    /// yalnız ilgili rolde çalışır (O2: ek yükleme yok).
+    /// </para>
     /// </summary>
     private async Task<Result> EvaluateProfileAccessAsync(StudentProfile profile, CancellationToken cancellationToken)
     {
@@ -325,16 +334,20 @@ public sealed class StudentProfileQueryAuthorizer :
             return Result.Failure(Forbidden);
         }
 
-        if (profile.UserId == currentUserId
-            || profile.CreatedByTeacherUserId == currentUserId
-            || profile.ParentUserId == currentUserId)
+        if (profile.UserId == currentUserId || profile.CreatedByTeacherUserId == currentUserId)
         {
             return Result.Success();
         }
 
-        var isLinkedTeacher = _currentUser.Roles.Contains("Teacher")
-            && await _teacherAccess.GetScopeAsync(currentUserId, profile.Id, cancellationToken) == TeacherAccessScope.Private;
-        return isLinkedTeacher ? Result.Success() : Result.Failure(Forbidden);
+        if (_currentUser.Roles.Contains("Teacher")
+            && await _teacherAccess.GetScopeAsync(currentUserId, profile.Id, cancellationToken) == TeacherAccessScope.Private)
+        {
+            return Result.Success();
+        }
+
+        var isApprovedParent = _currentUser.Roles.Contains("Parent")
+            && await _parentAccess.IsApprovedParentOfStudentAsync(currentUserId, profile.Id, cancellationToken);
+        return isApprovedParent ? Result.Success() : Result.Failure(Forbidden);
     }
 }
 

@@ -171,6 +171,25 @@ public sealed class StudentProfile : AggregateRoot<Guid>
     }
 
     /// <summary>
+    /// P15 / N-26: Veli–çocuk bağı bitince (ret/iptal) birincil veli göstergesini temizler — yalnız alan o veliyi
+    /// gösteriyorsa; başka bir velinin bağının bitişi birincil veliyi silmez.
+    /// </summary>
+    /// <param name="parentUserId">Bağı biten veli.</param>
+    /// <param name="updatedOnUtc">Bitiş anı.</param>
+    /// <returns>Alan değiştiyse <c>true</c>.</returns>
+    public bool UnlinkParent(Guid parentUserId, DateTime updatedOnUtc)
+    {
+        if (ParentUserId != parentUserId)
+        {
+            return false;
+        }
+
+        ParentUserId = null;
+        UpdatedOnUtc = updatedOnUtc;
+        return true;
+    }
+
+    /// <summary>
     /// Öğretmen davetini kabul eden gerçek öğrenci kullanıcısını profile bağlar (B-06 davet/kabul akışı).
     /// <para>
     /// P15 / N-22, N-23: Profilin sahibi bir kez belirlenir. Aynı kullanıcıya tekrar bağlamak değişiklik

@@ -119,7 +119,8 @@ public sealed class StudentProfileOwnershipTests
             new FakeCurrentUser(TeacherId, "Teacher"),
             new SingleProfileRepository(canonical),
             new FakeRequestEntityCache(),
-            new FakeTeacherStudentAccess(TeacherAccessScope.Private));
+            new FakeTeacherStudentAccess(TeacherAccessScope.Private),
+            new FakeParentAccessDirectory());
 
         var result = await authorizer.Authorize(new GetStudentProfileByIdQuery(canonical.Id), CancellationToken.None);
 
@@ -135,7 +136,8 @@ public sealed class StudentProfileOwnershipTests
             new FakeCurrentUser(TeacherId, "Teacher"),
             new SingleProfileRepository(canonical),
             new FakeRequestEntityCache(),
-            new FakeTeacherStudentAccess(TeacherAccessScope.None));
+            new FakeTeacherStudentAccess(TeacherAccessScope.None),
+            new FakeParentAccessDirectory());
 
         var result = await authorizer.Authorize(new GetStudentProfileByIdQuery(canonical.Id), CancellationToken.None);
 

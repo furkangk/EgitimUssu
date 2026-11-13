@@ -135,7 +135,7 @@
 
 ---
 
-### Task 4: Veli erişiminin iptali ve gizlilik varsayılanı (N-26, N-27, N-32 birincil veli)
+### Task 4: Veli erişiminin iptali ve gizlilik varsayılanı (N-26, N-27, N-32 birincil veli) ✅
 
 **Files:**
 - Modify: `src/Modules/Parents/Domain/ParentsDomainModel.cs` (`Approve` yalnız `Pending`'den)
@@ -146,16 +146,18 @@
 - Modify: `src/Modules/Parents/Infrastructure/ParentsDbContext.cs` (birincil veli için kısmi benzersiz indeks `(StudentId) WHERE IsPrimaryContact AND Status = Approved`)
 - Migration: `ParentLinkIntegrity` (önce tekrar birincilleri en eskisi hariç ikincile çevir)
 - Test: `tests/Unit/ParentAccessRevocationTests.cs`, `tests/Integration/RealParentAccessRevocationTests.cs`
+- **Yürütmede eklenen (2026-11-14):** `src/Shared/Contracts/ParentChildLinkEndedContract.cs` (integration yükü + `ParentChildLinkEndReason`), `src/Modules/Students/Domain/StudentsDomainModel.cs` (`StudentProfile.UnlinkParent` — `ParentUserId` özel setter'lı), `src/Modules/Students/Infrastructure/DependencyInjection.cs` (yeni tüketici kaydı), `src/Modules/Parents/API/ParentsModule.cs` (`parents.invalid_link_transition` → 409 — #182), `src/Modules/Parents/Infrastructure/ParentRepository.cs` (birincil veli indeks ihlali → `parents.primary_exists`; Application Npgsql göremez), `StudentProfileQueryAuthorizer`'ı kuran testler (`StudentParentLinkTests`, `StudentProfileOwnershipTests`, `StudentProfileRequestCacheTests`, `tests/Integration/RealSingleEntityLoadTests.cs` — yeni kurucu parametresi), `tests/Unit/TestDoubles/FakeParentAccessDirectory.cs`, `src/Shared/Contracts/StudentProfileLinkedToUserContract.cs` (yalnız açıklama — artık tüketiliyor), dokümanlar: `m03`, `00_genel_bakis.md`, `veri_modeli.md` (plan yalnız `m09` + roller diyordu).
+- **Kararlar (yürütmede):** (1) Ret/iptal **tek** olay yayar: `ParentChildLinkEndedDomainEvent(…, Reason)` — tüketicisi olmayan eski `ParentChildLinkRejected`/`RevokedDomainEvent` kaldırıldı; olay yalnız **yaşayan** (`Pending`/`Approved`) bağ biterken çıkar (eski bir ret kaydını iptale çekmek, aynı velinin yeni onaylı bağını etkileyecek olay üretmesin). (2) Students tüketicisi `ParentUserId`'yi **yalnız o veliyi gösteriyorsa** temizler (B velisinin reddi birincil A'yı silmez). (3) Profil okumada `ParentUserId == ben` kontrolü **kaldırıldı** (VEYA'lanmadı): veli yetkisi yalnız `IParentAccessDirectory` + `Parent` rolü — iptal anında kesilir; birincil olmayan onaylı veli de okur (`ListStudentsByParent` ile aynı kural). (4) `Approve` onaylı bağda da hata (eskiden sessiz no-op) — `LinkedOnUtc` ve olaylar tekrarlanmaz. (5) İndeks ihlali çevirisi depoda: `IParentRepository.SaveLinkChangesAsync` **varsayılan arayüz üyesi** (sahteler değişmeden derlendi, #162), gerçek depo `23505` + indeks adını `parents.primary_exists`'e çevirir; claim'de kod geri verilir + 409 (eskiden yeniden fırlatıp 500 veriyordu). (6) Panel gizliliği: `KnownStudent` yok **ya da** `UserId` boş → `Hidden` (hesabı olmayan öğrencinin çalışma verisi zaten yok). Settings'te kayıt yoksa davranış değişmedi (açık + Standard). (7) Projeksiyon bilinen `UserId`'yi hiçbir olayla `null`'a çekmez (oluşturma olayı sonradan işlense bile). (8) Migration göçü `ParentLinkIntegrity.DemoteDuplicatePrimariesSql` sabiti — testte Postgres'in transaction'lı DDL'iyle (indeks düşür → tekrar yaz → göç → oku → geri al) sınandı; yeniden denemeli strateji kullanıcı transaction'ını yalnız `CreateExecutionStrategy().ExecuteAsync` içinde kabul eder.
 
 **Interfaces:**
 - Produces: `ParentChildLink.Approve(...)` → `Result` (`parents.invalid_link_transition`); `ParentChildLinkEndedIntegrationEvent(LinkId, ParentUserId, StudentId, Reason)`.
 
-- [ ] **Step 1: Kırmızı testler** — onaylı veli → bağ iptal → profil okuma **403**; reddedilmiş bağ yeniden `Approve` → hata; davetle bağlanmış öğrenci "Gizli" seçer → veli paneli gizli alanları görmez; davetle bağlanmış öğrenci veli talebini onaylayabilir; aynı öğrenciye eşzamanlı iki birincil veli → biri reddedilir.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Uygula** (fail-closed: `UserId` bilinmiyorsa `Hidden`).
-- [ ] **Step 4: Migration + `check-migration-down.sh`.**
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m09`, `roles/veli.md`, `roles/ogrenci.md`; rapor N-26/27 ✅.
+- [x] **Step 1: Kırmızı testler** — onaylı veli → bağ iptal → profil okuma **403**; reddedilmiş bağ yeniden `Approve` → hata; davetle bağlanmış öğrenci "Gizli" seçer → veli paneli gizli alanları görmez; davetle bağlanmış öğrenci veli talebini onaylayabilir; aynı öğrenciye eşzamanlı iki birincil veli → biri reddedilir. (15 birim + 7 integration; yarış hem deterministik — iki kapsamda iç içe onay — hem gerçek HTTP yarışı olarak.)
+- [x] **Step 2: Kırmızı gör.** (Önce derleme, sonra API iskeletiyle davranışsal: 12/15 birim, 7/7 integration kırmızı; 3 yeşil birim test koruma testi.)
+- [x] **Step 3: Uygula** (fail-closed: `UserId` bilinmiyorsa `Hidden`).
+- [x] **Step 4: Migration + `check-migration-down.sh`.** (`ParentLinkIntegrity`; 144 migration geri alınabilir, drift 0.)
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh` (4 / 928 / 83, başarısız 0, atlanan 0; `-warnaserror` 0 uyarı.)
+- [x] **Step 6: Doküman + commit** — `m09`, `roles/veli.md`, `roles/ogrenci.md`; rapor N-26/27 ✅. (Ek: `m03`, `00_genel_bakis.md`, `veri_modeli.md`; N-32'nin birincil veli maddesi ✅ — N-32 ◐ kalır.)
   ```bash
   git commit -m "fix(parents): bag iptalinde erisim kesilir + gizlilik fail-closed + tek birincil veli (N-26, N-27)"
   ```
