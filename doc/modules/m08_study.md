@@ -38,7 +38,7 @@ updated: 2026-10-16
 
 ### ⚠️ Sınır / Gelecek işler
 - **Sahiplik modeli:** Study, kendi sınırı içinde `StudyStudent` bağını **ilk yazımda oturum kullanıcısına** bağlar. Manuel öğrenci hijack'ini tümüyle kapatmak için M03 `StudentProfileCreated` integration event tüketimi eklenmeli.
-- **Yerel gün (streak):** M15 zaman dilimi tercihi gelene kadar Türkiye saati (UTC+3) varsayılır (`StudyLocalTime`). Streak gün sınırı 04:00'tir (`StudyLocalTime.StreakDate`); istatistik/haftalık özet ise gece yarısı tabanlı `LocalDate` kullanır.
+- **Yerel gün (streak):** P16 T1 / K-19 — gün hesapları sabit `UTC+3` yerine `ILocalCalendar` üzerinden yapılır ([backend.md §5.1](../architecture/backend.md)); dilim `Localization:TimeZone` (varsayılan `Europe/Istanbul`), kullanıcı başına dilim P24'te. Streak gün sınırı yerel 04:00'tir (`StudyLocalTime.StudyDay`, `ILocalCalendar` uzantısı); istatistik/haftalık özet ve "bugün" ise yerel gece yarısı tabanlıdır (`ToLocalDate` / `DayRangeUtc`). `StudyCompletionService`, `WeeklySummaryQueryHandler`, `GetStreakQueryHandler`, `GetStudyDashboardQueryHandler` takvimi enjekte eder.
 - **Konu sözlüğü:** `Subject/Topic` serbest metin; M15 müfredat sözlüğüne bağlanmalı.
 - **Veli/öğretmen okuma yolu:** Paylaşım bayrakları (`IsSharedWith*`) kayıtlarda tutulur; M09/öğretmen görünümünün bunları okuması bağ + integration event ile tamamlanacak.
 
@@ -178,7 +178,7 @@ Motivasyon çekirdeği: ardışık çalışılan gün sayısı ve kişisel rekor
 - arada boşluk varsa `CurrentStreakDays = 1` (seri kırıldı, `StreakBrokenDomainEvent`),
 - `LongestStreakDays` güncellenir; rekor kırılırsa `StreakMilestoneReachedDomainEvent`.
 
-**Streak eşiği (B3):** `RegisterStudyDay` artık her tamamlanan seansta çağrılmaz. `StudyCompletionService`, o günün (04:00 tabanlı `StudyLocalTime.StreakDate`) toplam efektif dakikasını hesaplar ve yalnız eşik aşılınca günü seriye işler. Eşik saf `StreakRules` sınıfındadır: günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk** (`MinFixedThresholdMinutes`). Gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).
+**Streak eşiği (B3):** `RegisterStudyDay` artık her tamamlanan seansta çağrılmaz. `StudyCompletionService`, o günün (04:00 tabanlı `StudyLocalTime.StudyDay`) toplam efektif dakikasını hesaplar ve yalnız eşik aşılınca günü seriye işler. Eşik saf `StreakRules` sınıfındadır: günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk** (`MinFixedThresholdMinutes`). Gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).
 
 ### 2.5 `Achievement` / `StudentAchievement` — Başarım rozetleri
 
@@ -525,7 +525,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 ---
 
-*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-10-16 (test sonucu düzenlemede gönderilmeyen ceza böleni korunur). Önceki: 2026-09-04 (P06/M08-1: bireysel plan ↔ özel ders çakışma uyarısı — `ConflictsWithLesson` + mobil etiket) · 2026-08-19 (kod-senkron: API 38 endpoint doğrulandı — seans 13 + test/deneme 7 + hedef/streak/dashboard 5 + paylaşım GET/PUT 2 + katalog 7 + not 4; §3.4'e GET /sharing eklendi). Önceki not — Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
+*M08 Bireysel Çalışma (Study) Modülü — Detaylı Tasarım | Faz 2 | Durum: 🟢 Uçtan uca | Güncelleme: 2026-11-14 (P16 Task 1 / K-19: yerel gün hesapları `ILocalCalendar` üzerine taşındı, `StudyLocalTime.StreakDate` → `StudyDay`; davranış aynı). Önceki: 2026-10-16 (test sonucu düzenlemede gönderilmeyen ceza böleni korunur). Önceki: 2026-09-04 (P06/M08-1: bireysel plan ↔ özel ders çakışma uyarısı — `ConflictsWithLesson` + mobil etiket) · 2026-08-19 (kod-senkron: API 38 endpoint doğrulandı — seans 13 + test/deneme 7 + hedef/streak/dashboard 5 + paylaşım GET/PUT 2 + katalog 7 + not 4; §3.4'e GET /sharing eklendi). Önceki not — Ç-06: `StudySession.LessonId` (plana bağ) + `/sessions/start`·`/manual` `lessonId`/`subjectId`/`topicId`; `IStudyPlanCompletionReader` yayını (tamamlanmış+LessonId'li seanslardan completion); `AddLessonIdToStudySession` migration · Veli V-F: `IStudyDigestDirectory` — veli paneli için son 7 gün çalışma dk + streak + ders dağılımı canlı okuması; Shared.Contracts)*
 
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
 <!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + MembershipGate; tier kaynağı P09 Task 2'den beri IEntitlementDirectory; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->

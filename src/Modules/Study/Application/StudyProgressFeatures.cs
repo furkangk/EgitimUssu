@@ -38,11 +38,10 @@ public sealed record GetStudyDashboardQuery(Guid StudentId) : IQuery<Result<Stud
 
 internal static class StudyStatistics
 {
-    public static async Task<int> TodayEffectiveMinutesAsync(IStudyRepository repository, Guid studentId, DateTime nowUtc, CancellationToken ct)
+    public static async Task<int> TodayEffectiveMinutesAsync(
+        IStudyRepository repository, ILocalCalendar calendar, Guid studentId, DateTime nowUtc, CancellationToken ct)
     {
-        var today = StudyLocalTime.LocalDate(nowUtc);
-        var fromUtc = StudyLocalTime.LocalDayStartUtc(today);
-        var toUtc = StudyLocalTime.LocalDayStartUtc(today.AddDays(1));
+        var (fromUtc, toUtc) = calendar.DayRangeUtc(calendar.ToLocalDate(nowUtc));
         var sessions = await repository.ListCompletedSessionsAsync(studentId, fromUtc, toUtc, ct);
         return sessions.Sum(s => s.EffectiveMinutes);
     }
@@ -134,19 +133,21 @@ public sealed class GetStreakQueryHandler : IQueryHandler<GetStreakQuery, Result
 {
     private readonly IStudyRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public GetStreakQueryHandler(IStudyRepository repository, IClock clock)
+    public GetStreakQueryHandler(IStudyRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<StreakResponse>> Handle(GetStreakQuery query, CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         var streak = await _repository.GetStreakAsync(query.StudentId, cancellationToken);
-        var todayMinutes = await StudyStatistics.TodayEffectiveMinutesAsync(_repository, query.StudentId, now, cancellationToken);
-        var today = StudyLocalTime.LocalDate(now);
+        var todayMinutes = await StudyStatistics.TodayEffectiveMinutesAsync(_repository, _calendar, query.StudentId, now, cancellationToken);
+        var today = _calendar.ToLocalDate(now);
 
         var response = new StreakResponse(
             streak?.CurrentStreakDays ?? 0,
@@ -254,22 +255,27 @@ public sealed class GetStudyDashboardQueryHandler : IQueryHandler<GetStudyDashbo
 {
     private readonly IStudyRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public GetStudyDashboardQueryHandler(IStudyRepository repository, IClock clock)
+    public GetStudyDashboardQueryHandler(IStudyRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<StudyDashboardResponse>> Handle(GetStudyDashboardQuery query, CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
-        var today = StudyLocalTime.LocalDate(now);
+        var today = _calendar.ToLocalDate(now);
         var weekStart = StartOfWeek(today);
 
-        var todayMinutes = await StudyStatistics.TodayEffectiveMinutesAsync(_repository, query.StudentId, now, cancellationToken);
+        var todayMinutes = await StudyStatistics.TodayEffectiveMinutesAsync(_repository, _calendar, query.StudentId, now, cancellationToken);
         var weekSessions = await _repository.ListCompletedSessionsAsync(
-            query.StudentId, StudyLocalTime.LocalDayStartUtc(weekStart), StudyLocalTime.LocalDayStartUtc(weekStart.AddDays(7)), cancellationToken);
+            query.StudentId,
+            _calendar.ToUtc(weekStart, TimeOnly.MinValue),
+            _calendar.ToUtc(weekStart.AddDays(7), TimeOnly.MinValue),
+            cancellationToken);
 
         var streak = await _repository.GetStreakAsync(query.StudentId, cancellationToken);
         var goal = await _repository.GetActiveGoalAsync(query.StudentId, cancellationToken);

@@ -22,26 +22,31 @@
 
 ---
 
-### Task 1: `ILocalCalendar` + `StudyLocalTime` taşıması
+### Task 1: `ILocalCalendar` + `StudyLocalTime` taşıması ✅
 
 **Files:**
 - Create: `src/Shared/Kernel/ILocalCalendar.cs`, `src/Shared/Infrastructure/LocalCalendar.cs`
 - Create: `src/Shared/Infrastructure/Configuration/LocalCalendarGuard.cs` (açılışta zaman dilimi çözülemezse fail-fast)
-- Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs`
+- Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs` (`Localization:TimeZone` burada okunur ve guard'dan geçer — diğer guard'lardan **önce**; ayrı options sınıfı yok, `LocalizationOptions` adı framework tipiyle çakışır)
+- Modify: `src/API.Host/Program.cs` (açılış log'una "yerel takvim" satırı — Step 4'ün kanıtı) — *2026-11-14 eklendi*
 - Modify: `src/Modules/Study/Application/StudyPolicies.cs` (`StudyLocalTime` → `ILocalCalendar` üzerine; 04:00 seri günü kuralı korunur)
+- Modify: `src/Modules/Study/Application/StudySessionFeatures.cs`, `src/Modules/Study/Application/StudyProgressFeatures.cs` (çağıranlar `ILocalCalendar` enjekte eder — statik yardımcı DI'lı takvimi göremez) — *2026-11-14 eklendi*
+- Modify: `tests/Unit/StreakRulesTests.cs`, `tests/Unit/StudyStreakTests.cs`, `tests/Unit/StudySessionRecoveryHandlerTests.cs` (imza değişikliği) — *2026-11-14 eklendi*
 - Modify: `Dockerfile` (runtime imajında `tzdata` mevcut değilse ekle)
+- Doc: `doc/architecture/backend.md` (§5.1 zaman), `doc/modules/m08_study.md` (sabit UTC+3 anlatımı) — *2026-11-14 eklendi*
 - Test: `tests/Unit/LocalCalendarTests.cs`
 
 **Interfaces:**
-- Produces: master §4'teki `ILocalCalendar` imzası aynen. Ek: `DateOnly StudyDay(DateTime utc)` **Study'de** kalır (`ILocalCalendar.ToLocal(utc).AddHours(-4)` tarihi).
+- Produces: master §4'teki `ILocalCalendar` imzası aynen. Ek: `DateOnly StudyDay(DateTime utc)` **Study'de** kalır (`ILocalCalendar` uzantısı; `ToLocalDate(utc.AddHours(-4))` — `DateOnly.FromDateTime(` modülde kullanılmaz, T6 taraması).
 - Config: `Localization:TimeZone` (varsayılan `Europe/Istanbul`).
+- `FormatForUser` Türkçe ay/gün adlarını **sabit tablodan** basar (ICU/kültür verisine bağlı değil — Linux imajında kültür eksikse sessizce İngilizce basmaz).
 
-- [ ] **Step 1: Kırmızı testler** — `ToLocalDate(2026-11-13T21:30Z)` = 2026-11-14; `DayRangeUtc(2026-11-14)` = `[2026-11-13T21:00Z, 2026-11-14T21:00Z)`; `WeekRangeUtc` Pazartesi 00:00 TR; `MonthRangeUtc(2026, 12)` = `[2026-11-30T21:00Z, 2026-12-31T21:00Z)`; `FormatForUser` → `"14 Kasım Cuma 10:00"`; geçersiz zaman dilimi kimliği → guard hatası.
-- [ ] **Step 2: Kırmızı gör** — `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LocalCalendarTests"`
-- [ ] **Step 3: Uygula** (`TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul")`; Windows'ta ICU ile çözülür, çözülmezse guard açıkça söyler).
-- [ ] **Step 4: Docker doğrulaması** — `docker build -t eu-tz . && docker run --rm -e ASPNETCORE_ENVIRONMENT=Development eu-tz` açılış log'unda guard geçti satırı; geçmezse `apt-get install -y tzdata` ekle.
-- [ ] **Step 5: `StudyLocalTime` taşıması** — mevcut seri testleri yeşil kalmalı (davranış aynı, yalnız kaynak değişiyor).
-- [ ] **Step 6: Yeşil gör + doküman + commit** — `doc/architecture/backend.md` §zaman; master §1 "Saat" kuralına atıf.
+- [x] **Step 1: Kırmızı testler** — `ToLocalDate(2026-11-13T21:30Z)` = 2026-11-14; `DayRangeUtc(2026-11-14)` = `[2026-11-13T21:00Z, 2026-11-14T21:00Z)`; `WeekRangeUtc` Pazartesi 00:00 TR (Pazar girdisi dahil); `MonthRangeUtc(2026, 12)` = `[2026-11-30T21:00Z, 2026-12-31T21:00Z)`; her UTC çıktıda `Kind == Utc`; `FormatForUser(2026-11-13T07:00Z)` → `"13 Kasım Cuma 10:00"` (*düzeltme 2026-11-14: planın ilk hâlindeki "14 Kasım Cuma" 2026'da yanlış — 14 Kasım 2026 Cumartesi*); geçersiz zaman dilimi kimliği → guard hatası.
+- [x] **Step 2: Kırmızı gör** — `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LocalCalendarTests"`
+- [x] **Step 3: Uygula** (`TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul")`; Windows'ta ICU ile çözülür, çözülmezse guard açıkça söyler).
+- [x] **Step 4: Docker doğrulaması** — `docker build -t eu-tz . && docker run --rm -e ASPNETCORE_ENVIRONMENT=Development eu-tz` açılış log'unda guard geçti satırı; geçmezse `apt-get install -y tzdata` ekle. *(2026-11-14: `aspnet:9.0` imajında `tzdata` kurulu — `dpkg -s tzdata` → `install ok installed`; log satırı `Yerel takvim: Europe/Istanbul (UTC+03:00) — LocalCalendarGuard geçti`. Dockerfile'a paket değil yalnız koruma yorumu eklendi.)*
+- [x] **Step 5: `StudyLocalTime` taşıması** — mevcut seri testleri yeşil kalmalı (davranış aynı, yalnız kaynak değişiyor).
+- [x] **Step 6: Yeşil gör + doküman + commit** — `doc/architecture/backend.md` §zaman (§5.1); master §1 "Saat" kuralına atıf.
   ```bash
   git commit -m "feat(time): ILocalCalendar tek zaman kaynagi + StudyLocalTime tasindi (K-19)"
   ```

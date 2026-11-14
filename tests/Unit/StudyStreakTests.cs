@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Study.Application;
 using EgitimUssu.Modules.Study.Domain;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
@@ -24,7 +25,7 @@ public sealed class StudyStreakTests
         // 10 dk seans, hedef 120 dk / %60 → eşik 72 dk. Gün sayılmamalı.
         var studentId = Guid.NewGuid();
         var repo = new FakeStudyRepository(studentId, dailyGoal: 120, thresholdPercent: 60, existingTodayMinutes: 0);
-        var svc = new StudyCompletionService(repo, new AchievementEvaluator(repo, new FakeIdGen(), new FakeClock(Now)), new FakeIdGen(), new FakeClock(Now));
+        var svc = Completion(repo);
         var session = StudySession.CreateManual(Guid.NewGuid(), studentId, "Mat", "Türev", 10, Now, null, false, false, Now);
         repo.Seed(session);
 
@@ -38,13 +39,21 @@ public sealed class StudyStreakTests
     {
         var studentId = Guid.NewGuid();
         var repo = new FakeStudyRepository(studentId, dailyGoal: 120, thresholdPercent: 60, existingTodayMinutes: 62);
-        var svc = new StudyCompletionService(repo, new AchievementEvaluator(repo, new FakeIdGen(), new FakeClock(Now)), new FakeIdGen(), new FakeClock(Now));
+        var svc = Completion(repo);
         var session = StudySession.CreateManual(Guid.NewGuid(), studentId, "Mat", "Türev", 10, Now, null, false, false, Now); // 62+10=72=eşik
         repo.Seed(session);
 
         await svc.RecordCompletedAsync(session, CancellationToken.None);
 
         Assert.Equal(1, repo.Streak?.CurrentStreakDays);
+    }
+
+    private static StudyCompletionService Completion(IStudyRepository repo)
+    {
+        var clock = new FakeClock(Now);
+        return new StudyCompletionService(
+            repo, new AchievementEvaluator(repo, new FakeIdGen(), clock), new FakeIdGen(), clock,
+            new LocalCalendar("Europe/Istanbul", clock));
     }
 }
 

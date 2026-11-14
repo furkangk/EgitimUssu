@@ -22,6 +22,13 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddSharedInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // P16 T1 / K-19: Zamanın tek kaynağı. Dilim burada (diğer guard'lardan önce) çözülür:
+        // çözülemezse açılış durur — "bugün" ve bildirim saatleri ilk istekte 500'e dönmesin.
+        var localTimeZone = LocalCalendarGuard.Resolve(
+            configuration[LocalCalendarGuard.ConfigurationKey] ?? LocalCalendarGuard.DefaultTimeZoneId);
+        services.AddSingleton<ILocalCalendar>(provider =>
+            new LocalCalendar(localTimeZone, provider.GetRequiredService<IClock>()));
+
         // E-07: Saklama süresi dolan teknik kayıtları (işlenmiş outbox/inbox) temizler.
         services.AddScoped<Persistence.IDataRetentionProcessor, Persistence.DataRetentionProcessor>();
         services.AddHostedService<Persistence.DataRetentionService>();

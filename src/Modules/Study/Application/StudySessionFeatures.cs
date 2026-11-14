@@ -120,17 +120,20 @@ public sealed class StudyCompletionService
     private readonly AchievementEvaluator _evaluator;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
     public StudyCompletionService(
         IStudyRepository repository,
         AchievementEvaluator evaluator,
         IIdGenerator idGenerator,
-        IClock clock)
+        IClock clock,
+        ILocalCalendar calendar)
     {
         _repository = repository;
         _evaluator = evaluator;
         _idGenerator = idGenerator;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task RecordCompletedAsync(StudySession session, CancellationToken cancellationToken)
@@ -160,11 +163,12 @@ public sealed class StudyCompletionService
             await _repository.AddStreakAsync(streak, cancellationToken);
         }
 
-        var streakDate = StudyLocalTime.StreakDate(studiedOn);
+        var streakDate = _calendar.StudyDay(studiedOn);
+        var (streakDayStartUtc, streakDayEndUtc) = _calendar.DayRangeUtc(streakDate);
         var daySessions = await _repository.ListCompletedSessionsAsync(
             session.StudentId,
-            StudyLocalTime.LocalDayStartUtc(streakDate),
-            StudyLocalTime.LocalDayStartUtc(streakDate.AddDays(1)),
+            streakDayStartUtc,
+            streakDayEndUtc,
             cancellationToken);
         var dayTotal = daySessions.Sum(s => s.EffectiveMinutes);
 
@@ -576,18 +580,21 @@ public sealed class WeeklySummaryQueryHandler
 {
     private readonly IStudyRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public WeeklySummaryQueryHandler(IStudyRepository repository, IClock clock)
+    public WeeklySummaryQueryHandler(IStudyRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<WeeklySummaryResponse>> Handle(WeeklySummaryQuery query, CancellationToken cancellationToken)
     {
-        var weekStart = query.WeekStart ?? StartOfWeek(StudyLocalTime.LocalDate(_clock.UtcNow));
-        var fromUtc = StudyLocalTime.LocalDayStartUtc(weekStart);
-        var toUtc = StudyLocalTime.LocalDayStartUtc(weekStart.AddDays(7));
+        // Verilen WeekStart Pazartesi olmayabilir; pencere o günden 7 gün sürer (davranış korunur).
+        var weekStart = query.WeekStart ?? StartOfWeek(_calendar.ToLocalDate(_clock.UtcNow));
+        var fromUtc = _calendar.ToUtc(weekStart, TimeOnly.MinValue);
+        var toUtc = _calendar.ToUtc(weekStart.AddDays(7), TimeOnly.MinValue);
 
         var sessions = await _repository.ListCompletedSessionsAsync(query.StudentId, fromUtc, toUtc, cancellationToken);
 
@@ -601,7 +608,7 @@ public sealed class WeeklySummaryQueryHandler
             .Select(offset =>
             {
                 var day = weekStart.AddDays(offset);
-                var daySessions = sessions.Where(s => StudyLocalTime.LocalDate(s.EndedAtUtc ?? s.StartedAtUtc) == day).ToArray();
+                var daySessions = sessions.Where(s => _calendar.ToLocalDate(s.EndedAtUtc ?? s.StartedAtUtc) == day).ToArray();
                 return new DayMinutesResponse(day, daySessions.Sum(s => s.EffectiveMinutes), daySessions.Length);
             })
             .ToArray();

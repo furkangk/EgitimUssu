@@ -6,20 +6,18 @@ using EgitimUssu.Shared.Kernel;
 namespace EgitimUssu.Modules.Study.Application;
 
 /// <summary>
-/// Öğrencinin yerel takvim günü hesabı. M15 (Settings) zaman dilimi tercihi devreye girene kadar
-/// Türkiye saati (UTC+3) varsayılır.
+/// Study'nin yerel gün kuralları. P16 T1 / K-19: sabit UTC+3 yerine <see cref="ILocalCalendar"/>
+/// üzerine kurulur — istatistik ve haftalık özet yerel gece yarısıyla, seri günü yerel 04:00 ile döner.
+/// Kullanıcı başına saat dilimi P24'te gelir; o zamana kadar takvimin dilimi (varsayılan Türkiye) geçerlidir.
 /// </summary>
 public static class StudyLocalTime
 {
-    public const int OffsetHours = 3;
+    /// <summary>Seri günü bu yerel saatte döner (gece geç çalışan öğrenci dünü korur).</summary>
+    public const int StudyDayStartHour = 4;
 
-    public static DateOnly LocalDate(DateTime utcNow) => DateOnly.FromDateTime(utcNow.AddHours(OffsetHours));
-
-    public static DateTime LocalDayStartUtc(DateOnly localDate) =>
-        DateTime.SpecifyKind(localDate.ToDateTime(TimeOnly.MinValue).AddHours(-OffsetHours), DateTimeKind.Utc);
-
-    /// <summary>Streak gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).</summary>
-    public static DateOnly StreakDate(DateTime utcNow) => DateOnly.FromDateTime(utcNow.AddHours(OffsetHours).AddHours(-4));
+    /// <summary>Anın sayıldığı seri günü: yerel saat 04:00'ten önceyse bir önceki gün.</summary>
+    public static DateOnly StudyDay(this ILocalCalendar calendar, DateTime utc) =>
+        calendar.ToLocalDate(utc.AddHours(-StudyDayStartHour));
 }
 
 /// <summary>Streak (seri) kuralları — birim testli saf mantık.</summary>

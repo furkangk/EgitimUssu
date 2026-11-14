@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Study.Application;
+using EgitimUssu.Shared.Infrastructure;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -22,14 +23,23 @@ public sealed class StreakRulesTests
     }
 
     [Fact]
-    public void StreakDate_RollsAt0400Local()
+    public void StudyDay_RollsAt0400Local()
     {
+        // P16 T1: kural ILocalCalendar üzerinden; sabit UTC+3 ile aynı sonuç (Türkiye DST uygulamaz).
+        var calendar = new LocalCalendar("Europe/Istanbul", new FakeClock(new DateTime(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc)));
+
         // 2026-07-20 00:30 Europe/Istanbul (UTC 2026-07-19 21:30) → hâlâ 19 Temmuz (04:00 öncesi)
         var utc = new DateTime(2026, 7, 19, 21, 30, 0, DateTimeKind.Utc);
-        Assert.Equal(new DateOnly(2026, 7, 19), StudyLocalTime.StreakDate(utc));
+        Assert.Equal(new DateOnly(2026, 7, 19), calendar.StudyDay(utc));
+
+        // 2026-07-20 03:59 Europe/Istanbul (UTC 2026-07-20 00:59) → hâlâ 19 Temmuz
+        Assert.Equal(new DateOnly(2026, 7, 19), calendar.StudyDay(new DateTime(2026, 7, 20, 0, 59, 0, DateTimeKind.Utc)));
+
+        // 2026-07-20 04:00 Europe/Istanbul (UTC 2026-07-20 01:00) → 20 Temmuz (sınır dahil)
+        Assert.Equal(new DateOnly(2026, 7, 20), calendar.StudyDay(new DateTime(2026, 7, 20, 1, 0, 0, DateTimeKind.Utc)));
 
         // 2026-07-20 05:00 Europe/Istanbul (UTC 2026-07-20 02:00) → 20 Temmuz (04:00 sonrası)
         var utc2 = new DateTime(2026, 7, 20, 2, 0, 0, DateTimeKind.Utc);
-        Assert.Equal(new DateOnly(2026, 7, 20), StudyLocalTime.StreakDate(utc2));
+        Assert.Equal(new DateOnly(2026, 7, 20), calendar.StudyDay(utc2));
     }
 }
