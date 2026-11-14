@@ -54,7 +54,12 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         return await _dbContext.LessonSchedules
             .Where(lesson => lesson.StudentId == studentId
                 && lesson.Status != LessonScheduleStatus.Cancelled
-                && lesson.StartAtUtc <= untilUtc)
+                && (lesson.StartAtUtc <= untilUtc
+                    // P16 T3 / N-14: seri pencereden sonra başlasa da bir oluşumu pencereye öne alınmış olabilir
+                    // (ilk ders bir önceki haftaya) — seri yüklenir, pencereye düşüp düşmediğine genişletici karar verir.
+                    || _dbContext.LessonOccurrenceExceptions.Any(x => x.SeriesLessonScheduleId == lesson.Id
+                        && x.Action == OccurrenceExceptionAction.Rescheduled
+                        && x.OverrideStartAtUtc <= untilUtc)))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -65,7 +70,11 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         return await _dbContext.LessonSchedules
             .Where(lesson => lesson.TeacherUserId == teacherUserId
                 && lesson.Status != LessonScheduleStatus.Cancelled
-                && lesson.StartAtUtc <= untilUtc)
+                && (lesson.StartAtUtc <= untilUtc
+                    // P16 T3 / N-14: pencereye öne alınmış oluşumu olan seri (öğrenci sorgusundaki kural).
+                    || _dbContext.LessonOccurrenceExceptions.Any(x => x.SeriesLessonScheduleId == lesson.Id
+                        && x.Action == OccurrenceExceptionAction.Rescheduled
+                        && x.OverrideStartAtUtc <= untilUtc)))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -79,8 +88,32 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         _dbContext.LessonSchedules.Remove(lessonSchedule);
     }
 
-    public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
-        => _dbContext.LessonOccurrenceExceptions.AddAsync(occurrenceException, cancellationToken).AsTask();
+    /// <summary>
+    /// P16 T3 / N-05: Aynı (seri, orijinal oluşum) anahtarında satır varsa onu günceller, yoksa ekler. Aynı iş
+    /// biriminde henüz kaydedilmemiş ekleme de bulunur (<c>Local</c>). Benzersiz indeks son savunma hattıdır:
+    /// eşzamanlı iki ilk yazımın kaybedeni tek seferlik hata alır, kalıcı tekrar satırı oluşmaz.
+    /// </summary>
+    public async Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+    {
+        var seriesId = occurrenceException.SeriesLessonScheduleId;
+        var originalStartAtUtc = occurrenceException.OriginalStartAtUtc;
+        var existing = _dbContext.LessonOccurrenceExceptions.Local
+                .FirstOrDefault(x => x.SeriesLessonScheduleId == seriesId && x.OriginalStartAtUtc == originalStartAtUtc)
+            ?? await _dbContext.LessonOccurrenceExceptions
+                .FirstOrDefaultAsync(x => x.SeriesLessonScheduleId == seriesId && x.OriginalStartAtUtc == originalStartAtUtc, cancellationToken);
+
+        if (existing is null)
+        {
+            await _dbContext.LessonOccurrenceExceptions.AddAsync(occurrenceException, cancellationToken);
+            return;
+        }
+
+        existing.Overwrite(
+            occurrenceException.Action,
+            occurrenceException.OverrideStartAtUtc,
+            occurrenceException.OverrideEndAtUtc,
+            occurrenceException.Note);
+    }
 
     public async Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken)
         => await _dbContext.LessonOccurrenceExceptions

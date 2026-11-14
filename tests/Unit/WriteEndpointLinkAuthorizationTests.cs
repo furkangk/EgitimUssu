@@ -406,7 +406,7 @@ public sealed class WriteEndpointLinkAuthorizationTests
 
         public void Remove(LessonSchedule lessonSchedule) => throw new NotSupportedException();
 
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken)

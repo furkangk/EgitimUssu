@@ -106,7 +106,7 @@ public sealed class SelfLessonPolicyTests
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyCollection<LessonSchedule>>(Array.Empty<LessonSchedule>());
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => Task.CompletedTask;
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyCollection<LessonOccurrenceException>>(Array.Empty<LessonOccurrenceException>());
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;

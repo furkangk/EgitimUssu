@@ -202,6 +202,18 @@ public static class RecurrenceExpander
     /// <summary>
     /// Tekrar oluşumlarını üretirken occurrence istisnalarını uygular: Skipped atlanır,
     /// Cancelled iptal işaretiyle döner (takvimde soluk), Rescheduled override tarih/saatle döner.
+    /// <para>
+    /// P16 T3 / N-05: Aynı oluşuma birden çok istisna gelirse (benzersiz indeksten önce yazılmış satırlar) son gelen
+    /// geçerlidir — <c>ToDictionary</c> burada <c>ArgumentException</c> ile listeyi kalıcı 500'e çeviriyordu.
+    /// </para>
+    /// <para>
+    /// P16 T3 / N-14: Orijinali pencere dışında kalıp pencereye <b>ertelenmiş</b> oluşum da döner (Pazartesi dersi
+    /// gelecek haftanın Salı'sına taşınınca gelecek haftanın görünümünde). Pencere yüklemi ertelenen oluşumla aynıdır
+    /// (iki uç dahil, çakışma). Orijinal serinin gerçek bir oluşumu değilse (UNTIL/COUNT sonrası, kural değişmiş, bozuk
+    /// anahtar) istisna yok sayılır — pencere içindeki davranışla aynı. Bu nedenle <paramref name="exceptions"/>
+    /// serinin <b>tüm</b> istisnalarını taşımalıdır (pencereyle süzülmemiş). Çıktı başlangıca göre sıralı değildir;
+    /// taşınan oluşumlar sona eklenir (çağıranlar sıralar).
+    /// </para>
     /// </summary>
     public static IEnumerable<ScheduleOccurrence> Expand(
         DateTime anchorStartUtc,
@@ -212,9 +224,30 @@ public static class RecurrenceExpander
         DateTime rangeEndUtc,
         IReadOnlyCollection<OccurrenceOverride> exceptions)
     {
-        var byOriginal = exceptions.ToDictionary(e => e.OriginalStartAtUtc);
+        ArgumentNullException.ThrowIfNull(zone);
+        ArgumentNullException.ThrowIfNull(exceptions);
+        return ExpandWithExceptions(anchorStartUtc, anchorEndUtc, recurrenceRule, zone, rangeStartUtc, rangeEndUtc, exceptions);
+    }
 
-        foreach (var occurrence in Expand(anchorStartUtc, anchorEndUtc, recurrenceRule, zone, rangeStartUtc, rangeEndUtc))
+    private static IEnumerable<ScheduleOccurrence> ExpandWithExceptions(
+        DateTime anchorStartUtc,
+        DateTime anchorEndUtc,
+        string? recurrenceRule,
+        TimeZoneInfo zone,
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        IReadOnlyCollection<OccurrenceOverride> exceptions)
+    {
+        var byOriginal = new Dictionary<DateTime, OccurrenceOverride>(exceptions.Count);
+        foreach (var exception in exceptions)
+        {
+            byOriginal[exception.OriginalStartAtUtc] = exception;
+        }
+
+        // Pencere içinde istisnası uygulanmış orijinaller — taşınanlar taramasında ikinci kez üretilmesin.
+        var applied = new HashSet<DateTime>();
+
+        foreach (var occurrence in ExpandCore(anchorStartUtc, anchorEndUtc, recurrenceRule, zone, rangeStartUtc, rangeEndUtc))
         {
             if (!byOriginal.TryGetValue(occurrence.StartAtUtc, out var ex))
             {
@@ -222,6 +255,7 @@ public static class RecurrenceExpander
                 continue;
             }
 
+            applied.Add(occurrence.StartAtUtc);
             switch (ex.Action)
             {
                 case OccurrenceExceptionAction.Skipped:
@@ -238,6 +272,42 @@ public static class RecurrenceExpander
                     }
 
                     break;
+            }
+        }
+
+        // N-14: orijinali pencere dışında kalan, pencereye ertelenmiş oluşumlar.
+        foreach (var ex in byOriginal.Values)
+        {
+            if (ex.Action != OccurrenceExceptionAction.Rescheduled
+                || ex.OverrideStartAtUtc is not { } start
+                || start > rangeEndUtc
+                || (ex.OverrideEndAtUtc.HasValue && ex.OverrideEndAtUtc.Value < rangeStartUtc)
+                || applied.Contains(ex.OriginalStartAtUtc))
+            {
+                continue;
+            }
+
+            // Nokta genişletmesi: orijinal serinin gerçek bir oluşumu mu? (bayat istisna "hayalet ders" olmasın)
+            ScheduleOccurrence? original = null;
+            foreach (var candidate in ExpandCore(
+                anchorStartUtc, anchorEndUtc, recurrenceRule, zone, ex.OriginalStartAtUtc, ex.OriginalStartAtUtc))
+            {
+                if (candidate.StartAtUtc == ex.OriginalStartAtUtc)
+                {
+                    original = candidate;
+                    break;
+                }
+            }
+
+            if (original is not { } occurrence)
+            {
+                continue;
+            }
+
+            var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
+            if (end >= rangeStartUtc)
+            {
+                yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc);
             }
         }
     }

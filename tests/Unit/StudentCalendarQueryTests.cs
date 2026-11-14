@@ -135,7 +135,7 @@ public sealed class StudentCalendarQueryTests
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
     }

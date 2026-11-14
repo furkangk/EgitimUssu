@@ -119,7 +119,11 @@ public interface ILessonScheduleRepository
 
     void Remove(LessonSchedule lessonSchedule);
 
-    Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken);
+    /// <summary>
+    /// P16 T3 / N-05: Oluşum istisnasını yazar; aynı <c>(SeriesLessonScheduleId, OriginalStartAtUtc)</c> varsa
+    /// yeni eylem/saat/notla günceller (iki erteleme ya da erteleme + iptal tek satırda kalır, son değer geçerli).
+    /// </summary>
+    Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken);
 
@@ -300,7 +304,7 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             var occurrenceException = new LessonOccurrenceException(
                 _idGenerator.New(), lesson.Id, occStart,
                 OccurrenceExceptionAction.Cancelled, null, null, command.CancellationNote?.Trim(), _clock.UtcNow);
-            await _repository.AddExceptionAsync(occurrenceException, cancellationToken);
+            await _repository.UpsertExceptionAsync(occurrenceException, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
             return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
         }
@@ -376,7 +380,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             var occurrenceException = new LessonOccurrenceException(
                 _idGenerator.New(), lesson.Id, occStart,
                 OccurrenceExceptionAction.Rescheduled, command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
-            await _repository.AddExceptionAsync(occurrenceException, cancellationToken);
+            await _repository.UpsertExceptionAsync(occurrenceException, cancellationToken);
             await _repository.SaveChangesAsync(cancellationToken);
             return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
         }

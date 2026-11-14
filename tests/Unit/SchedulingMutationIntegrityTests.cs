@@ -134,7 +134,7 @@ public sealed class SchedulingMutationIntegrityTests
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
             => Task.FromResult<LessonSchedule?>(_series.Id == lessonId ? _series : null);
 
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
         {
             AddedExceptions.Add(occurrenceException);
             return Task.CompletedTask;

@@ -79,27 +79,30 @@
 
 ---
 
-### Task 3: Oluşum istisnaları — benzersizlik, upsert, pencere dışı erteleme (N-05, N-14)
+### Task 3: Oluşum istisnaları — benzersizlik, upsert, pencere dışı erteleme (N-05, N-14) ✅
 
 **Files:**
 - Modify: `src/Modules/Scheduling/Infrastructure/SchedulingDbContext.cs` (`HasIndex(...).IsUnique()`)
-- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (`UpsertExceptionAsync`)
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (`UpsertExceptionAsync`; *2026-11-14 eklendi:* `ListActiveForTeacher/StudentUntilAsync` pencereye öne alınmış oluşumu olan seriyi de yükler — çapası pencereden sonra olan serinin ilk dersi bir önceki haftaya alınınca)
 - Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (cancel/reschedule `Single` yolu upsert kullanır)
 - Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (`ToDictionary` yerine güvenli gruplama; pencereye **taşınan** override'lar ayrıca dahil)
-- Migration: `UniqueOccurrenceExceptions` (Scheduling)
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`LessonOccurrenceException` özel setter'lı, mutator yok → upsert için `Overwrite(...)` domain metodu) — *2026-11-14 eklendi*
+- Modify: `ILessonScheduleRepository`'nin altı test sahtesi — `tests/Unit/LessonScheduleTests.cs`, `SchedulingMutationIntegrityTests.cs` (kayıt listesi upsert'e bağlanır; `Assert.Empty(AddedExceptions)` boşa düşmesin), `SelfLessonPolicyTests.cs`, `StudentCalendarQueryTests.cs`, `TeacherLessonExpansionTests.cs`, `WriteEndpointLinkAuthorizationTests.cs` (`AddExceptionAsync` → `UpsertExceptionAsync`) — *2026-11-14 eklendi*
+- Migration: `UniqueOccurrenceExceptions` (Scheduling) + `.Designer.cs` + `SchedulingDbContextModelSnapshot.cs`
+- Doc: `doc/modules/m04_scheduling.md`, `doc/modules/veri_modeli.md`, rapor N-05/N-14 — *2026-11-14 eklendi*
 - Test: `tests/Unit/OccurrenceExceptionUpsertTests.cs`, `tests/Integration/RealOccurrenceExceptionTests.cs`
 
 **Interfaces:**
-- `ILessonScheduleRepository.UpsertExceptionAsync(LessonOccurrenceException exception, CancellationToken ct)` — aynı `(SeriesLessonScheduleId, OriginalStartAtUtc)` varsa günceller.
-- Genişletme sorgusu: pencere `[from, to)` için seri oluşumları + `NewStartAtUtc ∈ [from, to)` olan override'lar (orijinali pencere dışında olsa da).
+- `ILessonScheduleRepository.UpsertExceptionAsync(LessonOccurrenceException exception, CancellationToken ct)` — aynı `(SeriesLessonScheduleId, OriginalStartAtUtc)` varsa günceller. `AddExceptionAsync` kaldırılır (tek yazma yolu upsert).
+- Genişletme: pencere için seri oluşumları + `OverrideStartAtUtc` pencereyle çakışan **Rescheduled** override'lar (orijinali pencere dışında olsa da). *(2026-11-14 netleştirildi: pencere `[from, to)` değil, genişleticinin mevcut **iki ucu dahil** kuralı — `Tuesday_night_series_lists_local_tuesdays` pencere sonundaki oluşumu bekler; taşınan override aynı dalın çakışma yüklemini kullanır. Orijinal gerçek bir oluşum olmalı — nokta genişletmesiyle doğrulanır, yoksa bayat istisna pencere dışından "hayalet ders" olarak dirilirdi. Düzeltme dört çağıranın hiçbirine dokunmadan `RecurrenceExpander` içinde kalır: hepsi serinin tüm istisnalarını yüklüyor.)*
 
-- [ ] **Step 1: Kırmızı testler** — aynı oluşuma iki kez erteleme → tek istisna, son değer geçerli, liste **200**; ertelenmiş oluşum sonra iptal → tek istisna `Cancelled`; Pazartesi dersi gelecek haftanın Salı'sına ertelendi → **gelecek hafta** görünümünde görünür, bu hafta görünmez.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Migration** — `Up`: aynı anahtarlı tekrarlarda **en son `CreatedOnUtc` hariç** sil (SQL `DELETE ... USING (SELECT ... ROW_NUMBER() ...)`), sonra benzersiz indeks. `Down`: indeksi normal indekse geri çevir.
+- [x] **Step 1: Kırmızı testler** — aynı oluşuma iki kez erteleme → tek istisna, son değer geçerli, liste **200**; ertelenmiş oluşum sonra iptal → tek istisna `Cancelled`; Pazartesi dersi gelecek haftanın Salı'sına ertelendi → **gelecek hafta** görünümünde görünür, bu hafta görünmez. *(Ek: tekrar satırlar genişleticiyi patlatmaz; pencere içi erteleme bir kez; pencere sonu dahil; bayat istisna ×3 ve iptal/atlama satırı pencereye sızmaz; ilk ders serinin çapasından önceki haftaya öne alınınca o haftada listelenir; göç testi ayrı veritabanında önceki migration'a kurup tekrar yazar, yükseltir, `Down`'ı dener.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce `AddExceptionAsync` → `UpsertExceptionAsync` davranışsız yeniden adlandırıldı → 1061 yeşil; sonra yeni testler: birim 5 kırmızı (`ArgumentException` + taşınan yok), integration 3 kırmızı (liste 500, gelecek haftada Salı yok, göçte 4 satır kaldı), öne alma uç testi ayrıca kırmızı.)*
+- [x] **Step 3: Migration** — `Up`: aynı anahtarlı tekrarlarda **en son `CreatedOnUtc` hariç** sil (SQL `DELETE ... USING (SELECT ... ROW_NUMBER() ...)`), sonra benzersiz indeks. `Down`: indeksi normal indekse geri çevir.
   `dotnet ef migrations add UniqueOccurrenceExceptions --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext` → `./scripts/check-migration-down.sh`
-- [ ] **Step 4: Upsert + genişletme düzeltmesi.**
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m04`, `veri_modeli.md`; rapor N-05/N-14 ✅.
+- [x] **Step 4: Upsert + genişletme düzeltmesi.**
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 6: Doküman + commit** — `m04`, `veri_modeli.md`; rapor N-05/N-14 ✅.
   ```bash
   git commit -m "fix(scheduling): olusum istisnalari benzersiz + upsert, pencere disina ertelenen ders gorunur (N-05, N-14)"
   ```

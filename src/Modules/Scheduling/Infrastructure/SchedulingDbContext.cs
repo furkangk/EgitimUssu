@@ -73,7 +73,8 @@ internal sealed class LessonOccurrenceExceptionConfiguration : IEntityTypeConfig
         builder.Property(entity => entity.Action).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.Note).HasMaxLength(500);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
-        builder.HasIndex(entity => new { entity.SeriesLessonScheduleId, entity.OriginalStartAtUtc });
+        // P16 T3 / N-05: bir oluşuma tek istisna — yazma yolu upsert eder (`UpsertExceptionAsync`).
+        builder.HasIndex(entity => new { entity.SeriesLessonScheduleId, entity.OriginalStartAtUtc }).IsUnique();
     }
 }
 

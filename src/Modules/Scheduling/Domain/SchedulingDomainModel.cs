@@ -390,6 +390,24 @@ public sealed class LessonOccurrenceException : Entity<Guid>
     public DateTime? OverrideEndAtUtc { get; private set; }
     public string? Note { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }
+
+    /// <summary>
+    /// P16 T3 / N-05: Aynı oluşuma gelen yeni istisna bu satırın yerine geçer (upsert) — ikinci satır yazılmaz.
+    /// Hedef anahtar (<see cref="SeriesLessonScheduleId"/>, <see cref="OriginalStartAtUtc"/>), kimlik ve
+    /// <see cref="CreatedOnUtc"/> korunur; eylem, erteleme saatleri ve not bütünüyle yenisinden alınır
+    /// (erteleme → iptal geçişinde eski erteleme saatleri temizlenir).
+    /// </summary>
+    public void Overwrite(
+        OccurrenceExceptionAction action,
+        DateTime? overrideStartAtUtc,
+        DateTime? overrideEndAtUtc,
+        string? note)
+    {
+        Action = action;
+        OverrideStartAtUtc = overrideStartAtUtc;
+        OverrideEndAtUtc = overrideEndAtUtc;
+        Note = note;
+    }
 }
 
 public enum OccurrenceExceptionAction

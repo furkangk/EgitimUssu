@@ -154,7 +154,7 @@ public sealed class TeacherLessonExpansionTests
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
     }
