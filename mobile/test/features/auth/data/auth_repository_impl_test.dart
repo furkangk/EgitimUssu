@@ -139,6 +139,23 @@ void main() {
     },
   );
 
+  // T7 takip: Beklenmeyen bir hata (ör. 200 ama okunamayan gövde) açılışı kilitlememeli —
+  // AuthCubit.restoreSession hatayı yakalamıyor, durum `loading`'de kalırdı.
+  test(
+    'restoreSession keeps the session when the refresh response cannot be read',
+    () async {
+      final fixture = await _RepositoryFixture.create(
+        _RefreshAdapter.malformed(),
+      );
+      await fixture.seedExpiringSession();
+
+      final session = await fixture.repository.restoreSession();
+
+      expect(session, isNotNull);
+      expect(await fixture.tokenStorage.readRefreshToken(), 'old-refresh');
+    },
+  );
+
   test(
     'restoreSession signs out when the server rejects the refresh token',
     () async {
@@ -201,7 +218,12 @@ class _RepositoryFixture {
 }
 
 class _RefreshAdapter implements HttpClientAdapter {
-  _RefreshAdapter._({this.status = 200, this.timeout = false, this.delay});
+  _RefreshAdapter._({
+    this.status = 200,
+    this.timeout = false,
+    this.delay,
+    this.malformedBody = false,
+  });
 
   factory _RefreshAdapter.succeeding({Duration? delay}) =>
       _RefreshAdapter._(delay: delay);
@@ -211,9 +233,12 @@ class _RefreshAdapter implements HttpClientAdapter {
   factory _RefreshAdapter.rejecting(int status) =>
       _RefreshAdapter._(status: status);
 
+  factory _RefreshAdapter.malformed() => _RefreshAdapter._(malformedBody: true);
+
   final int status;
   final bool timeout;
   final Duration? delay;
+  final bool malformedBody;
   int calls = 0;
 
   @override
@@ -232,7 +257,9 @@ class _RefreshAdapter implements HttpClientAdapter {
         type: DioExceptionType.connectionTimeout,
       );
     }
-    final body = status == 200
+    final body = malformedBody
+        ? '{"userId":"teacher-1","expiresAtUtc":"yarin"}'
+        : status == 200
         ? '{"userId":"teacher-1","email":"teacher@example.com",'
               '"fullName":"Demo Ogretmen","roles":["Teacher"],'
               '"accessToken":"rotated-access",'

@@ -178,6 +178,10 @@ class AuthRepositoryImpl implements AuthRepository {
             return null;
           }
           return session;
+        } catch (_) {
+          // Beklenmeyen hata (ör. okunamayan yanıt) açılışı kilitlememeli: AuthCubit
+          // bu çağrıyı yakalamıyor. Oturum korunur; ilk istek gerekirse yeniden yeniler.
+          return session;
         }
       }
       await logout();
