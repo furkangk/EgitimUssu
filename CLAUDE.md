@@ -16,7 +16,7 @@ Doküman yapısı:
 - **Mimari** (platforma göre, koddan doğrulanmış): `doc/architecture/` — `00_genel_bakis.md`, `backend.md`, `mobile_flutter.md`, `web_angular.md`, `design_system.md`, `widgets.md` (ortak widget kataloğu), `ux_rules.md`, `anti_patterns.md`, `animations.md`, `accessibility.md`, `figma_references.md`.
 - **Roller** (rol perspektifi): `doc/roles/` — `00_roller_genel_bakis.md`, `ogretmen.md`, `ogrenci.md`, `veli.md`, `admin.md`.
 - **Modüller** (saf teknik, her backend modülü): `doc/modules/mNN_<ad>.md` (m01–m18) + çapraz-kesit `00_genel_bakis.md`, `mimari_inceleme.md`, `veri_modeli.md`.
-- **Sayfalar** (kodda var olan ekranlar): `doc/pages/`. **Ürün:** `doc/ozel_ders_platformu_PRD_v2.md` (v2.1).
+- **Sayfalar** (kodda var olan ekranlar): `doc/pages/`. **Ürün:** `doc/ozel_ders_platformu_PRD.md` (v2.1).
 
 ## ✅ Doküman bakımı (KALICI KURAL — kullanıcı söylemese de uygulanır)
 Kodda veya üründe bir değişiklik yaptığında, **aynı turda** ilgili dokümanı güncel tut. Bu, ayrı bir görev değil;
@@ -49,6 +49,7 @@ Bu yüzden ilerleme bilgisi konuşmada değil, **dosyada** tutulur.
 - **Planlar:** `docs/superpowers/plans/2026-09-02-01…14-*.md` · **Master tasarım (kararlar K-01…K-12):** `docs/superpowers/specs/2026-09-02-saglamlastirma-master-design.md` · **Kaynak envanter:** `doc/denetim/2026-09-02_eksik_analizi.md`
 - **Döngü:** `/devam` (sıradaki görevi yürüt) → `/gorev-bitir` (doğrula + commit + ILERLEME.md güncelle) → `/clear` → `/devam`
 - **Kural:** Bu programa dair bir iş isteniyorsa **önce `docs/superpowers/ILERLEME.md` okunur**. Görev bitmeden ILERLEME.md güncellenmeden oturum kapatılmaz.
+- **Codex / diğer ajanlar:** kökteki [`AGENTS.md`](AGENTS.md) aynı döngünün Codex karşılığıdır (bu dosyayı ve `.claude/commands/` prosedürlerini okutur). Bu dosyadaki ya da prosedürlerdeki bir kural değişirse `AGENTS.md` aynı commit'te güncellenir.
 
 ## Adlandırma
 Görünen metin/başlık: **EğitimÜssü**. Dosya adı / klasör / kod tanımlayıcısı: **EgitimUssu** (Türkçe karaktersiz). `EgittimUssu` (çift t) yanlıştır.
