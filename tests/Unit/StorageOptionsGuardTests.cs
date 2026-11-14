@@ -12,7 +12,7 @@ public sealed class StorageOptionsGuardTests
     {
         var options = new StorageOptions { Provider = StorageOptions.S3Provider };
 
-        Assert.Throws<InvalidOperationException>(() => StorageOptionsGuard.EnsureValid(options, isDevelopment: false));
+        Assert.Throws<InvalidOperationException>(() => StorageOptionsGuard.EnsureValid(options, "Production"));
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public sealed class StorageOptionsGuardTests
     {
         var options = new StorageOptions { Provider = StorageOptions.S3Provider, BucketName = "egitimussu" };
 
-        Assert.Throws<InvalidOperationException>(() => StorageOptionsGuard.EnsureValid(options, isDevelopment: false));
+        Assert.Throws<InvalidOperationException>(() => StorageOptionsGuard.EnsureValid(options, "Production"));
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class StorageOptionsGuardTests
     {
         var options = new StorageOptions { Provider = "AzureBlob" };
 
-        Assert.Throws<InvalidOperationException>(() => StorageOptionsGuard.EnsureValid(options, isDevelopment: false));
+        Assert.Throws<InvalidOperationException>(() => StorageOptionsGuard.EnsureValid(options, "Production"));
     }
 
     [Fact]
@@ -42,18 +42,30 @@ public sealed class StorageOptionsGuardTests
             SecretAccessKey = "secret"
         };
 
-        StorageOptionsGuard.EnsureValid(options, isDevelopment: false);
+        StorageOptionsGuard.EnsureValid(options, "Production");
     }
 
+    /// <summary>
+    /// P15 T6 / P-01: Local yalnız Development/Staging'de (eskiden üretimde de geçiyordu — Render'ın
+    /// geçici diskinde yüklenen dosyalar her deploy'da kaybolurdu). Ortam kuralının tamamı
+    /// <see cref="ProductionProviderGuardTests"/>'te.
+    /// </summary>
     [Fact]
-    public void Validate_Should_Pass_For_Local_Provider_In_Production()
-        => Assert.Null(StorageOptionsGuard.Validate(new StorageOptions(), isDevelopment: false));
+    public void Validate_Should_Pass_For_Local_Provider_Only_In_Sandbox_Environments()
+    {
+        Assert.Null(StorageOptionsGuard.Validate(new StorageOptions(), "Development"));
+        Assert.Null(StorageOptionsGuard.Validate(new StorageOptions(), "Staging"));
+        Assert.NotNull(StorageOptionsGuard.Validate(new StorageOptions(), "Production"));
+    }
 
     [Fact]
     public void Validate_Should_Reject_Empty_Local_Root_Path()
     {
         var options = new StorageOptions { LocalRootPath = "  " };
 
-        Assert.NotNull(StorageOptionsGuard.Validate(options, isDevelopment: false));
+        var error = StorageOptionsGuard.Validate(options, "Development");
+
+        Assert.NotNull(error);
+        Assert.Contains("Storage:LocalRootPath", error);
     }
 }

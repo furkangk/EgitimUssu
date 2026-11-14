@@ -42,6 +42,7 @@ Kural: **Kod gerçeği ile doküman çelişirse, dokümanı koda göre düzelt**
 ## 🔁 Oturum devamlılığı (sağlamlaştırma programı)
 
 2026-09-02 denetiminden çıkan 14 planlık program **oturum oturum** yürütülür: her görev sonunda bağlam `/clear` ile temizlenir.
+**Aktif program (2026-11-13): Olgunlaştırma P15–P29** — [master](docs/superpowers/specs/2026-11-13-olgunlastirma-master-design.md), planlar `docs/superpowers/plans/2026-11-13-NN-*.md`, kaynak [`doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`](doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md). Aynı döngü ve aynı ILERLEME.md kullanılır; hafif planlarda (🅻) önce Task 0 (ayrıntılandırma).
 Bu yüzden ilerleme bilgisi konuşmada değil, **dosyada** tutulur.
 
 - **Tek hafıza:** [`docs/superpowers/ILERLEME.md`](docs/superpowers/ILERLEME.md) — aktif plan, sıradaki görev, dal, tamamlananlar, öğrenilenler, bloke kararlar.

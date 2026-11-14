@@ -86,6 +86,9 @@ internal sealed class RefreshTokenSessionConfiguration : IEntityTypeConfiguratio
         builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
         // M01-4: Var olan satırlar için varsayılan CreatedOnUtc'dir (migration onu kopyalar).
         builder.Property(entity => entity.LastUsedOnUtc).IsRequired();
+        // P15 T7 / N-29: İptal nedeni metin olarak saklanır (enum sırası değişse de veri bozulmaz).
+        // Migration var olan iptal edilmiş satırları Rotated kabul eder (A-15 davranışı korunur).
+        builder.Property(entity => entity.RevocationReason).HasConversion<string>().HasMaxLength(32);
         // Cihaz oturumu listesi: kullanıcının AKTİF oturumlarını okur.
         builder.HasIndex(entity => new { entity.UserAccountId, entity.RevokedOnUtc });
         builder.HasIndex(entity => new { entity.UserAccountId, entity.ExpiresOnUtc });
@@ -111,6 +114,9 @@ internal sealed class UserSecurityTokenConfiguration : IEntityTypeConfiguration<
 /// <summary>E-07: Hesap silme talebi eşlemesi.</summary>
 internal sealed class AccountDeletionRequestConfiguration : IEntityTypeConfiguration<AccountDeletionRequest>
 {
+    /// <summary>P15 T7 / N-32: Kullanıcı başına tek bekleyen talep — kısmi benzersiz indeks.</summary>
+    public const string PendingRequestIndexName = "IX_account_deletion_requests_UserAccountId_pending";
+
     public void Configure(EntityTypeBuilder<AccountDeletionRequest> builder)
     {
         builder.ToTable("account_deletion_requests");
@@ -120,9 +126,16 @@ internal sealed class AccountDeletionRequestConfiguration : IEntityTypeConfigura
         builder.Property(entity => entity.ScheduledForUtc).IsRequired();
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
 
-        // Bir kullanıcının aynı anda birden çok BEKLEYEN talebi olamaz; geçmiş talepler (iptal/tamamlanmış)
-        // kayıt olarak kalır, çünkü "ne zaman istedi, ne zaman vazgeçti" hesap verebilirliğin parçasıdır.
+        // Kullanıcının talep geçmişi (iptal/tamamlanmış talepler kayıt olarak kalır: "ne zaman istedi,
+        // ne zaman vazgeçti" hesap verebilirliğin parçasıdır).
         builder.HasIndex(entity => new { entity.UserAccountId, entity.Status });
+
+        // P15 T7 / N-32: Bir kullanıcının aynı anda birden çok BEKLEYEN talebi olamaz. Eskiden bu yalnız
+        // yorumda yazıyordu (indeks benzersiz değildi) — eşzamanlı çift dokunuş iki talep açıyordu.
+        // Adlı aşırı yükleme şart: aynı kolonda ikinci indeks (#195a).
+        builder.HasIndex(entity => entity.UserAccountId, PendingRequestIndexName)
+            .IsUnique()
+            .HasFilter("\"Status\" = 'Pending'");
 
         // Bakım servisi "süresi dolan bekleyenler" sorgusunu bu indeksle koşar.
         builder.HasIndex(entity => new { entity.Status, entity.ScheduledForUtc });

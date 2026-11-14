@@ -151,6 +151,20 @@ public interface IParentRepository
     Task AddLinkAsync(ParentChildLink link, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// P15 / N-32: Bağ değişikliklerini kaydeder; öğrenci başına tek onaylı birincil veli kuralını veritabanı
+    /// (kısmi benzersiz indeks) reddederse <c>parents.primary_exists</c> döner. Uygulamadaki "zaten birincil var mı"
+    /// kontrolü eşzamanlı iki onayı göremez; son söz indekstedir. Varsayılan üye: test sahteleri değişmeden derlenir
+    /// (Öğrenilenler #162) — gerçek depo ihlali çevirir.
+    /// </summary>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Kayıt sonucu.</returns>
+    async Task<Result> SaveLinkChangesAsync(CancellationToken cancellationToken)
+    {
+        await SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -294,9 +308,18 @@ public sealed class ApproveChildLinkCommandHandler : ICommandHandler<ApproveChil
             return Result<ChildLinkResponse>.Failure(ParentErrors.PrimaryExists);
         }
 
-        link.Approve(command.ApprovedByUserId, existingPrimary?.ParentUserId, _clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
-        return Result<ChildLinkResponse>.Success(link.ToResponse(null));
+        // P15 / N-26: yalnız Pending onaylanır — geçersiz geçiş hiçbir şey kaydetmeden döner.
+        var approved = link.Approve(command.ApprovedByUserId, existingPrimary?.ParentUserId, _clock.UtcNow);
+        if (approved.IsFailure)
+        {
+            return Result<ChildLinkResponse>.Failure(approved.Error);
+        }
+
+        // N-32: yukarıdaki kontrol eşzamanlı ikinci birincil onayı göremez; indeks ihlali primary_exists olur.
+        var saved = await _repository.SaveLinkChangesAsync(cancellationToken);
+        return saved.IsFailure
+            ? Result<ChildLinkResponse>.Failure(saved.Error)
+            : Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
 }
 
@@ -375,27 +398,59 @@ public sealed class SetParentMembershipTierCommandHandler : ICommandHandler<SetP
     }
 }
 
+/// <summary>
+/// Veli, öğretmenin ürettiği kodu girerek çocuğa bağlanır (Veli V-D); bağ doğrudan onaylıdır.
+/// <para>
+/// P15 / N-20: kod normalize edilir; süresi dolmuş kod ve daveti üretenin kendi kodunu kullanması
+/// reddedilir; bulunamayan/süresi dolmuş her deneme kullanıcı başına sayılır, eşik aşılınca doğru kod da
+/// reddedilir (<see cref="IInviteClaimAttemptLimiter"/>). Rol kontrolü authorizer'dadır.
+/// </para>
+/// </summary>
 public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParentInviteCommand, Result<ChildLinkResponse>>
 {
     private readonly IParentRepository _repository;
     private readonly IParentInviteDirectory _inviteDirectory;
+    private readonly IInviteClaimAttemptLimiter _attempts;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
-    public ClaimParentInviteCommandHandler(IParentRepository repository, IParentInviteDirectory inviteDirectory, IClock clock, IIdGenerator idGenerator)
+    public ClaimParentInviteCommandHandler(
+        IParentRepository repository,
+        IParentInviteDirectory inviteDirectory,
+        IInviteClaimAttemptLimiter attempts,
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _repository = repository;
         _inviteDirectory = inviteDirectory;
+        _attempts = attempts;
         _clock = clock;
         _idGenerator = idGenerator;
     }
 
     public async Task<Result<ChildLinkResponse>> Handle(ClaimParentInviteCommand command, CancellationToken cancellationToken)
     {
-        var info = await _inviteDirectory.ResolveAsync(command.InviteCode.Trim(), cancellationToken);
+        if (await _attempts.IsBlockedAsync(command.ParentUserId, cancellationToken))
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.TooManyAttempts);
+        }
+
+        var info = await _inviteDirectory.ResolveAsync(SecureCode.Normalize(command.InviteCode), cancellationToken);
         if (info is null)
         {
+            await _attempts.RecordFailureAsync(command.ParentUserId, cancellationToken);
             return Result<ChildLinkResponse>.Failure(ParentErrors.InviteNotFound);
+        }
+
+        if (_clock.UtcNow >= info.ExpiresOnUtc)
+        {
+            await _attempts.RecordFailureAsync(command.ParentUserId, cancellationToken);
+            return Result<ChildLinkResponse>.Failure(ParentErrors.InviteExpired);
+        }
+
+        if (info.InviterUserId == command.ParentUserId)
+        {
+            return Result<ChildLinkResponse>.Failure(ParentErrors.CannotClaimOwnInvite);
         }
 
         var existing = await _repository.GetActiveLinkAsync(command.ParentUserId, info.StudentId, cancellationToken);
@@ -423,12 +478,14 @@ public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParen
 
         var link = new ParentChildLink(_idGenerator.New(), command.ParentUserId, info.StudentId, info.ChildDisplayName, null, command.InviteCode.Trim(), isPrimary, now);
 
+        Result saved;
         try
         {
             await _repository.AddLinkAsync(link, cancellationToken);
             // Öğretmen kodu = öğretmen onayı; veli kodu girdi = veli onayı → doğrudan Approved.
+            // Yeni bağ Pending doğduğu için onay geçişi her zaman geçerlidir.
             link.Approve(command.ParentUserId, existingPrimary?.ParentUserId, now);
-            await _repository.SaveChangesAsync(cancellationToken);
+            saved = await _repository.SaveLinkChangesAsync(cancellationToken);
         }
         catch
         {
@@ -438,6 +495,15 @@ public sealed class ClaimParentInviteCommandHandler : ICommandHandler<ClaimParen
             throw;
         }
 
+        if (saved.IsFailure)
+        {
+            // N-32: eşzamanlı başka bir veli bu arada birincil oldu (kısmi benzersiz indeks). Kod geri verilir;
+            // veli tekrar denediğinde birincil var göründüğü için ikincil veli olarak bağlanır.
+            await _inviteDirectory.ReleaseAsync(info.InviteId, CancellationToken.None);
+            return Result<ChildLinkResponse>.Failure(saved.Error);
+        }
+
+        await _attempts.ResetAsync(command.ParentUserId, cancellationToken);
         return Result<ChildLinkResponse>.Success(link.ToResponse(null));
     }
 }
@@ -543,9 +609,12 @@ public sealed class GetChildDashboardQueryHandler : IQueryHandler<GetChildDashbo
         //   PrivacyLevel = Hidden             → hiç paylaşılmaz
         //   PrivacyLevel = Limited            → yalnız haftalık toplam süre; seri + ders kırılımı gizlenir
         //   PrivacyLevel = Standard           → tam detay
-        // Ayar kaydı yoksa (KnownStudent/UserId çözülemezse) paylaşım açık + Standard varsayılır.
-        var isStudyShared = true;
-        var privacyLevel = StudyPrivacyLevel.Standard;
+        // P15 / N-27 fail-closed: öğrencinin kullanıcısı çözülemezse (eşleme henüz gelmedi ya da öğrencinin hesabı yok)
+        // ayarı okunamaz → Hidden varsayılır. Eskiden "açık + Standard" varsayılıyordu; davetle bağlanan öğrencinin
+        // eşlemesi hiç gelmediği için "Gizli" seçimi veli panelinde yok sayılıyordu. Hesabı olmayan öğrencinin çalışma
+        // verisi zaten yoktur; kayıp yalnız gecikmedir.
+        var isStudyShared = false;
+        var privacyLevel = StudyPrivacyLevel.Hidden;
         var known = await _repository.GetKnownStudentAsync(query.StudentId, cancellationToken);
         if (known?.UserId is { } studentUserId)
         {
@@ -603,6 +672,10 @@ public static class ParentErrors
     public static readonly Error LinkNotApproved = new("parents.link_not_approved", "Bu çocuğun verilerine erişmek için bağın onaylı olması gerekir.");
     public static readonly Error PrimaryExists = new("parents.primary_exists", "Bu çocuğun zaten bir birincil velisi var; birincil bağ için mevcut birincil velinin (veya yöneticinin) onayı gerekir.");
     public static readonly Error InviteNotFound = new("parents.invite_not_found", "Davet kodu bulunamadı veya kullanılmış.");
+    public static readonly Error InviteExpired = new("parents.invite_expired", "Davet kodunun süresi dolmuş. Öğretmenden yeni bir kod isteyin.");
+    public static readonly Error CannotClaimOwnInvite = new("parents.cannot_claim_own_invite", "Kendi oluşturduğunuz daveti kullanamazsınız.");
+    public static readonly Error ClaimRequiresParentRole = new("parents.claim_requires_parent_role", "Veli davet kodunu yalnız veli hesabı kullanabilir.");
+    public static readonly Error TooManyAttempts = new("shared.too_many_attempts", "Çok fazla hatalı kod denemesi. Lütfen daha sonra tekrar deneyin.");
     public static readonly Error InvalidRequest = new("parents.invalid_request", "Veli isteği bilgileri eksik veya hatalı.");
 }
 

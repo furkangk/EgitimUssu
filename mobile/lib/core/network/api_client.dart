@@ -25,12 +25,14 @@ class ApiClient {
       ),
     );
 
-    // 401'de sessizce token yenile, başarısızsa oturumu kapat
+    // 401'de sessizce token yenile; oturum yalnız sunucu refresh'i reddederse kapanır
     if (onRefreshToken != null) {
       _dio.interceptors.add(
         TokenRefreshInterceptor(
           dio: _dio,
           onRefresh: onRefreshToken,
+          // N-67: 401 alan istek eski token'la gittiyse yenilemeden depodakiyle tekrarlanır.
+          readAccessToken: tokenStorage.readAccessToken,
           onUnauthorized: _fireUnauthorized,
         ),
       );

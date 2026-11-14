@@ -1,12 +1,12 @@
 ---
 title: "M01 — Kimlik ve Erişim (Identity)"
-summary: "Kullanıcı kimlik/oturum çekirdeği (kayıt/giriş/JWT/refresh/parola) uçtan uca çalışır; mobil sessiz refresh ve anahtar yönetimi açık"
+summary: "Kullanıcı kimlik/oturum çekirdeği (kayıt/giriş/JWT/refresh/parola) uçtan uca çalışır; refresh tek kazananlı, oturum iptali erişim token'ını da keser; anahtar rotasyonu açık"
 tags: [modul, identity, kimlik, jwt, faz-0]
 status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-10-16
+updated: 2026-11-14
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -31,17 +31,18 @@ updated: 2026-10-16
 | Kullanıcı kaydı (çok rollü) | ✅ var | `RegisterUserCommandHandler` |
 | E-posta + şifre ile giriş | ✅ var | `LoginUserCommandHandler` |
 | JWT erişim token'ı üretimi (HMAC-SHA256) | ✅ var | `ITokenIssuer.Issue` |
-| Refresh token (rotation + hash'li saklama) | ✅ var | `RefreshTokenCommandHandler`, `RefreshTokenSession` |
-| Oturum kapatma (refresh iptal + token blacklist) | ✅ var | `LogoutCommandHandler` (refresh iptal) + **2026-07-01 (Y4):** logout, mevcut erişim token'ını `jti` ile `RedisTokenBlacklist`'e ekler → JWT `OnTokenValidated`'da reddedilir (**anlık iptal**, erken erişim token'ı iptali) |
+| Refresh token (rotation + hash'li saklama) | ✅ var | `RefreshTokenCommandHandler`, `RefreshTokenSession`. **2026-11-14 (P15 T7 / N-30):** rotasyon **koşullu** (`IUserAccountRepository.SaveRotationAsync`: `UPDATE … WHERE "RevokedOnUtc" IS NULL`, etkilenen satır 1) — aynı token'la eşzamanlı isteklerden yalnız biri kazanır; **N-29:** iptal nedeni saklanır, yeniden kullanım (A-15) yalnız `Rotated` token 30 sn'den sonra gelirse |
+| Oturum kapatma (refresh iptal + token blacklist) | ✅ var | `LogoutCommandHandler` (refresh iptal) + **2026-07-01 (Y4):** logout, mevcut erişim token'ını `jti` ile `RedisTokenBlacklist`'e ekler → JWT `OnTokenValidated`'da reddedilir (**anlık iptal**, erken erişim token'ı iptali). **2026-11-14 (P15 T7):** oturumun `sid`'i de iptal kümesine yazılır |
+| **Erişim token'ı iptali (oturum + hesap durumu)** | ✅ var | **2026-11-14 (P15 T7 / N-31):** cihaz iptali, "diğerlerini kapat" ve girişte "diğerlerini sonlandır" kapatılan oturumların `sid`'ini Redis iptal kümesine yazar (`ITokenRevocationService.RevokeSessionsAsync`); `OnTokenValidated` `jti` + kullanıcı damgası (artık **ms**, `iat_ms` talebi — N-32) + `sid`'i tek Redis turunda, ardından hesap durumunu (`IAccountStatusReader`, 60 sn Redis önbellekli) denetler. KVKK silme işlemcisi hesabı kapatınca kullanıcı damgasını yazar |
 | Şifre sıfırlama isteği + onayı | ✅ var | `RequestPasswordResetCommandHandler`, `ResetPasswordCommandHandler` |
 | E-posta doğrulama isteği + onayı | ✅ var | `RequestEmailVerificationCommandHandler`, `ConfirmEmailVerificationCommandHandler` |
 | Kullanıcı detayını getirme (self/admin) | ✅ var | `GetUserByIdQueryHandler` + `GetUserByIdQueryAuthorizer` |
 | PBKDF2 parola hash'leme | ✅ var | `IPasswordHasher` (Infrastructure) |
 | Rol üyelikleri (UserRoleMembership) | ✅ var | `UserAccount.RoleMemberships` |
-| Rate limiting ("auth" politikası) | ✅ var | **Yol tabanlı, dağıtık (2026-07-01, Y4):** `DistributedRateLimitMiddleware` — `/api/identity/*` → `auth` (10/dk, IP-partition, Redis, fail-open). Eski `RequireRateLimiting` kaldırıldı |
+| Rate limiting (kimlik politikaları) | ✅ var | **Yol tabanlı, dağıtık (2026-07-01, Y4):** `DistributedRateLimitMiddleware`. **2026-11-14 (P15 T7 / N-32)** üçe ayrıldı: kimlik bilgisi alan uçlar (`/login`, `/register`, `/password-reset/*`, `/email-verification/*`) → `auth` (10/dk, **IP**); `/refresh` → `refresh` (60/dk, **IP** — uç anonim, kullanıcı bilinemez); diğer kimlik uçları (`/me`, `/sessions*`, `/logout`, `/account/*`, `/users/*`) → `session` (60/dk, **kullanıcı**, oturum yoksa IP). Redis, fail-open |
 | Kaba kuvvet (brute-force) hesap kilidi | ✅ var | **2026-07-01 (Y4):** `RedisLoginAttemptThrottle` — 5 başarısız girişte 15 dk hesap kilidi; `identity.too_many_attempts` → **429**. Redis yoksa fail-open |
 | Outbox üzerinden domain event yayını | ✅ var | `UserRegisteredDomainEvent` + `ModuleDbContext` |
-| **Mobil refresh token akışı (otomatik yenileme)** | 🔴 eksik | mimari_inceleme **Y3** — mobil `dio` istemcisinde 401 → `/refresh` interceptor'ı yok |
+| **Mobil refresh token akışı (otomatik yenileme)** | ✅ var | `mobile/lib/core/network/token_refresh_interceptor.dart` (Y3, 2026-07). **2026-11-14 (P15 T7 / N-63, N-67):** tek uçuş (paralel 401'ler tek yenilemeyi bekler; `AuthRepositoryImpl.refreshSession` de tekilleştirir), token değiştiyse yenilemeden tekrar, çıkış **yalnız** refresh 400/401 dönerse — bkz. `doc/architecture/mobile_flutter.md` |
 | **JWT imza anahtarının güvenli yönetimi** | 🔴 risk | mimari_inceleme **Y2** — imza anahtarı repoda/`appsettings`'te düz metin |
 | Admin tarafı kullanıcı yönetimi (askıya alma/kapatma uçları) | 🔴 eksik | `Suspended`/`Closed` durumlarına geçiş için endpoint yok |
 | Rol atama/kaldırma uçları | 🔴 eksik | Roller yalnızca kayıt anında belirleniyor |
@@ -99,8 +100,9 @@ Tablolar: `user_accounts`, `user_role_memberships`, `refresh_token_sessions`, `u
 | `CreatedOnUtc` | DateTime | Oluşturma |
 | `ExpiresOnUtc` | DateTime | Son geçerlilik (kayıt/giriş anında **+30 gün**) |
 | `RevokedOnUtc` | DateTime? | İptal zamanı (logout / rotation / şifre sıfırlama) |
+| `RevocationReason` | `SessionRevocationReason?` | **P15 T7 / N-29:** iptal nedeni (metin olarak saklanır): `Rotated`, `UserLogout`, `DeviceRevoked`, `OtherSessionsRevoked`, `PasswordReset`, `AccountClosed` (ayrılmış — anonimleştirme satırları siler; askıya alma P12), `ReuseDetected`. Migration `AddSessionRevocationReason` var olan iptalleri `Rotated` kabul eder |
 
-**Davranışlar:** `IsActive(now)` → `RevokedOnUtc is null && ExpiresOnUtc > now`; `Revoke(revokedOnUtc)` → ilk iptalde damgalanır (idempotent).
+**Davranışlar:** `IsActive(now)` → `RevokedOnUtc is null && ExpiresOnUtc > now`; `Revoke(revokedOnUtc, reason)` → ilk iptal kazanır, zaman ve neden bir daha değişmez; kapattıysa `true`. `IsReplayOfRotatedToken(now, grace)` → `Rotated` **ve** rotasyondan `grace`'ten (varsayılan 30 sn, `Identity:RefreshReuseGraceSeconds`) fazla geçmiş. `UserAccount.RevokeOtherSessions(keep, now, reason)` kapattığı oturumların kimliklerini döndürür (çağıran `sid`'lerini iptal kümesine yazar).
 
 ### 2.4 🟢 Mevcut (koddan) — `UserSecurityToken` (Entity&lt;Guid&gt;)
 
@@ -189,7 +191,7 @@ talebiyle taşır (`JwtTokenIssuer`); `ICurrentUser.SessionId` bunu okur ve "bu 
 
 ## 3. API Sözleşmesi
 
-Tüm uçlar `RoutePrefix = /api/identity` altında ve `DistributedRateLimitMiddleware` tarafından **yol tabanlı `auth` politikasıyla** (IP-partition, Redis, fail-open) sınırlandırılmıştır (2026-07-01, Y4).
+Tüm uçlar `RoutePrefix = /api/identity` altında ve `DistributedRateLimitMiddleware` tarafından yol tabanlı sınırlandırılır (2026-07-01, Y4; 2026-11-14 P15 T7 / N-32 ile üç politika: kimlik bilgisi uçları `auth` IP 10/dk, `/refresh` → `refresh` IP 60/dk, oturum açmış kimlik uçları → `session` kullanıcı başına 60/dk; Redis, fail-open).
 Yanıtlar `Result<T>` döner; hata kodları HTTP statüsüne `IdentityModule.ToHttpResult` ile eşlenir.
 
 ### 3.1 Mevcut Endpoint'ler ✅
@@ -277,24 +279,36 @@ UserAccountResponse(Guid UserId, string Email, string FirstName, string LastName
 5. **Kayıt sonrası durum:** Yeni kullanıcı `Status = Active`, `IsEmailConfirmed = false`, `IsProfileVerified = false` ile oluşur; **24 saatlik** e-posta doğrulama token'ı üretilir ve doğrulama e-postası gönderilir.
    > **2026-09-02:** Bu e-posta artık gerçekten gönderiliyor (`EmailIdentityNotificationService`). Ayrıca aynı turda bir EF tuzağı kapatıldı: `UserSecurityToken`/`RefreshTokenSession`/`UserRoleMembership` yapılandırmalarına `ValueGeneratedNever()` eklendi — izlenen bir `UserAccount`'a yeni token eklenince EF satırı UPDATE etmeye çalışıyor ve `password-reset/request` ile `email-verification/request` uçları **500** dönüyordu.
 6. **Giriş koşulu:** Parola PBKDF2 ile doğrulanır; hesap yalnızca `Active` **veya** `PendingActivation` ise giriş yapılabilir (`Suspended`/`Closed` → `identity.user_inactive`). Hatalı e-posta/şifre tek tip `identity.invalid_credentials` döner (kullanıcı sayımı/enumeration engeli).
-7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token ve `Suspended`/`Closed` hesaplar `identity.invalid_refresh_token` (401) verir; hesap durumu giriş koşuluyla aynı şekilde denetlenir.
+7. **Refresh rotation:** `/refresh` çağrısında eski oturum `Revoke(now, Rotated)` edilir ve **yeni** bir refresh token üretilir (token rotation). Süre dolmuş/iptal edilmiş token ve `Suspended`/`Closed` hesaplar `identity.invalid_refresh_token` (401) verir; hesap durumu giriş koşuluyla aynı şekilde denetlenir.
+   - **Tek kazanan (P15 T7 / N-30):** kapatma koşullu güncellemeyle yazılır ve yeni oturumla aynı transaction'dadır; aynı token'la eşzamanlı ikinci istek 0 satır görür → düz 401, yetim oturum kalmaz. Gerçek Postgres'te 5 paralel istekle kanıtlı (eski kodda 4 kazanan çıktı).
+   - **Yeniden kullanım (A-15 + N-29):** iptal edilmiş token yalnız `Rotated` ise **ve** rotasyondan 30 sn'den fazla geçmişse toplu iptal tetikler (tüm oturumlar `ReuseDetected` + kullanıcı damgası). Pencere içinde (eşzamanlı yarışın kaybedeni, zaman aşımından sonra yeniden deneme) ve diğer nedenlerde (çıkış, cihaz iptali, "diğerlerini kapat", şifre sıfırlama) düz 401 — kullanıcının bilerek kapattığı tablet telefonun yeni oturumunu artık öldürmez.
+   - ⚠️ Bilinen ödünleşim: sunucu rotasyonu yazıp yanıt istemciye ulaşmazsa (ağ koptu) istemci eski token'la kalır; 30 sn'den **sonra** denerse bu toplu iptal sayılır. Ayrıntı ILERLEME Öğrenilenler.
 8. **Refresh ömrü:** Tüm refresh oturumları **30 gün** geçerlidir.
 9. **Şifre sıfırlama gizliliği:** `password-reset/request`, kullanıcı **bulunsa da bulunmasa da** `200 OK` döner (e-posta enumeration engeli). Token **1 saat** geçerlidir.
 10. **Şifre sıfırlama yan etkisi:** Başarılı sıfırlamada hesaba ait **tüm kullanılabilir şifre sıfırlama token’ları** "kullanıldı" işaretlenir (önceki e-postalar yeni parolayı değiştiremez), e-posta doğrulama token’ları korunur, parola güncellenir ve **tüm aktif refresh oturumları iptal edilir** (tüm cihazlardan çıkış).
 11. **E-posta doğrulama gizliliği:** `email-verification/request`, kullanıcı yoksa veya zaten doğrulanmışsa sessizce `200 OK` döner; aksi halde **24 saatlik** yeni token üretir.
 12. **Token tek kullanımlık:** `UserSecurityToken` `MarkUsed` ile bir kez tüketilir; tekrar kullanım `IsUsable` kontrolünde başarısız olur.
 13. **GetUserById yetkisi:** Yalnızca **admin** veya **kendi kaydı** (`isSelf`) erişebilir (`GetUserByIdQueryAuthorizer`); aksi halde `shared.forbidden` (403).
-14. **Rate limiting + kilit (2026-07-01, Y4):** Tüm identity uçları yol tabanlı `"auth"` politikasıyla (IP başına 10/dk, Redis-dağıtık, fail-open) sınırlandırılır. Ek olarak `LoginUserCommandHandler` hesap-bazlı kilit uygular: 5 ardışık başarısız girişte hesap 15 dk kilitlenir → `identity.too_many_attempts` (**429**); başarılı girişte sayaç sıfırlanır.
+14. **Rate limiting + kilit (2026-07-01, Y4; 2026-11-14 P15 T7):** Kimlik bilgisi alan uçlar `"auth"` (IP başına 10/dk), `/refresh` `"refresh"` (IP başına 60/dk), oturum açmış kullanıcının kimlik uçları `"session"` (kullanıcı başına 60/dk) politikasıyla sınırlandırılır (Redis-dağıtık, fail-open). Eskiden hepsi tek IP kovasındaydı; okul NAT'ı arkasında `/me` ve `/refresh` birbirini kilitliyordu. Ek olarak `LoginUserCommandHandler` hesap-bazlı kilit uygular: 5 ardışık başarısız girişte hesap 15 dk kilitlenir → `identity.too_many_attempts` (**429**); başarılı girişte sayaç sıfırlanır.
 15. **Token blacklist / anlık iptal (2026-07-01, Y4):** Erişim token'ları artık benzersiz `jti` claim'i taşır. Logout, `jti`'yi kalan ömrü boyunca `RedisTokenBlacklist`'e ekler; JWT `OnTokenValidated` her istekte blacklist'i kontrol eder ve iptal edilmiş token'ı `401` ile reddeder. Redis erişilemezse fail-open (token geçerli sayılır).
+16. **Oturum ve hesap iptali erişim token'ını keser (2026-11-14, P15 T7 / N-31, N-32):**
+   - Cihaz iptali (`DeviceRevoked`), "diğerlerini kapat" ve girişte "diğerlerini sonlandır" (`OtherSessionsRevoked`), çıkış (`UserLogout`) kapatılan oturumların `sid`'ini `session-revoked:{sid}` anahtarına yazar (TTL = erişim token'ı ömrü + 5 dk). Şifre sıfırlama, rol değişimi, toplu iptal (`ReuseDetected`) ve **KVKK hesap kapanışı** kullanıcı damgasını yazar (tüm `sid`'leri kapsar).
+   - Kullanıcı damgası **milisaniye** çözünürlüğündedir; token veriliş anını `iat_ms` talebiyle taşır (`iat` standart gereği saniye — yoksa eski token'da ona düşülür). Eskiden iptalle aynı saniyede verilmiş token geçiyordu.
+   - `OnTokenValidated` ardından `IAccountStatusReader.IsActiveAsync` sorar (Identity uygulaması 60 sn Redis önbellekli, Redis yoksa veritabanı): `Suspended`/`Closed` ya da bilinmeyen hesap → 401. Önbellek bayatlığın üst sınırıdır; durum değiştiren akış ayrıca damgayı yazar.
+   - `sid` her rotasyonda değişir: engellenen, cihazın **güncel** satırıdır. Önceki satırdan verilmiş token'lar genelde zaten süresi dolmuştur (rotasyon 401 üzerine olur); kalan pay en çok birkaç dakikadır.
+17. **Giriş zamanlaması (P15 T7 / N-32):** Var olmayan e-postayla giriş de bir parola özetini doğrular (süreç başına bir kez üretilen eşleşmeyen özet); "kullanıcı yok" yolu artık PBKDF2 kadar sürer. Kayıttaki `duplicate_email` (409) ve parola politikası (≥ 8 karakter) **açık** kaldı (N-32 kısmi).
+18. **Tek bekleyen silme talebi (P15 T7 / N-32):** `account_deletion_requests` üzerinde kısmi benzersiz indeks `IX_account_deletion_requests_UserAccountId_pending` (`"Status" = 'Pending'`); migration önce fazla bekleyenleri iptal eder (en eski kalır). Eşzamanlı çift dokunuşta kaybeden istek 23505'i depoda (`AddPendingAsync`) çevirip **var olan** talebi döndürür.
+19. **HSTS (P15 T7 / N-32):** Development dışında `Strict-Transport-Security: max-age=31536000` (includeSubDomains/preload yok — alan adı Q14). Render TLS'i proxy'de sonlandırdığı için şema `X-Forwarded-Proto`'dan okunur (yalnız şema; istemci IP'si `ClientIpResolver`'da).
+20. **Hesap silme turu kiralı (P15 T8 / A-07, N-41):** `AccountDeletionService` artık `LeasedBackgroundService` (iş adı `account-deletion`, kira `identity.job_leases`'te, tur 6 sa, kira 12 sa). Düz `BackgroundService` iken ikinci bir uygulama örneği aynı talebi eşzamanlı işleyebiliyordu. Kirayı tutan örnek her turda yeniler; yeniden başlayan süreç eski kiranın dolmasını (en çok 12 sa) bekler — 30 günlük bekleme süresi yanında önemsiz. Ayrıntı: `../architecture/backend.md` §7.3.
 
 ### 🔐 Güvenlik Notları (iyi yönler / riskler)
 
 - ✅ **PBKDF2** ile parola hash'leme (`IPasswordHasher`) — düz parola hiçbir yerde saklanmaz.
 - ✅ **HMAC-SHA256** imzalı JWT erişim token'ı (`ITokenIssuer`).
 - ✅ Refresh ve güvenlik token'ları **hash'lenerek** saklanır (`ITokenProtector.Hash`); DB sızıntısında ham token ele geçmez.
-- ✅ Token rotation + şifre sıfırlamada toplu oturum iptali.
+- ✅ Token rotation (tek kazananlı) + şifre sıfırlamada toplu oturum iptali; oturum/hesap iptali erişim token'ını da keser (P15 T7).
 - 🔴 **Y2 (mimari_inceleme):** JWT imza anahtarı repoda/`appsettings`'te düz metin — gizli yönetimi (env/secret store) gerekli, anahtar rotasyonu yok.
-- 🔴 **Y3 (mimari_inceleme):** Mobilde refresh akışı yok; access token süresi dolunca kullanıcı yeniden giriş yapmak zorunda kalıyor.
+- ✅ ~~**Y3 (mimari_inceleme):** Mobilde refresh akışı yok~~ — 2026-07 interceptor; 2026-11-14 (P15 T7) tek uçuş + ağ hatasında oturum korunur.
 
 ---
 
@@ -306,13 +320,15 @@ Kayıt başarılı            → UserRegisteredDomainEvent (UserId, Email, Regi
                             → (öneri) Teachers/Students: profil oluşturma için davet/yönlendirme
 E-posta doğrulama token'ı  → IIdentityNotificationService.SendEmailVerificationAsync (kayıt + istek anında)
 Şifre sıfırlama token'ı    → IIdentityNotificationService.SendPasswordResetAsync
-Şifre sıfırlandı           → tüm aktif RefreshTokenSession.Revoke (toplu çıkış)
+Şifre sıfırlandı           → tüm aktif RefreshTokenSession.Revoke(PasswordReset) + kullanıcı damgası (toplu çıkış)
 Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOtherSessions ise
-                             UserAccount.RevokeOtherSessions(yeniOturum.Id, now) → tek cihaz
+                             UserAccount.RevokeOtherSessions(yeniOturum.Id, now, OtherSessionsRevoked)
+                             → kapatılanların sid'i iptal kümesine (P15 T7) → tek cihaz
+Hesap kapandı (KVKK)       → AccountDeletionProcessor: Anonymize + kullanıcı damgası (P15 T7)
 ```
 
 > Olaylar **Outbox pattern** ile güvenilir biçimde yayılır (`Shared/Infrastructure/Messaging`).
-> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır. **2026-09-02 (P02/A-03):** `NullIdentityNotificationService` kaldırıldı; yerine `EmailIdentityNotificationService` geldi — `EmailTemplates` ile HTML+metin gövde üretir ve `Shared/Infrastructure/Email`'deki `IEmailSender`'a verir. Sağlayıcı `Email:Provider` ile seçilir (`Logging` = log'a basar, `Smtp` = MailKit relay). E-postadaki derin bağlantı `egitimussu://password-reset?token=…` / `egitimussu://verify-email?token=…` biçimindedir; token base64 olduğu için bağlantıda **URL-kodlanır**, elle yapıştırma için ham kod da metin gövdede yer alır.
+> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır. **2026-09-02 (P02/A-03):** `NullIdentityNotificationService` kaldırıldı; yerine `EmailIdentityNotificationService` geldi — `EmailTemplates` ile HTML+metin gövde üretir ve `Shared/Infrastructure/Email`'deki `IEmailSender`'a verir. Sağlayıcı `Email:Provider` ile seçilir (`Logging` = göndermez, `Smtp` = MailKit relay). **2026-11-14 (P15 T6 / N-24):** `Logging` yalnız Development/Staging'de açılır (üretimde açılış durur) ve gövdeyi — dolayısıyla sıfırlama/doğrulama kodunu — **hiçbir ortamda** log'a yazmaz; log satırı maskeli alıcı (`a***@g***.com`) + konu taşır. Yerelde kodu okumak için Development'ta `Email__Logging__IncludeBodyInDevelopment=true` ([`environments.md` §3.1](../architecture/environments.md)). Staging'de sıfırlama/doğrulama akışı bu yüzden log'dan tamamlanamaz. E-postadaki derin bağlantı `egitimussu://password-reset?token=…` / `egitimussu://verify-email?token=…` biçimindedir; token base64 olduğu için bağlantıda **URL-kodlanır**, elle yapıştırma için ham kod da metin gövdede yer alır.
 
 ---
 
@@ -378,4 +394,4 @@ Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOth
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-11-14 (P15 Task 8 / A-07, N-41: `AccountDeletionService` kiraya alındı; kayıt/şifre sıfırlama e-postası kuyruğu artık 15 sn'de bir boşalır — önce ~5 dk) · 2026-11-14 (P15 Task 7 / N-29…N-32: iptal nedeni + koşullu rotasyon + `sid`/hesap durumu kontrolü + ms damga + üç hız sınırı politikası + tek bekleyen silme talebi + HSTS) · 2026-11-14 (P15 Task 6 / N-24: `Logging` e-posta sağlayıcısı üretimde reddedilir, gövde/kod log'a yazılmaz, alıcı maskeli) · 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

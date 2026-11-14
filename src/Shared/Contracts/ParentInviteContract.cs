@@ -4,7 +4,9 @@ namespace EgitimUssu.Shared.Contracts;
 /// <param name="InviteId">Davet kimliği.</param>
 /// <param name="StudentId">Davetin ait olduğu öğrenci.</param>
 /// <param name="ChildDisplayName">Velinin göreceği çocuk adı.</param>
-public sealed record ParentInviteInfo(Guid InviteId, Guid StudentId, string? ChildDisplayName);
+/// <param name="InviterUserId">P15 / N-20: Daveti üreten kullanıcı (kendi kodunu kullanamaz).</param>
+/// <param name="ExpiresOnUtc">P15 / N-20: Davetin son geçerlilik anı.</param>
+public sealed record ParentInviteInfo(Guid InviteId, Guid StudentId, string? ChildDisplayName, Guid InviterUserId, DateTime ExpiresOnUtc);
 
 /// <summary>
 /// Students uygular; Parents tüketir. Veli, öğretmenin ürettiği kodu girerek çocuğuna bağlanır.
@@ -24,7 +26,10 @@ public sealed record ParentInviteInfo(Guid InviteId, Guid StudentId, string? Chi
 /// </summary>
 public interface IParentInviteDirectory
 {
-    /// <summary>Kodu çözümler; kod geçersiz ya da kullanılmışsa <c>null</c>.</summary>
+    /// <summary>
+    /// Kodu çözümler (büyük/küçük harf duyarsız); kod yoksa ya da kullanılmışsa <c>null</c>.
+    /// Süresi dolmuş davet <b>döner</b> — süre kararı ve hata mesajı tüketicinindir.
+    /// </summary>
     /// <param name="inviteCode">Davet kodu.</param>
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Davet bilgisi ya da <c>null</c>.</returns>

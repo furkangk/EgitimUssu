@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-10-16
+updated: 2026-11-14
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
@@ -76,14 +76,14 @@ Host'un kurduğu çapraz-kesit servisler:
 |------|-------|
 | **Kimlik doğrulama** | JWT Bearer (`JwtOptions`: Issuer/Audience/SigningKey, ClockSkew 1 dk) |
 | **Yetkilendirme** | `AuthenticatedUser` politikası (oturum zorunlu uçlar için) |
-| **Rate limiting** | Sabit pencere, Redis destekli (fail-open): `auth` (10/dk, `/api/identity/*`), `messaging` (30/dk, yalnız `POST /api/messaging/conversations/{id}/messages`), `default` (120/dk, diğer `/api/*`); aşımda 429 + ProblemDetails. **Partition:** `auth`/`default` istemci IP'si (`X-Forwarded-For` ilk girdi), `messaging` **oturum kullanıcı kimliği** — aynı ev/okul ağındaki kullanıcılar birbirinin mesaj kotasını tüketmesin diye. Bu yüzden `UseAuthentication()` limitleyiciden **önce** gelir (yalnız `HttpContext.User`'ı doldurur, hiçbir isteği reddetmez); sıra tersken partition sessizce IP'ye düşüyordu (M16-1, P10 Task 5'te gerçek Redis'e karşı yakalandı) |
+| **Rate limiting** | Sabit pencere, Redis destekli (fail-open): `auth` (10/dk, IP — kimlik bilgisi alan `/api/identity/{login,register,password-reset/*,email-verification/*}`), `refresh` (60/dk, IP — `/api/identity/refresh` anonim, kullanıcı bilinemez), `session` (60/dk, **kullanıcı** — diğer `/api/identity/*`; P15 T7 / N-32), `messaging` (30/dk, yalnız `POST /api/messaging/conversations/{id}/messages`), `default` (120/dk, diğer `/api/*`); aşımda 429 + ProblemDetails. **Partition:** `auth`/`default` istemci IP'si (`X-Forwarded-For` ilk girdi), `messaging` **oturum kullanıcı kimliği** — aynı ev/okul ağındaki kullanıcılar birbirinin mesaj kotasını tüketmesin diye. Bu yüzden `UseAuthentication()` limitleyiciden **önce** gelir (yalnız `HttpContext.User`'ı doldurur, hiçbir isteği reddetmez); sıra tersken partition sessizce IP'ye düşüyordu (M16-1, P10 Task 5'te gerçek Redis'e karşı yakalandı) |
 | **HTTP tekrar koruması** | `IdempotencyMiddleware`, `Idempotency-Key` taşıyan `/api/*` mutasyonlarında yalnız **kimliği doğrulanmış ve boş olmayan `NameIdentifier` sahibi** kullanıcılar için çalışır. Anahtar kullanıcı + HTTP metodu + yol + istemci anahtarıyla sınırlıdır; başarı yanıtı yeniden döndürülür, sürmekte olan iş 409 alır. **Anonim istekler ve `/api/identity/*` tamamen hariçtir:** giriş/kayıt yanıtları kullanıcılar arasında paylaşılmaz; refresh/logout/oturum işlemleri güncel durumu her çağrıda doğrular ve iptal edilmiş jetonlar önbellekten yeniden verilmez. Redis erişilemezse normal istek yürütülür. |
 | **Hata** | `ProblemDetailsExceptionMiddleware` → tüm hatalar tutarlı ProblemDetails gövdesi |
 | **Loglama** | JSON console + `RequestContextLoggingMiddleware` (istek bağlamı) |
 | **Health** | `/health/live` (canlılık), `/health/ready` (configuration + database hazır mı) |
-| **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp` (`SmtpEmailSender`, MailKit; herhangi bir relay: Gmail/SES/SendGrid/Resend). Env: `Email__Provider`, `Email__FromEmail`, `Email__Smtp__Host`, `Email__Smtp__Port`, `Email__Smtp__UseStartTls`, `Email__Smtp__Username`, `Email__Smtp__Password`. `EmailOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Kimlik akışı şablonları: `Identity/Infrastructure/EmailTemplates` (`egitimussu://` derin bağlantı, token URL-kodlu) |
-| **Push** | `IPushSender` (K-02); sağlayıcı `Push:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Fcm` (`FcmPushSender`, FCM HTTP v1 + service-account OAuth2, `IFcmAccessTokenProvider`). Env: `Push__Provider`, `Push__ProjectId`, `Push__ServiceAccountJson` (veya `Push__ServiceAccountJsonPath`). `PushOptionsGuard` startup'ta fail-fast; üretimde `Logging` seçiliyse uyarı log'lanır. Sonuç üç değerli: `Delivered` / `TokenInvalid` (token kapatılır) / `TransientFailure` (yeniden denenir) |
-| **Dosya depolama** | `IFileStorage` (K-03); sağlayıcı `Storage:Provider` ile seçilir — `Local` (varsayılan, `LocalFileStorage`, disk) / `S3` (`S3FileStorage`, AWS SDK; AWS S3 / Cloudflare R2 / MinIO — `ServiceUrl` doluysa path-style). Env: `Storage__Provider`, `Storage__BucketName`, `Storage__ServiceUrl`, `Storage__Region`, `Storage__AccessKeyId`, `Storage__SecretAccessKey`. `StorageOptionsGuard` startup'ta fail-fast. Anahtar deseni `{keyPrefix}/{guid}{uzantı}`; **public bucket yok** — indirme uygulama üzerinden yetkiyle. Sınır: `FileValidation` 10 MB + 13 uzantılık beyaz liste (`storage.file_too_large` / `storage.unsupported_type` / `storage.empty_file`) |
+| **E-posta** | `IEmailSender` (K-01); sağlayıcı `Email:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Smtp` (`SmtpEmailSender`, MailKit; herhangi bir relay: Gmail/SES/SendGrid/Resend). Env: `Email__Provider`, `Email__FromEmail`, `Email__Smtp__Host`, `Email__Smtp__Port`, `Email__Smtp__UseStartTls`, `Email__Smtp__Username`, `Email__Smtp__Password`. `EmailOptionsGuard` startup'ta fail-fast; **`Logging` yalnız Development/Staging'de** — diğer her ortamda açılış durur (P15 T6 / N-24, fail-closed; Staging'de uyarı). `LoggingEmailSender` gövdeyi (sıfırlama/doğrulama kodu) **hiçbir ortamda** yazmaz — maskeli alıcı + konu + gövde uzunluğu; istisna: Development + `Email:Logging:IncludeBodyInDevelopment=true`. Kimlik akışı şablonları: `Identity/Infrastructure/EmailTemplates` (`egitimussu://` derin bağlantı, token URL-kodlu) |
+| **Push** | `IPushSender` (K-02); sağlayıcı `Push:Provider` ile seçilir — `Logging` (varsayılan, göndermez) / `Fcm` (`FcmPushSender`, FCM HTTP v1 + service-account OAuth2, `IFcmAccessTokenProvider`). Env: `Push__Provider`, `Push__ProjectId`, `Push__ServiceAccountJson` (veya `Push__ServiceAccountJsonPath`). `PushOptionsGuard` startup'ta fail-fast; `Logging` her ortamda açılır, Development dışında `PushOptionsGuard.Warning` uyarısı log'lanır (yük sır taşımaz, Q8 beklenirken yayın yapılabilsin). Sonuç üç değerli: `Delivered` / `TokenInvalid` (token kapatılır) / `TransientFailure` (yeniden denenir) |
+| **Dosya depolama** | `IFileStorage` (K-03); sağlayıcı `Storage:Provider` ile seçilir — `Local` (varsayılan, `LocalFileStorage`, disk) / `S3` (`S3FileStorage`, AWS SDK; AWS S3 / Cloudflare R2 / MinIO — `ServiceUrl` doluysa path-style). Env: `Storage__Provider`, `Storage__BucketName`, `Storage__ServiceUrl`, `Storage__Region`, `Storage__AccessKeyId`, `Storage__SecretAccessKey`. `StorageOptionsGuard` startup'ta fail-fast; **`Local` yalnız Development/Staging'de** — üretimde konteynerin geçici diski yüzünden açılış durur (P15 T6 / P-01). Anahtar deseni `{keyPrefix}/{guid}{uzantı}`; **public bucket yok** — indirme uygulama üzerinden yetkiyle. Sınır: `FileValidation` 10 MB + 13 uzantılık beyaz liste (`storage.file_too_large` / `storage.unsupported_type` / `storage.empty_file`) |
 | **Gözlemlenebilirlik** | OpenTelemetry (K-10): trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı) + log'da `TraceId`. `Observability:Enabled` **varsayılan kapalı**; OTLP adresi boşsa konsol exporter. PII sorgu parametreleri `SensitiveDataMask` ile `***`. Detay: §11 |
 | **API sürümleme** | C-10: yayınlanan sözleşme **`v1`** — mevcut `/api/<modul>/...` yolları sürüm eki taşımaz ve **kırılmaz**; kırıcı değişiklik `/api/v2/...` altında ikinci bir grupla açılır. Her `/api/*` yanıtı `X-Api-Version` başlığını taşır (401/404 dahil); `/health/*` ve `/openapi/*` sürümlenmez. Sürüm ucun `ApiVersionMetadata` etiketinden okunur (grup `CreateModuleGroup`'ta etiketlenir), etiket yoksa yol tabanlı varsayılana düşer. Politika + kırıcı değişiklik tanımı + kaldırma prosedürü: [`api_versioning.md`](api_versioning.md) |
 | **Ortamlar / tohumlama** | E-06: Development · **Staging** (ayrı servis + **ayrı veritabanı**, `render.yaml`) · Production. Staging açılışta `DemoDataSeeder` ile idempotent demo veri kurar (2 öğretmen / 5 öğrenci / 2 veli / 3 haftalık ders geçmişi / ödev / ödeme / çalışma). Seeder **doğrudan DbContext'e yazmaz** — her kaydı, o kaydı gerçekte açacak kullanıcının kimliğiyle modül komutundan geçirir, böylece iş ve yetki kuralları atlanmaz. `DemoDataSeedGuard` **Production'da bayrak açık olsa bile** engeller. Ayrıntı: [`environments.md`](environments.md) |
@@ -190,6 +190,7 @@ public sealed class Result<TValue> : Result { public TValue? Value { get; } /* �
 
 **Startup guard'ları** (ortak desen: `Validate` nedeni döner → health check kullanır; `EnsureValid` fırlatır → `Program.cs` fail-fast):
 `JwtSigningKeyGuard`, `ConnectionStringGuard`, `EmailOptionsGuard`, `PushOptionsGuard`, `StorageOptionsGuard`.
+Sağlayıcı guard'ları ortam **adını** alır (`MigrationStartupGuard` deseni, saf fonksiyon); hangi ortamın sahte sağlayıcıya izin verdiği tek yerde: `SandboxEnvironments.AllowsSandboxProviders` (yalnız `Development` + `Staging`, tanınmayan ad = üretim). Açılışı durdurmayan durumlar `Warning(...)` ile döner, `Program.cs` yalnız log'a basar. Ayrıntı ve canlı doğrulama: [`environments.md` §3.1](environments.md).
 
 ## 6. Persistence & Veri İzolasyonu
 
@@ -294,14 +295,92 @@ Kurallar:
 Doğrulama InMemory'den alınamaz; gerçek Postgres'te EF'in `Executed DbCommand` günlükleri sayılır
 (`tests/Integration/RealSingleEntityLoadTests.cs`).
 
+## 7.3 Arka Plan İşleri ve İş Kirası (A-07, N-41)
+
+Zamanlayıcıyla koşan her modül işi `LeasedBackgroundService`'ten türer (`Shared/Infrastructure/Messaging/`):
+her tur önce `IJobLeaseStore.TryAcquireAsync` ile kira alır, alamazsa turu atlar. Kira modül şemasındaki
+`job_leases` tablosunda (`JobName` PK, `OwnerId`, `AcquiredOnUtc`, `ExpiresOnUtc`) tek koşullu ifadeyle alınır:
+
+```sql
+INSERT INTO "<şema>"."job_leases" (...) VALUES (...)
+ON CONFLICT ("JobName") DO UPDATE SET "OwnerId" = EXCLUDED."OwnerId", ...
+WHERE "job_leases"."ExpiresOnUtc" <= @now OR "job_leases"."OwnerId" = EXCLUDED."OwnerId"
+```
+
+- **Kural:** kira boşsa, süresi dolmuşsa **ya da zaten bendeyse** alınır; başka örnekteyse ve süresi dolmadıysa alınamaz.
+  InMemory dalı (geliştirme/testler) aynı kuralı uygular.
+- **Sahip her turda yeniler (N-41, P15 T8).** Eski koşul yalnız "süresi dolmuşsa" idi; kira tur aralığından uzun olduğu
+  için sahip bir sonraki turda kendi kirasına takılıyordu → 15 sn'lik e-posta kuyruğu ~5 dk'da bir boşalıyordu.
+- **Kira süresi** varsayılan `max(2 × PollInterval, 5 dk)`. Sahip yenilediği için bu süre işin sıklığını değil, yalnız
+  **devralma gecikmesini** belirler: sahip çökerse/kapanırsa diğer örnek en geç bu süre sonra devralır.
+- **Sahip kimliği** süreç başına `JobLeaseStore.InstanceId` (yeniden başlayan süreç yeni kimlik alır ve eski kiranın
+  dolmasını bekler — dağıtım sonrası bir kerelik gecikme: e-posta 5 dk, hesap silme 12 sa, saklama temizliği 48 sa).
+  Testler iki örneği `new JobLeaseStore(clock, ownerId)` ile kurar.
+- **Tüm modülleri tarayan işler** (`OutgoingEmailDispatcher`, `DataRetentionService`) tek küresel kira kullanır; kira adı
+  alfabetik ilk modülün şemasında tutulur.
+
+| İş (`JobName`) | Servis | Tur | Kira |
+|----------------|--------|-----|------|
+| `outgoing-email-dispatch` | `OutgoingEmailDispatcher` | `Outbox:PollIntervalSeconds` (15 sn) | 5 dk |
+| `notification-dispatch` | `NotificationDispatcher` | 30 sn | 5 dk |
+| `assignment-due-scan` | `AssignmentDueScanner` | 1 sa | 2 sa |
+| `payment-overdue-scan` | `PaymentOverdueScanner` | 1 sa | 2 sa |
+| `parent-weekly-summary` | `ParentWeeklySummaryService` | 6 sa | 12 sa |
+| `account-deletion` | `AccountDeletionService` (P15 T8'de kiraya alındı) | 6 sa | 12 sa |
+| `progress-snapshot` | `ProgressSnapshotService` (açılışta 5 dk bekler) | 24 sa | 48 sa |
+| `data-retention` | `DataRetentionService` (P15 T8'de kiraya alındı) | 24 sa | 48 sa |
+
+**İstisna:** `OutboxDispatcher` kira kullanmaz — satırları `FOR UPDATE SKIP LOCKED` ile sahiplenir. Yeni bir
+`IHostedService` eklenirse kiralı olmalıdır; `RealJobLeaseRenewalTests.Every_Scheduled_Background_Job_Should_Run_Under_A_Lease`
+kayıtlı her `EgitimUssu` arka plan servisini denetler.
+
 ## 8. Güvenlik
 
-- **JWT Bearer:** access token; `refresh` ucu ile yenileme; `RefreshTokenSession` (cihaz başına) DB'de hash'li tutulur.
+- **JWT Bearer:** access token; `refresh` ucu ile yenileme; `RefreshTokenSession` (cihaz başına) DB'de hash'li tutulur. Rotasyon koşullu (tek kazanan), iptal nedeni saklanır (P15 T7).
+- **Erişim token'ı doğrulama (`OnTokenValidated`, P15 T7 / N-31):** tek Redis turunda `jti` kara listesi + kullanıcı damgası (**ms**, `iat_ms` talebi) + oturum (`sid`) iptal kümesi; ardından `IAccountStatusReader` (Identity, 60 sn Redis önbellekli) — askıya alınmış/kapalı hesabın token'ı 401. Redis yoksa iptal kontrolleri fail-open, durum veritabanından okunur.
+- **HSTS (P15 T7 / N-32):** Development dışında `UseHsts` (1 yıl). Render TLS'i proxy'de sonlandırdığı için önünde yalnız `X-Forwarded-Proto` işleyen `UseForwardedHeaders` (bilinen proxy listesi boş; istemci IP'si `ClientIpResolver`'da kalır).
 - **Yetki:** `AuthenticatedUser` politikası; `ICurrentUser` (`HttpContextCurrentUser`) ile handler'larda aktif kullanıcı.
-- **Rate limiting:** kimlik uçları `auth` (10/dk), genel `default` (120/dk).
+- **Rate limiting:** kimlik bilgisi uçları `auth` (10/dk IP), `refresh` (60/dk IP), oturumlu kimlik uçları `session` (60/dk kullanıcı), genel `default` (120/dk IP).
 - **Parola/token:** `IPasswordHasher` (ASP.NET hasher), `ITokenProtector` (SHA-256) ile reset/verify token'ları hash'li.
 - **Hata sızdırmama:** Tüm hata yanıtları ProblemDetails; 401/403 challenge'ları özel `ApiErrorHttpResults` ile tutarlı.
 - **Sır repoda yok:** Bağlantı dizesi, JWT anahtarı ve SMTP kimlik bilgileri yalnız ortam değişkeninden (`ConnectionStrings__Postgres`, `Jwt__SigningKey`, `Email__Smtp__Username`, `Email__Smtp__Password`); eksik/zayıf değerde uygulama açılmaz.
+
+### 8.1 Öğretmen–öğrenci erişim kapsamı (P15 T2, K-13)
+
+Öğretmenin bir öğrenci üzerindeki yetkisi **rolde değil ilişkide** durur. Tek kaynak
+`Shared/Contracts/TeacherStudentAccessContract.cs`:
+
+```csharp
+public enum TeacherAccessScope { None = 0, Private = 1, Class = 2 }
+public interface ITeacherStudentAccess
+{ Task<TeacherAccessScope> GetScopeAsync(Guid teacherUserId, Guid studentId, CancellationToken ct); }
+```
+
+| Kapsam | Ne zaman | Verdiği yetki |
+|--------|----------|---------------|
+| `Private` | Bağ `Linked` ve arşivli değil **veya** profil `TeacherManaged`, bu öğretmence açılmış ve bağı yaşıyor (`Manual`/`InviteSent`, arşivli değil) | Ders, ödeme, oturum, veli daveti, mesaj, gelişim/rapor |
+| `Class` | Sınıf üyeliği — **P22'ye kadar hiç dönmez** | Özel ders yetkisi **vermez** (K-17, K-18) |
+| `None` | Arşivli / reddedilmiş (`Rejected`) / kopmuş (`Disconnected`) bağ, hiç bağ yok, başkasının profilinde `Manual` bağ | — |
+
+- **Uygulayan:** Students (`Infrastructure/TeacherStudentAccess.cs`). Eski `IStudentDirectory.IsLinkedTeacherOfStudentAsync`
+  geriye uyumluluk için kalır ve `GetScopeAsync == Private`'a delege eder (Messaging, ProgressTracking, Reporting).
+- **Karşılaştırma kuralı:** yazma uçları `!= None` değil **`== Private`** sorar — P22'de `Class` dönmeye başlayınca
+  sınıf öğretmeni özel ders kaydı açamamalı.
+- **Kapsam soran yazma uçları:** ders oluştur/güncelle/ertele (M04), ödeme oluştur/güncelle (M07), manuel oturum (M05,
+  ayrıca bağlandığı planlı ders aynı öğretmen–öğrenci ikilisine ait olmalı → `403 lesson_sessions.schedule_not_owned`),
+  veli daveti ve **veli bağlama talebi `link-parent`** (M03, T9 — profilin sahibi öğrenci muaf). Kapsam yoksa `403 shared.forbidden` ("Bu öğrenciyle aktif bir özel ders bağınız yok."). **Admin muaf.**
+- **Kapsam soran port (T9):** otomatik ders ücreti authorizer'a tabi değildir (outbox handler'ı) — kural ücret kaynağında:
+  `IStudentDirectory.GetAgreedLessonRateAsync` kapsam `Private` değilse `null` → kayıt açılmaz (K-18).
+- **Bilinçli olarak sormayanlar:** ders iptal/silme/tamamlama, planlı dersten oturum türetme (`from-schedule`), oturum
+  başlat/iptal/tamamla, ödev takibi/puanlama, profil düzeltme/branş ve okumalar yalnız sahipliğe bakar — bağı biten öğretmen
+  arşivden önce açılmış kayıtlarını kapatabilir (arşiv öğretmenin onaysız geri alabildiği durumu; [`m03`](../modules/m03_students.md) kural 21).
+- **Kapsam soran okuma (P15 T3 / N-28):** öğrenci profili okuma (`StudentProfileQueryAuthorizer`) — sahip / açan öğretmen /
+  veli kontrolleri başarısızsa `Teacher` rolüne `== Private` sorulur. Birleşme sonrası kanonik profil öğrencinin kendi
+  açtığıdır (`CreatedByTeacherUserId` boş); bağı taşınan öğretmen profili açabilmeli. Profil **yazma** genişletilmedi.
+- **Test:** kural gerçek sorguya karşı (`TeacherStudentAccessTests`, EF InMemory); her yazma ucu için "başka öğretmen /
+  bağı arşivlenmiş öğretmen / bağsız öğretmen → 403" (`WriteEndpointLinkAuthorizationTests`); DI kaydı ve HTTP eşlemesi
+  gerçek Postgres'te (`RealWriteLinkAuthorizationTests`); **çapraz-kiracı paketi** (iki öğretmen/öğrenci/veli: yazamaz + okuyamaz,
+  iptal edilen veli göremez, arşivli bağda otomatik ücret yok) `RealCrossTenantAccessTests` (P15 T9).
 
 ## 9. Hata Yönetimi
 
@@ -396,7 +475,8 @@ Enstrümantasyondan gelenler: `http.server.request.duration`, `http.server.activ
 - **PII log'a yazılmaz:** sorgu dizesi `SensitiveDataMask`'ten geçer. Adında `token`, `password`,
   `secret`, `email`, `phone`, `apikey`, `authorization` **geçen** her parametrenin değeri `***`
   olur (`accessToken`, `refresh_token`, `userEmail` de yakalanır). Anahtarlar ve zararsız değerler
-  korunur — okunamayan log'a kimse bakmaz.
+  korunur — okunamayan log'a kimse bakmaz. E-posta adresi log'a girecekse `SensitiveDataMask.MaskEmail`
+  (`ahmet@gmail.com` → `a***@g***.com`) — `LoggingEmailSender` bunu kullanır (P15 T6).
 
 ### 11.5 Asenkron zincir: outbox trace yayılımı
 
@@ -469,4 +549,4 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 > İlgili: sistem geneli → [`00_genel_bakis.md`](00_genel_bakis.md) · modüller (gerçek) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md) ·
 > mimari açıklar/öncelik → [`../modules/mimari_inceleme.md`](../modules/mimari_inceleme.md) · ER → [`../modules/veri_modeli.md`](../modules/veri_modeli.md)
 
-*Backend Mimari | Güncelleme: 2026-10-16 (denetim: HTTP idempotency anonim/kimliksiz isteklerde ve Identity uçlarında kapatıldı; kullanıcılar arası yanıt ve eski jeton tekrarı engellendi, `IdempotencyIdentityIsolationTests`) · 2026-09-06 (P13 Task 9 / C-04: §11.2'ye **uygulamanın kendi span'ları** tablosu (`command`/`query`/`outbox.poll`/`outbox.dispatch`/`handler`/`retention.sweep`) ve yeni **§11.5 asenkron zincir** — `outbox_messages.TraceParent` ile üreten isteğin bağlamı mesajla taşınıyor, dispatch o trace'i devam ettiriyor; enstrümante edilmemiş yoklayıcının trace'i nasıl kirlettiği ölçümle anlatıldı) · 2026-09-05 (P13 Task 4 / E-05: §3'e **Yedekleme / migration** satırı — üretimde açılış migration'ı `MigrationStartupGuard` ile kapatıldı, `ApplyModuleMigrationsAsync` artık kararın sahibi ve `bool` döndürüyor; §6 migration maddesine `Down()` kuralı + CI kontrolü eklendi. Prosedür: `backup_restore.md`) · 2026-09-05 (P13 Task 3 / E-06: §3'e **Ortamlar / tohumlama** satırı — staging ayrı servis + ayrı veritabanı, açılışta idempotent demo veri; seeder modül komutlarından geçer (kimliğe bürünerek), Production'da guard bayrağı yok sayar. Ayrıntı `environments.md`) · 2026-09-05 (P13 Task 2 / C-10: §3'e **API sürümleme** satırı — yayınlanan sözleşme `v1`, mevcut yollar sürüm eki taşımaz ve kırılmaz, kırıcı değişiklik `/api/v2/...` altında açılır; her `/api/*` yanıtında `X-Api-Version` (401/404 dahil), `/health*` ve `/openapi*` sürümlenmez. `GET /api/meta/version` artık `apiVersion` (sözleşme) ile `version` (derleme) ayrımını yapıyor, OpenAPI belgesi sözleşme sürümünü yayınlıyor. Politika: `api_versioning.md`) · 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*
+*Backend Mimari | Güncelleme: 2026-11-14 (P15 Task 9: §8.1 — `link-parent` kapsam sorar, otomatik ders ücreti kaynağında kapsam sorar, sormayan uçlar listesi + çapraz-kiracı paketi) · 2026-11-14 (P15 Task 8 / N-41, A-07: yeni **§7.3 arka plan işleri ve iş kirası** — kira sahibince her turda yenilenir (`WHERE süresi dolmuş OR OwnerId = EXCLUDED.OwnerId`, InMemory dalında da), `AccountDeletionService` + `DataRetentionService` `LeasedBackgroundService`'e alındı, iş/tur/kira tablosu, `OutboxDispatcher` istisnası ve kapsama testi) · 2026-11-14 (P15 Task 7 / N-29…N-32: `OnTokenValidated` sid + hesap durumu + ms damga, üç kimlik hız sınırı politikası, HSTS + yalnız-şema forwarded headers) · 2026-11-14 (P15 Task 6 / N-24, P-01: sahte sağlayıcı guard'ı — `Logging` e-posta ve `Local` depolama yalnız Development/Staging'de, `SandboxEnvironments`, guard'lar ortam adı alır + `Warning(...)`; `LoggingEmailSender` gövdesiz + `SensitiveDataMask.MaskEmail`) · 2026-11-14 (P15 Task 3 / N-28: §8.1'e kapsam soran okuma — öğrenci profili okuma `Private` kapsamlı öğretmene açık) · 2026-11-13 (P15 Task 2 / N-08, N-21: yeni **§8.1 öğretmen–öğrenci erişim kapsamı** — `ITeacherStudentAccess` + `TeacherAccessScope { None, Private, Class }` tek kaynak; ders/ödeme/manuel oturum/veli daveti yazma uçları `== Private` sorar, Admin muaf; iptal/silme/okuma yalnız sahiplik) · 2026-10-16 (denetim: HTTP idempotency anonim/kimliksiz isteklerde ve Identity uçlarında kapatıldı; kullanıcılar arası yanıt ve eski jeton tekrarı engellendi, `IdempotencyIdentityIsolationTests`) · 2026-09-06 (P13 Task 9 / C-04: §11.2'ye **uygulamanın kendi span'ları** tablosu (`command`/`query`/`outbox.poll`/`outbox.dispatch`/`handler`/`retention.sweep`) ve yeni **§11.5 asenkron zincir** — `outbox_messages.TraceParent` ile üreten isteğin bağlamı mesajla taşınıyor, dispatch o trace'i devam ettiriyor; enstrümante edilmemiş yoklayıcının trace'i nasıl kirlettiği ölçümle anlatıldı) · 2026-09-05 (P13 Task 4 / E-05: §3'e **Yedekleme / migration** satırı — üretimde açılış migration'ı `MigrationStartupGuard` ile kapatıldı, `ApplyModuleMigrationsAsync` artık kararın sahibi ve `bool` döndürüyor; §6 migration maddesine `Down()` kuralı + CI kontrolü eklendi. Prosedür: `backup_restore.md`) · 2026-09-05 (P13 Task 3 / E-06: §3'e **Ortamlar / tohumlama** satırı — staging ayrı servis + ayrı veritabanı, açılışta idempotent demo veri; seeder modül komutlarından geçer (kimliğe bürünerek), Production'da guard bayrağı yok sayar. Ayrıntı `environments.md`) · 2026-09-05 (P13 Task 2 / C-10: §3'e **API sürümleme** satırı — yayınlanan sözleşme `v1`, mevcut yollar sürüm eki taşımaz ve kırılmaz, kırıcı değişiklik `/api/v2/...` altında açılır; her `/api/*` yanıtında `X-Api-Version` (401/404 dahil), `/health*` ve `/openapi*` sürümlenmez. `GET /api/meta/version` artık `apiVersion` (sözleşme) ile `version` (derleme) ayrımını yapıyor, OpenAPI belgesi sözleşme sürümünü yayınlıyor. Politika: `api_versioning.md`) · 2026-09-05 (P13 Task 1 / C-04+K-10: §11 Gözlemlenebilirlik yeniden yazıldı — OpenTelemetry trace (ASP.NET Core + HttpClient + Npgsql) + metrik (`EgitimUssu` meter'ı: outbox/push/e-posta) + log'da `TraceId` ve PII maskesi; `Observability:Enabled` varsayılan **kapalı**. EF Core enstrümantasyonu **kullanılmadı** (kararlı sürümü yok), yerine kararlı `Npgsql.OpenTelemetry` — Npgsql 9.x'e sabitlendi) · 2026-09-04 (P10 Task 5 / M16-1: §3 rate limiting satırı gerçeğe göre yazıldı — üçüncü politika `messaging` (30/dk) ve **kullanıcı başına partition**; `UseAuthentication()` limitleyicinin önüne alındı, sıra tersken partition sessizce IP'ye düşüyordu · P08 Task 6: §7.1 yeniden-kurulabilirlik maddesi genisletildi — inbox satirlari da silinmeli, rebuild tek modulu hedefler; ozellik RealProjectionRebuildTests ile gercek Postgres'te dogrulandi · P07: dispatcher delegate onbellegi — DispatcherInvokerCache/DispatcherHandlerInvokerCache/DispatcherFailureFactory, dynamic kaldirildi (O4) · P07: istek kapsamı varlık önbelleği (IRequestEntityCache) + PK aramalarında FindAsync — O2 · P07: projeksiyon (read-model) deseni — ProjectionEntity + ProjectionHandler<TEvent> + IProjectionRebuilder · P04: IFileStorage + LocalFileStorage/S3FileStorage, StorageOptions/StorageOptionsGuard, FileValidation · P03: IPushSender + FcmPushSender, PushOptions/PushOptionsGuard)*

@@ -41,6 +41,7 @@
     <ProjectReference Include="..\..\src\Modules\Teachers\Infrastructure\EgitimUssu.Modules.Teachers.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Students\Domain\EgitimUssu.Modules.Students.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Students\Application\EgitimUssu.Modules.Students.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Students\Infrastructure\EgitimUssu.Modules.Students.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Study\Domain\EgitimUssu.Modules.Study.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Study\Application\EgitimUssu.Modules.Study.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Settings\Domain\EgitimUssu.Modules.Settings.Domain.csproj" />

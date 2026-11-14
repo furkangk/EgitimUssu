@@ -26,6 +26,7 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
             modelBuilder.Entity("EgitimUssu.Modules.Identity.Domain.AccountDeletionRequest", b =>
                 {
                     b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("CancelledOnUtc")
@@ -54,6 +55,10 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
 
                     b.HasIndex("UserAccountId", "Status");
 
+                    b.HasIndex(new[] { "UserAccountId" }, "IX_account_deletion_requests_UserAccountId_pending")
+                        .IsUnique()
+                        .HasFilter("\"Status\" = 'Pending'");
+
                     b.ToTable("account_deletion_requests", "identity");
                 });
 
@@ -79,6 +84,10 @@ namespace EgitimUssu.Modules.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<DateTime?>("RevokedOnUtc")
                         .HasColumnType("timestamp with time zone");

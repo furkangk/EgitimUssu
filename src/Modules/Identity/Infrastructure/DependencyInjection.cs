@@ -1,4 +1,5 @@
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Infrastructure.Authentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EgitimUssu.Modules.Identity.Application;
@@ -19,6 +20,14 @@ public static class DependencyInjection
         services.AddScoped<ILoginAttemptThrottle, RedisLoginAttemptThrottle>();
         // A-06: Parola sıfırlama ve rol değişimi dolaşımdaki erişim token'larını da iptal eder.
         services.AddScoped<ITokenRevocationService, TokenRevocationService>();
+        // P15 T7 / N-31: OnTokenValidated her istekte hesap durumunu sorar (Redis önbellekli).
+        services.AddScoped<IAccountStatusReader, AccountStatusReader>();
+        // P15 T7 / N-29: Yeniden kullanım penceresi çözümleme anında okunur (test host'unun
+        // yapılandırma geçersiz kılmaları kayıt anında henüz uygulanmamış olabilir).
+        services.AddSingleton(provider => new RefreshTokenPolicy(TimeSpan.FromSeconds(
+            provider.GetRequiredService<IConfiguration>().GetValue(
+                "Identity:RefreshReuseGraceSeconds",
+                RefreshTokenPolicy.DefaultReuseGrace.TotalSeconds))));
         services.AddScoped<IIdentityNotificationService, EmailIdentityNotificationService>();
         services.AddScoped<ICommandHandler<RegisterUserCommand, Result<AuthResponse>>, RegisterUserCommandHandler>();
         services.AddScoped<ICommandHandler<LoginUserCommand, Result<AuthResponse>>, LoginUserCommandHandler>();

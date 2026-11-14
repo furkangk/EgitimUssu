@@ -33,6 +33,13 @@ public interface IStudentDirectory
     /// M07-2: Ders ücretlendirmesi için öğrenci bazlı anlaşılan ücreti okur (B-07).
     /// Bağ yoksa ya da ücret hiç girilmemişse <c>null</c> döner — çağıran taraf
     /// tahmini bir tutar üretmez.
+    /// <para>
+    /// P15 T9 (K-18): ücret yalnız <b>yaşayan özel ders bağında</b> döner
+    /// (<see cref="ITeacherStudentAccess.GetScopeAsync"/> <c>== Private</c>). Bağı arşivlenmiş/bitmiş ikilinin
+    /// girilmiş ücreti de <c>null</c>'dır — otomatik ders ücreti oluşmaz. Kontrol çağrı anındadır: dersi tamamlayıp
+    /// olay işlenmeden bağı arşivleyen öğretmenin o dersi için de ücret açılmaz (bilinçli; öğretmen bağı arşivden
+    /// çıkarıp ücreti elle girer — manuel kayıt da yaşayan bağ ister).
+    /// </para>
     /// </summary>
     /// <param name="teacherUserId">Öğretmen kullanıcı kimliği.</param>
     /// <param name="studentId">Öğrenci profili kimliği.</param>
@@ -44,6 +51,10 @@ public interface IStudentDirectory
     /// M10-2: Öğretmenin bu öğrenciyle <b>yaşayan</b> bir bağı var mı (<c>TeacherStudentLink</c>)?
     /// Reddedilmiş/koparılmış/arşivlenmiş bağ <c>false</c> döner — öğretmen görünümü yetkisi
     /// bu cevaba dayanır (varsayılan-deny).
+    /// <para>
+    /// P15 T2: geriye uyumluluk için kalır; <see cref="ITeacherStudentAccess.GetScopeAsync"/> <c>== Private</c>'a
+    /// delege eder. Yeni kod doğrudan <see cref="ITeacherStudentAccess"/> kullanır.
+    /// </para>
     /// </summary>
     /// <param name="teacherUserId">Öğretmen kullanıcı kimliği.</param>
     /// <param name="studentId">Öğrenci profili kimliği.</param>

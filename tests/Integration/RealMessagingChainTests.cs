@@ -45,7 +45,7 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
 
         var teacherUserId = await RegisterAsync(teacher, role: 2, label: "Ogretmen");
         var studentUserId = await RegisterAsync(student, role: 3, label: "Ogrenci");
-        var studentId = await CreateStudentAsync(teacher, teacherUserId, studentUserId);
+        var studentId = await CreateStudentAsync(factory, teacher, student, teacherUserId, studentUserId);
 
         // 1) Sohbeti öğretmen açar ve karşı tarafı **vermez**: istemci öğrencinin kullanıcı
         //    kimliğini bilmez, sunucu onu studentId'den çözer.
@@ -178,7 +178,7 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
         var ownerUserId = await RegisterAsync(owner, role: 2, label: "Sahip");
         await RegisterAsync(stranger, role: 2, label: "Yabanci");
         var studentUserId = await RegisterAsync(studentClient, role: 3, label: "Ogrenci");
-        var studentId = await CreateStudentAsync(owner, ownerUserId, studentUserId);
+        var studentId = await CreateStudentAsync(factory, owner, studentClient, ownerUserId, studentUserId);
 
         var response = await stranger.PostAsJsonAsync("/api/messaging/conversations", new
         {
@@ -210,7 +210,7 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
 
         var teacherUserId = await RegisterAsync(teacher, role: 2, label: "Hizli");
         var studentUserId = await RegisterAsync(studentClient, role: 3, label: "Ogrenci");
-        var studentId = await CreateStudentAsync(teacher, teacherUserId, studentUserId);
+        var studentId = await CreateStudentAsync(factory, teacher, studentClient, teacherUserId, studentUserId);
 
         var opened = await teacher.PostAsJsonAsync("/api/messaging/conversations", new
         {
@@ -256,15 +256,16 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
     }
 
     /// <summary>
-    /// Öğretmenin açtığı profil <c>Manual</c> bir <c>TeacherStudentLink</c> üretir; ilişki kapısının
-    /// beklediği "yaşayan bağ" budur. <c>userId</c> dolu verilir ki öğrenci kendi adına konuşabilsin.
+    /// Öğretmenin açtığı profil bir <c>TeacherStudentLink</c> üretir; ilişki kapısının beklediği "yaşayan bağ"
+    /// budur. Öğrenci kendi adına konuşabilsin diye profil öğrencinin hesabına <b>davet + claim</b> ile bağlanır
+    /// (P15 T3 / N-23: gövdedeki <c>userId</c> artık reddedilir).
     /// </summary>
     private static async Task<Guid> CreateStudentAsync(
-        HttpClient teacher, Guid teacherUserId, Guid studentUserId)
+        WebApplicationFactory<Program> factory, HttpClient teacher, HttpClient student, Guid teacherUserId, Guid studentUserId)
     {
         var response = await teacher.PostAsJsonAsync("/api/students/profiles", new
         {
-            userId = studentUserId,
+            userId = (Guid?)null,
             createdByTeacherUserId = teacherUserId,
             parentUserId = (Guid?)null,
             fullName = "Mesaj Ogrencisi",
@@ -277,7 +278,9 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
             subjects = Array.Empty<object>(),
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        var studentId = (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        await StudentLinkTestHelper.LinkStudentAccountAsync(factory, teacher, student, teacherUserId, studentId, studentUserId);
+        return studentId;
     }
 
     /// <summary>

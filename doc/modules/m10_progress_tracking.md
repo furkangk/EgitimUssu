@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/ProgressTracking/**
-updated: 2026-09-04
+updated: 2026-11-14
 ---
 
 # 📈 M10 — Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım Dokümanı
@@ -251,7 +251,16 @@ GET /api/progress-tracking/parents/{parentUserId}/children/{studentId}/overview 
 [consume] StudySessionCompletedDomainEvent  (M08)   → çalışma süresi rollup + mastery güncelle
 [consume] TestResultRecordedDomainEvent     (M08)   → net oranı + trend güncelle
 [scheduler] ProgressSnapshotService — günde bir tur, kapanmış son hafta/ay için ProgressSnapshot üretir (idempotent)
+[consume] StudentProfilesMergedDomainEvent  (M03)   → P15 T3 / N-28: gelişim verisi kanonik profile
 ```
+
+**Profil birleşmesi (P15 T3 / N-28) — `StudentProfilesMergedProgressHandler`:** Eskiden ProgressTracking birleşme olayını
+tüketmiyordu; birleşen profilin hâkimiyeti, hedefleri ve dönem fotoğrafları eski kimlikte kalıyordu. `topic_goals` hepsi
+taşınır. `topic_masteries (StudentId, Subject, Topic)` ve `progress_snapshots (StudentId, Subject, Period, PeriodStart)`
+benzersiz olduğu için kör yeniden atama indeks ihlali (= outbox'ta sonsuz yeniden deneme) olurdu: **çakışmayan satır taşınır,
+çakışanda kanonik kazanır, kaynakta kalan silinir**. Gerekçe: hesapsız (öğretmenin açtığı) profilin hâkimiyeti yalnız ders
+katılımından gelir, öğrencinin kendi profilininki kendi çalışmasından — çakışmada öğrencinin kendi ölçümü korunur. İki
+ölçümü toplamak (`TotalStudyMinutes`/`NetRatioSum` birleştirip yeniden hesaplamak) mümkün ama şimdilik yapılmadı.
 
 ---
 
@@ -411,4 +420,4 @@ Ekran dokümanı: [`../pages/progress_overview.md`](../pages/progress_overview.m
 
 ---
 
-*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟢 Tamam (TopicMastery+TopicGoal+ProgressSnapshot+besleme+API+öğretmen/veli görünümü+mobil çizgi grafiği) | Güncelleme: 2026-09-04 (P08 kapanış / Task 6: durum 🟡 → 🟢, §1 'kalan' listesi *isteğe bağlı genişletme* olarak yeniden çerçevelendi. Önceki not — P08 Task 5: mobil `ProgressCubit` + `ProgressSnapshotChart` — üç kapsam (öğrenci/öğretmen/veli) tek gövdede; snapshot serisi yalnız öğrenci kapsamında yükleniyor. Önceki not — P08 Task 2 / M10-2+M10-3+M10-4: öğretmen ve veli `overview` uçları + `ProgressTrackingPolicies` yetkilendiricileri + `ProgressPrivacyFilter` gizlilik kapısı + `LessonSessionCompletedProgressHandler` (M05 ders katılımı → `TopicMastery.RegisterLessonAttendance`, yeni `AttendedLessonCount`/`TotalLessonMinutes` alanları + `AddLessonAttendanceToTopicMastery` migration) + hedefte net-oranı koşulu + M11 `TopicGoalAchievedNotificationHandler`; `IStudentDirectory.IsLinkedTeacherOfStudentAsync` sözleşmeye eklendi. Önceki not — P08 Task 1 / M10-1: `ProgressSnapshot` + `SnapshotPeriod` + `SnapshotPeriods` + `ProgressTrendCalculator` (±5) + günlük `ProgressSnapshotService` turu + `GET /students/{id}/snapshots`; §2.3 önerilen tablo koda göre düzeltildi — `Daily`/`Topic`/`LessonCount` kodda yok. Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedEvent`/`processed_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; önceki not — 2026-08-19 kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*
+*M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟢 Tamam (TopicMastery+TopicGoal+ProgressSnapshot+besleme+API+öğretmen/veli görünümü+mobil çizgi grafiği) | Güncelleme: 2026-11-14 (P15 Task 3 / N-28: yeni tüketici `StudentProfilesMergedProgressHandler` — profil birleşmesinde hedefler taşınır, hâkimiyet/fotoğraflarda çakışmayan satır taşınır, çakışanda kanonik kazanır; §3.5). Önceki not — 2026-09-04 (P08 kapanış / Task 6: durum 🟡 → 🟢, §1 'kalan' listesi *isteğe bağlı genişletme* olarak yeniden çerçevelendi. Önceki not — P08 Task 5: mobil `ProgressCubit` + `ProgressSnapshotChart` — üç kapsam (öğrenci/öğretmen/veli) tek gövdede; snapshot serisi yalnız öğrenci kapsamında yükleniyor. Önceki not — P08 Task 2 / M10-2+M10-3+M10-4: öğretmen ve veli `overview` uçları + `ProgressTrackingPolicies` yetkilendiricileri + `ProgressPrivacyFilter` gizlilik kapısı + `LessonSessionCompletedProgressHandler` (M05 ders katılımı → `TopicMastery.RegisterLessonAttendance`, yeni `AttendedLessonCount`/`TotalLessonMinutes` alanları + `AddLessonAttendanceToTopicMastery` migration) + hedefte net-oranı koşulu + M11 `TopicGoalAchievedNotificationHandler`; `IStudentDirectory.IsLinkedTeacherOfStudentAsync` sözleşmeye eklendi. Önceki not — P08 Task 1 / M10-1: `ProgressSnapshot` + `SnapshotPeriod` + `SnapshotPeriods` + `ProgressTrendCalculator` (±5) + günlük `ProgressSnapshotService` turu + `GET /students/{id}/snapshots`; §2.3 önerilen tablo koda göre düzeltildi — `Daily`/`Topic`/`LessonCount` kodda yok. Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedEvent`/`processed_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; önceki not — 2026-08-19 kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*

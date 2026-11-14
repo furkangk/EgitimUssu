@@ -324,7 +324,7 @@ public sealed class MessagingAccessTests
 
         public Task<Result<MessageResponse>> SendAsync(Guid conversationId, string body)
             => new SendMessageCommandHandler(
-                    CurrentUser(), Repository, new MessagingClock(Now), new MessagingIdGenerator(NewMessageId))
+                    CurrentUser(), Repository, Policy(), new MessagingClock(Now), new MessagingIdGenerator(NewMessageId))
                 .Handle(new SendMessageCommand(conversationId, body), CancellationToken.None);
 
         public Task<Result<IReadOnlyList<MessageResponse>>> ListMessagesAsync(
@@ -333,7 +333,7 @@ public sealed class MessagingAccessTests
                 .Handle(new ListMessagesQuery(conversationId, beforeUtc, take), CancellationToken.None);
 
         public Task<Result<ConversationResponse>> BlockAsync(Guid conversationId, bool blocked)
-            => new SetConversationBlockCommandHandler(CurrentUser(), Repository, new MessagingClock(Now))
+            => new SetConversationBlockCommandHandler(CurrentUser(), Repository, Policy(), new MessagingClock(Now))
                 .Handle(new SetConversationBlockCommand(conversationId, blocked), CancellationToken.None);
 
         public Task<Result> DeleteAsync(Guid messageId)
@@ -342,6 +342,6 @@ public sealed class MessagingAccessTests
 
         private FakeMessagingCurrentUser CurrentUser() => new(_userId, _roles);
 
-        private ConversationRelationshipPolicy Policy() => new(Students, Parents);
+        private ConversationRelationshipPolicy Policy() => new(Students, Students, Parents);
     }
 }

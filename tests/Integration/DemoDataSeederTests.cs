@@ -111,7 +111,7 @@ public sealed class DemoDataSeederTests
     [Fact]
     public async Task Production_Environment_Should_Never_Seed()
     {
-        using var environment = TestEnvironment.For("demo-seed-production", enabled: true);
+        using var environment = TestEnvironment.For("demo-seed-production", enabled: true, realProviders: true);
         await using var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
 
@@ -143,8 +143,16 @@ public sealed class DemoDataSeederTests
             }
         }
 
-        public static TestEnvironment For(string databaseName, bool enabled) => new(
-            new Dictionary<string, string?>
+        /// <param name="databaseName">InMemory veritabanı adı (test başına ayrı).</param>
+        /// <param name="enabled"><c>Seeding:Enabled</c> bayrağı.</param>
+        /// <param name="realProviders">
+        /// P15 T6 / N-24: Production, sahte e-posta (Logging) ve depolama (Local) sağlayıcısıyla
+        /// açılmaz. Üretim testleri guard'ı geçen eksiksiz Smtp + S3 yapılandırması ister; gönderim
+        /// ya da yükleme denenmez (tohumlama üretimde koşmaz, kuyruk boş kalır).
+        /// </param>
+        public static TestEnvironment For(string databaseName, bool enabled, bool realProviders = false)
+        {
+            var values = new Dictionary<string, string?>
             {
                 ["ConnectionStrings__Postgres"] = "InMemory:" + databaseName,
                 ["Seeding__Enabled"] = enabled ? "true" : "false",
@@ -154,7 +162,22 @@ public sealed class DemoDataSeederTests
                 // Production startup guard gerçek bir Redis adresi bekler. Bu test Redis işlemi
                 // yapmaz; çözümlenmeyen test host'u yalnız yapılandırma sözleşmesini karşılar.
                 ["Redis__Configuration"] = "redis.integration.test:6379,abortConnect=false"
-            });
+            };
+
+            if (realProviders)
+            {
+                values["Email__Provider"] = "Smtp";
+                values["Email__Smtp__Host"] = "smtp.integration.test";
+                values["Email__Smtp__Username"] = "integration-user";
+                values["Email__Smtp__Password"] = "integration-password";
+                values["Storage__Provider"] = "S3";
+                values["Storage__BucketName"] = "egitimussu-integration";
+                values["Storage__AccessKeyId"] = "integration-access-key";
+                values["Storage__SecretAccessKey"] = "integration-secret-key";
+            }
+
+            return new TestEnvironment(values);
+        }
 
         public void Dispose()
         {

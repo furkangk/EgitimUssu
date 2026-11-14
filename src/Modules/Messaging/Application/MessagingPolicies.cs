@@ -57,23 +57,46 @@ public interface IConversationRelationshipPolicy
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Kullanıcı kimliği ya da <c>null</c>.</returns>
     Task<Guid?> ResolveStudentUserIdAsync(Guid studentId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// P15 T5 / K-28: Var olan sohbetlerin ilişkisi <b>hâlâ</b> yaşıyor mu? Sohbet açma kapısıyla aynı yüklem;
+    /// ilişki bitmişse gönderim kapanır, sohbet salt-okunur görünür. Aynı (öğretmen, öğrenci), öğrenci sahipliği ve
+    /// (veli, öğrenci) sorusu çağrı içinde bir kez sorulur — gelen kutusu sayfası N kez aynı şeyi sormasın.
+    /// </summary>
+    /// <param name="conversations">Değerlendirilecek sohbetler.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Sohbet kimliği → ilişki yaşıyor mu.</returns>
+    Task<IReadOnlyDictionary<Guid, bool>> GetActiveStatesAsync(
+        IReadOnlyCollection<Conversation> conversations, CancellationToken cancellationToken);
+
+    /// <summary>Tek sohbet için <see cref="GetActiveStatesAsync"/>.</summary>
+    /// <param name="conversation">Sohbet.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>İlişki yaşıyorsa <c>true</c>.</returns>
+    async Task<bool> IsActiveAsync(Conversation conversation, CancellationToken cancellationToken)
+        => (await GetActiveStatesAsync([conversation], cancellationToken))[conversation.Id];
 }
 
 /// <summary>
-/// İlişki kapısı. Bilgi Messaging'in tablolarında <b>durmaz</b>: öğretmen↔öğrenci bağı Students'ın,
+/// İlişki kapısı. Bilgi Messaging'in tablolarında <b>durmaz</b>: öğretmen↔öğrenci kapsamı Students'ın,
 /// veli↔öğrenci onaylı bağı Parents'ın gerçeğidir ve <c>Shared/Contracts</c> üzerinden sorulur.
-/// Yerel bir kopya tutulsaydı bağ koptuğunda mesajlaşma açık kalırdı.
+/// Yerel bir kopya tutulsaydı bağ koptuğunda mesajlaşma açık kalırdı (#191) — bu yüzden ilişki hem sohbet
+/// açılırken hem de her gönderimde/listelemede yeniden sorulur.
 /// </summary>
 public sealed class ConversationRelationshipPolicy : IConversationRelationshipPolicy
 {
+    private readonly ITeacherStudentAccess _access;
     private readonly IStudentDirectory _students;
     private readonly IParentAccessDirectory _parents;
 
     /// <summary>Yeni örnek oluşturur.</summary>
-    /// <param name="students">Öğrenci dizini.</param>
+    /// <param name="access">Öğretmen–öğrenci erişim kapsamı (K-13).</param>
+    /// <param name="students">Öğrenci dizini (profil sahibi).</param>
     /// <param name="parents">Veli erişim dizini.</param>
-    public ConversationRelationshipPolicy(IStudentDirectory students, IParentAccessDirectory parents)
+    public ConversationRelationshipPolicy(
+        ITeacherStudentAccess access, IStudentDirectory students, IParentAccessDirectory parents)
     {
+        _access = access;
         _students = students;
         _parents = parents;
     }
@@ -85,32 +108,95 @@ public sealed class ConversationRelationshipPolicy : IConversationRelationshipPo
         ParticipantRole counterpartRole,
         Guid studentId,
         CancellationToken cancellationToken)
-    {
-        // Her iki çift de öğretmenin o öğrenciyle yaşayan bir bağı olmasını gerektirir.
-        if (!await _students.IsLinkedTeacherOfStudentAsync(teacherUserId, studentId, cancellationToken))
-        {
-            return Result.Failure(MessagingErrors.RelationshipRequired);
-        }
-
-        var allowed = counterpartRole switch
-        {
-            // Karşı taraf öğrenciyse, o kullanıcı gerçekten bu öğrenci profilinin sahibi olmalı:
-            // aksi hâlde geçerli bir studentId ile başka birinin kullanıcı kimliği eşleştirilebilirdi.
-            ParticipantRole.Student =>
-                await _students.GetOwnerUserIdAsync(studentId, cancellationToken) == counterpartUserId,
-
-            ParticipantRole.Parent =>
-                await _parents.IsApprovedParentOfStudentAsync(counterpartUserId, studentId, cancellationToken),
-
-            _ => false
-        };
-
-        return allowed ? Result.Success() : Result.Failure(MessagingErrors.RelationshipRequired);
-    }
+        => await new RelationshipLookup(this).IsAliveAsync(
+                teacherUserId, counterpartUserId, counterpartRole, studentId, cancellationToken)
+            ? Result.Success()
+            : Result.Failure(MessagingErrors.RelationshipRequired);
 
     /// <inheritdoc />
     public Task<Guid?> ResolveStudentUserIdAsync(Guid studentId, CancellationToken cancellationToken)
         => _students.GetOwnerUserIdAsync(studentId, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, bool>> GetActiveStatesAsync(
+        IReadOnlyCollection<Conversation> conversations, CancellationToken cancellationToken)
+    {
+        var lookup = new RelationshipLookup(this);
+        var states = new Dictionary<Guid, bool>(conversations.Count);
+
+        // Sırayla: dizinler scoped DbContext kullanır, paralel sorgu (Task.WhenAll) aynı bağlamda patlar.
+        foreach (var conversation in conversations)
+        {
+            states[conversation.Id] = await lookup.IsAliveAsync(
+                conversation.TeacherUserId,
+                conversation.CounterpartUserId,
+                conversation.CounterpartRole,
+                conversation.StudentId,
+                cancellationToken);
+        }
+
+        return states;
+    }
+
+    /// <summary>
+    /// Tek çağrılık önbellekli yüklem. Önbellek çağrının ömrüyle sınırlıdır: sonraki istek her şeyi kaynaktan
+    /// yeniden sorar, böylece bağ koptuğu anda gönderim kapanır, yeniden kurulduğu anda açılır.
+    /// </summary>
+    private sealed class RelationshipLookup(ConversationRelationshipPolicy policy)
+    {
+        private readonly Dictionary<(Guid TeacherUserId, Guid StudentId), bool> _privateScopes = [];
+        private readonly Dictionary<Guid, Guid?> _owners = [];
+        private readonly Dictionary<(Guid ParentUserId, Guid StudentId), bool> _approvedParents = [];
+
+        public async Task<bool> IsAliveAsync(
+            Guid teacherUserId,
+            Guid counterpartUserId,
+            ParticipantRole counterpartRole,
+            Guid studentId,
+            CancellationToken cancellationToken)
+        {
+            // Her iki çift de öğretmenin o öğrenciyle yaşayan bir ÖZEL DERS bağı olmasını gerektirir.
+            // `== Private`, `!= None` değil: sınıf bağı (P22) birebir mesaj yetkisi vermez (K-17).
+            if (!_privateScopes.TryGetValue((teacherUserId, studentId), out var isPrivate))
+            {
+                isPrivate = await policy._access.GetScopeAsync(teacherUserId, studentId, cancellationToken)
+                    == TeacherAccessScope.Private;
+                _privateScopes[(teacherUserId, studentId)] = isPrivate;
+            }
+
+            if (!isPrivate)
+            {
+                return false;
+            }
+
+            switch (counterpartRole)
+            {
+                // Karşı taraf öğrenciyse, o kullanıcı gerçekten bu öğrenci profilinin sahibi olmalı:
+                // aksi hâlde geçerli bir studentId ile başka birinin kullanıcı kimliği eşleştirilebilirdi.
+                case ParticipantRole.Student:
+                    if (!_owners.TryGetValue(studentId, out var owner))
+                    {
+                        owner = await policy._students.GetOwnerUserIdAsync(studentId, cancellationToken);
+                        _owners[studentId] = owner;
+                    }
+
+                    return owner == counterpartUserId;
+
+                case ParticipantRole.Parent:
+                    if (!_approvedParents.TryGetValue((counterpartUserId, studentId), out var approved))
+                    {
+                        approved = await policy._parents.IsApprovedParentOfStudentAsync(
+                            counterpartUserId, studentId, cancellationToken);
+                        _approvedParents[(counterpartUserId, studentId)] = approved;
+                    }
+
+                    return approved;
+
+                default:
+                    return false;
+            }
+        }
+    }
 }
 
 /// <summary>

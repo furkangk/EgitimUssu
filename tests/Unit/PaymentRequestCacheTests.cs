@@ -22,7 +22,7 @@ public sealed class PaymentRequestCacheTests
         var cache = new FakeRequestEntityCache();
         var query = new GetPaymentRecordByIdQuery(record.Id);
 
-        var authorization = await new PaymentRecordAuthorizer(Teacher(), repository, cache)
+        var authorization = await new PaymentRecordAuthorizer(Teacher(), repository, cache, new FakeTeacherStudentAccess())
             .Authorize(query, CancellationToken.None);
         var result = await new GetPaymentRecordByIdQueryHandler(repository, new FixedClock(Now), cache)
             .Handle(query, CancellationToken.None);
@@ -42,7 +42,7 @@ public sealed class PaymentRequestCacheTests
             record.Id, null, BillingItemType.LessonFee, "Ders", "TRY", 150m, 0m,
             Now.AddDays(7), null, PaymentStatus.Pending, null, null, null);
 
-        var authorization = await new PaymentRecordAuthorizer(Teacher(), repository, cache)
+        var authorization = await new PaymentRecordAuthorizer(Teacher(), repository, cache, new FakeTeacherStudentAccess())
             .Authorize(command, CancellationToken.None);
         var result = await new UpdatePaymentRecordCommandHandler(repository, new FixedClock(Now), cache)
             .Handle(command, CancellationToken.None);

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace EgitimUssu.Shared.Infrastructure.Observability;
@@ -66,6 +67,34 @@ public static class SensitiveDataMask
     /// <returns>Hassassa <c>true</c>.</returns>
     public static bool IsSensitiveKey(string key) => SensitiveKeys.Any(
         sensitive => key.Contains(sensitive, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// P15 T6 / P-01: E-posta adresini log'da tanınmayacak ama ayırt edilebilecek biçime indirir:
+    /// yerel kısmın ve alan adının ilk harfi + üst düzey alan (<c>ahmet@gmail.com</c> →
+    /// <c>a***@g***.com</c>). Adres biçiminde olmayan değer tümüyle <see cref="Placeholder"/> olur.
+    /// </summary>
+    /// <param name="email">Ham adres (boş ya da geçersiz olabilir).</param>
+    /// <returns>Maskelenmiş adres.</returns>
+    public static string MaskEmail(string? email)
+    {
+        var value = email?.Trim();
+        var at = value?.LastIndexOf('@') ?? -1;
+        if (value is null || at <= 0 || at == value.Length - 1)
+        {
+            return Placeholder;
+        }
+
+        var local = value[..at];
+        var domain = value[(at + 1)..];
+        var lastDot = domain.LastIndexOf('.');
+        var topLevel = lastDot > 0 ? domain[lastDot..] : string.Empty;
+
+        return $"{FirstTextElement(local)}{Placeholder}@{FirstTextElement(domain)}{Placeholder}{topLevel}";
+    }
+
+    /// <summary>İlk görünen karakter (vekil çiftini bölmez).</summary>
+    private static string FirstTextElement(string value)
+        => value[..StringInfo.GetNextTextElementLength(value)];
 
     private static string MaskPair(string pair)
     {

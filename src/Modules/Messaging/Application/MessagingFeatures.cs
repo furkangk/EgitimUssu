@@ -84,6 +84,10 @@ public interface IMessagingRepository
 /// <param name="LastMessagePreview">Son mesajın önizlemesi.</param>
 /// <param name="IsBlocked">Taraflardan biri engellemiş — gönderim kapalı.</param>
 /// <param name="BlockedByMe">Engeli isteği yapan taraf koymuş (kaldırma düğmesi buna bakar).</param>
+/// <param name="IsReadOnly">
+/// P15 T5 / K-28: İlişki (özel ders bağı / veli bağı) bitti — gönderim kapalı, geçmiş okunur. Engelden ayrıdır:
+/// katılımcılar kaldıramaz, ilişki yeniden kurulursa kendiliğinden <c>false</c> olur. Saklanmaz, istek anında hesaplanır.
+/// </param>
 public sealed record ConversationResponse(
     Guid Id,
     Guid TeacherUserId,
@@ -93,7 +97,8 @@ public sealed record ConversationResponse(
     DateTime LastMessageOnUtc,
     string? LastMessagePreview,
     bool IsBlocked,
-    bool BlockedByMe);
+    bool BlockedByMe,
+    bool IsReadOnly);
 
 /// <summary>Gelen kutusu satırı — sohbet görünümü + okunmamış sayısı.</summary>
 /// <param name="Id">Sohbet kimliği.</param>
@@ -103,7 +108,8 @@ public sealed record ConversationResponse(
 /// <param name="LastMessageOnUtc">Son hareket anı.</param>
 /// <param name="LastMessagePreview">Son mesajın önizlemesi.</param>
 /// <param name="UnreadCount">Okunmamış mesaj sayısı.</param>
-/// <param name="IsBlocked">Gönderim kapalı mı.</param>
+/// <param name="IsBlocked">Taraflardan biri engellemiş — gönderim kapalı.</param>
+/// <param name="IsReadOnly">P15 T5 / K-28: İlişki bitti — gönderim kapalı, geçmiş okunur (bkz. <see cref="ConversationResponse.IsReadOnly"/>).</param>
 public sealed record ConversationSummaryResponse(
     Guid Id,
     Guid CounterpartUserId,
@@ -112,7 +118,8 @@ public sealed record ConversationSummaryResponse(
     DateTime LastMessageOnUtc,
     string? LastMessagePreview,
     int UnreadCount,
-    bool IsBlocked);
+    bool IsBlocked,
+    bool IsReadOnly);
 
 /// <summary>Tek mesajın istemciye giden görünümü.</summary>
 /// <param name="Id">Mesaj kimliği.</param>
@@ -137,8 +144,9 @@ public static class MessagingResponseFactory
     /// <summary>Sohbet yanıtı üretir.</summary>
     /// <param name="conversation">Sohbet.</param>
     /// <param name="viewerUserId">İsteği yapan kullanıcı.</param>
+    /// <param name="isReadOnly">İlişki bitti mi (<see cref="IConversationRelationshipPolicy"/>).</param>
     /// <returns>Yanıt.</returns>
-    public static ConversationResponse From(Conversation conversation, Guid viewerUserId)
+    public static ConversationResponse From(Conversation conversation, Guid viewerUserId, bool isReadOnly)
     {
         var blockedByMe = viewerUserId == conversation.TeacherUserId
             ? conversation.IsBlockedByTeacher
@@ -153,14 +161,16 @@ public static class MessagingResponseFactory
             conversation.LastMessageOnUtc,
             conversation.LastMessagePreview,
             conversation.IsBlockedByTeacher || conversation.IsBlockedByCounterpart,
-            blockedByMe);
+            blockedByMe,
+            isReadOnly);
     }
 
     /// <summary>Gelen kutusu satırı üretir.</summary>
     /// <param name="row">Sohbet + okunmamış sayısı.</param>
     /// <param name="viewerUserId">İsteği yapan kullanıcı.</param>
+    /// <param name="isReadOnly">İlişki bitti mi (<see cref="IConversationRelationshipPolicy"/>).</param>
     /// <returns>Yanıt.</returns>
-    public static ConversationSummaryResponse From(ConversationInboxRow row, Guid viewerUserId)
+    public static ConversationSummaryResponse From(ConversationInboxRow row, Guid viewerUserId, bool isReadOnly)
     {
         var conversation = row.Conversation;
 
@@ -180,7 +190,8 @@ public static class MessagingResponseFactory
             conversation.LastMessageOnUtc,
             conversation.LastMessagePreview,
             row.UnreadCount,
-            conversation.IsBlockedByTeacher || conversation.IsBlockedByCounterpart);
+            conversation.IsBlockedByTeacher || conversation.IsBlockedByCounterpart,
+            isReadOnly);
     }
 
     /// <summary>Mesaj yanıtı üretir; silinmiş mesajda gövde <c>null</c> döner.</summary>
@@ -334,8 +345,11 @@ public sealed class OpenConversationCommandHandler
             candidate.TeacherUserId, candidate.CounterpartUserId, candidate.StudentId, cancellationToken);
         if (existing is not null)
         {
+            // K-28: ilişkisi biten sohbet 409 değil, salt-okunur döner — kullanıcı kendi geçmişini görebilmeli.
+            // Arayan normalize edilmiş üçlünün bir tarafıdır; başkasının sohbetine buradan ulaşılamaz.
+            var isActive = await _relationshipPolicy.IsActiveAsync(existing, cancellationToken);
             return Result<ConversationResponse>.Success(
-                MessagingResponseFactory.From(existing, callerUserId));
+                MessagingResponseFactory.From(existing, callerUserId, isReadOnly: !isActive));
         }
 
         var allowed = await _relationshipPolicy.EnsureAllowedAsync(
@@ -353,7 +367,7 @@ public sealed class OpenConversationCommandHandler
         await _repository.SaveChangesAsync(cancellationToken);
 
         return Result<ConversationResponse>.Success(
-            MessagingResponseFactory.From(candidate, callerUserId));
+            MessagingResponseFactory.From(candidate, callerUserId, isReadOnly: false));
     }
 }
 
@@ -363,14 +377,18 @@ public sealed class ListConversationsQueryHandler
 {
     private readonly ICurrentUser _currentUser;
     private readonly IMessagingRepository _repository;
+    private readonly IConversationRelationshipPolicy _relationshipPolicy;
 
     /// <summary>Yeni örnek oluşturur.</summary>
     /// <param name="currentUser">Oturumdaki kullanıcı.</param>
     /// <param name="repository">Depo.</param>
-    public ListConversationsQueryHandler(ICurrentUser currentUser, IMessagingRepository repository)
+    /// <param name="relationshipPolicy">İlişki kapısı (salt-okunur işareti için).</param>
+    public ListConversationsQueryHandler(
+        ICurrentUser currentUser, IMessagingRepository repository, IConversationRelationshipPolicy relationshipPolicy)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _relationshipPolicy = relationshipPolicy;
     }
 
     /// <summary>Sorguyu çalıştırır.</summary>
@@ -389,8 +407,13 @@ public sealed class ListConversationsQueryHandler
         var rows = await _repository.ListInboxAsync(
             userId, Math.Max(0, query.Skip), MessagingPaging.Clamp(query.Take), cancellationToken);
 
+        // Her satırın ilişkisi kaynaktan sorulur (saklanmaz, #191); aynı soru sayfa içinde bir kez sorulur.
+        var active = await _relationshipPolicy.GetActiveStatesAsync(
+            rows.Select(row => row.Conversation).ToArray(), cancellationToken);
+
         return Result<IReadOnlyList<ConversationSummaryResponse>>.Success(
-            rows.Select(row => MessagingResponseFactory.From(row, userId)).ToArray());
+            rows.Select(row => MessagingResponseFactory.From(row, userId, isReadOnly: !active[row.Conversation.Id]))
+                .ToArray());
     }
 }
 
@@ -441,25 +464,35 @@ public sealed class ListMessagesQueryHandler
     }
 }
 
-/// <summary>Mesaj gönderir; katılımcılık ve engel kontrolü domainde yapılır.</summary>
+/// <summary>
+/// Mesaj gönderir. Katılımcılık ve engel kontrolü domainde; <b>ilişkinin hâlâ yaşadığı</b> (P15 T5 / K-28)
+/// <see cref="IConversationRelationshipPolicy"/>'de denetlenir — ilişki bitince <c>messaging.relationship_ended</c>.
+/// </summary>
 public sealed class SendMessageCommandHandler
     : ICommandHandler<SendMessageCommand, Result<MessageResponse>>
 {
     private readonly ICurrentUser _currentUser;
     private readonly IMessagingRepository _repository;
+    private readonly IConversationRelationshipPolicy _relationshipPolicy;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
     /// <summary>Yeni örnek oluşturur.</summary>
     /// <param name="currentUser">Oturumdaki kullanıcı.</param>
     /// <param name="repository">Depo.</param>
+    /// <param name="relationshipPolicy">İlişki kapısı (K-28: ilişki bitince gönderim kapanır).</param>
     /// <param name="clock">Saat.</param>
     /// <param name="idGenerator">Kimlik üreteci.</param>
     public SendMessageCommandHandler(
-        ICurrentUser currentUser, IMessagingRepository repository, IClock clock, IIdGenerator idGenerator)
+        ICurrentUser currentUser,
+        IMessagingRepository repository,
+        IConversationRelationshipPolicy relationshipPolicy,
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _relationshipPolicy = relationshipPolicy;
         _clock = clock;
         _idGenerator = idGenerator;
     }
@@ -480,6 +513,19 @@ public sealed class SendMessageCommandHandler
         if (conversation is null)
         {
             return Result<MessageResponse>.Failure(MessagingErrors.ConversationNotFound);
+        }
+
+        // Sıra bilinçli: önce katılımcılık (yabancı ilişkinin durumunu öğrenmez, diğer modüllere soru da gitmez),
+        // sonra ilişki (K-28 — açılışta sorulan kapı her gönderimde kaynaktan yeniden sorulur), en son domain
+        // (engel, gövde kuralları). İlişki dış durum olduğu için domainde değil, açılıştaki gibi burada denetlenir.
+        if (!conversation.HasParticipant(userId))
+        {
+            return Result<MessageResponse>.Failure(MessagingErrors.NotParticipant);
+        }
+
+        if (!await _relationshipPolicy.IsActiveAsync(conversation, cancellationToken))
+        {
+            return Result<MessageResponse>.Failure(MessagingErrors.RelationshipEnded);
         }
 
         var sent = conversation.SendMessage(_idGenerator.New(), userId, command.Body, _clock.UtcNow);
@@ -556,17 +602,23 @@ public sealed class SetConversationBlockCommandHandler
 {
     private readonly ICurrentUser _currentUser;
     private readonly IMessagingRepository _repository;
+    private readonly IConversationRelationshipPolicy _relationshipPolicy;
     private readonly IClock _clock;
 
     /// <summary>Yeni örnek oluşturur.</summary>
     /// <param name="currentUser">Oturumdaki kullanıcı.</param>
     /// <param name="repository">Depo.</param>
+    /// <param name="relationshipPolicy">İlişki kapısı (yanıttaki salt-okunur işareti için).</param>
     /// <param name="clock">Saat.</param>
     public SetConversationBlockCommandHandler(
-        ICurrentUser currentUser, IMessagingRepository repository, IClock clock)
+        ICurrentUser currentUser,
+        IMessagingRepository repository,
+        IConversationRelationshipPolicy relationshipPolicy,
+        IClock clock)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _relationshipPolicy = relationshipPolicy;
         _clock = clock;
     }
 
@@ -598,7 +650,9 @@ public sealed class SetConversationBlockCommandHandler
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
-        return Result<ConversationResponse>.Success(MessagingResponseFactory.From(conversation, userId));
+        var isActive = await _relationshipPolicy.IsActiveAsync(conversation, cancellationToken);
+        return Result<ConversationResponse>.Success(
+            MessagingResponseFactory.From(conversation, userId, isReadOnly: !isActive));
     }
 }
 

@@ -75,8 +75,8 @@ public static class DemoDataSeedGuard
 /// hesabıyla), 2 veli, 3 haftalık ders geçmişi, ödevler, ödemeler ve çalışma seansları.
 /// <para>
 /// <b>Doğrudan DbContext'e yazmaz.</b> Her kayıt, o kaydı gerçek hayatta açacak kullanıcının
-/// kimliğiyle ilgili modül komutundan geçer: öğretmen profilini öğretmen açar, veli bağını veli
-/// ister ve öğrenci onaylar. Kazanç iki yönlü — iş kuralları ve yetki kuralları atlanmaz, ve
+/// kimliğiyle ilgili modül komutundan geçer: öğretmen profilini öğretmen açar, öğrenci hesabı
+/// davet koduyla bağlanır, veli öğretmenin verdiği veli koduyla bağlanır. Kazanç iki yönlü — iş kuralları ve yetki kuralları atlanmaz, ve
 /// tohumlanan veri <b>gerçek kullanıcıların üretebileceği</b> veriyle birebir aynı biçimde olur.
 /// Doğrudan tablo yazımı, yarın bir domain kuralı değiştiğinde sessizce geçersiz veri bırakırdı.
 /// </para>
@@ -161,8 +161,9 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
         new("Ege Aslan", "9. Sınıf", TargetExam.School, TeacherIndex: 1, SelfEmail: null)
     ];
 
-    // Veli, kendi hesabı olan çocuğa bağlanır: bağı onaylayacak yetkili yalnız öğrencinin kendisi
-    // ya da Admin'dir (veli kendi bağını onaylayamaz), demo setinde Admin hesabı yok.
+    // Veli, öğretmenin ürettiği veli davet koduyla bağlanır (kod = öğretmen onayı → bağ doğrudan onaylı).
+    // P15 T3: eskiden veli talep açıp öğrenci onaylıyordu; davetle bağlanan öğrencinin kullanıcısı Parents'a
+    // T4'e kadar ulaşmadığı için (KnownStudent.UserId boş) o yol fail-closed 403 verir — Öğrenilenler #179.
     private static readonly ParentSeed[] ParentSeeds =
     [
         new("demo.veli1@egitimussu.local", "Selin", "Demir", StudentIndex: 0, "Anne"),
@@ -187,7 +188,7 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
     {
         await SeedTeachersAsync();
         await SeedStudentsAsync();
-        // Veli bağının onayı Parents'ın öğrenciyi tanımasına bağlı; o bilgi olayla geliyor.
+        // Öğrenci profili/bağlama olayları (Parents eşlemesi, öğretmen panosu) veliden önce işlensin.
         await session.DrainOutboxAsync();
         await SeedParentsAsync();
         await SeedLessonHistoryAsync();
@@ -251,7 +252,7 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
 
             var seeded = seed.SelfEmail is null
                 ? await EnsureTeacherManagedStudentAsync(seed, teacherUserId, subject)
-                : await EnsureSelfRegisteredStudentAsync(seed, teacherUserId, subject);
+                : await EnsureStudentWithOwnAccountAsync(seed, teacherUserId, subject);
 
             _students.Add(seeded);
         }
@@ -289,37 +290,76 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
         return new SeededStudent(created.Id, null, seed, teacherUserId, subject);
     }
 
-    private async Task<SeededStudent> EnsureSelfRegisteredStudentAsync(
+    /// <summary>
+    /// Kendi hesabı olan öğrenci: profil öğrencinin hesabına bağlı <b>ve</b> öğretmenle yaşayan özel ders bağı var.
+    /// <para>
+    /// Ürünün kendi yolu izlenir (P15 T3, N-23): öğretmen profili hesapsız açar, öğrenciyi hesabına hedefli davet
+    /// eder, öğrenci kodu girer (claim) — profil öğrencinin olur, bağ <c>Linked</c>. Öğrencinin kendi profili
+    /// olmadığı için birleştirme yerine devralma olur, böylece profil sayısı değişmez.
+    /// </para>
+    /// <para>
+    /// Davet kodu bugün hiçbir API yanıtında yok (Öğrenilenler #184); tohumlama onu Students'ın kendi deposundan
+    /// <b>salt-okunur</b> alır — yazım yine komutla yapılır. Yarıda kalmış bir tur (profil açılmış, claim
+    /// yapılmamış) kaldığı yerden devam eder: profil öğretmenin listesinde adıyla bulunur, yeniden açılmaz.
+    /// </para>
+    /// </summary>
+    private async Task<SeededStudent> EnsureStudentWithOwnAccountAsync(
         StudentSeed seed, Guid teacherUserId, string subject)
     {
         var (firstName, lastName) = SplitName(seed.FullName);
         var (studentUserId, _) = await session.EnsureUserAsync(
             seed.SelfEmail!, firstName, lastName, UserRole.Student);
+        var teacherEmail = TeacherSeeds[seed.TeacherIndex].Email;
 
         session.ActAs(studentUserId, seed.SelfEmail!, "Student");
 
         var existing = await session.QueryOrDefaultAsync(new GetStudentProfileByUserIdQuery(studentUserId));
         if (existing is not null)
         {
+            if (existing.Origin == nameof(StudentOrigin.SelfRegistered))
+            {
+                // P15 T2 öncesi tohumlanmış veritabanı: bu profilin öğretmenle bağı yok ve komutlarla kurulamaz.
+                // Ders/ödeme adımında belirsiz bir 403 yerine nedeni ve çaresi burada söylenir.
+                throw new InvalidOperationException(
+                    $"Demo veri tohumlaması durdu: '{seed.SelfEmail}' öğrencisi P15 T2 öncesi tohumlanmış "
+                    + "(kendi açtığı profil, öğretmen bağı yok). Demo veritabanını sıfırlayıp yeniden tohumlayın.");
+            }
+
             return new SeededStudent(existing.Id, studentUserId, seed, teacherUserId, subject);
         }
 
-        var created = await session.SendAsync(new CreateStudentProfileCommand(
-            UserId: studentUserId,
-            CreatedByTeacherUserId: null,
-            ParentUserId: null,
-            seed.FullName,
-            seed.GradeLevel,
-            ContactEmail: seed.SelfEmail,
-            ContactPhone: null,
-            GoalSummary: $"{seed.TargetExam} hazırlığı (demo)",
-            LevelNotes: null,
-            StudentOrigin.SelfRegistered,
-            [new StudentSubjectRequest(subject, seed.TargetExam.ToString())],
-            seed.TargetExam));
+        session.ActAs(teacherUserId, teacherEmail, "Teacher");
 
-        _studentCount++;
-        return new SeededStudent(created.Id, studentUserId, seed, teacherUserId, subject);
+        var listed = await session.QueryOrDefaultAsync(new ListStudentsByTeacherQuery(teacherUserId));
+        var studentId = listed?.FirstOrDefault(student =>
+            string.Equals(student.FullName, seed.FullName, StringComparison.Ordinal))?.Id;
+
+        if (studentId is null)
+        {
+            var created = await session.SendAsync(new CreateStudentProfileCommand(
+                UserId: null,
+                CreatedByTeacherUserId: teacherUserId,
+                ParentUserId: null,
+                seed.FullName,
+                seed.GradeLevel,
+                ContactEmail: seed.SelfEmail,
+                ContactPhone: null,
+                GoalSummary: $"{seed.TargetExam} hazırlığı (demo)",
+                LevelNotes: null,
+                StudentOrigin.TeacherManaged,
+                [new StudentSubjectRequest(subject, seed.TargetExam.ToString())],
+                seed.TargetExam));
+            studentId = created.Id;
+            _studentCount++;
+        }
+
+        await session.SendAsync(new InviteStudentCommand(teacherUserId, studentId.Value, TargetUserId: studentUserId));
+        var inviteCode = await session.ReadStudentInviteCodeAsync(teacherUserId, studentId.Value);
+
+        session.ActAs(studentUserId, seed.SelfEmail!, "Student");
+        await session.SendAsync(new ClaimStudentLinkCommand(inviteCode, studentUserId));
+
+        return new SeededStudent(studentId.Value, studentUserId, seed, teacherUserId, subject);
     }
 
     private async Task SeedParentsAsync()
@@ -346,18 +386,15 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
                 continue;
             }
 
-            var link = await session.SendAsync(new RequestChildLinkCommand(
-                parentUserId,
-                child.StudentId,
-                seed.Relationship,
-                child.Seed.FullName,
-                InviteCode: null,
-                IsPrimaryContact: true));
+            // Öğretmen veli davet kodu üretir (yalnız yaşayan özel ders bağıyla — P15 T2), veli kodu girer:
+            // ilk veli birincil olur ve bağ doğrudan onaylıdır.
+            var teacherEmail = TeacherSeeds[child.Seed.TeacherIndex].Email;
+            session.ActAs(child.TeacherUserId, teacherEmail, "Teacher");
+            var invite = await session.SendAsync(new CreateParentInviteCommand(
+                child.StudentId, child.TeacherUserId, child.Seed.FullName));
 
-            // Bağı veli değil öğrenci onaylar (self-approve engeli) — demo veli hep kendi hesabı
-            // olan bir çocuğa bağlandığı için onaylayacak kimlik her zaman var.
-            session.ActAs(child.UserId!.Value, child.Seed.SelfEmail!, "Student");
-            await session.SendAsync(new ApproveChildLinkCommand(link.Id, child.UserId!.Value));
+            session.ActAs(parentUserId, seed.Email, "Parent");
+            await session.SendAsync(new ClaimParentInviteCommand(parentUserId, invite.InviteCode));
         }
     }
 
@@ -604,6 +641,32 @@ internal sealed class SeedSession(IServiceProvider services, CancellationToken c
             email, DemoSeed.Password, firstName, lastName, PhoneNumber: null, [role]));
 
         return (registered.UserId, true);
+    }
+
+    /// <summary>Değer döndürmeyen komutu gönderir; başarısızsa tohumlama durur.</summary>
+    public async Task SendAsync(ICommand<Result> command)
+    {
+        var result = await _commands.Dispatch(command, cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(
+                $"Demo veri tohumlaması '{command.GetType().Name}' adımında durdu: "
+                + $"{result.Error.Code} — {result.Error.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Öğretmen–öğrenci bağının bekleyen davet kodunu Students deposundan <b>salt-okunur</b> alır. Kod bugün hiçbir
+    /// API yanıtında dönmüyor (Öğrenilenler #184 — P21 T1 açacak); yazım yine komutla (claim) yapılır.
+    /// </summary>
+    public async Task<string> ReadStudentInviteCodeAsync(Guid teacherUserId, Guid studentId)
+    {
+        var link = await services.GetRequiredService<ITeacherStudentLinkRepository>()
+            .GetByTeacherAndStudentAsync(teacherUserId, studentId, cancellationToken);
+
+        return link?.InviteCode
+            ?? throw new InvalidOperationException(
+                $"Demo veri tohumlaması durdu: {studentId} öğrencisinin bekleyen davet kodu bulunamadı.");
     }
 
     /// <summary>Komutu gönderir; başarısızsa tohumlama durur — yarım bir demo ortamı sessizce bırakılmaz.</summary>

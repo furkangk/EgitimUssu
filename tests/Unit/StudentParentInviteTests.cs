@@ -9,7 +9,7 @@ public sealed class StudentParentInviteTests
     [Fact]
     public void Claim_SetsStatusAndParent()
     {
-        var invite = new StudentParentInvite(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "123456", "Ayşe", Now);
+        var invite = new StudentParentInvite(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "123456", "Ayşe", Now, Now.AddDays(7));
         var parentUserId = Guid.NewGuid();
 
         invite.Claim(parentUserId, Now.AddMinutes(1));
@@ -21,7 +21,7 @@ public sealed class StudentParentInviteTests
     [Fact]
     public void Claim_Twice_Throws()
     {
-        var invite = new StudentParentInvite(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "123456", null, Now);
+        var invite = new StudentParentInvite(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "123456", null, Now, Now.AddDays(7));
         invite.Claim(Guid.NewGuid(), Now);
         Assert.Throws<InvalidOperationException>(() => invite.Claim(Guid.NewGuid(), Now));
     }

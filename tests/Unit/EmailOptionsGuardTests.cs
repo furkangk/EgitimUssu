@@ -4,7 +4,8 @@ namespace EgitimUssu.Tests.Unit;
 
 /// <summary>
 /// P02/K-01: E-posta konfigürasyonu startup'ta doğrulanır. SMTP seçiliyken eksik ayarla uygulama açılmaz;
-/// "Logging" sağlayıcısı her ortamda açılır (bilinçli geçiş dönemi).
+/// "Logging" sağlayıcısı <b>yalnız Development/Staging'de</b> açılır (P15 T6 / N-24 — eskiden her ortamda
+/// açılıyordu; ortam kuralının tamamı <see cref="ProductionProviderGuardTests"/>'te).
 /// Guard, <see cref="JwtSigningKeyGuard"/>/<see cref="ConnectionStringGuard"/> desenini izler:
 /// <c>Validate</c> nedeni döner, <c>EnsureValid</c> fırlatır.
 /// </summary>
@@ -15,7 +16,7 @@ public sealed class EmailOptionsGuardTests
     {
         var options = new EmailOptions { Provider = "Smtp", FromEmail = "no-reply@egitimussu.com" };
 
-        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.EnsureValid(options, isDevelopment: false));
+        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.EnsureValid(options, "Production"));
     }
 
     [Fact]
@@ -27,7 +28,7 @@ public sealed class EmailOptionsGuardTests
             Smtp = new SmtpOptions { Host = "smtp.example.com", Username = "u", Password = "p" }
         };
 
-        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.EnsureValid(options, isDevelopment: false));
+        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.EnsureValid(options, "Production"));
     }
 
     [Fact]
@@ -40,7 +41,7 @@ public sealed class EmailOptionsGuardTests
             Smtp = new SmtpOptions { Host = "smtp.example.com", Port = 0, Username = "u", Password = "p" }
         };
 
-        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.EnsureValid(options, isDevelopment: false));
+        Assert.Throws<InvalidOperationException>(() => EmailOptionsGuard.EnsureValid(options, "Production"));
     }
 
     [Fact]
@@ -53,7 +54,7 @@ public sealed class EmailOptionsGuardTests
             Smtp = new SmtpOptions { Host = "smtp.example.com", Port = 587 }
         };
 
-        var error = EmailOptionsGuard.Validate(options, isDevelopment: false);
+        var error = EmailOptionsGuard.Validate(options, "Production");
 
         Assert.NotNull(error);
         Assert.Contains("Email__Smtp__Username", error);
@@ -69,7 +70,7 @@ public sealed class EmailOptionsGuardTests
             Smtp = new SmtpOptions { Host = "localhost", Port = 1025 }
         };
 
-        Assert.Null(EmailOptionsGuard.Validate(options, isDevelopment: true));
+        Assert.Null(EmailOptionsGuard.Validate(options, "Development"));
     }
 
     [Fact]
@@ -82,17 +83,23 @@ public sealed class EmailOptionsGuardTests
             Smtp = new SmtpOptions { Host = "smtp.example.com", Port = 587, Username = "u", Password = "p" }
         };
 
-        Assert.Null(EmailOptionsGuard.Validate(options, isDevelopment: false));
+        Assert.Null(EmailOptionsGuard.Validate(options, "Production"));
     }
 
     [Fact]
-    public void Validate_Should_Allow_Logging_Provider_Anywhere()
-        => Assert.Null(EmailOptionsGuard.Validate(new EmailOptions { Provider = "Logging" }, isDevelopment: false));
+    public void Validate_Should_Allow_Logging_Provider_Only_In_Sandbox_Environments()
+    {
+        var options = new EmailOptions { Provider = "Logging" };
+
+        Assert.Null(EmailOptionsGuard.Validate(options, "Development"));
+        Assert.Null(EmailOptionsGuard.Validate(options, "Staging"));
+        Assert.NotNull(EmailOptionsGuard.Validate(options, "Production"));
+    }
 
     [Fact]
     public void Validate_Should_Reject_Unknown_Provider()
     {
-        var error = EmailOptionsGuard.Validate(new EmailOptions { Provider = "Carrier-Pigeon" }, isDevelopment: false);
+        var error = EmailOptionsGuard.Validate(new EmailOptions { Provider = "Carrier-Pigeon" }, "Production");
 
         Assert.NotNull(error);
         Assert.Contains("Email:Provider", error);

@@ -5,6 +5,7 @@ using System.Text.Json;
 using EgitimUssu.Modules.Identity.Application;
 using EgitimUssu.Modules.Identity.Domain;
 using EgitimUssu.Modules.Identity.Infrastructure;
+using EgitimUssu.Modules.Identity.Infrastructure.Migrations;
 using EgitimUssu.Modules.Notifications.Infrastructure;
 using EgitimUssu.Modules.Payments.Infrastructure;
 using EgitimUssu.Modules.Settings.Infrastructure;
@@ -51,7 +52,7 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
 
         var teacherUserId = await RegisterAsync(teacher, role: 2, label: "Silme-Ogretmen");
         var (studentUserId, studentEmail) = await RegisterWithEmailAsync(student, role: 3, label: "Silme-Ogrenci");
-        var studentId = await CreateStudentAsync(teacher, teacherUserId, studentUserId);
+        var studentId = await CreateStudentAsync(factory, teacher, student, teacherUserId, studentUserId);
 
         // Öğrenci gerçek veri üretir: cihaz jetonu (push), ayar satırı, çalışma seansı.
         await RegisterDeviceAsync(student, studentUserId);
@@ -104,6 +105,10 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
             "/api/identity/login", new { email = studentEmail, password = "Passw0rd!", deviceName = (string?)null });
         Assert.NotEqual(HttpStatusCode.OK, loginAfter.StatusCode);
 
+        // P15 T7 / N-31: Silmeden önce alınmış erişim token'ı da artık geçmez — eskiden ömrünü
+        // (60 dk) tamamlayana kadar kapanmış hesap adına veri yazabiliyordu.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await student.GetAsync("/api/identity/me")).StatusCode);
+
         // Students: profil kimliksizleşti.
         var profile = await QueryAsync(factory, (StudentsDbContext db) =>
             db.StudentProfiles.SingleAsync(item => item.Id == studentId));
@@ -131,6 +136,87 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
         Assert.Equal(0, again.CompletedCount);
     }
 
+    /// <summary>
+    /// P15 T7 / N-32: Bekleyen talep indeksi artık gerçekten benzersizdir. Eşzamanlı çift dokunuş
+    /// ikinci bir bekleyen talep açmaz; kaybeden istek de 500 değil, var olan talebi alır.
+    /// </summary>
+    [SkippableFact]
+    public async Task Concurrent_Deletion_Requests_Leave_A_Single_Pending_Request()
+    {
+        Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
+
+        using var _ = RealInfrastructure.Use(fixture);
+        await using var factory = new WebApplicationFactory<Program>();
+
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", "10.45.0.1");
+        var userId = await RegisterAsync(client, role: 3, label: "Cift-Talep");
+
+        try
+        {
+            var responses = await Task.WhenAll(Enumerable.Range(0, 4)
+                .Select(_ => client.PostAsync("/api/identity/account/deletion-request", null)));
+
+            Assert.All(responses, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+            var scheduled = new HashSet<long>();
+            foreach (var response in responses)
+            {
+                // Hepsi aynı talep. Yeni yazılan talep yanıtta 100 ns hassasiyet taşır, okunan talep
+                // Postgres'in mikrosaniyesindedir — karşılaştırma mikrosaniyede yapılır.
+                var scheduledFor = (await ReadJsonAsync(response)).GetProperty("scheduledForUtc").GetDateTime();
+                scheduled.Add(scheduledFor.Ticks / 10);
+            }
+
+            Assert.Single(scheduled);
+            Assert.Equal(1, await QueryAsync(factory, (IdentityDbContext db) => db.AccountDeletionRequests
+                .CountAsync(request => request.UserAccountId == userId && request.Status == AccountDeletionRequestStatus.Pending)));
+        }
+        finally
+        {
+            // Paylaşılan veritabanı: bekleyen talep bırakılırsa diğer testin işlemcisi onu da uygular.
+            await client.DeleteAsync("/api/identity/account/deletion-request");
+        }
+    }
+
+    /// <summary>
+    /// Göç SQL'i (#195b): indeksten önce fazla bekleyen talepler iptal edilir, <b>en eski</b> kalır
+    /// (yeni talep bekleme süresini sıfırlayıp silmeyi geciktirirdi). Transaction geri alınır.
+    /// </summary>
+    [SkippableFact]
+    public async Task Migration_Cancels_Duplicate_Pending_Requests_Keeping_The_Oldest()
+    {
+        Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
+
+        using var _ = RealInfrastructure.Use(fixture);
+        await using var factory = new WebApplicationFactory<Program>();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var identity = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+
+        var userId = Guid.NewGuid();
+        var oldest = new AccountDeletionRequest(Guid.NewGuid(), userId, DateTime.UtcNow.AddDays(-3));
+        var newer = new AccountDeletionRequest(Guid.NewGuid(), userId, DateTime.UtcNow.AddDays(-1));
+
+        var pending = await identity.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await identity.Database.BeginTransactionAsync();
+            await identity.Database.ExecuteSqlRawAsync(
+                $"DROP INDEX identity.\"{AddSessionRevocationReason.PendingDeletionIndexName}\"");
+            identity.AccountDeletionRequests.AddRange(newer, oldest);
+            await identity.SaveChangesAsync();
+
+            await identity.Database.ExecuteSqlRawAsync(AddSessionRevocationReason.CancelDuplicatePendingDeletionsSql);
+
+            var remaining = await identity.AccountDeletionRequests.AsNoTracking()
+                .Where(request => request.UserAccountId == userId && request.Status == AccountDeletionRequestStatus.Pending)
+                .Select(request => request.Id)
+                .ToListAsync();
+            await transaction.RollbackAsync();
+            return remaining;
+        });
+
+        Assert.Equal(oldest.Id, Assert.Single(pending));
+    }
+
     // --- Yardımcılar ------------------------------------------------------------------
 
     /// <summary>
@@ -147,6 +233,7 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
             services.GetServices<IPersonalDataAnonymizer>(),
             services.GetRequiredService<IStudentDirectory>(),
             services.GetRequiredService<IPasswordHasher>(),
+            services.GetRequiredService<ITokenRevocationService>(),
             services.GetRequiredService<IIdGenerator>(),
             new FixedClock(nowUtc),
             NullLogger<AccountDeletionProcessor>.Instance);
@@ -186,11 +273,16 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
         return (payload.RootElement.GetProperty("userId").GetGuid(), email);
     }
 
-    private static async Task<Guid> CreateStudentAsync(HttpClient teacher, Guid teacherUserId, Guid studentUserId)
+    /// <summary>
+    /// Öğretmen hesapsız profil açar, öğrenci <b>davet + claim</b> ile devralır (P15 T3 / N-23: gövdedeki
+    /// <c>userId</c> artık reddedilir). Sonuç: profil öğrencinin, öğretmenle bağ <c>Linked</c>.
+    /// </summary>
+    private static async Task<Guid> CreateStudentAsync(
+        WebApplicationFactory<Program> factory, HttpClient teacher, HttpClient student, Guid teacherUserId, Guid studentUserId)
     {
         var response = await teacher.PostAsJsonAsync("/api/students/profiles", new
         {
-            userId = studentUserId,
+            userId = (Guid?)null,
             createdByTeacherUserId = teacherUserId,
             parentUserId = (Guid?)null,
             fullName = "Silme Ogrencisi",
@@ -203,7 +295,9 @@ public sealed class RealAccountDeletionTests(ContainerFixture fixture)
             subjects = Array.Empty<object>(),
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        var studentId = (await ReadJsonAsync(response)).GetProperty("id").GetGuid();
+        await StudentLinkTestHelper.LinkStudentAccountAsync(factory, teacher, student, teacherUserId, studentId, studentUserId);
+        return studentId;
     }
 
     private static async Task RegisterDeviceAsync(HttpClient student, Guid studentUserId)

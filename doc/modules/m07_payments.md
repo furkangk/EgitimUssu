@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Payments/**
-updated: 2026-10-16
+updated: 2026-11-13
 ---
 
 # 💰 Ödeme Takibi (M07) — Detaylı Tasarım Dokümanı
@@ -199,8 +199,8 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 8. **Güncellemede event (🟢 kodda):** `UpdateManualTracking()`, durum/tahsilat değişimini `PaymentRecordUpdatedDomainEvent` ile yayar (gelir özeti yeniden hesaplama tetikleyebilir).
 9. **⚠️ Veli paylaşımı:** `IsSharedWithParent = true` olduğunda yalnızca o ödeme bilgisi bağlı veliye (m09) açılır; mahremiyet sınırı korunur.
 10. **Kalıcı gecikme + bildirim (🟢 kodda, M07-1):** `PaymentOverdueScanner` saatte bir `PaymentOverdueScanProcessor.ScanAsync()` koşturur; vadesi geçmiş `Pending`/`PartiallyPaid` kayıtları (tur başına en fazla 200) `Overdue`'a çeker. Her geçiş bir `PaymentBecameOverdueDomainEvent` yayar → m11 öğretmene, Premium + "ödemeler" tercihi açık veliye in-app bildirim yazar. Push doğrudan gönderilmez; `NotificationDispatcher` turu gönderir.
-11. **Sahiplik (yetki):** Öğretmen yalnızca kendi kayıtlarını yönetir/görür (`PaymentPolicies.cs`); veli yalnızca paylaşılmış kayıtları görür.
-12. **Ders tamamlanınca otomatik ücret kaydı (🟢 kodda, M07-2):** `LessonSessions/LessonSessionCompletedDomainEvent` tüketilir. Kayıt **yalnız** oturum `IsCompleted` **ve** `IsChargeable` iken açılır; tutar `IStudentDirectory.GetAgreedLessonRateAsync(teacher, student)` (B-07, **ders başına** ücret) ile gelir. Ücret tanımlı değilse kayıt **açılmaz** (`LogInformation`) — sessizce yanlış tutar üretilmez. Vade = tamamlanma anı **+ 7 gün**. Oturum başına **tek** kayıt (`RelatedLessonSessionId` kontrolü) — ders yeniden tamamlanabildiği için ikinci olay kopya üretmez.
+11. **Sahiplik (yetki):** Öğretmen yalnızca kendi kayıtlarını yönetir/görür (`PaymentPolicies.cs`); veli yalnızca paylaşılmış kayıtları görür. **P15 T2 / N-08:** ödeme kaydı **oluşturma ve güncelleme** ayrıca öğretmenin öğrenciyle yaşayan özel ders bağını ister (`ITeacherStudentAccess.GetScopeAsync == Private`; güncellemede öğrenci kimliği kayıttan alınır) → yoksa `403 shared.forbidden` (Admin muaf). Bağı arşivlenmiş eski öğretmen velinin paneline borç kaydı yazamaz. ⚠️ **Bilinçli sonuç:** arşivli öğrencinin eski borcu, öğrenci arşivden çıkarılmadan "tahsil edildi" işaretlenemez — tahsilat ayrı niyet komutu olunca (P18 T2) yeniden değerlendirilecek. Okumalar yalnız sahipliğe bakar. ✅ **N-08 artığı kapandı (P15 T9, #185 a):** otomatik ders ücreti (`LessonSessionCompletedPaymentHandler`) outbox'tan yazdığı için authorizer'a tabi değil; kural artık ücret kaynağında: `IStudentDirectory.GetAgreedLessonRateAsync` ücreti yalnız **yaşayan özel ders bağında** (`ITeacherStudentAccess` = `Private`) döner, aksi halde `null` → kayıt açılmaz. Bağı arşivlenmiş öğretmen eski plandan `from-schedule` → ücretli tamamlama yapabilir (eski kaydı kapatma) ama velinin paneline borç **düşmez**. Arşiv-yalnız filtre bilinçli seçilmedi: reddedilmiş bağın ve P22 `Class` kapsamının girilmiş ücretini de faturalardı (K-18). ⚠️ **Bedeli:** kontrol olayın işlendiği andadır — dersi tamamlayıp olay işlenmeden (bir outbox turu) bağı arşivleyen öğretmenin o dersi için de ücret açılmaz; ücreti arşivden çıkarıp elle girer. Kanıt: `RealCrossTenantAccessTests.Archived_Teacher_Completing_From_An_Old_Schedule_Creates_No_Lesson_Fee` (pozitif kontrol: aynı öğretmen bağlıyken ücret oluşur).
+12. **Ders tamamlanınca otomatik ücret kaydı (🟢 kodda, M07-2):** `LessonSessions/LessonSessionCompletedDomainEvent` tüketilir. Kayıt **yalnız** oturum `IsCompleted` **ve** `IsChargeable` iken açılır; tutar `IStudentDirectory.GetAgreedLessonRateAsync(teacher, student)` (B-07, **ders başına** ücret) ile gelir. Ücret tanımlı değilse **ya da bağ yaşayan özel ders bağı değilse** (arşivli/bitmiş — P15 T9, kural 11) kayıt **açılmaz** (`LogInformation`) — sessizce yanlış tutar üretilmez. Vade = tamamlanma anı **+ 7 gün**. Oturum başına **tek** kayıt (`RelatedLessonSessionId` kontrolü) — ders yeniden tamamlanabildiği için ikinci olay kopya üretmez.
 
 ---
 
@@ -227,7 +227,7 @@ Vade geçti (PaymentOverdueScanner, saatte bir) — M07-1
 M05: LessonSessionCompletedDomainEvent — M07-2
    → Payments/LessonSessionCompletedPaymentHandler (inbox idempotent)
        → ILessonSessionAccessService: oturum tamamlandı mı + IsChargeable mi
-       → IStudentDirectory.GetAgreedLessonRateAsync: öğrenci bazlı ücret (B-07)
+       → IStudentDirectory.GetAgreedLessonRateAsync: öğrenci bazlı ücret (B-07) — yalnız yaşayan özel ders bağında (P15 T9)
        → LessonFee türünde PaymentRecord (Pending, vade = tamamlanma + 7 gün)
 ```
 
@@ -300,4 +300,4 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 
 ---
 
-*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-10-16 (veli beyanında güncel kalan tutar/kayıt durumu doğrulaması; geçersiz teyit durum veya olay değiştirmez). Önceki: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
+*Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-11-14 (P15 Task 9 / #185 a: §4 kural 11 — otomatik ders ücreti yalnız yaşayan özel ders bağında; `GetAgreedLessonRateAsync` kapsam `Private` değilse `null`) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 11 — ödeme oluştur/güncelle `ITeacherStudentAccess` ile yaşayan özel ders bağı ister; arşivli öğrencinin borcu arşivden çıkarmadan güncellenemez) · 2026-10-16 (veli beyanında güncel kalan tutar/kayıt durumu doğrulaması; geçersiz teyit durum veya olay değiştirmez). Önceki: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*

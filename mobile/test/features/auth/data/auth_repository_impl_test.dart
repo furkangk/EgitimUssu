@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
@@ -98,4 +100,181 @@ void main() {
     expect(session!.accessToken, 'secure-access-token');
     expect(session.refreshToken, 'secure-refresh-token');
   });
+
+  // P15 T7 / N-67: Açılıştaki restoreSession ile interceptor'ın yenilemesi çakışabilir;
+  // aynı anda gelen çağrılar tek bir HTTP refresh'i paylaşır (sunucu yalnız birini kazandırır).
+  test('concurrent refreshSession calls share a single HTTP refresh', () async {
+    final adapter = _RefreshAdapter.succeeding(
+      delay: const Duration(milliseconds: 20),
+    );
+    final fixture = await _RepositoryFixture.create(adapter);
+
+    final sessions = await Future.wait(
+      List.generate(3, (_) => fixture.repository.refreshSession()),
+    );
+
+    expect(adapter.calls, 1);
+    expect(sessions.map((session) => session.accessToken).toSet(), <String>{
+      'rotated-access',
+    });
+    expect(await fixture.tokenStorage.readRefreshToken(), 'rotated-refresh');
+  });
+
+  // N-63: Süresi dolmak üzere olan oturum açılışta yenilenemezse (metro, uçak modu)
+  // kullanıcı çıkışa atılmaz; bağlantı gelince ilk istek yeniden yeniler.
+  test(
+    'restoreSession keeps the session when the refresh fails on the network',
+    () async {
+      final fixture = await _RepositoryFixture.create(
+        _RefreshAdapter.timingOut(),
+      );
+      await fixture.seedExpiringSession();
+
+      final session = await fixture.repository.restoreSession();
+
+      expect(session, isNotNull);
+      expect(await fixture.tokenStorage.readAccessToken(), 'short-token');
+      expect(await fixture.tokenStorage.readRefreshToken(), 'old-refresh');
+      expect(await fixture.localCache.readString('user_session'), isNotNull);
+    },
+  );
+
+  // T7 takip: Beklenmeyen bir hata (ör. 200 ama okunamayan gövde) açılışı kilitlememeli —
+  // AuthCubit.restoreSession hatayı yakalamıyor, durum `loading`'de kalırdı.
+  test(
+    'restoreSession keeps the session when the refresh response cannot be read',
+    () async {
+      final fixture = await _RepositoryFixture.create(
+        _RefreshAdapter.malformed(),
+      );
+      await fixture.seedExpiringSession();
+
+      final session = await fixture.repository.restoreSession();
+
+      expect(session, isNotNull);
+      expect(await fixture.tokenStorage.readRefreshToken(), 'old-refresh');
+    },
+  );
+
+  test(
+    'restoreSession signs out when the server rejects the refresh token',
+    () async {
+      final fixture = await _RepositoryFixture.create(
+        _RefreshAdapter.rejecting(401),
+      );
+      await fixture.seedExpiringSession();
+
+      final session = await fixture.repository.restoreSession();
+
+      expect(session, isNull);
+      expect(await fixture.tokenStorage.readAccessToken(), isNull);
+      expect(await fixture.localCache.readString('user_session'), isNull);
+    },
+  );
+}
+
+class _RepositoryFixture {
+  _RepositoryFixture._(this.repository, this.tokenStorage, this.localCache);
+
+  static Future<_RepositoryFixture> create(_RefreshAdapter adapter) async {
+    final tokenStorage = InMemoryTokenStorage();
+    final localCache = InMemoryLocalCache();
+    await tokenStorage.writeRefreshToken('old-refresh');
+    final refreshDio = Dio(BaseOptions(baseUrl: 'http://localhost'))
+      ..httpClientAdapter = adapter;
+    final repository = AuthRepositoryImpl(
+      apiClient: ApiClient(dio: Dio(), tokenStorage: tokenStorage),
+      tokenStorage: tokenStorage,
+      localCache: localCache,
+      config: const AppConfig(
+        apiBaseUrl: 'http://localhost',
+        appEnvironment: 'development',
+        useMockFallback: false,
+        mockFallbackFeatures: <String>{},
+      ),
+      refreshDio: refreshDio,
+    );
+    return _RepositoryFixture._(repository, tokenStorage, localCache);
+  }
+
+  final AuthRepositoryImpl repository;
+  final InMemoryTokenStorage tokenStorage;
+  final InMemoryLocalCache localCache;
+
+  Future<void> seedExpiringSession() async {
+    await localCache.writeString(
+      'user_session',
+      UserSessionModel(
+        userId: 'teacher-1',
+        email: 'teacher@example.com',
+        fullName: 'Demo Ogretmen',
+        roles: const <String>['Teacher'],
+        accessToken: 'short-token',
+        expiresAtUtc: DateTime.now().toUtc().add(const Duration(seconds: 30)),
+      ).toCache(),
+    );
+    await tokenStorage.writeAccessToken('short-token');
+  }
+}
+
+class _RefreshAdapter implements HttpClientAdapter {
+  _RefreshAdapter._({
+    this.status = 200,
+    this.timeout = false,
+    this.delay,
+    this.malformedBody = false,
+  });
+
+  factory _RefreshAdapter.succeeding({Duration? delay}) =>
+      _RefreshAdapter._(delay: delay);
+
+  factory _RefreshAdapter.timingOut() => _RefreshAdapter._(timeout: true);
+
+  factory _RefreshAdapter.rejecting(int status) =>
+      _RefreshAdapter._(status: status);
+
+  factory _RefreshAdapter.malformed() => _RefreshAdapter._(malformedBody: true);
+
+  final int status;
+  final bool timeout;
+  final Duration? delay;
+  final bool malformedBody;
+  int calls = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    calls++;
+    if (delay != null) {
+      await Future<void>.delayed(delay!);
+    }
+    if (timeout) {
+      throw DioException(
+        requestOptions: options,
+        type: DioExceptionType.connectionTimeout,
+      );
+    }
+    final body = malformedBody
+        ? '{"userId":"teacher-1","expiresAtUtc":"yarin"}'
+        : status == 200
+        ? '{"userId":"teacher-1","email":"teacher@example.com",'
+              '"fullName":"Demo Ogretmen","roles":["Teacher"],'
+              '"accessToken":"rotated-access",'
+              '"expiresAtUtc":"2099-01-01T00:00:00Z",'
+              '"refreshToken":"rotated-refresh"}'
+        : '{"code":"identity.invalid_refresh_token"}';
+    return ResponseBody.fromString(
+      body,
+      status,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

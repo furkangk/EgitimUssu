@@ -10,7 +10,7 @@ code_refs:
   - src/Modules/*/Infrastructure/*PersonalDataAnonymizer.cs
   - src/Shared/Infrastructure/Persistence/DataRetentionService.cs
 tags: [kvkk, gizlilik, hesap-silme, anonimlestirme, saklama, E-07]
-updated: 2026-09-05
+updated: 2026-11-14
 ---
 
 # 🔐 KVKK — Hesap Silme ve Saklama (Teknik)
@@ -30,7 +30,7 @@ Kullanıcı: POST /api/identity/account/deletion-request
 AccountDeletionRequest (Pending, ScheduledForUtc = now + 30 gün)   ← hiçbir veri değişmez
    ↓  kullanıcı isterse: DELETE /api/identity/account/deletion-request → Cancelled
    ↓  30 gün
-AccountDeletionService (6 saatte bir) → AccountDeletionProcessor.RunAsync()
+AccountDeletionService (6 saatte bir, kiralı — P15 T8) → AccountDeletionProcessor.RunAsync()
    ↓
 IStudentDirectory.GetStudentIdsForUserAsync(userId)      → PersonalDataSubject(UserId, StudentIds)
    ↓
@@ -114,7 +114,7 @@ biçimde rastgele bir değerden üretilir.
 
 ## 4. Saklama süresi bakımı
 
-`DataRetentionService` (Shared/Infrastructure, **günde bir**) süresi dolan **teknik** kayıtları siler:
+`DataRetentionService` (Shared/Infrastructure, **günde bir**, kiralı — P15 T8) süresi dolan **teknik** kayıtları siler:
 
 | Kayıt | Süre | Not |
 |-------|------|-----|
@@ -166,4 +166,4 @@ biçimde rastgele bir değerden üretilir.
 > kimlik modülü → [`../modules/m01_identity.md`](../modules/m01_identity.md) ·
 > backend mimari → [`backend.md`](backend.md)
 
-*KVKK (Teknik) | Güncelleme: 2026-09-05 (P13 Task 5 / E-07: ilk sürüm — hesap silme akışı, 11 modül anonimleştiricisi, saklama bakım servisi)*
+*KVKK (Teknik) | Güncelleme: 2026-11-14 (P15 Task 8 / A-07: hesap silme ve saklama servisleri iş kirası altında koşar — çok örnekte tur tek örnekte; yeniden başlatmada en çok bir kira süresi (12 sa / 48 sa) gecikme, ayrıntı `backend.md` §7.3) · 2026-09-05 (P13 Task 5 / E-07: ilk sürüm — hesap silme akışı, 11 modül anonimleştiricisi, saklama bakım servisi)*

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
@@ -30,6 +32,11 @@ class AuthRepositoryImpl implements AuthRepository {
   final Dio _refreshDio;
 
   static const _sessionKey = 'user_session';
+
+  /// P15 T7 / N-67: Sürmekte olan yenileme. Açılıştaki [restoreSession] ile
+  /// interceptor'ın 401 yenilemesi aynı anda gelirse ikisi aynı HTTP çağrısını
+  /// bekler — sunucu aynı refresh token'la yalnız bir isteği kazandırır (N-30).
+  Completer<UserSession>? _refreshInFlight;
 
   @override
   Future<UserSession> login({
@@ -162,9 +169,19 @@ class AuthRepositoryImpl implements AuthRepository {
       if (session.refreshToken != null) {
         try {
           return await refreshSession();
+        } on ApiException catch (error) {
+          // P15 T7 / N-63: Yalnız sunucu refresh token'ı reddederse (400/401) çıkış.
+          // Ağ hatası, zaman aşımı ya da 5xx'te (metro, uçak modu, uyanan sunucu)
+          // oturum korunur; ilk istek 401 alırsa interceptor yeniden dener.
+          if (error.statusCode == 400 || error.statusCode == 401) {
+            await logout();
+            return null;
+          }
+          return session;
         } catch (_) {
-          await logout();
-          return null;
+          // Beklenmeyen hata (ör. okunamayan yanıt) açılışı kilitlememeli: AuthCubit
+          // bu çağrıyı yakalamıyor. Oturum korunur; ilk istek gerekirse yeniden yeniler.
+          return session;
         }
       }
       await logout();
@@ -175,7 +192,23 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<UserSession> refreshSession() async {
+  Future<UserSession> refreshSession() {
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) {
+      return inFlight.future;
+    }
+    final completer = Completer<UserSession>();
+    _refreshInFlight = completer;
+    // Bekleyen başka çağıran yoksa hata "işlenmemiş" sayılmasın; çağıranlar
+    // hatayı kendi `await`'lerinde yine alır.
+    completer.future.ignore();
+    _refreshOnce()
+        .then(completer.complete, onError: completer.completeError)
+        .whenComplete(() => _refreshInFlight = null);
+    return completer.future;
+  }
+
+  Future<UserSession> _refreshOnce() async {
     final storedRefreshToken = await _tokenStorage.readRefreshToken();
     if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
       throw const ApiException(

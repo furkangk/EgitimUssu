@@ -1,5 +1,11 @@
 # P12 — Admin API, Moderasyon ve Geri Bildirim (M18) Implementation Plan
 
+> **🔁 Revizyon 2026-11-13 (Olgunlaştırma programı, §3.1 S-7):**
+> - **Bağımlılık değişti:** P11'e bağlı **değil**. Task 3'teki **Reviews ve Matching** şikayet/karar tüketicileri **opsiyoneldir** (modüller iskelet; P11 gelince eklenir). **Messaging ve Identity** tüketicileri zorunlu. P12 artık **yayın kapısından önce** (Apple 1.2: kullanıcı içeriği için şikayet şart) — sıra P24'ten sonra.
+> - **Yeni Task 0 — İlk admin bootstrap** (Task 1'den önce yürütülür): `/register` Admin'i reddediyor, rol atama yalnız Admin'e açık ve seed'de Admin yok → sistemde hiç admin oluşturulamıyor. Çözüm: `Admin:BootstrapEmail` ortam değişkeni — açılışta bu e-postalı **doğrulanmış** hesap varsa ve sistemde hiç Admin yoksa Admin rolü eklenir, `AdminAuditLog`'a yazılır, uyarı log'lanır; Admin varsa hiçbir şey yapmaz. Test: Admin yokken atanır; Admin varken atanmaz; doğrulanmamış e-postaya atanmaz.
+> - **Task 5 kapsamı:** mobilde mesaj ve kullanıcı **şikayet düğmesi** + engelleme ekranı zorunlu (mağaza kapısı).
+> - Kaynak: [`doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`](../../../doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md) §2.4.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Platformu yönetilebilir kılmak: `/api/admin/*` yönetim yüzeyi, kullanıcı durumu (askıya alma/kapatma), ortak moderasyon kuyruğu (yorum + mesaj + ilan şikayetleri), kullanıcı geri bildirim/şikayet modülü (M18) ve moderasyon kararlarının ilgili modüllere event ile yayılması.

@@ -27,7 +27,26 @@ public sealed class RateLimitOptions
     /// </summary>
     public int TrustedProxyHopCount { get; set; } = 1;
 
+    /// <summary>
+    /// Kimlik bilgisi alan uçlar (giriş, kayıt, şifre sıfırlama, e-posta doğrulama): IP başına sıkı.
+    /// Hesap boyutu <c>ILoginAttemptThrottle</c>'dadır (hesap + IP).
+    /// </summary>
     public RateLimitRule Auth { get; set; } = new() { PermitLimit = 10, WindowSeconds = 60 };
+
+    /// <summary>
+    /// P15 T7 / N-32: <c>/api/identity/refresh</c>. Uç anonimdir (erişim token'ı süresi dolmuştur,
+    /// mobil bearer göndermez) — kullanıcı başına sayılamaz, IP başınadır ama <see cref="Auth"/>'tan
+    /// gevşektir: okul NAT'ı arkasında ders başında herkes bir kez yeniler. 48 baytlık rastgele token
+    /// kaba kuvvete açık değildir; kova yalnız taşkına karşıdır.
+    /// </summary>
+    public RateLimitRule Refresh { get; set; } = new() { PermitLimit = 60, WindowSeconds = 60 };
+
+    /// <summary>
+    /// P15 T7 / N-32: Oturum açmış kullanıcının kimlik uçları (<c>/me</c>, <c>/sessions</c>,
+    /// <c>/logout</c>, <c>/account/*</c>, <c>/users/*</c>) — <b>kullanıcı</b> başına (oturum yoksa IP).
+    /// IP başına 10/dk iken aynı ağdaki bir sınıf birbirinin kotasını tüketiyordu.
+    /// </summary>
+    public RateLimitRule Session { get; set; } = new() { PermitLimit = 60, WindowSeconds = 60 };
 
     public RateLimitRule Default { get; set; } = new() { PermitLimit = 120, WindowSeconds = 60 };
 

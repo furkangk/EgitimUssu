@@ -1,4 +1,5 @@
 using EgitimUssu.Modules.Notifications.Infrastructure;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -32,8 +33,11 @@ public sealed class RealJobLeaseTests(ContainerFixture fixture)
         await using var factory = new WebApplicationFactory<Program>();
         var jobName = $"test-job-{Guid.NewGuid():N}";
 
-        var first = await TryAcquireAsync(factory, jobName, TimeSpan.FromMinutes(10));
-        var second = await TryAcquireAsync(factory, jobName, TimeSpan.FromMinutes(10));
+        // N-41: Aynı süreçteki her host aynı InstanceId'yi paylaşır ve sahip kendi kirasını yenileyebilir;
+        // "iki örnek" ancak iki ayrı sahip kimliğiyle kurulur. Eski hâli tek sahiple ikinci denemenin
+        // false dönmesini bekliyordu — yani sahibin kendi kirasına takılmasını (bozuk davranış) kilitliyordu.
+        var first = await TryAcquireAsync(factory, NewInstance(), jobName, TimeSpan.FromMinutes(10));
+        var second = await TryAcquireAsync(factory, NewInstance(), jobName, TimeSpan.FromMinutes(10));
 
         Assert.True(first);
         Assert.False(second);
@@ -51,10 +55,11 @@ public sealed class RealJobLeaseTests(ContainerFixture fixture)
         await using var factory = new WebApplicationFactory<Program>();
         var jobName = $"test-job-{Guid.NewGuid():N}";
 
-        // Hemen sona eren bir kira: sahibi çökmüş bir örneği temsil eder.
-        Assert.True(await TryAcquireAsync(factory, jobName, TimeSpan.Zero));
+        // Hemen sona eren bir kira: sahibi çökmüş bir örneği temsil eder. Devralan başka bir örnek
+        // olmalı — aynı sahip, süre dolmasa da yenileyebildiği için bunu kanıtlamaz.
+        Assert.True(await TryAcquireAsync(factory, NewInstance(), jobName, TimeSpan.Zero));
 
-        Assert.True(await TryAcquireAsync(factory, jobName, TimeSpan.FromMinutes(10)));
+        Assert.True(await TryAcquireAsync(factory, NewInstance(), jobName, TimeSpan.FromMinutes(10)));
     }
 
     [SkippableFact]
@@ -65,17 +70,20 @@ public sealed class RealJobLeaseTests(ContainerFixture fixture)
         using var envScope = RealInfrastructure.Use(fixture);
         await using var factory = new WebApplicationFactory<Program>();
 
-        Assert.True(await TryAcquireAsync(factory, $"job-a-{Guid.NewGuid():N}", TimeSpan.FromMinutes(10)));
-        Assert.True(await TryAcquireAsync(factory, $"job-b-{Guid.NewGuid():N}", TimeSpan.FromMinutes(10)));
+        Assert.True(await TryAcquireAsync(factory, NewInstance(), $"job-a-{Guid.NewGuid():N}", TimeSpan.FromMinutes(10)));
+        Assert.True(await TryAcquireAsync(factory, NewInstance(), $"job-b-{Guid.NewGuid():N}", TimeSpan.FromMinutes(10)));
     }
+
+    /// <summary>Ayrı bir uygulama örneğini temsil eden, kendi sahip kimliğine sahip kira deposu.</summary>
+    private static JobLeaseStore NewInstance() => new(new SystemClock(), Guid.NewGuid());
 
     private static async Task<bool> TryAcquireAsync(
         WebApplicationFactory<Program> factory,
+        IJobLeaseStore store,
         string jobName,
         TimeSpan leaseDuration)
     {
         await using var scope = factory.Services.CreateAsyncScope();
-        var store = scope.ServiceProvider.GetRequiredService<IJobLeaseStore>();
         var dbContext = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
         return await store.TryAcquireAsync(dbContext, jobName, leaseDuration);
     }

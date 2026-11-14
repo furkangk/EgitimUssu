@@ -107,6 +107,32 @@ public sealed class ChildProgressSnapshot : Entity<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
+    /// <summary>
+    /// P15 / N-28: Profil birleşmesinde birleşen profilin özetini bu (kanonik) özete katar. Sayaçlar ve tutarlar
+    /// toplanır, son tarihler en yenisi olur; para birimi kanoniğinki kalır (farklı para birimi toplamı P18'in işi).
+    /// </summary>
+    /// <param name="merged">Birleşen profilin özeti (çağıran siler).</param>
+    /// <param name="updatedOnUtc">Birleşme anı.</param>
+    public void Absorb(ChildProgressSnapshot merged, DateTime updatedOnUtc)
+    {
+        PlannedLessonCount += merged.PlannedLessonCount;
+        CompletedLessonCount += merged.CompletedLessonCount;
+        LastLessonCompletedAtUtc = Latest(LastLessonCompletedAtUtc, merged.LastLessonCompletedAtUtc);
+        TotalAssignmentCount += merged.TotalAssignmentCount;
+        OpenAssignmentCount += merged.OpenAssignmentCount;
+        CompletedAssignmentCount += merged.CompletedAssignmentCount;
+        ExpectedPaymentTotal += merged.ExpectedPaymentTotal;
+        CollectedPaymentTotal += merged.CollectedPaymentTotal;
+        OutstandingPaymentTotal += merged.OutstandingPaymentTotal;
+        LastPaymentUpdatedAtUtc = Latest(LastPaymentUpdatedAtUtc, merged.LastPaymentUpdatedAtUtc);
+        WeeklyStudyMinutes += merged.WeeklyStudyMinutes;
+        StudyStreakDays = Math.Max(StudyStreakDays, merged.StudyStreakDays);
+        UpdatedOnUtc = updatedOnUtc;
+    }
+
+    private static DateTime? Latest(DateTime? left, DateTime? right)
+        => left is null ? right : right is null ? left : (left > right ? left : right);
+
     public void RegisterPaymentUpdated(decimal collectedDelta, DateTime updatedOnUtc)
     {
         if (collectedDelta != 0)

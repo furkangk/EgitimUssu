@@ -76,7 +76,12 @@ internal sealed class TeacherStudentLinkConfiguration : IEntityTypeConfiguration
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.Property(entity => entity.UpdatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.StudentId }).IsUnique();
-        builder.HasIndex(entity => entity.InviteCode);
+        // P15 / N-20: Bekleyen (InviteSent) davetler arasında kod tekildir; kullanılmış kodlar
+        // geçmiş kayıtlarda kalabilir ve yeni bir davetin önünü kesmez.
+        builder.HasIndex(entity => entity.InviteCode)
+            .IsUnique()
+            .HasFilter("\"Status\" = 'InviteSent'")
+            .HasDatabaseName("IX_teacher_student_links_InviteCode_pending");
     }
 }
 
@@ -90,7 +95,12 @@ internal sealed class StudentParentInviteConfiguration : IEntityTypeConfiguratio
         builder.Property(entity => entity.ChildDisplayName).HasMaxLength(200);
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
-        builder.HasIndex(entity => entity.InviteCode);
+        builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
+        // P15 / N-20: Bekleyen veli davetleri arasında kod tekildir.
+        builder.HasIndex(entity => entity.InviteCode)
+            .IsUnique()
+            .HasFilter("\"Status\" = 'Pending'")
+            .HasDatabaseName("IX_student_parent_invites_InviteCode_pending");
         builder.HasIndex(entity => entity.TeacherUserId);
         builder.HasIndex(entity => entity.StudentId);
     }

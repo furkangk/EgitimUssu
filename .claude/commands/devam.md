@@ -1,8 +1,8 @@
 ---
-description: Sağlamlaştırma programında kaldığın yerden devam et — ILERLEME.md'yi oku, sıradaki tek görevi TDD ile yürüt
+description: Aktif programda (Olgunlaştırma P15–P29) kaldığın yerden devam et — ILERLEME.md'yi oku, sıradaki tek görevi TDD ile yürüt
 ---
 
-Sağlamlaştırma programında **kaldığın yerden devam et**. Argüman: `$ARGUMENTS`
+Aktif programda (ILERLEME.md "ŞU AN" → **Aktif program**) **kaldığın yerden devam et**. Argüman: `$ARGUMENTS`
 (boş = sıradaki görev · `P03` = o planın sıradaki görevi · `P06 Task 4` = belirli görev · `plan` = aktif planın tamamı).
 
 Bu komut, `/clear` sonrası sıfır bağlamla çalışacak şekilde tasarlandı: gereken her şey dosyalardan okunur.
@@ -10,8 +10,10 @@ Bu komut, `/clear` sonrası sıfır bağlamla çalışacak şekilde tasarlandı:
 ## 1. Durumu yükle (konuşma geçmişine güvenme)
 
 1. Oku: `docs/superpowers/ILERLEME.md` → aktif plan, sıradaki görev, dal, öğrenilenler, bloke kararlar.
-2. Oku: aktif planın **tamamı** (`docs/superpowers/plans/2026-09-02-NN-*.md`) — özellikle `## Global Constraints` ve yürütülecek görevin `**Files:**` + `**Interfaces:**` blokları.
-3. Oku: `docs/superpowers/specs/2026-09-02-saglamlastirma-master-design.md` §1 (çıta), §2 (kararlar K-xx), §4 (ortak sözleşmeler).
+2. Oku: aktif planın **tamamı** — dosya yolu ILERLEME.md "ŞU AN" tablosundaki bağlantıdır (`docs/superpowers/plans/2026-11-13-NN-*.md`; eski program planları `2026-09-02-NN-*.md`; `PNN` argümanı verildiyse `plans/*-NN-*.md`). Özellikle `## Global Constraints`, başlıktaki **revizyon notları** ve yürütülecek görevin `**Files:**` + `**Interfaces:**` blokları.
+   - **Hafif plan (🅻)** ise ve `Task 0: Planı ayrıntılandır` işaretlenmemişse: **önce Task 0'ı yürüt** — ilgili kodu okuyup görevleri 2026-09-02 plan biçiminde (`Files/Interfaces/Steps`) yaz, `docs(plan): PNN ayrintilandirildi` commit'i at, ILERLEME.md'yi güncelle ve dur. Kod yazma.
+   - **Havuz plan (P29)** ise: hiçbir şey yapmadan önce kullanıcıya havuz tablosundan **hangi satırların** alınacağını sor; seçilenler için Task 0 ayrıntılandırması yap.
+3. Oku: aktif programın master tasarımı — `docs/superpowers/specs/2026-11-13-olgunlastirma-master-design.md` §1 (çıta eklemeleri), §2 (K-13…), §3.1 (sıralama tehlikeleri), §4 (ortak sözleşmeler) **ve** önceki program master'ı `specs/2026-09-02-saglamlastirma-master-design.md` §1, §2 (K-01…K-12), §4 — ikisi birlikte geçerlidir.
 4. Çalıştır: `git status --short && git log --oneline -3 && git branch --show-current`
    → ILERLEME.md'deki "Son commit" ve "Dal" ile tutarsızsa **dur ve kullanıcıya sor**; kendi başına düzeltme.
 

@@ -34,6 +34,13 @@ public static class MessagingErrors
     public static readonly Error RelationshipRequired =
         new("messaging.relationship_required", "Aranızda aktif bir bağ olmadan sohbet açılamaz.");
 
+    /// <summary>
+    /// P15 T5 / K-28: Sohbet açıldıktan sonra ilişki (özel ders bağı / veli bağı) bitti — gönderim kapalı,
+    /// geçmiş salt-okunur. Engelden farkı: katılımcılar kaldıramaz; ilişki yeniden kurulursa kendiliğinden açılır.
+    /// </summary>
+    public static readonly Error RelationshipEnded =
+        new("messaging.relationship_ended", "Aranızdaki bağ sona erdiği için bu sohbete artık mesaj gönderilemez; geçmiş görüntülenebilir.");
+
     public static readonly Error ConversationNotFound =
         new("messaging.conversation_not_found", "Sohbet bulunamadı.");
 
@@ -268,6 +275,49 @@ public sealed class Conversation : AggregateRoot<Guid>
         }
 
         return Result.Success();
+    }
+
+    /// <summary>
+    /// P15 T5 / #189: Öğrenci profili birleşince (Ö-C claim/merge) sohbetin bağlamı kanonik profile taşınır.
+    /// Sohbet kimliği değişmez — bildirim rotaları (<c>/messages/{id}</c>) geçerli kalır.
+    /// </summary>
+    /// <param name="canonicalStudentId">Kanonik öğrenci profili.</param>
+    public void MoveToStudent(Guid canonicalStudentId) => StudentId = canonicalStudentId;
+
+    /// <summary>
+    /// P15 T5 / #189: Kanonik profilde aynı (öğretmen, karşı taraf) sohbeti zaten varsa birleşen kopyanın özetini
+    /// emer — mesajlar ayrıca bu sohbete taşınır, kopya silinir. Kanonik kazanır, ama kaybedilmemesi gerekenler
+    /// korunur: daha yeni son mesaj ve önizlemesi alınır, engel bayrakları VEYA'lanır (birinin koyduğu engel
+    /// birleşmeyle kalkmamalı), açılış anı en eskisidir.
+    /// </summary>
+    /// <param name="merged">Aynı üçlünün birleşen profildeki kopyası.</param>
+    /// <param name="copyHasMessages">Kopyadan kanoniğe en az bir mesaj taşındı mı.</param>
+    public void Absorb(Conversation merged, bool copyHasMessages)
+    {
+        if (merged.TeacherUserId != TeacherUserId || merged.CounterpartUserId != CounterpartUserId)
+        {
+            throw new InvalidOperationException("Yalnız aynı taraflar arasındaki sohbetler birleştirilebilir.");
+        }
+
+        // Mesajsız kopyanın LastMessageOnUtc'si yalnız açılış anıdır, önizlemesi yoktur: kanoniğin son mesajını
+        // null önizlemeyle ezmemeli, gelen kutusu sırasını boş bir sohbetle öne çekmemeli.
+        if (copyHasMessages && merged.LastMessageOnUtc > LastMessageOnUtc)
+        {
+            LastMessageOnUtc = merged.LastMessageOnUtc;
+            LastMessagePreview = merged.LastMessagePreview;
+        }
+
+        if (merged.CreatedOnUtc < CreatedOnUtc)
+        {
+            CreatedOnUtc = merged.CreatedOnUtc;
+        }
+
+        IsBlockedByTeacher |= merged.IsBlockedByTeacher;
+        IsBlockedByCounterpart |= merged.IsBlockedByCounterpart;
+        if (merged.BlockedOnUtc is { } mergedBlockedOn && (BlockedOnUtc is null || mergedBlockedOn > BlockedOnUtc))
+        {
+            BlockedOnUtc = mergedBlockedOn;
+        }
     }
 
     private static string BuildPreview(string body)

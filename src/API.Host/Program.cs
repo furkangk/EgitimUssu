@@ -5,6 +5,7 @@ using System.Text;
 using EgitimUssu.API.Host;
 using EgitimUssu.API.Host.Seeding;
 using EgitimUssu.Shared.Infrastructure;
+using EgitimUssu.Shared.Infrastructure.Authentication;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Configuration;
 using EgitimUssu.Shared.Infrastructure.Extensions;
@@ -16,6 +17,7 @@ using EgitimUssu.Shared.Infrastructure.Modules;
 using EgitimUssu.Shared.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -39,6 +41,9 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
     return Task.CompletedTask;
 }));
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
+// P15 T7 / N-32: HSTS (Development dışında, aşağıda). Alan adı henüz kesin değil (Q14) —
+// includeSubDomains/preload bilinçli olarak açılmadı.
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
 builder.Services.AddSharedInfrastructure(builder.Configuration);
 // C-04/K-10: Gözlemlenebilirlik. `Observability:Enabled=false` iken (varsayılan) hiçbir exporter
 // kurulmaz — testte ve CI'da maliyet sıfırdır; `EgitimUssuMetrics` yine de kaydedilir, çünkü iş
@@ -76,14 +81,17 @@ ConnectionStringGuard.EnsureValid(
     builder.Configuration.GetConnectionString("Postgres"),
     builder.Environment.IsDevelopment());
 // P02/K-01: E-posta sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce e-posta göndermeme yasak).
+// P15 T6 / N-24: Logging yalnız Development/Staging'de — üretimde şifre sıfırlama kodları log'a düşerdi.
 var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
-EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.IsDevelopment());
+EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.EnvironmentName);
 // P03/K-02: Push sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce push göndermeme yasak).
+// Logging push üretimde de izinli (yük sır taşımaz, Q8 beklenirken yayın yapılabilsin) — aşağıda uyarılır.
 var pushOptions = builder.Configuration.GetSection(PushOptions.SectionName).Get<PushOptions>() ?? new PushOptions();
-PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.IsDevelopment());
+PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.EnvironmentName);
 // P04/K-03: Depolama sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (yüklenen dosya kaybolmasın).
+// P15 T6 / P-01: Local yalnız Development/Staging'de — üretimde konteynerin geçici diskine yazardı.
 var storageOptions = builder.Configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
-StorageOptionsGuard.EnsureValid(storageOptions, builder.Environment.IsDevelopment());
+StorageOptionsGuard.EnsureValid(storageOptions, builder.Environment.EnvironmentName);
 // A-01: Redis eksikse hız sınırı, token kara listesi, giriş kilidi ve idempotency **sessizce** kapanır.
 // Diğer sırlarla aynı muamele: üretimde eksik/loopback adresle uygulama açılmaz.
 var redisOptions = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
@@ -110,24 +118,31 @@ builder.Services
         {
             // Y4: Token blacklist — iptal edilmiş (logout'lanmış) erişim token'ı reddedilir (anlık iptal).
             // A-06: Buna ek olarak kullanıcı bazlı iptal damgası denetlenir: parola sıfırlama ve rol
-            // değişimi tek tek `jti` bilemez, "şu andan önce verilen token'lar geçersiz" der. İki
-            // kontrol tek Redis turunda yapılır.
+            // değişimi tek tek `jti` bilemez, "şu andan önce verilen token'lar geçersiz" der.
+            // P15 T7 / N-31: Kapatılan oturumun (`sid`) token'ları da reddedilir — cihaz iptali ve
+            // "diğerlerini kapat" eskiden yalnız refresh'i kapatıyordu. Üç kontrol tek Redis turunda.
+            // Ardından hesap durumu sorulur (önbellekli): askıya alınan/kapanan hesabın token'ı geçmez.
             OnTokenValidated = async context =>
             {
                 var principal = context.Principal;
                 var jti = principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
                 var userId = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var sessionId = principal?.FindFirst(HttpContextCurrentUser.SessionIdClaimType)?.Value;
                 var issuedAtUtc = ReadIssuedAtUtc(principal);
+                var cancellationToken = context.HttpContext.RequestAborted;
+                var services = context.HttpContext.RequestServices;
 
-                if (string.IsNullOrEmpty(jti) && (userId is null || issuedAtUtc is null))
+                var blacklist = services.GetRequiredService<ITokenBlacklist>();
+                if (await blacklist.IsRevokedAsync(jti ?? string.Empty, userId, sessionId, issuedAtUtc, cancellationToken))
                 {
+                    context.Fail("Token has been revoked.");
                     return;
                 }
 
-                var blacklist = context.HttpContext.RequestServices.GetRequiredService<ITokenBlacklist>();
-                if (await blacklist.IsRevokedAsync(jti ?? string.Empty, userId, issuedAtUtc, context.HttpContext.RequestAborted))
+                if (Guid.TryParse(userId, out var accountId)
+                    && !await services.GetRequiredService<IAccountStatusReader>().IsActiveAsync(accountId, cancellationToken))
                 {
-                    context.Fail("Token has been revoked.");
+                    context.Fail("Account is not active.");
                 }
             },
             OnChallenge = async context =>
@@ -161,19 +176,32 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-// Üretimde "Logging" sağlayıcısı bilinçli bir geçiş dönemi seçimidir; sessiz kalmasın diye uyarılır.
-if (!app.Environment.IsDevelopment()
-    && string.Equals(emailOptions.Provider, EmailOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+// Açılışı durdurmayan sahte sağlayıcılar (Staging'de Logging e-posta, Development dışında Logging push)
+// sessiz kalmasın diye uyarılır. Karar guard'ların saf fonksiyonunda; burada yalnız log'a basılır.
+foreach (var providerWarning in new[]
 {
-    app.Logger.LogWarning(
-        "Email:Provider = \"Logging\" — e-postalar GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Smtp'ye geçin.");
+    EmailOptionsGuard.Warning(emailOptions, app.Environment.EnvironmentName),
+    PushOptionsGuard.Warning(pushOptions, app.Environment.EnvironmentName),
+})
+{
+    if (providerWarning is not null)
+    {
+        app.Logger.LogWarning("{ProviderWarning}", providerWarning);
+    }
 }
 
-if (!app.Environment.IsDevelopment()
-    && string.Equals(pushOptions.Provider, PushOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+// P15 T7 / N-32: HSTS — yalnız Development dışında (yerelde sertifikasız http çalışılıyor).
+// Render TLS'i önündeki proxy'de sonlandırır: istek uygulamaya düz HTTP gelir ve `UseHsts`
+// yalnız HTTPS isteğe başlık yazar. Şema bu yüzden `X-Forwarded-Proto`'dan okunur. Proxy adresi
+// bilinmediği için bilinen ağ/proxy listesi boşaltılır; yalnız şema iletilir — istemci IP'si
+// `ClientIpResolver`'da (A-02) kalır, `X-Forwarded-For` burada işlenmez.
+if (!app.Environment.IsDevelopment())
 {
-    app.Logger.LogWarning(
-        "Push:Provider = \"Logging\" — push bildirimleri GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Fcm'ye geçin.");
+    var forwardedProto = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedProto };
+    forwardedProto.KnownNetworks.Clear();
+    forwardedProto.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwardedProto);
+    app.UseHsts();
 }
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
@@ -246,14 +274,24 @@ await app.RunAsync();
 public partial class Program
 {
     /// <summary>
-    /// A-06: Token'ın <c>iat</c> claim'ini UTC'ye çevirir. Değer Unix saniyesidir; okunamıyorsa
-    /// <c>null</c> döner ve kullanıcı bazlı iptal damgası denetlenmez (yalnız <c>jti</c> kara listesi kalır).
+    /// A-06: Token'ın veriliş anını UTC'ye çevirir. P15 T7 / N-32: önce milisaniye talebi
+    /// (<c>iat_ms</c>) okunur; yoksa (eski token) standart <c>iat</c> saniyesi. İkisi de okunamıyorsa
+    /// <c>null</c> döner ve kullanıcı bazlı iptal damgası denetlenmez (jti ve sid kontrolleri kalır).
     /// </summary>
     private static DateTime? ReadIssuedAtUtc(ClaimsPrincipal? principal)
     {
-        var raw = principal?.FindFirst(JwtRegisteredClaimNames.Iat)?.Value;
-        return long.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var seconds)
-            ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime
+        const System.Globalization.NumberStyles Integer = System.Globalization.NumberStyles.Integer;
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+
+        var milliseconds = principal?.FindFirst(HttpContextCurrentUser.IssuedAtMillisecondsClaimType)?.Value;
+        if (long.TryParse(milliseconds, Integer, invariant, out var unixMilliseconds))
+        {
+            return DateTimeOffset.FromUnixTimeMilliseconds(unixMilliseconds).UtcDateTime;
+        }
+
+        var seconds = principal?.FindFirst(JwtRegisteredClaimNames.Iat)?.Value;
+        return long.TryParse(seconds, Integer, invariant, out var unixSeconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime
             : null;
     }
 

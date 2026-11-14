@@ -39,13 +39,24 @@ public sealed class DistributedRateLimitMiddleware(
         await next(context);
     }
 
-    /// <summary>Yol tabanlı politika seçimi: kimlik uçları sıkı, mesaj gönderimi spam'e karşı, diğer API uçları varsayılan, gerisi limitsiz.</summary>
+    /// <summary>
+    /// Yol tabanlı politika seçimi: kimlik bilgisi alan uçlar sıkı (IP), refresh ayrı ve gevşek (IP),
+    /// oturum açmış kullanıcının kimlik uçları kullanıcı başına, mesaj gönderimi spam'e karşı, diğer
+    /// API uçları varsayılan, gerisi limitsiz.
+    /// </summary>
     internal static (string PolicyName, RateLimitRule Rule)? ResolvePolicy(HttpContext context, RateLimitOptions settings)
     {
         var path = context.Request.Path;
-        if (path.StartsWithSegments("/api/identity"))
+        if (path.StartsWithSegments("/api/identity", out var identityPath))
         {
-            return ("auth", settings.Auth);
+            // P15 T7 / N-32: Eskiden bütün /api/identity/* tek IP kovasındaydı (10/dk): okul NAT'ı
+            // arkasında /me ve /refresh birbirini kilitliyordu.
+            if (identityPath.StartsWithSegments("/refresh"))
+            {
+                return ("refresh", settings.Refresh);
+            }
+
+            return IsCredentialPath(identityPath) ? ("auth", settings.Auth) : ("session", settings.Session);
         }
 
         if (IsSendMessage(context))
@@ -60,6 +71,13 @@ public sealed class DistributedRateLimitMiddleware(
 
         return null;
     }
+
+    /// <summary>Kimlik bilgisi (parola, sıfırlama/doğrulama kodu) alan anonim uçlar.</summary>
+    private static bool IsCredentialPath(PathString identityPath)
+        => identityPath.StartsWithSegments("/login")
+            || identityPath.StartsWithSegments("/register")
+            || identityPath.StartsWithSegments("/password-reset")
+            || identityPath.StartsWithSegments("/email-verification");
 
     /// <summary>
     /// M16-1: Yalnız <c>POST /api/messaging/conversations/{id}/messages</c> mesaj gönderimidir.
@@ -80,12 +98,13 @@ public sealed class DistributedRateLimitMiddleware(
     }
 
     /// <summary>
-    /// Partition anahtarı: mesajlaşma kotası <b>kullanıcı</b> başınadır (aynı ağdaki kullanıcılar
-    /// birbirinin kotasını tüketmesin), diğer politikalar istemci IP'si başına.
+    /// Partition anahtarı: mesajlaşma ve oturum (<c>session</c>) kotası <b>kullanıcı</b> başınadır
+    /// (aynı ağdaki kullanıcılar birbirinin kotasını tüketmesin), diğer politikalar istemci IP'si başına.
+    /// Kullanıcı yoksa IP'ye düşülür — kota yine uygulanır.
     /// </summary>
     internal static string ResolvePartitionId(HttpContext context, string policyName, int trustedProxyHopCount)
     {
-        if (policyName == "messaging")
+        if (policyName is "messaging" or "session")
         {
             var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!string.IsNullOrWhiteSpace(userId))

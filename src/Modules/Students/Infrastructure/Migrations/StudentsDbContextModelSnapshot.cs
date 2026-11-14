@@ -42,6 +42,9 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime>("ExpiresOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("InviteCode")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -60,7 +63,10 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InviteCode");
+                    b.HasIndex("InviteCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_student_parent_invites_InviteCode_pending")
+                        .HasFilter("\"Status\" = 'Pending'");
 
                     b.HasIndex("StudentId");
 
@@ -205,6 +211,9 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<DateTime?>("InviteExpiresOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("InviteTargetUserId")
                         .HasColumnType("uuid");
 
@@ -227,7 +236,10 @@ namespace EgitimUssu.Modules.Students.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InviteCode");
+                    b.HasIndex("InviteCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_teacher_student_links_InviteCode_pending")
+                        .HasFilter("\"Status\" = 'InviteSent'");
 
                     b.HasIndex("TeacherUserId", "StudentId")
                         .IsUnique();

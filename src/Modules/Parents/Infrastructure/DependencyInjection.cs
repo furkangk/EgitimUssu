@@ -59,6 +59,8 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, ParentAssignmentProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentPaymentProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentStudentDirectoryProjectionHandler>();
+        // P15 / N-28: profil birleşmesi → veli bağları, öğrenci eşlemesi ve panel özeti kanonik profile
+        services.AddScoped<IIntegrationEventHandler, StudentProfilesMergedParentsHandler>();
         // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
         services.AddScoped<IPersonalDataAnonymizer, ParentsPersonalDataAnonymizer>();
 

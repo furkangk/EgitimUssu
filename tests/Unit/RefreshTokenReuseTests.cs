@@ -23,7 +23,7 @@ public sealed class RefreshTokenReuseTests
     public async Task Reusing_A_Revoked_Refresh_Token_Should_Revoke_Every_Session()
     {
         var user = CreateUser(out var rotatedSession, out var liveSession);
-        rotatedSession.Revoke(Now.AddMinutes(-5)); // meşru rotasyon
+        rotatedSession.Revoke(Now.AddMinutes(-5), SessionRevocationReason.Rotated); // 5 dk önce rotasyonla eskidi
         var revocation = new SpyTokenRevocationService();
         var handler = CreateHandler(user, revocation);
 
@@ -77,6 +77,7 @@ public sealed class RefreshTokenReuseTests
             new FakeTokenIssuer(),
             new PassthroughTokenProtector(),
             revocation,
+            new RefreshTokenPolicy(RefreshTokenPolicy.DefaultReuseGrace),
             new SequentialIdGenerator(),
             new FixedClock(Now));
 
@@ -102,6 +103,9 @@ public sealed class RefreshTokenReuseTests
             RevokedUserId = userId;
             return Task.CompletedTask;
         }
+
+        public Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private sealed class FakeRepository(UserAccount user) : IUserAccountRepository
@@ -119,6 +123,9 @@ public sealed class RefreshTokenReuseTests
         public Task AddAsync(UserAccount userAccount, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<bool> SaveRotationAsync(RefreshTokenSession rotatedFrom, CancellationToken cancellationToken)
+            => Task.FromResult(true);
 
         public Task PurgeStaleCredentialsAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
     }

@@ -16,6 +16,8 @@ public static class DependencyInjection
         services.AddScoped<IStudentProfileRepository, StudentProfileRepository>();
         services.AddScoped<ITeacherStudentLinkRepository, TeacherStudentLinkRepository>();
         services.AddScoped<IStudentDirectory, StudentDirectory>();
+        // P15 T2 (K-13): öğretmen–öğrenci erişim kapsamının tek kaynağı.
+        services.AddScoped<ITeacherStudentAccess, TeacherStudentAccess>();
         services.AddScoped<IMembershipDirectory, MembershipDirectory>();
         services.AddScoped<ICommandHandler<CreateStudentProfileCommand, Result<StudentProfileResponse>>, CreateStudentProfileCommandHandler>();
         services.AddScoped<IQueryHandler<GetStudentProfileByIdQuery, Result<StudentProfileResponse>>, GetStudentProfileByIdQueryHandler>();
@@ -52,6 +54,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryAuthorizer<ListStudentsByParentQuery>, StudentProfileQueryAuthorizer>();
 
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkApprovedIntegrationEventHandler>();
+        // P15 / N-26: bağ bitince (ret/iptal) profilin ParentUserId'si temizlenir.
+        services.AddScoped<EgitimUssu.Shared.Infrastructure.Messaging.IIntegrationEventHandler, ParentChildLinkEndedIntegrationEventHandler>();
 
         // Veli davet kodu (Veli V-D)
         services.AddScoped<IStudentParentInviteRepository, StudentParentInviteRepository>();

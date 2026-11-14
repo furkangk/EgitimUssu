@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Payments.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Payments.Application;
@@ -95,32 +96,37 @@ public sealed class PaymentRecordAuthorizer :
     IQueryAuthorizer<GetTeacherPaymentSummaryQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu islemi yapma yetkiniz yok.");
+    private static readonly Error NotLinked = new("shared.forbidden", "Bu öğrenciyle aktif bir özel ders bağınız yok.");
     private static readonly Error NotFound = new("payments.record_not_found", "Odeme kaydi bulunamadi.");
     private readonly ICurrentUser _currentUser;
     private readonly IPaymentRecordRepository _repository;
     private readonly IRequestEntityCache _entityCache;
+    private readonly ITeacherStudentAccess _access;
 
     public PaymentRecordAuthorizer(
         ICurrentUser currentUser,
         IPaymentRecordRepository repository,
-        IRequestEntityCache entityCache)
+        IRequestEntityCache entityCache,
+        ITeacherStudentAccess access)
     {
         _currentUser = currentUser;
         _repository = repository;
         _entityCache = entityCache;
+        _access = access;
     }
 
+    // P15 T2 / N-08: velinin paneline düşen borç kaydı yalnız yaşayan özel ders bağıyla yazılır/değiştirilir.
+    // Bilinçli sonuç: bağı arşivlenmiş öğrencinin eski borcu, arşivden çıkarılmadan tahsil edildi işaretlenemez
+    // (tahsilat hareketleri P18 T2'de ayrı niyet komutu olur). Okumalar yalnız sahipliğe bakar.
     public Task<Result> Authorize(CreatePaymentRecordCommand command, CancellationToken cancellationToken)
-    {
-        return Task.FromResult(CanManageTeacher(command.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
-    }
+        => AuthorizeStudentWrite(command.TeacherUserId, command.StudentId, cancellationToken);
 
     public async Task<Result> Authorize(UpdatePaymentRecordCommand command, CancellationToken cancellationToken)
     {
         var paymentRecord = await _entityCache.LoadPaymentRecordAsync(_repository, command.PaymentRecordId, cancellationToken);
         return paymentRecord is null
             ? Result.Failure(NotFound)
-            : (CanManageTeacher(paymentRecord.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+            : await AuthorizeStudentWrite(paymentRecord.TeacherUserId, paymentRecord.StudentId, cancellationToken);
     }
 
     public async Task<Result> Authorize(GetPaymentRecordByIdQuery query, CancellationToken cancellationToken)
@@ -149,6 +155,23 @@ public sealed class PaymentRecordAuthorizer :
     public Task<Result> Authorize(SearchPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
     {
         return Task.FromResult(CanManageTeacher(query.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    /// <summary>Sahiplik + (Admin değilse) öğretmenin öğrenciyle yaşayan özel ders bağı (K-18: finans yalnız özel bağda).</summary>
+    private async Task<Result> AuthorizeStudentWrite(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        if (!CanManageTeacher(teacherUserId))
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        var scope = await _access.GetScopeAsync(teacherUserId, studentId, cancellationToken);
+        return scope == TeacherAccessScope.Private ? Result.Success() : Result.Failure(NotLinked);
     }
 
     private bool CanManageTeacher(Guid teacherUserId)

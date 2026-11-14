@@ -46,27 +46,33 @@ public sealed class LessonScheduleCommandAuthorizer :
     IQueryAuthorizer<ListLessonSchedulesForTeacherQuery>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotLinked = new("shared.forbidden", "Bu öğrenciyle aktif bir özel ders bağınız yok.");
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders planı bulunamadı.");
     private readonly ICurrentUser _currentUser;
     private readonly ILessonScheduleRepository _repository;
+    private readonly ITeacherStudentAccess _access;
 
-    public LessonScheduleCommandAuthorizer(ICurrentUser currentUser, ILessonScheduleRepository repository)
+    public LessonScheduleCommandAuthorizer(
+        ICurrentUser currentUser,
+        ILessonScheduleRepository repository,
+        ITeacherStudentAccess access)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _access = access;
     }
 
+    // P15 T2 / N-08: öğrencinin takvimine yazan uçlar (oluştur/güncelle/ertele) yaşayan özel ders bağı ister.
+    // İptal/silme/tamamlama ve okumalar bilerek yalnız sahipliğe bakar: bağı biten öğretmen eski kaydını temizleyebilir.
     public Task<Result> Authorize(CreateLessonScheduleCommand command, CancellationToken cancellationToken)
-    {
-        return Task.FromResult(CanManageTeacher(command.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
-    }
+        => AuthorizeStudentWrite(command.TeacherUserId, command.StudentId, cancellationToken);
 
     public async Task<Result> Authorize(UpdateLessonScheduleCommand command, CancellationToken cancellationToken)
     {
         var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
         return lesson is null
             ? Result.Failure(NotFound)
-            : (CanManageTeacher(lesson.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+            : await AuthorizeStudentWrite(lesson.TeacherUserId, lesson.StudentId, cancellationToken);
     }
 
     public async Task<Result> Authorize(CancelLessonScheduleCommand command, CancellationToken cancellationToken)
@@ -82,7 +88,7 @@ public sealed class LessonScheduleCommandAuthorizer :
         var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
         return lesson is null
             ? Result.Failure(NotFound)
-            : (CanManageTeacher(lesson.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+            : await AuthorizeStudentWrite(lesson.TeacherUserId, lesson.StudentId, cancellationToken);
     }
 
     public async Task<Result> Authorize(DeleteLessonScheduleCommand command, CancellationToken cancellationToken)
@@ -112,6 +118,25 @@ public sealed class LessonScheduleCommandAuthorizer :
     public Task<Result> Authorize(ListLessonSchedulesForTeacherQuery query, CancellationToken cancellationToken)
     {
         return Task.FromResult(CanManageTeacher(query.TeacherUserId) ? Result.Success() : Result.Failure(Forbidden));
+    }
+
+    /// <summary>Sahiplik + (Admin değilse) öğretmenin öğrenciyle yaşayan özel ders bağı.</summary>
+    private async Task<Result> AuthorizeStudentWrite(Guid? teacherUserId, Guid studentId, CancellationToken cancellationToken)
+    {
+        if (!CanManageTeacher(teacherUserId))
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (_currentUser.Roles.Contains("Admin"))
+        {
+            return Result.Success();
+        }
+
+        // CanManageTeacher Admin olmayanda öğretmen kimliğini zorunlu kılar; burada değer kesin vardır.
+        // Class kapsamı (P22) özel ders yazma yetkisi vermez (K-18) — bu yüzden "== Private".
+        var scope = await _access.GetScopeAsync(teacherUserId!.Value, studentId, cancellationToken);
+        return scope == TeacherAccessScope.Private ? Result.Success() : Result.Failure(NotLinked);
     }
 
     private bool CanManageTeacher(Guid? teacherUserId)

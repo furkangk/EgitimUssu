@@ -1,19 +1,49 @@
 using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
 
+/// <summary>
+/// Profil oluşturma isteğinin biçimi. P15 / N-23: profilin <b>kime ait olduğu</b> gövdeden gelmez —
+/// öğretmenin açtığı profilde <c>userId</c>/<c>parentUserId</c>, öğrencinin açtığında
+/// <c>createdByTeacherUserId</c>/<c>parentUserId</c> dolu gelirse istek <c>students.field_not_allowed</c> ile
+/// reddedilir (kabul edilip sessizce yok sayılmaz). Hesap davetle, veli onaylı bağla gelir.
+/// </summary>
 public sealed class CreateStudentProfileCommandValidator : ICommandValidator<CreateStudentProfileCommand>
 {
     private static readonly Error InvalidRequest = new("students.invalid_request", "Öğrenci profili bilgileri eksik veya hatalı.");
+    private static readonly Error ParentNotAllowed = new(
+        "students.field_not_allowed",
+        "'parentUserId' profil oluşturulurken gönderilemez; veli, onaylı veli bağıyla eklenir.");
+    private static readonly Error UserNotAllowed = new(
+        "students.field_not_allowed",
+        "'userId' öğretmenin açtığı profilde gönderilemez; öğrencinin hesabı davet koduyla bağlanır.");
+    private static readonly Error TeacherNotAllowed = new(
+        "students.field_not_allowed",
+        "'createdByTeacherUserId' öğrencinin kendi açtığı profilde gönderilemez; öğretmen bağı davetle kurulur.");
 
     public Task<Result> Validate(CreateStudentProfileCommand command, CancellationToken cancellationToken)
     {
         var isValid = !string.IsNullOrWhiteSpace(command.FullName)
             && !string.IsNullOrWhiteSpace(command.GradeLevel);
+        if (!isValid)
+        {
+            return Task.FromResult(Result.Failure(InvalidRequest));
+        }
 
-        return Task.FromResult(isValid ? Result.Success() : Result.Failure(InvalidRequest));
+        if (command.ParentUserId is not null)
+        {
+            return Task.FromResult(Result.Failure(ParentNotAllowed));
+        }
+
+        return Task.FromResult(command.Origin switch
+        {
+            StudentOrigin.TeacherManaged when command.UserId is not null => Result.Failure(UserNotAllowed),
+            StudentOrigin.SelfRegistered when command.CreatedByTeacherUserId is not null => Result.Failure(TeacherNotAllowed),
+            _ => Result.Success()
+        });
     }
 }
 
@@ -140,33 +170,59 @@ public sealed class StudentSubjectCommandAuthorizer :
         => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
 }
 
-/// <summary>M03-1: Veli bağlama yetkisi — Admin · profili oluşturan öğretmen · profilin sahibi öğrenci.</summary>
+/// <summary>
+/// M03-1: Veli bağlama yetkisi — Admin · profili oluşturan öğretmen · profilin sahibi öğrenci.
+/// <para>
+/// P15 T9 (#185 b): yeni veli bağı açmak, kardeşi <c>parent-invite</c> (N-21) gibi öğretmenden <b>yaşayan özel ders
+/// bağı</b> da ister (<see cref="ITeacherStudentAccess"/> = <c>Private</c>). Profili açan ama bağı arşivlenmiş öğretmen
+/// talep açamaz; profilin sahibi öğrenci öğretmen bağından bağımsızdır. Profil düzeltme ve branş uçları bilinçli olarak
+/// sahiplikle kalır (yeni ilişki değil, var olan kaydın bakımı).
+/// </para>
+/// </summary>
 public sealed class LinkStudentParentCommandAuthorizer : ICommandAuthorizer<LinkStudentParentCommand>
 {
     private readonly ICurrentUser _currentUser;
     private readonly IStudentProfileRepository _repository;
+    private readonly ITeacherStudentAccess _access;
 
-    public LinkStudentParentCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    public LinkStudentParentCommandAuthorizer(
+        ICurrentUser currentUser,
+        IStudentProfileRepository repository,
+        ITeacherStudentAccess access)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _access = access;
     }
 
     public Task<Result> Authorize(LinkStudentParentCommand command, CancellationToken cancellationToken)
-        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+        => StudentProfileAccess.AuthorizeManage(
+            _currentUser, _repository, command.StudentId, cancellationToken, requireLivingTeacherLink: _access);
 }
 
 /// <summary>Öğrenci profili alt kaynaklarının ortak yetki kuralı (tek yerde durur).</summary>
 internal static class StudentProfileAccess
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotLinked = new("shared.forbidden", "Bu öğrenciyle aktif bir özel ders bağınız yok.");
     private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
 
+    /// <summary>Admin · profili açan öğretmen · profilin sahibi öğrenci.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    /// <param name="repository">Profil deposu.</param>
+    /// <param name="studentId">Profil kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <param name="requireLivingTeacherLink">
+    /// Verilirse, profili açan öğretmen ayrıca öğrenciyle yaşayan özel ders bağı (<c>Private</c>) ister — yeni ilişki
+    /// açan uçlar için (P15 T9, <c>link-parent</c>). Sahibi öğrenci ve Admin bu sorudan muaftır.
+    /// </param>
+    /// <returns>Yetki sonucu.</returns>
     public static async Task<Result> AuthorizeManage(
         ICurrentUser currentUser,
         IStudentProfileRepository repository,
         Guid studentId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ITeacherStudentAccess? requireLivingTeacherLink = null)
     {
         if (!currentUser.IsAuthenticated)
         {
@@ -189,9 +245,24 @@ internal static class StudentProfileAccess
             return Result.Failure(Forbidden);
         }
 
+        if (profile.UserId == userId)
+        {
+            return Result.Success();
+        }
+
         var isOwningTeacher = currentUser.Roles.Contains("Teacher") && profile.CreatedByTeacherUserId == userId;
-        var isOwningStudent = profile.UserId == userId;
-        return isOwningTeacher || isOwningStudent ? Result.Success() : Result.Failure(Forbidden);
+        if (!isOwningTeacher)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (requireLivingTeacherLink is null)
+        {
+            return Result.Success();
+        }
+
+        var scope = await requireLivingTeacherLink.GetScopeAsync(userId, studentId, cancellationToken);
+        return scope == TeacherAccessScope.Private ? Result.Success() : Result.Failure(NotLinked);
     }
 }
 
@@ -206,15 +277,21 @@ public sealed class StudentProfileQueryAuthorizer :
     private readonly ICurrentUser _currentUser;
     private readonly IStudentProfileRepository _repository;
     private readonly IRequestEntityCache _entityCache;
+    private readonly ITeacherStudentAccess _teacherAccess;
+    private readonly IParentAccessDirectory _parentAccess;
 
     public StudentProfileQueryAuthorizer(
         ICurrentUser currentUser,
         IStudentProfileRepository repository,
-        IRequestEntityCache entityCache)
+        IRequestEntityCache entityCache,
+        ITeacherStudentAccess teacherAccess,
+        IParentAccessDirectory parentAccess)
     {
         _currentUser = currentUser;
         _repository = repository;
         _entityCache = entityCache;
+        _teacherAccess = teacherAccess;
+        _parentAccess = parentAccess;
     }
 
     public async Task<Result> Authorize(GetStudentProfileByIdQuery query, CancellationToken cancellationToken)
@@ -224,7 +301,7 @@ public sealed class StudentProfileQueryAuthorizer :
             ct => _repository.GetByIdAsync(query.StudentId, ct),
             cancellationToken);
 
-        return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
+        return profile is null ? Result.Failure(NotFound) : await EvaluateProfileAccessAsync(profile, cancellationToken);
     }
 
     public async Task<Result> Authorize(GetStudentProfileByUserIdQuery query, CancellationToken cancellationToken)
@@ -234,7 +311,7 @@ public sealed class StudentProfileQueryAuthorizer :
             ct => _repository.GetByUserIdAsync(query.UserId, ct),
             cancellationToken);
 
-        return profile is null ? Result.Failure(NotFound) : EvaluateProfileAccess(profile);
+        return profile is null ? Result.Failure(NotFound) : await EvaluateProfileAccessAsync(profile, cancellationToken);
     }
 
     /// <summary>M03-3: Veli yalnız <b>kendi</b> çocuk listesini sorgulayabilir; Admin hepsini.</summary>
@@ -267,7 +344,20 @@ public sealed class StudentProfileQueryAuthorizer :
         return Task.FromResult(isAdmin || (isTeacher && ownsList) ? Result.Success() : Result.Failure(Forbidden));
     }
 
-    private Result EvaluateProfileAccess(StudentProfile profile)
+    /// <summary>
+    /// Profil okuma: sahibi öğrenci, profili açan öğretmen, <b>onaylı bağı süren</b> veli — ve P15 / N-28'den beri
+    /// profille <b>yaşayan özel ders bağı</b> olan öğretmen (<see cref="ITeacherStudentAccess"/> = <c>Private</c>).
+    /// Birleşme sonrası kanonik profil öğrencinin kendi açtığıdır (<c>CreatedByTeacherUserId</c> boş); bağı taşınan
+    /// öğretmen öğrenciyi listesinde görür, profilini de açabilmeli. Profil <b>yazma</b> yetkisi bilinçli olarak genişletilmedi.
+    /// <para>
+    /// P15 / N-26: veli erişimi profildeki <c>ParentUserId</c>'den değil Parents'taki onaylı bağdan
+    /// (<see cref="IParentAccessDirectory"/>) okunur. Alan yalnız onay olayında yazılıyordu; bağı iptal/ret edilen veli
+    /// okumaya devam ediyordu. Artık iptal anında kesilir (olayın işlenmesini beklemez) ve birincil olmayan onaylı veli de
+    /// okuyabilir — <c>ListStudentsByParent</c> ile aynı kural. Kapsam/bağ sorguları yalnız ucuz kontroller başarısızsa ve
+    /// yalnız ilgili rolde çalışır (O2: ek yükleme yok).
+    /// </para>
+    /// </summary>
+    private async Task<Result> EvaluateProfileAccessAsync(StudentProfile profile, CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated)
         {
@@ -280,13 +370,25 @@ public sealed class StudentProfileQueryAuthorizer :
             return Result.Success();
         }
 
-        var currentUserId = Guid.TryParse(_currentUser.UserId, out var parsedUserId) ? parsedUserId : Guid.Empty;
-        var hasAccess = currentUserId != Guid.Empty
-            && (profile.UserId == currentUserId
-                || profile.CreatedByTeacherUserId == currentUserId
-                || profile.ParentUserId == currentUserId);
+        if (!Guid.TryParse(_currentUser.UserId, out var currentUserId) || currentUserId == Guid.Empty)
+        {
+            return Result.Failure(Forbidden);
+        }
 
-        return hasAccess ? Result.Success() : Result.Failure(Forbidden);
+        if (profile.UserId == currentUserId || profile.CreatedByTeacherUserId == currentUserId)
+        {
+            return Result.Success();
+        }
+
+        if (_currentUser.Roles.Contains("Teacher")
+            && await _teacherAccess.GetScopeAsync(currentUserId, profile.Id, cancellationToken) == TeacherAccessScope.Private)
+        {
+            return Result.Success();
+        }
+
+        var isApprovedParent = _currentUser.Roles.Contains("Parent")
+            && await _parentAccess.IsApprovedParentOfStudentAsync(currentUserId, profile.Id, cancellationToken);
+        return isApprovedParent ? Result.Success() : Result.Failure(Forbidden);
     }
 }
 

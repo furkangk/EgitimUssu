@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Application;
@@ -11,6 +12,9 @@ public interface IStudentParentInviteRepository
     Task<StudentParentInvite?> GetByInviteCodeAsync(string inviteCode, CancellationToken cancellationToken);
 
     Task<StudentParentInvite?> GetByIdAsync(Guid inviteId, CancellationToken cancellationToken);
+
+    /// <summary>P15 / N-28: Bir profilin bekleyen veli davetleri — birleşmede kanonik profile taşınır.</summary>
+    Task<IReadOnlyCollection<StudentParentInvite>> ListPendingByStudentAsync(Guid studentId, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
@@ -36,17 +40,20 @@ public sealed class CreateParentInviteCommandHandler : ICommandHandler<CreatePar
     private static readonly Error StudentNotFound = new("students.student_not_found", "Öğrenci bulunamadı.");
     private readonly IStudentParentInviteRepository _repository;
     private readonly IStudentProfileRepository _profileRepository;
+    private readonly ISecureCodeGenerator _codes;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateParentInviteCommandHandler(
         IStudentParentInviteRepository repository,
         IStudentProfileRepository profileRepository,
+        ISecureCodeGenerator codes,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
         _profileRepository = profileRepository;
+        _codes = codes;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -59,14 +66,16 @@ public sealed class CreateParentInviteCommandHandler : ICommandHandler<CreatePar
             return Result<ParentInviteResponse>.Failure(StudentNotFound);
         }
 
-        var inviteCode = TeacherStudentLink.GenerateInviteCode();
+        var inviteCode = _codes.NewCode();
+        var now = _clock.UtcNow;
         var invite = new StudentParentInvite(
             _idGenerator.New(),
             command.StudentId,
             command.TeacherUserId,
             inviteCode,
             command.ChildDisplayName,
-            _clock.UtcNow);
+            now,
+            now.AddDays(InvitePolicy.ExpiryDays));
 
         await _repository.AddAsync(invite, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
@@ -75,28 +84,44 @@ public sealed class CreateParentInviteCommandHandler : ICommandHandler<CreatePar
     }
 }
 
+/// <summary>
+/// P15 T2 / N-21: Veli daveti yalnız öğrenciyle yaşayan özel ders bağı olan öğretmen tarafından üretilir.
+/// Eskiden öğrenci kimliğini bilen herhangi bir öğretmen hesabı davet üretip ikinci bir hesapla kendisi
+/// kullanabiliyor ve çocuğun birincil velisi oluyordu.
+/// </summary>
 public sealed class CreateParentInviteCommandAuthorizer : ICommandAuthorizer<CreateParentInviteCommand>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu öğrenci için veli daveti oluşturma yetkiniz yok.");
     private readonly ICurrentUser _currentUser;
+    private readonly ITeacherStudentAccess _access;
 
-    public CreateParentInviteCommandAuthorizer(ICurrentUser currentUser) => _currentUser = currentUser;
+    public CreateParentInviteCommandAuthorizer(ICurrentUser currentUser, ITeacherStudentAccess access)
+    {
+        _currentUser = currentUser;
+        _access = access;
+    }
 
-    public Task<Result> Authorize(CreateParentInviteCommand command, CancellationToken cancellationToken)
+    public async Task<Result> Authorize(CreateParentInviteCommand command, CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated)
         {
-            return Task.FromResult(Result.Failure(Forbidden));
+            return Result.Failure(Forbidden);
         }
 
         if (_currentUser.Roles.Contains("Admin"))
         {
-            return Task.FromResult(Result.Success());
+            return Result.Success();
         }
 
-        var canManage = _currentUser.Roles.Contains("Teacher")
+        var isSelf = _currentUser.Roles.Contains("Teacher")
             && Guid.TryParse(_currentUser.UserId, out var id)
             && id == command.TeacherUserId;
-        return Task.FromResult(canManage ? Result.Success() : Result.Failure(Forbidden));
+        if (!isSelf)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        var scope = await _access.GetScopeAsync(command.TeacherUserId, command.StudentId, cancellationToken);
+        return scope == TeacherAccessScope.Private ? Result.Success() : Result.Failure(Forbidden);
     }
 }

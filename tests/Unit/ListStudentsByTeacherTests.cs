@@ -53,6 +53,9 @@ public sealed class ListStudentsByTeacherTests
             => Task.FromResult<IReadOnlyCollection<TeacherStudentLink>>(
                 _links.Where(l => includeArchived || !l.IsArchived).ToArray());
 
+        public Task<IReadOnlyCollection<TeacherStudentLink>> ListByStudentAsync(Guid studentId, CancellationToken ct) => throw new NotImplementedException();
+        public void Remove(TeacherStudentLink link) => throw new NotImplementedException();
+
         public Task AddAsync(TeacherStudentLink link, CancellationToken ct) => throw new NotImplementedException();
         public Task<TeacherStudentLink?> GetByIdAsync(Guid linkId, CancellationToken ct) => throw new NotImplementedException();
         public Task<TeacherStudentLink?> GetByTeacherAndStudentAsync(Guid teacherUserId, Guid studentId, CancellationToken ct) => throw new NotImplementedException();

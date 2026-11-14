@@ -6,6 +6,7 @@ using EgitimUssu.Modules.Students.Application;
 using EgitimUssu.Modules.Students.Domain;
 using EgitimUssu.Modules.Students.Infrastructure;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -42,7 +43,11 @@ public sealed class RealSingleEntityLoadTests(ContainerFixture fixture)
         var query = new GetStudentProfileByIdQuery(studentId);
 
         sql.Reset();
-        var authorization = await new StudentProfileQueryAuthorizer(new StubCurrentUser(teacherUserId, "Teacher"), repository, cache)
+        // Profili açan öğretmen ucuz kontrolle geçer — kapsam sorgusu (P15 T3) bu yolda hiç çalışmaz.
+        var access = scope.ServiceProvider.GetRequiredService<ITeacherStudentAccess>();
+        var authorization = await new StudentProfileQueryAuthorizer(
+                new StubCurrentUser(teacherUserId, "Teacher"), repository, cache, access,
+                scope.ServiceProvider.GetRequiredService<IParentAccessDirectory>())
             .Authorize(query, CancellationToken.None);
         var result = await new GetStudentProfileByIdQueryHandler(repository, cache).Handle(query, CancellationToken.None);
 

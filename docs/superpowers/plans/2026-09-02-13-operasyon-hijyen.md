@@ -1,5 +1,7 @@
 # P13 — Operasyon, Gözlemlenebilirlik ve Hijyen Implementation Plan
 
+> **🔁 Revizyon 2026-11-13 (Olgunlaştırma programı, K-26):** **Task 6b tur tur yürütülmeyecek.** Kural: her plan dokunduğu ekranı ARB'ye taşır; kalan ekranlar [P25 Task 7](2026-11-13-25-mobil-yayin.md)'de tek süpürmede. Tur 1 (`dashboard`) ✅ yapıldı. **P13 bu revizyonla kapandı (9/9 + 6b devredildi).**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Üretim işletilebilirliğini kurmak: OpenTelemetry ile izleme/metrik/log korelasyonu, API sürümleme, staging ortamı + tohum verisi, yedekleme/geri yükleme prosedürü, KVKK (hesap silme + saklama), mobil hijyen (l10n, Türkçe karakterler, kullanılmayan paketler, test kapsamı, CI).

@@ -21,6 +21,7 @@ Amaç: `/clear` sonrası hiçbir bilgi kaybolmasın. Konuşmada kalan her şey s
    - ilgili `doc/modules/mNN_*.md` (+ endpoint envanteri, durum, "Güncelleme: YYYY-MM-DD")
    - gerekiyorsa `doc/modules/00_genel_bakis.md`, `doc/modules/veri_modeli.md`, `doc/INDEX.md`, `doc/pages/*`, `doc/roles/*`
    - `doc/denetim/2026-09-02_eksik_analizi.md` → kapanan madde ID'lerine `✅ (PNN)` işareti
+   - Olgunlaştırma programında: `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md` → kapanan **N-/P-** ID satırlarına `✅ (PNN Tn)` işareti (görevin başlığındaki ID'ler)
 7. **Commit:** Planın o görevindeki commit komutunu kullan (Conventional Commits). Tek görev = tek commit.
 
 ## 3. ILERLEME.md'yi güncelle (en kritik adım)

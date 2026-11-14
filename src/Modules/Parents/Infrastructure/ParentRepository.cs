@@ -1,6 +1,8 @@
 using EgitimUssu.Modules.Parents.Application;
 using EgitimUssu.Modules.Parents.Domain;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace EgitimUssu.Modules.Parents.Infrastructure;
 
@@ -71,5 +73,26 @@ internal sealed class ParentRepository : IParentRepository
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         return _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// P15 / N-32: "Öğrenci başına tek onaylı birincil veli" kısmi benzersiz indeksinin ihlalini
+    /// <c>parents.primary_exists</c>'e çevirir (Application katmanı Npgsql'i göremez). Başka her hata olduğu gibi yükselir.
+    /// </summary>
+    public async Task<Result> SaveLinkChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: ParentChildLinkConfiguration.PrimaryContactIndexName,
+        })
+        {
+            return Result.Failure(ParentErrors.PrimaryExists);
+        }
     }
 }

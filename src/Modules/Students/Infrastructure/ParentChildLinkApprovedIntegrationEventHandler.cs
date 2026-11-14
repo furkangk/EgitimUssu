@@ -8,8 +8,9 @@ namespace EgitimUssu.Modules.Students.Infrastructure;
 
 /// <summary>
 /// M09 Parents modülünde bir veli–çocuk bağı onaylandığında (ve birincil veli ise), öğrenci profilinin
-/// <c>ParentUserId</c> alanını günceller. Böylece mevcut yetkilendirme (StudentProfilePolicies) veliye
-/// öğrenci verisine erişim tanır. Doğrudan cross-module DB erişimi yok — yalnızca integration event.
+/// <c>ParentUserId</c> alanını (birincil veli göstergesi) günceller. P15 / N-26'dan beri bu alan <b>yetki vermez</b>:
+/// profil okuma onaylı bağı <c>IParentAccessDirectory</c>'den okur; bağ bitince alanı
+/// <see cref="ParentChildLinkEndedIntegrationEventHandler"/> temizler. Doğrudan cross-module DB erişimi yok — yalnızca integration event.
 /// Replay koruması artık ortak inbox üzerinden (<see cref="IdempotentIntegrationEventHandler"/>,
 /// EventId+Handler); "zaten aynı veli bağlı" iş guard'ı burada korunur — <c>LinkParent</c> domain
 /// çağrısını (ve gereksiz UpdatedOnUtc dokunuşunu) tekrar tetiklememek için gerçek bir iş kuralıdır.
