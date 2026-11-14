@@ -42,7 +42,7 @@ updated: 2026-11-13
 | İptal nedeni + ücretlendirme (`CancellationReason`, `IsChargeable`) | 🟢 **Mevcut (2026-07-18, B-09)** | `Cancel()` genişletildi; iptal nedeni (enum) + ücretlendirme kararı saklanır |
 | Ders silme (24s + gelecek) | 🟢 **Mevcut (2026-07-18, B-09)** | `CanBeDeletedAt()` + `DELETE /lessons/{id}`; yalnız oluşturmadan ≤24 saat **ve** ders gelecekteyse, aksi halde `scheduling.delete_not_allowed` (409) |
 | Tatil / müsait değil bloğu (`TimeOffBlock`) | 🟢 **Mevcut (2026-07-18, B-01)** | Yeni aggregate + `POST/GET/DELETE /teachers/{id}/time-off`; oluşturmada çakışan planlı dersler yanıtta döner. Migration `AddTimeOffBlocks` |
-| Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🟢 **Mevcut (öğrenci takviminde + occurrence istisnaları)** | `RecurrenceExpander` (DAILY/WEEKLY+BYDAY/MONTHLY + UNTIL) → `GET /students/{id}/calendar` somut oluşumları üretir; **occurrence istisnaları** (`LessonOccurrenceException`: skip/cancel/reschedule) uygulanır (2026-07-18, B-03). Öğretmen `LessonSchedule` listesi hâlâ açılımsız (tek örnek) |
+| Tekrar kuralı (`RecurrenceRule`) **açılımı** | 🟢 **Mevcut (öğrenci takviminde + occurrence istisnaları)** | `RecurrenceExpander` (DAILY/WEEKLY+BYDAY/MONTHLY + UNTIL) → `GET /students/{id}/calendar` somut oluşumları üretir; **occurrence istisnaları** (`LessonOccurrenceException`: skip/cancel/reschedule) uygulanır (2026-07-18, B-03). Öğretmen ders listesi de 2026-09-04'ten (M04-1) beri açılımlı · **P16 T2 (2026-11-14):** genişletme serinin **yerel** diliminde (`BYDAY` yerel gün, aylık ay günü çapadan sabit) — bkz. §2.3 sonundaki "Tekrar kuralı yerel saatte genişletilir" |
 | Öğrenci kişisel programı (**birleşik `LessonSchedule`**) | 🟢 **Mevcut (2026-07-19, Ç-06)** | Ayrı `StudyScheduleEntry` **kaldırıldı**; öğrencinin kendi dersi birleşik `LessonSchedule`'da `TeacherUserId=null` (self) olarak tutulur. `CreateSelfLesson` fabrikası + `CreateSelfLesson/UpdateSelfLesson/DeleteSelfLesson` komut yolu. `/students/{id}/study-entries` (POST) · `PUT/DELETE /study-entries/{id}` rotaları korunur (mobil geriye-uyum), self-lesson komutlarına köprülenir. Öğretmen dersiyle saat çakışması reddedilir. Migration `UnifyLessonSchedule` (veri göçü + tablo drop) |
 | Birleşik takvim `completed` (planla→çalış→✓) | 🟢 **Mevcut (2026-07-19, Ç-06)** | `GET /students/{id}/calendar` occurrence'ına `completed` alanı eklendi; `IStudyPlanCompletionReader` (Shared/Contracts) ile Study'den (LessonId'ye bağlı tamamlanmış seanslar) doldurulur. `source`/`isEditable`/`topic`/`colorHex` tek kaynaktan (`lesson_schedules`) türetilir |
 | Öğrenci programı **hatırlatması** | 🟢 **Mevcut (2026-07-19, Ç-06 revizyon)** | Kendi ders hatırlatması artık `LessonScheduledDomainEvent` (teacher null) → Notifications `LessonScheduleNotificationIntegrationEventHandler` üzerinden üretilir; ayrı `StudyScheduleReminderIntegrationEventHandler` **kaldırıldı**. Bkz. §5 |
@@ -133,7 +133,7 @@ Tekrar serisinde tek bir oluşuma uygulanan istisna (iCal `EXDATE`/`RECURRENCE-I
 | `Note` | `string?` | |
 | `CreatedOnUtc` | `DateTime` | |
 
-`RecurrenceExpander.Expand(...)` 6-argümanlı overload'u istisnaları uygular: `Skipped` → oluşum atlanır; `Cancelled` → `IsCancelled=true` ile döner (takvimde gizlenir/soluk); `Rescheduled` → override tarih/saatle döner.
+`RecurrenceExpander.Expand(...)` istisna listesi alan aşırı yüklemesi (P16 T2'den beri seri dilimiyle 7 argüman) istisnaları uygular: `Skipped` → oluşum atlanır; `Cancelled` → `IsCancelled=true` ile döner (takvimde gizlenir/soluk); `Rescheduled` → override tarih/saatle döner.
 
 **Domain Event'ler (koddan birebir):**
 | Event | Alanlar |
@@ -228,8 +228,29 @@ Sahiplik `StudentId` üzerindendi; yalnızca sahibi öğrenci (veya admin) yöne
 
 **Tekrar açılımı — `RecurrenceExpander`** (`src/Modules/Scheduling/Application/RecurrenceExpander.cs`): kural + ilk
 oluşumu alıp `[rangeStart, rangeEnd]` penceresine düşen somut oluşumları üretir (`FREQ=DAILY/WEEKLY/MONTHLY`,
-`BYDAY`, `UNTIL`). Aritmetik UTC instant üzerinden yapılır (Türkiye DST uygulamadığı için yerel duvar-saati korunur).
-Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda bu genişleticiyle işlenir.
+`BYDAY`, `UNTIL`, `COUNT`). Hem öğrenci girdileri hem öğretmen dersleri **birleşik takvim** sorgusunda bu genişleticiyle işlenir.
+
+**Tekrar kuralı yerel saatte genişletilir (P16 T2 / N-04, K-19 — 2026-11-14).** Eskiden aritmetik UTC üzerinden
+yapılıyordu: "Salı 01:30 TR" dersi UTC'de Pazartesi 22:30 olduğundan `BYDAY=TU` ilk dersi üretmiyor, sonrakileri
+Çarşamba 01:30'a düşürüyordu; aylık kural birikimli `AddMonths` ile 31 Ocak → 28 Şubat → **28 Mart** kayıyordu. Kural artık:
+
+| Konu | Kural |
+|------|-------|
+| Dilim | Serinin `TimeZone` alanı (`SeriesTimeZone.SeriesZone(lesson.TimeZone)`); alan boşsa **veya çözülemiyorsa** `ILocalCalendar.Zone` (varsayılan `Europe/Istanbul`). Doğrulayıcı yalnız boş olmamayı istediği için geçersiz kimlik takvimi 500'e çevirmez, platform dilimine düşer |
+| Genişletme | Çapa serinin diliminde duvar saatine çevrilir, gün/ay **yerel takvimde** ilerler, her oluşum UTC'ye geri çevrilir — DST'li dilimde duvar saati korunur (Berlin 18:00 ekim sonunda da 18:00) |
+| `BYDAY` | **Yerel** haftanın günüyle eşleşir; `BYDAY` yoksa çapanın yerel günü |
+| Aylık | Ay günü **çapadan sabit**: kısa ayda o ayın son gününe kırpılır ama sonraki aya taşınmaz (31 Ocak → 28 Şubat → 31 Mart → 30 Nisan) |
+| `UNTIL` | `Z` sonekli değer UTC an (mobil biçimi: yerel bitiş günü 23:59 → UTC; `EndSeriesBefore` da bu biçimi yazar); Z'siz tarih-saat serinin **yerel** saati (RFC 5545 "floating"); yalnız tarih (`yyyyMMdd`) o yerel günün tamamı dahil |
+| `COUNT` | Seri başlangıcından itibaren yerel oluşumları sayar (pencere dışındakiler dahil) |
+| DST boşluğu | Var olmayan yerel saat boşluk kadar ileri kayar (`LocalCalendar.ToUtc` ile aynı kural) |
+
+Çağıranlar (hepsi `ILocalCalendar` enjekte eder): öğretmen ders listesi (`ListLessonSchedulesForTeacherQueryHandler`),
+birleşik takvim (`GetStudentCalendarQueryHandler`), öğrencinin kendi ders çakışması (`SelfLessonConflict` — aday kendi
+`TimeZone`'unda, her öğretmen dersi kendi diliminde) ve Reporting'in boş zaman analizi (`LessonScheduleDirectory.ListTeacherBusyIntervalsAsync`).
+Mobil (`lesson_form_sheet.dart`, `study_entry_form_sheet.dart`) `BYDAY`'i zaten seçilen **yerel** tarihten üretiyor — değişiklik gerekmedi.
+⚠️ **Göç notu:** eski genişletmenin ürettiği (yanlış güne düşmüş) oluşumlara yazılmış istisnalar artık hiçbir oluşumla
+eşleşmez (yalnız gece 00:00–02:59 TR seri başlangıçlı `BYDAY` serileri ve ayın 29–31'ine çapalı aylık seriler). Canlı üretim
+verisi olmadığı için göç yazılmadı.
 
 ---
 
@@ -440,4 +461,4 @@ POST /lesson-requests/{id}/reject
 
 ---
 
-*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-11-13 (P15 Task 2 / N-08: §4 kural 10 — ders oluştur/güncelle/ertele `ITeacherStudentAccess` ile yaşayan özel ders bağı ister; iptal/silme/tamamlama/okuma yalnız sahiplik) · 2026-10-16 (kapalı ders durum geçişleri ve eksik tekrar kapsamı bilgisi için veri bütünlüğü kontrolleri). Önceki: 2026-09-04 (P08 Task 3 / M14-5: `ILessonScheduleDirectory` `ListTeacherBusyIntervalsAsync` ile genişledi — ders oluşumları + izin blokları tek listede, Reporting boş zaman analizi tüketiyor) · 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
+*Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-11-14 (P16 Task 2 / N-04: tekrar kuralı serinin yerel diliminde genişletilir — `BYDAY` yerel gün, aylık ay günü çapadan sabit, floating/tarih `UNTIL` yerel; `SeriesTimeZone` geçersiz kimlikte platform dilimine düşer) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 10 — ders oluştur/güncelle/ertele `ITeacherStudentAccess` ile yaşayan özel ders bağı ister; iptal/silme/tamamlama/okuma yalnız sahiplik) · 2026-10-16 (kapalı ders durum geçişleri ve eksik tekrar kapsamı bilgisi için veri bütünlüğü kontrolleri). Önceki: 2026-09-04 (P08 Task 3 / M14-5: `ILessonScheduleDirectory` `ListTeacherBusyIntervalsAsync` ile genişledi — ders oluşumları + izin blokları tek listede, Reporting boş zaman analizi tüketiyor) · 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*

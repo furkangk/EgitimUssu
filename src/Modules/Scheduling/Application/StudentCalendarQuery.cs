@@ -40,13 +40,16 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
 {
     private readonly ILessonScheduleRepository _lessonRepository;
     private readonly IStudyPlanCompletionReader _completionReader;
+    private readonly ILocalCalendar _calendar;
 
     public GetStudentCalendarQueryHandler(
         ILessonScheduleRepository lessonRepository,
-        IStudyPlanCompletionReader completionReader)
+        IStudyPlanCompletionReader completionReader,
+        ILocalCalendar calendar)
     {
         _lessonRepository = lessonRepository;
         _completionReader = completionReader;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>> Handle(GetStudentCalendarQuery query, CancellationToken cancellationToken)
@@ -76,8 +79,10 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                 ? ex
                 : Array.Empty<OccurrenceOverride>();
 
+            // P16 T2 / N-04: seri kendi diliminin yerel takviminde genişletilir.
             foreach (var occurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, query.StartAtUtc, query.EndAtUtc, lessonExceptions))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
+                query.StartAtUtc, query.EndAtUtc, lessonExceptions))
             {
                 // İptal edilen tek oluşum takvimde gösterilmez.
                 if (occurrence.IsCancelled)

@@ -479,10 +479,12 @@ public sealed class GetLessonScheduleByIdQueryHandler : IQueryHandler<GetLessonS
 public sealed class ListLessonSchedulesForTeacherQueryHandler : IQueryHandler<ListLessonSchedulesForTeacherQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>
 {
     private readonly ILessonScheduleRepository _repository;
+    private readonly ILocalCalendar _calendar;
 
-    public ListLessonSchedulesForTeacherQueryHandler(ILessonScheduleRepository repository)
+    public ListLessonSchedulesForTeacherQueryHandler(ILessonScheduleRepository repository, ILocalCalendar calendar)
     {
         _repository = repository;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<LessonScheduleResponse>>> Handle(ListLessonSchedulesForTeacherQuery query, CancellationToken cancellationToken)
@@ -506,8 +508,10 @@ public sealed class ListLessonSchedulesForTeacherQueryHandler : IQueryHandler<Li
                 ? found
                 : Array.Empty<OccurrenceOverride>();
 
+            // P16 T2 / N-04: seri kendi diliminin yerel takviminde genişletilir (BYDAY yerel gün).
             foreach (var occurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, query.StartAtUtc, query.EndAtUtc, lessonExceptions))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
+                query.StartAtUtc, query.EndAtUtc, lessonExceptions))
             {
                 // İptal edilen tek oluşum takvimde gösterilmez (öğrenci takvimiyle aynı kural).
                 if (occurrence.IsCancelled)

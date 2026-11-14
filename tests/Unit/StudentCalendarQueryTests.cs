@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Modules.Scheduling.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -14,6 +15,7 @@ public sealed class StudentCalendarQueryTests
     private static readonly DateTime WindowEnd = new(2026, 7, 21, 0, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime SelfStart = new(2026, 7, 20, 13, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime TeacherStart = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
+    private static readonly LocalCalendar Calendar = new("Europe/Istanbul", new FakeClock(WindowStart));
 
     [Fact]
     public async Task Derives_source_editability_and_completed()
@@ -32,7 +34,7 @@ public sealed class StudentCalendarQueryTests
         var repo = new FakeRepo(teacher, self);
         // Self ders o gün çalışılmış; öğretmen dersi çalışılmamış.
         var reader = new FakeCompletionReader(new PlanCompletion(self.Id, DateOnly.FromDateTime(SelfStart)));
-        var handler = new GetStudentCalendarQueryHandler(repo, reader);
+        var handler = new GetStudentCalendarQueryHandler(repo, reader, Calendar);
 
         var result = await handler.Handle(new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd), CancellationToken.None);
 
@@ -70,7 +72,7 @@ public sealed class StudentCalendarQueryTests
             Guid.NewGuid(), studentId, "Fizik", null,
             SelfStart, SelfStart.AddHours(1), "Europe/Istanbul", null, 30, null, null, SelfStart);
 
-        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, overlapping, free), new FakeCompletionReader());
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, overlapping, free), new FakeCompletionReader(), Calendar);
 
         var result = await handler.Handle(new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd), CancellationToken.None);
 
@@ -98,7 +100,7 @@ public sealed class StudentCalendarQueryTests
             Guid.NewGuid(), studentId, "Matematik", null,
             TeacherStart.AddDays(7), TeacherStart.AddDays(7).AddHours(1), "Europe/Istanbul", null, 30, null, null, TeacherStart);
 
-        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, self), new FakeCompletionReader());
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, self), new FakeCompletionReader(), Calendar);
 
         var result = await handler.Handle(
             new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd.AddDays(7)), CancellationToken.None);

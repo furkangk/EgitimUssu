@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Modules.Scheduling.Domain;
+using EgitimUssu.Shared.Infrastructure;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -14,6 +15,7 @@ public sealed class TeacherLessonExpansionTests
     private static readonly DateTime Anchor = new(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime WindowStart = Anchor;
     private static readonly DateTime WindowEnd = Anchor.AddDays(22);
+    private static readonly LocalCalendar Calendar = new("Europe/Istanbul", new FakeClock(Anchor));
 
     private static LessonSchedule Weekly(string? rule = "FREQ=WEEKLY")
         => new(
@@ -21,11 +23,32 @@ public sealed class TeacherLessonExpansionTests
             ScheduledLessonFormat.Online, Anchor, Anchor.AddHours(1), "Europe/Istanbul",
             rule, LessonScheduleStatus.Planned, 60, null, null, null, Anchor);
 
+    [Theory]
+    [InlineData("Europe/Istanbul")]
+    [InlineData("Gecersiz/Dilim")] // çözülemeyen kimlik → platform dilimi (Europe/Istanbul), 500 değil
+    public async Task Tuesday_night_series_lists_local_tuesdays(string seriesTimeZone)
+    {
+        // P16 T2 / N-04: Salı 01:30 TR = Pazartesi 22:30Z; BYDAY=TU yerel Salı'ya eşlenmeli.
+        var tuesdayNight = new DateTime(2026, 11, 16, 22, 30, 0, DateTimeKind.Utc);
+        var lesson = new LessonSchedule(
+            Guid.NewGuid(), TeacherUserId, Guid.NewGuid(), "Matematik",
+            ScheduledLessonFormat.Online, tuesdayNight, tuesdayNight.AddHours(1), seriesTimeZone,
+            "FREQ=WEEKLY;BYDAY=TU", LessonScheduleStatus.Planned, 60, null, null, null, tuesdayNight);
+        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson), Calendar);
+
+        var result = await handler.Handle(
+            new ListLessonSchedulesForTeacherQuery(TeacherUserId, tuesdayNight, tuesdayNight.AddDays(14)), CancellationToken.None);
+
+        Assert.Equal(
+            new[] { tuesdayNight, tuesdayNight.AddDays(7), tuesdayNight.AddDays(14) },
+            result.Value!.Select(item => item.StartAtUtc));
+    }
+
     [Fact]
     public async Task Weekly_lesson_expands_into_four_occurrences()
     {
         var lesson = Weekly();
-        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson));
+        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson), Calendar);
 
         var result = await handler.Handle(
             new ListLessonSchedulesForTeacherQuery(TeacherUserId, WindowStart, WindowEnd), CancellationToken.None);
@@ -48,7 +71,7 @@ public sealed class TeacherLessonExpansionTests
         var cancelled = new LessonOccurrenceException(
             Guid.NewGuid(), lesson.Id, Anchor.AddDays(7),
             OccurrenceExceptionAction.Cancelled, null, null, null, Anchor);
-        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(new[] { lesson }, cancelled));
+        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(new[] { lesson }, cancelled), Calendar);
 
         var result = await handler.Handle(
             new ListLessonSchedulesForTeacherQuery(TeacherUserId, WindowStart, WindowEnd), CancellationToken.None);
@@ -65,7 +88,7 @@ public sealed class TeacherLessonExpansionTests
         var moved = new LessonOccurrenceException(
             Guid.NewGuid(), lesson.Id, Anchor.AddDays(14), OccurrenceExceptionAction.Rescheduled,
             Anchor.AddDays(14).AddHours(3), Anchor.AddDays(14).AddHours(4), null, Anchor);
-        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(new[] { lesson }, moved));
+        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(new[] { lesson }, moved), Calendar);
 
         var result = await handler.Handle(
             new ListLessonSchedulesForTeacherQuery(TeacherUserId, WindowStart, WindowEnd), CancellationToken.None);
@@ -79,7 +102,7 @@ public sealed class TeacherLessonExpansionTests
     public async Task Non_recurring_lesson_returns_single_occurrence()
     {
         var lesson = Weekly(rule: null);
-        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson));
+        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson), Calendar);
 
         var result = await handler.Handle(
             new ListLessonSchedulesForTeacherQuery(TeacherUserId, WindowStart, WindowEnd), CancellationToken.None);
@@ -94,7 +117,7 @@ public sealed class TeacherLessonExpansionTests
     {
         var lesson = Weekly();
         lesson.EndSeriesBefore(Anchor.AddDays(14), Anchor);
-        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson));
+        var handler = new ListLessonSchedulesForTeacherQueryHandler(new FakeRepo(lesson), Calendar);
 
         var result = await handler.Handle(
             new ListLessonSchedulesForTeacherQuery(TeacherUserId, WindowStart, WindowEnd), CancellationToken.None);

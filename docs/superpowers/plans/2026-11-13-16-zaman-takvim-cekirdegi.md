@@ -53,22 +53,26 @@
 
 ---
 
-### Task 2: Tekrar genişletmesi yerel saatte (N-04)
+### Task 2: Tekrar genişletmesi yerel saatte (N-04) ✅
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (her iki `Expand` aşırı yüklemesi)
-- Modify: çağıranlar — `LessonScheduleFeatures.cs`, `StudentCalendarQuery.cs`, `SelfLessonPolicies.cs`/`SelfLessonConflict` (imza değişirse)
+- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (her iki `Expand` aşırı yüklemesi + aynı dosyada `SeriesTimeZone` çözücüsü)
+- Modify: çağıranlar — `LessonScheduleFeatures.cs`, `StudentCalendarQuery.cs`, `SelfLessonFeatures.cs` (`SelfLessonConflict` + iki self-ders handler'ı; plan ilk hâlinde yanlışlıkla `SelfLessonPolicies.cs` diyordu) — *2026-11-14 düzeltildi*
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs` (dördüncü çağıran: Reporting boş zaman analizi — `ListTeacherBusyIntervalsAsync`) — *2026-11-14 eklendi*
+- Modify: `tests/Unit/RecurrenceExpanderTests.cs` (imza: dilim argümanı), `tests/Unit/TeacherLessonExpansionTests.cs`, `tests/Unit/StudentCalendarQueryTests.cs` (handler kurucusu `ILocalCalendar` alır) — *2026-11-14 eklendi*
+- Doc: `doc/architecture/backend.md` §5.1, `doc/modules/m04_scheduling.md`, rapor N-04 — *2026-11-14 eklendi*
 - Test: `tests/Unit/RecurrenceExpanderLocalTimeTests.cs`
 
 **Interfaces:**
-- `Expand(...)` artık serinin `TimeZone`'unu (boşsa `ILocalCalendar.Zone`) alır: çapa yerel saate çevrilir, yerel takvimde ilerlenir, her oluşum UTC'ye çevrilir.
+- `Expand(...)` artık serinin `TimeZone`'unu (boşsa `ILocalCalendar.Zone`) alır: çapa yerel saate çevrilir, yerel takvimde ilerlenir, her oluşum UTC'ye çevrilir. *(Uygulanan biçim: `Expand(anchorStartUtc, anchorEndUtc, rule, TimeZoneInfo zone, rangeStartUtc, rangeEndUtc[, exceptions])` saf/statik; çağıran `calendar.SeriesZone(lesson.TimeZone)` verir — boş **veya çözülemeyen** kimlik `ILocalCalendar.Zone`'a düşer, doğrulayıcı yalnız boş olmamayı istediği için.)*
 - Haftalık: `BYDAY` **yerel** haftanın günüyle eşleşir.
 - Aylık: ay günü **çapadan sabitlenir** (`anchorLocal.Day`), kısa ayda o ayın son gününe kırpılır ama **sonraki aya taşınmaz** (31 Ocak → 28 Şubat → **31 Mart**).
+- `UNTIL` *(2026-11-14 netleştirildi)*: `Z` sonekli = UTC an (mobil + `EndSeriesBefore` biçimi); Z'siz tarih-saat = serinin yerel saati (RFC 5545 floating); yalnız tarih = o yerel günün tamamı.
 
-- [ ] **Step 1: Kırmızı testler** — Salı 01:30 TR haftalık (`BYDAY=TU`) → ilk oluşum üretilir ve tüm oluşumlar TR Salı 01:30; 31 Ocak aylık → 28 Şubat, 31 Mart, 30 Nisan; "her ayın 1'i 01:00 TR" → her ay 1'inde; `COUNT` ve `UNTIL` sınırları yerel saatle; mevcut tüm `RecurrenceExpander` testleri yeşil.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Yeşil gör** — `dotnet test EgitimUssu.slnx`
-- [ ] **Step 5: Mobil tutarlılık kontrolü** — `mobile/lib/features/scheduling/presentation/widgets/lesson_form_sheet.dart` RRULE'u **yerel** günle mi üretiyor? (`grep -n "BYDAY\|weekday" lesson_form_sheet.dart`). Yerelse dokunma; UTC'den üretiyorsa bu görevde düzelt + widget testi.
-- [ ] **Step 6: Doküman + commit** — `m04_scheduling.md` (tekrar kuralı); rapor N-04 ✅.
+- [x] **Step 1: Kırmızı testler** — Salı 01:30 TR haftalık (`BYDAY=TU`) → ilk oluşum üretilir ve tüm oluşumlar TR Salı 01:30; 31 Ocak aylık → 28 Şubat, 31 Mart, 30 Nisan; "her ayın 1'i 01:00 TR" → her ay 1'inde; `COUNT` ve `UNTIL` sınırları yerel saatle; mevcut tüm `RecurrenceExpander` testleri yeşil. *(Ek: DST'li seri dilimi — Berlin ekim sonu, duvar saati 18:00 korunur; istisnalar yerel oluşum anını hedefler; boş/geçersiz dilim → platform dilimi; handler düzeyinde Salı gecesi serisi.)*
+- [x] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Yeşil gör** — `dotnet test EgitimUssu.slnx` *(önce imza davranışsız geçirildi → 1042 yeşil; sonra yeni testler 11 iddia hatasıyla kırmızı; uygulama sonrası yeşil)*
+- [x] **Step 5: Mobil tutarlılık kontrolü** — `mobile/lib/features/scheduling/presentation/widgets/lesson_form_sheet.dart` RRULE'u **yerel** günle mi üretiyor? (`grep -n "BYDAY\|weekday" lesson_form_sheet.dart`). Yerelse dokunma; UTC'den üretiyorsa bu görevde düzelt + widget testi. *(2026-11-14: yerel — `_weekdayFromDate(_selectedDate)` seçilen yerel tarihin `weekday`'i, `UNTIL` yerel 23:59 → `toUtc()` + `Z`; `study_entry_form_sheet.dart` aynı. Dokunulmadı.)*
+- [x] **Step 6: Doküman + commit** — `m04_scheduling.md` (tekrar kuralı); rapor N-04 ✅.
   ```bash
   git commit -m "fix(scheduling): tekrar kurali serinin yerel saatinde genisletilir, ay gunu capadan sabit (N-04)"
   ```
