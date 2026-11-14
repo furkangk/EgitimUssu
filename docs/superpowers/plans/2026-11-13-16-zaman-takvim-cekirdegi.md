@@ -164,16 +164,19 @@
 
 ---
 
-### Task 6: Kapanış — kaynak kilidi + gece yarısı senaryosu
+### Task 6: Kapanış — kaynak kilidi + gece yarısı senaryosu ✅
 
 **Files:**
-- Create: `tests/Architecture/LocalTimeRuleTests.cs` (kaynak taraması: `src/Modules/**/Application|Domain|Infrastructure` içinde `DateOnly.FromDateTime(`, `UtcNow.Date`, `.Date ==` kalıpları — izinli listedeki dosyalar hariç **0**)
+- Create: `tests/Architecture/LocalTimeRuleTests.cs` (kaynak taraması — *2026-11-15 genişletildi:* kapsam **tüm `src/`** (modüllerin `API/` katmanı ve `API.Host` dahil; `bin/obj/Migrations` ve yorum satırları hariç) — ilk hâl yalnız `Application|Domain|Infrastructure` diyordu, `ReportingModule` ve panel BFF'si bu yüzden T5'e kadar gözden kaçmıştı. Kalıplar bilerek fazla yakalar: her `.Date` erişimi, her `DateOnly.FromDateTime(`, her `ISOWeek.Get…(`, `ToDateTime(…, DateTimeKind.Utc)`, UTC adlı değişkenin takvim bileşeni (`nowUtc.DayOfWeek`). İzinli liste **dosya + satırın birebir metni + gerekçe** (satır numarası değil); bayat giriş de testi kırar; eşleyici örnek satırlarla ve "dosya tarandı" sayısıyla kendini sınar)
 - Create: `tests/Integration/RealMidnightScenarioTests.cs`
+- Modify: `src/Modules/Notifications/Infrastructure/ParentWeeklySummaryService.cs` + `tests/Unit/ParentWeeklySummaryTests.cs` (tarama kırmızısı: haftalık veli özetinin tekillik anahtarı UTC anın ISO haftasıydı → yerel hafta; işlemci `ILocalCalendar` alır) — *2026-11-15 eklendi*
+- Modify: `docs/superpowers/plans/2026-11-13-17-ders-olusumu-zinciri.md` (P17 T7, izinli listedeki iki N-49 girişini siler) — *2026-11-15 eklendi*
+- Doc: `doc/modules/m11_notifications.md` (haftalık özet yerel hafta), `doc/architecture/backend.md` §5.1 (kural kilidi) — *2026-11-15 eklendi*
 
-- [ ] **Step 1: Mimari test** — izinli liste yalnız `LocalCalendar.cs` ve göç kodu. Kırmızıysa kalan kullanımları düzelt.
-- [ ] **Step 2: Senaryo** — gerçek Postgres: öğretmen Salı 00:30 TR haftalık ders açar, Salı 00:45 TR'de dashboard → ders "bugün"; öğrenci takviminde Salı; aylık rapor doğru ayda.
-- [ ] **Step 3: Koş** — `./scripts/test-with-docker.sh` başarısız 0 / atlanan 0.
-- [ ] **Step 4: Doküman + ILERLEME + commit**
+- [x] **Step 1: Mimari test** — izinli liste yalnız `LocalCalendar.cs` ve göç kodu. Kırmızıysa kalan kullanımları düzelt. *(2026-11-15: boş izinli listeyle **12 isabet** — süpürmeyle birebir. Düzeltilen: `ParentWeeklySummaryService` (test önce kırmızı). İzinli listeye gerekçesiyle: `LocalCalendar` (dönüşümün kendisi), yerel tarih üzerinde çalışan üç satır (`ReportingPeriods.WeekOf(DateOnly)`, haftalık özetin iki `ISOWeek` satırı), takvim tarihi olan `ReportingAnalyticsFeatures` hafta başı, `PlanCompletion.Date` özelliği; **P17 T7'ye** bırakılan iki N-49 satırı (`ReportingFeatures`, `TeacherDashboardProjection` — o görev siler); `DemoDataSeeder`'ın dört göreli zaman satırı (tohum verisi). Mutasyon: özet düzeltmesi geri alınınca hem ihlal hem bayat izin raporlandı.)*
+- [x] **Step 2: Senaryo** — gerçek Postgres: öğretmen Salı 00:30 TR haftalık ders açar, Salı 00:45 TR'de dashboard → ders "bugün"; öğrenci takviminde Salı; aylık rapor doğru ayda. *(2026-11-15: an Salı **1 Eylül 2026** 00:45 TR — gün ve ay birlikte döner; aynı UTC gününün Pazartesi öğleden sonrası dersi "bugün"de yok; öğrenci kendi hesabıyla (davet + kod) takvimde Salı görür. **Sınır:** ders tamamlanma anı sunucunun gerçek `IClock`'udur, sabitlenemez (JWT) → ay sınırındaki tamamlanma olayı Reporting handler'larına `RealProjectionRebuildTests` yoluyla verildi; Eylül = 1, Ağustos = 0. Mutasyon: ay kovası UTC'ye geri çevrilince senaryo kırmızı.)*
+- [x] **Step 3: Koş** — `./scripts/test-with-docker.sh` başarısız 0 / atlanan 0.
+- [x] **Step 4: Doküman + ILERLEME + commit**
   ```bash
   git commit -m "test(time): yerel saat kurali kilitlendi + gece yarisi senaryosu, P16 kapanisi"
   ```
