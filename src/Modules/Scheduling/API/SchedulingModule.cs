@@ -413,6 +413,8 @@ public sealed class SchedulingModule : ModuleDefinition
             "scheduling.request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.request_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            // P17 T1: anahtarı göçte kurtarılamamış eski tekrarlı ders talebi — seri kaydırılmaz.
+            "scheduling.request_occurrence_unknown" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.not_editable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
@@ -500,7 +502,7 @@ public sealed record CancelLessonScheduleRequest(
     CancellationReason Reason,
     bool IsChargeable,
     string? CancellationNote,
-    OccurrenceScope Scope = OccurrenceScope.All,
+    OccurrenceScope? Scope = null,
     DateTime? OccurrenceStartAtUtc = null);
 
 /// <summary>
@@ -511,7 +513,7 @@ public sealed record RescheduleLessonScheduleRequest(
     DateTime NewStartAtUtc,
     DateTime NewEndAtUtc,
     string? Note,
-    OccurrenceScope Scope = OccurrenceScope.All,
+    OccurrenceScope? Scope = null,
     DateTime? OccurrenceStartAtUtc = null,
     bool AllowTimeOffOverride = false);
 
@@ -522,7 +524,8 @@ public sealed record CreateLessonChangeRequestRequest(
     Guid LessonScheduleId,
     string Reason,
     DateTime? ProposedStartAtUtc,
-    DateTime? ProposedEndAtUtc)
+    DateTime? ProposedEndAtUtc,
+    DateTime? OccurrenceStartAtUtc = null)
 {
     public CreateLessonChangeRequestCommand ToCommand(Guid studentId)
     {
@@ -531,7 +534,8 @@ public sealed record CreateLessonChangeRequestRequest(
             LessonScheduleId,
             Reason,
             ProposedStartAtUtc,
-            ProposedEndAtUtc);
+            ProposedEndAtUtc,
+            OccurrenceStartAtUtc);
     }
 }
 

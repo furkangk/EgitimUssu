@@ -13,7 +13,8 @@ public sealed record CreateLessonChangeRequestCommand(
     Guid LessonScheduleId,
     string Reason,
     DateTime? ProposedStartAtUtc,
-    DateTime? ProposedEndAtUtc) : ICommand<Result<LessonChangeRequestResponse>>;
+    DateTime? ProposedEndAtUtc,
+    DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonChangeRequestResponse>>;
 
 /// <summary>Öğretmen erteleme talebini kabul eder; alternatif tarih doluysa mevcut Reschedule akışı çalışır.</summary>
 public sealed record AcceptLessonChangeRequestCommand(Guid RequestId) : ICommand<Result<LessonChangeRequestResponse>>;
@@ -34,6 +35,7 @@ public sealed record LessonChangeRequestResponse(
     string Reason,
     DateTime? ProposedStartAtUtc,
     DateTime? ProposedEndAtUtc,
+    DateTime? OccurrenceStartAtUtc,
     string Status,
     DateTime CreatedOnUtc,
     DateTime? ResolvedOnUtc);
@@ -69,19 +71,24 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
 {
     private static readonly Error LessonNotFound = new("scheduling.lesson_not_found", "Ders planı bulunamadı.");
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Önerilen başlangıç ve bitiş aralığı geçersiz.");
+    private static readonly Error OccurrenceRequired = new(
+        "scheduling.invalid_request", "Tekrarlı derste ertelenecek dersin tarihi (occurrenceStartAtUtc) zorunlu.");
     private readonly ILessonChangeRequestRepository _repository;
     private readonly ILessonScheduleRepository _lessonRepository;
+    private readonly ILocalCalendar _calendar;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateLessonChangeRequestCommandHandler(
         ILessonChangeRequestRepository repository,
         ILessonScheduleRepository lessonRepository,
+        ILocalCalendar calendar,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
         _lessonRepository = lessonRepository;
+        _calendar = calendar;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -104,6 +111,26 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
             return Result<LessonChangeRequestResponse>.Failure(InvalidRange);
         }
 
+        // P17 T1 / N-01: talep hangi oluşumu ertelediğini taşır — kabul yalnız onu taşır (eskiden bütün seri kayıyordu).
+        // Tekrarlı derste anahtar zorunlu ve serinin orijinal oluşumu olmalı; tekil derste dersin başlangıcı.
+        DateTime occurrenceStartAtUtc;
+        if (string.IsNullOrWhiteSpace(lesson.RecurrenceRule))
+        {
+            occurrenceStartAtUtc = lesson.StartAtUtc;
+        }
+        else if (command.OccurrenceStartAtUtc is not { } key)
+        {
+            return Result<LessonChangeRequestResponse>.Failure(OccurrenceRequired);
+        }
+        else if (!OccurrenceScopeRules.IsOccurrence(lesson, key, _calendar))
+        {
+            return Result<LessonChangeRequestResponse>.Failure(OccurrenceScopeRules.OccurrenceNotFound);
+        }
+        else
+        {
+            occurrenceStartAtUtc = key;
+        }
+
         var request = new LessonChangeRequest(
             _idGenerator.New(),
             lesson.Id,
@@ -112,6 +139,7 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
             command.Reason.Trim(),
             command.ProposedStartAtUtc,
             command.ProposedEndAtUtc,
+            occurrenceStartAtUtc,
             _clock.UtcNow);
 
         await _repository.AddAsync(request, cancellationToken);
@@ -126,16 +154,22 @@ public sealed class AcceptLessonChangeRequestCommandHandler : ICommandHandler<Ac
 {
     private static readonly Error NotFound = new("scheduling.request_not_found", "Erteleme talebi bulunamadı.");
     private static readonly Error NotPending = new("scheduling.request_not_pending", "Talep zaten sonuçlandırılmış.");
+    private static readonly Error OccurrenceUnknown = new(
+        "scheduling.request_occurrence_unknown",
+        "Bu talep hangi haftanın dersi için açıldığını taşımıyor (eski talep); öğrenciden yeni talep isteyin.");
     private readonly ILessonChangeRequestRepository _repository;
+    private readonly ILessonScheduleRepository _lessonRepository;
     private readonly ICommandDispatcher _dispatcher;
     private readonly IClock _clock;
 
     public AcceptLessonChangeRequestCommandHandler(
         ILessonChangeRequestRepository repository,
+        ILessonScheduleRepository lessonRepository,
         ICommandDispatcher dispatcher,
         IClock clock)
     {
         _repository = repository;
+        _lessonRepository = lessonRepository;
         _dispatcher = dispatcher;
         _clock = clock;
     }
@@ -157,8 +191,20 @@ public sealed class AcceptLessonChangeRequestCommandHandler : ICommandHandler<Ac
         // Erteleme başarısızsa talep kabul edilmez; hata olduğu gibi döndürülür.
         if (request.ProposedStartAtUtc is { } start && request.ProposedEndAtUtc is { } end)
         {
+            // P17 T1 / N-01: tekrarlı derste yalnız talebin oluşumu taşınır (Single + orijinal anahtar) — eskiden kapsamsız
+            // erteleme bütün seriyi kaydırıyordu. Anahtarı göçte kurtarılamamış eski talep seriyi kaydırmaz, açıkça reddedilir.
+            var lesson = await _lessonRepository.GetByIdAsync(request.LessonScheduleId, cancellationToken);
+            var isRecurring = lesson is not null && !string.IsNullOrWhiteSpace(lesson.RecurrenceRule);
+            if (isRecurring && request.OccurrenceStartAtUtc is null)
+            {
+                return Result<LessonChangeRequestResponse>.Failure(OccurrenceUnknown);
+            }
+
             var reschedule = await _dispatcher.Dispatch(
-                new RescheduleLessonScheduleCommand(request.LessonScheduleId, start, end, request.Reason),
+                isRecurring
+                    ? new RescheduleLessonScheduleCommand(
+                        request.LessonScheduleId, start, end, request.Reason, OccurrenceScope.Single, request.OccurrenceStartAtUtc)
+                    : new RescheduleLessonScheduleCommand(request.LessonScheduleId, start, end, request.Reason),
                 cancellationToken);
             if (reschedule.IsFailure)
             {
@@ -239,6 +285,7 @@ internal static class LessonChangeRequestMappings
             request.Reason,
             request.ProposedStartAtUtc,
             request.ProposedEndAtUtc,
+            request.OccurrenceStartAtUtc,
             request.Status.ToString(),
             request.CreatedOnUtc,
             request.ResolvedOnUtc);

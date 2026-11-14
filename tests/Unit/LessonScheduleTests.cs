@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Modules.Scheduling.Domain;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
@@ -101,7 +102,7 @@ public sealed class LessonScheduleTests
             "FREQ=WEEKLY;BYDAY=MO", LessonScheduleStatus.Planned, 60, null, null, null, Start);
 
         var repo = new RecordingRepository(series);
-        var handler = new CancelLessonScheduleCommandHandler(repo, new PassThroughScheduleLock(), new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repo, new PassThroughScheduleLock(), new LocalCalendar("Europe/Istanbul", new FakeClock()), new FakeClock(), new FakeIdGenerator());
 
         var occurrence = Start.AddDays(7);
         var result = await handler.Handle(

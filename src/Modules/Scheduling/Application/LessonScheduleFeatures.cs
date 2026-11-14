@@ -45,7 +45,7 @@ public sealed record CancelLessonScheduleCommand(
     CancellationReason Reason,
     bool IsChargeable,
     string? CancellationNote,
-    OccurrenceScope Scope = OccurrenceScope.All,
+    OccurrenceScope? Scope = null,
     DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record RescheduleLessonScheduleCommand(
@@ -53,7 +53,7 @@ public sealed record RescheduleLessonScheduleCommand(
     DateTime NewStartAtUtc,
     DateTime NewEndAtUtc,
     string? Note,
-    OccurrenceScope Scope = OccurrenceScope.All,
+    OccurrenceScope? Scope = null,
     DateTime? OccurrenceStartAtUtc = null,
     bool AllowTimeOffOverride = false) : ICommand<Result<LessonScheduleResponse>>;
 
@@ -338,6 +338,63 @@ internal static class TeacherScheduleConflicts
         => start < otherEnd && end > otherStart;
 }
 
+/// <summary>
+/// P17 T1 / N-01 (K-20): tekrarlı derste iptal/erteleme kapsamı zorunludur — eskiden kapsamsız istek <c>All</c>
+/// sayılıyordu ve "bu haftanın iptali" bütün seriyi (geçmiş haftalar dahil) iptal ediyordu. <c>Single</c>/<c>ThisAndFuture</c>
+/// anahtar ister ve anahtar serinin <b>orijinal</b> oluşumu olmalıdır (master §4; görünen ertelenmiş saat değil — #223 g).
+/// Tekil derste kapsam yok sayılır (<c>All</c>).
+/// </summary>
+internal static class OccurrenceScopeRules
+{
+    public static readonly Error ScopeRequired = new(
+        "scheduling.scope_required",
+        "Tekrarlı derste kapsam seçilmeli: yalnız bu ders, bu ve sonrakiler ya da tüm seri.");
+
+    public static readonly Error OccurrenceNotFound = new(
+        "scheduling.occurrence_not_found",
+        "Belirtilen ders tarihi bu serinin bir dersi değil.");
+
+    /// <summary>Kapsamı çözer; kural ihlalinde hatayı, aksi halde etkili kapsamı döner.</summary>
+    public static (Error? Error, OccurrenceScope Scope) Resolve(
+        LessonSchedule lesson,
+        OccurrenceScope? requested,
+        DateTime? occurrenceStartAtUtc,
+        ILocalCalendar calendar,
+        Error invalidRequest)
+    {
+        if (requested is { } given && !Enum.IsDefined(given))
+        {
+            return (invalidRequest, OccurrenceScope.All);
+        }
+
+        if (string.IsNullOrWhiteSpace(lesson.RecurrenceRule))
+        {
+            return (null, OccurrenceScope.All);
+        }
+
+        if (requested is not { } scope)
+        {
+            return (ScopeRequired, OccurrenceScope.All);
+        }
+
+        if (scope == OccurrenceScope.All)
+        {
+            return (null, scope);
+        }
+
+        if (occurrenceStartAtUtc is not { } key)
+        {
+            return (invalidRequest, scope);
+        }
+
+        return IsOccurrence(lesson, key, calendar) ? (null, scope) : (OccurrenceNotFound, scope);
+    }
+
+    public static bool IsOccurrence(LessonSchedule lesson, DateTime occurrenceStartAtUtc, ILocalCalendar calendar)
+        => RecurrenceExpander.IsOccurrence(
+            lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, calendar.SeriesZone(lesson.TimeZone), occurrenceStartAtUtc);
+}
+
 public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>
 {
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
@@ -513,17 +570,20 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
     private static readonly Error InvalidRequest = new("scheduling.invalid_request", "Tekrar kapsami ve ders tarihi eksik veya hatali.");
     private readonly ILessonScheduleRepository _repository;
     private readonly ITeacherScheduleLock _scheduleLock;
+    private readonly ILocalCalendar _calendar;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
     public CancelLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
         ITeacherScheduleLock scheduleLock,
+        ILocalCalendar calendar,
         IClock clock,
         IIdGenerator idGenerator)
     {
         _repository = repository;
         _scheduleLock = scheduleLock;
+        _calendar = calendar;
         _clock = clock;
         _idGenerator = idGenerator;
     }
@@ -541,13 +601,15 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             return Result<LessonScheduleResponse>.Failure(NotEditable);
         }
 
+        // P17 T1 / N-01: tekrarlı derste kapsam zorunlu, anahtar serinin orijinal oluşumu (OccurrenceScopeRules).
         var isRecurring = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule);
-        if (!Enum.IsDefined(command.Scope)
-            || (isRecurring && command.Scope != OccurrenceScope.All && command.OccurrenceStartAtUtc is null))
+        var (scopeError, scope) = OccurrenceScopeRules.Resolve(lesson, command.Scope, command.OccurrenceStartAtUtc, _calendar, InvalidRequest);
+        if (scopeError is not null)
         {
-            return Result<LessonScheduleResponse>.Failure(InvalidRequest);
+            return Result<LessonScheduleResponse>.Failure(scopeError);
         }
-        if (isRecurring && command.Scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
+
+        if (isRecurring && scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
         {
             var occurrenceException = new LessonOccurrenceException(
                 _idGenerator.New(), lesson.Id, occStart,
@@ -563,7 +625,7 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             }, cancellationToken);
         }
 
-        if (isRecurring && command.Scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
+        if (isRecurring && scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
         {
             lesson.EndSeriesBefore(cutoff, _clock.UtcNow);
             await _repository.SaveChangesAsync(cancellationToken);
@@ -627,16 +689,16 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             return Result<LessonScheduleResponse>.Failure(NotEditable);
         }
 
-        if (!Enum.IsDefined(command.Scope)
-            || (!string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
-                && command.Scope != OccurrenceScope.All && command.OccurrenceStartAtUtc is null))
+        // P17 T1 / N-01: tekrarlı derste kapsam zorunlu, anahtar serinin orijinal oluşumu (OccurrenceScopeRules).
+        var (scopeError, scope) = OccurrenceScopeRules.Resolve(lesson, command.Scope, command.OccurrenceStartAtUtc, _calendar, InvalidRequest);
+        if (scopeError is not null)
         {
-            return Result<LessonScheduleResponse>.Failure(InvalidRequest);
+            return Result<LessonScheduleResponse>.Failure(scopeError);
         }
 
         var teacherUserId = lesson.TeacherUserId ?? Guid.Empty;
         var singleOccurrence = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
-            && command.Scope == OccurrenceScope.Single
+            && scope == OccurrenceScope.Single
             && command.OccurrenceStartAtUtc is not null;
         var occurrenceException = singleOccurrence
             ? new LessonOccurrenceException(

@@ -434,6 +434,7 @@ public sealed class LessonChangeRequest : AggregateRoot<Guid>
         string reason,
         DateTime? proposedStartAtUtc,
         DateTime? proposedEndAtUtc,
+        DateTime? occurrenceStartAtUtc,
         DateTime createdOnUtc)
     {
         Id = id;
@@ -443,6 +444,7 @@ public sealed class LessonChangeRequest : AggregateRoot<Guid>
         Reason = reason;
         ProposedStartAtUtc = proposedStartAtUtc;
         ProposedEndAtUtc = proposedEndAtUtc;
+        OccurrenceStartAtUtc = occurrenceStartAtUtc;
         Status = LessonChangeRequestStatus.Pending;
         CreatedOnUtc = createdOnUtc;
 
@@ -455,6 +457,13 @@ public sealed class LessonChangeRequest : AggregateRoot<Guid>
     public string Reason { get; private set; } = string.Empty;
     public DateTime? ProposedStartAtUtc { get; private set; }
     public DateTime? ProposedEndAtUtc { get; private set; }
+
+    /// <summary>
+    /// P17 T1 / N-01: Ertelenmek istenen oluşumun <b>orijinal</b> başlangıcı (RECURRENCE-ID). Tekil derste dersin
+    /// <c>StartAtUtc</c>'si. Bu alandan önce açılmış tekrarlı ders taleplerinde NULL (göçte kurtarılamaz).
+    /// </summary>
+    public DateTime? OccurrenceStartAtUtc { get; private set; }
+
     public LessonChangeRequestStatus Status { get; private set; }
     public DateTime CreatedOnUtc { get; private set; }
     public DateTime? ResolvedOnUtc { get; private set; }

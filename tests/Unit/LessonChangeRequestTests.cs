@@ -10,7 +10,7 @@ public sealed class LessonChangeRequestTests
     public void Accept_SetsStatus_RaisesEvent()
     {
         var r = new LessonChangeRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            "hastayım", Now.AddDays(1), Now.AddDays(1).AddHours(1), Now);
+            "hastayım", Now.AddDays(1), Now.AddDays(1).AddHours(1), null, Now);
         r.Accept(Now.AddHours(1));
         Assert.Equal(LessonChangeRequestStatus.Accepted, r.Status);
         Assert.Contains(r.DomainEvents, e => e is LessonChangeRequestResolvedDomainEvent);
@@ -19,7 +19,7 @@ public sealed class LessonChangeRequestTests
     [Fact]
     public void Reject_OnlyFromPending()
     {
-        var r = new LessonChangeRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "x", null, null, Now);
+        var r = new LessonChangeRequest(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "x", null, null, null, Now);
         r.Reject(Now);
         Assert.Throws<InvalidOperationException>(() => r.Accept(Now));
     }

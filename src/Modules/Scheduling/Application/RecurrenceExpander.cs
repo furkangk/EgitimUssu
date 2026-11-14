@@ -70,6 +70,31 @@ public static class RecurrenceExpander
         return ExpandCore(anchorStartUtc, anchorEndUtc, recurrenceRule, zone, rangeStartUtc, rangeEndUtc);
     }
 
+    /// <summary>
+    /// P17 T1 / Öğrenilenler #223 g: <paramref name="candidateUtc"/> serinin gerçek, <b>orijinal</b> bir oluşumu mu?
+    /// İstisna ve erteleme talebi anahtarının doğrulaması — görünen (ertelenmiş) saat, seride olmayan bir an ya da
+    /// <c>UNTIL</c>/<c>COUNT</c> sonrası reddedilir. Nokta genişletmesidir (pencere tek an); tekil derste anahtar
+    /// dersin başlangıcıdır.
+    /// </summary>
+    public static bool IsOccurrence(
+        DateTime anchorStartUtc,
+        DateTime anchorEndUtc,
+        string? recurrenceRule,
+        TimeZoneInfo zone,
+        DateTime candidateUtc)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        foreach (var occurrence in ExpandCore(anchorStartUtc, anchorEndUtc, recurrenceRule, zone, candidateUtc, candidateUtc))
+        {
+            if (occurrence.StartAtUtc == candidateUtc)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static IEnumerable<ScheduleOccurrence> ExpandCore(
         DateTime anchorStartUtc,
         DateTime anchorEndUtc,

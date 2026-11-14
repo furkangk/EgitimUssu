@@ -120,22 +120,19 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
 
   @override
   Future<LessonSchedule> cancelLesson({
-    required String lessonId,
+    required LessonSchedule lesson,
+    required OccurrenceScope scope,
     String? cancellationNote,
   }) async {
+    final lessonId = lesson.id;
     try {
       final response = await _apiClient.post(
         '/api/scheduling/lessons/$lessonId/cancel',
-        data: LessonScheduleModel(
-          id: lessonId,
-          teacherUserId: '',
-          studentId: '',
-          subject: '',
-          lessonFormat: 'Online',
-          startAtUtc: DateTime.now().toUtc(),
-          endAtUtc: DateTime.now().toUtc(),
-          timeZone: 'Europe/Istanbul',
-        ).toCancelPayload(cancellationNote),
+        data: LessonScheduleModel.cancelPayload(
+          lesson: lesson,
+          scope: scope,
+          cancellationNote: cancellationNote,
+        ),
       );
       return LessonScheduleModel.fromJson(response);
     } on ApiException {
@@ -231,7 +228,8 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
       return _mockStudentLessons(DateTime.now().toUtc());
     }
     final start =
-        (startAtUtc ?? DateTime.now().toUtc().subtract(const Duration(days: 30)))
+        (startAtUtc ??
+                DateTime.now().toUtc().subtract(const Duration(days: 30)))
             .toIso8601String();
     final end =
         (endAtUtc ?? DateTime.now().toUtc().add(const Duration(days: 30)))

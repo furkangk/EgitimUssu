@@ -23,24 +23,29 @@
 
 ---
 
-### Task 1: Tekrarlı derste kapsam zorunlu + mobil seçim (N-01)
+### Task 1: Tekrarlı derste kapsam zorunlu + mobil seçim (N-01) ✅
 
-**Files:**
-- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (cancel/reschedule: tekrarlı derste `Scope` ve `OccurrenceStartAtUtc` zorunlu; varsayılan `All` kaldırılır)
-- Modify: `src/Modules/Scheduling/API/SchedulingModule.cs` (istek DTO'ları)
-- Modify: `src/Modules/Scheduling/Application/LessonChangeRequestFeatures.cs` (öğrenci erteleme talebi kabulü yalnız ilgili oluşuma `Single` uygulanır)
-- Modify (mobil): `mobile/lib/features/scheduling/data/models/lesson_schedule_model.dart` (`toCancelPayload`/`toReschedulePayload` scope + occurrence), `.../data/repositories/scheduling_repository_impl.dart`, ders detay/iptal UI (`scheduling_page.dart` ve `lesson_detail_page.dart` içindeki iptal/erteleme akışı)
-- Create (mobil): `mobile/lib/features/scheduling/presentation/widgets/occurrence_scope_sheet.dart`
-- Test: `tests/Unit/OccurrenceScopeRequiredTests.cs`, `mobile/test/features/scheduling/occurrence_scope_sheet_test.dart`
+**Files:** *(2026-11-15 koddan doğrulandı ve düzeltildi — Öğrenilenler #227)*
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (cancel/reschedule komutlarında `OccurrenceScope? Scope = null` — varsayılan `All` kaldırılır; tekrarlı derste kapsam zorunlu; `Single`/`ThisAndFuture` anahtar ister ve anahtar serinin **gerçek orijinal oluşumu** olmalı — #223 g)
+- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (`IsOccurrence(...)` nokta genişletmesi — anahtar doğrulaması) — *eklendi*
+- Modify: `src/Modules/Scheduling/API/SchedulingModule.cs` (istek DTO'larında `Scope` nullable; değişiklik talebi gövdesine `OccurrenceStartAtUtc`)
+- Modify: `src/Modules/Scheduling/Application/LessonChangeRequestFeatures.cs` (doğrulayıcı da bu dosyada; `LessonChangeRequestPolicies.cs`'e dokunulmadı) (talep **hangi oluşumu** ertelediğini taşır — tekrarlı derste zorunlu ve gerçek oluşum, tekil derste dersin `StartAtUtc`'si; kabul o oluşuma `Single` uygular) — *planın ilk hâli talebin oluşum taşıdığını varsayıyordu; taşımıyordu*
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`LessonChangeRequest.OccurrenceStartAtUtc`) + Migration `AddChangeRequestOccurrence` (Scheduling; `Up` tekil derslerin satırlarını dersin `StartAtUtc`'siyle **geri doldurur**, tekrarlı derslerinkiler kurtarılamaz → NULL kalır ve kabulde açık hata; `Down` kolonu düşer) — *eklendi*
+- Modify (mobil — **yalnız veri katmanı + yeni sayfa**): `mobile/lib/features/scheduling/domain/scheduling_contracts.dart` (`LessonSchedule.occurrenceStartAtUtc`, `OccurrenceScope`, `cancelLesson` imzası), `.../data/models/lesson_schedule_model.dart` (`occurrenceStartAtUtc` okunur; `toCancelPayload` scope + **orijinal** anahtar), `.../data/repositories/scheduling_repository_impl.dart`, `.../presentation/cubit/scheduling_cubit.dart`, `mobile/test/helpers/fake_scheduling_repository.dart`, ARB (`lib/l10n/app_tr.arb`, `app_en.arb`; üretilen `app_localizations*.dart` **gitignore'da** — commit'lenmez, `flutter gen-l10n` ile yeniden üretilir). *Düzeltme:* `scheduling_page.dart`/`lesson_detail_page.dart`'ta **takvim dersini iptal eden/erteleyen bir akış yok** — `cancelLesson` hiçbir ekrandan çağrılmıyor, mobil `/reschedule`'ı hiç çağırmıyor; ders detayındaki "Dersi İptal Et" **oturumu** (LessonSessions) iptal ediyor. Ekran bağlantısı bu görevde yapılmaz (K-26 iki büyük ekranı ARB'ye taşımayı zorlardı; oturum↔takvim senkronu T5'te): iptal girişi **T5**, erteleme girişi **P21 T4**
+- Create (mobil): `mobile/lib/features/scheduling/presentation/widgets/occurrence_scope_sheet.dart` (doğuştan ARB)
+- Test: `tests/Unit/OccurrenceScopeRequiredTests.cs`, `tests/Integration/RealOccurrenceScopeTests.cs` (HTTP: DTO varsayılanı kalmadı; `Single` iptal komşu oluşumları korur; talep + kabul tek oluşumu taşır; göç geri doldurması ayrı veritabanında — #223 e), `mobile/test/features/scheduling/presentation/widgets/occurrence_scope_sheet_test.dart`, `mobile/test/features/scheduling/data/lesson_schedule_model_test.dart` (**mevcut** dosya — eski `toCancelPayload` testi yeni imzaya taşındı) — *ikinci ve dördüncü eklendi; mobil yollar `lib` aynası*
+- Modify (kurucu/imza): `tests/Unit/LessonChangeRequestTests.cs` (domain kurucusu), `LessonScheduleTests.cs`, `SchedulingMutationIntegrityTests.cs`, `LessonConflictRecurrenceTests.cs` (iptal handler'ı `ILocalCalendar` alır) — *eklendi*
+- Doc: `doc/modules/m04_scheduling.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/veri_modeli.md`, `doc/pages/scheduling.md`, rapor N-01 (◐ — backend ✅, mobil giriş noktası T5/P21 T4) — *`doc/pages/lesson_detail.md` çıkarıldı: ekrana dokunulmuyor*
 
 **Interfaces:**
-- `CancelLessonScheduleCommand(..., OccurrenceScope? Scope, DateTime? OccurrenceStartAtUtc)` — tekrarlı derste `Scope == null` → `400 scheduling.scope_required`.
-- Mobil: tekrarlı derste iptal/erteleme öncesi alt sayfa: **"Yalnız bu ders" / "Bu ve sonrakiler" / "Tüm seri"** (varsayılan seçili: "Yalnız bu ders").
+- `CancelLessonScheduleCommand(..., OccurrenceScope? Scope = null, DateTime? OccurrenceStartAtUtc = null)` ve `RescheduleLessonScheduleCommand` aynı — tekrarlı derste `Scope == null` → `400 scheduling.scope_required`; `Single`/`ThisAndFuture` anahtarsız → `400 scheduling.invalid_request` (mevcut); anahtar serinin orijinal oluşumu değilse → `400 scheduling.occurrence_not_found`. `All` anahtar istemez (*düzeltme:* plan anahtarı her kapsamda zorunlu sayıyordu; K-20 kapsamı zorunlu kılar). Tekil derste kapsam yok sayılır (Global Constraints).
+- `CreateLessonChangeRequestCommand(..., DateTime? OccurrenceStartAtUtc)` — tekrarlı derste zorunlu + gerçek oluşum, tekil derste verilmezse dersin `StartAtUtc`'si; yanıtta `occurrenceStartAtUtc`. Kabul: tekrarlı derste `Single` + o anahtar; anahtarı NULL kalmış eski talep (göçte kurtarılamayan) → `409 scheduling.request_occurrence_unknown` (seri kaymaz).
+- Mobil: tekrarlı derste iptal/erteleme öncesi alt sayfa: **"Yalnız bu ders" / "Bu ve sonrakiler" / "Tüm seri"** (varsayılan seçili: "Yalnız bu ders"). `OccurrenceScope` değerleri backend enum'uyla aynı (`single=1`, `thisAndFuture=2`, `all=3`).
 
-- [ ] **Step 1: Kırmızı testler** — tekrarlı derste kapsamsız iptal → 400; `Single` iptal → yalnız o oluşum `Cancelled`, seri ve geçmiş oluşumlar dokunulmaz; erteleme talebi kabulü → yalnız ilgili oluşum taşınır; mobil sheet varsayılanı `single` ve yük `scope` + `occurrenceStartAtUtc` içerir.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Backend.** **Step 4: Mobil.**
-- [ ] **Step 5: Yeşil gör** — `dotnet test EgitimUssu.slnx`, `cd mobile && flutter test && flutter analyze --fatal-infos`
-- [ ] **Step 6: Doküman + commit** — `m04`, `doc/pages/scheduling.md`, `doc/pages/lesson_detail.md`; rapor N-01 ✅.
+- [x] **Step 1: Kırmızı testler** — tekrarlı derste kapsamsız iptal → 400; `Single` iptal → yalnız o oluşum `Cancelled`, seri ve geçmiş oluşumlar dokunulmaz; erteleme talebi kabulü → yalnız ilgili oluşum taşınır; mobil sheet varsayılanı `single` ve yük `scope` + `occurrenceStartAtUtc` içerir. *(Ek: anahtar seride olmayan an / görünen ertelenmiş saat / seri öncesi → `occurrence_not_found`; `All` anahtar istemez; tekil derste kapsam yok sayılır; anahtarsız eski tekrarlı talebin kabulü seriyi kaydırmaz; HTTP: kapsamsız iptal 400, `Single` iptal komşu haftaları korur, talep + kabul tek haftayı taşır, göç geri doldurması ayrı veritabanında.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce imza davranışsız — nullable `Scope` = eski `All`, talebe kolon + yalnız kolon ekleyen migration, kurucular → 1122 yeşil; sonra 13 birim testinden 10'u, 3 integration testinin 3'ü iddia hatasıyla kırmızı.)* **Step 3: Backend.** **Step 4: Mobil.** *(Mobil testler kodla birlikte yazıldı; kırmızı mutasyonla doğrulandı — yük orijinal anahtar yerine görünen saati gönderince test kırmızı. Sayfa testi gerçek bir taşma yakaladı: üç seçenek varsayılan alt sayfa yüksekliğine sığmıyordu → kaydırılabilir.)*
+- [x] **Step 5: Yeşil gör** — `dotnet test EgitimUssu.slnx`, `cd mobile && flutter test && flutter analyze --fatal-infos`
+- [x] **Step 6: Doküman + commit** — `m04`, `doc/pages/scheduling.md`, ~~`doc/pages/lesson_detail.md`~~ (ekrana dokunulmadı); rapor N-01 ◐ (backend ✅, mobil giriş T5 / P21 T4).
   ```bash
   git commit -m "fix(scheduling): tekrarli derste kapsam zorunlu + mobil 'yalniz bu ders' secimi (N-01)"
   ```
