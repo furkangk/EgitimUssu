@@ -19,6 +19,13 @@ namespace EgitimUssu.Shared.Infrastructure.Messaging;
 /// Kira süresi bir turun makul üst sınırından uzun tutulur: tur uzarsa kira dolup başka bir örnek
 /// aynı işe girmemeli. Çöken bir örnek işi kalıcı kilitlemez, kira süresi dolunca devralınır.
 /// </para>
+/// <para>
+/// N-41: Kirayı elinde tutan örnek onu <b>her turda yeniler</b> (<see cref="IJobLeaseStore"/> sahibe
+/// izin verir); iş, kendi <see cref="PollInterval"/>'ında koşar. Diğer örnekler, sahip yenilemeyi
+/// bırakana — çökene ya da kapanana — kadar turu atlar; ardından en geç <see cref="LeaseDuration"/>
+/// sonra devralır. Bedeli: yeniden başlayan bir süreç yeni bir <c>InstanceId</c> alır ve eski
+/// sürecin kirası dolana kadar bekler (dağıtım sonrası bir kerelik gecikme).
+/// </para>
 /// </summary>
 public abstract class LeasedBackgroundService(
     IServiceScopeFactory scopeFactory,
@@ -32,7 +39,8 @@ public abstract class LeasedBackgroundService(
 
     /// <summary>
     /// Kiranın geçerlilik süresi. Varsayılan: bir tur aralığının iki katı ve en az beş dakika —
-    /// tur beklenenden uzun sürdüğünde kiranın altımızdan çekilmemesi için.
+    /// tur beklenenden uzun sürdüğünde kiranın altımızdan çekilmemesi için. Sahip her turda
+    /// yenilediğinden bu süre işin sıklığını değil, yalnız <b>devralma gecikmesini</b> belirler.
     /// </summary>
     protected virtual TimeSpan LeaseDuration
     {
@@ -71,7 +79,8 @@ public abstract class LeasedBackgroundService(
                 }
                 else
                 {
-                    // Başka bir örnek bu turu üstlendi; sessizce beklemek doğru davranıştır.
+                    // Kira süresi dolmamış başka bir örnekte (sahip kendi kirasını her turda yenilediği
+                    // için buraya yalnız sahip olmayan örnek düşer); sessizce beklemek doğru davranıştır.
                     logger.LogDebug("{JobName} turu atlandı: kira başka bir örnekte.", JobName);
                 }
             }

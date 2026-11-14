@@ -255,7 +255,9 @@
 
 ---
 
-### Task 8: İş kirası yenileme + kirasız arka plan servisleri (N-41, A-07)
+### Task 8: İş kirası yenileme + kirasız arka plan servisleri (N-41, A-07) ✅
+
+> **Sapma (yürütmede, 2026-11-14):** (a) `JobLeaseStore.InstanceId` `static` olduğundan aynı test sürecindeki her host aynı sahiptir; düzeltmeden sonra "başka instance" ancak ayrı sahip kimliğiyle kurulabilir → **`JobLeaseStore(IClock, Guid ownerId)` kurucusu eklendi** (DI kurucusu `JobLeaseStore(IClock)` → `InstanceId`; davranış değişmez). (b) Testler gerçek zaman beklemez — değiştirilebilir `IClock` ile 15 sn adımlar. (c) Kırmızı test seti genişletildi: aynı kurallar **InMemory dalında** da (`[Fact]`), ve kayıtlı her `EgitimUssu` `IHostedService`'in `LeasedBackgroundService` olduğunu denetleyen kapsama testi (istisna `OutboxDispatcher` — `SKIP LOCKED`); ikinci yarının (iki servisin kiraya alınması) kırmızısı budur. (d) Doküman listesine `doc/modules/m01_identity.md` ve `doc/architecture/kvkk.md` eklendi. (e) `./scripts/test-with-docker.sh` bu Windows makinesinde `infra/.env` olmadan çıkıyor (Compose kurulu) — eşdeğeri `ConnectionStrings__Postgres="InMemory:local" dotnet test EgitimUssu.slnx` (Testcontainers kendi container'larını açar) koşuldu.
 
 **Files:**
 - Modify: `src/Shared/Infrastructure/Persistence/JobLeaseStore.cs` (sahip yenileyebilir)
@@ -267,9 +269,9 @@
 **Interfaces:**
 - SQL koşulu: `WHERE {table}."ExpiresOnUtc" <= {now} OR {table}."OwnerId" = EXCLUDED."OwnerId"`; InMemory dalında da aynı kural.
 
-- [ ] **Step 1: Kırmızı test** — aynı instance 15 sn aralıkla 3 kez `TryAcquireAsync` → **3'ü de true**; başka instance kira süresi dolmadan → false. `OutgoingEmailDispatcher` için "e-posta 15 sn içinde gönderilir" senaryosu.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula** (S-6: önce kira düzeltmesi, sonra iki servisin kiraya alınması). **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 5: Doküman + commit** — `doc/architecture/backend.md` (kira), `mimari_inceleme.md` A-07 notu; rapor N-41 ✅.
+- [x] **Step 1: Kırmızı test** — aynı instance 15 sn aralıkla 3 kez `TryAcquireAsync` → **3'ü de true**; başka instance kira süresi dolmadan → false. `OutgoingEmailDispatcher` için "e-posta 15 sn içinde gönderilir" senaryosu.
+- [x] **Step 2: Kırmızı gör.** **Step 3: Uygula** (S-6: önce kira düzeltmesi, sonra iki servisin kiraya alınması). **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 5: Doküman + commit** — `doc/architecture/backend.md` (kira), `mimari_inceleme.md` A-07 notu; rapor N-41 ✅.
   ```bash
   git commit -m "fix(jobs): kira sahibince yenilenir, silme ve saklama servisleri kiraya alindi (N-41, A-07)"
   ```

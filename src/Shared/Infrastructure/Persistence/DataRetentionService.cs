@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using EgitimUssu.Shared.Infrastructure.Configuration;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EgitimUssu.Shared.Infrastructure.Persistence;
@@ -121,36 +121,36 @@ public sealed class DataRetentionProcessor : IDataRetentionProcessor
 /// Mevzuat periyodik imha için 6 aylık bir üst sınır koyar; günlük koşum o sınırın çok altındadır
 /// ve süresi dolan bir kaydı en fazla bir gün fazladan tutar.
 /// </para>
+/// <para>
+/// A-07 (P15 Task 8): Tur başına kira alır — düz bir <c>BackgroundService</c> iken her uygulama
+/// örneği aynı silme turunu eşzamanlı koşuyordu. Kira süresi 48 saattir (iki tur); kirayı tutan örnek
+/// her turda yeniler. Bedeli: yeniden başlayan bir süreç eski sürecin kirası dolana kadar (en çok
+/// 48 saat) temizlik yapmaz — 90 günlük saklama süresi ve 6 aylık yasal üst sınır yanında önemsiz.
+/// </para>
 /// </summary>
-internal sealed class DataRetentionService : BackgroundService
+internal sealed class DataRetentionService(
+    IServiceScopeFactory scopeFactory,
+    ILogger<DataRetentionService> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromDays(1);
+    protected override string JobName => "data-retention";
 
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<DataRetentionService> _logger;
+    protected override TimeSpan PollInterval => TimeSpan.FromDays(1);
 
-    public DataRetentionService(IServiceScopeFactory scopeFactory, ILogger<DataRetentionService> logger)
+    /// <inheritdoc />
+    /// <remarks>
+    /// Tur tüm modül şemalarını tarar; tek küresel kira yeter. <c>OutgoingEmailDispatcher</c> ile
+    /// aynı seçim: adı alfabetik ilk gelen modülün şeması — önemli olan her turda aynı olması.
+    /// </remarks>
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
+        var descriptor = services.GetServices<ModuleDbContextDescriptor>()
+            .OrderBy(item => item.ModuleName, StringComparer.Ordinal)
+            .First();
+
+        return (ModuleDbContext)services.GetRequiredService(descriptor.DbContextType);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IDataRetentionProcessor>();
-                await processor.RunAsync(stoppingToken);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                _logger.LogError(exception, "Saklama süresi temizliği başarısız oldu.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
-        }
-    }
+    // Silinen satır sayısı işlemcinin kendisinde loglanır; turun düşmesi tabanda loglanır.
+    protected override Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
+        => services.GetRequiredService<IDataRetentionProcessor>().RunAsync(cancellationToken);
 }

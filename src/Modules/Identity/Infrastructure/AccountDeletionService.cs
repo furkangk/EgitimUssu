@@ -2,11 +2,12 @@ using System.Diagnostics;
 using EgitimUssu.Modules.Identity.Application;
 using EgitimUssu.Modules.Identity.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Observability;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace EgitimUssu.Modules.Identity.Infrastructure;
@@ -173,36 +174,25 @@ public sealed class AccountDeletionProcessor : IAccountDeletionProcessor
 /// Altı saatte bir koşar: bekleme süresi 30 gün olduğu için gün içi hassasiyet gerekmez, ama
 /// süresi dolan bir talebin bir günden fazla beklememesi gerekir.
 /// </para>
+/// <para>
+/// A-07 (P15 Task 8): Tur başına kira alır — düz bir <c>BackgroundService</c> iken ikinci bir uygulama
+/// örneği aynı talebi eşzamanlı anonimleştirmeye girişebiliyordu. Kira süresi 12 saattir (iki tur);
+/// kirayı tutan örnek her turda yeniler. Bedeli: yeniden başlayan bir süreç eski sürecin kirası
+/// dolana kadar (en çok 12 saat) bu turu koşmaz — 30 günlük bekleme süresi yanında önemsiz.
+/// </para>
 /// </summary>
-internal sealed class AccountDeletionService : BackgroundService
+internal sealed class AccountDeletionService(
+    IServiceScopeFactory scopeFactory,
+    ILogger<AccountDeletionService> logger) : LeasedBackgroundService(scopeFactory, logger)
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromHours(6);
+    protected override string JobName => "account-deletion";
 
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<AccountDeletionService> _logger;
+    protected override TimeSpan PollInterval => TimeSpan.FromHours(6);
 
-    public AccountDeletionService(IServiceScopeFactory scopeFactory, ILogger<AccountDeletionService> logger)
-    {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
+    protected override ModuleDbContext ResolveDbContext(IServiceProvider services)
+        => services.GetRequiredService<IdentityDbContext>();
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IAccountDeletionProcessor>();
-                await processor.RunAsync(stoppingToken);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                _logger.LogError(exception, "Hesap silme turu başarısız oldu.");
-            }
-
-            await Task.Delay(PollInterval, stoppingToken);
-        }
-    }
+    // Talep bazlı hatalar işlemcinin kendisinde loglanır; turun tamamen düşmesi tabanda loglanır.
+    protected override Task ExecuteCycleAsync(IServiceProvider services, CancellationToken cancellationToken)
+        => services.GetRequiredService<IAccountDeletionProcessor>().RunAsync(cancellationToken);
 }
