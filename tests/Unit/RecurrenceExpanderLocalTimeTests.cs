@@ -159,6 +159,8 @@ public sealed class RecurrenceExpanderLocalTimeTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("Not/A_Zone")]
+    [InlineData("Europe")] // Linux'ta zoneinfo altında klasör → SecurityException; Windows'ta bulunamadı
+    [InlineData("../../etc/passwd")]
     public void Empty_or_unresolvable_series_zone_falls_back_to_platform_zone(string? seriesTimeZone)
     {
         Assert.Same(Istanbul, SeriesTimeZone.Resolve(seriesTimeZone, Istanbul));

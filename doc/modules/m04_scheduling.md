@@ -236,7 +236,7 @@ yapılıyordu: "Salı 01:30 TR" dersi UTC'de Pazartesi 22:30 olduğundan `BYDAY=
 
 | Konu | Kural |
 |------|-------|
-| Dilim | Serinin `TimeZone` alanı (`SeriesTimeZone.SeriesZone(lesson.TimeZone)`); alan boşsa **veya çözülemiyorsa** `ILocalCalendar.Zone` (varsayılan `Europe/Istanbul`). Doğrulayıcı yalnız boş olmamayı istediği için geçersiz kimlik takvimi 500'e çevirmez, platform dilimine düşer |
+| Dilim | Serinin `TimeZone` alanı (`SeriesTimeZone.SeriesZone(lesson.TimeZone)`); alan boşsa **veya çözülemiyorsa** `ILocalCalendar.Zone` (varsayılan `Europe/Istanbul`). Doğrulayıcı yalnız boş olmamayı istediği için geçersiz kimlik takvimi 500'e çevirmez, platform dilimine düşer — Linux'ta klasör adı (`"Europe"`) `SecurityException` verir, o da yakalanır (aspnet:9.0 imajında doğrulandı) |
 | Genişletme | Çapa serinin diliminde duvar saatine çevrilir, gün/ay **yerel takvimde** ilerler, her oluşum UTC'ye geri çevrilir — DST'li dilimde duvar saati korunur (Berlin 18:00 ekim sonunda da 18:00) |
 | `BYDAY` | **Yerel** haftanın günüyle eşleşir; `BYDAY` yoksa çapanın yerel günü |
 | Aylık | Ay günü **çapadan sabit**: kısa ayda o ayın son gününe kırpılır ama sonraki aya taşınmaz (31 Ocak → 28 Şubat → 31 Mart → 30 Nisan) |
@@ -249,8 +249,10 @@ birleşik takvim (`GetStudentCalendarQueryHandler`), öğrencinin kendi ders ça
 `TimeZone`'unda, her öğretmen dersi kendi diliminde) ve Reporting'in boş zaman analizi (`LessonScheduleDirectory.ListTeacherBusyIntervalsAsync`).
 Mobil (`lesson_form_sheet.dart`, `study_entry_form_sheet.dart`) `BYDAY`'i zaten seçilen **yerel** tarihten üretiyor — değişiklik gerekmedi.
 ⚠️ **Göç notu:** eski genişletmenin ürettiği (yanlış güne düşmüş) oluşumlara yazılmış istisnalar artık hiçbir oluşumla
-eşleşmez (yalnız gece 00:00–02:59 TR seri başlangıçlı `BYDAY` serileri ve ayın 29–31'ine çapalı aylık seriler). Canlı üretim
-verisi olmadığı için göç yazılmadı.
+eşleşmez. Etkilenenler: gece 00:00–02:59 TR başlangıçlı `BYDAY` serileri ve **UTC'de** ayın 29–31'ine düşen aylık seriler —
+yerelde 29–31'e çapalılar ile gece 00:00–02:59 TR'de ayın 1'ine çapalılar (UTC'de önceki ayın son günü; eskiden 1 Aralık 01:00 →
+31 Aralık 01:00'e kayıyordu). Z'siz / yalnız tarih `UNTIL` sınırı da 3 saat kaydı (kodda bu biçimi yazan yok: mobil ve
+`EndSeriesBefore` `Z` yazar). Canlı üretim verisi olmadığı için göç yazılmadı.
 
 ---
 

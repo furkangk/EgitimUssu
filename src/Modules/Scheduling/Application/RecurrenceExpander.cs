@@ -396,11 +396,16 @@ public static class SeriesTimeZone
 
         // .NET çözülen sistem dilimlerini kendi içinde önbellekler; burada ayrıca önbellek tutulmaz
         // (geçersiz kimlikleri önbelleklemek kullanıcı girdisiyle sınırsız büyürdü).
+        // Kimlik kullanıcı girdisidir: Linux'ta zoneinfo altında bir yol olarak okunur — klasör adı
+        // ("Europe") SecurityException, aşırı uzun/bozuk kimlik ArgumentException verebilir.
         try
         {
             return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId.Trim());
         }
-        catch (Exception exception) when (exception is TimeZoneNotFoundException or InvalidTimeZoneException)
+        catch (Exception exception) when (exception is TimeZoneNotFoundException
+            or InvalidTimeZoneException
+            or System.Security.SecurityException
+            or ArgumentException)
         {
             return fallback;
         }
