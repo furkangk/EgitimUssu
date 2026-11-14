@@ -157,6 +157,16 @@ Projeksiyon henüz beslenmediyse **404 `reporting.dashboard_not_ready`** döner 
 > **listelerini** basıyor, bugünkü integration event'ler ise ders konusu/saati etiketi, ödev başlığı/son teslim tarihi ve
 > ödeme açıklaması taşımıyor. Liste projeksiyondan üretilemediği için BFF üç modülü sorgulamayı sürdürüyor; taşımak
 > üç modülün event sözleşmesini zenginleştirmeyi gerektirir (ayrı iş).
+>
+> **BFF yanıtı (P16 T5 / N-11, 2026-11-15):** `todayLessons` **Türkiye günüdür** (`ILocalCalendar.DayRangeUtc(Today())`;
+> başlangıcı `[gün başı, gün sonu)` içinde olan oluşumlar — dün başlayıp bugüne taşan ya da tam gece yarısı biten ders
+> "bugün" değildir; eskiden UTC günüydü, 00:00–03:00 TR dersleri düşüyordu). Yeni alan
+> **`overduePaymentTotals: [{ currency, count, total }]`** — para birimi bazında, en erken vadeli para birimi önce.
+> `overduePaymentsCurrency` + `overduePaymentsTotal` **eski tekil alanlardır** (geriye uyum — mobil okuyor; kullanımdan
+> kalkacak): listenin ilk satırını taşır, yani **yalnız o para biriminin** toplamı (eskiden farklı para birimlerini
+> toplayıp ilkinin etiketini basıyordu). `overduePaymentsCount` tüm para birimlerinin kayıt sayısıdır. Ödeme özetinin
+> (`/payments/.../summary`) aylık kırılımındaki para birimi boyutu **P18 T3**'te.
+> Projeksiyonlu `dashboard` ucunun "bugün"ü hâlâ UTC — oluşum bazlı yeniden yazım **P17 T7** (N-49).
 
 **Yanıt sözleşmeleri (koddan, P08 Task 3):**
 
@@ -221,8 +231,20 @@ GET  /api/reporting/teachers/{teacherUserId}/students-summary         → aktif 
    | `Limited` | yalnız `studyMinutes` (seans/test sayısı 0) | boş — net/hâkimiyet zaten gizlenen detaydır |
    | `Standard` | tam | tam |
 
-7. **Dönem kovaları UTC'dir:** ay sınırı `MonthOf` (yerel saat kullanılmaz), hafta sınırı **ISO-8601** (`WeekOf`);
-   1 Ocak 2027 Cuma, ISO'da 2026'nın 53. haftasıdır. M10-1 anlık görüntüleriyle aynı hafta tanımı (Pazartesi başlangıç).
+7. **Dönem kovaları Türkiye yerel günüdür (P16 T5 / N-50, K-19 — 2026-11-15):** olay anı önce `ILocalCalendar` ile
+   yerel tarihe çevrilir, kova o tarihten alınır — `ReportingPeriods.MonthOf/WeekOf(utc, calendar)` ya da doğrudan yerel
+   tarih için `MonthOf/WeekOf(DateOnly)`; takvimsiz UTC aşırı yüklemesi **yok** (derlenmez). Pazartesi 01:30 TR seansı bu
+   haftaya, 1 Eylül 00:30 TR dersi Eylül'e düşer (eskiden UTC: geçen hafta / Ağustos). Study'nin haftalık özetiyle aynı
+   kural (düz yerel tarih; 04:00 seri günü yalnız Study'nin seri sayacına aittir). Hafta sınırı **ISO-8601**: 1 Ocak 2027
+   Cuma, ISO'da 2026'nın 53. haftasıdır; M10-1 anlık görüntüleriyle aynı hafta tanımı (Pazartesi başlangıç).
+   **Göç:** kova kuralı değişti; canlı veri yok. Canlı veri varken bu değişiklik dağıtılırsa üç analitik projeksiyon
+   (`teacher_monthly`, `student_study`, `student_performance`) yeniden kurulmalıdır — `backend.md` §7.1.
+   - **Boş zaman (M14-5):** öğretmenin haftalık uygunluk şablonu ("Pzt 18:00–21:00") **yerel** saattir; yerel günlere
+     yayılır ve her parça UTC'ye çevrilir (18:00 TR = 15:00Z). Eskiden UTC günlerine yayılıyordu (sonuç 3 saat kayık).
+     Öğretmen saat dilimi P24'te — şimdilik platform takvimi.
+   - **Varsayılan dönemler:** `monthly` yıl/ay verilmezse **yerel** bugünün ayı; `free-slots` başlangıcı verilen anın
+     (ya da şimdinin) yerel gün başı; PDF raporunun varsayılan dönemi yerel bugünden geriye bir ay, ödev penceresi bu
+     yerel günlerin UTC karşılığı `[ilk gün 00:00 TR, son günün ertesi 00:00 TR)`.
 8. **PDF üretimi:** sunucu tarafında (ör. headless render) üretilip indirilebilir link/dosya döner; büyük raporlar için arka plan işi.
 
 ---
@@ -343,4 +365,4 @@ Sorgu zamanı:
 
 ---
 
-*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-04 (P09 Task 2 / K-09: PDF premium kapısı `IMembershipDirectory` + geçici `ReportEntitlement.EffectiveTier` ikilisinden `IEntitlementDirectory`'ye devredildi — kural artık "istek sahibinin `PdfReports` hakkı", Admin muaf. Önceki not — P08 kapanış / Task 6: durum 🟡 → 🟢; projeksiyon yeniden-kurulabilirliği `RealProjectionRebuildTests` ile gerçek Postgres'te kanıtlandı (boşalt → aynı akışı oynat → aynı sayaçlar → üçüncü teslimde değişmiyor); kalan borçlar P09/P12 olarak etiketlendi. Önceki not — P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
+*Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-11-15 (P16 Task 5 / N-11, N-43, N-50: §4 kural 7 — dönem kovaları Türkiye yerel günü (`ReportingPeriods` takvimli/tarih tabanlı, UTC aşırı yüklemesi kaldırıldı), boş zaman şablonu yerel güne kurulur → UTC, `monthly`/`free-slots`/PDF varsayılan dönemleri yerel; BFF `dashboard-summary` bugünü yerel + `overduePaymentTotals` para birimi bazında, eski tekil alanlar ilk satır) · 2026-09-04 (P09 Task 2 / K-09: PDF premium kapısı `IMembershipDirectory` + geçici `ReportEntitlement.EffectiveTier` ikilisinden `IEntitlementDirectory`'ye devredildi — kural artık "istek sahibinin `PdfReports` hakkı", Admin muaf. Önceki not — P08 kapanış / Task 6: durum 🟡 → 🟢; projeksiyon yeniden-kurulabilirliği `RealProjectionRebuildTests` ile gerçek Postgres'te kanıtlandı (boşalt → aynı akışı oynat → aynı sayaçlar → üçüncü teslimde değişmiyor); kalan borçlar P09/P12 olarak etiketlendi. Önceki not — P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*

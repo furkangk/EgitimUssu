@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Modules.Scheduling.Domain;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
@@ -17,7 +18,7 @@ public sealed class SchedulingMutationIntegrityTests
     {
         var lesson = NewLesson(status);
         var repository = new RecordingRepository(lesson);
-        var handler = new CancelLessonScheduleCommandHandler(repository, new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repository, new PassThroughScheduleLock(), new FakeClock(), new FakeIdGenerator());
 
         var result = await handler.Handle(new CancelLessonScheduleCommand(lesson.Id, CancellationReason.Other,
             false, null, scope, Start.AddDays(7)), default);
@@ -53,7 +54,7 @@ public sealed class SchedulingMutationIntegrityTests
     {
         var lesson = NewLesson(LessonScheduleStatus.Planned);
         var repository = new RecordingRepository(lesson);
-        var handler = new CancelLessonScheduleCommandHandler(repository, new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repository, new PassThroughScheduleLock(), new FakeClock(), new FakeIdGenerator());
 
         var result = await handler.Handle(new CancelLessonScheduleCommand(lesson.Id, CancellationReason.Other,
             false, null, scope), default);
@@ -72,7 +73,8 @@ public sealed class SchedulingMutationIntegrityTests
     {
         var lesson = NewLesson(LessonScheduleStatus.Planned);
         var repository = new RecordingRepository(lesson);
-        var handler = new RescheduleLessonScheduleCommandHandler(repository, new FakeClock(), new FakeIdGenerator());
+        var handler = new RescheduleLessonScheduleCommandHandler(repository, new InMemoryTimeOffRepository(), new PassThroughScheduleLock(),
+            new LocalCalendar("Europe/Istanbul", new FakeClock()), SchedulingConflictSettings.Default, new FakeClock(), new FakeIdGenerator());
 
         var result = await handler.Handle(new RescheduleLessonScheduleCommand(lesson.Id,
             Start.AddHours(2), Start.AddHours(3), null, scope), default);
@@ -134,7 +136,7 @@ public sealed class SchedulingMutationIntegrityTests
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
             => Task.FromResult<LessonSchedule?>(_series.Id == lessonId ? _series : null);
 
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
         {
             AddedExceptions.Add(occurrenceException);
             return Task.CompletedTask;
@@ -146,12 +148,6 @@ public sealed class SchedulingMutationIntegrityTests
             SaveCount++;
             return Task.CompletedTask;
         }
-
-        public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken)
-            => throw new NotImplementedException();
-
-        public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
-            => throw new NotImplementedException();
 
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken)
             => throw new NotImplementedException();

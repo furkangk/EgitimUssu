@@ -43,11 +43,14 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
-    public ProgressSnapshotProcessor(ProgressTrackingDbContext dbContext, IClock clock, IIdGenerator idGenerator)
+    private readonly ILocalCalendar _calendar;
+
+    public ProgressSnapshotProcessor(ProgressTrackingDbContext dbContext, IClock clock, IIdGenerator idGenerator, ILocalCalendar calendar)
     {
         _dbContext = dbContext;
         _clock = clock;
         _idGenerator = idGenerator;
+        _calendar = calendar;
     }
 
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
@@ -59,7 +62,7 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
             ActivityKind.Internal);
 
         var now = _clock.UtcNow;
-        var today = DateOnly.FromDateTime(now);
+        var today = _calendar.ToLocalDate(now);   // P16 T5 / N-50: kapanmış hafta/ay Türkiye gününe göre
         var createdCount = 0;
 
         foreach (var period in Periods)

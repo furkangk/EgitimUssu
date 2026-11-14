@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Modules.Scheduling.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -14,6 +15,7 @@ public sealed class StudentCalendarQueryTests
     private static readonly DateTime WindowEnd = new(2026, 7, 21, 0, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime SelfStart = new(2026, 7, 20, 13, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime TeacherStart = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
+    private static readonly LocalCalendar Calendar = new("Europe/Istanbul", new FakeClock(WindowStart));
 
     [Fact]
     public async Task Derives_source_editability_and_completed()
@@ -32,7 +34,7 @@ public sealed class StudentCalendarQueryTests
         var repo = new FakeRepo(teacher, self);
         // Self ders o gün çalışılmış; öğretmen dersi çalışılmamış.
         var reader = new FakeCompletionReader(new PlanCompletion(self.Id, DateOnly.FromDateTime(SelfStart)));
-        var handler = new GetStudentCalendarQueryHandler(repo, reader);
+        var handler = new GetStudentCalendarQueryHandler(repo, reader, Calendar);
 
         var result = await handler.Handle(new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd), CancellationToken.None);
 
@@ -70,7 +72,7 @@ public sealed class StudentCalendarQueryTests
             Guid.NewGuid(), studentId, "Fizik", null,
             SelfStart, SelfStart.AddHours(1), "Europe/Istanbul", null, 30, null, null, SelfStart);
 
-        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, overlapping, free), new FakeCompletionReader());
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, overlapping, free), new FakeCompletionReader(), Calendar);
 
         var result = await handler.Handle(new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd), CancellationToken.None);
 
@@ -98,7 +100,7 @@ public sealed class StudentCalendarQueryTests
             Guid.NewGuid(), studentId, "Matematik", null,
             TeacherStart.AddDays(7), TeacherStart.AddDays(7).AddHours(1), "Europe/Istanbul", null, 30, null, null, TeacherStart);
 
-        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, self), new FakeCompletionReader());
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(teacher, self), new FakeCompletionReader(), Calendar);
 
         var result = await handler.Handle(
             new GetStudentCalendarQuery(studentId, WindowStart, WindowEnd.AddDays(7)), CancellationToken.None);
@@ -106,13 +108,42 @@ public sealed class StudentCalendarQueryTests
         Assert.True(Assert.Single(result.Value!, o => o.EntryId == self.Id).ConflictsWithLesson);
     }
 
+    [Fact]
+    public async Task Completion_is_matched_on_the_local_day_of_the_occurrence()
+    {
+        // P16 T5 / N-11: Salı 01:30 TR = Pazartesi 22:30Z. Seans Salı (yerel gün) çalışıldı; sözleşme tarihleri yereldir.
+        var studentId = Guid.NewGuid();
+        var start = new DateTime(2026, 11, 16, 22, 30, 0, DateTimeKind.Utc);
+        var self = LessonSchedule.CreateSelfLesson(
+            Guid.NewGuid(), studentId, "Matematik", null,
+            start, start.AddHours(1), "Europe/Istanbul", null, 30, null, null, start);
+        var reader = new FakeCompletionReader(new PlanCompletion(self.Id, new DateOnly(2026, 11, 17)));
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(self), reader, Calendar);
+
+        // Salı'nın yerel günü: [Pazartesi 21:00Z, Salı 21:00Z).
+        var result = await handler.Handle(
+            new GetStudentCalendarQuery(
+                studentId,
+                new DateTime(2026, 11, 16, 21, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 11, 17, 20, 59, 59, DateTimeKind.Utc)),
+            CancellationToken.None);
+
+        Assert.True(Assert.Single(result.Value!).Completed);
+        Assert.Equal((new DateOnly(2026, 11, 17), new DateOnly(2026, 11, 17)), reader.LastRange!.Value);
+    }
+
     private sealed class FakeCompletionReader : IStudyPlanCompletionReader
     {
         private readonly PlanCompletion[] _completions;
         public FakeCompletionReader(params PlanCompletion[] completions) => _completions = completions;
 
+        public (DateOnly From, DateOnly To)? LastRange { get; private set; }
+
         public Task<IReadOnlyCollection<PlanCompletion>> GetCompletionsAsync(Guid studentId, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyCollection<PlanCompletion>>(_completions);
+        {
+            LastRange = (fromDate, toDate);
+            return Task.FromResult<IReadOnlyCollection<PlanCompletion>>(_completions);
+        }
     }
 
     private sealed class FakeRepo : ILessonScheduleRepository
@@ -127,13 +158,11 @@ public sealed class StudentCalendarQueryTests
             => Task.FromResult<IReadOnlyCollection<LessonOccurrenceException>>(Array.Empty<LessonOccurrenceException>());
 
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
     }

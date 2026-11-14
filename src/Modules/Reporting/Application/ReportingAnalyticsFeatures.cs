@@ -166,12 +166,14 @@ public sealed class GetTeacherFreeSlotsQueryHandler
 
     private readonly ITeacherAvailabilityDirectory _availability;
     private readonly ILessonScheduleDirectory _schedules;
+    private readonly ILocalCalendar _calendar;
 
     public GetTeacherFreeSlotsQueryHandler(
-        ITeacherAvailabilityDirectory availability, ILessonScheduleDirectory schedules)
+        ITeacherAvailabilityDirectory availability, ILessonScheduleDirectory schedules, ILocalCalendar calendar)
     {
         _availability = availability;
         _schedules = schedules;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<FreeSlotResponse>>> Handle(
@@ -186,7 +188,7 @@ public sealed class GetTeacherFreeSlotsQueryHandler
         var busy = await _schedules.ListTeacherBusyIntervalsAsync(
             query.TeacherUserId, query.FromUtc, query.ToUtc, cancellationToken);
 
-        var free = FreeSlotCalculator.Compute(slots, busy, query.FromUtc, query.ToUtc)
+        var free = FreeSlotCalculator.Compute(slots, busy, query.FromUtc, query.ToUtc, _calendar)
             .Select(item => new FreeSlotResponse(
                 item.StartAtUtc, item.EndAtUtc, (int)(item.EndAtUtc - item.StartAtUtc).TotalMinutes))
             .ToArray();
@@ -239,7 +241,7 @@ public sealed class GetStudentStudyAnalysisQueryHandler
 
     private static (int Year, int Week)? WeekBound(DateOnly? date) => date is null
         ? null
-        : ReportingPeriods.WeekOf(date.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+        : ReportingPeriods.WeekOf(date.Value);   // istemcinin yerel tarihi: tarih tabanlı kova (P16 T5)
 }
 
 // ---- M14-3: öğrenci performansı ----

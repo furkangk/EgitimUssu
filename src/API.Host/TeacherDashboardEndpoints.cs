@@ -28,7 +28,7 @@ public static class TeacherDashboardEndpoints
         Guid teacherUserId,
         IQueryDispatcher queryDispatcher,
         ICurrentUser currentUser,
-        IClock clock,
+        ILocalCalendar calendar,
         CancellationToken cancellationToken)
     {
         if (!currentUser.IsAuthenticated)
@@ -43,10 +43,13 @@ public static class TeacherDashboardEndpoints
             return ApiErrorHttpResults.Forbidden(context, "Bu işlemi yapma yetkiniz yok.");
         }
 
-        var todayUtc = DateTime.SpecifyKind(clock.UtcNow.Date, DateTimeKind.Utc);
+        // P16 T5 / N-11 (K-19): "bugün" Türkiye günüdür — 00:00–03:00 TR dersleri bugünde, ertesi günün dersleri değil.
+        var (todayStartUtc, todayEndUtc) = calendar.DayRangeUtc(calendar.Today());
 
+        // Liste penceresi iki ucu dahil sayar ve tekil dersi kesişimle eşler; o yüzden pencere bir tick erken kapanır ve
+        // sonuç aşağıda başlangıca göre süzülür (dün başlayıp bugüne taşan ya da tam gece yarısı biten ders "bugün" değil).
         var todayLessonsTask = queryDispatcher.Dispatch(
-            new ListLessonSchedulesForTeacherQuery(teacherUserId, todayUtc, todayUtc.AddDays(1)),
+            new ListLessonSchedulesForTeacherQuery(teacherUserId, todayStartUtc, todayEndUtc.AddTicks(-1)),
             cancellationToken);
         var assignmentsTask = queryDispatcher.Dispatch(
             new ListAssignmentsQuery(teacherUserId, null, null),
@@ -75,7 +78,7 @@ public static class TeacherDashboardEndpoints
         }
 
         var todayLessons = lessonsResult.Value!
-            .Where(l => l.Status != "Cancelled")
+            .Where(l => l.Status != "Cancelled" && l.StartAtUtc >= todayStartUtc && l.StartAtUtc < todayEndUtc)
             .OrderBy(l => l.StartAtUtc)
             .Select(l => new DashboardTodayLessonItem(l.Id, l.StudentId, l.Subject, l.LessonFormat, l.StartAtUtc, l.EndAtUtc, l.LocationLabel))
             .ToArray();
@@ -91,20 +94,34 @@ public static class TeacherDashboardEndpoints
             .Select(p => new DashboardOverduePaymentItem(p.Id, p.StudentId, p.Description, p.Currency, p.OutstandingAmount, p.DueDateUtc))
             .ToArray();
 
-        var firstCurrency = overduePayments.FirstOrDefault()?.Currency ?? "TRY";
-        var overdueTotal = overduePayments.Sum(p => p.OutstandingAmount);
+        // P16 T5 / N-11 (K-23): farklı para birimleri toplanmaz. Liste en erken vadeli para biriminden başlar; eski tekil
+        // alanlar (mobil okuyor) listenin ilk satırını taşır — artık yalnız o para biriminin toplamı.
+        var overdueTotals = overduePayments
+            .GroupBy(p => p.Currency)
+            .OrderBy(group => group.Min(p => p.DueDateUtc))
+            .ThenBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => new DashboardOverdueCurrencyTotal(group.Key, group.Count(), group.Sum(p => p.OutstandingAmount)))
+            .ToArray();
+        var primary = overdueTotals.FirstOrDefault();
 
         return Results.Ok(new TeacherDashboardSummaryResponse(
             TodayLessons: todayLessons,
             PendingAssignmentsCount: pendingAssignments.Length,
             PendingAssignments: pendingAssignments,
             OverduePaymentsCount: overduePayments.Length,
-            OverduePaymentsCurrency: firstCurrency,
-            OverduePaymentsTotal: overdueTotal,
-            OverduePayments: overduePayments));
+            OverduePaymentsCurrency: primary?.Currency ?? "TRY",
+            OverduePaymentsTotal: primary?.Total ?? 0m,
+            OverduePayments: overduePayments,
+            OverduePaymentTotals: overdueTotals));
     }
 }
 
+/// <summary>
+/// Öğretmen paneli özeti. P16 T5 / N-11: <c>OverduePaymentTotals</c> para birimi bazında gecikmiş toplamlardır (en erken
+/// vadeli para birimi önce). <c>OverduePaymentsCurrency</c> + <c>OverduePaymentsTotal</c> eski tekil alanlardır (geriye
+/// uyum — mobil okuyor, kullanımdan kalkacak): listenin ilk satırını taşır, yani yalnız o para biriminin toplamı (P16
+/// T5'ten önce farklı para birimlerini topluyordu).
+/// </summary>
 public sealed record TeacherDashboardSummaryResponse(
     IReadOnlyCollection<DashboardTodayLessonItem> TodayLessons,
     int PendingAssignmentsCount,
@@ -112,7 +129,8 @@ public sealed record TeacherDashboardSummaryResponse(
     int OverduePaymentsCount,
     string OverduePaymentsCurrency,
     decimal OverduePaymentsTotal,
-    IReadOnlyCollection<DashboardOverduePaymentItem> OverduePayments);
+    IReadOnlyCollection<DashboardOverduePaymentItem> OverduePayments,
+    IReadOnlyCollection<DashboardOverdueCurrencyTotal> OverduePaymentTotals);
 
 public sealed record DashboardTodayLessonItem(
     Guid Id,
@@ -137,3 +155,9 @@ public sealed record DashboardOverduePaymentItem(
     string Currency,
     decimal OutstandingAmount,
     DateTime DueDateUtc);
+
+/// <summary>P16 T5 / N-11: bir para biriminin gecikmiş ödeme sayısı ve kalan toplamı.</summary>
+public sealed record DashboardOverdueCurrencyTotal(
+    string Currency,
+    int Count,
+    decimal Total);

@@ -40,13 +40,16 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
 {
     private readonly ILessonScheduleRepository _lessonRepository;
     private readonly IStudyPlanCompletionReader _completionReader;
+    private readonly ILocalCalendar _calendar;
 
     public GetStudentCalendarQueryHandler(
         ILessonScheduleRepository lessonRepository,
-        IStudyPlanCompletionReader completionReader)
+        IStudyPlanCompletionReader completionReader,
+        ILocalCalendar calendar)
     {
         _lessonRepository = lessonRepository;
         _completionReader = completionReader;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<StudentCalendarOccurrenceResponse>>> Handle(GetStudentCalendarQuery query, CancellationToken cancellationToken)
@@ -58,10 +61,11 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
         var exceptionsByLesson = await SelfLessonConflict.LoadExceptionsByLessonAsync(_lessonRepository, lessons, cancellationToken);
 
         // Ç-06: (LessonId, tarih) → çalışıldı kümesi (Study modülünden okuma sözleşmesiyle).
+        // P16 T5 / N-11: tarihler Türkiye yerel günüdür — iki taraf da aynı kuralla eşleşir (Salı 01:30 TR dersi Salı).
         var completions = await _completionReader.GetCompletionsAsync(
             query.StudentId,
-            DateOnly.FromDateTime(query.StartAtUtc),
-            DateOnly.FromDateTime(query.EndAtUtc),
+            _calendar.ToLocalDate(query.StartAtUtc),
+            _calendar.ToLocalDate(query.EndAtUtc),
             cancellationToken);
         var completedSet = completions.Select(c => (c.LessonId, c.Date)).ToHashSet();
 
@@ -76,8 +80,10 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                 ? ex
                 : Array.Empty<OccurrenceOverride>();
 
+            // P16 T2 / N-04: seri kendi diliminin yerel takviminde genişletilir.
             foreach (var occurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, query.StartAtUtc, query.EndAtUtc, lessonExceptions))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
+                query.StartAtUtc, query.EndAtUtc, lessonExceptions))
             {
                 // İptal edilen tek oluşum takvimde gösterilmez.
                 if (occurrence.IsCancelled)
@@ -103,7 +109,7 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                     lesson.RecurrenceRule,
                     lesson.Notes,
                     IsEditable: isSelf,
-                    Completed: completedSet.Contains((lesson.Id, DateOnly.FromDateTime(occurrence.StartAtUtc))),
+                    Completed: completedSet.Contains((lesson.Id, _calendar.ToLocalDate(occurrence.StartAtUtc))),
                     ConflictsWithLesson: false));
             }
         }

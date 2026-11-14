@@ -22,136 +22,161 @@
 
 ---
 
-### Task 1: `ILocalCalendar` + `StudyLocalTime` taşıması
+### Task 1: `ILocalCalendar` + `StudyLocalTime` taşıması ✅
 
 **Files:**
 - Create: `src/Shared/Kernel/ILocalCalendar.cs`, `src/Shared/Infrastructure/LocalCalendar.cs`
 - Create: `src/Shared/Infrastructure/Configuration/LocalCalendarGuard.cs` (açılışta zaman dilimi çözülemezse fail-fast)
-- Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs`
+- Modify: `src/Shared/Infrastructure/ServiceCollectionExtensions.cs` (`Localization:TimeZone` burada okunur ve guard'dan geçer — diğer guard'lardan **önce**; ayrı options sınıfı yok, `LocalizationOptions` adı framework tipiyle çakışır)
+- Modify: `src/API.Host/Program.cs` (açılış log'una "yerel takvim" satırı — Step 4'ün kanıtı) — *2026-11-14 eklendi*
 - Modify: `src/Modules/Study/Application/StudyPolicies.cs` (`StudyLocalTime` → `ILocalCalendar` üzerine; 04:00 seri günü kuralı korunur)
+- Modify: `src/Modules/Study/Application/StudySessionFeatures.cs`, `src/Modules/Study/Application/StudyProgressFeatures.cs` (çağıranlar `ILocalCalendar` enjekte eder — statik yardımcı DI'lı takvimi göremez) — *2026-11-14 eklendi*
+- Modify: `tests/Unit/StreakRulesTests.cs`, `tests/Unit/StudyStreakTests.cs`, `tests/Unit/StudySessionRecoveryHandlerTests.cs` (imza değişikliği) — *2026-11-14 eklendi*
 - Modify: `Dockerfile` (runtime imajında `tzdata` mevcut değilse ekle)
+- Doc: `doc/architecture/backend.md` (§5.1 zaman), `doc/modules/m08_study.md` (sabit UTC+3 anlatımı) — *2026-11-14 eklendi*
 - Test: `tests/Unit/LocalCalendarTests.cs`
 
 **Interfaces:**
-- Produces: master §4'teki `ILocalCalendar` imzası aynen. Ek: `DateOnly StudyDay(DateTime utc)` **Study'de** kalır (`ILocalCalendar.ToLocal(utc).AddHours(-4)` tarihi).
+- Produces: master §4'teki `ILocalCalendar` imzası aynen. Ek: `DateOnly StudyDay(DateTime utc)` **Study'de** kalır (`ILocalCalendar` uzantısı; `ToLocalDate(utc.AddHours(-4))` — `DateOnly.FromDateTime(` modülde kullanılmaz, T6 taraması).
 - Config: `Localization:TimeZone` (varsayılan `Europe/Istanbul`).
+- `FormatForUser` Türkçe ay/gün adlarını **sabit tablodan** basar (ICU/kültür verisine bağlı değil — Linux imajında kültür eksikse sessizce İngilizce basmaz).
 
-- [ ] **Step 1: Kırmızı testler** — `ToLocalDate(2026-11-13T21:30Z)` = 2026-11-14; `DayRangeUtc(2026-11-14)` = `[2026-11-13T21:00Z, 2026-11-14T21:00Z)`; `WeekRangeUtc` Pazartesi 00:00 TR; `MonthRangeUtc(2026, 12)` = `[2026-11-30T21:00Z, 2026-12-31T21:00Z)`; `FormatForUser` → `"14 Kasım Cuma 10:00"`; geçersiz zaman dilimi kimliği → guard hatası.
-- [ ] **Step 2: Kırmızı gör** — `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LocalCalendarTests"`
-- [ ] **Step 3: Uygula** (`TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul")`; Windows'ta ICU ile çözülür, çözülmezse guard açıkça söyler).
-- [ ] **Step 4: Docker doğrulaması** — `docker build -t eu-tz . && docker run --rm -e ASPNETCORE_ENVIRONMENT=Development eu-tz` açılış log'unda guard geçti satırı; geçmezse `apt-get install -y tzdata` ekle.
-- [ ] **Step 5: `StudyLocalTime` taşıması** — mevcut seri testleri yeşil kalmalı (davranış aynı, yalnız kaynak değişiyor).
-- [ ] **Step 6: Yeşil gör + doküman + commit** — `doc/architecture/backend.md` §zaman; master §1 "Saat" kuralına atıf.
+- [x] **Step 1: Kırmızı testler** — `ToLocalDate(2026-11-13T21:30Z)` = 2026-11-14; `DayRangeUtc(2026-11-14)` = `[2026-11-13T21:00Z, 2026-11-14T21:00Z)`; `WeekRangeUtc` Pazartesi 00:00 TR (Pazar girdisi dahil); `MonthRangeUtc(2026, 12)` = `[2026-11-30T21:00Z, 2026-12-31T21:00Z)`; her UTC çıktıda `Kind == Utc`; `FormatForUser(2026-11-13T07:00Z)` → `"13 Kasım Cuma 10:00"` (*düzeltme 2026-11-14: planın ilk hâlindeki "14 Kasım Cuma" 2026'da yanlış — 14 Kasım 2026 Cumartesi*); geçersiz zaman dilimi kimliği → guard hatası.
+- [x] **Step 2: Kırmızı gör** — `dotnet test tests/Unit/EgitimUssu.Tests.Unit.csproj --filter "FullyQualifiedName~LocalCalendarTests"`
+- [x] **Step 3: Uygula** (`TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul")`; Windows'ta ICU ile çözülür, çözülmezse guard açıkça söyler).
+- [x] **Step 4: Docker doğrulaması** — `docker build -t eu-tz . && docker run --rm -e ASPNETCORE_ENVIRONMENT=Development eu-tz` açılış log'unda guard geçti satırı; geçmezse `apt-get install -y tzdata` ekle. *(2026-11-14: `aspnet:9.0` imajında `tzdata` kurulu — `dpkg -s tzdata` → `install ok installed`; log satırı `Yerel takvim: Europe/Istanbul (UTC+03:00) — LocalCalendarGuard geçti`. Dockerfile'a paket değil yalnız koruma yorumu eklendi.)*
+- [x] **Step 5: `StudyLocalTime` taşıması** — mevcut seri testleri yeşil kalmalı (davranış aynı, yalnız kaynak değişiyor).
+- [x] **Step 6: Yeşil gör + doküman + commit** — `doc/architecture/backend.md` §zaman (§5.1); master §1 "Saat" kuralına atıf.
   ```bash
   git commit -m "feat(time): ILocalCalendar tek zaman kaynagi + StudyLocalTime tasindi (K-19)"
   ```
 
 ---
 
-### Task 2: Tekrar genişletmesi yerel saatte (N-04)
+### Task 2: Tekrar genişletmesi yerel saatte (N-04) ✅
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (her iki `Expand` aşırı yüklemesi)
-- Modify: çağıranlar — `LessonScheduleFeatures.cs`, `StudentCalendarQuery.cs`, `SelfLessonPolicies.cs`/`SelfLessonConflict` (imza değişirse)
+- Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (her iki `Expand` aşırı yüklemesi + aynı dosyada `SeriesTimeZone` çözücüsü)
+- Modify: çağıranlar — `LessonScheduleFeatures.cs`, `StudentCalendarQuery.cs`, `SelfLessonFeatures.cs` (`SelfLessonConflict` + iki self-ders handler'ı; plan ilk hâlinde yanlışlıkla `SelfLessonPolicies.cs` diyordu) — *2026-11-14 düzeltildi*
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs` (dördüncü çağıran: Reporting boş zaman analizi — `ListTeacherBusyIntervalsAsync`) — *2026-11-14 eklendi*
+- Modify: `tests/Unit/RecurrenceExpanderTests.cs` (imza: dilim argümanı), `tests/Unit/TeacherLessonExpansionTests.cs`, `tests/Unit/StudentCalendarQueryTests.cs` (handler kurucusu `ILocalCalendar` alır) — *2026-11-14 eklendi*
+- Doc: `doc/architecture/backend.md` §5.1, `doc/modules/m04_scheduling.md`, rapor N-04 — *2026-11-14 eklendi*
 - Test: `tests/Unit/RecurrenceExpanderLocalTimeTests.cs`
 
 **Interfaces:**
-- `Expand(...)` artık serinin `TimeZone`'unu (boşsa `ILocalCalendar.Zone`) alır: çapa yerel saate çevrilir, yerel takvimde ilerlenir, her oluşum UTC'ye çevrilir.
+- `Expand(...)` artık serinin `TimeZone`'unu (boşsa `ILocalCalendar.Zone`) alır: çapa yerel saate çevrilir, yerel takvimde ilerlenir, her oluşum UTC'ye çevrilir. *(Uygulanan biçim: `Expand(anchorStartUtc, anchorEndUtc, rule, TimeZoneInfo zone, rangeStartUtc, rangeEndUtc[, exceptions])` saf/statik; çağıran `calendar.SeriesZone(lesson.TimeZone)` verir — boş **veya çözülemeyen** kimlik `ILocalCalendar.Zone`'a düşer, doğrulayıcı yalnız boş olmamayı istediği için.)*
 - Haftalık: `BYDAY` **yerel** haftanın günüyle eşleşir.
 - Aylık: ay günü **çapadan sabitlenir** (`anchorLocal.Day`), kısa ayda o ayın son gününe kırpılır ama **sonraki aya taşınmaz** (31 Ocak → 28 Şubat → **31 Mart**).
+- `UNTIL` *(2026-11-14 netleştirildi)*: `Z` sonekli = UTC an (mobil + `EndSeriesBefore` biçimi); Z'siz tarih-saat = serinin yerel saati (RFC 5545 floating); yalnız tarih = o yerel günün tamamı.
 
-- [ ] **Step 1: Kırmızı testler** — Salı 01:30 TR haftalık (`BYDAY=TU`) → ilk oluşum üretilir ve tüm oluşumlar TR Salı 01:30; 31 Ocak aylık → 28 Şubat, 31 Mart, 30 Nisan; "her ayın 1'i 01:00 TR" → her ay 1'inde; `COUNT` ve `UNTIL` sınırları yerel saatle; mevcut tüm `RecurrenceExpander` testleri yeşil.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Yeşil gör** — `dotnet test EgitimUssu.slnx`
-- [ ] **Step 5: Mobil tutarlılık kontrolü** — `mobile/lib/features/scheduling/presentation/widgets/lesson_form_sheet.dart` RRULE'u **yerel** günle mi üretiyor? (`grep -n "BYDAY\|weekday" lesson_form_sheet.dart`). Yerelse dokunma; UTC'den üretiyorsa bu görevde düzelt + widget testi.
-- [ ] **Step 6: Doküman + commit** — `m04_scheduling.md` (tekrar kuralı); rapor N-04 ✅.
+- [x] **Step 1: Kırmızı testler** — Salı 01:30 TR haftalık (`BYDAY=TU`) → ilk oluşum üretilir ve tüm oluşumlar TR Salı 01:30; 31 Ocak aylık → 28 Şubat, 31 Mart, 30 Nisan; "her ayın 1'i 01:00 TR" → her ay 1'inde; `COUNT` ve `UNTIL` sınırları yerel saatle; mevcut tüm `RecurrenceExpander` testleri yeşil. *(Ek: DST'li seri dilimi — Berlin ekim sonu, duvar saati 18:00 korunur; istisnalar yerel oluşum anını hedefler; boş/geçersiz dilim → platform dilimi; handler düzeyinde Salı gecesi serisi.)*
+- [x] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Yeşil gör** — `dotnet test EgitimUssu.slnx` *(önce imza davranışsız geçirildi → 1042 yeşil; sonra yeni testler 11 iddia hatasıyla kırmızı; uygulama sonrası yeşil)*
+- [x] **Step 5: Mobil tutarlılık kontrolü** — `mobile/lib/features/scheduling/presentation/widgets/lesson_form_sheet.dart` RRULE'u **yerel** günle mi üretiyor? (`grep -n "BYDAY\|weekday" lesson_form_sheet.dart`). Yerelse dokunma; UTC'den üretiyorsa bu görevde düzelt + widget testi. *(2026-11-14: yerel — `_weekdayFromDate(_selectedDate)` seçilen yerel tarihin `weekday`'i, `UNTIL` yerel 23:59 → `toUtc()` + `Z`; `study_entry_form_sheet.dart` aynı. Dokunulmadı.)*
+- [x] **Step 6: Doküman + commit** — `m04_scheduling.md` (tekrar kuralı); rapor N-04 ✅.
   ```bash
   git commit -m "fix(scheduling): tekrar kurali serinin yerel saatinde genisletilir, ay gunu capadan sabit (N-04)"
   ```
 
 ---
 
-### Task 3: Oluşum istisnaları — benzersizlik, upsert, pencere dışı erteleme (N-05, N-14)
+### Task 3: Oluşum istisnaları — benzersizlik, upsert, pencere dışı erteleme (N-05, N-14) ✅
 
 **Files:**
 - Modify: `src/Modules/Scheduling/Infrastructure/SchedulingDbContext.cs` (`HasIndex(...).IsUnique()`)
-- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (`UpsertExceptionAsync`)
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (`UpsertExceptionAsync`; *2026-11-14 eklendi:* `ListActiveForTeacher/StudentUntilAsync` pencereye öne alınmış oluşumu olan seriyi de yükler — çapası pencereden sonra olan serinin ilk dersi bir önceki haftaya alınınca)
 - Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (cancel/reschedule `Single` yolu upsert kullanır)
 - Modify: `src/Modules/Scheduling/Application/RecurrenceExpander.cs` (`ToDictionary` yerine güvenli gruplama; pencereye **taşınan** override'lar ayrıca dahil)
-- Migration: `UniqueOccurrenceExceptions` (Scheduling)
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`LessonOccurrenceException` özel setter'lı, mutator yok → upsert için `Overwrite(...)` domain metodu) — *2026-11-14 eklendi*
+- Modify: `ILessonScheduleRepository`'nin altı test sahtesi — `tests/Unit/LessonScheduleTests.cs`, `SchedulingMutationIntegrityTests.cs` (kayıt listesi upsert'e bağlanır; `Assert.Empty(AddedExceptions)` boşa düşmesin), `SelfLessonPolicyTests.cs`, `StudentCalendarQueryTests.cs`, `TeacherLessonExpansionTests.cs`, `WriteEndpointLinkAuthorizationTests.cs` (`AddExceptionAsync` → `UpsertExceptionAsync`) — *2026-11-14 eklendi*
+- Migration: `UniqueOccurrenceExceptions` (Scheduling) + `.Designer.cs` + `SchedulingDbContextModelSnapshot.cs`
+- Doc: `doc/modules/m04_scheduling.md`, `doc/modules/veri_modeli.md`, rapor N-05/N-14 — *2026-11-14 eklendi*
 - Test: `tests/Unit/OccurrenceExceptionUpsertTests.cs`, `tests/Integration/RealOccurrenceExceptionTests.cs`
 
 **Interfaces:**
-- `ILessonScheduleRepository.UpsertExceptionAsync(LessonOccurrenceException exception, CancellationToken ct)` — aynı `(SeriesLessonScheduleId, OriginalStartAtUtc)` varsa günceller.
-- Genişletme sorgusu: pencere `[from, to)` için seri oluşumları + `NewStartAtUtc ∈ [from, to)` olan override'lar (orijinali pencere dışında olsa da).
+- `ILessonScheduleRepository.UpsertExceptionAsync(LessonOccurrenceException exception, CancellationToken ct)` — aynı `(SeriesLessonScheduleId, OriginalStartAtUtc)` varsa günceller. `AddExceptionAsync` kaldırılır (tek yazma yolu upsert).
+- Genişletme: pencere için seri oluşumları + `OverrideStartAtUtc` pencereyle çakışan **Rescheduled** override'lar (orijinali pencere dışında olsa da). *(2026-11-14 netleştirildi: pencere `[from, to)` değil, genişleticinin mevcut **iki ucu dahil** kuralı — `Tuesday_night_series_lists_local_tuesdays` pencere sonundaki oluşumu bekler; taşınan override aynı dalın çakışma yüklemini kullanır. Orijinal gerçek bir oluşum olmalı — nokta genişletmesiyle doğrulanır, yoksa bayat istisna pencere dışından "hayalet ders" olarak dirilirdi. Düzeltme dört çağıranın hiçbirine dokunmadan `RecurrenceExpander` içinde kalır: hepsi serinin tüm istisnalarını yüklüyor.)*
 
-- [ ] **Step 1: Kırmızı testler** — aynı oluşuma iki kez erteleme → tek istisna, son değer geçerli, liste **200**; ertelenmiş oluşum sonra iptal → tek istisna `Cancelled`; Pazartesi dersi gelecek haftanın Salı'sına ertelendi → **gelecek hafta** görünümünde görünür, bu hafta görünmez.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Migration** — `Up`: aynı anahtarlı tekrarlarda **en son `CreatedOnUtc` hariç** sil (SQL `DELETE ... USING (SELECT ... ROW_NUMBER() ...)`), sonra benzersiz indeks. `Down`: indeksi normal indekse geri çevir.
+- [x] **Step 1: Kırmızı testler** — aynı oluşuma iki kez erteleme → tek istisna, son değer geçerli, liste **200**; ertelenmiş oluşum sonra iptal → tek istisna `Cancelled`; Pazartesi dersi gelecek haftanın Salı'sına ertelendi → **gelecek hafta** görünümünde görünür, bu hafta görünmez. *(Ek: tekrar satırlar genişleticiyi patlatmaz; pencere içi erteleme bir kez; pencere sonu dahil; bayat istisna ×3 ve iptal/atlama satırı pencereye sızmaz; ilk ders serinin çapasından önceki haftaya öne alınınca o haftada listelenir; göç testi ayrı veritabanında önceki migration'a kurup tekrar yazar, yükseltir, `Down`'ı dener.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce `AddExceptionAsync` → `UpsertExceptionAsync` davranışsız yeniden adlandırıldı → 1061 yeşil; sonra yeni testler: birim 5 kırmızı (`ArgumentException` + taşınan yok), integration 3 kırmızı (liste 500, gelecek haftada Salı yok, göçte 4 satır kaldı), öne alma uç testi ayrıca kırmızı.)*
+- [x] **Step 3: Migration** — `Up`: aynı anahtarlı tekrarlarda **en son `CreatedOnUtc` hariç** sil (SQL `DELETE ... USING (SELECT ... ROW_NUMBER() ...)`), sonra benzersiz indeks. `Down`: indeksi normal indekse geri çevir.
   `dotnet ef migrations add UniqueOccurrenceExceptions --project src/Modules/Scheduling/Infrastructure --startup-project src/API.Host --context SchedulingDbContext` → `./scripts/check-migration-down.sh`
-- [ ] **Step 4: Upsert + genişletme düzeltmesi.**
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m04`, `veri_modeli.md`; rapor N-05/N-14 ✅.
+- [x] **Step 4: Upsert + genişletme düzeltmesi.**
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 6: Doküman + commit** — `m04`, `veri_modeli.md`; rapor N-05/N-14 ✅.
   ```bash
   git commit -m "fix(scheduling): olusum istisnalari benzersiz + upsert, pencere disina ertelenen ders gorunur (N-05, N-14)"
   ```
 
 ---
 
-### Task 4: Çakışma kontrolü — tekrar, tatil bloğu, eşzamanlılık (N-07)
+### Task 4: Çakışma kontrolü — tekrar, tatil bloğu, eşzamanlılık (N-07) ✅
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (`HasConflictAsync` → oluşum genişletmeli; `ListOverlappingAsync` başlangıcı bloktan önce olan dersleri de kapsar)
-- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (create/update/reschedule: tatil bloğu kontrolü + kilit)
-- Modify: `src/Modules/Scheduling/Application/TimeOffFeatures.cs` (çakışan dersleri seri genişleterek listele)
-- Create: `src/Modules/Scheduling/Infrastructure/TeacherScheduleLock.cs` (`pg_advisory_xact_lock(hashtext('sched:' || teacherId))`; InMemory'de no-op)
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (*2026-11-14 düzeltildi:* `HasTeacherConflictAsync` ve `ListForTeacherAsync` — yalnız çapa satırını karşılaştıran iki sorgu — **kaldırılır**; genişletme Application'da, mevcut `ListActiveForTeacherUntilAsync` + `ListExceptionsForTeacherAsync` üzerinden yapılır. Planın andığı `ListOverlappingAsync` kodda yoktu; o işi `ListForTeacherAsync` görüyordu)
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (create/update/reschedule: oluşum genişletmeli çakışma + tatil bloğu kontrolü + kilit; iptal `Single` da kilide alınır — Öğrenilenler #223 g; saf `TeacherScheduleConflicts` yardımcısı, `ITeacherScheduleLock` arayüzü, `SchedulingConflictSettings`)
+- Modify: `src/Modules/Scheduling/Application/TimeOffFeatures.cs` (çakışan dersleri seri genişleterek listele; bloktan önce başlayıp bloğa taşan ders dahil; kilit altında)
+- Create: `src/Modules/Scheduling/Infrastructure/TeacherScheduleLock.cs` (`pg_advisory_xact_lock(hashtext('sched:' || teacherId))`; Npgsql değilse no-op)
+- Modify: `src/Modules/Scheduling/Infrastructure/DependencyInjection.cs` (kilit + `Scheduling:ConflictHorizonWeeks` okunur, aralık dışıysa açılış durur) — *2026-11-14 eklendi*
+- Modify: `src/Modules/Scheduling/API/SchedulingModule.cs` (üç istek gövdesine `AllowTimeOffOverride`, `scheduling.time_off_conflict` → 409; yoksa varsayılan 400'e düşerdi) — *2026-11-14 eklendi*
+- Modify: `ILessonScheduleRepository` sahteleri (kaldırılan iki yöntem) + handler kurucusu değişenler — `tests/Unit/LessonScheduleTests.cs`, `SchedulingMutationIntegrityTests.cs`, `OccurrenceExceptionUpsertTests.cs`, `SelfLessonPolicyTests.cs`, `StudentCalendarQueryTests.cs`, `TeacherLessonExpansionTests.cs`, `WriteEndpointLinkAuthorizationTests.cs` — *2026-11-14 eklendi*
+- Doc: `doc/modules/m04_scheduling.md`, `doc/modules/00_genel_bakis.md`, `doc/architecture/backend.md` (yeni persistence deseni: öğretmen başına advisory lock), `doc/roles/ogretmen.md`, rapor N-07 — *2026-11-14 eklendi*
 - Test: `tests/Unit/LessonConflictRecurrenceTests.cs`, `tests/Integration/RealConcurrentLessonCreateTests.cs`
 
 **Interfaces:**
-- Hatalar: `scheduling.lesson_conflict` (mevcut), `scheduling.time_off_conflict` (yeni, 409). İstek gövdesine `allowTimeOffOverride: bool` (varsayılan false) — öğretmen bilerek tatil gününe ders koyabilsin.
-- Kontrol penceresi: yeni dersin ilk oluşumundan itibaren **12 hafta** (config `Scheduling:ConflictHorizonWeeks`).
+- Hatalar: `scheduling.teacher_conflict` (mevcut — *2026-11-14 düzeltildi:* plan `lesson_conflict` diyordu, kodda ve mobil sözleşmede ad `teacher_conflict`; değiştirilmedi), `scheduling.time_off_conflict` (yeni, 409). İstek gövdesine `allowTimeOffOverride: bool` (varsayılan false; create/update/reschedule) — öğretmen bilerek tatil gününe ders koyabilsin. Ders çakışması tatilden **önce** bakılır ve override edilemez.
+- Kontrol penceresi: yeni dersin ilk oluşumundan itibaren **12 hafta** (config `Scheduling:ConflictHorizonWeeks`, 1–104). *2026-11-14 netleştirildi:* tekrarlı adayın penceresi `max(çapa, şimdi) + 12 hafta`'da biter; **oluşturmada çapadan** başlar (geriye tarihli serinin her oluşumu yenidir — çapa dahil denetlenir, COUNT'u tükenmiş geçmiş seri boş aday listesiyle kontrolü atlamaz), **güncelleme / seri ertelemesinde** `max(çapa, şimdi)`'den başlar (Eylül'de çapalanmış bir serinin notunu düzeltmek geçmişteki bir çakışma yüzünden 409 almasın). Tekil aday her zaman kendi anında denetlenir (geçmişe kayıt girilebilir, eski davranış).
+- Mevcut oluşumlar aday aralığından **ders süresi kadar geriden** genişletilir: genişletici seri oluşumunu başlangıcına göre süzer, 16:30–17:30 dersi 17:00 adayından kaybolmasın; çakışma kesin `<`/`>` (arka arkaya dersler serbest). İptal edilen oluşum yer tutmaz, ertelenen oluşum yeni saatinde yer tutar.
+- Hariç tutma: update ve reschedule-All dersin kendisini; reschedule-Single yalnız hedef oluşumu (aynı serinin kardeş oluşumunun üstüne taşıma yakalanır). Update/reschedule-All adayına serinin kendi istisnaları uygulanır.
+- `ITeacherScheduleLock.RunExclusiveAsync(teacherUserId, work, ct)`: execution strategy → transaction → `pg_advisory_xact_lock` → `work` (okuma + yazım + `SaveChanges`) → yalnız başarıda commit. İş birimi yeniden denenebilir yazılır (aggregate değişikliği bir kez uygulanır).
 
-- [ ] **Step 1: Kırmızı testler** — Eylül'de başlamış haftalık Salı 17:00 serisi varken Kasım'da Salı 17:00 tekil ders → 409; tatil bloğu içine ders → 409 `time_off_conflict`, override ile 200; bloktan önce başlayıp bloğa taşan ders tatil oluştururken listelenir; iki paralel POST (Testcontainers) → **biri** 409.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula** (kilit + kontrol + insert **aynı transaction**). **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 5: Doküman + commit** — `m04`; rapor N-07 ✅.
+- [x] **Step 1: Kırmızı testler** — Eylül'de başlamış haftalık Salı 17:00 serisi varken Kasım'da Salı 17:00 tekil ders → 409; tatil bloğu içine ders → 409 `time_off_conflict`, override ile 200; bloktan önce başlayıp bloğa taşan ders tatil oluştururken listelenir; iki paralel POST (Testcontainers) → **biri** 409. *(Ek: kısmi kesişim (16:30–17:30 serisi 17:00 adayını bloklar) ve arka arkaya ders serbest; iptal edilen oluşum boşaltır, ertelenen yeni saatini tutar; tekrarlı aday 4 hafta sonraki tekil derse çarpar, ufuk dışı (13. hafta) serbest, ufuk config'le büyür; Eylül serisinin notunu düzeltmek geçmiş çakışmaya takılmaz, kendi iptal oluşumu yer tutmaz; tek oluşum kardeş oluşumun / başka serinin üstüne taşınamaz, kendi saatinin yarım saat ötesine taşınabilir; ders çakışması tatilden önce ve override edilemez; her yazma yolu okuma + kaydetmeyi kilit içinde yapar; **kilit testi** — test bağlantısı `sched:<id>` anahtarını tutarken oluştur/tek erteleme/tek iptal bekler, başka öğretmen beklemez; HTTP'de `time_off_conflict` 409 + override 200.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce imza davranışsız geçirildi — kilit arayüzü + geçişli uygulama, `SchedulingConflictSettings`, `AllowTimeOffOverride`, kurucular — 1072 yeşil; sonra 33 yeni birim testinden 17'si, 5 integration testinin 5'i iddia hatasıyla kırmızı — paralel testte yarış gerçekten oluştu.)* **Step 3: Uygula** (kilit + kontrol + insert **aynı transaction**). **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh` *(mutasyon: `pg_advisory_xact_lock` çağrısı kapatılınca iki kilit testi kırmızı)*
+- [x] **Step 5: Doküman + commit** — `m04`; rapor N-07 ✅.
   ```bash
   git commit -m "fix(scheduling): cakisma kontrolu olusum genisletir, tatil blogu ve es zamanli istek korunur (N-07)"
   ```
 
 ---
 
-### Task 5: Gün/hafta/ay kovaları ve kullanıcıya gösterilen saatler (N-11, N-43, N-50, N-06 metin)
+### Task 5: Gün/hafta/ay kovaları ve kullanıcıya gösterilen saatler (N-11, N-43, N-50, N-06 metin) ✅
 
-**Files:**
-- Modify: `src/API.Host/TeacherDashboardEndpoints.cs` ("bugün")
-- Modify: `src/Modules/Payments/Application/PaymentFeatures.cs` (aylık kırılım; gecikmiş toplam **para birimi bazında** — yanıt alanı listeye döner, eski tekil alan geriye uyumluluk için ilk para birimini taşımaya devam eder ve `[Obsolete]` notu dokümana)
-- Modify: `src/Modules/Scheduling/Application/StudentCalendarQuery.cs` (çalışıldı eşleşmesi yerel gün)
-- Modify: `src/Modules/Reporting/Domain/ReportingProjections.cs`, `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs` (hafta/ay kovası)
-- Modify: `src/Modules/Reporting/Application/FreeSlotCalculator.cs` (uygunluk şablonu yerel güne kurulur → UTC)
-- Modify: `src/Modules/ProgressTracking/Infrastructure/ProgressSnapshotService.cs`, `src/Modules/Reporting/Application/StudentReportFeatures.cs`
-- Modify: bildirim metinleri — `src/Modules/Notifications/Infrastructure/AssignmentDueNotificationHandlers.cs`, `PaymentOverdueNotificationHandler.cs`, `LessonScheduleNotificationIntegrationEventHandler.cs` (yalnız metin biçimi; oluşum mantığı P17 T6)
-- Test: `tests/Unit/LocalBucketTests.cs` (her dosya için en az bir sınır testi), `tests/Unit/NotificationLocalTimeTextTests.cs`
+**Files:** *(2026-11-14 koddan doğrulandı — T2/T3/T4 gibi eksikti; düzeltmeler işaretli)*
+- Modify: `src/API.Host/TeacherDashboardEndpoints.cs` ("bugün" `ILocalCalendar` gününden; liste iki ucu dahil ve tekil ders kesişimle eşleştiği için uçta `StartAtUtc ∈ [gün başı, gün sonu)` süzgeci; **gecikmiş toplam para birimi bazında** — *düzeltme:* karışık para birimi toplamı `PaymentFeatures`'ta değil **bu uçtaydı*; yeni `overduePaymentTotals: [{ currency, count, total }]`, eski `overduePaymentsCurrency/Total` listenin ilk satırını (en erken vadeli para birimi) taşır — artık yalnız o para biriminin toplamı, `[Obsolete]` notu dokümana)
+- Modify: `src/Modules/Payments/Application/PaymentFeatures.cs` (aylık kırılım yerel ay — *düzeltme:* kırılımın para birimi boyutu **P18 T3**'te, master §5.1 N-11 bölüşümü)
+- Modify: `src/Modules/Scheduling/Application/StudentCalendarQuery.cs` + `src/Modules/Study/Infrastructure/StudyPlanCompletionReader.cs` + `src/Shared/Contracts/StudyPlanCompletionContract.cs` (çalışıldı eşleşmesi yerel gün — iki taraf **aynı değişiklikte**, sözleşme tarihleri yerel) — *okuyucu ve sözleşme 2026-11-14 eklendi*
+- Modify: `src/Modules/Reporting/Domain/ReportingProjections.cs` (`ReportingPeriods` tarih tabanlı + takvimli aşırı yükleme; UTC `DateTime` aşırı yüklemeleri kaldırılır), `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs` (taban handler `ILocalCalendar` alır, sekiz alt sınıf)
+- Modify: `src/Modules/Reporting/Application/FreeSlotCalculator.cs` (uygunluk şablonu yerel güne kurulur → UTC; `Compute` takvim alır), `src/Modules/Reporting/Application/ReportingAnalyticsFeatures.cs` (boş zaman handler'ı takvimi geçirir, hafta sınırı tarih tabanlı) — *ikincisi 2026-11-14 eklendi*
+- Modify: `src/Modules/Reporting/API/ReportingModule.cs` (aylık rapor varsayılan yıl/ay ve boş zaman varsayılan başlangıcı UTC'den hesaplanıyordu; T6 taraması `API/` klasörünü kapsamaz) — *2026-11-14 eklendi*
+- Modify: `src/Modules/ProgressTracking/Infrastructure/ProgressSnapshotService.cs`, `src/Modules/Reporting/Application/StudentReportFeatures.cs` (varsayılan dönem "bugün" yerel; dönem sınırları yerel gün)
+- Modify: bildirim metinleri — `src/Modules/Notifications/Infrastructure/AssignmentDueNotificationHandlers.cs`, `PaymentOverdueNotificationHandler.cs`, `LessonScheduleNotificationIntegrationEventHandler.cs` (yalnız metin biçimi; hatırlatma **anı** ve oluşum mantığı P17 T6); Create: `src/Modules/Notifications/Infrastructure/NotificationTimeText.cs` (üç metnin tek biçimleyicisi — ders hatırlatma handler'ı `internal`, metin ancak buradan birim testlenir) — *2026-11-14 eklendi*
+- Modify (kurucu/imza değişikliği ya da UTC kuralını kodlayan beklenti): `tests/Unit/ReportingProjectionTests.cs` (ay/hafta kovası ve dört boş zaman testi **İstanbul'a göre yeniden yazılır** — UTC dilimi geçirilerek yeşil tutulmaz), `PaymentSummaryOutstandingTests.cs`, `StudentCalendarQueryTests.cs`, `StudentReportPdfGeneratorTests.cs`, `ProgressSnapshotTests.cs`, `PaymentOverdueNotificationHandlerTests.cs`, `tests/Integration/RealProgressSnapshotTests.cs`, `tests/Integration/RealReportingAnalyticsTests.cs` (uygunluk yorumu "UTC" diyordu) — *2026-11-14 eklendi*
+- Doc: `doc/modules/m04_scheduling.md`, `m07_payments.md`, `m08_study.md`, `m10_progress_tracking.md`, `m11_notifications.md`, `m14_reporting.md` (dashboard-summary burada belgeli), `00_genel_bakis.md`, `doc/architecture/backend.md` §7.1 (yeniden kurulum notu), rapor N-11 (◐ — gün/ay burada, para birimi özeti P18 T3), N-43 ✅, N-50 ✅
+- Test: `tests/Unit/LocalBucketTests.cs` (her dosya için en az bir sınır testi), `tests/Unit/NotificationLocalTimeTextTests.cs`, `tests/Integration/RealLocalDayBoundaryTests.cs` (dashboard "bugün" + para birimi listesi HTTP üzerinden — yalnız `ILocalCalendar` sabit saatli takvimle değiştirilir, `IClock` gerçek kalır (JWT geçerliliği bozulmaz; T6 aynı dikişi kullanır); `internal` tamamlanma okuyucusu gerçek Postgres'te) — *2026-11-14 eklendi*
 
-- [ ] **Step 1: Kırmızı testler** — TR 00:30'daki ders "bugün" listesinde; ertesi günün 00:30 dersi değil; ayın 1'i 01:00 TR vadeli ödeme o ayda; Pazartesi 01:30 TR seansı Reporting'de **bu haftada**; "Pzt 18:00–21:00" uygunluk şablonu 15:00Z–18:00Z ile çakışma hesaplar; ödev son teslim 23:59 TR → bildirim metninde **"23:59"**; TRY+USD gecikmiş ödemeler iki ayrı toplam.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula** (hepsi `ILocalCalendar` üzerinden).
-- [ ] **Step 4: Projeksiyon yeniden kurulumu** — kova kuralı değiştiği için Reporting projeksiyonları `IProjectionRebuilder` ile yeniden kurulur; `RealProjectionRebuildTests` yeşil kalmalı. Göç notu `doc/architecture/backend.md` §7.1'e.
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m07`, `m10`, `m11`, `m14`; rapor N-11/N-43/N-50 ✅.
+- [x] **Step 1: Kırmızı testler** — TR 00:30'daki ders "bugün" listesinde; ertesi günün 00:30 dersi değil; ayın 1'i 01:00 TR vadeli ödeme o ayda; Pazartesi 01:30 TR seansı Reporting'de **bu haftada**; "Pzt 18:00–21:00" uygunluk şablonu 15:00Z–18:00Z ile çakışma hesaplar; ödev son teslim 23:59 TR → bildirim metninde **"23:59"**; TRY+USD gecikmiş ödemeler iki ayrı toplam. *(Ek: dün başlayıp bugüne taşan ve tam gece yarısı biten ders "bugün" değil; eski tekil alan yalnız ilk para biriminin toplamı; 1 Eylül 00:30 TR vade metinde "01.09.2026"; ders hatırlatması "13 Kasım Cuma 10:00"; Pazartesi 01:00 TR uygunluğu Pazar 22:00Z; kapanmış hafta/ay anlık görüntüsü yerel günden; PDF varsayılan dönemi ve ödev penceresi yerel; "çalışıldı" eşleşmesi + okuyucu gerçek Postgres; aylık rapor varsayılanı yerel ay. Mevcut ay/hafta kovası ve dört boş zaman testi İstanbul kuralına göre yeniden yazıldı.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce imza davranışsız: kuruculara `ILocalCalendar`, `ReportingPeriods` takvimli aşırı yükleme, `FreeSlotCalculator.Compute(…, calendar)`, `NotificationTimeText` eski biçimle → 1107 yeşil; sonra 20 birim + 3 integration iddia hatasıyla kırmızı.)* **Step 3: Uygula** (hepsi `ILocalCalendar` üzerinden). *(Mutasyon: dashboard başlangıç süzgeci kaldırılınca iki dashboard testi kırmızı.)*
+- [x] **Step 4: Projeksiyon yeniden kurulumu** — kova kuralı değiştiği için Reporting projeksiyonları `IProjectionRebuilder` ile yeniden kurulur; `RealProjectionRebuildTests` yeşil kalmalı. Göç notu `doc/architecture/backend.md` §7.1'e. *(2026-11-15: `IProjectionRebuilder` uygulaması kodda yok (orkestrasyon P12) ve canlı veri yok → göç notu `backend.md` §7.1; `RealProjectionRebuildTests` yeşil.)*
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 6: Doküman + commit** — `m07`, `m10`, `m11`, `m14`; rapor N-11/N-43/N-50 ✅.
   ```bash
   git commit -m "fix(time): gun/hafta/ay kovalari ve bildirim saatleri Turkiye saatine gore (N-11, N-43, N-50)"
   ```
 
 ---
 
-### Task 6: Kapanış — kaynak kilidi + gece yarısı senaryosu
+### Task 6: Kapanış — kaynak kilidi + gece yarısı senaryosu ✅
 
 **Files:**
-- Create: `tests/Architecture/LocalTimeRuleTests.cs` (kaynak taraması: `src/Modules/**/Application|Domain|Infrastructure` içinde `DateOnly.FromDateTime(`, `UtcNow.Date`, `.Date ==` kalıpları — izinli listedeki dosyalar hariç **0**)
+- Create: `tests/Architecture/LocalTimeRuleTests.cs` (kaynak taraması — *2026-11-15 genişletildi:* kapsam **tüm `src/`** (modüllerin `API/` katmanı ve `API.Host` dahil; `bin/obj/Migrations` ve yorum satırları hariç) — ilk hâl yalnız `Application|Domain|Infrastructure` diyordu, `ReportingModule` ve panel BFF'si bu yüzden T5'e kadar gözden kaçmıştı. Kalıplar bilerek fazla yakalar: her `.Date` erişimi, her `DateOnly.FromDateTime(`, her `ISOWeek.Get…(`, `ToDateTime(…, DateTimeKind.Utc)`, UTC adlı değişkenin takvim bileşeni (`nowUtc.DayOfWeek`). İzinli liste **dosya + satırın birebir metni + gerekçe** (satır numarası değil); bayat giriş de testi kırar; eşleyici örnek satırlarla ve "dosya tarandı" sayısıyla kendini sınar)
 - Create: `tests/Integration/RealMidnightScenarioTests.cs`
+- Modify: `src/Modules/Notifications/Infrastructure/ParentWeeklySummaryService.cs` + `tests/Unit/ParentWeeklySummaryTests.cs` (tarama kırmızısı: haftalık veli özetinin tekillik anahtarı UTC anın ISO haftasıydı → yerel hafta; işlemci `ILocalCalendar` alır) — *2026-11-15 eklendi*
+- Modify: `docs/superpowers/plans/2026-11-13-17-ders-olusumu-zinciri.md` (P17 T7, izinli listedeki iki N-49 girişini siler) — *2026-11-15 eklendi*
+- Doc: `doc/modules/m11_notifications.md` (haftalık özet yerel hafta), `doc/architecture/backend.md` §5.1 (kural kilidi) — *2026-11-15 eklendi*
 
-- [ ] **Step 1: Mimari test** — izinli liste yalnız `LocalCalendar.cs` ve göç kodu. Kırmızıysa kalan kullanımları düzelt.
-- [ ] **Step 2: Senaryo** — gerçek Postgres: öğretmen Salı 00:30 TR haftalık ders açar, Salı 00:45 TR'de dashboard → ders "bugün"; öğrenci takviminde Salı; aylık rapor doğru ayda.
-- [ ] **Step 3: Koş** — `./scripts/test-with-docker.sh` başarısız 0 / atlanan 0.
-- [ ] **Step 4: Doküman + ILERLEME + commit**
+- [x] **Step 1: Mimari test** — izinli liste yalnız `LocalCalendar.cs` ve göç kodu. Kırmızıysa kalan kullanımları düzelt. *(2026-11-15: boş izinli listeyle **12 isabet** — süpürmeyle birebir. Düzeltilen: `ParentWeeklySummaryService` (test önce kırmızı). İzinli listeye gerekçesiyle: `LocalCalendar` (dönüşümün kendisi), yerel tarih üzerinde çalışan üç satır (`ReportingPeriods.WeekOf(DateOnly)`, haftalık özetin iki `ISOWeek` satırı), takvim tarihi olan `ReportingAnalyticsFeatures` hafta başı, `PlanCompletion.Date` özelliği; **P17 T7'ye** bırakılan iki N-49 satırı (`ReportingFeatures`, `TeacherDashboardProjection` — o görev siler); `DemoDataSeeder`'ın dört göreli zaman satırı (tohum verisi). Mutasyon: özet düzeltmesi geri alınınca hem ihlal hem bayat izin raporlandı.)*
+- [x] **Step 2: Senaryo** — gerçek Postgres: öğretmen Salı 00:30 TR haftalık ders açar, Salı 00:45 TR'de dashboard → ders "bugün"; öğrenci takviminde Salı; aylık rapor doğru ayda. *(2026-11-15: an Salı **1 Eylül 2026** 00:45 TR — gün ve ay birlikte döner; aynı UTC gününün Pazartesi öğleden sonrası dersi "bugün"de yok; öğrenci kendi hesabıyla (davet + kod) takvimde Salı görür. **Sınır:** ders tamamlanma anı sunucunun gerçek `IClock`'udur, sabitlenemez (JWT) → ay sınırındaki tamamlanma olayı Reporting handler'larına `RealProjectionRebuildTests` yoluyla verildi; Eylül = 1, Ağustos = 0. Mutasyon: ay kovası UTC'ye geri çevrilince senaryo kırmızı.)*
+- [x] **Step 3: Koş** — `./scripts/test-with-docker.sh` başarısız 0 / atlanan 0.
+- [x] **Step 4: Doküman + ILERLEME + commit**
   ```bash
   git commit -m "test(time): yerel saat kurali kilitlendi + gece yarisi senaryosu, P16 kapanisi"
   ```

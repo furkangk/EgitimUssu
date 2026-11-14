@@ -2,6 +2,7 @@ using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Modules.Notifications.Infrastructure;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
@@ -9,6 +10,7 @@ namespace EgitimUssu.Tests.Unit;
 public sealed class ParentWeeklySummaryTests
 {
     private static readonly DateTime Now = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
+    private static readonly LocalCalendar Istanbul = new("Europe/Istanbul", new FixedClock(Now));
 
     [Fact]
     public async Task RunAsync_ProducesWeeklySummaryForPremiumTargets_OncePerWeek()
@@ -20,7 +22,7 @@ public sealed class ParentWeeklySummaryTests
         };
         var directory = new FakeDirectory(targets);
         var repo = new FakeRepo();
-        var processor = new ParentWeeklySummaryProcessor(directory, repo, new SeqIdGen());
+        var processor = new ParentWeeklySummaryProcessor(directory, repo, new SeqIdGen(), Istanbul);
 
         var first = await processor.RunAsync(Now, default);
         Assert.Equal(2, first);
@@ -34,6 +36,21 @@ public sealed class ParentWeeklySummaryTests
     }
 
     [Fact]
+    public async Task RunAsync_StartsANewWeekAtTurkeyMondayMidnight()
+    {
+        // P16 T6 / K-19: hafta anahtarı Türkiye haftasıdır. Pazar 15 Kasım 15:00 TR (12:00Z) bir hafta; Pazartesi 16 Kasım
+        // 00:30 TR (Pazar 21:30Z) yeni hafta — eskiden anahtar UTC anın ISO haftasıydı, ikinci tur özetini kaçırırdı.
+        var repo = new FakeRepo();
+        var processor = new ParentWeeklySummaryProcessor(
+            new FakeDirectory(new[] { Target(MembershipTier.Premium, weekly: true) }), repo, new SeqIdGen(), Istanbul);
+
+        Assert.Equal(1, await processor.RunAsync(new DateTime(2026, 11, 15, 12, 0, 0, DateTimeKind.Utc), default));
+        Assert.Equal(1, await processor.RunAsync(new DateTime(2026, 11, 15, 21, 30, 0, DateTimeKind.Utc), default));
+        Assert.Equal(0, await processor.RunAsync(new DateTime(2026, 11, 16, 9, 0, 0, DateTimeKind.Utc), default));
+        Assert.Equal(2, repo.Added.Count);
+    }
+
+    [Fact]
     public async Task RunAsync_SkipsFreeAndPrefOff()
     {
         var targets = new[]
@@ -41,7 +58,7 @@ public sealed class ParentWeeklySummaryTests
             Target(MembershipTier.Free, weekly: true),
             Target(MembershipTier.Premium, weekly: false)
         };
-        var processor = new ParentWeeklySummaryProcessor(new FakeDirectory(targets), new FakeRepo(), new SeqIdGen());
+        var processor = new ParentWeeklySummaryProcessor(new FakeDirectory(targets), new FakeRepo(), new SeqIdGen(), Istanbul);
 
         Assert.Equal(0, await processor.RunAsync(Now, default));
     }
@@ -90,5 +107,10 @@ public sealed class ParentWeeklySummaryTests
     private sealed class SeqIdGen : IIdGenerator
     {
         public Guid New() => Guid.NewGuid();
+    }
+
+    private sealed class FixedClock(DateTime utcNow) : IClock
+    {
+        public DateTime UtcNow { get; } = utcNow;
     }
 }

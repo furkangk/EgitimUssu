@@ -101,7 +101,8 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SeriesLessonScheduleId", "OriginalStartAtUtc");
+                    b.HasIndex("SeriesLessonScheduleId", "OriginalStartAtUtc")
+                        .IsUnique();
 
                     b.ToTable("lesson_occurrence_exceptions", "scheduling");
                 });

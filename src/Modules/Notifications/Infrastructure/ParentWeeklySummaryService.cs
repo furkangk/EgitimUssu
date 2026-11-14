@@ -26,15 +26,18 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
     private readonly IParentNotificationDirectory _directory;
     private readonly IParentNotificationRepository _repository;
     private readonly IIdGenerator _idGenerator;
+    private readonly ILocalCalendar _calendar;
 
     public ParentWeeklySummaryProcessor(
         IParentNotificationDirectory directory,
         IParentNotificationRepository repository,
-        IIdGenerator idGenerator)
+        IIdGenerator idGenerator,
+        ILocalCalendar calendar)
     {
         _directory = directory;
         _repository = repository;
         _idGenerator = idGenerator;
+        _calendar = calendar;
     }
 
     public async Task<int> RunAsync(DateTime nowUtc, CancellationToken cancellationToken = default)
@@ -45,8 +48,11 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
             "scan.notifications.parent_weekly",
             ActivityKind.Internal);
 
-        var isoWeek = ISOWeek.GetWeekOfYear(nowUtc);
-        var isoYear = ISOWeek.GetYear(nowUtc);
+        // P16 T6 / K-19: hafta Türkiye haftasıdır — Pazartesi 00:00 TR'de (Pazar 21:00Z) yeni hafta başlar. Eskiden UTC
+        // anın ISO haftasıydı; Pazar 21:00–24:00Z turu bir önceki haftanın anahtarıyla özeti atlıyordu.
+        var localMidnight = _calendar.ToLocalDate(nowUtc).ToDateTime(TimeOnly.MinValue);
+        var isoWeek = ISOWeek.GetWeekOfYear(localMidnight);
+        var isoYear = ISOWeek.GetYear(localMidnight);
         var created = 0;
         var handledParents = new HashSet<Guid>();
 

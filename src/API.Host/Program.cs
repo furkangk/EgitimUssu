@@ -176,6 +176,15 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+// P16 T1 / K-19: Dilim AddSharedInfrastructure'da çözüldü (çözülmeseydi açılış orada dururdu);
+// hangi dilimle çalışıldığı açılış log'unda görünsün.
+var localCalendar = app.Services.GetRequiredService<EgitimUssu.Shared.Kernel.ILocalCalendar>();
+var localUtcOffset = localCalendar.Zone.BaseUtcOffset;
+app.Logger.LogInformation(
+    "Yerel takvim: {TimeZoneId} (UTC{UtcOffset}) — LocalCalendarGuard geçti",
+    localCalendar.Zone.Id,
+    (localUtcOffset < TimeSpan.Zero ? "-" : "+") + localUtcOffset.ToString(@"hh\:mm", System.Globalization.CultureInfo.InvariantCulture));
+
 // Açılışı durdurmayan sahte sağlayıcılar (Staging'de Logging e-posta, Development dışında Logging push)
 // sessiz kalmasın diye uyarılır. Karar guard'ların saf fonksiyonunda; burada yalnız log'a basılır.
 foreach (var providerWarning in new[]

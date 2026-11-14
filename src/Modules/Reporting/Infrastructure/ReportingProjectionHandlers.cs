@@ -13,17 +13,21 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure;
 public abstract class ReportingProjectionHandler<TEvent> : ProjectionHandler<TEvent>
     where TEvent : class
 {
-    protected ReportingProjectionHandler(ReportingDbContext dbContext, IClock clock)
+    protected ReportingProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
         : base(dbContext, clock)
     {
+        Calendar = calendar;
     }
+
+    /// <summary>P16 T5 / N-50: dönem kovası olayın <b>yerel</b> gününe göre (K-19).</summary>
+    protected ILocalCalendar Calendar { get; }
 
     protected ReportingDbContext ReportingDb => (ReportingDbContext)DbContext;
 
     protected async Task<TeacherMonthlyProjection> GetOrCreateMonthlyAsync(
         Guid teacherUserId, DateTime occurredOnUtc, CancellationToken cancellationToken)
     {
-        var (year, month) = ReportingPeriods.MonthOf(occurredOnUtc);
+        var (year, month) = ReportingPeriods.MonthOf(occurredOnUtc, Calendar);
         var projection = await ReportingDb.TeacherMonthlyProjections
             .Include(item => item.Items)
             .FirstOrDefaultAsync(
@@ -42,7 +46,7 @@ public abstract class ReportingProjectionHandler<TEvent> : ProjectionHandler<TEv
     protected async Task<StudentStudyProjection> GetOrCreateStudyAsync(
         Guid studentId, DateTime occurredOnUtc, CancellationToken cancellationToken)
     {
-        var (year, week) = ReportingPeriods.WeekOf(occurredOnUtc);
+        var (year, week) = ReportingPeriods.WeekOf(occurredOnUtc, Calendar);
         var projection = await ReportingDb.StudentStudyProjections
             .Include(item => item.Items)
             .FirstOrDefaultAsync(
@@ -61,7 +65,7 @@ public abstract class ReportingProjectionHandler<TEvent> : ProjectionHandler<TEv
     protected async Task<StudentPerformanceProjection> GetOrCreatePerformanceAsync(
         Guid studentId, string subject, DateTime occurredOnUtc, CancellationToken cancellationToken)
     {
-        var (year, month) = ReportingPeriods.MonthOf(occurredOnUtc);
+        var (year, month) = ReportingPeriods.MonthOf(occurredOnUtc, Calendar);
         var normalized = subject.Trim();
         var projection = await ReportingDb.StudentPerformanceProjections
             .Include(item => item.Items)
@@ -84,12 +88,12 @@ public abstract class ReportingProjectionHandler<TEvent> : ProjectionHandler<TEv
 
 // --- M14-1: öğretmen aylık ---------------------------------------------------------------------
 
-/// <summary>M05 → M14: Ders tamamlandı; tamamlanma <b>ayına</b> (UTC) yazılır.</summary>
+/// <summary>M05 → M14: Ders tamamlandı; tamamlanma <b>ayına</b> (Türkiye yerel ayı, P16 T5) yazılır.</summary>
 public sealed class TeacherMonthlyLessonCompletedProjectionHandler
     : ReportingProjectionHandler<MonthlyLessonCompletedPayload>
 {
-    public TeacherMonthlyLessonCompletedProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public TeacherMonthlyLessonCompletedProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -116,8 +120,8 @@ public sealed class TeacherMonthlyLessonCompletedProjectionHandler
 public sealed class TeacherMonthlyLessonCancelledProjectionHandler
     : ReportingProjectionHandler<MonthlyLessonCancelledPayload>
 {
-    public TeacherMonthlyLessonCancelledProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public TeacherMonthlyLessonCancelledProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -144,8 +148,8 @@ public sealed class TeacherMonthlyLessonCancelledProjectionHandler
 public sealed class TeacherMonthlyPaymentExpectedProjectionHandler
     : ReportingProjectionHandler<MonthlyPaymentCreatedPayload>
 {
-    public TeacherMonthlyPaymentExpectedProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public TeacherMonthlyPaymentExpectedProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -175,8 +179,8 @@ public sealed class TeacherMonthlyPaymentExpectedProjectionHandler
 public sealed class TeacherMonthlyPaymentCollectedProjectionHandler
     : ReportingProjectionHandler<MonthlyPaymentUpdatedPayload>
 {
-    public TeacherMonthlyPaymentCollectedProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public TeacherMonthlyPaymentCollectedProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -205,8 +209,8 @@ public sealed class TeacherMonthlyPaymentCollectedProjectionHandler
 /// <summary>M08 → M14: Çalışma seansı tamamlandı; süresi bittiği ISO haftasına yazılır.</summary>
 public sealed class StudentStudySessionProjectionHandler : ReportingProjectionHandler<StudySessionPayload>
 {
-    public StudentStudySessionProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public StudentStudySessionProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -232,8 +236,8 @@ public sealed class StudentStudySessionProjectionHandler : ReportingProjectionHa
 /// <summary>M08 → M14: Test çözüldü; çözüldüğü ISO haftasının test sayacına girer.</summary>
 public sealed class StudentStudyTestProjectionHandler : ReportingProjectionHandler<TestResultPayload>
 {
-    public StudentStudyTestProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public StudentStudyTestProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -261,8 +265,8 @@ public sealed class StudentStudyTestProjectionHandler : ReportingProjectionHandl
 /// <summary>M08 → M14: Test neti, dersin o ayki performans satırına net oranı olarak girer.</summary>
 public sealed class StudentPerformanceTestProjectionHandler : ReportingProjectionHandler<TestResultPayload>
 {
-    public StudentPerformanceTestProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public StudentPerformanceTestProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 
@@ -289,8 +293,8 @@ public sealed class StudentPerformanceTestProjectionHandler : ReportingProjectio
 /// <summary>M10 → M14: Konu hâkimiyeti değişti; dersin o ayki ortalamasına katılır.</summary>
 public sealed class StudentPerformanceMasteryProjectionHandler : ReportingProjectionHandler<TopicMasteryPayload>
 {
-    public StudentPerformanceMasteryProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
+    public StudentPerformanceMasteryProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+        : base(dbContext, clock, calendar)
     {
     }
 

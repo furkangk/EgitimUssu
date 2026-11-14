@@ -101,7 +101,7 @@ public sealed class LessonScheduleTests
             "FREQ=WEEKLY;BYDAY=MO", LessonScheduleStatus.Planned, 60, null, null, null, Start);
 
         var repo = new RecordingRepository(series);
-        var handler = new CancelLessonScheduleCommandHandler(repo, new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repo, new PassThroughScheduleLock(), new FakeClock(), new FakeIdGenerator());
 
         var occurrence = Start.AddDays(7);
         var result = await handler.Handle(
@@ -135,19 +135,13 @@ public sealed class LessonScheduleTests
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
             => Task.FromResult<LessonSchedule?>(_series.Id == lessonId ? _series : null);
 
-        public Task AddExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
+        public Task UpsertExceptionAsync(LessonOccurrenceException occurrenceException, CancellationToken cancellationToken)
         {
             AddedExceptions.Add(occurrenceException);
             return Task.CompletedTask;
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken)
-            => throw new NotImplementedException();
-
-        public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
-            => throw new NotImplementedException();
 
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken)
             => throw new NotImplementedException();

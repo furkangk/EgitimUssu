@@ -13,11 +13,15 @@ public sealed class RecurrenceExpanderTests
     private static readonly DateTime Monday = new(2026, 7, 6, 15, 0, 0, DateTimeKind.Utc); // Pazartesi
     private static readonly DateTime MondayEnd = new(2026, 7, 6, 16, 0, 0, DateTimeKind.Utc);
 
+    // P16 T2: genişletme serinin yerel diliminde yapılır; 15:00Z = 18:00 TR, gün aynı kaldığı için
+    // bu dosyanın beklentileri yerel genişletmede de değişmez.
+    private static readonly TimeZoneInfo Istanbul = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+
     [Fact]
     public void NoRule_ReturnsSingleOccurrence_WhenInRange()
     {
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, null, Monday.AddDays(-1), Monday.AddDays(7))
+            .Expand(Monday, MondayEnd, null, Istanbul, Monday.AddDays(-1), Monday.AddDays(7))
             .ToArray();
 
         Assert.Single(result);
@@ -29,7 +33,7 @@ public sealed class RecurrenceExpanderTests
     public void NoRule_ReturnsEmpty_WhenOutsideRange()
     {
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, null, Monday.AddDays(3), Monday.AddDays(7))
+            .Expand(Monday, MondayEnd, null, Istanbul, Monday.AddDays(3), Monday.AddDays(7))
             .ToArray();
 
         Assert.Empty(result);
@@ -42,7 +46,7 @@ public sealed class RecurrenceExpanderTests
         const string rule = "FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20260726T235900Z";
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday, Monday.AddDays(30))
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday, Monday.AddDays(30))
             .ToArray();
 
         // 6,8,13,15,20,22 Temmuz → 6 oluşum (26'sı Pazar, dahil değil).
@@ -58,7 +62,7 @@ public sealed class RecurrenceExpanderTests
         const string rule = "FREQ=WEEKLY;COUNT=4";
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday, Monday.AddDays(60))
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday, Monday.AddDays(60))
             .ToArray();
 
         Assert.Equal(4, result.Length);
@@ -72,7 +76,7 @@ public sealed class RecurrenceExpanderTests
         const string rule = "FREQ=WEEKLY;COUNT=4";
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday.AddDays(7), Monday.AddDays(60))
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday.AddDays(7), Monday.AddDays(60))
             .ToArray();
 
         Assert.Equal(3, result.Length);
@@ -86,7 +90,7 @@ public sealed class RecurrenceExpanderTests
         const string rule = "FREQ=DAILY;UNTIL=20260710T235900Z";
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday, Monday.AddDays(30))
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday, Monday.AddDays(30))
             .ToArray();
 
         // 6,7,8,9,10 Temmuz → 5 gün.
@@ -99,7 +103,7 @@ public sealed class RecurrenceExpanderTests
         const string rule = "FREQ=MONTHLY;UNTIL=20261006T235900Z";
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday, Monday.AddDays(120))
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday, Monday.AddDays(120))
             .ToArray();
 
         // 6 Temmuz, 6 Ağustos, 6 Eylül, 6 Ekim → 4 oluşum.
@@ -114,7 +118,7 @@ public sealed class RecurrenceExpanderTests
 
         // Sadece 13-20 Temmuz penceresi istenirse yalnızca 13 ve 20 dönmeli.
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, new DateTime(2026, 7, 13, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 20, 23, 59, 0, DateTimeKind.Utc))
+            .Expand(Monday, MondayEnd, rule, Istanbul, new DateTime(2026, 7, 13, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 7, 20, 23, 59, 0, DateTimeKind.Utc))
             .ToArray();
 
         Assert.Equal(2, result.Length);
@@ -137,7 +141,7 @@ public sealed class RecurrenceExpanderTests
         };
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, rangeStart, rangeEnd, exceptions)
+            .Expand(Monday, MondayEnd, rule, Istanbul, rangeStart, rangeEnd, exceptions)
             .ToArray();
 
         Assert.DoesNotContain(result, o => o.StartAtUtc == secondMonday);
@@ -156,7 +160,7 @@ public sealed class RecurrenceExpanderTests
         };
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday.AddDays(-1), Monday.AddDays(21), exceptions)
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday.AddDays(-1), Monday.AddDays(21), exceptions)
             .ToArray();
 
         Assert.DoesNotContain(result, o => o.StartAtUtc == secondMonday);
@@ -174,7 +178,7 @@ public sealed class RecurrenceExpanderTests
         };
 
         var result = RecurrenceExpander
-            .Expand(Monday, MondayEnd, rule, Monday.AddDays(-1), Monday.AddDays(21), exceptions)
+            .Expand(Monday, MondayEnd, rule, Istanbul, Monday.AddDays(-1), Monday.AddDays(21), exceptions)
             .ToArray();
 
         Assert.Contains(result, o => o.StartAtUtc == secondMonday && o.IsCancelled);

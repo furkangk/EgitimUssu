@@ -14,6 +14,10 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<SchedulingDbContext>(configuration, "Scheduling", SchedulingDbContext.SchemaName);
         services.AddScoped<ILessonScheduleRepository, LessonScheduleRepository>();
+        // P16 T4 / N-07: öğretmen takvimine yazan işler öğretmen başına advisory lock altında serileşir.
+        services.AddScoped<ITeacherScheduleLock, TeacherScheduleLock>();
+        // Çakışma ufku (varsayılan 12 hafta); geçersiz değer açılışı durdurur.
+        services.AddSingleton(SchedulingConflictSettings.Parse(configuration[SchedulingConflictSettings.ConfigurationKey]));
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudentUpcomingLessonsDirectory, StudentUpcomingLessonsDirectory>();
         // M05-2: LessonSessions planli dersten oturum turetirken bu sozlesmeyi okur.
         services.AddScoped<EgitimUssu.Shared.Contracts.ILessonScheduleDirectory, LessonScheduleDirectory>();

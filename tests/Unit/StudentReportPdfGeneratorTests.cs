@@ -2,6 +2,7 @@ using EgitimUssu.Modules.Reporting.Application;
 using EgitimUssu.Modules.Reporting.Domain;
 using EgitimUssu.Modules.Reporting.Infrastructure;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using EgitimUssu.Shared.Kernel.Storage;
 using EgitimUssu.Tests.Unit.TestDoubles;
@@ -228,6 +229,29 @@ public sealed class StudentReportPdfGeneratorTests
     }
 
     [Fact]
+    public async Task Default_Period_And_Its_Utc_Window_Follow_Turkey_Days()
+    {
+        // P16 T5 / N-50 (K-19): 31 Ağustos 22:00Z = 1 Eylül 01:00 TR → "bugün" 1 Eylül; varsayılan dönem
+        // 1 Ağustos–1 Eylül, ödev penceresi bu yerel günlerin UTC karşılığı [31 Temmuz 21:00Z, 1 Eylül 21:00Z).
+        var assignments = new FakeAssignmentDigestDirectory();
+        var handler = CreateHandler(
+            new FakeFileStorage(),
+            new FakeStudentReportRepository(),
+            now: new DateTime(2026, 8, 31, 22, 0, 0, DateTimeKind.Utc),
+            assignments: assignments);
+
+        var result = await handler.Handle(
+            new GenerateStudentReportCommand(StudentId, null, null, null), CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        Assert.Equal(new DateOnly(2026, 9, 1), result.Value!.PeriodEnd);
+        Assert.Equal(new DateOnly(2026, 8, 1), result.Value.PeriodStart);
+        Assert.Equal(
+            (new DateTime(2026, 7, 31, 21, 0, 0, DateTimeKind.Utc), new DateTime(2026, 9, 1, 21, 0, 0, DateTimeKind.Utc)),
+            assignments.LastRange!.Value);
+    }
+
+    [Fact]
     public async Task Generate_Should_Reject_Inverted_Range()
     {
         var handler = CreateHandler(new FakeFileStorage(), new FakeStudentReportRepository());
@@ -350,8 +374,12 @@ public sealed class StudentReportPdfGeneratorTests
         FakeStudentReportRepository repository,
         MembershipTier requesterTier = MembershipTier.Premium,
         StudentPrivacy? privacy = null,
-        IStudentReportPdfGenerator? generator = null)
+        IStudentReportPdfGenerator? generator = null,
+        DateTime? now = null,
+        FakeAssignmentDigestDirectory? assignments = null)
     {
+        var clock = new FixedClock(now ?? Now);
+        var calendar = new LocalCalendar("Europe/Istanbul", clock);
         var currentUser = new FakeCurrentUser(TeacherUserId, "Teacher");
         var students = new FakeStudentDirectory();
         var privacyDirectory = new FakePrivacyDirectory(
@@ -364,13 +392,15 @@ public sealed class StudentReportPdfGeneratorTests
                 new FakeProjectionReader(),
                 students,
                 new FakeTeacherDirectory(),
-                new FakeAssignmentDigestDirectory(),
-                currentUser),
+                assignments ?? new FakeAssignmentDigestDirectory(),
+                currentUser,
+                calendar),
             generator ?? new RecordingPdfGenerator(),
             storage,
             repository,
             currentUser,
-            new FixedClock(Now),
+            clock,
+            calendar,
             new FixedIdGenerator(ReportId));
     }
 
@@ -486,9 +516,14 @@ public sealed class StudentReportPdfGeneratorTests
 
     private sealed class FakeAssignmentDigestDirectory : IStudentAssignmentDigestDirectory
     {
+        public (DateTime FromUtc, DateTime ToUtc)? LastRange { get; private set; }
+
         public Task<AssignmentCompletionSummary> GetCompletionAsync(
             Guid studentUserId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
-            => Task.FromResult(new AssignmentCompletionSummary(4, 2));
+        {
+            LastRange = (fromUtc, toUtc);
+            return Task.FromResult(new AssignmentCompletionSummary(4, 2));
+        }
     }
 
     private sealed class FakeParentAccessDirectory : IParentAccessDirectory

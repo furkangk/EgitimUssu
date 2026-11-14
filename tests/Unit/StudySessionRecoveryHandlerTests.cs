@@ -1,5 +1,6 @@
 using EgitimUssu.Modules.Study.Application;
 using EgitimUssu.Modules.Study.Domain;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
@@ -69,7 +70,8 @@ public sealed class StudySessionRecoveryHandlerTests
     {
         var ids = new FakeIds();
         var clock = new FakeClock();
-        return new StudyCompletionService(repo, new AchievementEvaluator(repo, ids, clock), ids, clock);
+        return new StudyCompletionService(
+            repo, new AchievementEvaluator(repo, ids, clock), ids, clock, new LocalCalendar("Europe/Istanbul", clock));
     }
 
     private sealed class FakeClock : IClock

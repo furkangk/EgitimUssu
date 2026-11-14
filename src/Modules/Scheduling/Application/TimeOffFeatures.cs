@@ -41,17 +41,23 @@ public sealed class CreateTimeOffBlockCommandHandler : ICommandHandler<CreateTim
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Tatil baslangic ve bitis araligi gecersiz.");
     private readonly ITimeOffBlockRepository _repository;
     private readonly ILessonScheduleRepository _lessonRepository;
+    private readonly ITeacherScheduleLock _scheduleLock;
+    private readonly ILocalCalendar _calendar;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateTimeOffBlockCommandHandler(
         ITimeOffBlockRepository repository,
         ILessonScheduleRepository lessonRepository,
+        ITeacherScheduleLock scheduleLock,
+        ILocalCalendar calendar,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
         _lessonRepository = lessonRepository;
+        _scheduleLock = scheduleLock;
+        _calendar = calendar;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -67,18 +73,22 @@ public sealed class CreateTimeOffBlockCommandHandler : ICommandHandler<CreateTim
             _idGenerator.New(), command.TeacherUserId, command.Type, command.Title.Trim(),
             command.StartAtUtc, command.EndAtUtc, command.IsAllDay, _clock.UtcNow);
 
-        await _repository.AddAsync(block, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        // P16 T4 / N-07: blok, ders yazımlarıyla aynı öğretmen kilidinde eklenir (eşzamanlı ders isteği bloğu görür) ve
+        // çakışan dersler oluşum olarak listelenir: serinin bloğa düşen oluşumu da, bloktan önce başlayıp içine taşan
+        // ders de (eskiden yalnız başlangıcı blok içinde olan çapa satırları dönüyordu). İptal edilen oluşum dönmez.
+        return await _scheduleLock.RunExclusiveAsync(command.TeacherUserId, async token =>
+        {
+            await _repository.AddAsync(block, token);
+            await _repository.SaveChangesAsync(token);
 
-        var lessons = await _lessonRepository.ListForTeacherAsync(
-            command.TeacherUserId, command.StartAtUtc, command.EndAtUtc, cancellationToken);
-        var conflicting = lessons
-            .Where(l => l.Status != LessonScheduleStatus.Cancelled && l.StartAtUtc < command.EndAtUtc && l.EndAtUtc > command.StartAtUtc)
-            .OrderBy(l => l.StartAtUtc)
-            .Select(l => l.ToResponse())
-            .ToArray();
+            var conflicting = (await TeacherScheduleConflicts.ListOccurrencesAsync(
+                    _lessonRepository, _calendar, command.TeacherUserId, block.StartAtUtc, block.EndAtUtc, token))
+                .OrderBy(item => item.Occurrence.StartAtUtc)
+                .Select(item => item.Lesson.ToResponse(item.Occurrence))
+                .ToArray();
 
-        return Result<CreateTimeOffResponse>.Success(new CreateTimeOffResponse(block.ToResponse(), conflicting));
+            return Result<CreateTimeOffResponse>.Success(new CreateTimeOffResponse(block.ToResponse(), conflicting));
+        }, cancellationToken);
     }
 }
 

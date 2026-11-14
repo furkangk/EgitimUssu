@@ -53,22 +53,28 @@ public sealed class ReportingModule : ModuleDefinition
             .WithSummary("Üretilmiş PDF raporu yetkili kullanıcıya indirir (M14-4)");
     }
 
-    /// <summary>M14-1: Yıl/ay verilmezse içinde bulunulan ay kullanılır (eksik parametre 500 üretmez).</summary>
+    /// <summary>
+    /// M14-1: Yıl/ay verilmezse içinde bulunulan ay kullanılır (eksik parametre 500 üretmez). P16 T5: "bu ay" Türkiye
+    /// ayıdır — 1 Eylül 00:30 TR'de Ağustos değil Eylül.
+    /// </summary>
     private static async Task<IResult> GetTeacherMonthlyAsync(
         HttpContext context,
         Guid teacherUserId,
         int? year,
         int? month,
         IQueryDispatcher dispatcher,
-        IClock clock,
+        ILocalCalendar calendar,
         CancellationToken cancellationToken)
     {
-        var now = clock.UtcNow;
+        var today = calendar.Today();
         return ToHttpResult(context, await dispatcher.Dispatch(
-            new GetTeacherMonthlyReportQuery(teacherUserId, year ?? now.Year, month ?? now.Month), cancellationToken));
+            new GetTeacherMonthlyReportQuery(teacherUserId, year ?? today.Year, month ?? today.Month), cancellationToken));
     }
 
-    /// <summary>M14-5: Aralık verilmezse bugünden itibaren bir hafta bakılır.</summary>
+    /// <summary>
+    /// M14-5: Aralık verilmezse bugünden itibaren bir hafta bakılır. P16 T5: başlangıç, verilen anın (ya da şimdinin)
+    /// <b>yerel</b> gününün başına çekilir (eskiden UTC gece yarısına).
+    /// </summary>
     private static async Task<IResult> GetTeacherFreeSlotsAsync(
         HttpContext context,
         Guid teacherUserId,
@@ -76,9 +82,10 @@ public sealed class ReportingModule : ModuleDefinition
         DateTime? to,
         IQueryDispatcher dispatcher,
         IClock clock,
+        ILocalCalendar calendar,
         CancellationToken cancellationToken)
     {
-        var start = DateTime.SpecifyKind((from ?? clock.UtcNow).Date, DateTimeKind.Utc);
+        var start = calendar.DayRangeUtc(calendar.ToLocalDate(from ?? clock.UtcNow)).StartUtc;
         var end = to is { } given ? DateTime.SpecifyKind(given, DateTimeKind.Utc) : start.AddDays(7);
         return ToHttpResult(context, await dispatcher.Dispatch(
             new GetTeacherFreeSlotsQuery(teacherUserId, start, end), cancellationToken));

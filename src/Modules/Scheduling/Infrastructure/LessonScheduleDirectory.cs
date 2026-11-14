@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Scheduling.Application;
 using EgitimUssu.Modules.Scheduling.Domain;
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.Scheduling.Infrastructure;
@@ -14,15 +15,18 @@ internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory
     private readonly SchedulingDbContext _dbContext;
     private readonly ILessonScheduleRepository _lessons;
     private readonly ITimeOffBlockRepository _timeOff;
+    private readonly ILocalCalendar _calendar;
 
     public LessonScheduleDirectory(
         SchedulingDbContext dbContext,
         ILessonScheduleRepository lessons,
-        ITimeOffBlockRepository timeOff)
+        ITimeOffBlockRepository timeOff,
+        ILocalCalendar calendar)
     {
         _dbContext = dbContext;
         _lessons = lessons;
         _timeOff = timeOff;
+        _calendar = calendar;
     }
 
     public async Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
@@ -70,8 +74,10 @@ internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory
                 ? found
                 : Array.Empty<OccurrenceOverride>();
 
+            // P16 T2 / N-04: seri kendi diliminin yerel takviminde genişletilir.
             foreach (var occurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, fromUtc, toUtc, overrides))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
+                fromUtc, toUtc, overrides))
             {
                 if (occurrence.IsCancelled)
                 {

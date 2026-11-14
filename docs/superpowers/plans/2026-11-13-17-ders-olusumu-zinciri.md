@@ -166,6 +166,7 @@
 **Files:**
 - Modify: `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs`, `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionHandlers.cs`
 - Modify: `src/Modules/Reporting/Application/ReportingFeatures.cs` (yerel "bugün")
+- Modify: `tests/Architecture/LocalTimeRuleTests.cs` — *2026-11-15 eklendi (P16 T6):* izinli listedeki iki N-49 girişini (`ReportingFeatures.cs` `_clock.UtcNow.Date`, `TeacherDashboardProjection.cs` `dayUtc.Date`) **sil**; yerel "bugün" yazılınca bayat kalırlar ve test zaten kırılır
 - Test: `tests/Unit/TeacherDashboardOccurrenceTests.cs`
 
 **Interfaces:**

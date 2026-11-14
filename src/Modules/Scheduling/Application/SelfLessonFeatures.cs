@@ -62,12 +62,18 @@ internal static class SelfLessonConflict
 {
     public const int HorizonDays = 180;
 
+    /// <summary>
+    /// P16 T2 / N-04: aday kendi (<paramref name="timeZone"/>) diliminde, her öğretmen dersi kendi
+    /// <c>TimeZone</c>'unda genişletilir; boş/çözülemeyen kimlik <paramref name="calendar"/>'ın dilimine düşer.
+    /// </summary>
     public static bool OverlapsTeacherLesson(
         DateTime startAtUtc,
         DateTime endAtUtc,
         string? recurrenceRule,
+        string? timeZone,
         IReadOnlyCollection<LessonSchedule> teacherLessons,
-        IReadOnlyDictionary<Guid, IReadOnlyCollection<OccurrenceOverride>> exceptionsByLesson)
+        IReadOnlyDictionary<Guid, IReadOnlyCollection<OccurrenceOverride>> exceptionsByLesson,
+        ILocalCalendar calendar)
     {
         if (teacherLessons.Count == 0)
         {
@@ -78,7 +84,7 @@ internal static class SelfLessonConflict
         var windowEnd = startAtUtc.AddDays(HorizonDays);
 
         var candidate = RecurrenceExpander
-            .Expand(startAtUtc, endAtUtc, recurrenceRule, windowStart, windowEnd)
+            .Expand(startAtUtc, endAtUtc, recurrenceRule, calendar.SeriesZone(timeZone), windowStart, windowEnd)
             .ToArray();
         if (candidate.Length == 0)
         {
@@ -92,7 +98,8 @@ internal static class SelfLessonConflict
                 : Array.Empty<OccurrenceOverride>();
 
             foreach (var lessonOccurrence in RecurrenceExpander.Expand(
-                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, windowStart, windowEnd, lessonExceptions))
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, calendar.SeriesZone(lesson.TimeZone),
+                windowStart, windowEnd, lessonExceptions))
             {
                 if (lessonOccurrence.IsCancelled)
                 {
@@ -146,12 +153,14 @@ public sealed class CreateSelfLessonCommandHandler : ICommandHandler<CreateSelfL
     private readonly ILessonScheduleRepository _repository;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public CreateSelfLessonCommandHandler(ILessonScheduleRepository repository, IIdGenerator idGenerator, IClock clock)
+    public CreateSelfLessonCommandHandler(ILessonScheduleRepository repository, IIdGenerator idGenerator, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _idGenerator = idGenerator;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<SelfLessonResponse>> Handle(CreateSelfLessonCommand command, CancellationToken cancellationToken)
@@ -166,7 +175,9 @@ public sealed class CreateSelfLessonCommandHandler : ICommandHandler<CreateSelfL
 
         var exceptionsByLesson = await SelfLessonConflict.LoadExceptionsByLessonAsync(_repository, teacherLessons, cancellationToken);
 
-        if (SelfLessonConflict.OverlapsTeacherLesson(command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), teacherLessons, exceptionsByLesson))
+        if (SelfLessonConflict.OverlapsTeacherLesson(
+            command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), command.TimeZone,
+            teacherLessons, exceptionsByLesson, _calendar))
         {
             return Result<SelfLessonResponse>.Failure(TeacherConflict);
         }
@@ -201,11 +212,13 @@ public sealed class UpdateSelfLessonCommandHandler : ICommandHandler<UpdateSelfL
     private static readonly Error TeacherConflict = new("scheduling.teacher_conflict", "Bu saatte ogretmeninin planladigi bir ders var; kendi dersini bu saate ekleyemezsin.");
     private readonly ILessonScheduleRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public UpdateSelfLessonCommandHandler(ILessonScheduleRepository repository, IClock clock)
+    public UpdateSelfLessonCommandHandler(ILessonScheduleRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<SelfLessonResponse>> Handle(UpdateSelfLessonCommand command, CancellationToken cancellationToken)
@@ -226,7 +239,9 @@ public sealed class UpdateSelfLessonCommandHandler : ICommandHandler<UpdateSelfL
 
         var exceptionsByLesson = await SelfLessonConflict.LoadExceptionsByLessonAsync(_repository, teacherLessons, cancellationToken);
 
-        if (SelfLessonConflict.OverlapsTeacherLesson(command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), teacherLessons, exceptionsByLesson))
+        if (SelfLessonConflict.OverlapsTeacherLesson(
+            command.StartAtUtc, command.EndAtUtc, command.RecurrenceRule?.Trim(), command.TimeZone,
+            teacherLessons, exceptionsByLesson, _calendar))
         {
             return Result<SelfLessonResponse>.Failure(TeacherConflict);
         }

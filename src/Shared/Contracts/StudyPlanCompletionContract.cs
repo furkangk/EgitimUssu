@@ -11,6 +11,10 @@ public sealed record PlanCompletion(Guid LessonId, DateOnly Date);
 /// Study modülünün yayınladığı okuma sözleşmesi: verilen öğrenci ve tarih aralığında tamamlanmış
 /// (bir plana bağlı) çalışma seanslarından (LessonId, tarih) kümesi. Scheduling bunu takvimde
 /// "çalışıldı" rozeti için tüketir (modül izolasyonu: doğrudan referans yok).
+/// <para>
+/// P16 T5 / N-11 (K-19): <c>fromDate</c>/<c>toDate</c> ve <see cref="PlanCompletion.Date"/> <b>Türkiye yerel
+/// günüdür</b> (<c>ILocalCalendar</c>) — UTC günü değil. İki uç dahil.
+/// </para>
 /// </summary>
 public interface IStudyPlanCompletionReader
 {

@@ -15,6 +15,9 @@ RUN dotnet publish src/API.Host/EgitimUssu.API.Host.csproj \
     /p:UseAppHost=false
 
 # ─── Runtime stage ──────────────────────────────────────────────────────────
+# K-19: Yerel takvim "Europe/Istanbul"u /usr/share/zoneinfo'dan çözer. Debian tabanlı aspnet:9.0
+# imajında tzdata kurulu (P16 T1'de doğrulandı). alpine / chiseled'e geçilirse tzdata eklenmeli —
+# aksi halde LocalCalendarGuard açılışı durdurur.
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
