@@ -290,7 +290,7 @@
 - Modify: `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md` (§1.2, §1.6 satırları ✅), `doc/modules/mimari_inceleme.md`, `doc/modules/m03_students.md`, `doc/modules/m07_payments.md`, `doc/modules/00_genel_bakis.md`, `doc/architecture/backend.md` (§8.1), `doc/roles/ogretmen.md` (kısıt 11.1)
 
 - [x] **Step 1: Çapraz-kiracı paketi** — iki öğretmen, iki öğrenci, iki veli ile gerçek Postgres'te: öğretmen B, öğretmen A'nın öğrencisine ders/ödeme/oturum/veli daveti/mesaj **yazamaz** ve profil/ödeme/oturum **okuyamaz**; veli B, veli A'nın çocuğunu göremez; iptal edilen veli artık göremez. **T2'den devreden (Öğrenilenler #185):** bağı arşivlenmiş öğretmen eski planından `from-schedule` → ücretli tamamlama yaptığında **otomatik ders ücreti oluşmaz** (bugün oluşuyor — `GetAgreedLessonRateAsync` arşivi elemiyor); `link-parent` ve ödev uçlarının arşiv davranışı karara bağlanır. T2'nin `RealWriteLinkAuthorizationTests`'i bu pakete taşınabilir/genişletilebilir.
-- [x] **Step 2: Koş** — `./scripts/test-with-docker.sh` → başarısız 0, atlanan 0.
+- [x] **Step 2: Koş** — `./scripts/test-with-docker.sh` → başarısız 0, atlanan 0. *(Yürütmede: betik bu Windows makinesinde `infra/.env` olmadan çıktığı için eşdeğeri `ConnectionStrings__Postgres="InMemory:local" dotnet test EgitimUssu.slnx` (Docker açık) üç tam tur koşuldu — #217; son tur sıkılaştırılmış testlerle.)*
 - [x] **Step 3: Doküman kapanışı** + ILERLEME "Öğrenilenler".
   ```bash
   git commit -m "test(security): capraz-kiraci yetki paketi + P15 kapanisi"

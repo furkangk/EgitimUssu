@@ -12,6 +12,8 @@
 
 **Dal:** `feat/p19-calisma-odev` · **Ön koşul:** P15 T8 (kira düzeltmesi), P16 T1 (`ILocalCalendar`).
 
+> **Devralınan (P15 T9, 2026-11-14 — ILERLEME Öğrenilenler #189):** Reporting, Notifications ve Identity `StudentProfilesMerged` olayını tüketmiyor — birleşme sonrası eski öğrenci kimliğinde kalan projeksiyon/bildirim satırı olabilir (Messaging P15 T5'te kapandı). **Task 8'in Step 0'ı** olarak ele alınır: önce bu üç modülde öğrenci kimliğiyle anahtarlanan tablolar ölçülür; gerçekten varsa tüketici (çakışmayan taşınır, çakışanda kanonik kazanır — #187) + senaryoya birleşme adımı eklenir, yoksa ILERLEME'de "ölçüldü, gerek yok" diye kapanır.
+
 ## Global Constraints
 
 - **Commit kapsamı:** her commit bloğundan önce `git add <görevin Files: listesi> <değişen doc dosyaları>`; **`git add -A` / `git add .` yasak** (platforma özgü dosyalar, `pubspec.lock` ve ilgisiz değişiklikler sızmasın).
@@ -164,6 +166,7 @@
 **Files:**
 - Create: `tests/Integration/RealStudentWeekScenarioTests.cs`
 
+- [ ] **Step 0: #189 (P15'ten devralınan)** — Reporting/Notifications/Identity'de `StudentId` ile anahtarlanan tabloları ölç; varsa `StudentProfilesMerged` tüketicisi + birleşme senaryosu, yoksa ILERLEME'de kapat (plan başındaki not).
 - [ ] **Step 1: Senaryo** — öğrenci 3 gün çalışır (biri TR 01:30'da biter) → seri 3; bir test girer, siler → istatistik eski haline döner; ödev teslim eder, öğretmen revizyona döndürür, yeniden teslim eder, onaylar → puan ve iki sürüm; veli haftalık özette bunları görür; Payments handler'ı bilerek hata verdiğinde Reporting yine güncellenir.
 - [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test`.
 - [ ] **Step 3: Doküman + ILERLEME + commit**
