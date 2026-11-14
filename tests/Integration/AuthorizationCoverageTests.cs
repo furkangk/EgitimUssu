@@ -1,4 +1,5 @@
 using System.Reflection;
+using EgitimUssu.API.Host;
 using EgitimUssu.Shared.Application;
 
 namespace EgitimUssu.Tests.Integration;
@@ -7,6 +8,11 @@ namespace EgitimUssu.Tests.Integration;
 /// Handler'ı olan her command/query tipinin ya IAllowAnonymous uyguladığını ya da
 /// karşılık gelen bir ICommandAuthorizer/IQueryAuthorizer implementasyonunun var olduğunu doğrular.
 /// Yeni bir handler eklenip authorizer unutulduğunda bu test derleme/CI'da yakalar.
+/// <para>
+/// Sınırı (rapor §1.6): yalnız authorizer'ın <b>varlığına</b> bakar, sahiplik kuralının doğruluğuna değil — o
+/// <c>RealCrossTenantAccessTests</c>'in işidir. Integration event handler'ları ve modüller arası yazma portları
+/// (ör. otomatik ders ücreti) authorizer'a tabi değildir; onların kuralı kendi senaryo testlerinde durur.
+/// </para>
 /// </summary>
 public sealed class AuthorizationCoverageTests
 {
@@ -19,9 +25,21 @@ public sealed class AuthorizationCoverageTests
     [Fact]
     public void Every_Handler_Must_Have_Authorizer_Or_AllowAnonymous()
     {
-        var assemblies = LoadModuleAssemblies();
-        var allTypes = assemblies.SelectMany(SafeGetTypes).ToArray();
+        var scan = ModuleAssemblyScan.Load(ModuleAssemblyPaths());
+        Assert.True(
+            scan.Failures.Count == 0,
+            "Kapsama denetimi bu assembly'leri göremedi (içlerindeki handler'lar denetlenmemiş olurdu):\n" +
+            string.Join("\n", scan.Failures.Select(f => $"  - {f}")));
 
+        // Boş tarama da yeşil geçmesin: host'a kayıtlı her modülün Application assembly'si taranmış olmalı.
+        var scanned = scan.Assemblies.Select(a => a.GetName().Name).ToHashSet(StringComparer.Ordinal);
+        var missingModules = ModuleAssemblies.All
+            .Select(api => api.GetName().Name!.Replace(".API", ".Application", StringComparison.Ordinal))
+            .Where(application => !scanned.Contains(application))
+            .ToArray();
+        Assert.True(missingModules.Length == 0, "Taranmayan modüller: " + string.Join(", ", missingModules));
+
+        var allTypes = scan.Types.ToArray();
         var coverage = BuildCoverage(allTypes);
         var unprotected = FindUnprotectedOperands(allTypes, coverage);
 
@@ -102,30 +120,84 @@ public sealed class AuthorizationCoverageTests
         return unprotected;
     }
 
-    private static Assembly[] LoadModuleAssemblies()
+    /// <summary>
+    /// P15 T9: Taranan yolları yükleyen dikiş. Testin kendi yüklemesi denetlenebilsin diye ayrıldı — yüklenemeyen bir
+    /// modül assembly'si kapsama denetiminden sessizce düşerse, içindeki korumasız handler'lar da düşer.
+    /// </summary>
+    [Fact]
+    public void Unloadable_Module_Assembly_Is_Reported_Not_Skipped()
+    {
+        var directory = Directory.CreateTempSubdirectory("authz-coverage-");
+        try
+        {
+            var junk = Path.Combine(directory.FullName, "EgitimUssu.Modules.Bozuk.Application.dll");
+            File.WriteAllText(junk, "bu bir assembly degil");
+            var missing = Path.Combine(directory.FullName, "EgitimUssu.Shared.Application.dll");
+
+            var scan = ModuleAssemblyScan.Load([junk, missing]);
+
+            Assert.Contains(scan.Failures, failure => failure.Contains("EgitimUssu.Modules.Bozuk.Application.dll"));
+            Assert.Contains(scan.Failures, failure => failure.Contains("EgitimUssu.Shared.Application.dll"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    private static IReadOnlyList<string> ModuleAssemblyPaths()
     {
         var baseDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;
 
-        var modulePaths = Directory.GetFiles(baseDir, "EgitimUssu.Modules.*.dll");
-        var sharedPath = Path.Combine(baseDir, "EgitimUssu.Shared.Application.dll");
-
-        return modulePaths
-            .Append(sharedPath)
-            .Where(File.Exists)
-            .Select(TryLoadAssembly)
-            .OfType<Assembly>()
+        return Directory.GetFiles(baseDir, "EgitimUssu.Modules.*.dll")
+            .Append(Path.Combine(baseDir, "EgitimUssu.Shared.Application.dll"))
             .ToArray();
     }
 
-    private static Assembly? TryLoadAssembly(string path)
+    /// <summary>
+    /// Yükleme sonucu: bulunan tipler ve yüklenemeyen yollar. Sessiz atlama yok (P15 T9, rapor §1.6): eksik dosya,
+    /// yüklenemeyen assembly ve kısmen yüklenen tipler (<see cref="ReflectionTypeLoadException"/>) hata olarak döner.
+    /// </summary>
+    private sealed record ModuleAssemblyScan(IReadOnlyList<Assembly> Assemblies, IReadOnlyList<Type> Types, IReadOnlyList<string> Failures)
     {
-        try { return Assembly.LoadFrom(path); }
-        catch { return null; }
-    }
+        public static ModuleAssemblyScan Load(IEnumerable<string> paths)
+        {
+            var assemblies = new List<Assembly>();
+            var types = new List<Type>();
+            var failures = new List<string>();
 
-    private static IEnumerable<Type> SafeGetTypes(Assembly assembly)
-    {
-        try { return assembly.GetTypes(); }
-        catch (ReflectionTypeLoadException ex) { return ex.Types.OfType<Type>(); }
+            foreach (var path in paths)
+            {
+                if (!File.Exists(path))
+                {
+                    failures.Add($"{Path.GetFileName(path)}: dosya yok ({path})");
+                    continue;
+                }
+
+                Assembly assembly;
+                try
+                {
+                    assembly = Assembly.LoadFrom(path);
+                }
+                catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
+                {
+                    failures.Add($"{Path.GetFileName(path)}: yüklenemedi — {ex.Message}");
+                    continue;
+                }
+
+                try
+                {
+                    types.AddRange(assembly.GetTypes());
+                    assemblies.Add(assembly);
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    var reasons = ex.LoaderExceptions.OfType<Exception>().Select(inner => inner.Message).Distinct();
+                    failures.Add($"{Path.GetFileName(path)}: tipleri kısmen yüklendi — {string.Join(" | ", reasons)}");
+                }
+            }
+
+            return new ModuleAssemblyScan(assemblies, types, failures);
+        }
     }
 }

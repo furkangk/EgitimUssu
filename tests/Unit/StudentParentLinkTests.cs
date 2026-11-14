@@ -166,13 +166,18 @@ public sealed class StudentParentLinkTests
         Assert.True(result.IsSuccess);
     }
 
+    /// <summary>
+    /// Yaşayan özel ders bağı (<c>Private</c>) tek başına yetmez: profili açmamış öğretmen (ör. birleşme sonrası bağı
+    /// taşınan öğretmen) profili okur ama yönetmez — Öğrenilenler #186.
+    /// </summary>
     [Fact]
     public async Task LinkParent_Authorizer_Should_Forbid_Unrelated_Teacher()
     {
         var profile = NewProfile();
         var authorizer = new LinkStudentParentCommandAuthorizer(
             new FakeCurrentUser(Guid.NewGuid().ToString(), "Teacher"),
-            new FakeRepository(profile));
+            new FakeRepository(profile),
+            new FakeTeacherStudentAccess(TeacherAccessScope.Private));
 
         var result = await authorizer.Authorize(
             new LinkStudentParentCommand(profile.Id, ParentUserId),
@@ -188,7 +193,46 @@ public sealed class StudentParentLinkTests
         var profile = NewProfile();
         var authorizer = new LinkStudentParentCommandAuthorizer(
             new FakeCurrentUser(TeacherId.ToString(), "Teacher"),
-            new FakeRepository(profile));
+            new FakeRepository(profile),
+            new FakeTeacherStudentAccess(TeacherAccessScope.Private));
+
+        var result = await authorizer.Authorize(
+            new LinkStudentParentCommand(profile.Id, ParentUserId),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    /// <summary>
+    /// P15 T9 (#185 b): Yeni veli bağı açmak, kardeşi <c>parent-invite</c> (N-21) gibi yaşayan özel ders bağı ister.
+    /// Profili açan ama bağı arşivlenmiş öğretmen (kapsam <c>None</c>) talep açamaz.
+    /// </summary>
+    [Fact]
+    public async Task LinkParent_Authorizer_Should_Forbid_Owning_Teacher_Without_A_Living_Link()
+    {
+        var profile = NewProfile();
+        var authorizer = new LinkStudentParentCommandAuthorizer(
+            new FakeCurrentUser(TeacherId.ToString(), "Teacher"),
+            new FakeRepository(profile),
+            new FakeTeacherStudentAccess(TeacherAccessScope.None));
+
+        var result = await authorizer.Authorize(
+            new LinkStudentParentCommand(profile.Id, ParentUserId),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("shared.forbidden", result.Error.Code);
+    }
+
+    /// <summary>Profilin sahibi öğrenci kendi velisini öğretmen bağından bağımsız olarak bağlar.</summary>
+    [Fact]
+    public async Task LinkParent_Authorizer_Should_Allow_Owning_Student_Without_A_Teacher_Link()
+    {
+        var profile = NewProfile();
+        var authorizer = new LinkStudentParentCommandAuthorizer(
+            new FakeCurrentUser(StudentUserId.ToString(), "Student"),
+            new FakeRepository(profile),
+            new FakeTeacherStudentAccess(TeacherAccessScope.None));
 
         var result = await authorizer.Authorize(
             new LinkStudentParentCommand(profile.Id, ParentUserId),

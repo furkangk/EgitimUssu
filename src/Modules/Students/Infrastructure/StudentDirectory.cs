@@ -39,6 +39,15 @@ internal sealed class StudentDirectory : IStudentDirectory
 
     public async Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacherUserId, Guid studentId, CancellationToken cancellationToken)
     {
+        // P15 T9 (#185 a, K-18): para hareketi yalnız yaşayan özel ders bağında. Arşivlenmiş, reddedilmiş ya da
+        // (P22) yalnız sınıf kapsamlı ikilinin girilmiş ücreti "anlaşılan ücret" sayılmaz — otomatik ders ücreti,
+        // manuel ödeme kaydıyla (PaymentRecordAuthorizer) aynı kurala uyar. Kural kapsam sorgusundan okunur,
+        // `!IsArchived` filtresinden değil: bitmiş bağın ücreti de faturalanmamalı.
+        if (await _access.GetScopeAsync(teacherUserId, studentId, cancellationToken) != TeacherAccessScope.Private)
+        {
+            return null;
+        }
+
         // B-07: Ücret öğretmen-öğrenci ikilisine özeldir. Ücret girilmemişse (null) tahmini bir tutar
         // üretmeyiz — çağıran (Payments/M07-2) kayıt açmadan geçer.
         return await _dbContext.TeacherStudentLinks

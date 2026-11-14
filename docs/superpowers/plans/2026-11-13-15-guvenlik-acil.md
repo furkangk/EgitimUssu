@@ -278,16 +278,20 @@
 
 ---
 
-### Task 9: Kapanış — çapraz-kiracı yetki paketi + doküman
+### Task 9: Kapanış — çapraz-kiracı yetki paketi + doküman ✅
+
+> **Sapma (yürütmede, 2026-11-14):** (a) `Files:` #185 devrini karşılamıyordu (yalnız test + doküman) — otomatik ders ücreti için üretim kodu gerekir: `StudentDirectory.GetAgreedLessonRateAsync` artık ücreti yalnız **yaşayan özel ders bağında** (`ITeacherStudentAccess` = `Private`) döner. Arşiv-yalnız filtre (`!IsArchived`) seçilmedi: ret/kopmuş bağın ücretini ve P22'nin `Class` kapsamını (K-18) yine faturalardı. (b) **Arşiv kararı:** arşiv öğretmenin onaysız geri alabildiği kendi durumudur (unarchive serbest, limit sayımında arşivli bağ da sayılır) — güvenlik sınırı değil, ürün kuralı. T2 emsali: **yeni ilişki/kayıt** (`Private` ister) ↔ **eski kaydı kapatma** (sahiplik yeter). Buna göre `link-parent` yeni veli bağı açtığı için kardeşi `parent-invite` (N-21) gibi `Private` ister (`LinkStudentParentCommandAuthorizer` değişti, mobil öğrenci detayı 403'ü genel hata olarak gösterir); ödev takibi/puanlama, oturum türetme/tamamlama ve profil düzeltme arşivden önce açılmış kayıtları kapatır → sahiplikle kalır (karakterizasyon testi). Para hareketi yalnız yaşayan bağda (K-18). (c) `AuthorizationCoverageTests` yükleyicisi yol listesi alan bir dikiş (`ModuleAssemblyScan`) üzerinden test edilir: üç sessiz atlama (`catch → null`, `Where(File.Exists)`, `ReflectionTypeLoadException` yutma) ve "hiç modül bulunamadı" hata olur; kırmızısı geçici dizindeki bozuk `.dll` ile görülür.
 
 **Files:**
 - Create: `tests/Integration/RealCrossTenantAccessTests.cs`
 - Modify: `tests/Integration/AuthorizationCoverageTests.cs` (yüklenemeyen assembly → **test başarısız**, sessiz atlama yok)
-- Modify: `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md` (§1.2, §1.6 satırları ✅), `doc/modules/mimari_inceleme.md`
+- Modify (sapma a): `src/Modules/Students/Infrastructure/StudentDirectory.cs`, `src/Shared/Contracts/StudentDirectoryContract.cs` (sözleşme açıklaması)
+- Modify (sapma b): `src/Modules/Students/Application/StudentProfilePolicies.cs` (`LinkStudentParentCommandAuthorizer` → `Private`), `tests/Unit/StudentParentLinkTests.cs` (kurucu + arşivli öğretmen testi)
+- Modify: `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md` (§1.2, §1.6 satırları ✅), `doc/modules/mimari_inceleme.md`, `doc/modules/m03_students.md`, `doc/modules/m07_payments.md`, `doc/modules/00_genel_bakis.md`, `doc/architecture/backend.md` (§8.1), `doc/roles/ogretmen.md` (kısıt 11.1)
 
-- [ ] **Step 1: Çapraz-kiracı paketi** — iki öğretmen, iki öğrenci, iki veli ile gerçek Postgres'te: öğretmen B, öğretmen A'nın öğrencisine ders/ödeme/oturum/veli daveti/mesaj **yazamaz** ve profil/ödeme/oturum **okuyamaz**; veli B, veli A'nın çocuğunu göremez; iptal edilen veli artık göremez. **T2'den devreden (Öğrenilenler #185):** bağı arşivlenmiş öğretmen eski planından `from-schedule` → ücretli tamamlama yaptığında **otomatik ders ücreti oluşmaz** (bugün oluşuyor — `GetAgreedLessonRateAsync` arşivi elemiyor); `link-parent` ve ödev uçlarının arşiv davranışı karara bağlanır. T2'nin `RealWriteLinkAuthorizationTests`'i bu pakete taşınabilir/genişletilebilir.
-- [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh` → başarısız 0, atlanan 0.
-- [ ] **Step 3: Doküman kapanışı** + ILERLEME "Öğrenilenler".
+- [x] **Step 1: Çapraz-kiracı paketi** — iki öğretmen, iki öğrenci, iki veli ile gerçek Postgres'te: öğretmen B, öğretmen A'nın öğrencisine ders/ödeme/oturum/veli daveti/mesaj **yazamaz** ve profil/ödeme/oturum **okuyamaz**; veli B, veli A'nın çocuğunu göremez; iptal edilen veli artık göremez. **T2'den devreden (Öğrenilenler #185):** bağı arşivlenmiş öğretmen eski planından `from-schedule` → ücretli tamamlama yaptığında **otomatik ders ücreti oluşmaz** (bugün oluşuyor — `GetAgreedLessonRateAsync` arşivi elemiyor); `link-parent` ve ödev uçlarının arşiv davranışı karara bağlanır. T2'nin `RealWriteLinkAuthorizationTests`'i bu pakete taşınabilir/genişletilebilir.
+- [x] **Step 2: Koş** — `./scripts/test-with-docker.sh` → başarısız 0, atlanan 0.
+- [x] **Step 3: Doküman kapanışı** + ILERLEME "Öğrenilenler".
   ```bash
   git commit -m "test(security): capraz-kiraci yetki paketi + P15 kapanisi"
   ```

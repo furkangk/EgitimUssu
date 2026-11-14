@@ -170,33 +170,59 @@ public sealed class StudentSubjectCommandAuthorizer :
         => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
 }
 
-/// <summary>M03-1: Veli bağlama yetkisi — Admin · profili oluşturan öğretmen · profilin sahibi öğrenci.</summary>
+/// <summary>
+/// M03-1: Veli bağlama yetkisi — Admin · profili oluşturan öğretmen · profilin sahibi öğrenci.
+/// <para>
+/// P15 T9 (#185 b): yeni veli bağı açmak, kardeşi <c>parent-invite</c> (N-21) gibi öğretmenden <b>yaşayan özel ders
+/// bağı</b> da ister (<see cref="ITeacherStudentAccess"/> = <c>Private</c>). Profili açan ama bağı arşivlenmiş öğretmen
+/// talep açamaz; profilin sahibi öğrenci öğretmen bağından bağımsızdır. Profil düzeltme ve branş uçları bilinçli olarak
+/// sahiplikle kalır (yeni ilişki değil, var olan kaydın bakımı).
+/// </para>
+/// </summary>
 public sealed class LinkStudentParentCommandAuthorizer : ICommandAuthorizer<LinkStudentParentCommand>
 {
     private readonly ICurrentUser _currentUser;
     private readonly IStudentProfileRepository _repository;
+    private readonly ITeacherStudentAccess _access;
 
-    public LinkStudentParentCommandAuthorizer(ICurrentUser currentUser, IStudentProfileRepository repository)
+    public LinkStudentParentCommandAuthorizer(
+        ICurrentUser currentUser,
+        IStudentProfileRepository repository,
+        ITeacherStudentAccess access)
     {
         _currentUser = currentUser;
         _repository = repository;
+        _access = access;
     }
 
     public Task<Result> Authorize(LinkStudentParentCommand command, CancellationToken cancellationToken)
-        => StudentProfileAccess.AuthorizeManage(_currentUser, _repository, command.StudentId, cancellationToken);
+        => StudentProfileAccess.AuthorizeManage(
+            _currentUser, _repository, command.StudentId, cancellationToken, requireLivingTeacherLink: _access);
 }
 
 /// <summary>Öğrenci profili alt kaynaklarının ortak yetki kuralı (tek yerde durur).</summary>
 internal static class StudentProfileAccess
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
+    private static readonly Error NotLinked = new("shared.forbidden", "Bu öğrenciyle aktif bir özel ders bağınız yok.");
     private static readonly Error NotFound = new("students.profile_not_found", "Öğrenci profili bulunamadı.");
 
+    /// <summary>Admin · profili açan öğretmen · profilin sahibi öğrenci.</summary>
+    /// <param name="currentUser">Oturumdaki kullanıcı.</param>
+    /// <param name="repository">Profil deposu.</param>
+    /// <param name="studentId">Profil kimliği.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <param name="requireLivingTeacherLink">
+    /// Verilirse, profili açan öğretmen ayrıca öğrenciyle yaşayan özel ders bağı (<c>Private</c>) ister — yeni ilişki
+    /// açan uçlar için (P15 T9, <c>link-parent</c>). Sahibi öğrenci ve Admin bu sorudan muaftır.
+    /// </param>
+    /// <returns>Yetki sonucu.</returns>
     public static async Task<Result> AuthorizeManage(
         ICurrentUser currentUser,
         IStudentProfileRepository repository,
         Guid studentId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ITeacherStudentAccess? requireLivingTeacherLink = null)
     {
         if (!currentUser.IsAuthenticated)
         {
@@ -219,9 +245,24 @@ internal static class StudentProfileAccess
             return Result.Failure(Forbidden);
         }
 
+        if (profile.UserId == userId)
+        {
+            return Result.Success();
+        }
+
         var isOwningTeacher = currentUser.Roles.Contains("Teacher") && profile.CreatedByTeacherUserId == userId;
-        var isOwningStudent = profile.UserId == userId;
-        return isOwningTeacher || isOwningStudent ? Result.Success() : Result.Failure(Forbidden);
+        if (!isOwningTeacher)
+        {
+            return Result.Failure(Forbidden);
+        }
+
+        if (requireLivingTeacherLink is null)
+        {
+            return Result.Success();
+        }
+
+        var scope = await requireLivingTeacherLink.GetScopeAsync(userId, studentId, cancellationToken);
+        return scope == TeacherAccessScope.Private ? Result.Success() : Result.Failure(NotLinked);
     }
 }
 
