@@ -41,6 +41,11 @@ Prosedürün kendisi iki dosyada yazılı. **Onları harfi harfine uygula**, bur
 | "devam", "/devam", "sıradaki görev", "P17 Task 3" vb. | [`.claude/commands/devam.md`](.claude/commands/devam.md) |
 | "görevi bitir", "/gorev-bitir", "kapat" | [`.claude/commands/gorev-bitir.md`](.claude/commands/gorev-bitir.md) (`devam.md` adım 11 bunu zaten içerir) |
 
+**Öncelik:** bu iki dosya ile `AGENTS.md` çelişirse **`AGENTS.md` geçerlidir.** Bilinen üç fark var:
+- `flutter analyze` yerine CI ile aynı olan `flutter analyze --fatal-infos` kullanılır.
+- Docker'lı testler koşmadıysa görev kapatılmaz (§3). Prosedürlerde bu adım "Docker varsa" diye geçer.
+- Commit imzası §4.1'e göre atılır.
+
 Claude Code'a özgü kavramların Codex karşılıkları:
 
 - **`$ARGUMENTS`**: kullanıcının komutla birlikte yazdığı metin. Boşsa sıradaki görev.
@@ -80,16 +85,18 @@ dotnet test EgitimUssu.slnx --nologo        # özetteki "Başarısız: N" ve "At
 bash scripts/check-migration-drift.sh
 bash scripts/check-migration-down.sh       # Down() metotlarını denetler
 
-# Mobil değiştiyse
-cd mobile && flutter pub get && flutter test && flutter analyze --fatal-infos
+# Mobil değiştiyse (repo kökünden; parantez alt kabukta çalıştırır, sonra kökte kalınır)
+(cd mobile && flutter pub get && flutter test && flutter analyze --fatal-infos)
 git checkout -- mobile/analysis_options.yaml   # her analyze sonrası, bkz. §4.3
 ```
 
 - Çıktıyı `| tail` ile kırpma. Pipe çıkış kodunu maskeler; özet satırını tam çıktıdan oku.
-- **Integration testleri Docker ister.** Testcontainers gerçek Postgres ve Redis ayağa kaldırır. Docker yoksa ya da
-  sandbox Docker/ağ erişimini engelliyorsa integration testleri koşmaz. Bu durumda sonucu **"doğrulanmadı"** diye
-  bildir. "Başarısız 0 / atlanan 0" iddia etme, görevi kapatma. Gerekirse kullanıcıdan Docker'ı başlatmasını ya da
-  Codex'i ağ ve Docker erişimiyle açmasını iste. `dotnet restore` ve `flutter pub get` de ağ ister.
+- **`Real*` integration testleri Docker ister.** Testcontainers gerçek Postgres ve Redis ayağa kaldırır. Docker yoksa
+  ya da sandbox Docker'a erişimi engelliyorsa bu testler `Skip.IfNot(fixture.Available, ...)` ile **atlanır**. InMemory
+  testleri yine koşar ve sonuç yeşil görünür (`tests/Integration/ContainerFixture.cs`). **Belirti: özette
+  `Atlanan: N > 0`.** Bu durumda sonucu **"Docker testleri doğrulanmadı"** diye bildir ve görevi kapatma. Gerekirse
+  kullanıcıdan Docker'ı başlatmasını ya da Codex'i Docker ve ağ erişimiyle açmasını iste. `dotnet restore` ve
+  `flutter pub get` de ağ ister.
 - Tam paket: `bash scripts/test-with-docker.sh`.
 - **Bilinen aralıklı testler** (kod sorunu sanma, yeniden koş, sahipleri P26): `DispatcherCacheTests` (#194),
   `TeacherWorkflowIntegrationTests` (#205), `RealMessagingChainTests` hız sınırı testi (#210). Tekrarlıyorsa bildir.
