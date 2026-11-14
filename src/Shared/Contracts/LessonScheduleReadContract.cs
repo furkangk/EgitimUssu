@@ -11,6 +11,7 @@ namespace EgitimUssu.Shared.Contracts;
 /// <param name="EndAtUtc">Bitiş (UTC).</param>
 /// <param name="Subject">Ders/branş.</param>
 /// <param name="MeetingUrl">Online ders bağlantısı (varsa).</param>
+/// <param name="IsRecurring">Tekrarlı seri mi.</param>
 /// <param name="Status">Planlı dersin durumu (<c>Draft</c>/<c>Planned</c>/<c>Cancelled</c>/<c>Completed</c>).</param>
 public sealed record LessonScheduleDetails(
     Guid LessonScheduleId,
@@ -20,7 +21,8 @@ public sealed record LessonScheduleDetails(
     DateTime EndAtUtc,
     string Subject,
     string? MeetingUrl,
-    string Status);
+    string Status,
+    bool IsRecurring = false);
 
 /// <summary>Scheduling'in dışa açtığı okuma sözleşmesi (LessonSessions tüketir).</summary>
 public interface ILessonScheduleDirectory
@@ -33,6 +35,9 @@ public interface ILessonScheduleDirectory
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Ders ayrıntısı ya da <c>null</c>.</returns>
     Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken);
+
+    /// <summary>Orijinal oluşum anahtarını doğrular, ertelenmiş görünen saatini döndürür.</summary>
+    Task<LessonScheduleOccurrence?> GetOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken);
 
     /// <summary>
     /// M14-5: Öğretmenin verilen aralıkta <b>dolu</b> olduğu zaman parçaları — planlı ders oluşumları
@@ -56,3 +61,5 @@ public interface ILessonScheduleDirectory
 /// <param name="EndAtUtc">Bitiş (UTC).</param>
 /// <param name="Kind">Doluluğun kaynağı: <c>Lesson</c> veya <c>TimeOff</c>.</param>
 public sealed record TeacherBusyInterval(DateTime StartAtUtc, DateTime EndAtUtc, string Kind);
+
+public sealed record LessonScheduleOccurrence(DateTime OccurrenceStartUtc, DateTime StartAtUtc, DateTime EndAtUtc, bool IsCancelled);

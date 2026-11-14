@@ -133,10 +133,18 @@ class LessonSessionRepositoryImpl implements LessonSessionRepository {
 
   @override
   Future<LessonSession> createSessionFromSchedule(
-    String lessonScheduleId,
-  ) async {
+    String lessonScheduleId, {
+    DateTime? occurrenceStartAtUtc,
+  }) async {
     final response = await _apiClient.post(
-      '/api/lesson-sessions/from-schedule/$lessonScheduleId',
+      '/api/lesson-sessions/from-schedule',
+      data: <String, dynamic>{
+        'lessonScheduleId': lessonScheduleId,
+        if (occurrenceStartAtUtc != null)
+          'occurrenceStartAtUtc': occurrenceStartAtUtc
+              .toUtc()
+              .toIso8601String(),
+      },
     );
     return LessonSessionModel.fromJson(response);
   }

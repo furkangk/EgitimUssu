@@ -125,10 +125,10 @@ class LessonSessionModel extends LessonSession {
 
   static int _attendanceStatusToApi(String? value) {
     return switch (value) {
-      'Present' => 1,
-      'Absent' => 2,
+      'Attended' || 'Present' => 2,
+      'Absent' => 4,
       'Late' => 3,
-      _ => 0,
+      _ => 1,
     };
   }
 }

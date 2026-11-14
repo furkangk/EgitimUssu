@@ -51,17 +51,22 @@ public sealed class LessonSessionCommandAuthorizer :
     private readonly ILessonSessionRepository _repository;
     private readonly ITeacherStudentAccess _access;
     private readonly ILessonScheduleDirectory _scheduleDirectory;
+    private readonly IStudentDirectory _students;
+    private readonly IParentAccessDirectory _parents;
 
     public LessonSessionCommandAuthorizer(
         ICurrentUser currentUser,
         ILessonSessionRepository repository,
         ITeacherStudentAccess access,
-        ILessonScheduleDirectory scheduleDirectory)
+        ILessonScheduleDirectory scheduleDirectory,
+        IStudentDirectory students, IParentAccessDirectory parents)
     {
         _currentUser = currentUser;
         _repository = repository;
         _access = access;
         _scheduleDirectory = scheduleDirectory;
+        _students = students;
+        _parents = parents;
     }
 
     /// <summary>
@@ -148,40 +153,43 @@ public sealed class LessonSessionCommandAuthorizer :
 
         var isAdmin = _currentUser.Roles.Contains("Admin");
         var currentUserId = Guid.TryParse(_currentUser.UserId, out var parsedUserId) ? parsedUserId : Guid.Empty;
-        var canRead = isAdmin || currentUserId == session.TeacherUserId || currentUserId == session.StudentId;
+        var canRead = isAdmin || (_currentUser.Roles.Contains("Teacher") && currentUserId == session.TeacherUserId);
+        if (!canRead)
+            canRead = (await LessonSessionReadScope.StudentIdsAsync(_currentUser, _students, _parents, currentUserId, cancellationToken)).Contains(session.StudentId);
         return canRead ? Result.Success() : Result.Failure(Forbidden);
     }
 
-    public Task<Result> Authorize(ListLessonSessionsQuery query, CancellationToken cancellationToken)
+    public async Task<Result> Authorize(ListLessonSessionsQuery query, CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated)
         {
-            return Task.FromResult(Result.Failure(Forbidden));
+            return Result.Failure(Forbidden);
         }
 
         var isAdmin = _currentUser.Roles.Contains("Admin");
         if (isAdmin)
         {
-            return Task.FromResult(Result.Success());
+            return Result.Success();
         }
 
         if (!Guid.TryParse(_currentUser.UserId, out var currentUserId))
         {
-            return Task.FromResult(Result.Failure(Forbidden));
+            return Result.Failure(Forbidden);
         }
 
         var isTeacher = _currentUser.Roles.Contains("Teacher");
         if (isTeacher && query.TeacherUserId.HasValue && query.TeacherUserId.Value != currentUserId)
         {
-            return Task.FromResult(Result.Failure(Forbidden));
+            return Result.Failure(Forbidden);
         }
 
-        if (!isTeacher && query.StudentId.HasValue && query.StudentId.Value != currentUserId)
+        if (!isTeacher && query.StudentId.HasValue &&
+            !(await LessonSessionReadScope.StudentIdsAsync(_currentUser, _students, _parents, currentUserId, cancellationToken)).Contains(query.StudentId.Value))
         {
-            return Task.FromResult(Result.Failure(Forbidden));
+            return Result.Failure(Forbidden);
         }
 
-        return Task.FromResult(Result.Success());
+        return Result.Success();
     }
 
     private bool CanManageTeacher(Guid teacherUserId)

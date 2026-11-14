@@ -362,7 +362,7 @@ public sealed class WriteEndpointLinkAuthorizationTests
             => new(user, new SinglePaymentRepository(record), new FakeRequestEntityCache(), Access);
 
         public LessonSessionCommandAuthorizer Sessions(ICurrentUser user, params LessonScheduleDetails[] schedules)
-            => new(user, new EmptySessionRepository(), Access, new FakeLessonScheduleDirectory(schedules));
+            => new(user, new EmptySessionRepository(), Access, new FakeLessonScheduleDirectory(schedules), new FakeStudentDirectory(), new FakeParentAccessDirectory());
 
         public CreateParentInviteCommandAuthorizer ParentInvites(ICurrentUser user) => new(user, Access);
 
@@ -430,12 +430,19 @@ public sealed class WriteEndpointLinkAuthorizationTests
         public Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
             => Task.FromResult<LessonSession?>(null);
 
-        public Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
+        public Task<LessonSession?> GetByOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
             => Task.FromResult<LessonSession?>(null);
 
         public Task<IReadOnlyCollection<LessonSession>> ListAsync(
             Guid? teacherUserId, Guid? studentId, DateTime? dateFromUtc, DateTime? dateToUtc, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<LessonSession>>([]);
+
+        public async Task<LessonSession> GetOrCreateAsync(LessonSession lessonSession, CancellationToken cancellationToken)
+        {
+            await AddAsync(lessonSession, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+            return lessonSession;
+        }
 
         public Task AddAsync(LessonSession lessonSession, CancellationToken cancellationToken) => throw new NotSupportedException();
 

@@ -132,6 +132,12 @@ public sealed class CreateSessionFromScheduleTests
 
     private sealed class FakeScheduleDirectory(LessonScheduleDetails? details) : ILessonScheduleDirectory
     {
+        public async Task<LessonScheduleOccurrence?> GetOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
+        {
+            var schedule = await GetAsync(lessonScheduleId, cancellationToken);
+            return schedule is null ? null : new(schedule.StartAtUtc, schedule.StartAtUtc, schedule.EndAtUtc, false);
+        }
+
         public Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
             => Task.FromResult(details is not null && details.LessonScheduleId == lessonScheduleId ? details : null);
 
@@ -152,12 +158,19 @@ public sealed class CreateSessionFromScheduleTests
         public Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
             => Task.FromResult(_sessions.FirstOrDefault(x => x.Id == lessonSessionId));
 
-        public Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
-            => Task.FromResult(_sessions.FirstOrDefault(x => x.LessonScheduleId == lessonScheduleId));
+        public Task<LessonSession?> GetByOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
+            => Task.FromResult(_sessions.FirstOrDefault(x => x.LessonScheduleId == lessonScheduleId && x.OccurrenceStartUtc == occurrenceStartUtc));
 
         public Task<IReadOnlyCollection<LessonSession>> ListAsync(
             Guid? teacherUserId, Guid? studentId, DateTime? dateFromUtc, DateTime? dateToUtc, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<LessonSession>>(_sessions);
+
+        public async Task<LessonSession> GetOrCreateAsync(LessonSession lessonSession, CancellationToken cancellationToken)
+        {
+            await AddAsync(lessonSession, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+            return lessonSession;
+        }
 
         public Task AddAsync(LessonSession lessonSession, CancellationToken cancellationToken)
         {

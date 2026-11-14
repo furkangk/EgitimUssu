@@ -33,4 +33,26 @@ void main() {
     expect(model.toCompletePayload()['attendanceStatus'], 3);
     expect(model.toCompletePayload()['coveredContent'], 'Temel tekrar');
   });
+
+  for (final entry in <String, int>{
+    'Attended': 2,
+    'Present': 2,
+    'Late': 3,
+    'Absent': 4,
+    'Unknown': 1,
+  }.entries) {
+    test('${entry.key} matches backend attendance enum ${entry.value}', () {
+      final model = LessonSessionModel(
+        id: 'session',
+        lessonScheduleId: 'schedule',
+        teacherUserId: 'teacher',
+        studentId: 'student',
+        subject: 'Math',
+        status: 'Planned',
+        topicTitle: 'Topic',
+        attendanceStatus: entry.key,
+      );
+      expect(model.toCompletePayload()['attendanceStatus'], entry.value);
+    });
+  }
 }

@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.LessonSessions.Application;
 using EgitimUssu.Modules.LessonSessions.Domain;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Shared.Contracts;
 
 namespace EgitimUssu.Tests.Integration;
 
@@ -16,7 +17,7 @@ public sealed class LessonSessionListAuthorizationTests
         var teacherId = Guid.NewGuid();
         var otherTeacherId = Guid.NewGuid();
         var repository = new CapturingRepository();
-        var handler = new ListLessonSessionsQueryHandler(repository, FakeUser.Teacher(teacherId));
+        var handler = new ListLessonSessionsQueryHandler(repository, FakeUser.Teacher(teacherId), new StudentDirectory(), new ParentDirectory());
 
         // İstemci başka bir öğretmenin id'sini filtre olarak geçmeye çalışır.
         var result = await handler.Handle(
@@ -33,7 +34,7 @@ public sealed class LessonSessionListAuthorizationTests
     public async Task Unauthenticated_List_Is_Denied_And_Repository_Not_Queried()
     {
         var repository = new CapturingRepository();
-        var handler = new ListLessonSessionsQueryHandler(repository, FakeUser.Anonymous());
+        var handler = new ListLessonSessionsQueryHandler(repository, FakeUser.Anonymous(), new StudentDirectory(), new ParentDirectory());
 
         var result = await handler.Handle(
             new ListLessonSessionsQuery(null, null, null, null),
@@ -49,10 +50,10 @@ public sealed class LessonSessionListAuthorizationTests
     {
         var studentId = Guid.NewGuid();
         var repository = new CapturingRepository();
-        var handler = new ListLessonSessionsQueryHandler(repository, FakeUser.Student(studentId));
+        var handler = new ListLessonSessionsQueryHandler(repository, FakeUser.Student(studentId), new StudentDirectory(studentId), new ParentDirectory());
 
         var result = await handler.Handle(
-            new ListLessonSessionsQuery(Guid.NewGuid(), Guid.NewGuid(), null, null),
+            new ListLessonSessionsQuery(null, studentId, null, null),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -83,8 +84,15 @@ public sealed class LessonSessionListAuthorizationTests
         public Task<LessonSession?> GetByIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
-        public Task<LessonSession?> GetByScheduleIdAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
+        public Task<LessonSession?> GetByOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
             => throw new NotSupportedException();
+
+        public async Task<LessonSession> GetOrCreateAsync(LessonSession lessonSession, CancellationToken cancellationToken)
+        {
+            await AddAsync(lessonSession, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+            return lessonSession;
+        }
 
         public Task AddAsync(LessonSession lessonSession, CancellationToken cancellationToken)
             => throw new NotSupportedException();
@@ -108,5 +116,19 @@ public sealed class LessonSessionListAuthorizationTests
         public static FakeUser Student(Guid id) => new() { UserId = id.ToString(), Roles = ["Student"], IsAuthenticated = true };
 
         public static FakeUser Anonymous() => new() { IsAuthenticated = false };
+    }
+private sealed class StudentDirectory(params Guid[] studentIds) : IStudentDirectory
+{
+    public Task<IReadOnlyCollection<Guid>> GetStudentIdsForUserAsync(Guid userId, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<Guid>>(studentIds);
+    public Task<Guid?> GetOwnerUserIdAsync(Guid id, CancellationToken ct) => Task.FromResult<Guid?>(null);
+    public Task<AgreedLessonRate?> GetAgreedLessonRateAsync(Guid teacher, Guid id, CancellationToken ct) => Task.FromResult<AgreedLessonRate?>(null);
+    public Task<bool> IsLinkedTeacherOfStudentAsync(Guid teacher, Guid id, CancellationToken ct) => Task.FromResult(false);
+    public Task<string?> GetDisplayNameAsync(Guid id, CancellationToken ct) => Task.FromResult<string?>(null);
+}
+
+    private sealed class ParentDirectory : IParentAccessDirectory
+    {
+        public Task<bool> IsApprovedParentOfStudentAsync(Guid parent, Guid student, CancellationToken ct) => Task.FromResult(false);
+        public Task<IReadOnlyCollection<Guid>> ListApprovedStudentIdsAsync(Guid parent, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<Guid>>([]);
     }
 }

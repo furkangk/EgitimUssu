@@ -7,13 +7,13 @@ authority: code
 code_refs:
   - mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Ders Detayı (`/lesson-sessions/detail`)
 
 > **Feature:** `lesson_sessions` · **Dosya:** `mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart`
-> **State:** Stateful (tab) · **Veri:** Kısmen gerçek (tamamlama/düzenleme/kaynaklar gerçek; not & ödev sekmeleri demo) · **Güncelleme:** 2026-09-03
+> **State:** Stateful (tab) · **Veri:** Kısmen gerçek (tamamlama/düzenleme/kaynaklar gerçek; not & ödev sekmeleri demo) · **Güncelleme:** 2026-11-15
 
 ## Amaç
 Tek dersin detayı; sekmeler: **Ders Notu / Ödevler / Kaynaklar / Ödeme**. Ders meta verisi, ekler, ilgili ödevler, ödeme durumu.
@@ -37,8 +37,11 @@ Tek dersin detayı; sekmeler: **Ders Notu / Ödevler / Kaynaklar / Ödeme**. Der
 - **Kozmetik düzenleme (fallback):** `lesson` yoksa (demo veya dashboard kartından açılan detay) eski sheet kullanılır; yalnızca detay kartını (`_editedPayload`) günceller, kalıcı değildir. Bu sheet'te de tarih/saat seçicileri ve segmented format var (eski `DropdownButtonFormField` kaldırılmıştı — `_dependents.isEmpty` hatası giderildi).
 - **Durum rozeti:** Başlık kartında (`_HeroCard`) dersin durumu **her zaman** gösterilir: **Planlandı** (mavi) · **Bekliyor** (amber — başlama saati geçmiş planlı ders) · **Tamamlandı** (yeşil) · **İptal edildi** (kırmızı) · **Taslak** (gri). Durum bilinmiyorsa (payload'da `lessonStatus` yoksa) rozet gizlenir.
 - **Dersi Tamamla:** `lessonId != null && status == 'Planned'` ise aksiyon kartlarının altında yeşil "Dersi Tamamla" butonu görünür; `SchedulingCubit.completeLesson` → `POST /api/scheduling/lessons/{id}/complete`. Tamamlanınca durum `Completed` olur ve başlık rozeti **Tamamlandı**'ya döner. Aynı hızlı tamamlama dersler listesinde kart üzerinden de yapılabilir (bkz. [`lesson_sessions_list.md`](lesson_sessions_list.md)).
-- **Dersi Başlat / Dersi İptal Et (2026-09-04, P06/M05-1 + M05-2):** `lessonId != null && status == 'Planned'` iken "Dersi Tamamla"nın altında iki kenarlıklı buton çıkar. Ekran bir **`LessonSchedule`** taşıdığı, ders **oturumu** kimliği taşımadığı için akış **iki adımlıdır**: önce `POST /api/lesson-sessions/from-schedule/{lessonScheduleId}` ile oturum türetilir (aynı plan için idempotent — ikinci kez yeni oturum açmaz), dönen `id` ile `POST /api/lesson-sessions/{id}/start` veya `/cancel` çağrılır. İptalde önce **neden** sorulur (opsiyonel serbest metin). Başlatıldıktan sonra "● Ders devam ediyor" göstergesi çıkar ve "Dersi Başlat" gizlenir. Sunucudan **409** gelirse "Bu ders zaten başlamış veya iptal edilmiş." mesajı gösterilir. Bu işlem `_didChange` işaretler → geri dönüşte kaynak ekran tazelenir.
+- **Dersi Başlat / Dersi İptal Et (2026-09-04, P06/M05-1 + M05-2):** `lessonId != null && status == 'Planned'` iken "Dersi Tamamla"nın altında iki kenarlıklı buton çıkar. Ekran bir **`LessonSchedule`** taşıdığı, ders **oturumu** kimliği taşımadığı için akış **iki adımlıdır**: önce `POST /api/lesson-sessions/from-schedule` gövdesinde `{lessonScheduleId, occurrenceStartAtUtc: lesson.occurrenceKeyUtc}` ile oturum türetilir (aynı **oluşum** için idempotent; ertelenmiş saatte de orijinal anahtar gönderilir), dönen `id` ile `POST /api/lesson-sessions/{id}/start` veya `/cancel` çağrılır. İptalde önce **neden** sorulur (opsiyonel serbest metin). Başlatıldıktan sonra "● Ders devam ediyor" göstergesi çıkar ve "Dersi Başlat" gizlenir. Sunucudan **409** gelirse "Bu ders zaten başlamış veya iptal edilmiş." mesajı gösterilir. Bu işlem `_didChange` işaretler → geri dönüşte kaynak ekran tazelenir.
 - **Kaynağı tazeleme:** Detayda kalıcı bir değişiklik (tamamlama veya kalıcı düzenleme) olursa `_didChange` işaretlenir ve geri dönülürken `PopScope` ile pop sonucu `true` döndürülür. Kaynak ekranlar (dersler listesi → `SchedulingCubit.loadForCalendar`, ana sayfa → `DashboardCubit.load`) bu sonucu bekleyip **otomatik yenilenir**. Değişiklik yoksa (yalnızca görüntüleme) yenileme yapılmaz.
+
+## Yerelleştirme (P17 T3)
+Detay ekranının başlıkları, düğmeleri, durumları, diyalogları ve mevcut demo içerik metinleri `lessonDetail_*` ARB anahtarlarından Türkçe/İngilizce okunur. Tarih biçimleme `intl.DateFormat` ile uygulamanın dilini izler. Demo not/ödev/ödeme içeriğinin gerçek veriye taşınması P20 kapsamındadır.
 
 ## Veri / API
 - Ders notu/ödev/ödeme sekmeleri ⚠️ demo/UI. **Tamamlama ve düzenleme** ise `SchedulingCubit` üzerinden gerçek backend'e bağlı (`lesson`/`lessonId` doluysa): `POST /api/scheduling/lessons/{id}/complete`, `PUT /api/scheduling/lessons/{id}`.

@@ -29,6 +29,21 @@ internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory
         _calendar = calendar;
     }
 
+    public async Task<LessonScheduleOccurrence?> GetOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
+    {
+        var lesson = await _dbContext.LessonSchedules.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == lessonScheduleId && item.TeacherUserId != null, cancellationToken);
+        if (lesson is null || !RecurrenceExpander.IsOccurrence(lesson.StartAtUtc, lesson.EndAtUtc,
+            lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone), occurrenceStartUtc)) return null;
+
+        var exception = await _dbContext.LessonOccurrenceExceptions.AsNoTracking().FirstOrDefaultAsync(
+            item => item.SeriesLessonScheduleId == lessonScheduleId && item.OriginalStartAtUtc == occurrenceStartUtc, cancellationToken);
+        var start = exception?.OverrideStartAtUtc ?? occurrenceStartUtc;
+        var end = exception?.OverrideEndAtUtc ?? start.Add(lesson.EndAtUtc - lesson.StartAtUtc);
+        return new(occurrenceStartUtc, start, end,
+            exception?.Action is OccurrenceExceptionAction.Cancelled or OccurrenceExceptionAction.Skipped);
+    }
+
     public async Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
         => await _dbContext.LessonSchedules
             .Where(lesson => lesson.Id == lessonScheduleId && lesson.TeacherUserId != null)
@@ -40,7 +55,7 @@ internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory
                 lesson.EndAtUtc,
                 lesson.Subject,
                 lesson.MeetingUrl,
-                lesson.Status.ToString()))
+                lesson.Status.ToString(), lesson.RecurrenceRule != null && lesson.RecurrenceRule != ""))
             .FirstOrDefaultAsync(cancellationToken);
 
     /// <summary>

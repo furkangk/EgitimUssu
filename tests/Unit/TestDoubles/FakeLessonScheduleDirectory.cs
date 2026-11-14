@@ -10,6 +10,12 @@ namespace EgitimUssu.Tests.Unit.TestDoubles;
 public sealed class FakeLessonScheduleDirectory(params LessonScheduleDetails[] schedules) : ILessonScheduleDirectory
 {
     /// <inheritdoc />
+    public async Task<LessonScheduleOccurrence?> GetOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
+    {
+        var schedule = await GetAsync(lessonScheduleId, cancellationToken);
+        return schedule is null ? null : new(schedule.StartAtUtc, schedule.StartAtUtc, schedule.EndAtUtc, false);
+    }
+
     public Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
         => Task.FromResult(schedules.FirstOrDefault(schedule => schedule.LessonScheduleId == lessonScheduleId));
 

@@ -73,7 +73,7 @@
 
 ---
 
-### Task 3: Oluşum anahtarlı ders oturumu (N-02, N-12, N-13)
+### Task 3: Oluşum anahtarlı ders oturumu (N-02, N-12, N-13) ✅
 
 **Files:**
 - Modify: `src/Modules/LessonSessions/Domain/LessonSessionsDomainModel.cs` (`OccurrenceStartUtc`; yeniden tamamlama olay **yaymaz**)
@@ -85,17 +85,30 @@
 - Migration: `OccurrenceKeyedSessions` (LessonSessions)
 - Test: `tests/Unit/OccurrenceKeyedSessionTests.cs`, `tests/Integration/RealWeeklyLessonSessionTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #230):** Mevcut uç `/from-schedule/{id}` ve gövdesiz; kanonik gövdeli `/from-schedule` eklenir, eski uç tekil dersler için uyumluluk köprüsü kalır (tekrarlıda anahtarsız 400). Ek dosyalar:
+- Modify: `src/Modules/LessonSessions/API/LessonSessionsModule.cs`, `Infrastructure/LessonSessionRepository.cs`, `Infrastructure/LessonSessionAccessService.cs`
+- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs`, `LessonSessionReadContract.cs`; `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs` (gerçek orijinal oluşumu doğrulayıp istisnadan görünen saati okur; olay şeması değişmez)
+- Modify: `src/Modules/ProgressTracking/Infrastructure/ProgressTrackingDbContext.cs`, `LessonSessionCompletedProgressHandler.cs`; Migration `LessonAttendanceReceipts` (oturum kimliğiyle kalıcı sayım koruması)
+- Modify (sahteler/imzalar): `tests/Unit/CreateSessionFromScheduleTests.cs`, `LessonSessionTests.cs`, `WriteEndpointLinkAuthorizationTests.cs`, `ProgressAccessTests.cs`, `TestDoubles/FakeLessonScheduleDirectory.cs`, `TestDoubles/FakeStudentDirectory.cs`; `tests/Integration/LessonSessionListAuthorizationTests.cs`
+- Modify (mobil tam yollar): `mobile/lib/features/lesson_sessions/domain/lesson_session_contracts.dart`, `data/repositories/lesson_session_repository_impl.dart`, `presentation/pages/lesson_detail_page.dart`; `mobile/lib/l10n/app_tr.arb`, `app_en.arb` (K-26: detay ekranının metinleri); `mobile/test/features/lesson_sessions/data/lesson_session_repository_impl_test.dart`; `mobile/test/features/lesson_sessions/presentation/lesson_occurrence_start_test.dart`
+- Doc: `doc/modules/m05_lesson_sessions.md`, `m10_progress_tracking.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/pages/lesson_detail.md`, `doc/roles/ogrenci.md`, `doc/roles/veli.md`, `doc/roles/ogretmen.md`, `doc/modules/m04_scheduling.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`
+- Eşzamanlı aynı oluşum türetmede benzersiz indeksin kaybedeni kazanan oturumu döndürür; tekrar completion notları günceller, ilk tamamlanma damgasını korur ve yeni tamamlanma olayı yaymaz. Katılım yalnız `Attended`/`Late`; farklı olay kimliğiyle aynı oturum ikinci kez sayılmaz.
+
+**İkinci kapsam bulgusu (N-13, 2026-11-15):** `mobile/lib/features/lesson_sessions/data/models/lesson_session_model.dart` yanlış yoklama değerleri gönderiyordu (`Present=1`, `Absent=2`; backend `Unknown=1`, `Attended=2`, `Late=3`, `Absent=4`). `Absent` backend’de katıldı sayılacağı için bu dosya ve `mobile/test/features/lesson_sessions/data/lesson_session_model_test.dart` aynı göreve eklendi. Mevcut repository testindeki `Present` beklentisi de 2 olmalı.
+
 **Interfaces:**
 - `POST /api/lesson-sessions/from-schedule` gövdesi `{ lessonScheduleId, occurrenceStartAtUtc }`; tekrarlı derste `occurrenceStartAtUtc` zorunlu (`400 lesson_sessions.occurrence_required`), tekil derste opsiyonel.
 - `PlannedStartAtUtc = occurrence` (ertelenmişse override'daki yeni zaman).
 
-- [ ] **Step 1: Kırmızı testler** — haftalık derste 1. hafta oturum aç+tamamla, 2. hafta "başlat" → **yeni** oturum, `PlannedStartAtUtc` = 2. hafta; aynı oluşuma ikinci çağrı → aynı oturum (idempotent); öğrenci kullanıcısı kendi oturumlarını listeler (**boş değil**); veli onaylı çocuğunun oturumlarını görür, onaysız göremez; yeniden tamamlama `AttendedLessonCount`'u artırmaz; `Absent` oturum katılım sayılmaz.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Migration (S-3)** — `Up` sırası: (1) kolon nullable ekle, (2) `UPDATE ... SET "OccurrenceStartUtc" = "PlannedStartAtUtc" WHERE "LessonScheduleId" IS NOT NULL`, (3) aynı `(LessonScheduleId, OccurrenceStartUtc)` tekrarlarında **en erken oluşturulan hariç** satırları `Cancelled` + `OccurrenceStartUtc = NULL` yap ve sayısını `RAISE NOTICE` ile yaz, (4) filtreli benzersiz indeks. `Down` tersini yapar.
+- [x] **Step 1: Kırmızı testler** — haftalık derste 1. hafta oturum aç+tamamla, 2. hafta "başlat" → **yeni** oturum, `PlannedStartAtUtc` = 2. hafta; aynı oluşuma ikinci çağrı → aynı oturum (idempotent); öğrenci kullanıcısı kendi oturumlarını listeler (**boş değil**); veli onaylı çocuğunun oturumlarını görür, onaysız göremez; yeniden tamamlama `AttendedLessonCount`'u artırmaz; `Absent` oturum katılım sayılmaz.
+- [x] **Step 2: Kırmızı gör.**
+- [x] **Step 3: Migration (S-3)** — `Up` sırası: (1) kolon nullable ekle, (2) `UPDATE ... SET "OccurrenceStartUtc" = "PlannedStartAtUtc" WHERE "LessonScheduleId" IS NOT NULL`, (3) aynı `(LessonScheduleId, OccurrenceStartUtc)` tekrarlarında **en erken oluşturulan hariç** satırları `Cancelled` + `OccurrenceStartUtc = NULL` yap ve sayısını `RAISE NOTICE` ile yaz, (4) filtreli benzersiz indeks. `Down` tersini yapar.
   `dotnet ef migrations add OccurrenceKeyedSessions --project src/Modules/LessonSessions/Infrastructure --startup-project src/API.Host --context LessonSessionsDbContext` → `./scripts/check-migration-down.sh`
-- [ ] **Step 4: Göç tatbikatı** — `scripts/seed-demo-data.sh` ile staging profili doldurulmuş DB'de migration uygula; tekrar sayısı ve örnek satırlar ILERLEME'ye.
-- [ ] **Step 5: Uygula (backend + mobil).** **Step 6: Yeşil gör** — `./scripts/test-with-docker.sh`, `flutter test`
-- [ ] **Step 7: Doküman + commit** — `m05`, `m10`, `veri_modeli.md`; rapor N-02/N-12/N-13 ✅.
+- [x] **Step 4: Göç tatbikatı** — `scripts/seed-demo-data.sh` ile staging profili doldurulmuş DB'de migration uygula; tekrar sayısı ve örnek satırlar ILERLEME'ye.
+- [x] **Step 5: Uygula (backend + mobil).** **Step 6: Yeşil gör** — `./scripts/test-with-docker.sh`, `flutter test`
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` ile derlendi. Kırmızı: 7 yeni birim testin 6’sı, HTTP öğrenci listesi, veri göçünde NULL anahtar, mobil yük/ekran anahtarı ve 5 yoklama eşlemesinin 4’ü iddia hatası verdi. Sonuç: **19 mimari / 1144 birim / 134 integration**, başarısız 0, atlanan 0 (`bash scripts/test-with-docker.sh`); Release `-warnaserror --no-incremental` 0 uyarı/0 hata; drift 0; **149 migration Down kontrolü** geçti; **286 Flutter testi** + `flutter analyze --fatal-infos` temiz. Staging seed: 2 öğretmen / 5 öğrenci / 2 veli / 15 ders / 15 oturum; eski şemaya dönülüp 2 tekrar eklendi (17 satır, 1 yinelenen grup). Up: en erken kayıt anahtarla kaldı, 2 tekrar `Cancelled` + NULL, NOTICE 2; Down satırları korudu, yeniden Up aynı sonucu verdi.
+
+- [x] **Step 7: Doküman + commit** — `m05`, `m10`, `veri_modeli.md`; rapor N-02/N-12/N-13 ✅.
   ```bash
   git commit -m "fix(lesson-sessions): oturum olusum anahtarli, ogrenci/veli kendi oturumunu gorur, cift sayim yok (N-02, N-12, N-13)"
   ```
@@ -200,3 +213,5 @@
   ```bash
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
+
+*Güncelleme: 2026-11-15 (P17 Task 3: kapsam koddan doğrulandı, TDD + gerçek PostgreSQL göçü + backend/mobil doğrulama).*

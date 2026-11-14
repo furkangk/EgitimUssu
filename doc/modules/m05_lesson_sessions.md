@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/LessonSessions/**
-updated: 2026-11-13
+updated: 2026-11-15
 ---
 
 # 📖 Ders Oturumları (M05) — Detaylı Tasarım Dokümanı
@@ -24,6 +24,8 @@ updated: 2026-11-13
 
 ---
 
+> **P17 Task 3 (2026-11-15):** Haftalık derslerin her haftası ayrı oturumdur. `OccurrenceKeyedSessions` önce `PlannedStartAtUtc` ile geri doldurur, aynı anahtardaki en erken kayıt dışındakileri `Cancelled` + NULL anahtar yapar ve sayısını NOTICE ile raporlar; ardından `LessonScheduleId IS NOT NULL` filtreli benzersiz indeks kurar. `Down` kolonu ve indeksi geri alır, iptal edilen veriyi silmez; eski durumları yeniden üretmez. API yanıtında anahtar `occurrenceStartAtUtc` olarak görünür. Mobil yoklama yükü backend enum’una eşittir (`Unknown=1`, `Attended/Present=2`, `Late=3`, `Absent=4`); eski `Absent=2` hatası giderildi. `RealWeeklyLessonSessionTests` haftalar, eşzamanlı türetme, erteleme, öğrenci/veli erişimi, katılım ve göçü gerçek PostgreSQL’de doğrular.
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 | Katman | Durum | Kanıt |
@@ -38,7 +40,7 @@ updated: 2026-11-13
 | `Cancel(reason)` (oturum iptali) | ✅ var (2026-09-04, P06/M05-1) | `LessonSession.Cancel()` + `POST /{id}/cancel`; `Planned`/`InProgress` → `Cancelled` |
 | `ActualEnd > ActualStart` doğrulaması | ✅ var (2026-09-04, P06/M05-3) | `Complete()` içinde invariant → `lesson_sessions.invalid_time_range` |
 | `MeetingUrl` / kayıt (recording) URL | ✅ alan var (2026-09-04, P06/M05-4) | `MeetingUrl`, `RecordingUrl` + `SetMeetingUrl()`/`SetRecordingUrl()`; **yazma ucu henüz yok** — `MeetingUrl` M05-2 (plandan türetme) ile plandan kopyalanacak |
-| Planlı dersten oturum türetme (tek tık) | ✅ var (2026-09-04, P06/M05-2) | `POST /from-schedule/{lessonScheduleId}` + `ILessonScheduleDirectory` (Shared.Contracts); **idempotent** — bir plandan en fazla bir oturum |
+| Planlı dersten oturum türetme (tek tık) | ✅ var (2026-09-04, P06/M05-2) | `POST /from-schedule` + `ILessonScheduleDirectory` (Shared.Contracts); **idempotent** — `(LessonScheduleId, OccurrenceStartUtc)` başına bir oturum |
 
 > **Düzeltme:** Önceki dokümanda "yalnızca complete + get var" deniyordu; **kodda ayrıca `POST` (oluştur)
 > ve `GET` (listele, filtreli) endpoint'leri de mevcuttur.**
@@ -55,6 +57,7 @@ updated: 2026-11-13
 |------|-----|----------|
 | `Id` | `Guid` | Oturum kimliği |
 | `LessonScheduleId` | `Guid?` | Hangi planlı dersten (M04) doğduğu — opsiyonel |
+| `OccurrenceStartUtc` | `DateTime?` | Orijinal oluşum anahtarı; ertelenmiş saatten bağımsız. Plana bağlı kayıtta dolu, serbest oturumda veya göçte iptal edilen tekrarda NULL |
 | `TeacherUserId` | `Guid` | Öğretmen |
 | `StudentId` | `Guid` | Öğrenci |
 | `Subject` | `string` | Konu / branş |
@@ -81,7 +84,7 @@ updated: 2026-11-13
   - `DurationMinutes = (int)Math.Ceiling((actualEnd - actualStart).TotalMinutes)` (**manuel girilmez**),
   - `Status = Completed`, `IsChargeable` + `CompletedOnUtc` set edilir,
   - `LessonSessionCompletedDomainEvent` yayılır.
-  - **Tamamlanmış oturum yeniden tamamlanabilir** (öğretmenin konu/not düzeltmesi — `roles/ogretmen.md` §5.1 #12); bu durumda olay yeniden yayılır, tüketiciler `inbox_messages` ile idempotenttir.
+  - **Tamamlanmış oturum yeniden tamamlanabilir** (öğretmenin konu/not düzeltmesi — `roles/ogretmen.md` §5.1 #12); bu durumda **yeni tamamlama olayı yayılmaz**, ilk `CompletedOnUtc` korunur. Katılım tüketicisi ayrıca `LessonSessionId` makbuzuyla tekrar sayımı engeller.
 - `Start(actualStartAtUtc)` → **`Result`** (P06/M05-1). Yalnız `Planned` → `InProgress`; aksi halde `lesson_sessions.invalid_transition` ve ilk başlangıç saati korunur.
 - `Cancel(reason?, nowUtc)` → **`Result`** (P06/M05-1). Yalnız `Planned`/`InProgress` → `Cancelled`; tamamlanmış oturum iptal edilemez. `reason` trim'lenir, boşsa `null`.
 - `SetMeetingUrl(url?)` / `SetRecordingUrl(url?)` → trim eder; boş/boşluk değer alanı `null`'lar.
@@ -139,7 +142,8 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 |---------|----------------|---------------|--------|
 | Oturum oluştur | `POST /api/lesson-sessions` | `CreateLessonSessionRequest` → `LessonSessionResponse` | `Status=Planned`, `AttendanceStatus=Unknown` |
 | Oturumu tamamla | `POST /api/lesson-sessions/{lessonSessionId}/complete` | `CompleteLessonSessionRequest` → `LessonSessionResponse` | Süre otomatik; `Completed` event yayılır |
-| **Plandan oturum türet** (M05-2) | `POST /api/lesson-sessions/from-schedule/{lessonScheduleId}` | → `LessonSessionResponse` | Gövdesiz. Yalnız planın öğretmeni/Admin. Aynı plan için ikinci çağrı **mevcut oturumu döner** (yeni açmaz). Plan yoksa **404**, `Cancelled`/`Completed` plan **409** |
+| **Plandan oluşum oturumu türet** (P17 T3) | `POST /api/lesson-sessions/from-schedule` | `{lessonScheduleId, occurrenceStartAtUtc?}` → `LessonSessionResponse` | Yalnız planın öğretmeni/Admin. Tekrarlı derste orijinal anahtar zorunlu (`400 occurrence_required`); geçersiz/ertelenmiş görünen anahtar `400 occurrence_not_found`. Aynı oluşuma ikinci/eşzamanlı çağrı aynı oturumu döndürür. İlk türetmede iptal edilmiş oluşum veya kapalı plan **409** |
+| **Tekil ders uyumluluk köprüsü** | `POST /api/lesson-sessions/from-schedule/{lessonScheduleId}` | Gövdesiz | Tekil derste başlangıç anahtarı kullanılır; tekrarlı derste **400 occurrence_required** |
 | **Dersi başlat** (M05-1) | `POST /api/lesson-sessions/{lessonSessionId}/start` | → `LessonSessionResponse` | Gövdesiz. Yalnız sahibi öğretmen/Admin. `Planned` değilse **409** |
 | **Dersi iptal et** (M05-1) | `POST /api/lesson-sessions/{lessonSessionId}/cancel` | `CancelLessonSessionRequest?` → `LessonSessionResponse` | Gövde opsiyonel (`{ "reason": "..." }`). `Completed`/`Cancelled` ise **409** |
 | Oturum getir | `GET /api/lesson-sessions/{lessonSessionId}` | → `LessonSessionResponse` | Yoksa `404 lesson_sessions.not_found` |
@@ -151,7 +155,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 
 **`CancelLessonSessionRequest` (koddan):** `Reason?` — gövde tümüyle opsiyoneldir.
 
-**`LessonSessionResponse` (koddan):** `Id, LessonScheduleId?, TeacherUserId, StudentId, Subject, PlannedStartAtUtc, ActualStartAtUtc?, ActualEndAtUtc?, DurationMinutes?, AttendanceStatus (string), Status (string), TopicTitle, CoveredContent?, TeacherNotes?, IsChargeable, MeetingUrl?, RecordingUrl?, CancellationReason?, CreatedOnUtc, CompletedOnUtc?`
+**`LessonSessionResponse` (koddan):** `Id, LessonScheduleId?, TeacherUserId, StudentId, Subject, PlannedStartAtUtc, ActualStartAtUtc?, ActualEndAtUtc?, DurationMinutes?, AttendanceStatus (string), Status (string), TopicTitle, CoveredContent?, TeacherNotes?, IsChargeable, MeetingUrl?, RecordingUrl?, CancellationReason?, CreatedOnUtc, CompletedOnUtc?, OccurrenceStartAtUtc?`
 > Enum'lar yanıtta **string** olarak döner (`AttendanceStatus.ToString()`, `Status.ToString()`).
 
 **Hata kodu → HTTP eşlemesi (koddan):**
@@ -164,6 +168,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 | `lesson_sessions.schedule_not_found` | `404` (P06/M05-2 — plan yok ya da öğretmensiz self ders) |
 | `lesson_sessions.schedule_not_derivable` | **`409`** (P06/M05-2 — iptal/tamamlanmış plandan oturum açılamaz) |
 | `lesson_sessions.schedule_not_owned` | **`403`** (P15 T2 / N-08 — manuel oturuma bağlanan plan başka öğretmenin, başka öğrencinin ya da bilinmiyor; kod korunur) |
+| `lesson_sessions.occurrence_required` / `lesson_sessions.occurrence_not_found` | **`400`** (P17 T3: eksik veya seride bulunmayan orijinal oluşum anahtarı) |
 | (varsayılan) | `400` |
 
 ### 3.2 ⚠️ Eksik / Önerilen Endpoint'ler
@@ -171,7 +176,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 | Yetenek | Öneri | Gerekçe |
 |---------|-------|---------|
 | Kayıt linki ekle | `PUT /api/lesson-sessions/{id}/recording` | `RecordingUrl` |
-| Öğrenci görünümü | `GET /api/lesson-sessions/students/{studentId}` (rol kısıtı) | Öğrenci kendi geçmiş/yaklaşan oturumlarını görsün |
+
 
 ---
 
@@ -183,7 +188,7 @@ LessonSessionStatus     : Planned = 1, InProgress = 2, Completed = 3, Cancelled 
 4. **Katılım (🟢 kodda):** `AttendanceStatus` tamamlamada girilir (`Attended/Late/Absent`); `Unknown` varsayılan.
 5. **Geçerli zaman (🟢 kodda, P06/M05-3):** `ActualEndAtUtc > ActualStartAtUtc` domain invariant'ıdır; eşit veya ters aralık `lesson_sessions.invalid_time_range` ile reddedilir ve kayıt değişmez. `CompleteLessonSessionCommandValidator` aynı kuralı istek katmanında da uygular (çift savunma).
 6. **Yaşam döngüsü (🟢 kodda, P06/M05-1):** `Planned → InProgress → Completed`, `Planned/InProgress → Cancelled`. `Cancelled` **son durumdur**; oradan `Start`/`Complete` yapılamaz. Geçersiz geçiş `lesson_sessions.invalid_transition` (409).
-7. **Sahiplik (yetki):** Öğretmen yalnızca kendi oturumlarını yönetebilir (`LessonSessionPolicies.cs`); öğrenci yalnızca kendi oturumlarını görüntüleyebilir (önerilen rol kısıtı). **P15 T2 / N-08:** **manuel oturum** (`POST /api/lesson-sessions`) ayrıca öğretmenin öğrenciyle yaşayan özel ders bağını ister (`ITeacherStudentAccess.GetScopeAsync == Private`) → yoksa `403 shared.forbidden` (Admin muaf). Gövdede `lessonScheduleId` varsa o planlı ders **aynı öğretmen–öğrenci ikilisine** ait olmalı; başka öğretmenin, başka öğrencinin ya da bilinmeyen bir plan → `403 lesson_sessions.schedule_not_owned` (**Admin dahil** — veri bütünlüğü kuralı; aksi halde asıl öğretmenin `from-schedule` isteği bu yabancı oturumu "zaten var" diye döndürürdü). Başlat/iptal/tamamla yalnız sahipliğe bakar.
+7. **Sahiplik (yetki):** Öğretmen yalnızca kendi oturumlarını yönetebilir (`LessonSessionPolicies.cs`); öğrenci `IStudentDirectory.GetStudentIdsForUserAsync` ile çözülen kendi profil kimliklerinin oturumlarını; veli `IParentAccessDirectory` üzerinden yalnız onaylı çocuklarının oturumlarını listeleyip okuyabilir. Bağ iptalinde liste ve detay erişimi kapanır. İstemcinin `studentId` filtresi bu kapsamı genişletemez. **P15 T2 / N-08:** **manuel oturum** (`POST /api/lesson-sessions`) ayrıca öğretmenin öğrenciyle yaşayan özel ders bağını ister (`ITeacherStudentAccess.GetScopeAsync == Private`) → yoksa `403 shared.forbidden` (Admin muaf). Gövdede `lessonScheduleId` varsa o planlı ders **aynı öğretmen–öğrenci ikilisine** ait olmalı; başka öğretmenin, başka öğrencinin ya da bilinmeyen bir plan → `403 lesson_sessions.schedule_not_owned` (**Admin dahil** — veri bütünlüğü kuralı; aksi halde asıl öğretmenin `from-schedule` isteği bu yabancı oturumu "zaten var" diye döndürürdü). Başlat/iptal/tamamla yalnız sahipliğe bakar.
 
 ---
 
@@ -198,27 +203,27 @@ POST /lesson-sessions/{id}/complete (Completed)
    → LessonSessionCompletedDomainEvent
        → m06 Assignments: ders sonrası NOT + ÖDEV akışını mümkün kılar
          (Assignments/Infrastructure/LessonSessionCompletedIntegrationEventHandler.cs)
-       → (öneri) m10 ProgressTracking: gelişim verisi güncellenir
-       → (öneri) m07 Payments: LessonFee türü ödeme kaydı tetiklenir/işaretlenir
+       → m10 ProgressTracking: Attended/Late katılımı makbuzla bir kez sayılır
+       → m07 Payments: ücretli oturumdan LessonFee türü ödeme kaydı üretilir
        → (öneri) m04 Scheduling: ilgili LessonSchedule.Status = Completed
 
-M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
-   → ILessonScheduleDirectory ile plan okunur (Scheduling uygular)
+M04 planlı ders → POST /lesson-sessions/from-schedule {lessonScheduleId, occurrenceStartAtUtc}   (🟢 P06/M05-2)
+   → ILessonScheduleDirectory ile plan ve orijinal oluşum okunur (Scheduling uygular; ertelemede görünen saat çözülür)
    → LessonSession(Planned) üretilir: TeacherUserId/StudentId/Subject/StartAtUtc/MeetingUrl kopyalanır
    → LessonSessionCreatedDomainEvent
-   (ikinci çağrı yeni oturum açmaz; LessonScheduleId ile mevcut oturum döner)
+   (ikinci/eşzamanlı çağrı yeni oturum açmaz; LessonScheduleId + OccurrenceStartUtc ile mevcut oturum döner)
 ```
 
 > **Çapraz-modül erişim (M05-2):** LessonSessions, planlı dersi `ILessonScheduleDirectory`
 > (`Shared/Contracts/LessonScheduleReadContract.cs`) üzerinden okur; **Scheduling'e proje referansı vermez**
 > (mimari test zorlar). Sözleşme `LessonScheduleDetails { LessonScheduleId, TeacherUserId, StudentId,
-> StartAtUtc, EndAtUtc, Subject, MeetingUrl?, Status }` döner. Öğrencinin **kendi** dersi (öğretmensiz, Ç-06)
+> StartAtUtc, EndAtUtc, Subject, MeetingUrl?, Status, IsRecurring }` döner. Öğrencinin **kendi** dersi (öğretmensiz, Ç-06)
 > bu sözleşmeden `null` döner → o plandan oturum türetilemez.
 >
 > **Çapraz-modül erişim:** Assignments (otomatik ders notu) ve **Payments** (M07-2 ders ücreti) modülleri
 > oturum bilgisine `ILessonSessionAccessService` (`LessonSessionAccess.cs`) üzerinden
 > `LessonSessionDetails { Id, LessonScheduleId?, TeacherUserId, StudentId, IsCompleted, CompletedOnUtc?,
-> TopicTitle, CoveredContent, TeacherNotes, IsChargeable }` projeksiyonuyla erişir — modül sınırı korunur.
+> TopicTitle, CoveredContent, TeacherNotes, IsChargeable, AttendanceStatus }` projeksiyonuyla erişir — modül sınırı korunur.
 > `IsChargeable` alanı 2026-09-04'te (M07-2) eklendi; sözleşmede **varsayılan `false`** olduğundan mevcut
 > çağrı yerleri değişmedi.
 > Olaylar **Outbox** ile yayılır.
@@ -239,7 +244,7 @@ M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
 
 > **Ders detayında yaşam döngüsü (2026-09-04, P06/M05-1 + M05-2):** `LessonDetailPage` bir `LessonSchedule`
 > taşır, oturum kimliği taşımaz. "Dersi Başlat" / "Dersi İptal Et" düğmeleri bu yüzden **iki adımda** çalışır:
-> önce `POST /from-schedule/{lessonScheduleId}` ile oturum türetilir (idempotent), dönen `id` ile `start`/`cancel`
+> önce `POST /from-schedule` gövdesinde plan kimliği ve `lesson.occurrenceKeyUtc` gönderilerek oturum türetilir (oluşum başına idempotent), dönen `id` ile `start`/`cancel`
 > çağrılır. İptalde neden sorulur (opsiyonel). **409** yanıtı "Bu ders zaten başlamış veya iptal edilmiş."
 > mesajına çevrilir. Repository: `createSessionFromSchedule`/`startSession`/`cancelSession`.
 
@@ -262,8 +267,9 @@ M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
 - [x] `InProgress` (başlat) ve `Cancelled` (iptal) geçişleri (2026-09-04, P06/M05-1); geçersiz geçiş 409.
 - [x] `ActualEnd > ActualStart` doğrulaması (2026-09-04, P06/M05-3); ihlalde kayıt değişmez.
 - [x] `MeetingUrl` / `RecordingUrl` alanları + `CancellationReason` (2026-09-04, P06/M05-4). Yazma yolu: `MeetingUrl` M05-2 ile plandan kopyalanır, `RecordingUrl` için uç henüz yok.
-- [x] M04 planlı dersten oturum türetme (2026-09-04, P06/M05-2); aynı plan için idempotent, iptal/tamamlanmış plandan türetilemez.
-- [ ] ⚠️ Öğrenci tarafı görünüm + yetki kısıtı.
+- [x] M04 planlı dersten oturum türetme (2026-09-04, P06/M05-2); aynı oluşum için idempotent, ilk türetmede iptal/tamamlanmış plandan türetilemez.
+- [x] Öğrenci/veli API listesi ve detay yetkisi (P17 T3, gerçek PostgreSQL ile doğrulandı).
+- [ ] Öğrenci/veli mobil oturum akışının tamamlanması (P21).
 
 ---
 
@@ -292,4 +298,4 @@ M04 planlı ders → POST /lesson-sessions/from-schedule/{id}   (🟢 P06/M05-2)
 
 ---
 
-*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-11-13 (P15 Task 2 / N-08: §4 kural 7 — manuel oturum `Private` kapsam ister; bağlanan planlı ders aynı öğretmen–öğrenci ikilisine ait olmalı → `403 lesson_sessions.schedule_not_owned`) · 2026-09-04 (P06 Task 5 / M07-2: `LessonSessionDetails` sözleşmesine `IsChargeable` eklendi — tamamlanan ücretli ders Payments'ta ödeme kaydı üretir) · 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*
+*Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P17 T3: oluşum anahtarlı ders oturumu, öğrenci/veli okuması ve çift katılım koruması) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 7 — manuel oturum `Private` kapsam ister; bağlanan planlı ders aynı öğretmen–öğrenci ikilisine ait olmalı → `403 lesson_sessions.schedule_not_owned`) · 2026-09-04 (P06 Task 5 / M07-2: `LessonSessionDetails` sözleşmesine `IsChargeable` eklendi — tamamlanan ücretli ders Payments'ta ödeme kaydı üretir) · 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*

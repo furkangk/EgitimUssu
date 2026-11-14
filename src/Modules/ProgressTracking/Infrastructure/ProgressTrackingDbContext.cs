@@ -19,6 +19,8 @@ public sealed class ProgressTrackingDbContext : ModuleDbContext
 
     public DbSet<TopicMastery> TopicMasteries => Set<TopicMastery>();
 
+    public DbSet<LessonAttendanceReceipt> LessonAttendanceReceipts => Set<LessonAttendanceReceipt>();
+
     public DbSet<TopicGoal> TopicGoals => Set<TopicGoal>();
 
     public DbSet<ProgressSnapshot> ProgressSnapshots => Set<ProgressSnapshot>();
@@ -84,5 +86,15 @@ internal sealed class ProgressSnapshotConfiguration : IEntityTypeConfiguration<P
         // Aynı öğrenci-ders-dönem için ikinci bir anlık görüntü yazılamaz (üretim turunun idempotency guard'ı).
         builder.HasIndex(e => new { e.StudentId, e.Subject, e.Period, e.PeriodStart }).IsUnique();
         builder.HasIndex(e => new { e.StudentId, e.Period, e.PeriodStart });
+    }
+}
+
+internal sealed class LessonAttendanceReceiptConfiguration : IEntityTypeConfiguration<LessonAttendanceReceipt>
+{
+    public void Configure(EntityTypeBuilder<LessonAttendanceReceipt> builder)
+    {
+        builder.ToTable("lesson_attendance_receipts");
+        builder.HasKey(item => item.LessonSessionId);
+        builder.Property(item => item.LessonSessionId).ValueGeneratedNever();
     }
 }

@@ -269,7 +269,7 @@ public sealed class ProgressAccessTests
                 lessonScheduleId, TeacherUserId, StudentId,
                 Now.AddHours(-2), Now.AddHours(-1), "Matematik", null, "Completed")),
             new FakeLessonSessionAccessService(new LessonSessionDetails(
-                lessonSessionId, lessonScheduleId, TeacherUserId, StudentId, true, Now, "Türev", null, null)),
+                lessonSessionId, lessonScheduleId, TeacherUserId, StudentId, true, Now, "Türev", null, null, false, "Attended")),
             new FixedClock(Now));
 
         await handler.HandleAsync(Envelope(lessonSessionId, lessonScheduleId), CancellationToken.None);
@@ -298,7 +298,7 @@ public sealed class ProgressAccessTests
                 lessonScheduleId, TeacherUserId, StudentId,
                 Now.AddHours(-2), Now.AddHours(-1), "Matematik", null, "Completed")),
             new FakeLessonSessionAccessService(new LessonSessionDetails(
-                lessonSessionId, lessonScheduleId, TeacherUserId, StudentId, true, Now, "Türev", null, null)),
+                lessonSessionId, lessonScheduleId, TeacherUserId, StudentId, true, Now, "Türev", null, null, false, "Attended")),
             new FixedClock(Now));
 
         await handler.HandleAsync(envelope, CancellationToken.None);
@@ -306,6 +306,27 @@ public sealed class ProgressAccessTests
 
         var mastery = await dbContext.TopicMasteries.SingleAsync();
         Assert.Equal(1, mastery.AttendedLessonCount);
+    }
+
+    [Theory]
+    [InlineData("Attended", 1)]
+    [InlineData("Late", 1)]
+    [InlineData("Absent", 0)]
+    [InlineData("Unknown", 0)]
+    public async Task Attendance_is_counted_once_per_session_even_with_different_event_ids(string attendance, int expected)
+    {
+        await using var db = NewDbContext();
+        var sessionId = Guid.NewGuid();
+        var scheduleId = Guid.NewGuid();
+        var handler = new LessonSessionCompletedProgressHandler(db,
+            new MasteryService(new ProgressRepository(db), new SeqIdGenerator(), new FixedClock(Now)),
+            new FakeLessonScheduleDirectory(new LessonScheduleDetails(scheduleId, TeacherUserId, StudentId,
+                Now.AddHours(-1), Now, "Matematik", null, "Planned")),
+            new FakeLessonSessionAccessService(new LessonSessionDetails(sessionId, scheduleId, TeacherUserId,
+                StudentId, true, Now, "Konu", null, null, false, attendance)), new FixedClock(Now));
+        await handler.HandleAsync(Envelope(sessionId, scheduleId));
+        await handler.HandleAsync(Envelope(sessionId, scheduleId)); // yeni EventId, aynı oturum
+        Assert.Equal(expected, await db.TopicMasteries.SumAsync(item => item.AttendedLessonCount));
     }
 
     [Fact]
@@ -480,6 +501,12 @@ public sealed class ProgressAccessTests
 
     private sealed class FakeLessonScheduleDirectory(LessonScheduleDetails? details) : ILessonScheduleDirectory
     {
+        public async Task<LessonScheduleOccurrence?> GetOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)
+        {
+            var schedule = await GetAsync(lessonScheduleId, cancellationToken);
+            return schedule is null ? null : new(schedule.StartAtUtc, schedule.StartAtUtc, schedule.EndAtUtc, false);
+        }
+
         public Task<LessonScheduleDetails?> GetAsync(Guid lessonScheduleId, CancellationToken cancellationToken)
             => Task.FromResult(details);
 
