@@ -48,7 +48,7 @@ public sealed class DeviceSessionTests
         var (user, current) = await SeedUserAsync(context, "ben@example.com", "iPhone");
 
         var revoked = NewSession(user.Id, "Eski telefon", Now.AddDays(-10));
-        revoked.Revoke(Now.AddDays(-5));
+        revoked.Revoke(Now.AddDays(-5), SessionRevocationReason.UserLogout);
         var expired = NewSession(user.Id, "Tablet", Now.AddDays(-40), expiresOnUtc: Now.AddDays(-10));
         user.RefreshSessions.Add(revoked);
         user.RefreshSessions.Add(expired);
@@ -151,7 +151,7 @@ public sealed class DeviceSessionTests
         var session = NewSession(Guid.NewGuid(), "iPhone", Now.AddDays(-1));
 
         Assert.True(session.IsActive(Now));
-        session.Revoke(Now);
+        session.Revoke(Now, SessionRevocationReason.DeviceRevoked);
         Assert.False(session.IsActive(Now));
         Assert.False(session.IsActive(Now.AddMinutes(1)));
     }
@@ -205,11 +205,19 @@ public sealed class DeviceSessionTests
 
     private static RevokeDeviceSessionCommandHandler NewRevokeHandler(
         IdentityDbContext context, Guid userId, Guid? sessionId) =>
-        new(new FakeUserAccountRepository(context), new FakeCurrentUser(userId, sessionId), new FixedClock(Now));
+        new(new FakeUserAccountRepository(context), new FakeCurrentUser(userId, sessionId), new NoopTokenRevocation(), new FixedClock(Now));
 
     private static RevokeAllDeviceSessionsCommandHandler NewRevokeAllHandler(
         IdentityDbContext context, Guid userId, Guid? sessionId) =>
-        new(new FakeUserAccountRepository(context), new FakeCurrentUser(userId, sessionId), new FixedClock(Now));
+        new(new FakeUserAccountRepository(context), new FakeCurrentUser(userId, sessionId), new NoopTokenRevocation(), new FixedClock(Now));
+
+    private sealed class NoopTokenRevocation : ITokenRevocationService
+    {
+        public Task RevokeAllAccessTokensAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+    }
 
     /// <summary>Üretimdeki repository <c>internal</c>; handler'lar zaten arayüze bağlı.</summary>
     private sealed class FakeUserAccountRepository(IdentityDbContext context) : IUserAccountRepository
@@ -236,6 +244,12 @@ public sealed class DeviceSessionTests
 
         public Task SaveChangesAsync(CancellationToken cancellationToken)
             => context.SaveChangesAsync(cancellationToken);
+
+        public async Task<bool> SaveRotationAsync(RefreshTokenSession rotatedFrom, CancellationToken cancellationToken)
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
     }
 
     private sealed class FakeCurrentUser(Guid userId, Guid? sessionId) : ICurrentUser

@@ -69,6 +69,36 @@ public sealed class ProductionProviderGuardHostTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    /// <summary>
+    /// P15 T7 / N-32: Üretimde HSTS başlığı yazılır. Render TLS'i önündeki proxy'de sonlandırır —
+    /// uygulamaya istek düz HTTP gelir, şema <c>X-Forwarded-Proto</c>'dan okunmazsa
+    /// <c>UseHsts</c> hiçbir yanıta başlık eklemez (eklemiş görünür, işlemez).
+    /// </summary>
+    [Fact]
+    public async Task Production_Should_Send_Hsts_Behind_A_Tls_Terminating_Proxy()
+    {
+        using var environment = ProductionEnvironment.With(new Dictionary<string, string?>(ProductionEnvironment.RealEmail)
+        {
+            ["Storage__Provider"] = "S3",
+            ["Storage__BucketName"] = "egitimussu-integration",
+            ["Storage__AccessKeyId"] = "integration-access-key",
+            ["Storage__SecretAccessKey"] = "integration-secret-key",
+        });
+
+        await using var factory = CreateProductionFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("http://api.egitimussu.test"),
+        });
+        client.DefaultRequestHeaders.Add("X-Forwarded-Proto", "https");
+
+        var response = await client.GetAsync("/health/live");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.TryGetValues("Strict-Transport-Security", out var values));
+        Assert.Contains("max-age=31536000", Assert.Single(values));
+    }
+
     private static WebApplicationFactory<Program> CreateProductionFactory()
         => new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder => builder.UseEnvironment("Production"));

@@ -79,13 +79,11 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
         dio: injector<Dio>(),
         tokenStorage: injector<TokenStorage>(),
         // Lazy: AuthRepository henüz çözülmemiş olabilir; callback çağrıldığında çözülür.
+        // P15 T7 / N-63: Hata yutulmaz — interceptor yalnız 400/401'de oturumu kapatır;
+        // ağ hatası/zaman aşımı/5xx isteğin hatası olarak ekrana iletilir, oturum korunur.
         onRefreshToken: () async {
-          try {
-            final session = await injector<AuthRepository>().refreshSession();
-            return session.accessToken;
-          } catch (_) {
-            return null;
-          }
+          final session = await injector<AuthRepository>().refreshSession();
+          return session.accessToken;
         },
       ),
     )

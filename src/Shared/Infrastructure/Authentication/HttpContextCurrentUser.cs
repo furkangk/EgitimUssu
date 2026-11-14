@@ -22,5 +22,11 @@ public sealed class HttpContextCurrentUser(IHttpContextAccessor httpContextAcces
     /// <summary>JWT'de oturum kimliğini taşıyan talep adı (RFC 7519 "sid").</summary>
     public const string SessionIdClaimType = "sid";
 
+    /// <summary>
+    /// P15 T7 / N-32: Veriliş anının Unix milisaniyesi. Standart <c>iat</c> saniyedir; kullanıcı
+    /// bazlı iptal damgası aynı saniyede verilmiş token'ı ayırt edebilsin diye ayrıca taşınır.
+    /// </summary>
+    public const string IssuedAtMillisecondsClaimType = "iat_ms";
+
     private ClaimsPrincipal? Principal => httpContextAccessor.HttpContext?.User;
 }

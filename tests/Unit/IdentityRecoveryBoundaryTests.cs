@@ -17,7 +17,7 @@ public sealed class IdentityRecoveryBoundaryTests
         var session = AddSession(user);
         var repository = new Repository(user);
         var issuer = new TokenIssuer();
-        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new TokenRevocation(), new IdGenerator(), new Clock());
+        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new TokenRevocation(), new RefreshTokenPolicy(RefreshTokenPolicy.DefaultReuseGrace), new IdGenerator(), new Clock());
 
         var result = await handler.Handle(new RefreshTokenCommand("refresh", null), CancellationToken.None);
 
@@ -38,7 +38,7 @@ public sealed class IdentityRecoveryBoundaryTests
         var session = AddSession(user);
         var repository = new Repository(user);
         var issuer = new TokenIssuer();
-        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new TokenRevocation(), new IdGenerator(), new Clock());
+        var handler = new RefreshTokenCommandHandler(repository, issuer, new TokenProtector(), new TokenRevocation(), new RefreshTokenPolicy(RefreshTokenPolicy.DefaultReuseGrace), new IdGenerator(), new Clock());
 
         var result = await handler.Handle(new RefreshTokenCommand("refresh", null), CancellationToken.None);
 
@@ -135,6 +135,11 @@ public sealed class IdentityRecoveryBoundaryTests
             SaveCount++;
             return Task.CompletedTask;
         }
+        public Task<bool> SaveRotationAsync(RefreshTokenSession rotatedFrom, CancellationToken cancellationToken)
+        {
+            SaveCount++;
+            return Task.FromResult(true);
+        }
     }
 
     private sealed class TokenIssuer : ITokenIssuer
@@ -162,6 +167,8 @@ public sealed class IdentityRecoveryBoundaryTests
     private sealed class TokenRevocation : ITokenRevocationService
     {
         public Task RevokeAllAccessTokensAsync(Guid userId, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+        public Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken)
             => Task.CompletedTask;
     }
 

@@ -39,4 +39,19 @@ internal sealed class TokenRevocationService(
             timeToLive,
             cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken)
+    {
+        if (sessionIds.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var timeToLive = TimeSpan.FromMinutes(jwtOptions.Value.ExpiryMinutes) + Grace;
+        return tokenBlacklist.RevokeSessionsAsync(
+            sessionIds.Select(id => id.ToString()).ToArray(),
+            timeToLive,
+            cancellationToken);
+    }
 }

@@ -141,6 +141,35 @@ public sealed class AccountDeletionTests
         Assert.Null(reloaded.PhoneNumber);
     }
 
+    /// <summary>
+    /// P15 T7 / N-31: Hesap kapanınca dolaşımdaki erişim token'ları da iptal edilir. Oturum satırları
+    /// silinse de token ömrünü (60 dk) tamamlayana kadar kapanmış hesap adına istek atabiliyordu.
+    /// Başarısız turda hesap açık kaldığı için token'lara dokunulmaz.
+    /// </summary>
+    [Fact]
+    public async Task Closing_The_Account_Revokes_Its_Access_Tokens()
+    {
+        await using var context = NewIdentityContext();
+        var user = await SeedPendingRequestAsync(context);
+        var revocation = new SpyTokenRevocation();
+
+        await NewProcessor(context, Now.AddDays(31), [new RecordingAnonymizer()], revocation).RunAsync();
+
+        Assert.Equal([user.Id], revocation.AllRevokedUserIds);
+    }
+
+    [Fact]
+    public async Task Failed_Deletion_Does_Not_Revoke_Access_Tokens()
+    {
+        await using var context = NewIdentityContext();
+        await SeedPendingRequestAsync(context);
+        var revocation = new SpyTokenRevocation();
+
+        await NewProcessor(context, Now.AddDays(31), [new ThrowingAnonymizer()], revocation).RunAsync();
+
+        Assert.Empty(revocation.AllRevokedUserIds);
+    }
+
     /// <summary>İkinci tur hiçbir şey yapmamalı — akış yarıda kalırsa yeniden koşabilmeli.</summary>
     [Fact]
     public async Task Running_Twice_Should_Be_Idempotent()
@@ -242,9 +271,27 @@ public sealed class AccountDeletionTests
     }
 
     private static AccountDeletionProcessor NewProcessor(
-        IdentityDbContext context, DateTime nowUtc, IEnumerable<IPersonalDataAnonymizer> anonymizers) =>
+        IdentityDbContext context,
+        DateTime nowUtc,
+        IEnumerable<IPersonalDataAnonymizer> anonymizers,
+        ITokenRevocationService? revocation = null) =>
         new(context, anonymizers, new NoStudentDirectory(), new StubPasswordHasher(),
+            revocation ?? new SpyTokenRevocation(),
             new GuidIdGenerator(), new FixedClock(nowUtc), new NullLogger<AccountDeletionProcessor>());
+
+    private sealed class SpyTokenRevocation : ITokenRevocationService
+    {
+        public List<Guid> AllRevokedUserIds { get; } = [];
+
+        public Task RevokeAllAccessTokensAsync(Guid userId, CancellationToken cancellationToken)
+        {
+            AllRevokedUserIds.Add(userId);
+            return Task.CompletedTask;
+        }
+
+        public Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+    }
 
     private sealed class RecordingAnonymizer : IPersonalDataAnonymizer
     {

@@ -50,10 +50,10 @@ public sealed class TerminateOtherSessionsTests
         var kept = new RefreshTokenSession(Guid.NewGuid(), user.Id, "yeni-hash", "iPhone", Now, Now.AddDays(30));
         user.RefreshSessions.Add(kept);
         var alreadyRevoked = new RefreshTokenSession(Guid.NewGuid(), user.Id, "eski2-hash", "Web", Now.AddDays(-5), Now.AddDays(25));
-        alreadyRevoked.Revoke(Now.AddDays(-2));
+        alreadyRevoked.Revoke(Now.AddDays(-2), SessionRevocationReason.UserLogout);
         user.RefreshSessions.Add(alreadyRevoked);
 
-        user.RevokeOtherSessions(kept.Id, Now);
+        user.RevokeOtherSessions(kept.Id, Now, SessionRevocationReason.OtherSessionsRevoked);
 
         Assert.Null(kept.RevokedOnUtc);
         Assert.Equal(Now, oldSession.RevokedOnUtc);
@@ -69,6 +69,7 @@ public sealed class TerminateOtherSessionsTests
             new FakeTokenProtector(),
             new NoopThrottle(),
             new FakeSessionPolicyDirectory(terminateOtherSessions),
+            new NoopTokenRevocation(),
             new FakeIdGenerator(),
             new FixedClock(Now));
 
@@ -113,7 +114,18 @@ public sealed class TerminateOtherSessionsTests
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
+        public Task<bool> SaveRotationAsync(RefreshTokenSession rotatedFrom, CancellationToken cancellationToken)
+            => Task.FromResult(true);
+
         public Task PurgeStaleCredentialsAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class NoopTokenRevocation : ITokenRevocationService
+    {
+        public Task RevokeAllAccessTokensAsync(Guid userId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private sealed class FakePasswordHasher : IPasswordHasher

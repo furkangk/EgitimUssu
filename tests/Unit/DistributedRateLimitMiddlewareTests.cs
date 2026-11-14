@@ -26,6 +26,71 @@ public sealed class DistributedRateLimitMiddlewareTests
         Assert.StartsWith("auth:", limiter.LastKey);
     }
 
+    /// <summary>
+    /// P15 T7 / N-32: Kimlik bilgisi alan uçlar (giriş, kayıt, şifre sıfırlama, e-posta doğrulama)
+    /// sıkı IP kovasında kalır; hesap boyutu <c>ILoginAttemptThrottle</c>'dadır.
+    /// </summary>
+    [Theory]
+    [InlineData("/api/identity/login")]
+    [InlineData("/api/identity/register")]
+    [InlineData("/api/identity/password-reset/request")]
+    [InlineData("/api/identity/password-reset/confirm")]
+    [InlineData("/api/identity/email-verification/request")]
+    [InlineData("/api/identity/email-verification/confirm")]
+    public async Task Credential_Endpoints_Stay_On_The_Strict_Ip_Policy(string path)
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask);
+        var context = MakeContext(path, method: "POST", userId: "u-1");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("auth:1.2.3.4", limiter.LastKey);
+        Assert.Equal(new RateLimitOptions().Auth.PermitLimit, limiter.LastPermitLimit);
+    }
+
+    /// <summary>
+    /// N-32: Oturum açmış kullanıcının kimlik uçları (<c>/me</c>, <c>/sessions</c>, <c>/logout</c>…)
+    /// <b>kullanıcı</b> başına sayılır. IP başına 10/dk iken okul NAT'ı arkasındaki bir sınıf
+    /// birbirinin kotasını tüketiyordu.
+    /// </summary>
+    [Theory]
+    [InlineData("/api/identity/me", "GET")]
+    [InlineData("/api/identity/sessions", "GET")]
+    [InlineData("/api/identity/sessions/revoke-all", "POST")]
+    [InlineData("/api/identity/logout", "POST")]
+    public async Task Authenticated_Identity_Endpoints_Are_Counted_Per_User(string path, string method)
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask);
+        var context = MakeContext(path, method: method, userId: "u-42");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("session:u-42", limiter.LastKey);
+        Assert.Equal(new RateLimitOptions().Session.PermitLimit, limiter.LastPermitLimit);
+    }
+
+    /// <summary>
+    /// N-32: <c>/refresh</c> anonimdir (erişim token'ı süresi dolmuş, mobil bearer göndermez) —
+    /// kullanıcı başına sayılamaz. Ayrı ve daha gevşek bir IP kovasıdır: 48 baytlık rastgele token
+    /// kaba kuvvete açık değil, kova yalnız taşkına karşıdır.
+    /// </summary>
+    [Fact]
+    public async Task Refresh_Uses_Its_Own_Looser_Ip_Policy()
+    {
+        var limiter = new FakeRateLimiter(allow: true);
+        var middleware = Build(limiter, _ => Task.CompletedTask);
+        var context = MakeContext("/api/identity/refresh", method: "POST");
+
+        await middleware.InvokeAsync(context);
+
+        var options = new RateLimitOptions();
+        Assert.Equal("refresh:1.2.3.4", limiter.LastKey);
+        Assert.Equal(options.Refresh.PermitLimit, limiter.LastPermitLimit);
+        Assert.True(options.Refresh.PermitLimit > options.Auth.PermitLimit);
+    }
+
     [Fact]
     public async Task Allowed_Business_Request_Calls_Next_With_Default_Policy()
     {
@@ -255,10 +320,13 @@ public sealed class DistributedRateLimitMiddlewareTests
 
         public string? LastKey { get; private set; }
 
+        public int LastPermitLimit { get; private set; }
+
         public Task<bool> TryAcquireAsync(string partitionKey, int permitLimit, TimeSpan window, CancellationToken cancellationToken = default)
         {
             Calls++;
             LastKey = partitionKey;
+            LastPermitLimit = permitLimit;
             return Task.FromResult(allow);
         }
     }

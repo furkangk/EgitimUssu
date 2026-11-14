@@ -32,17 +32,37 @@ public interface ITokenBlacklist
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// A-06: Token hem <c>jti</c> kara listesine hem de kullanıcı bazlı iptal damgasına karşı
-    /// denetlenir. İki kontrol tek Redis turunda yapılır — istek başına ek gecikme getirmez.
+    /// P15 T7 / N-31: Verilen oturumlardan (<c>sid</c>) verilmiş erişim token'larını reddedilir kılar.
+    /// <para>
+    /// Cihaz iptali ve "diğerlerini kapat" kullanıcı damgasını kullanamaz: damga kullanıcının
+    /// <b>şu anki</b> cihazını da atardı. Kayıt oturum başınadır ve <paramref name="timeToLive"/>
+    /// sonra kendiliğinden düşer (o ana dek o oturumun token'ları zaten <c>exp</c> ile ölmüştür).
+    /// </para>
+    /// </summary>
+    /// <param name="sessionIds">Kapatılan oturum kimlikleri.</param>
+    /// <param name="timeToLive">Kaydın saklama süresi; erişim token'ı ömründen kısa olmamalı.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>İşlem görevi.</returns>
+    Task RevokeSessionsAsync(
+        IReadOnlyCollection<string> sessionIds,
+        TimeSpan timeToLive,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// A-06 + P15 T7: Token <c>jti</c> kara listesine, kullanıcı bazlı iptal damgasına ve oturum
+    /// (<c>sid</c>) iptal kümesine karşı denetlenir. Üç kontrol tek Redis turunda yapılır — istek
+    /// başına ek gecikme getirmez.
     /// </summary>
     /// <param name="tokenId">Token'ın <c>jti</c> değeri.</param>
-    /// <param name="userId">Token'ın sahibi; yoksa yalnız kara liste denetlenir.</param>
-    /// <param name="issuedAtUtc">Token'ın veriliş anı (<c>iat</c>); yoksa damga denetlenemez.</param>
+    /// <param name="userId">Token'ın sahibi; yoksa damga denetlenmez.</param>
+    /// <param name="sessionId">Token'ın oturumu (<c>sid</c>); yoksa oturum kümesi denetlenmez.</param>
+    /// <param name="issuedAtUtc">Token'ın veriliş anı (milisaniye hassasiyetinde); yoksa damga denetlenemez.</param>
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>Token iptal edilmişse <c>true</c>.</returns>
     Task<bool> IsRevokedAsync(
         string tokenId,
         string? userId,
+        string? sessionId,
         DateTime? issuedAtUtc,
         CancellationToken cancellationToken = default);
 }

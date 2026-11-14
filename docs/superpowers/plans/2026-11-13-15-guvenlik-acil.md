@@ -214,7 +214,7 @@
 
 ---
 
-### Task 7: Token ve oturum sertleştirme + mobil tek-uçuş refresh (N-29, N-30, N-31, N-32, N-63, N-67)
+### Task 7: Token ve oturum sertleştirme + mobil tek-uçuş refresh (N-29, N-30, N-31, N-32, N-63, N-67) ✅
 
 **Files:**
 - Modify: `src/Modules/Identity/Domain/IdentityDomainModel.cs` (`RefreshTokenSession.RevocationReason`)
@@ -225,8 +225,15 @@
 - Modify: `src/Shared/Infrastructure/Caching/RedisTokenBlacklist.cs` (ms çözünürlük; `sid` kümesi)
 - Modify: `src/Shared/Infrastructure/Middleware/DistributedRateLimitMiddleware.cs` (auth uçları IP+hesap sıkı; `/me`, `/refresh`, `/sessions` kullanıcı başına)
 - Modify (mobil): `mobile/lib/core/network/token_refresh_interceptor.dart`, `mobile/lib/core/di/injector.dart`, `mobile/lib/features/auth/data/repositories/auth_repository_impl.dart`
-- Migration: `SessionRevocationReason` (Identity)
+- Migration: `SessionRevocationReason` (Identity) — **yürütmede adı `AddSessionRevocationReason`** (sınıf adı domain enum'u `SessionRevocationReason` ile çakışmasın); `Up` aynı zamanda bekleyen silme taleplerini tekilleştirip kısmi benzersiz indeksi kurar
 - Test: `tests/Unit/RefreshTokenRevocationReasonTests.cs`, `tests/Integration/RealConcurrentRefreshTests.cs`, `tests/Integration/RealSessionRevocationAccessTests.cs`, `mobile/test/core/network/token_refresh_interceptor_test.dart` (genişlet)
+- **Ek (T7 yürütmesinde, 2026-11-14 — plan listesi görevi karşılamıyordu, ILERLEME Öğrenilenler'de gerekçesi):**
+  - Modify: `src/Shared/Infrastructure/Caching/ITokenBlacklist.cs` (`sid` kontrolü + `sid` iptali), `src/Shared/Infrastructure/Authentication/HttpContextCurrentUser.cs` (`iat_ms` talep adı), `src/Shared/Infrastructure/Configuration/RateLimitOptions.cs` + `src/API.Host/appsettings.json` (`Refresh`, `Session` kuralları; `Identity:RefreshReuseGraceSeconds`)
+  - Create: `src/Shared/Infrastructure/Authentication/IAccountStatusReader.cs` (port), `src/Modules/Identity/Infrastructure/AccountStatusReader.cs` (Redis önbellekli durum)
+  - Modify: `src/Modules/Identity/Infrastructure/TokenRevocationService.cs` (`RevokeSessionsAsync`), `DependencyInjection.cs`, `AccountDeletionService.cs` (hesap kapanınca erişim token'ları iptal), `src/Modules/Identity/Application/AccountDeletionFeatures.cs` (`AddPendingAsync` — benzersiz indeks ihlali kazananı döndürür)
+  - Modify (mobil): `mobile/lib/core/network/api_client.dart` (interceptor'a depodaki token okuyucusu)
+  - Test (güncelle): `tests/Unit/RefreshTokenReuseTests.cs`, `AccountDeletionTests.cs` (işlemci token iptali), `TerminateOtherSessionsTests.cs`, `DeviceSessionTests.cs`, `IdentityRecoveryBoundaryTests.cs`, `DistributedRateLimitMiddlewareTests.cs`, `tests/Integration/RealAccountDeletionTests.cs`, `ProductionProviderGuardHostTests.cs` (HSTS), `mobile/test/features/auth/data/auth_repository_impl_test.dart`
+  - Sapma: `/refresh` **kullanıcı başına sayılamaz** (anonim uç, access token süresi dolmuş, mobil bearer göndermiyor) → ayrı, gevşek **IP** politikası (`Refresh`); hesap boyutu zaten `ILoginAttemptThrottle`'da (hesap+IP). Şifre sıfırlama/hesap kapanışı `sid` kümesi yerine kullanıcı damgasını (artık ms) kullanır — tüm `sid`'leri kapsar.
 
 **Interfaces:**
 - Produces:
@@ -235,13 +242,13 @@
   - Cihaz iptali / "diğerlerini kapat" / şifre sıfırlama / hesap kapanışı → ilgili `sid`'ler Redis iptal kümesine (TTL = access token ömrü); `OnTokenValidated` `sid` kümesini ve `UserAccountStatus`'u (Redis'te önbellekli) kontrol eder.
   - Mobil: tek-uçuş refresh (`Completer` paylaşımı); 401 alan istek, gönderildiği token depodakinden farklıysa **refresh etmeden** yeni token'la tekrarlanır; refresh yalnız **400/401** dönerse çıkış; ağ hatası/timeout → istek hatası olarak yukarı iletilir, oturum korunur.
 
-- [ ] **Step 1: Kırmızı testler (backend)** — telefon girişi "diğerlerini kapat" ile tableti iptal eder → tablet refresh **401** ama telefon oturumu **yaşar** (N-29); aynı refresh token'la iki paralel istek → **yalnız biri** yeni token alır **ve kazananın yeni token'ı çalışmaya devam eder** (kaybeden toplu iptal tetiklemez) (N-30, Testcontainers); rotasyondan 31 sn sonra eski token sunulursa toplu iptal (A-15 korunur); cihazı iptal edilen oturumun access token'ı sonraki istekte **401** (N-31); aynı saniyede verilen token iptal edilir (N-32); var olmayan kullanıcıyla giriş süresi var olanla aynı mertebe (hash yine çalışır).
-- [ ] **Step 2: Kırmızı testler (mobil)** — 5 paralel 401 → **tek** refresh çağrısı; refresh timeout → `logout` çağrılmaz, istek `ApiException(network)` ile döner; refresh 401 → çıkış.
-- [ ] **Step 3: Kırmızı gör** — `dotnet test ... --filter "FullyQualifiedName~RefreshTokenRevocationReason"`, `cd mobile && flutter test test/core/network`
-- [ ] **Step 4: Backend uygula + migration** (`Up`: mevcut iptal edilmiş oturumlar `Rotated` kabul edilir).
-- [ ] **Step 5: Mobil uygula.**
-- [ ] **Step 6: Yeşil gör** — `./scripts/test-with-docker.sh`, `cd mobile && flutter test && flutter analyze --fatal-infos`
-- [ ] **Step 7: Doküman + commit** — `m01_identity.md`, `doc/architecture/mobile_flutter.md` (refresh akışı), `mimari_inceleme.md` (A-15/A-06 notu); rapor N-29/30/31/32(kısmi)/63/67 ✅.
+- [x] **Step 1: Kırmızı testler (backend)** — telefon girişi "diğerlerini kapat" ile tableti iptal eder → tablet refresh **401** ama telefon oturumu **yaşar** (N-29); aynı refresh token'la iki paralel istek → **yalnız biri** yeni token alır **ve kazananın yeni token'ı çalışmaya devam eder** (kaybeden toplu iptal tetiklemez) (N-30, Testcontainers); rotasyondan 31 sn sonra eski token sunulursa toplu iptal (A-15 korunur); cihazı iptal edilen oturumun access token'ı sonraki istekte **401** (N-31); aynı saniyede verilen token iptal edilir (N-32); var olmayan kullanıcıyla giriş süresi var olanla aynı mertebe (hash yine çalışır).
+- [x] **Step 2: Kırmızı testler (mobil)** — 5 paralel 401 → **tek** refresh çağrısı; refresh timeout → `logout` çağrılmaz, istek `ApiException(network)` ile döner; refresh 401 → çıkış.
+- [x] **Step 3: Kırmızı gör** — `dotnet test ... --filter "FullyQualifiedName~RefreshTokenRevocationReason"`, `cd mobile && flutter test test/core/network`
+- [x] **Step 4: Backend uygula + migration** (`Up`: mevcut iptal edilmiş oturumlar `Rotated` kabul edilir).
+- [x] **Step 5: Mobil uygula.**
+- [x] **Step 6: Yeşil gör** — `./scripts/test-with-docker.sh`, `cd mobile && flutter test && flutter analyze --fatal-infos`
+- [x] **Step 7: Doküman + commit** — `m01_identity.md`, `doc/architecture/mobile_flutter.md` (refresh akışı), `mimari_inceleme.md` (A-15/A-06 notu); rapor N-29/30/31/32(kısmi)/63/67 ✅.
   ```bash
   git commit -m "fix(auth): iptal nedeni, kosullu refresh, sid iptali + mobil tek-ucus refresh (N-29..N-31, N-63, N-67)"
   ```

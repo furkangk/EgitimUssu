@@ -25,7 +25,14 @@ public interface IAccountDeletionRequestRepository
     /// <summary>Kullanıcının bekleyen talebi (yoksa <c>null</c>).</summary>
     Task<AccountDeletionRequest?> GetPendingAsync(Guid userId, CancellationToken cancellationToken);
 
-    Task AddAsync(AccountDeletionRequest request, CancellationToken cancellationToken);
+    /// <summary>
+    /// Yeni bekleyen talebi kaydeder. P15 T7 / N-32: Kullanıcı başına tek bekleyen talep veritabanında
+    /// benzersizdir; eşzamanlı bir istek önce davrandıysa yeni talep yazılmaz ve <b>var olan</b> döner.
+    /// </summary>
+    /// <param name="request">Yazılacak talep.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>Kullanıcının (artık) bekleyen talebi.</returns>
+    Task<AccountDeletionRequest> AddPendingAsync(AccountDeletionRequest request, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
@@ -69,10 +76,9 @@ public sealed class RequestAccountDeletionCommandHandler
         }
 
         var request = new AccountDeletionRequest(_idGenerator.New(), userId, _clock.UtcNow);
-        await _repository.AddAsync(request, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        var pending = await _repository.AddPendingAsync(request, cancellationToken);
 
-        return Result<AccountDeletionResponse>.Success(Describe(request));
+        return Result<AccountDeletionResponse>.Success(Describe(pending));
     }
 
     internal static AccountDeletionResponse Describe(AccountDeletionRequest request)

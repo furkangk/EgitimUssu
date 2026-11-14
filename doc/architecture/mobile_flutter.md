@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-10-16
+updated: 2026-11-14
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -18,7 +18,7 @@ updated: 2026-10-16
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-10-16 (token yenileme sonrası tekrar isteği: yapılandırılmış taşıma katmanı korunur, multipart gövdesi klonlanır, 401 dışındaki tekrar hataları oturumu düşürmez).
+> **Güncelleme:** 2026-11-14 (P15 T7 / N-63, N-67: `TokenRefreshInterceptor` tek uçuş + token değiştiyse yenilemeden tekrar + çıkış yalnız refresh 400/401'de; `AuthRepositoryImpl.refreshSession` tekilleştirme, `restoreSession` ağ hatasında oturumu korur) · 2026-10-16 (token yenileme sonrası tekrar isteği: yapılandırılmış taşıma katmanı korunur, multipart gövdesi klonlanır, 401 dışındaki tekrar hataları oturumu düşürmez).
 
 ---
 
@@ -154,12 +154,14 @@ Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/
 **`ApiClient`** — `Dio` sarmalayıcı. İki interceptor içerir:
 
 1. **Request interceptor** — `TokenStorage`'dan access token okuyup `Authorization: Bearer` ekler.
-2. **`TokenRefreshInterceptor`** (`QueuedInterceptorsWrapper`) — 401 yanıtını yakalar; `onRefreshToken` callback'i ile `POST /api/identity/refresh` çağırır.
-   - Refresh **başarılıysa:** orijinal isteği yeni token ile yeniden gönderir (caller'a şeffaftır).
-   - Tekrar isteği, aynı Dio adapter/transformer ayarlarını taşıyan interceptor'sız bir klonla gönderilir; yeniden 401 gelmesi sonsuz döngüye veya kuyruk kilitlenmesine yol açmaz. Multipart gövdesi ilk gönderimde tüketildiği için tekrar öncesi klonlanır.
-   - Refresh başarılı olup tekrar isteği **500, zaman aşımı veya validasyon hatası** verirse gerçek hata ekrana iletilir; oturum kapanmaz. Tekrar isteği de **401** dönerse oturum kapanır.
-   - Refresh **başarısızsa:** `unauthorizedEvents` stream'ine event basar → `AuthCubit.expireSession()` → oturumu kapat.
-   - Eş zamanlı 401 yanıtlarının yenileme ve tekrar işlemleri kuyrukta **sırayla** yürütülür; dönen refresh token bir sonraki yenilemede kullanılır.
+2. **`TokenRefreshInterceptor`** (düz `Interceptor`, **tek uçuş** — P15 T7, 2026-11-14) — 401 yanıtını yakalar; `onRefreshToken` callback'i ile `POST /api/identity/refresh` çağırır.
+   - **Token değiştiyse yenileme yok (N-67):** 401 alan isteğin gönderildiği token depodakinden (`readAccessToken`) farklıysa başka bir istek zaten yenilemiştir → istek **yenilemeden** depodaki token'la tekrarlanır.
+   - **Tek uçuş (N-67, S-1):** aynı anda 401 alan istekler tek bir yenilemeyi (`_refreshInFlight`) bekler; dashboard'ın 5 paralel çağrısı 1 refresh yapar. Eskiden (`QueuedInterceptorsWrapper`) kuyruktaki her 401 ayrı rotasyon yapıyordu; sunucu artık aynı token'la eşzamanlı isteklerden yalnız birini kazandırdığı için (N-30) kaybedenler 401 alıp oturumu düşürürdü.
+   - Refresh **başarılıysa:** orijinal isteği yeni token ile yeniden gönderir (caller'a şeffaftır). Tekrarlar paralel yürür.
+   - Tekrar isteği, aynı Dio adapter/transformer ayarlarını taşıyan interceptor'sız bir klonla gönderilir; yeniden 401 gelmesi sonsuz döngüye yol açmaz. Multipart gövdesi ilk gönderimde tüketildiği için tekrar öncesi klonlanır.
+   - Refresh başarılı olup tekrar isteği **500, zaman aşımı veya validasyon hatası** verirse gerçek hata ekrana iletilir; oturum kapanmaz. Tekrar isteği de **401** dönerse oturum kapanır (oturum/hesap sunucuda kapatılmış).
+   - **Çıkış yalnız refresh 400/401 dönerse (N-63):** `unauthorizedEvents` → `AuthCubit.expireSession()`. Refresh **ağ hatası, zaman aşımı, 429 ya da 5xx** ile düşerse oturum korunur; istek `ApiException` (yanıtsızsa `ApiErrorKind.network`) olarak ekrana iletilir, bağlantı gelince bir sonraki istek yeniden dener. Eskiden `injector.dart`'taki callback her hatayı `null`'a çeviriyordu → metroda uygulamayı açan kullanıcı açıklamasız çıkışa atılıyordu.
+3. **`AuthRepositoryImpl.refreshSession`** de tekilleştirir (`Completer`): açılıştaki `restoreSession` ile interceptor'ın yenilemesi çakışırsa ikisi aynı HTTP çağrısını bekler. `restoreSession` süresi dolmak üzere olan oturumu yenileyemezse yalnız **400/401**'de çıkış yapar; ağ hatasında oturumu döndürür (ilk istek 401 alırsa interceptor yeniden dener).
 
 > Metotlar: `get`/`getList`/`post`/`put`/`delete` (2026-07-08: `delete` eklendi — öğrenci kişisel program girdisi silme için, `DELETE /api/scheduling/study-entries/{id}`).
 
@@ -627,4 +629,4 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-11-14 (P15 T7: §7 token yenileme akışı — tek uçuş, yalnız 400/401'de çıkış) · 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*

@@ -31,6 +31,19 @@ public interface IUserAccountRepository
     Task AddAsync(UserAccount userAccount, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// P15 T7 / N-30: Rotasyonu <b>koşullu</b> kaydeder. <paramref name="rotatedFrom"/> bu istekte
+    /// <see cref="SessionRevocationReason.Rotated"/> ile kapatılmış olmalı; veritabanında hâlâ açıksa
+    /// kapatılır ve bekleyen değişiklikler (yeni oturum) aynı transaction'da yazılır.
+    /// </summary>
+    /// <param name="rotatedFrom">Sunulan ve az önce kapatılan oturum.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>
+    /// Rotasyonu bu istek kazandıysa <c>true</c>; aynı token'la başka bir istek önce davrandıysa
+    /// <c>false</c> (hiçbir şey yazılmaz).
+    /// </returns>
+    Task<bool> SaveRotationAsync(RefreshTokenSession rotatedFrom, CancellationToken cancellationToken);
+
     /// <summary>A-08: Kullanıcının işlevsiz kalmış oturum/güvenlik token'ı satırlarını siler.</summary>
     Task PurgeStaleCredentialsAsync(Guid userId, CancellationToken cancellationToken);
 }
@@ -52,6 +65,32 @@ public interface ITokenRevocationService
     /// <param name="cancellationToken">İptal belirteci.</param>
     /// <returns>İşlem görevi.</returns>
     Task RevokeAllAccessTokensAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// P15 T7 / N-31: Yalnız verilen oturumların (<c>sid</c>) erişim token'larını reddedilir kılar.
+    /// <para>
+    /// Cihaz iptali ve "diğerlerini kapat" kullanıcı damgasını kullanamaz — o, kullanıcının
+    /// <b>şu anki</b> cihazını da atardı. Kayıt erişim token'ı ömrü kadar tutulur.
+    /// </para>
+    /// </summary>
+    /// <param name="sessionIds">Kapatılan oturumlar; boşsa hiçbir şey yapılmaz.</param>
+    /// <param name="cancellationToken">İptal belirteci.</param>
+    /// <returns>İşlem görevi.</returns>
+    Task RevokeSessionsAsync(IReadOnlyCollection<Guid> sessionIds, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// P15 T7 / N-29, N-30: Refresh token yeniden kullanım politikası.
+/// </summary>
+/// <param name="ReuseGrace">
+/// Rotasyondan sonra eski token'ın <b>toplu iptal tetiklemeden</b> (düz 401) reddedildiği pencere
+/// (<c>Identity:RefreshReuseGraceSeconds</c>, varsayılan 30 sn). Eşzamanlı refresh'in kaybedeni,
+/// zaman aşımından sonra yeniden deneme ve arka plandan dönen uygulama bu pencereye düşer.
+/// </param>
+public sealed record RefreshTokenPolicy(TimeSpan ReuseGrace)
+{
+    /// <summary>Yapılandırma yoksa kullanılan pencere.</summary>
+    public static readonly TimeSpan DefaultReuseGrace = TimeSpan.FromSeconds(30);
 }
 
 public interface IPasswordHasher { string Hash(string password); bool Verify(string hashedPassword, string providedPassword); }
@@ -116,15 +155,18 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
     private static readonly Error InvalidCredentials = new("identity.invalid_credentials", "E-posta veya sifre hatali.");
     private static readonly Error UserInactive = new("identity.user_inactive", "Kullanici hesabi aktif degil.");
     private static readonly Error TooManyAttempts = new("identity.too_many_attempts", "Cok fazla basarisiz giris denemesi. Lutfen bir sure sonra tekrar deneyin.");
-    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly ISessionPolicyDirectory _sessionPolicy; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
-    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, ISessionPolicyDirectory sessionPolicy, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _sessionPolicy = sessionPolicy; _idGenerator = idGenerator; _clock = clock; }
+    private readonly IUserAccountRepository _repository; private readonly IPasswordHasher _passwordHasher; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ILoginAttemptThrottle _throttle; private readonly ISessionPolicyDirectory _sessionPolicy; private readonly ITokenRevocationService _tokenRevocation; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
+    public LoginUserCommandHandler(IUserAccountRepository repository, IPasswordHasher passwordHasher, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ILoginAttemptThrottle throttle, ISessionPolicyDirectory sessionPolicy, ITokenRevocationService tokenRevocation, IIdGenerator idGenerator, IClock clock) { _repository = repository; _passwordHasher = passwordHasher; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _throttle = throttle; _sessionPolicy = sessionPolicy; _tokenRevocation = tokenRevocation; _idGenerator = idGenerator; _clock = clock; }
     public async Task<Result<AuthResponse>> Handle(LoginUserCommand command, CancellationToken cancellationToken)
     {
         var normalizedEmail = command.Email.Trim().ToUpperInvariant();
         // Y4: Ardışık başarısızlıkta hesap geçici kilitli — kimlik doğrulamadan önce reddet (brute-force koruması).
         if (await _throttle.IsLockedAsync(normalizedEmail, cancellationToken)) return Result<AuthResponse>.Failure(TooManyAttempts);
         var user = await _repository.GetByEmailAsync(normalizedEmail, cancellationToken);
-        if (user is null || !_passwordHasher.Verify(user.PasswordHash, command.Password))
+        // P15 T7 / N-32: Kullanıcı yoksa da özet doğrulanır — PBKDF2 ~100 ms sürer, "kullanıcı yok"
+        // yolu ~1 ms; süre farkı hangi adreslerin kayıtlı olduğunu söylüyordu.
+        var passwordMatches = _passwordHasher.Verify(user?.PasswordHash ?? TimingEqualizerHash(), command.Password);
+        if (user is null || !passwordMatches)
         {
             await _throttle.RecordFailureAsync(normalizedEmail, cancellationToken);
             return Result<AuthResponse>.Failure(InvalidCredentials);
@@ -136,25 +178,39 @@ public sealed class LoginUserCommandHandler : ICommandHandler<LoginUserCommand, 
         var session = new RefreshTokenSession(_idGenerator.New(), user.Id, _tokenProtector.Hash(refreshToken), command.DeviceName, now, now.AddDays(30));
         user.RefreshSessions.Add(session);
         // M15-3: "Diğer oturumları sonlandır" seçiliyse önceki refresh oturumları iptal edilir.
+        IReadOnlyCollection<Guid> terminated = [];
         if (await _sessionPolicy.ShouldTerminateOtherSessionsAsync(user.Id, cancellationToken))
         {
-            user.RevokeOtherSessions(session.Id, now);
+            terminated = user.RevokeOtherSessions(session.Id, now, SessionRevocationReason.OtherSessionsRevoked);
         }
 
         await _repository.SaveChangesAsync(cancellationToken);
+        // N-31: Kapatılan cihazların erişim token'ları da bir sonraki istekte reddedilir.
+        await _tokenRevocation.RevokeSessionsAsync(terminated, cancellationToken);
         // A-08: Oturum/güvenlik token'ı satırları hiç silinmiyordu; budama girişte, yalnız bu
         // kullanıcının satırları için yapılır (okuma zaten filtreli Include'larla sınırlı).
         await _repository.PurgeStaleCredentialsAsync(user.Id, cancellationToken);
         var access = _tokenIssuer.Issue(user, session.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, refreshToken));
     }
+
+    /// <summary>
+    /// Gerçek bir özetle aynı maliyette doğrulanan, hiçbir parolayla eşleşmeyen özet. Hasher türü
+    /// başına süreçte bir kez üretilir (özet biçimi hasher'a özgüdür; yarışta iki kez üretilmesi zararsız).
+    /// </summary>
+    private string TimingEqualizerHash()
+        => TimingEqualizerHashes.GetOrAdd(
+            _passwordHasher.GetType(),
+            _ => _passwordHasher.Hash(Convert.ToBase64String(Guid.NewGuid().ToByteArray())));
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, string> TimingEqualizerHashes = new();
 }
 
 public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCommand, Result<AuthResponse>>
 {
     private static readonly Error InvalidRefresh = new("identity.invalid_refresh_token", "Refresh token gecersiz veya suresi dolmus.");
-    private readonly IUserAccountRepository _repository; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ITokenRevocationService _tokenRevocation; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
-    public RefreshTokenCommandHandler(IUserAccountRepository repository, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ITokenRevocationService tokenRevocation, IIdGenerator idGenerator, IClock clock) { _repository = repository; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _tokenRevocation = tokenRevocation; _idGenerator = idGenerator; _clock = clock; }
+    private readonly IUserAccountRepository _repository; private readonly ITokenIssuer _tokenIssuer; private readonly ITokenProtector _tokenProtector; private readonly ITokenRevocationService _tokenRevocation; private readonly RefreshTokenPolicy _policy; private readonly IIdGenerator _idGenerator; private readonly IClock _clock;
+    public RefreshTokenCommandHandler(IUserAccountRepository repository, ITokenIssuer tokenIssuer, ITokenProtector tokenProtector, ITokenRevocationService tokenRevocation, RefreshTokenPolicy policy, IIdGenerator idGenerator, IClock clock) { _repository = repository; _tokenIssuer = tokenIssuer; _tokenProtector = tokenProtector; _tokenRevocation = tokenRevocation; _policy = policy; _idGenerator = idGenerator; _clock = clock; }
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
@@ -167,22 +223,30 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
             return Result<AuthResponse>.Failure(InvalidRefresh);
         }
 
-        // A-15: Zaten iptal edilmiş bir refresh token'ın tekrar sunulması ele geçirme sinyalidir.
-        // Rotasyon her yenilemede eskisini iptal ettiği için meşru istemci onu bir daha göndermez;
-        // gelen istek ya çalınmış token'ı kullanıyor ya da meşru istemci çalınmış olanın ardından
-        // geliyordur. Hangisi olduğu ayırt edilemeyeceğinden tüm oturumlar kapatılır ve dolaşımdaki
-        // erişim token'ları iptal edilir — kullanıcı yeniden giriş yapar. Eskiden yalnız 401 dönülüyor,
-        // olay normal bir oturum sonu gibi görünüyordu.
+        // A-15: Rotasyonla eskimiş bir refresh token'ın tekrar sunulması ele geçirme sinyalidir.
+        // Meşru istemci yeni token'ı aldıktan sonra eskisini bir daha göndermez; gelen istek ya
+        // çalınmış kopyayı kullanıyor ya da meşru istemci çalınmış olanın ardından geliyordur. Hangisi
+        // olduğu ayırt edilemeyeceğinden tüm oturumlar kapatılır ve dolaşımdaki erişim token'ları
+        // iptal edilir — kullanıcı yeniden giriş yapar.
+        // P15 T7 / N-29: Yalnız ROTASYONLA eskimiş ve bekleme penceresini aşmış token. Kullanıcının
+        // bilerek kapattığı oturum (çıkış, cihaz iptali, "diğerlerini kapat", şifre sıfırlama) ve
+        // pencere içindeki tekrar (eşzamanlı refresh'in kaybedeni, zaman aşımından sonra yeniden
+        // deneme) düz 401'dir. Eskiden her iptal edilmiş token toplu iptal tetikliyordu: kapatılan
+        // tablet bir kez refresh deneyince kullanıcının az önce açtığı telefonu da öldürüyordu.
         if (session.RevokedOnUtc is not null)
         {
-            user.RevokeOtherSessions(session.Id, now);
-            await _repository.SaveChangesAsync(cancellationToken);
-            await _tokenRevocation.RevokeAllAccessTokensAsync(user.Id, cancellationToken);
+            if (session.IsReplayOfRotatedToken(now, _policy.ReuseGrace))
+            {
+                user.RevokeOtherSessions(session.Id, now, SessionRevocationReason.ReuseDetected);
+                await _repository.SaveChangesAsync(cancellationToken);
+                await _tokenRevocation.RevokeAllAccessTokensAsync(user.Id, cancellationToken);
+            }
+
             return Result<AuthResponse>.Failure(InvalidRefresh);
         }
 
         if (!session.IsActive(now)) return Result<AuthResponse>.Failure(InvalidRefresh);
-        session.Revoke(now);
+        session.Revoke(now, SessionRevocationReason.Rotated);
         var newRefresh = _tokenProtector.GenerateToken();
         // M01-4: Jeton döndürülüyor ama oturum AYNI cihazın oturumu; başlangıç anı devralınır,
         // "son kullanım" şimdiye çekilir. Aksi halde her yenilemede oturum yeni doğmuş görünürdü.
@@ -191,7 +255,13 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
             command.DeviceName ?? session.DeviceName, session.CreatedOnUtc, now.AddDays(30),
             lastUsedOnUtc: now);
         user.RefreshSessions.Add(rotated);
-        await _repository.SaveChangesAsync(cancellationToken);
+        // N-30: Aynı token'la eşzamanlı ikinci istek koşullu güncellemeyi kaybeder ve düz 401 alır —
+        // eskiden iki geçerli zincir üretiliyordu (çalınan token'la yarışan saldırgan tespiti atlatırdı).
+        if (!await _repository.SaveRotationAsync(session, cancellationToken))
+        {
+            return Result<AuthResponse>.Failure(InvalidRefresh);
+        }
+
         var access = _tokenIssuer.Issue(user, rotated.Id);
         return Result<AuthResponse>.Success(IdentityMappings.ToAuthResponse(user, access.AccessToken, access.ExpiresAtUtc, newRefresh));
     }
@@ -199,14 +269,21 @@ public sealed class RefreshTokenCommandHandler : ICommandHandler<RefreshTokenCom
 
 public sealed class LogoutCommandHandler : ICommandHandler<LogoutCommand, Result>
 {
-    private readonly IUserAccountRepository _repository; private readonly ITokenProtector _tokenProtector; private readonly IClock _clock;
-    public LogoutCommandHandler(IUserAccountRepository repository, ITokenProtector tokenProtector, IClock clock) { _repository = repository; _tokenProtector = tokenProtector; _clock = clock; }
+    private readonly IUserAccountRepository _repository; private readonly ITokenProtector _tokenProtector; private readonly ITokenRevocationService _tokenRevocation; private readonly IClock _clock;
+    public LogoutCommandHandler(IUserAccountRepository repository, ITokenProtector tokenProtector, ITokenRevocationService tokenRevocation, IClock clock) { _repository = repository; _tokenProtector = tokenProtector; _tokenRevocation = tokenRevocation; _clock = clock; }
     public async Task<Result> Handle(LogoutCommand command, CancellationToken cancellationToken)
     {
         var hash = _tokenProtector.Hash(command.RefreshToken.Trim());
         var user = await _repository.GetByRefreshTokenHashAsync(hash, cancellationToken);
         var session = user?.RefreshSessions.FirstOrDefault(x => x.RefreshTokenHash == hash);
-        if (session is not null) { session.Revoke(_clock.UtcNow); await _repository.SaveChangesAsync(cancellationToken); }
+        if (session is not null && session.Revoke(_clock.UtcNow, SessionRevocationReason.UserLogout))
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+            // N-31: Uç yalnız bu isteğin jti'sini kara listeye alıyor; aynı oturumdan verilmiş başka
+            // erişim token'ı da kapanır.
+            await _tokenRevocation.RevokeSessionsAsync([session.Id], cancellationToken);
+        }
+
         return Result.Success();
     }
 }
@@ -252,7 +329,7 @@ public sealed class ResetPasswordCommandHandler : ICommandHandler<ResetPasswordC
             resetToken.MarkUsed(now);
         }
         user.UpdatePassword(_passwordHasher.Hash(command.NewPassword), now);
-        foreach (var session in user.RefreshSessions.Where(x => x.IsActive(now))) session.Revoke(now);
+        foreach (var session in user.RefreshSessions.Where(x => x.IsActive(now))) session.Revoke(now, SessionRevocationReason.PasswordReset);
         await _repository.SaveChangesAsync(cancellationToken);
         // A-06: Refresh oturumlarını kapatmak yetmez — dolaşımdaki erişim token'ı 60 dk daha
         // geçerli kalıyordu. Hesabı ele geçirilen kullanıcı parolasını sıfırlasa bile saldırgan

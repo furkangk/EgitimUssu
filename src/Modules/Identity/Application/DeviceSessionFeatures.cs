@@ -96,13 +96,15 @@ public sealed class RevokeDeviceSessionCommandHandler : ICommandHandler<RevokeDe
 
     private readonly IUserAccountRepository _repository;
     private readonly ICurrentUser _currentUser;
+    private readonly ITokenRevocationService _tokenRevocation;
     private readonly IClock _clock;
 
     public RevokeDeviceSessionCommandHandler(
-        IUserAccountRepository repository, ICurrentUser currentUser, IClock clock)
+        IUserAccountRepository repository, ICurrentUser currentUser, ITokenRevocationService tokenRevocation, IClock clock)
     {
         _repository = repository;
         _currentUser = currentUser;
+        _tokenRevocation = tokenRevocation;
         _clock = clock;
     }
 
@@ -127,10 +129,12 @@ public sealed class RevokeDeviceSessionCommandHandler : ICommandHandler<RevokeDe
         }
 
         var now = _clock.UtcNow;
-        if (session.IsActive(now))
+        if (session.IsActive(now) && session.Revoke(now, SessionRevocationReason.DeviceRevoked))
         {
-            session.Revoke(now);
             await _repository.SaveChangesAsync(cancellationToken);
+            // P15 T7 / N-31: Refresh oturumunu kapatmak yetmez — o cihazın elindeki erişim token'ı
+            // 60 dk daha geçerli kalıyordu (çalınan telefon). sid iptal kümesine yazılır.
+            await _tokenRevocation.RevokeSessionsAsync([session.Id], cancellationToken);
         }
 
         return Result.Success();
@@ -153,13 +157,15 @@ public sealed class RevokeAllDeviceSessionsCommandHandler
 
     private readonly IUserAccountRepository _repository;
     private readonly ICurrentUser _currentUser;
+    private readonly ITokenRevocationService _tokenRevocation;
     private readonly IClock _clock;
 
     public RevokeAllDeviceSessionsCommandHandler(
-        IUserAccountRepository repository, ICurrentUser currentUser, IClock clock)
+        IUserAccountRepository repository, ICurrentUser currentUser, ITokenRevocationService tokenRevocation, IClock clock)
     {
         _repository = repository;
         _currentUser = currentUser;
+        _tokenRevocation = tokenRevocation;
         _clock = clock;
     }
 
@@ -189,8 +195,10 @@ public sealed class RevokeAllDeviceSessionsCommandHandler
         if (revoked > 0)
         {
             // M15-3'ten gelen mevcut davranış: korunacak oturum dışındakileri iptal eder.
-            user.RevokeOtherSessions(currentSessionId, now);
+            var closed = user.RevokeOtherSessions(currentSessionId, now, SessionRevocationReason.OtherSessionsRevoked);
             await _repository.SaveChangesAsync(cancellationToken);
+            // P15 T7 / N-31: Kapatılan cihazların erişim token'ları da reddedilir; bu cihazınki değil.
+            await _tokenRevocation.RevokeSessionsAsync(closed, cancellationToken);
         }
 
         return Result<int>.Success(revoked);

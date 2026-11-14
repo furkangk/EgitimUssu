@@ -13,6 +13,9 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
     /// <summary>A-06: Kullanıcı bazlı iptal damgası — "şu andan önce verilen token'lar geçersiz".</summary>
     private const string UserKeyPrefix = "token-valid-after:";
 
+    /// <summary>P15 T7 / N-31: Kapatılmış oturum — bu <c>sid</c>'den verilmiş token'lar geçersiz.</summary>
+    private const string SessionKeyPrefix = "session-revoked:";
+
     public Task BlacklistAsync(string tokenId, TimeSpan timeToLive, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(tokenId) || timeToLive <= TimeSpan.Zero)
@@ -50,9 +53,11 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
             return Task.CompletedTask;
         }
 
-        // Damga saniye çözünürlüğünde tutulur; `iat` claim'i de Unix saniyesidir, aynı ölçekte
-        // karşılaştırılmaları gerekir.
-        var cutoff = new DateTimeOffset(cutoffUtc, TimeSpan.Zero).ToUnixTimeSeconds();
+        // P15 T7 / N-32: Damga milisaniye çözünürlüğündedir. Eskiden saniyeydi ve `iat` (saniye) ile
+        // `<` karşılaştırılıyordu: iptalle aynı saniyede verilmiş token geçiyordu. `<=` de çözüm
+        // değildi — iptalden hemen sonra (aynı saniyede) yeniden giren kullanıcının yeni token'ını
+        // reddederdi. Token veriliş anını `iat_ms` talebiyle taşır.
+        var cutoff = ToUnixMilliseconds(cutoffUtc);
 
         return redis.TryExecuteAsync(
             Protection,
@@ -61,19 +66,44 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
     }
 
     /// <inheritdoc />
+    public Task RevokeSessionsAsync(
+        IReadOnlyCollection<string> sessionIds,
+        TimeSpan timeToLive,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = sessionIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray();
+        if (ids.Length == 0 || timeToLive <= TimeSpan.Zero)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Oturum başına bir anahtar (SET üyelerine ayrı TTL verilemez); yazımlar pipeline'lanır.
+        return redis.TryExecuteAsync(
+            Protection,
+            async database =>
+            {
+                await Task.WhenAll(ids.Select(id => database.StringSetAsync(SessionKey(id), "1", timeToLive)));
+                return true;
+            },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> IsRevokedAsync(
         string tokenId,
         string? userId,
+        string? sessionId,
         DateTime? issuedAtUtc,
         CancellationToken cancellationToken = default)
     {
         var checkStamp = !string.IsNullOrWhiteSpace(userId) && issuedAtUtc.HasValue;
-        if (string.IsNullOrWhiteSpace(tokenId) && !checkStamp)
+        var checkSession = !string.IsNullOrWhiteSpace(sessionId);
+        if (string.IsNullOrWhiteSpace(tokenId) && !checkStamp && !checkSession)
         {
             return false;
         }
 
-        // İki okuma tek `TryExecuteAsync` içinde başlatılır: StackExchange.Redis bunları
+        // Okumalar tek `TryExecuteAsync` içinde başlatılır: StackExchange.Redis bunları
         // pipeline'lar, dolayısıyla istek başına ek bir gidiş-dönüş oluşmaz.
         var (ok, result) = await redis.TryExecuteAsync(
             Protection,
@@ -82,12 +112,15 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
                 var blacklisted = string.IsNullOrWhiteSpace(tokenId)
                     ? Task.FromResult(false)
                     : database.KeyExistsAsync(Key(tokenId));
+                var sessionRevoked = checkSession
+                    ? database.KeyExistsAsync(SessionKey(sessionId!))
+                    : Task.FromResult(false);
                 var stamp = checkStamp
                     ? database.StringGetAsync(UserKey(userId!))
                     : Task.FromResult(RedisValue.Null);
 
-                await Task.WhenAll(blacklisted, stamp);
-                return (Blacklisted: await blacklisted, Stamp: await stamp);
+                await Task.WhenAll(blacklisted, sessionRevoked, stamp);
+                return (Blacklisted: await blacklisted, SessionRevoked: await sessionRevoked, Stamp: await stamp);
             },
             cancellationToken);
 
@@ -97,7 +130,7 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
             return false;
         }
 
-        if (result.Blacklisted)
+        if (result.Blacklisted || result.SessionRevoked)
         {
             return true;
         }
@@ -107,11 +140,14 @@ public sealed class RedisTokenBlacklist(ResilientRedisExecutor redis) : ITokenBl
             return false;
         }
 
-        var issuedAt = new DateTimeOffset(issuedAtUtc!.Value, TimeSpan.Zero).ToUnixTimeSeconds();
-        return issuedAt < cutoff;
+        return ToUnixMilliseconds(issuedAtUtc!.Value) < cutoff;
     }
+
+    private static long ToUnixMilliseconds(DateTime utc) => new DateTimeOffset(utc, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
     private static RedisKey Key(string tokenId) => new($"{KeyPrefix}{tokenId}");
 
     private static RedisKey UserKey(string userId) => new($"{UserKeyPrefix}{userId}");
+
+    private static RedisKey SessionKey(string sessionId) => new($"{SessionKeyPrefix}{sessionId}");
 }

@@ -47,6 +47,7 @@ public sealed class AccountDeletionProcessor : IAccountDeletionProcessor
     private readonly IReadOnlyCollection<IPersonalDataAnonymizer> _anonymizers;
     private readonly IStudentDirectory _studentDirectory;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ITokenRevocationService _tokenRevocation;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
     private readonly ILogger<AccountDeletionProcessor> _logger;
@@ -56,6 +57,7 @@ public sealed class AccountDeletionProcessor : IAccountDeletionProcessor
         IEnumerable<IPersonalDataAnonymizer> anonymizers,
         IStudentDirectory studentDirectory,
         IPasswordHasher passwordHasher,
+        ITokenRevocationService tokenRevocation,
         IIdGenerator idGenerator,
         IClock clock,
         ILogger<AccountDeletionProcessor> logger)
@@ -64,6 +66,7 @@ public sealed class AccountDeletionProcessor : IAccountDeletionProcessor
         _anonymizers = anonymizers.ToArray();
         _studentDirectory = studentDirectory;
         _passwordHasher = passwordHasher;
+        _tokenRevocation = tokenRevocation;
         _idGenerator = idGenerator;
         _clock = clock;
         _logger = logger;
@@ -156,6 +159,10 @@ public sealed class AccountDeletionProcessor : IAccountDeletionProcessor
 
         request.Complete(now);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        // P15 T7 / N-31: Oturum satırları silindi ama dolaşımdaki erişim token'ı ömrünü (60 dk)
+        // tamamlayana kadar kapanmış hesap adına istek atabiliyordu. Kayıt yazıldıktan SONRA: tur
+        // yarıda kalırsa hesap açık kalır ve kullanıcının token'larına dokunulmamış olur.
+        await _tokenRevocation.RevokeAllAccessTokensAsync(request.UserAccountId, cancellationToken);
         return affected;
     }
 }

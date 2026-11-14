@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 
 namespace EgitimUssu.Modules.Identity.Infrastructure;
 
@@ -34,9 +35,28 @@ internal sealed class AccountDeletionRequestRepository : IAccountDeletionRequest
                 cancellationToken);
     }
 
-    public async Task AddAsync(AccountDeletionRequest request, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    public async Task<AccountDeletionRequest> AddPendingAsync(AccountDeletionRequest request, CancellationToken cancellationToken)
     {
         await _dbContext.AccountDeletionRequests.AddAsync(request, cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return request;
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: AccountDeletionRequestConfiguration.PendingRequestIndexName,
+        })
+        {
+            // P15 T7 / N-32: Eşzamanlı istek önce yazdı (çift dokunuş). Yeni talep atılır, kazanan
+            // döner — kullanıcı için ikisi aynı talep; 500 dönmek için sebep yok.
+            _dbContext.Entry(request).State = EntityState.Detached;
+            return await GetPendingAsync(request.UserAccountId, cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Bekleyen silme talebi benzersizlik ihlali verdi ama okunamadı.", exception);
+        }
     }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken)
@@ -118,6 +138,63 @@ internal sealed class UserAccountRepository : IUserAccountRepository
     }
 
     /// <summary>
+    /// P15 T7 / N-30: Rotasyonun koşullu kaydı —
+    /// <c>UPDATE … SET "RevokedOnUtc" = … WHERE "Id" = @id AND "RevokedOnUtc" IS NULL</c>, etkilenen
+    /// satır 1 değilse başka bir istek kazanmıştır ve hiçbir şey yazılmaz. Koşullu güncelleme ile
+    /// yeni oturumun eklenmesi tek transaction'dadır: kaybeden yarışta yetim bir oturum kalmaz.
+    /// <para>
+    /// Postgres'te ikinci UPDATE birincinin satır kilidini bekler, kilit kalkınca koşulu yeniden
+    /// değerlendirir (READ COMMITTED) ve 0 satır görür. Bu yüzden concurrency token gerekmedi;
+    /// aggregate geneline sürüm alanı K-22 ile P18'de gelir.
+    /// </para>
+    /// </summary>
+    public async Task<bool> SaveRotationAsync(RefreshTokenSession rotatedFrom, CancellationToken cancellationToken)
+    {
+        var revokedOnUtc = rotatedFrom.RevokedOnUtc
+            ?? throw new InvalidOperationException("Rotasyon kaydından önce oturum kapatılmalı.");
+        var reason = rotatedFrom.RevocationReason;
+
+        // `ExecuteUpdate` ve transaction ilişkisel olmayan sağlayıcıda (test/dev InMemory) yok:
+        // orada en iyi çaba — kayıt hâlâ açık mı diye bakılır. Eşzamanlılık garantisi yalnız Postgres'te.
+        if (!_dbContext.Database.IsRelational())
+        {
+            var stillOpen = await _dbContext.RefreshTokenSessions.AsNoTracking()
+                .AnyAsync(session => session.Id == rotatedFrom.Id && session.RevokedOnUtc == null, cancellationToken);
+            if (!stillOpen)
+            {
+                return false;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+
+        // Yeniden denemeli strateji kullanıcı transaction'ını yalnız kendi ExecuteAsync'i içinde kabul eder (#195c).
+        return await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            var claimed = await _dbContext.RefreshTokenSessions
+                .Where(session => session.Id == rotatedFrom.Id && session.RevokedOnUtc == null)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(session => session.RevokedOnUtc, revokedOnUtc)
+                        .SetProperty(session => session.RevocationReason, reason),
+                    cancellationToken);
+            if (claimed != 1)
+            {
+                return false; // transaction commit edilmeden atılır → geri alınır
+            }
+
+            // Kapatma koşullu güncellemeyle yazıldı; SaveChanges yalnız yeni oturumu eklesin.
+            _dbContext.Entry(rotatedFrom).State = EntityState.Unchanged;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        });
+    }
+
+    /// <summary>
     /// A-08: Kullanıcının çoktan işlevsiz kalmış oturum ve güvenlik token'ı satırlarını siler.
     /// Filtreli <c>Include</c>'lar okumayı sınırlar ama tablo yine tek yönde büyürdü; budama
     /// girişte, yalnız o kullanıcının satırları için ve tek DELETE ile yapılır.
@@ -183,6 +260,12 @@ internal sealed class JwtTokenIssuer : ITokenIssuer
             new(
                 JwtRegisteredClaimNames.Iat,
                 new DateTimeOffset(issuedAtUtc, TimeSpan.Zero).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+                ClaimValueTypes.Integer64),
+            // P15 T7 / N-32: Aynı anın milisaniye hassasiyetli hâli. `iat` standart gereği saniyedir;
+            // iptalle aynı saniyede verilmiş token damgayı geçiyordu. Karşılaştırma bu talepten yapılır.
+            new(
+                HttpContextCurrentUser.IssuedAtMillisecondsClaimType,
+                new DateTimeOffset(issuedAtUtc, TimeSpan.Zero).ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture),
                 ClaimValueTypes.Integer64),
             new(JwtRegisteredClaimNames.Sub, userAccount.Id.ToString()),
             new(ClaimTypes.NameIdentifier, userAccount.Id.ToString()),

@@ -120,21 +120,31 @@ public sealed class UserAccount : AggregateRoot<Guid>
 
     /// <summary>
     /// M15-3: Korunacak oturum dışındaki tüm aktif refresh oturumlarını iptal eder
-    /// ("diğer oturumları sonlandır"). Zaten iptal edilmiş kayıtların zaman damgası korunur.
+    /// ("diğer oturumları sonlandır"). Zaten iptal edilmiş kayıtların zaman damgası ve nedeni korunur.
     /// </summary>
     /// <param name="keepSessionId">Ayakta kalacak oturum (genelde az önce açılan).</param>
     /// <param name="nowUtc">İptal zamanı (UTC).</param>
-    public void RevokeOtherSessions(Guid keepSessionId, DateTime nowUtc)
+    /// <param name="reason">
+    /// P15 T7 / N-29: Neden saklanır — yeniden kullanım tespiti yalnız <see cref="SessionRevocationReason.Rotated"/>
+    /// oturumda tetiklenir; kullanıcının bilerek kapattığı oturum ele geçirme sinyali değildir.
+    /// </param>
+    /// <returns>
+    /// Bu çağrının <b>kapattığı</b> oturumların kimlikleri. Çağıran, bunların <c>sid</c>'lerini
+    /// erişim token'ı iptal kümesine yazar (N-31) — refresh oturumunu kapatmak token'ı kapatmaz.
+    /// </returns>
+    public IReadOnlyCollection<Guid> RevokeOtherSessions(Guid keepSessionId, DateTime nowUtc, SessionRevocationReason reason)
     {
+        var revoked = new List<Guid>();
         foreach (var session in RefreshSessions)
         {
-            if (session.Id != keepSessionId)
+            if (session.Id != keepSessionId && session.Revoke(nowUtc, reason))
             {
-                session.Revoke(nowUtc);
+                revoked.Add(session.Id);
             }
         }
 
         UpdatedOnUtc = nowUtc;
+        return revoked;
     }
 }
 
@@ -206,6 +216,12 @@ public sealed class RefreshTokenSession : Entity<Guid>
     public DateTime? RevokedOnUtc { get; private set; }
 
     /// <summary>
+    /// P15 T7 / N-29: Oturumun neden kapandığı (<c>null</c> → açık). Yeniden kullanım tespiti
+    /// (A-15) bu alana bakar: yalnız rotasyonla eskimiş token'ın geri gelmesi ele geçirme sinyalidir.
+    /// </summary>
+    public SessionRevocationReason? RevocationReason { get; private set; }
+
+    /// <summary>
     /// M01-4: Bu oturumun jetonunun en son yenilendiği an.
     /// <para>
     /// Refresh akışı jetonu <b>döndürür</b> (eski satır iptal edilir, yenisi açılır); bu yüzden
@@ -219,13 +235,69 @@ public sealed class RefreshTokenSession : Entity<Guid>
 
     public bool IsActive(DateTime now) => RevokedOnUtc is null && ExpiresOnUtc > now;
 
-    public void Revoke(DateTime revokedOnUtc)
+    /// <summary>Oturumu kapatır. İlk iptal kazanır: zaten kapalıysa zaman ve neden değişmez.</summary>
+    /// <param name="revokedOnUtc">İptal anı (UTC).</param>
+    /// <param name="reason">İptal nedeni.</param>
+    /// <returns>Bu çağrı oturumu kapattıysa <c>true</c>.</returns>
+    public bool Revoke(DateTime revokedOnUtc, SessionRevocationReason reason)
     {
-        if (RevokedOnUtc is null)
+        if (RevokedOnUtc is not null)
         {
-            RevokedOnUtc = revokedOnUtc;
+            return false;
         }
+
+        RevokedOnUtc = revokedOnUtc;
+        RevocationReason = reason;
+        return true;
     }
+
+    /// <summary>
+    /// A-15 + N-29: Bu token'ın tekrar sunulması ele geçirme sinyali mi?
+    /// <para>
+    /// Yalnız <b>rotasyonla</b> eskimiş ve rotasyonun üzerinden <paramref name="grace"/>'ten fazla
+    /// geçmiş token. Pencere içindeki tekrar meşrudur: eşzamanlı refresh'in kaybedeni, zaman aşımına
+    /// uğrayıp yeniden deneyen istemci, arka plandan dönen uygulama. Başka nedenle kapanmış oturumu
+    /// kullanıcı (ya da sistem) bilerek kapatmıştır.
+    /// </para>
+    /// </summary>
+    /// <param name="nowUtc">Şimdi (UTC).</param>
+    /// <param name="grace">Rotasyondan sonraki bekleme penceresi.</param>
+    /// <returns>Toplu iptal gerekiyorsa <c>true</c>.</returns>
+    public bool IsReplayOfRotatedToken(DateTime nowUtc, TimeSpan grace)
+        => RevocationReason == SessionRevocationReason.Rotated
+            && RevokedOnUtc is { } rotatedOnUtc
+            && nowUtc - rotatedOnUtc > grace;
+}
+
+/// <summary>
+/// P15 T7 / N-29: Bir refresh oturumunun neden kapandığı. Değerler kalıcıdır (veritabanında metin
+/// olarak saklanır); yeniden adlandırılmaz.
+/// </summary>
+public enum SessionRevocationReason
+{
+    /// <summary>Token yenilendi; yerine aynı cihazın yeni oturumu açıldı.</summary>
+    Rotated = 1,
+
+    /// <summary>Kullanıcı bu cihazdan çıkış yaptı.</summary>
+    UserLogout = 2,
+
+    /// <summary>Kullanıcı bu cihazı oturum listesinden kapattı.</summary>
+    DeviceRevoked = 3,
+
+    /// <summary>"Diğer oturumları kapat" ya da "girişte diğerlerini sonlandır" ayarı.</summary>
+    OtherSessionsRevoked = 4,
+
+    /// <summary>Şifre sıfırlandı.</summary>
+    PasswordReset = 5,
+
+    /// <summary>
+    /// Hesap kapandı. Bugün kullanılmaz: anonimleştirme oturum satırlarını <b>siler</b>
+    /// (<see cref="UserAccount.Anonymize"/>); değer askıya alma (P12) için ayrılmıştır.
+    /// </summary>
+    AccountClosed = 6,
+
+    /// <summary>Rotasyonla eskimiş token geri geldi; kullanıcının bütün oturumları kapatıldı.</summary>
+    ReuseDetected = 7
 }
 
 public sealed class UserSecurityToken : Entity<Guid>
