@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-10-16
+updated: 2026-11-14
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -312,7 +312,7 @@ Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOth
 ```
 
 > Olaylar **Outbox pattern** ile güvenilir biçimde yayılır (`Shared/Infrastructure/Messaging`).
-> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır. **2026-09-02 (P02/A-03):** `NullIdentityNotificationService` kaldırıldı; yerine `EmailIdentityNotificationService` geldi — `EmailTemplates` ile HTML+metin gövde üretir ve `Shared/Infrastructure/Email`'deki `IEmailSender`'a verir. Sağlayıcı `Email:Provider` ile seçilir (`Logging` = log'a basar, `Smtp` = MailKit relay). E-postadaki derin bağlantı `egitimussu://password-reset?token=…` / `egitimussu://verify-email?token=…` biçimindedir; token base64 olduğu için bağlantıda **URL-kodlanır**, elle yapıştırma için ham kod da metin gövdede yer alır.
+> Bildirim gönderimi `IIdentityNotificationService` arayüzü üzerinden soyutlanmıştır. **2026-09-02 (P02/A-03):** `NullIdentityNotificationService` kaldırıldı; yerine `EmailIdentityNotificationService` geldi — `EmailTemplates` ile HTML+metin gövde üretir ve `Shared/Infrastructure/Email`'deki `IEmailSender`'a verir. Sağlayıcı `Email:Provider` ile seçilir (`Logging` = göndermez, `Smtp` = MailKit relay). **2026-11-14 (P15 T6 / N-24):** `Logging` yalnız Development/Staging'de açılır (üretimde açılış durur) ve gövdeyi — dolayısıyla sıfırlama/doğrulama kodunu — **hiçbir ortamda** log'a yazmaz; log satırı maskeli alıcı (`a***@g***.com`) + konu taşır. Yerelde kodu okumak için Development'ta `Email__Logging__IncludeBodyInDevelopment=true` ([`environments.md` §3.1](../architecture/environments.md)). Staging'de sıfırlama/doğrulama akışı bu yüzden log'dan tamamlanamaz. E-postadaki derin bağlantı `egitimussu://password-reset?token=…` / `egitimussu://verify-email?token=…` biçimindedir; token base64 olduğu için bağlantıda **URL-kodlanır**, elle yapıştırma için ham kod da metin gövdede yer alır.
 
 ---
 
@@ -378,4 +378,4 @@ Giriş başarılı             → (M15-3) ISessionPolicyDirectory: TerminateOth
 
 ---
 
-*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+*Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-11-14 (P15 Task 6 / N-24: `Logging` e-posta sağlayıcısı üretimde reddedilir, gövde/kod log'a yazılmaz, alıcı maskeli) · 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*

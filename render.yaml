@@ -36,6 +36,42 @@ services:
       - key: Jwt__SigningKey
         generateValue: true   # Render otomatik güvenli bir değer üretir
 
+      # P15 T6 / N-24, P-01: Sağlayıcılar üretimde AÇIKÇA tanımlıdır. Anahtar boş kalırsa
+      # appsettings.json varsayılanı (Logging e-posta / Local depolama) devreye girer ve
+      # EmailOptionsGuard / StorageOptionsGuard açılışı DURDURUR (Logging e-posta şifre sıfırlama
+      # kodlarını log'a yazar; Local depolama konteynerin geçici diskine yazar).
+      # Q7 (SMTP) ve Q4 (S3/R2) cevaplanmadan üretim servisi açılmaz — bilinçli.
+      # Değerler Render panelinden girilir (sync: false). Ayrıntı: doc/architecture/environments.md §1
+      - key: Email__Provider
+        sync: false           # "Smtp"
+      - key: Email__FromEmail
+        sync: false           # ör. no-reply@<alan-adi> (Q14)
+      - key: Email__Smtp__Host
+        sync: false
+      # Email__Smtp__Port tanimli degil: varsayilan 587 (STARTTLS). Farkli port gerekirse
+      # panelden SAYI olarak eklenir — bos bir tamsayi anahtari yapilandirma baglamasini bozar.
+      - key: Email__Smtp__Username
+        sync: false
+      - key: Email__Smtp__Password
+        sync: false
+
+      - key: Storage__Provider
+        sync: false           # "S3"
+      - key: Storage__BucketName
+        sync: false
+      - key: Storage__ServiceUrl
+        sync: false           # R2/MinIO icin uc nokta; AWS S3'te bos
+      - key: Storage__AccessKeyId
+        sync: false
+      - key: Storage__SecretAccessKey
+        sync: false
+
+      # Push uretimde Logging ile acilabilir (yuk sir tasimaz; Firebase Q8 beklenirken yayin
+      # yapilabilsin) — acilista uyari loglanir. Q8 cevaplaninca: Fcm + Push__ProjectId +
+      # Push__ServiceAccountJson (sync: false).
+      - key: Push__Provider
+        value: Logging
+
       # E-05: Üretimde migration AÇILIŞTA UYGULANMAZ. Şema değişikliği ayrı ve gözetilen bir
       # deploy adımıdır (doc/architecture/backup_restore.md §4). Bu değer yanlışlıkla "true"
       # yapılsa bile MigrationStartupGuard uygulamaz; burada "false" olması, uyarı log'u

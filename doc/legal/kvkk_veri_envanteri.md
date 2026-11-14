@@ -10,7 +10,7 @@ code_refs:
   - src/Shared/Infrastructure/Push/**
   - src/Shared/Infrastructure/Storage/**
   - src/Shared/Infrastructure/Observability/**
-updated: 2026-09-05
+updated: 2026-11-14
 ---
 
 # 🗂️ Kişisel Veri Envanteri (KVKK)
@@ -181,6 +181,10 @@ veya benzeri bir alan vardır.
 `***` ile maskeler; her log satırı `TraceId` taşır. Doğrulandı: `?token=SECRET123` çağrısında ham
 değer log'da **0 kez** geçti.
 
+**E-posta günlüğü (P15 T6, 2026-11-14):** göndermeyen `Logging` e-posta sağlayıcısı (yalnız Development/Staging)
+alıcıyı maskeli (`a***@g***.com`) yazar, gövdeyi (sıfırlama/doğrulama kodu) **hiçbir ortamda** yazmaz;
+üretimde bu sağlayıcı açılışı durdurur. Açık kalan tek yer: `SmtpEmailSender` gönderim **hatasında** alıcıyı ham yazar.
+
 ---
 
 ## 5. Çocuk verisi — açık uçlar
@@ -238,4 +242,4 @@ sözleşmesi ve rıza, kural olarak **yasal temsilcinin** (veli) katılımını 
 > İlgili: [aydınlatma metni](kvkk_aydinlatma_metni.md) · [açık rıza metinleri](kvkk_acik_riza_metni.md) ·
 > [saklama ve imha politikası](kvkk_saklama_imha_politikasi.md) · [özet + doldurulacak alanlar](00_legal_index.md)
 
-*Kişisel Veri Envanteri | Güncelleme: 2026-09-05 (ilk sürüm — koddan çıkarıldı; Q5'i açmak için)*
+*Kişisel Veri Envanteri | Güncelleme: 2026-11-14 (P15 T6: e-posta günlüğünde alıcı maskeli, gövde yazılmaz) · 2026-09-05 (ilk sürüm — koddan çıkarıldı; Q5'i açmak için)*

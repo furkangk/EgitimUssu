@@ -76,14 +76,17 @@ ConnectionStringGuard.EnsureValid(
     builder.Configuration.GetConnectionString("Postgres"),
     builder.Environment.IsDevelopment());
 // P02/K-01: E-posta sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce e-posta göndermeme yasak).
+// P15 T6 / N-24: Logging yalnız Development/Staging'de — üretimde şifre sıfırlama kodları log'a düşerdi.
 var emailOptions = builder.Configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
-EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.IsDevelopment());
+EmailOptionsGuard.EnsureValid(emailOptions, builder.Environment.EnvironmentName);
 // P03/K-02: Push sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (sessizce push göndermeme yasak).
+// Logging push üretimde de izinli (yük sır taşımaz, Q8 beklenirken yayın yapılabilsin) — aşağıda uyarılır.
 var pushOptions = builder.Configuration.GetSection(PushOptions.SectionName).Get<PushOptions>() ?? new PushOptions();
-PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.IsDevelopment());
+PushOptionsGuard.EnsureValid(pushOptions, builder.Environment.EnvironmentName);
 // P04/K-03: Depolama sağlayıcısı eksik yapılandırılmışsa uygulama açılmasın (yüklenen dosya kaybolmasın).
+// P15 T6 / P-01: Local yalnız Development/Staging'de — üretimde konteynerin geçici diskine yazardı.
 var storageOptions = builder.Configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
-StorageOptionsGuard.EnsureValid(storageOptions, builder.Environment.IsDevelopment());
+StorageOptionsGuard.EnsureValid(storageOptions, builder.Environment.EnvironmentName);
 // A-01: Redis eksikse hız sınırı, token kara listesi, giriş kilidi ve idempotency **sessizce** kapanır.
 // Diğer sırlarla aynı muamele: üretimde eksik/loopback adresle uygulama açılmaz.
 var redisOptions = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
@@ -161,19 +164,18 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-// Üretimde "Logging" sağlayıcısı bilinçli bir geçiş dönemi seçimidir; sessiz kalmasın diye uyarılır.
-if (!app.Environment.IsDevelopment()
-    && string.Equals(emailOptions.Provider, EmailOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+// Açılışı durdurmayan sahte sağlayıcılar (Staging'de Logging e-posta, Development dışında Logging push)
+// sessiz kalmasın diye uyarılır. Karar guard'ların saf fonksiyonunda; burada yalnız log'a basılır.
+foreach (var providerWarning in new[]
 {
-    app.Logger.LogWarning(
-        "Email:Provider = \"Logging\" — e-postalar GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Smtp'ye geçin.");
-}
-
-if (!app.Environment.IsDevelopment()
-    && string.Equals(pushOptions.Provider, PushOptions.LoggingProvider, StringComparison.OrdinalIgnoreCase))
+    EmailOptionsGuard.Warning(emailOptions, app.Environment.EnvironmentName),
+    PushOptionsGuard.Warning(pushOptions, app.Environment.EnvironmentName),
+})
 {
-    app.Logger.LogWarning(
-        "Push:Provider = \"Logging\" — push bildirimleri GÖNDERİLMİYOR, yalnız log'a yazılıyor. Üretimde Fcm'ye geçin.");
+    if (providerWarning is not null)
+    {
+        app.Logger.LogWarning("{ProviderWarning}", providerWarning);
+    }
 }
 
 app.UseMiddleware<ProblemDetailsExceptionMiddleware>();
