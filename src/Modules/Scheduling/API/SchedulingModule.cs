@@ -146,7 +146,7 @@ public sealed class SchedulingModule : ModuleDefinition
         CancellationToken cancellationToken)
     {
         var result = await dispatcher.Dispatch(
-            new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note, request.Scope, request.OccurrenceStartAtUtc),
+            new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note, request.Scope, request.OccurrenceStartAtUtc, request.AllowTimeOffOverride),
             cancellationToken);
         return ToHttpResult(context, result);
     }
@@ -405,6 +405,8 @@ public sealed class SchedulingModule : ModuleDefinition
         return result.Error.Code switch
         {
             "scheduling.teacher_conflict" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            // P16 T4 / N-07: tatil bloğuna düşen ders; istemci `allowTimeOffOverride: true` ile bilerek yineleyebilir.
+            "scheduling.time_off_conflict" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.lesson_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.entry_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
@@ -420,6 +422,7 @@ public sealed class SchedulingModule : ModuleDefinition
 
 /// <summary>
 /// Ders planı oluşturmak için öğretmen, öğrenci, zaman, format, tekrar ve hatırlatma verilerini taşır.
+/// <c>AllowTimeOffOverride</c>: ders öğretmenin tatil bloğuna düşse de oluştur (P16 T4; varsayılan false → 409).
 /// </summary>
 public sealed record CreateLessonScheduleRequest(
     Guid TeacherUserId,
@@ -433,7 +436,8 @@ public sealed record CreateLessonScheduleRequest(
     int ReminderOffsetMinutes,
     string? LocationLabel,
     string? MeetingUrl,
-    string? Notes)
+    string? Notes,
+    bool AllowTimeOffOverride = false)
 {
     public CreateLessonScheduleCommand ToCommand()
     {
@@ -449,12 +453,14 @@ public sealed record CreateLessonScheduleRequest(
             ReminderOffsetMinutes,
             LocationLabel,
             MeetingUrl,
-            Notes);
+            Notes,
+            AllowTimeOffOverride);
     }
 }
 
 /// <summary>
 /// Planlı dersi güncellemek için yeni konu, zaman, format, tekrar, hatırlatma ve konum verilerini taşır.
+/// <c>AllowTimeOffOverride</c>: yeni saat tatil bloğuna düşse de güncelle (P16 T4).
 /// </summary>
 public sealed record UpdateLessonScheduleRequest(
     string Subject,
@@ -466,7 +472,8 @@ public sealed record UpdateLessonScheduleRequest(
     int ReminderOffsetMinutes,
     string? LocationLabel,
     string? MeetingUrl,
-    string? Notes)
+    string? Notes,
+    bool AllowTimeOffOverride = false)
 {
     public UpdateLessonScheduleCommand ToCommand(Guid lessonId)
     {
@@ -481,7 +488,8 @@ public sealed record UpdateLessonScheduleRequest(
             ReminderOffsetMinutes,
             LocationLabel,
             MeetingUrl,
-            Notes);
+            Notes,
+            AllowTimeOffOverride);
     }
 }
 
@@ -497,13 +505,15 @@ public sealed record CancelLessonScheduleRequest(
 
 /// <summary>
 /// Dersi ertelemek için yeni başlangıç/bitiş ve isteğe bağlı erteleme notunu taşır.
+/// <c>AllowTimeOffOverride</c>: yeni saat tatil bloğuna düşse de ertele (P16 T4).
 /// </summary>
 public sealed record RescheduleLessonScheduleRequest(
     DateTime NewStartAtUtc,
     DateTime NewEndAtUtc,
     string? Note,
     OccurrenceScope Scope = OccurrenceScope.All,
-    DateTime? OccurrenceStartAtUtc = null);
+    DateTime? OccurrenceStartAtUtc = null,
+    bool AllowTimeOffOverride = false);
 
 /// <summary>
 /// Öğrencinin ders erteleme talebi için neden ve isteğe bağlı alternatif başlangıç/bitiş tarihini taşır.

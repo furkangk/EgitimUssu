@@ -99,8 +99,6 @@ public sealed class SelfLessonPolicyTests
     private sealed class StubLessonRepository : ILessonScheduleRepository
     {
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken) => Task.FromResult<LessonSchedule?>(null);
-        public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken) => Task.FromResult(false);
-        public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForStudentUntilAsync(Guid studentId, DateTime untilUtc, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyCollection<LessonSchedule>>(Array.Empty<LessonSchedule>());

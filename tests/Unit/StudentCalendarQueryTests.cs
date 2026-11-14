@@ -129,8 +129,6 @@ public sealed class StudentCalendarQueryTests
             => Task.FromResult<IReadOnlyCollection<LessonOccurrenceException>>(Array.Empty<LessonOccurrenceException>());
 
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListActiveForTeacherUntilAsync(Guid teacherUserId, DateTime untilUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddAsync(LessonSchedule lessonSchedule, CancellationToken cancellationToken) => throw new NotImplementedException();

@@ -18,26 +18,6 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         return _dbContext.LessonSchedules.FindAsync(new object?[] { lessonId }, cancellationToken).AsTask();
     }
 
-    public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken)
-    {
-        return _dbContext.LessonSchedules.AnyAsync(
-            lesson => lesson.TeacherUserId == teacherUserId
-                && lesson.Status != LessonScheduleStatus.Cancelled
-                && (excludeLessonId == null || lesson.Id != excludeLessonId)
-                && lesson.StartAtUtc < endAtUtc
-                && lesson.EndAtUtc > startAtUtc,
-            cancellationToken);
-    }
-
-    public async Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
-    {
-        return await _dbContext.LessonSchedules
-            .Where(lesson => lesson.TeacherUserId == teacherUserId
-                && lesson.StartAtUtc >= startAtUtc
-                && lesson.StartAtUtc <= endAtUtc)
-            .ToArrayAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
     {
         // Ç-06: bu liste öğretmen derslerini döndürür (öğrencinin kendi dersleri /calendar'da gelir).

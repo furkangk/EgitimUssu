@@ -16,7 +16,8 @@ public sealed record CreateLessonScheduleCommand(
     int ReminderOffsetMinutes,
     string? LocationLabel,
     string? MeetingUrl,
-    string? Notes) : ICommand<Result<LessonScheduleResponse>>;
+    string? Notes,
+    bool AllowTimeOffOverride = false) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record UpdateLessonScheduleCommand(
     Guid LessonId,
@@ -29,7 +30,8 @@ public sealed record UpdateLessonScheduleCommand(
     int ReminderOffsetMinutes,
     string? LocationLabel,
     string? MeetingUrl,
-    string? Notes) : ICommand<Result<LessonScheduleResponse>>;
+    string? Notes,
+    bool AllowTimeOffOverride = false) : ICommand<Result<LessonScheduleResponse>>;
 
 public enum OccurrenceScope
 {
@@ -52,7 +54,8 @@ public sealed record RescheduleLessonScheduleCommand(
     DateTime NewEndAtUtc,
     string? Note,
     OccurrenceScope Scope = OccurrenceScope.All,
-    DateTime? OccurrenceStartAtUtc = null) : ICommand<Result<LessonScheduleResponse>>;
+    DateTime? OccurrenceStartAtUtc = null,
+    bool AllowTimeOffOverride = false) : ICommand<Result<LessonScheduleResponse>>;
 
 public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
 
@@ -96,9 +99,8 @@ public interface ILessonScheduleRepository
 {
     Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken);
 
-    Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken);
-
-    Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
+    // P16 T4 / N-07: `HasTeacherConflictAsync` ve `ListForTeacherAsync` kaldırıldı — ikisi de yalnız serinin çapa satırını
+    // karşılaştırıyordu. Çakışma ve tatil listesi `TeacherScheduleConflicts` ile oluşumlar üzerinden hesaplanır.
 
     Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken);
 
@@ -132,20 +134,227 @@ public interface ILessonScheduleRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// P16 T4 / N-07: Bir öğretmenin takvimine yazan işleri serileştirir. Uygulama (Npgsql) işi tek transaction'da,
+/// öğretmen başına <c>pg_advisory_xact_lock</c> altında çalıştırır ve yalnız başarılı sonuçta commit eder; böylece
+/// "çakışma kontrolü → yaz → kaydet" eşzamanlı iki istekte de tek kazanan verir. İlişkisel olmayan sağlayıcıda
+/// (InMemory) işi doğrudan çalıştırır.
+/// <para>
+/// <c>work</c> bağlantı kopmasında bir bütün olarak yeniden denenebilir (`EnableRetryOnFailure`):
+/// okumaları her denemede tekrarlamalı, aggregate değişikliğini bir kez uygulamalıdır.
+/// </para>
+/// </summary>
+public interface ITeacherScheduleLock
+{
+    Task<TResult> RunExclusiveAsync<TResult>(
+        Guid teacherUserId,
+        Func<CancellationToken, Task<TResult>> work,
+        CancellationToken cancellationToken)
+        where TResult : Result;
+}
+
+/// <summary>
+/// P16 T4 / N-07: Çakışma kontrolünün ufku — adayın ilk oluşumundan itibaren kaç hafta genişletileceği
+/// (config <c>Scheduling:ConflictHorizonWeeks</c>, varsayılan 12).
+/// </summary>
+public sealed record SchedulingConflictSettings(int HorizonWeeks)
+{
+    public const string ConfigurationKey = "Scheduling:ConflictHorizonWeeks";
+    public const int DefaultHorizonWeeks = 12;
+    public const int MaxHorizonWeeks = 104;
+
+    public static SchedulingConflictSettings Default { get; } = new(DefaultHorizonWeeks);
+
+    public TimeSpan Horizon => TimeSpan.FromDays(7 * HorizonWeeks);
+
+    /// <summary>
+    /// Config değerini çözer: boşsa varsayılan; aralık dışı ya da sayı olmayan değer açılışı durdurur — sessizce
+    /// varsayılana düşmek çakışma kontrolünü fark edilmeden daraltırdı.
+    /// </summary>
+    public static SchedulingConflictSettings Parse(string? configuredWeeks)
+    {
+        if (string.IsNullOrWhiteSpace(configuredWeeks))
+        {
+            return Default;
+        }
+
+        if (!int.TryParse(configuredWeeks.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var weeks)
+            || weeks < 1
+            || weeks > MaxHorizonWeeks)
+        {
+            throw new InvalidOperationException(
+                $"{ConfigurationKey} 1 ile {MaxHorizonWeeks} arasında bir tam sayı olmalı (verilen: '{configuredWeeks}').");
+        }
+
+        return new SchedulingConflictSettings(weeks);
+    }
+}
+
+/// <summary>
+/// P16 T4 / N-07: Öğretmenin ders çakışması ve tatil bloğu kontrolü <b>somut oluşumlar</b> üzerinden yapılır — eskiden
+/// yalnız serinin ilk satırı (çapa) karşılaştırılıyordu, Eylül'de başlamış haftalık Salı serisi Kasım'ın Salı'sını
+/// korumuyordu. Mevcut dersler öğretmen listesiyle aynı yoldan genişletilir (dilim <c>SeriesZone</c>, serinin tüm
+/// istisnaları; Öğrenilenler #222 b, #223 c): iptal edilen oluşum yer tutmaz, ertelenen oluşum yeni saatinde tutar.
+/// </summary>
+internal static class TeacherScheduleConflicts
+{
+    public static readonly Error LessonConflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
+
+    public static readonly Error TimeOffConflict = new(
+        "scheduling.time_off_conflict",
+        "Bu zaman araligi ogretmenin tatil / musait degil blogunda. Yine de planlamak icin allowTimeOffOverride gonderin.");
+
+    /// <summary>
+    /// Adayın denetlenecek oluşumları. Tekil aday kendi anında denetlenir (geçmişe kayıt girmek mümkün); tekrarlı aday
+    /// <c>max(çapa, şimdi)</c>'den itibaren ufuk boyunca genişletilir — Eylül'de çapalanmış serinin notunu düzeltmek
+    /// geçmişteki bir çakışma yüzünden reddedilmesin. <paramref name="ownExceptions"/> serinin kendi istisnalarıdır
+    /// (güncellemede iptal edilmiş kendi oluşumu yer tutmaz).
+    /// </summary>
+    public static IReadOnlyList<ScheduleOccurrence> CandidateOccurrences(
+        DateTime startAtUtc,
+        DateTime endAtUtc,
+        string? recurrenceRule,
+        TimeZoneInfo zone,
+        IReadOnlyCollection<OccurrenceOverride> ownExceptions,
+        DateTime nowUtc,
+        TimeSpan horizon)
+    {
+        if (string.IsNullOrWhiteSpace(recurrenceRule))
+        {
+            return new[] { new ScheduleOccurrence(startAtUtc, endAtUtc) };
+        }
+
+        var fromUtc = startAtUtc > nowUtc ? startAtUtc : nowUtc;
+        return RecurrenceExpander
+            .Expand(startAtUtc, endAtUtc, recurrenceRule, zone, fromUtc, fromUtc + horizon, ownExceptions)
+            .Where(occurrence => !occurrence.IsCancelled)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Öğretmenin <c>[fromUtc, toUtc)</c> ile kesişen, iptal edilmemiş somut oluşumları (seriler genişletilmiş,
+    /// istisnalar uygulanmış). Tatil oluştururken çakışan derslerin listesi de buradan gelir.
+    /// </summary>
+    public static async Task<IReadOnlyList<(LessonSchedule Lesson, ScheduleOccurrence Occurrence)>> ListOccurrencesAsync(
+        ILessonScheduleRepository repository,
+        ILocalCalendar calendar,
+        Guid teacherUserId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        CancellationToken cancellationToken)
+    {
+        var lessons = await repository.ListActiveForTeacherUntilAsync(teacherUserId, toUtc, cancellationToken);
+        if (lessons.Count == 0)
+        {
+            return Array.Empty<(LessonSchedule, ScheduleOccurrence)>();
+        }
+
+        var exceptionsByLesson = (await repository.ListExceptionsForTeacherAsync(teacherUserId, cancellationToken))
+            .GroupBy(x => x.SeriesLessonScheduleId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyCollection<OccurrenceOverride>)group.Select(ToOverride).ToArray());
+
+        var found = new List<(LessonSchedule, ScheduleOccurrence)>();
+        foreach (var lesson in lessons)
+        {
+            var exceptions = exceptionsByLesson.TryGetValue(lesson.Id, out var own) ? own : Array.Empty<OccurrenceOverride>();
+
+            // Genişletici tekrarlı oluşumu BAŞLANGICINA göre süzer: pencereden önce başlayıp içine taşan oluşum
+            // (16:30–17:30 dersi 17:00 adayına karşı) kaybolmasın diye pencere ders süresi kadar geriden açılır.
+            var duration = lesson.EndAtUtc > lesson.StartAtUtc ? lesson.EndAtUtc - lesson.StartAtUtc : TimeSpan.FromHours(1);
+            foreach (var occurrence in RecurrenceExpander.Expand(
+                lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, calendar.SeriesZone(lesson.TimeZone),
+                fromUtc - duration, toUtc, exceptions))
+            {
+                if (!occurrence.IsCancelled && Overlaps(occurrence.StartAtUtc, occurrence.EndAtUtc, fromUtc, toUtc))
+                {
+                    found.Add((lesson, occurrence));
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// İlk çakışma hatası ya da <c>null</c>. Ders çakışması tatilden önce bakılır ve override edilemez; kesişim kesindir
+    /// (arka arkaya dersler serbest). <paramref name="isSelf"/> adayın kendisinin eski hâlini dışarıda tutar.
+    /// </summary>
+    public static async Task<Error?> FindAsync(
+        ILessonScheduleRepository lessons,
+        ITimeOffBlockRepository timeOff,
+        ILocalCalendar calendar,
+        Guid teacherUserId,
+        IReadOnlyList<ScheduleOccurrence> candidates,
+        Func<LessonSchedule, ScheduleOccurrence, bool> isSelf,
+        bool allowTimeOffOverride,
+        CancellationToken cancellationToken)
+    {
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        var fromUtc = candidates.Min(candidate => candidate.StartAtUtc);
+        var toUtc = candidates.Max(candidate => candidate.EndAtUtc);
+
+        foreach (var (lesson, occurrence) in await ListOccurrencesAsync(lessons, calendar, teacherUserId, fromUtc, toUtc, cancellationToken))
+        {
+            if (!isSelf(lesson, occurrence)
+                && candidates.Any(candidate => Overlaps(candidate.StartAtUtc, candidate.EndAtUtc, occurrence.StartAtUtc, occurrence.EndAtUtc)))
+            {
+                return LessonConflict;
+            }
+        }
+
+        if (allowTimeOffOverride)
+        {
+            return null;
+        }
+
+        var blocks = await timeOff.ListForTeacherAsync(teacherUserId, fromUtc, toUtc, cancellationToken);
+        return blocks.Any(block => candidates.Any(candidate => Overlaps(candidate.StartAtUtc, candidate.EndAtUtc, block.StartAtUtc, block.EndAtUtc)))
+            ? TimeOffConflict
+            : null;
+    }
+
+    public static async Task<IReadOnlyCollection<OccurrenceOverride>> OwnExceptionsAsync(
+        ILessonScheduleRepository repository, LessonSchedule lesson, string? recurrenceRule, CancellationToken cancellationToken)
+        => string.IsNullOrWhiteSpace(recurrenceRule)
+            ? Array.Empty<OccurrenceOverride>()
+            : (await repository.ListExceptionsForSeriesAsync(lesson.Id, cancellationToken)).Select(ToOverride).ToArray();
+
+    private static OccurrenceOverride ToOverride(LessonOccurrenceException exception)
+        => new(exception.OriginalStartAtUtc, exception.Action, exception.OverrideStartAtUtc, exception.OverrideEndAtUtc);
+
+    private static bool Overlaps(DateTime start, DateTime end, DateTime otherStart, DateTime otherEnd)
+        => start < otherEnd && end > otherStart;
+}
+
 public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>
 {
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
-    private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
     private readonly ILessonScheduleRepository _repository;
+    private readonly ITimeOffBlockRepository _timeOff;
+    private readonly ITeacherScheduleLock _scheduleLock;
+    private readonly ILocalCalendar _calendar;
+    private readonly SchedulingConflictSettings _settings;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
     public CreateLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
+        ITimeOffBlockRepository timeOff,
+        ITeacherScheduleLock scheduleLock,
+        ILocalCalendar calendar,
+        SchedulingConflictSettings settings,
         IIdGenerator idGenerator,
         IClock clock)
     {
         _repository = repository;
+        _timeOff = timeOff;
+        _scheduleLock = scheduleLock;
+        _calendar = calendar;
+        _settings = settings;
         _idGenerator = idGenerator;
         _clock = clock;
     }
@@ -157,18 +366,8 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
             return Result<LessonScheduleResponse>.Failure(InvalidRange);
         }
 
-        var hasConflict = await _repository.HasTeacherConflictAsync(
-            command.TeacherUserId,
-            command.StartAtUtc,
-            command.EndAtUtc,
-            null,
-            cancellationToken);
-
-        if (hasConflict)
-        {
-            return Result<LessonScheduleResponse>.Failure(Conflict);
-        }
-
+        // Varlık kilitten önce kurulur: bağlantı kopmasında iş yeniden denenirse aynı nesne yeniden eklenir,
+        // yeni kimlikli ikinci bir ders doğmaz. Çakışma varsa hiç izlenmez/kaydedilmez.
         var lesson = new LessonSchedule(
             _idGenerator.New(),
             command.TeacherUserId,
@@ -186,12 +385,27 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
             command.Notes?.Trim(),
             _clock.UtcNow);
 
-        await _repository.AddAsync(lesson, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
-        // Y1: Hatirlatma, LessonScheduledDomainEvent -> outbox -> Notifications handler yoluyla olusturulur;
-        // Scheduling artik Notifications'a senkron/dogrudan yazmaz (modul izolasyonu + atomiklik).
+        var candidates = TeacherScheduleConflicts.CandidateOccurrences(
+            lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
+            Array.Empty<OccurrenceOverride>(), _clock.UtcNow, _settings.Horizon);
 
-        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        // P16 T4 / N-07: kontrol + ekleme + kaydetme öğretmen kilidinde, tek transaction'da — eşzamanlı iki istekten biri 409.
+        return await _scheduleLock.RunExclusiveAsync(command.TeacherUserId, async token =>
+        {
+            var conflict = await TeacherScheduleConflicts.FindAsync(
+                _repository, _timeOff, _calendar, command.TeacherUserId, candidates,
+                static (_, _) => false, command.AllowTimeOffOverride, token);
+            if (conflict is not null)
+            {
+                return Result<LessonScheduleResponse>.Failure(conflict);
+            }
+
+            await _repository.AddAsync(lesson, token);
+            await _repository.SaveChangesAsync(token);
+            // Y1: Hatirlatma, LessonScheduledDomainEvent -> outbox -> Notifications handler yoluyla olusturulur;
+            // Scheduling artik Notifications'a senkron/dogrudan yazmaz (modul izolasyonu + atomiklik).
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }, cancellationToken);
     }
 }
 
@@ -199,16 +413,27 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
 {
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
-    private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
     private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders duzenlenebilir.");
     private readonly ILessonScheduleRepository _repository;
+    private readonly ITimeOffBlockRepository _timeOff;
+    private readonly ITeacherScheduleLock _scheduleLock;
+    private readonly ILocalCalendar _calendar;
+    private readonly SchedulingConflictSettings _settings;
     private readonly IClock _clock;
 
     public UpdateLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
+        ITimeOffBlockRepository timeOff,
+        ITeacherScheduleLock scheduleLock,
+        ILocalCalendar calendar,
+        SchedulingConflictSettings settings,
         IClock clock)
     {
         _repository = repository;
+        _timeOff = timeOff;
+        _scheduleLock = scheduleLock;
+        _calendar = calendar;
+        _settings = settings;
         _clock = clock;
     }
 
@@ -230,34 +455,46 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
             return Result<LessonScheduleResponse>.Failure(NotEditable);
         }
 
-        var hasConflict = await _repository.HasTeacherConflictAsync(
-            lesson.TeacherUserId ?? Guid.Empty,
-            command.StartAtUtc,
-            command.EndAtUtc,
-            lesson.Id,
-            cancellationToken);
+        var teacherUserId = lesson.TeacherUserId ?? Guid.Empty;
+        var recurrenceRule = command.RecurrenceRule?.Trim();
+        var zone = _calendar.SeriesZone(command.TimeZone);
+        var applied = false;
 
-        if (hasConflict)
+        // P16 T4 / N-07: dersin kendisi hariç; adaya serinin kendi istisnaları uygulanır (iptal edilmiş kendi oluşumu
+        // yer tutmaz). Aggregate yalnız bir kez değişir — iş yeniden denenirse olay ikinci kez yayılmasın.
+        return await _scheduleLock.RunExclusiveAsync(teacherUserId, async token =>
         {
-            return Result<LessonScheduleResponse>.Failure(Conflict);
-        }
+            var ownExceptions = await TeacherScheduleConflicts.OwnExceptionsAsync(_repository, lesson, recurrenceRule, token);
+            var candidates = TeacherScheduleConflicts.CandidateOccurrences(
+                command.StartAtUtc, command.EndAtUtc, recurrenceRule, zone, ownExceptions, _clock.UtcNow, _settings.Horizon);
+            var conflict = await TeacherScheduleConflicts.FindAsync(
+                _repository, _timeOff, _calendar, teacherUserId, candidates,
+                (other, _) => other.Id == lesson.Id, command.AllowTimeOffOverride, token);
+            if (conflict is not null)
+            {
+                return Result<LessonScheduleResponse>.Failure(conflict);
+            }
 
-        lesson.UpdateDetails(
-            command.Subject.Trim(),
-            command.LessonFormat,
-            command.StartAtUtc,
-            command.EndAtUtc,
-            command.TimeZone.Trim(),
-            command.RecurrenceRule?.Trim(),
-            command.ReminderOffsetMinutes,
-            command.LocationLabel?.Trim(),
-            command.MeetingUrl?.Trim(),
-            command.Notes?.Trim(),
-            _clock.UtcNow);
+            if (!applied)
+            {
+                lesson.UpdateDetails(
+                    command.Subject.Trim(),
+                    command.LessonFormat,
+                    command.StartAtUtc,
+                    command.EndAtUtc,
+                    command.TimeZone.Trim(),
+                    recurrenceRule,
+                    command.ReminderOffsetMinutes,
+                    command.LocationLabel?.Trim(),
+                    command.MeetingUrl?.Trim(),
+                    command.Notes?.Trim(),
+                    _clock.UtcNow);
+                applied = true;
+            }
 
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+            await _repository.SaveChangesAsync(token);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }, cancellationToken);
     }
 }
 
@@ -267,15 +504,18 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
     private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli veya taslak ders iptal edilebilir.");
     private static readonly Error InvalidRequest = new("scheduling.invalid_request", "Tekrar kapsami ve ders tarihi eksik veya hatali.");
     private readonly ILessonScheduleRepository _repository;
+    private readonly ITeacherScheduleLock _scheduleLock;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
     public CancelLessonScheduleCommandHandler(
         ILessonScheduleRepository repository,
+        ITeacherScheduleLock scheduleLock,
         IClock clock,
         IIdGenerator idGenerator)
     {
         _repository = repository;
+        _scheduleLock = scheduleLock;
         _clock = clock;
         _idGenerator = idGenerator;
     }
@@ -304,9 +544,15 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             var occurrenceException = new LessonOccurrenceException(
                 _idGenerator.New(), lesson.Id, occStart,
                 OccurrenceExceptionAction.Cancelled, null, null, command.CancellationNote?.Trim(), _clock.UtcNow);
-            await _repository.UpsertExceptionAsync(occurrenceException, cancellationToken);
-            await _repository.SaveChangesAsync(cancellationToken);
-            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+
+            // P16 T4 (Öğrenilenler #223 g): upsert "oku → yoksa ekle"dir; aynı oluşuma eşzamanlı erteleme/iptal benzersiz
+            // indekse çarpıp 500 almasın diye ertelemeyle aynı öğretmen kilidinde serileşir.
+            return await _scheduleLock.RunExclusiveAsync(lesson.TeacherUserId ?? Guid.Empty, async token =>
+            {
+                await _repository.UpsertExceptionAsync(occurrenceException, token);
+                await _repository.SaveChangesAsync(token);
+                return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+            }, cancellationToken);
         }
 
         if (isRecurring && command.Scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
@@ -327,16 +573,30 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
 {
     private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
-    private static readonly Error Conflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
     private static readonly Error NotEditable = new("scheduling.not_editable", "Yalnizca planli ders ertelenebilir.");
     private static readonly Error InvalidRequest = new("scheduling.invalid_request", "Tekrar kapsami ve ders tarihi eksik veya hatali.");
     private readonly ILessonScheduleRepository _repository;
+    private readonly ITimeOffBlockRepository _timeOff;
+    private readonly ITeacherScheduleLock _scheduleLock;
+    private readonly ILocalCalendar _calendar;
+    private readonly SchedulingConflictSettings _settings;
     private readonly IClock _clock;
     private readonly IIdGenerator _idGenerator;
 
-    public RescheduleLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock, IIdGenerator idGenerator)
+    public RescheduleLessonScheduleCommandHandler(
+        ILessonScheduleRepository repository,
+        ITimeOffBlockRepository timeOff,
+        ITeacherScheduleLock scheduleLock,
+        ILocalCalendar calendar,
+        SchedulingConflictSettings settings,
+        IClock clock,
+        IIdGenerator idGenerator)
     {
         _repository = repository;
+        _timeOff = timeOff;
+        _scheduleLock = scheduleLock;
+        _calendar = calendar;
+        _settings = settings;
         _clock = clock;
         _idGenerator = idGenerator;
     }
@@ -366,28 +626,58 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             return Result<LessonScheduleResponse>.Failure(InvalidRequest);
         }
 
-        var hasConflict = await _repository.HasTeacherConflictAsync(
-            lesson.TeacherUserId ?? Guid.Empty, command.NewStartAtUtc, command.NewEndAtUtc, lesson.Id, cancellationToken);
-        if (hasConflict)
-        {
-            return Result<LessonScheduleResponse>.Failure(Conflict);
-        }
-
-        if (!string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
+        var teacherUserId = lesson.TeacherUserId ?? Guid.Empty;
+        var singleOccurrence = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
             && command.Scope == OccurrenceScope.Single
-            && command.OccurrenceStartAtUtc is { } occStart)
-        {
-            var occurrenceException = new LessonOccurrenceException(
-                _idGenerator.New(), lesson.Id, occStart,
-                OccurrenceExceptionAction.Rescheduled, command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
-            await _repository.UpsertExceptionAsync(occurrenceException, cancellationToken);
-            await _repository.SaveChangesAsync(cancellationToken);
-            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
-        }
+            && command.OccurrenceStartAtUtc is not null;
+        var occurrenceException = singleOccurrence
+            ? new LessonOccurrenceException(
+                _idGenerator.New(), lesson.Id, command.OccurrenceStartAtUtc!.Value,
+                OccurrenceExceptionAction.Rescheduled, command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow)
+            : null;
+        var applied = false;
 
-        lesson.Reschedule(command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
-        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        return await _scheduleLock.RunExclusiveAsync(teacherUserId, async token =>
+        {
+            // P16 T4 / N-07: tek oluşum taşınırken yalnız o oluşum hariç tutulur — aynı serinin kardeş oluşumunun üstüne
+            // taşımak da çakışmadır. Seri bütün taşınırken aday yeni çapadan genişletilir, dersin kendisi hariç.
+            IReadOnlyList<ScheduleOccurrence> candidates;
+            Func<LessonSchedule, ScheduleOccurrence, bool> isSelf;
+            if (occurrenceException is not null)
+            {
+                candidates = new[] { new ScheduleOccurrence(command.NewStartAtUtc, command.NewEndAtUtc) };
+                isSelf = (other, occurrence) => other.Id == lesson.Id && occurrence.RecurrenceIdUtc == occurrenceException.OriginalStartAtUtc;
+            }
+            else
+            {
+                var ownExceptions = await TeacherScheduleConflicts.OwnExceptionsAsync(_repository, lesson, lesson.RecurrenceRule, token);
+                candidates = TeacherScheduleConflicts.CandidateOccurrences(
+                    command.NewStartAtUtc, command.NewEndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
+                    ownExceptions, _clock.UtcNow, _settings.Horizon);
+                isSelf = (other, _) => other.Id == lesson.Id;
+            }
+
+            var conflict = await TeacherScheduleConflicts.FindAsync(
+                _repository, _timeOff, _calendar, teacherUserId, candidates, isSelf, command.AllowTimeOffOverride, token);
+            if (conflict is not null)
+            {
+                return Result<LessonScheduleResponse>.Failure(conflict);
+            }
+
+            if (occurrenceException is not null)
+            {
+                // Upsert yeniden denemede aynı satırı (ya da izlenen eklemeyi) günceller; tekrar satırı doğmaz.
+                await _repository.UpsertExceptionAsync(occurrenceException, token);
+            }
+            else if (!applied)
+            {
+                lesson.Reschedule(command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
+                applied = true;
+            }
+
+            await _repository.SaveChangesAsync(token);
+            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }, cancellationToken);
     }
 }
 

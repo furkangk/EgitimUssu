@@ -387,12 +387,6 @@ public sealed class WriteEndpointLinkAuthorizationTests
         public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
             => Task.FromResult(lesson is not null && lesson.Id == lessonId ? lesson : null);
 
-        public Task<bool> HasTeacherConflictAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, Guid? excludeLessonId, CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-
-        public Task<IReadOnlyCollection<LessonSchedule>> ListForTeacherAsync(Guid teacherUserId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-
         public Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 

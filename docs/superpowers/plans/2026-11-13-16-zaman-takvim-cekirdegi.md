@@ -109,22 +109,29 @@
 
 ---
 
-### Task 4: Çakışma kontrolü — tekrar, tatil bloğu, eşzamanlılık (N-07)
+### Task 4: Çakışma kontrolü — tekrar, tatil bloğu, eşzamanlılık (N-07) ✅
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (`HasConflictAsync` → oluşum genişletmeli; `ListOverlappingAsync` başlangıcı bloktan önce olan dersleri de kapsar)
-- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (create/update/reschedule: tatil bloğu kontrolü + kilit)
-- Modify: `src/Modules/Scheduling/Application/TimeOffFeatures.cs` (çakışan dersleri seri genişleterek listele)
-- Create: `src/Modules/Scheduling/Infrastructure/TeacherScheduleLock.cs` (`pg_advisory_xact_lock(hashtext('sched:' || teacherId))`; InMemory'de no-op)
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleRepository.cs` (*2026-11-14 düzeltildi:* `HasTeacherConflictAsync` ve `ListForTeacherAsync` — yalnız çapa satırını karşılaştıran iki sorgu — **kaldırılır**; genişletme Application'da, mevcut `ListActiveForTeacherUntilAsync` + `ListExceptionsForTeacherAsync` üzerinden yapılır. Planın andığı `ListOverlappingAsync` kodda yoktu; o işi `ListForTeacherAsync` görüyordu)
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (create/update/reschedule: oluşum genişletmeli çakışma + tatil bloğu kontrolü + kilit; iptal `Single` da kilide alınır — Öğrenilenler #223 g; saf `TeacherScheduleConflicts` yardımcısı, `ITeacherScheduleLock` arayüzü, `SchedulingConflictSettings`)
+- Modify: `src/Modules/Scheduling/Application/TimeOffFeatures.cs` (çakışan dersleri seri genişleterek listele; bloktan önce başlayıp bloğa taşan ders dahil; kilit altında)
+- Create: `src/Modules/Scheduling/Infrastructure/TeacherScheduleLock.cs` (`pg_advisory_xact_lock(hashtext('sched:' || teacherId))`; Npgsql değilse no-op)
+- Modify: `src/Modules/Scheduling/Infrastructure/DependencyInjection.cs` (kilit + `Scheduling:ConflictHorizonWeeks` okunur, aralık dışıysa açılış durur) — *2026-11-14 eklendi*
+- Modify: `src/Modules/Scheduling/API/SchedulingModule.cs` (üç istek gövdesine `AllowTimeOffOverride`, `scheduling.time_off_conflict` → 409; yoksa varsayılan 400'e düşerdi) — *2026-11-14 eklendi*
+- Modify: `ILessonScheduleRepository` sahteleri (kaldırılan iki yöntem) + handler kurucusu değişenler — `tests/Unit/LessonScheduleTests.cs`, `SchedulingMutationIntegrityTests.cs`, `OccurrenceExceptionUpsertTests.cs`, `SelfLessonPolicyTests.cs`, `StudentCalendarQueryTests.cs`, `TeacherLessonExpansionTests.cs`, `WriteEndpointLinkAuthorizationTests.cs` — *2026-11-14 eklendi*
+- Doc: `doc/modules/m04_scheduling.md`, `doc/modules/00_genel_bakis.md`, `doc/architecture/backend.md` (yeni persistence deseni: öğretmen başına advisory lock), `doc/roles/ogretmen.md`, rapor N-07 — *2026-11-14 eklendi*
 - Test: `tests/Unit/LessonConflictRecurrenceTests.cs`, `tests/Integration/RealConcurrentLessonCreateTests.cs`
 
 **Interfaces:**
-- Hatalar: `scheduling.lesson_conflict` (mevcut), `scheduling.time_off_conflict` (yeni, 409). İstek gövdesine `allowTimeOffOverride: bool` (varsayılan false) — öğretmen bilerek tatil gününe ders koyabilsin.
-- Kontrol penceresi: yeni dersin ilk oluşumundan itibaren **12 hafta** (config `Scheduling:ConflictHorizonWeeks`).
+- Hatalar: `scheduling.teacher_conflict` (mevcut — *2026-11-14 düzeltildi:* plan `lesson_conflict` diyordu, kodda ve mobil sözleşmede ad `teacher_conflict`; değiştirilmedi), `scheduling.time_off_conflict` (yeni, 409). İstek gövdesine `allowTimeOffOverride: bool` (varsayılan false; create/update/reschedule) — öğretmen bilerek tatil gününe ders koyabilsin. Ders çakışması tatilden **önce** bakılır ve override edilemez.
+- Kontrol penceresi: yeni dersin ilk oluşumundan itibaren **12 hafta** (config `Scheduling:ConflictHorizonWeeks`, 1–104). *2026-11-14 netleştirildi:* tekrarlı adayda pencere `max(çapa, şimdi)`'den başlar (Eylül'de çapalanmış bir serinin notunu düzeltmek geçmişteki bir çakışma yüzünden 409 almasın); tekil aday her zaman kendi anında denetlenir (geçmişe kayıt girilebilir, eski davranış).
+- Mevcut oluşumlar aday aralığından **ders süresi kadar geriden** genişletilir: genişletici seri oluşumunu başlangıcına göre süzer, 16:30–17:30 dersi 17:00 adayından kaybolmasın; çakışma kesin `<`/`>` (arka arkaya dersler serbest). İptal edilen oluşum yer tutmaz, ertelenen oluşum yeni saatinde yer tutar.
+- Hariç tutma: update ve reschedule-All dersin kendisini; reschedule-Single yalnız hedef oluşumu (aynı serinin kardeş oluşumunun üstüne taşıma yakalanır). Update/reschedule-All adayına serinin kendi istisnaları uygulanır.
+- `ITeacherScheduleLock.RunExclusiveAsync(teacherUserId, work, ct)`: execution strategy → transaction → `pg_advisory_xact_lock` → `work` (okuma + yazım + `SaveChanges`) → yalnız başarıda commit. İş birimi yeniden denenebilir yazılır (aggregate değişikliği bir kez uygulanır).
 
-- [ ] **Step 1: Kırmızı testler** — Eylül'de başlamış haftalık Salı 17:00 serisi varken Kasım'da Salı 17:00 tekil ders → 409; tatil bloğu içine ders → 409 `time_off_conflict`, override ile 200; bloktan önce başlayıp bloğa taşan ders tatil oluştururken listelenir; iki paralel POST (Testcontainers) → **biri** 409.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula** (kilit + kontrol + insert **aynı transaction**). **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 5: Doküman + commit** — `m04`; rapor N-07 ✅.
+- [x] **Step 1: Kırmızı testler** — Eylül'de başlamış haftalık Salı 17:00 serisi varken Kasım'da Salı 17:00 tekil ders → 409; tatil bloğu içine ders → 409 `time_off_conflict`, override ile 200; bloktan önce başlayıp bloğa taşan ders tatil oluştururken listelenir; iki paralel POST (Testcontainers) → **biri** 409. *(Ek: kısmi kesişim (16:30–17:30 serisi 17:00 adayını bloklar) ve arka arkaya ders serbest; iptal edilen oluşum boşaltır, ertelenen yeni saatini tutar; tekrarlı aday 4 hafta sonraki tekil derse çarpar, ufuk dışı (13. hafta) serbest, ufuk config'le büyür; Eylül serisinin notunu düzeltmek geçmiş çakışmaya takılmaz, kendi iptal oluşumu yer tutmaz; tek oluşum kardeş oluşumun / başka serinin üstüne taşınamaz, kendi saatinin yarım saat ötesine taşınabilir; ders çakışması tatilden önce ve override edilemez; her yazma yolu okuma + kaydetmeyi kilit içinde yapar; **kilit testi** — test bağlantısı `sched:<id>` anahtarını tutarken oluştur/tek erteleme/tek iptal bekler, başka öğretmen beklemez; HTTP'de `time_off_conflict` 409 + override 200.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce imza davranışsız geçirildi — kilit arayüzü + geçişli uygulama, `SchedulingConflictSettings`, `AllowTimeOffOverride`, kurucular — 1072 yeşil; sonra 33 yeni birim testinden 17'si, 5 integration testinin 5'i iddia hatasıyla kırmızı — paralel testte yarış gerçekten oluştu.)* **Step 3: Uygula** (kilit + kontrol + insert **aynı transaction**). **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh` *(mutasyon: `pg_advisory_xact_lock` çağrısı kapatılınca iki kilit testi kırmızı)*
+- [x] **Step 5: Doküman + commit** — `m04`; rapor N-07 ✅.
   ```bash
   git commit -m "fix(scheduling): cakisma kontrolu olusum genisletir, tatil blogu ve es zamanli istek korunur (N-07)"
   ```
