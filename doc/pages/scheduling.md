@@ -7,13 +7,13 @@ authority: code
 code_refs:
   - mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Takvim / Scheduling (`/scheduling`)
 
 > **Feature:** `scheduling` · **Dosya:** `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart`
-> **State:** Stateful + `SchedulingCubit`, `StudentsCubit` · **Veri:** Karışık (initState'te demo seed) · **Güncelleme:** 2026-09-04
+> **State:** Stateful + `SchedulingCubit`, `StudentsCubit` · **Veri:** Karışık (initState'te demo seed) · **Güncelleme:** 2026-11-15
 
 ## Amaç
 Ders takvimi; gün/hafta/ay görünümü. Dersler, müsait olmayan slotlar, ödevler ve ödeme vadeleri gösterilir. Yeni ders için FAB.
@@ -26,8 +26,9 @@ Ders takvimi; gün/hafta/ay görünümü. Dersler, müsait olmayan slotlar, öde
 ## Veri / API
 - `SchedulingCubit` üzerinden; başlangıçta demo dersler seed ediliyor. Backend: `GET /api/scheduling/teachers/{teacherUserId}/lessons`, `POST /api/scheduling/lessons`.
 - **Tekrar açılımı (M04-1, 2026-09-04):** Liste ucu artık seriyi değil **somut oluşumları** döner — haftalık bir ders takvimde her haftasında görünür. Açılım backend'de (`RecurrenceExpander`) yapılır; ekranda istemci tarafı genişletme yoktur. Aynı seriye ait satırlar aynı `id`'yi taşır, saatleri farklıdır; `occurrenceStartAtUtc` alanı tek oluşum iptal/erteleme uçlarının hedef anahtarıdır (mobil henüz bu uçları kullanmıyor).
-- Çakışma: ortak form haftalık önizlemede "Çakışma var/Uygun" rozetiyle **yumuşak uyarı** gösterir; sert engelleme backend'de (`HasTeacherConflictAsync` → 409, bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md) §161).
-- ⚠️ Eksik: istemci tarafı ders güncelleme (yalnızca oluştur + iptal var).
+- Çakışma: ortak form haftalık önizlemede "Çakışma var/Uygun" rozetiyle **yumuşak uyarı** gösterir; sert engelleme backend'de (oluşum genişletmeli kontrol → `409 scheduling.teacher_conflict`, tatil bloğu `409 scheduling.time_off_conflict` — P16 T4; bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md) §4 kural 2).
+- **Kapsam (P17 T1 / N-01, 2026-11-15):** veri katmanı hazır — `LessonSchedule.occurrenceStartAtUtc` okunur, `SchedulingCubit.cancelLesson(lesson, scope)` tekrarlı derste kapsam + **orijinal** oluşum anahtarını gönderir (sunucu kapsamsız isteği artık `400 scheduling.scope_required` ile reddeder). "Yalnız bu ders / Bu ve sonrakiler / Tüm seri" seçimi `widgets/occurrence_scope_sheet.dart` (`showOccurrenceScopeSheet`, varsayılan "Yalnız bu ders", ARB).
+- ⚠️ Eksik (koddan doğrulandı 2026-11-15): bu ekranda ders **iptal/erteleme girişi yok** — `cancelLesson` hiçbir ekrandan çağrılmıyor, mobil `/reschedule`'ı hiç çağırmıyor (önceki not "iptal var" diyordu, yanlıştı). İptal girişi P17 T5, erteleme P21 T4. İstemci tarafı ders güncelleme de yok.
 
 ## İlgili
 - Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.6 · Modül: M04

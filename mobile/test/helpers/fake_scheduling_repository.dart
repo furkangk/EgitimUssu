@@ -33,7 +33,8 @@ class FakeSchedulingRepository implements SchedulingRepository {
 
   @override
   Future<LessonSchedule> cancelLesson({
-    required String lessonId,
+    required LessonSchedule lesson,
+    required OccurrenceScope scope,
     String? cancellationNote,
   }) {
     throw UnimplementedError();

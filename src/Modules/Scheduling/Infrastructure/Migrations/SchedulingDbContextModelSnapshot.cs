@@ -35,6 +35,9 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
                     b.Property<Guid>("LessonScheduleId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("OccurrenceStartAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("ProposedEndAtUtc")
                         .HasColumnType("timestamp with time zone");
 

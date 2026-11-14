@@ -16,6 +16,7 @@ class LessonScheduleModel extends LessonSchedule {
     super.locationLabel,
     super.meetingUrl,
     super.notes,
+    super.occurrenceStartAtUtc,
   });
 
   factory LessonScheduleModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +35,7 @@ class LessonScheduleModel extends LessonSchedule {
       locationLabel: json['locationLabel']?.toString(),
       meetingUrl: json['meetingUrl']?.toString(),
       notes: json['notes']?.toString(),
+      occurrenceStartAtUtc: _parseUtc(json['occurrenceStartAtUtc']),
     );
   }
 
@@ -94,8 +96,29 @@ class LessonScheduleModel extends LessonSchedule {
     };
   }
 
-  Map<String, dynamic> toCancelPayload(String? cancellationNote) {
-    return <String, dynamic>{'cancellationNote': cancellationNote};
+  /// P17 T1 / N-01: tekrarlı derste kapsam + oluşumun **orijinal** anahtarı gönderilir
+  /// (ertelenmiş oluşumda görünen saat değil — master §4). Eskiden yük yalnız notu
+  /// taşıyordu ve sunucu bunu "tüm seri" sayıyordu. Tekil derste kapsam gönderilmez.
+  static Map<String, dynamic> cancelPayload({
+    required LessonSchedule lesson,
+    required OccurrenceScope scope,
+    String? cancellationNote,
+  }) {
+    return <String, dynamic>{
+      'cancellationNote': cancellationNote,
+      if (lesson.isRecurring) ...<String, dynamic>{
+        'scope': scope.apiValue,
+        if (scope != OccurrenceScope.all)
+          'occurrenceStartAtUtc': lesson.occurrenceKeyUtc
+              .toUtc()
+              .toIso8601String(),
+      },
+    };
+  }
+
+  static DateTime? _parseUtc(Object? value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString())?.toUtc();
   }
 
   static int _formatToInt(String format) {

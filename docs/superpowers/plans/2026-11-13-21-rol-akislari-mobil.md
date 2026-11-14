@@ -38,6 +38,7 @@
 ### Task 4: Öğretmen takvim işlemleri (rapor 2.1-3, §4-7)
 - **K-30 (kullanıcı onaylı 2026-11-14):** öğretmen alt menüsü 6 → 5 sekme — Ana sayfa · Program · Öğrenciler · Finans · Diğer; "Program" Takvim ve Dersler'i `Takvim | Dersler` bölümlü seçiciyle birleştirir (taslak O04/O08). Derin bağlantılar `/scheduling` ve `/lesson-sessions` çalışmaya devam eder.
 - Tatil bloğu oluştur/listele/sil (P16 T4 çakışma uyarısıyla); öğrenci erteleme talepleri gelen kutusu (kabul/ret, oluşum bazlı — P17 T1); online ders linkine dokununca `url_launcher` ile açılır (kopyala ikincil).
+- **Öğretmenin ders ertelemesi** — *2026-11-15 eklendi (P17 T1 devri):* mobil `/reschedule`'ı **hiç çağırmıyor**; repository + cubit metodu ve ekran girişi yazılır. Tekrarlı derste önce `showOccurrenceScopeSheet` (P17 T1, ARB'li), yük `scope` + **orijinal** `occurrenceStartAtUtc` (`LessonSchedule.occurrenceKeyUtc`) + `allowTimeOffOverride`; 409'lar `code` ile ayrılır (`teacher_conflict` / `time_off_conflict` → "Yine de ertele" — Öğrenilenler #224 d). Cubit birleştirmesi `id` ile değil oluşum anahtarıyla (P17 T5 notu).
 - **Kabul:** tatil bloğu takvimde görünür ve içine ders açmak uyarı verir; talep kabulü yalnız o oluşumu taşır.
 
 ### Task 5: Ödeme mutabakatı (rapor 2.1-4, 2.3-3)

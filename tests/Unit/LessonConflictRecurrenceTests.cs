@@ -294,7 +294,7 @@ public sealed class LessonConflictRecurrenceTests
         Assert.True((await Create(Utc(2026, 11, 19, 8))).IsSuccess);
         Assert.True((await Update(single, Utc(2026, 11, 20, 10), null)).IsSuccess);
         Assert.True((await RescheduleSingle(series, NovemberTuesday, NovemberTuesday.AddHours(3))).IsSuccess);
-        var cancel = new CancelLessonScheduleCommandHandler(_store, _lock, Clock, new SequentialIds());
+        var cancel = new CancelLessonScheduleCommandHandler(_store, _lock, Calendar, Clock, new SequentialIds());
         Assert.True((await cancel.Handle(new CancelLessonScheduleCommand(
             series.Id, CancellationReason.Other, false, null, OccurrenceScope.Single, NovemberTuesday.AddDays(7)), CancellationToken.None)).IsSuccess);
 

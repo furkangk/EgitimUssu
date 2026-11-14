@@ -1,3 +1,16 @@
+/// P17 T1 / N-01 (K-20): tekrarlı derste iptal/erteleme kapsamı. Değerler backend
+/// `OccurrenceScope` enum'uyla aynıdır; tekrarlı derste kapsamsız istek `400
+/// scheduling.scope_required` alır.
+enum OccurrenceScope {
+  single(1),
+  thisAndFuture(2),
+  all(3);
+
+  const OccurrenceScope(this.apiValue);
+
+  final int apiValue;
+}
+
 class LessonSchedule {
   const LessonSchedule({
     required this.id,
@@ -14,6 +27,7 @@ class LessonSchedule {
     this.locationLabel,
     this.meetingUrl,
     this.notes,
+    this.occurrenceStartAtUtc,
   });
 
   final String id;
@@ -32,6 +46,16 @@ class LessonSchedule {
   /// Online dersler icin toplanti baglantisi (Zoom/Meet vb.).
   final String? meetingUrl;
   final String? notes;
+
+  /// Serinin bu oluşumunun **orijinal** başlangıcı (iCal RECURRENCE-ID). Ertelenmiş
+  /// oluşumda [startAtUtc] yeni saattir, bu alan ilk planlanan saattir — tek oluşum
+  /// iptal/erteleme istekleri bununla hedeflenir (master §4).
+  final DateTime? occurrenceStartAtUtc;
+
+  bool get isRecurring => (recurrenceRule ?? '').trim().isNotEmpty;
+
+  /// İstek anahtarı: sunucu orijinali gönderdiyse o, değilse dersin başlangıcı.
+  DateTime get occurrenceKeyUtc => occurrenceStartAtUtc ?? startAtUtc;
 }
 
 /// Öğrencinin kendi oluşturduğu kişisel program girdisi (öğretmenden bağımsız).
@@ -122,8 +146,12 @@ abstract interface class SchedulingRepository {
   Future<LessonSchedule> createLesson(LessonSchedule lessonSchedule);
   Future<LessonSchedule> updateLesson(LessonSchedule lessonSchedule);
   Future<LessonSchedule> getLesson(String lessonId);
+
+  /// Tekrarlı derste [scope] zorunlu anlamlıdır ([LessonSchedule.occurrenceKeyUtc] ile
+  /// gönderilir); tekil derste yok sayılır.
   Future<LessonSchedule> cancelLesson({
-    required String lessonId,
+    required LessonSchedule lesson,
+    required OccurrenceScope scope,
     String? cancellationNote,
   });
   Future<LessonSchedule> completeLesson({required String lessonId});

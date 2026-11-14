@@ -170,15 +170,19 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     }
   }
 
+  /// P17 T1 / N-01: tekrarlı derste [scope] kullanıcıya sorulur
+  /// (`showOccurrenceScopeSheet`, varsayılan "Yalnız bu ders"). Ekran girişi P17 T5'te.
   Future<void> cancelLesson({
     required LessonSchedule lesson,
+    required OccurrenceScope scope,
     String? cancellationNote,
   }) async {
     if (isClosed) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
       final cancelled = await _repository.cancelLesson(
-        lessonId: lesson.id,
+        lesson: lesson,
+        scope: scope,
         cancellationNote: cancellationNote,
       );
       if (isClosed) return;

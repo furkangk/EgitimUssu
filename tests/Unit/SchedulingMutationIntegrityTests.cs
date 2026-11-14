@@ -18,7 +18,7 @@ public sealed class SchedulingMutationIntegrityTests
     {
         var lesson = NewLesson(status);
         var repository = new RecordingRepository(lesson);
-        var handler = new CancelLessonScheduleCommandHandler(repository, new PassThroughScheduleLock(), new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repository, new PassThroughScheduleLock(), new LocalCalendar("Europe/Istanbul", new FakeClock()), new FakeClock(), new FakeIdGenerator());
 
         var result = await handler.Handle(new CancelLessonScheduleCommand(lesson.Id, CancellationReason.Other,
             false, null, scope, Start.AddDays(7)), default);
@@ -54,7 +54,7 @@ public sealed class SchedulingMutationIntegrityTests
     {
         var lesson = NewLesson(LessonScheduleStatus.Planned);
         var repository = new RecordingRepository(lesson);
-        var handler = new CancelLessonScheduleCommandHandler(repository, new PassThroughScheduleLock(), new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repository, new PassThroughScheduleLock(), new LocalCalendar("Europe/Istanbul", new FakeClock()), new FakeClock(), new FakeIdGenerator());
 
         var result = await handler.Handle(new CancelLessonScheduleCommand(lesson.Id, CancellationReason.Other,
             false, null, scope), default);
