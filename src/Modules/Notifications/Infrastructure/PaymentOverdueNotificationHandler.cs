@@ -24,18 +24,21 @@ public sealed class PaymentOverdueNotificationHandler : IdempotentIntegrationEve
     private readonly IParentNotificationDirectory _directory;
     private readonly IUserNotificationRepository _userNotifications;
     private readonly IIdGenerator _idGenerator;
+    private readonly ILocalCalendar _calendar;
 
     public PaymentOverdueNotificationHandler(
         NotificationsDbContext dbContext,
         IParentNotificationDirectory directory,
         IUserNotificationRepository userNotifications,
         IIdGenerator idGenerator,
-        IClock clock)
+        IClock clock,
+        ILocalCalendar calendar)
         : base(dbContext, clock)
     {
         _directory = directory;
         _userNotifications = userNotifications;
         _idGenerator = idGenerator;
+        _calendar = calendar;
     }
 
     public override bool CanHandle(IIntegrationEvent integrationEvent)
@@ -51,7 +54,7 @@ public sealed class PaymentOverdueNotificationHandler : IdempotentIntegrationEve
         }
 
         var amount = payload.OutstandingAmount.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"));
-        var dueDate = payload.DueDateUtc.ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("tr-TR"));
+        var dueDate = NotificationTimeText.LocalDate(_calendar, payload.DueDateUtc);
 
         await AddAsync(
             payload.TeacherUserId,

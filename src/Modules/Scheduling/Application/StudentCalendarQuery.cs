@@ -61,10 +61,11 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
         var exceptionsByLesson = await SelfLessonConflict.LoadExceptionsByLessonAsync(_lessonRepository, lessons, cancellationToken);
 
         // Ç-06: (LessonId, tarih) → çalışıldı kümesi (Study modülünden okuma sözleşmesiyle).
+        // P16 T5 / N-11: tarihler Türkiye yerel günüdür — iki taraf da aynı kuralla eşleşir (Salı 01:30 TR dersi Salı).
         var completions = await _completionReader.GetCompletionsAsync(
             query.StudentId,
-            DateOnly.FromDateTime(query.StartAtUtc),
-            DateOnly.FromDateTime(query.EndAtUtc),
+            _calendar.ToLocalDate(query.StartAtUtc),
+            _calendar.ToLocalDate(query.EndAtUtc),
             cancellationToken);
         var completedSet = completions.Select(c => (c.LessonId, c.Date)).ToHashSet();
 
@@ -108,7 +109,7 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                     lesson.RecurrenceRule,
                     lesson.Notes,
                     IsEditable: isSelf,
-                    Completed: completedSet.Contains((lesson.Id, DateOnly.FromDateTime(occurrence.StartAtUtc))),
+                    Completed: completedSet.Contains((lesson.Id, _calendar.ToLocalDate(occurrence.StartAtUtc))),
                     ConflictsWithLesson: false));
             }
         }

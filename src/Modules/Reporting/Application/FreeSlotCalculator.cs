@@ -1,4 +1,5 @@
 using EgitimUssu.Shared.Contracts;
+using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Reporting.Application;
 
@@ -15,6 +16,12 @@ public sealed record FreeSlot(DateTime StartAtUtc, DateTime EndAtUtc);
 /// aynı hesabı çalıştırır. Çakışan dolu aralıklar önce birleştirilir (aynı saatte hem ders hem izin
 /// olabilir); eşikten kısa artık parçalar atılır — 10 dakikalık bir boşluk ders için kullanılamaz.
 /// </para>
+/// <para>
+/// P16 T5 / N-43 (K-19): uygunluk şablonu ("Pzt 18:00–21:00") öğretmenin <b>yerel</b> saatidir. Şablon yerel günlere
+/// yayılır, her parça <see cref="ILocalCalendar.ToUtc"/> ile UTC'ye çevrilir; dolu aralıklar zaten gerçek UTC'dir.
+/// Eskiden şablon UTC günlerine yayılıyordu (18:00 TR, 18:00Z sayılıyordu → sonuç 3 saat kayık). Öğretmenin kendi
+/// saat dilimi P24'te; şimdilik platform takvimi.
+/// </para>
 /// </summary>
 public static class FreeSlotCalculator
 {
@@ -24,13 +31,16 @@ public static class FreeSlotCalculator
     /// <summary>Güvenlik sınırı: aralık en fazla bir yıl olabilir (uygunluk şablonu her güne yayılır).</summary>
     private const int MaxDays = 366;
 
+    /// <summary>Şablonu <c>[fromUtc, toUtc)</c> penceresine yerel günlerle yayar (<c>calendar</c>: şablonun okunduğu takvim).</summary>
     public static IReadOnlyList<FreeSlot> Compute(
         IReadOnlyCollection<TeacherWeeklySlot> weeklySlots,
         IReadOnlyCollection<TeacherBusyInterval> busyIntervals,
         DateTime fromUtc,
         DateTime toUtc,
+        ILocalCalendar calendar,
         int minimumMinutes = DefaultMinimumMinutes)
     {
+        ArgumentNullException.ThrowIfNull(calendar);
         if (weeklySlots.Count == 0 || toUtc <= fromUtc)
         {
             return Array.Empty<FreeSlot>();
@@ -40,13 +50,15 @@ public static class FreeSlotCalculator
         var minimum = TimeSpan.FromMinutes(Math.Max(1, minimumMinutes));
         var free = new List<FreeSlot>();
 
-        var day = DateTime.SpecifyKind(fromUtc.Date, DateTimeKind.Utc);
-        for (var index = 0; day < toUtc && index < MaxDays; index++, day = day.AddDays(1))
+        // Yerel günler: pencerenin ilk anının yerel gününden son anının yerel gününe (iki uç dahil; kırpma aşağıda).
+        var lastDay = calendar.ToLocalDate(toUtc);
+        var day = calendar.ToLocalDate(fromUtc);
+        for (var index = 0; day <= lastDay && index < MaxDays; index++, day = day.AddDays(1))
         {
             foreach (var slot in weeklySlots.Where(item => item.DayOfWeek == day.DayOfWeek))
             {
-                var slotStart = day.Add(slot.StartTime.ToTimeSpan());
-                var slotEnd = day.Add(slot.EndTime.ToTimeSpan());
+                var slotStart = calendar.ToUtc(day, slot.StartTime);
+                var slotEnd = calendar.ToUtc(day, slot.EndTime);
 
                 // Sorgu penceresine kırp.
                 var windowStart = slotStart < fromUtc ? fromUtc : slotStart;

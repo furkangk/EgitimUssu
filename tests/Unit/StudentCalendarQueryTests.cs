@@ -108,13 +108,42 @@ public sealed class StudentCalendarQueryTests
         Assert.True(Assert.Single(result.Value!, o => o.EntryId == self.Id).ConflictsWithLesson);
     }
 
+    [Fact]
+    public async Task Completion_is_matched_on_the_local_day_of_the_occurrence()
+    {
+        // P16 T5 / N-11: Salı 01:30 TR = Pazartesi 22:30Z. Seans Salı (yerel gün) çalışıldı; sözleşme tarihleri yereldir.
+        var studentId = Guid.NewGuid();
+        var start = new DateTime(2026, 11, 16, 22, 30, 0, DateTimeKind.Utc);
+        var self = LessonSchedule.CreateSelfLesson(
+            Guid.NewGuid(), studentId, "Matematik", null,
+            start, start.AddHours(1), "Europe/Istanbul", null, 30, null, null, start);
+        var reader = new FakeCompletionReader(new PlanCompletion(self.Id, new DateOnly(2026, 11, 17)));
+        var handler = new GetStudentCalendarQueryHandler(new FakeRepo(self), reader, Calendar);
+
+        // Salı'nın yerel günü: [Pazartesi 21:00Z, Salı 21:00Z).
+        var result = await handler.Handle(
+            new GetStudentCalendarQuery(
+                studentId,
+                new DateTime(2026, 11, 16, 21, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 11, 17, 20, 59, 59, DateTimeKind.Utc)),
+            CancellationToken.None);
+
+        Assert.True(Assert.Single(result.Value!).Completed);
+        Assert.Equal((new DateOnly(2026, 11, 17), new DateOnly(2026, 11, 17)), reader.LastRange!.Value);
+    }
+
     private sealed class FakeCompletionReader : IStudyPlanCompletionReader
     {
         private readonly PlanCompletion[] _completions;
         public FakeCompletionReader(params PlanCompletion[] completions) => _completions = completions;
 
+        public (DateOnly From, DateOnly To)? LastRange { get; private set; }
+
         public Task<IReadOnlyCollection<PlanCompletion>> GetCompletionsAsync(Guid studentId, DateOnly fromDate, DateOnly toDate, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyCollection<PlanCompletion>>(_completions);
+        {
+            LastRange = (fromDate, toDate);
+            return Task.FromResult<IReadOnlyCollection<PlanCompletion>>(_completions);
+        }
     }
 
     private sealed class FakeRepo : ILessonScheduleRepository

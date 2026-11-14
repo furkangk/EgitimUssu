@@ -176,19 +176,22 @@ public sealed class StudentReportAssembler
     private readonly ITeacherDirectory _teachers;
     private readonly IStudentAssignmentDigestDirectory _assignments;
     private readonly ICurrentUser _currentUser;
+    private readonly ILocalCalendar _calendar;
 
     public StudentReportAssembler(
         IReportingProjectionReader reader,
         IStudentDirectory students,
         ITeacherDirectory teachers,
         IStudentAssignmentDigestDirectory assignments,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        ILocalCalendar calendar)
     {
         _reader = reader;
         _students = students;
         _teachers = teachers;
         _assignments = assignments;
         _currentUser = currentUser;
+        _calendar = calendar;
     }
 
     public async Task<StudentReportData> BuildAsync(
@@ -199,13 +202,14 @@ public sealed class StudentReportAssembler
         ReportVisibility visibility,
         CancellationToken cancellationToken)
     {
-        var fromUtc = periodStart.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-        var toExclusiveUtc = periodEnd.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        // P16 T5 / N-50: dönem yerel günlerdir; UTC penceresi [ilk günün 00:00 TR, son günün ertesi 00:00 TR).
+        var fromUtc = _calendar.DayRangeUtc(periodStart).StartUtc;
+        var toExclusiveUtc = _calendar.DayRangeUtc(periodEnd).EndUtc;
 
         var weeks = await _reader.ListStudentStudyAsync(
             studentId,
-            ReportingPeriods.WeekOf(fromUtc),
-            ReportingPeriods.WeekOf(periodEnd.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)),
+            ReportingPeriods.WeekOf(periodStart),
+            ReportingPeriods.WeekOf(periodEnd),
             cancellationToken);
 
         var lessonCount = await _reader.CountStudentCompletedLessonsAsync(
@@ -296,6 +300,7 @@ public sealed class GenerateStudentReportCommandHandler
     private readonly IStudentReportRepository _repository;
     private readonly ICurrentUser _currentUser;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
     private readonly IIdGenerator _idGenerator;
 
     public GenerateStudentReportCommandHandler(
@@ -307,6 +312,7 @@ public sealed class GenerateStudentReportCommandHandler
         IStudentReportRepository repository,
         ICurrentUser currentUser,
         IClock clock,
+        ILocalCalendar calendar,
         IIdGenerator idGenerator)
     {
         _privacy = privacy;
@@ -317,13 +323,14 @@ public sealed class GenerateStudentReportCommandHandler
         _repository = repository;
         _currentUser = currentUser;
         _clock = clock;
+        _calendar = calendar;
         _idGenerator = idGenerator;
     }
 
     public async Task<Result<StudentReportResponse>> Handle(
         GenerateStudentReportCommand command, CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(_clock.UtcNow);
+        var today = _calendar.Today();   // P16 T5: varsayılan dönemin "bugün"ü Türkiye günü
         var periodEnd = command.To ?? today;
         var periodStart = command.From ?? periodEnd.AddMonths(-1);
 

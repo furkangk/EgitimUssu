@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
@@ -18,7 +17,6 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure;
 public abstract class AssignmentDueNotificationHandlerBase : IdempotentIntegrationEventHandler
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly CultureInfo Turkish = CultureInfo.GetCultureInfo("tr-TR");
 
     private readonly IStudentDirectory _students;
     private readonly IUserNotificationRepository _userNotifications;
@@ -28,15 +26,20 @@ public abstract class AssignmentDueNotificationHandlerBase : IdempotentIntegrati
         IStudentDirectory students,
         IUserNotificationRepository userNotifications,
         IIdGenerator idGenerator,
-        IClock clock)
+        IClock clock,
+        ILocalCalendar calendar)
         : base(dbContext, clock)
     {
         _students = students;
         _userNotifications = userNotifications;
         IdGenerator = idGenerator;
+        Calendar = calendar;
     }
 
     protected IIdGenerator IdGenerator { get; }
+
+    /// <summary>P16 T5 / N-50: metindeki son teslim saati yerel (K-19).</summary>
+    protected ILocalCalendar Calendar { get; }
 
     /// <summary>Tüketilecek olayın adı (<c>Assignments</c> modülünden).</summary>
     protected abstract string EventName { get; }
@@ -53,7 +56,7 @@ public abstract class AssignmentDueNotificationHandlerBase : IdempotentIntegrati
             return false;
         }
 
-        var dueDate = payload.DueDateUtc.ToString("dd.MM.yyyy HH:mm", Turkish);
+        var dueDate = NotificationTimeText.LocalDateTime(Calendar, payload.DueDateUtc);
         await NotifyAsync(payload, dueDate, cancellationToken);
         return true;
     }
@@ -94,8 +97,9 @@ public sealed class AssignmentDueSoonNotificationHandler : AssignmentDueNotifica
         IStudentDirectory students,
         IUserNotificationRepository userNotifications,
         IIdGenerator idGenerator,
-        IClock clock)
-        : base(dbContext, students, userNotifications, idGenerator, clock)
+        IClock clock,
+        ILocalCalendar calendar)
+        : base(dbContext, students, userNotifications, idGenerator, clock, calendar)
     {
     }
 
@@ -138,8 +142,9 @@ public sealed class AssignmentMissedNotificationHandler : AssignmentDueNotificat
         IParentNotificationRepository parentNotifications,
         IUserNotificationRepository userNotifications,
         IIdGenerator idGenerator,
-        IClock clock)
-        : base(dbContext, students, userNotifications, idGenerator, clock)
+        IClock clock,
+        ILocalCalendar calendar)
+        : base(dbContext, students, userNotifications, idGenerator, clock, calendar)
     {
         _parents = parents;
         _parentNotifications = parentNotifications;

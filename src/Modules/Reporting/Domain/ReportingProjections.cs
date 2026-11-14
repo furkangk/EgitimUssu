@@ -4,16 +4,26 @@ using EgitimUssu.Shared.Kernel;
 namespace EgitimUssu.Modules.Reporting.Domain;
 
 /// <summary>
-/// M14 raporlama projeksiyonlarının dönem kovaları. Tüm sınırlar <b>UTC</b>'dir (yerel saat kullanılmaz);
-/// hafta numarası ISO-8601'dir — hafta Pazartesi başlar ve yıl sınırında takvim yılından ayrışabilir
-/// (1 Ocak 2027 Cuma, ISO'da hâlâ 2026'nın 53. haftasıdır). M10-1 anlık görüntüleriyle aynı hafta tanımı.
+/// M14 raporlama projeksiyonlarının dönem kovaları. P16 T5 / N-50 (K-19): sınırlar <b>Türkiye yerel günüdür</b> — bir
+/// an önce <see cref="ILocalCalendar"/> ile yerel tarihe çevrilir, kova o tarihten alınır (Pazartesi 01:30 TR seansı bu
+/// haftaya, 1 Eylül 00:30 TR dersi Eylül'e düşer; eskiden UTC'ydi). Study'nin haftalık özetiyle aynı kural (düz yerel
+/// tarih; Study'nin 04:00 seri günü yalnız seri sayacına aittir). Hafta numarası ISO-8601'dir — hafta Pazartesi başlar
+/// ve yıl sınırında takvim yılından ayrışabilir (1 Ocak 2027 Cuma, ISO'da hâlâ 2026'nın 53. haftasıdır). M10-1 anlık
+/// görüntüleriyle aynı hafta tanımı. UTC <c>DateTime</c> alan aşırı yükleme bilerek yok: takvimsiz çağrı derlenmez.
 /// </summary>
 public static class ReportingPeriods
 {
-    public static (int Year, int Month) MonthOf(DateTime utc) => (utc.Year, utc.Month);
+    public static (int Year, int Month) MonthOf(DateOnly localDate) => (localDate.Year, localDate.Month);
 
-    public static (int Year, int Week) WeekOf(DateTime utc) =>
-        (ISOWeek.GetYear(utc), ISOWeek.GetWeekOfYear(utc));
+    public static (int Year, int Week) WeekOf(DateOnly localDate)
+    {
+        var date = localDate.ToDateTime(TimeOnly.MinValue);
+        return (ISOWeek.GetYear(date), ISOWeek.GetWeekOfYear(date));
+    }
+
+    public static (int Year, int Month) MonthOf(DateTime utc, ILocalCalendar calendar) => MonthOf(calendar.ToLocalDate(utc));
+
+    public static (int Year, int Week) WeekOf(DateTime utc, ILocalCalendar calendar) => WeekOf(calendar.ToLocalDate(utc));
 }
 
 // ---------------------------------------------------------------------------------------------

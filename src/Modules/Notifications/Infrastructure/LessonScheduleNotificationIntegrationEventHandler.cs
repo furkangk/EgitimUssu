@@ -18,14 +18,17 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : Idempo
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IIdGenerator _idGenerator;
+    private readonly ILocalCalendar _calendar;
 
     public LessonScheduleNotificationIntegrationEventHandler(
         NotificationsDbContext dbContext,
         IIdGenerator idGenerator,
-        IClock clock)
+        IClock clock,
+        ILocalCalendar calendar)
         : base(dbContext, clock)
     {
         _idGenerator = idGenerator;
+        _calendar = calendar;
     }
 
     private NotificationsDbContext NotificationsDb => (NotificationsDbContext)DbContext;
@@ -66,7 +69,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : Idempo
             payload.TeacherUserId ?? Guid.Empty,
             payload.StudentId,
             "Yaklasan ders hatirlatmasi",
-            $"Ders {payload.StartAtUtc:O} tarihinde baslayacak.",
+            NotificationTimeText.LessonReminderBody(_calendar, payload.StartAtUtc),
             payload.StartAtUtc,
             payload.StartAtUtc.AddMinutes(-Math.Max(payload.ReminderOffsetMinutes, 0)),
             NotificationChannel.InApp,

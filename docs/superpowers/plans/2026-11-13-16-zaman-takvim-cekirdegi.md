@@ -138,23 +138,26 @@
 
 ---
 
-### Task 5: Gün/hafta/ay kovaları ve kullanıcıya gösterilen saatler (N-11, N-43, N-50, N-06 metin)
+### Task 5: Gün/hafta/ay kovaları ve kullanıcıya gösterilen saatler (N-11, N-43, N-50, N-06 metin) ✅
 
-**Files:**
-- Modify: `src/API.Host/TeacherDashboardEndpoints.cs` ("bugün")
-- Modify: `src/Modules/Payments/Application/PaymentFeatures.cs` (aylık kırılım; gecikmiş toplam **para birimi bazında** — yanıt alanı listeye döner, eski tekil alan geriye uyumluluk için ilk para birimini taşımaya devam eder ve `[Obsolete]` notu dokümana)
-- Modify: `src/Modules/Scheduling/Application/StudentCalendarQuery.cs` (çalışıldı eşleşmesi yerel gün)
-- Modify: `src/Modules/Reporting/Domain/ReportingProjections.cs`, `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs` (hafta/ay kovası)
-- Modify: `src/Modules/Reporting/Application/FreeSlotCalculator.cs` (uygunluk şablonu yerel güne kurulur → UTC)
-- Modify: `src/Modules/ProgressTracking/Infrastructure/ProgressSnapshotService.cs`, `src/Modules/Reporting/Application/StudentReportFeatures.cs`
-- Modify: bildirim metinleri — `src/Modules/Notifications/Infrastructure/AssignmentDueNotificationHandlers.cs`, `PaymentOverdueNotificationHandler.cs`, `LessonScheduleNotificationIntegrationEventHandler.cs` (yalnız metin biçimi; oluşum mantığı P17 T6)
-- Test: `tests/Unit/LocalBucketTests.cs` (her dosya için en az bir sınır testi), `tests/Unit/NotificationLocalTimeTextTests.cs`
+**Files:** *(2026-11-14 koddan doğrulandı — T2/T3/T4 gibi eksikti; düzeltmeler işaretli)*
+- Modify: `src/API.Host/TeacherDashboardEndpoints.cs` ("bugün" `ILocalCalendar` gününden; liste iki ucu dahil ve tekil ders kesişimle eşleştiği için uçta `StartAtUtc ∈ [gün başı, gün sonu)` süzgeci; **gecikmiş toplam para birimi bazında** — *düzeltme:* karışık para birimi toplamı `PaymentFeatures`'ta değil **bu uçtaydı*; yeni `overduePaymentTotals: [{ currency, count, total }]`, eski `overduePaymentsCurrency/Total` listenin ilk satırını (en erken vadeli para birimi) taşır — artık yalnız o para biriminin toplamı, `[Obsolete]` notu dokümana)
+- Modify: `src/Modules/Payments/Application/PaymentFeatures.cs` (aylık kırılım yerel ay — *düzeltme:* kırılımın para birimi boyutu **P18 T3**'te, master §5.1 N-11 bölüşümü)
+- Modify: `src/Modules/Scheduling/Application/StudentCalendarQuery.cs` + `src/Modules/Study/Infrastructure/StudyPlanCompletionReader.cs` + `src/Shared/Contracts/StudyPlanCompletionContract.cs` (çalışıldı eşleşmesi yerel gün — iki taraf **aynı değişiklikte**, sözleşme tarihleri yerel) — *okuyucu ve sözleşme 2026-11-14 eklendi*
+- Modify: `src/Modules/Reporting/Domain/ReportingProjections.cs` (`ReportingPeriods` tarih tabanlı + takvimli aşırı yükleme; UTC `DateTime` aşırı yüklemeleri kaldırılır), `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs` (taban handler `ILocalCalendar` alır, sekiz alt sınıf)
+- Modify: `src/Modules/Reporting/Application/FreeSlotCalculator.cs` (uygunluk şablonu yerel güne kurulur → UTC; `Compute` takvim alır), `src/Modules/Reporting/Application/ReportingAnalyticsFeatures.cs` (boş zaman handler'ı takvimi geçirir, hafta sınırı tarih tabanlı) — *ikincisi 2026-11-14 eklendi*
+- Modify: `src/Modules/Reporting/API/ReportingModule.cs` (aylık rapor varsayılan yıl/ay ve boş zaman varsayılan başlangıcı UTC'den hesaplanıyordu; T6 taraması `API/` klasörünü kapsamaz) — *2026-11-14 eklendi*
+- Modify: `src/Modules/ProgressTracking/Infrastructure/ProgressSnapshotService.cs`, `src/Modules/Reporting/Application/StudentReportFeatures.cs` (varsayılan dönem "bugün" yerel; dönem sınırları yerel gün)
+- Modify: bildirim metinleri — `src/Modules/Notifications/Infrastructure/AssignmentDueNotificationHandlers.cs`, `PaymentOverdueNotificationHandler.cs`, `LessonScheduleNotificationIntegrationEventHandler.cs` (yalnız metin biçimi; hatırlatma **anı** ve oluşum mantığı P17 T6); Create: `src/Modules/Notifications/Infrastructure/NotificationTimeText.cs` (üç metnin tek biçimleyicisi — ders hatırlatma handler'ı `internal`, metin ancak buradan birim testlenir) — *2026-11-14 eklendi*
+- Modify (kurucu/imza değişikliği ya da UTC kuralını kodlayan beklenti): `tests/Unit/ReportingProjectionTests.cs` (ay/hafta kovası ve dört boş zaman testi **İstanbul'a göre yeniden yazılır** — UTC dilimi geçirilerek yeşil tutulmaz), `PaymentSummaryOutstandingTests.cs`, `StudentCalendarQueryTests.cs`, `StudentReportPdfGeneratorTests.cs`, `ProgressSnapshotTests.cs`, `PaymentOverdueNotificationHandlerTests.cs`, `tests/Integration/RealProgressSnapshotTests.cs`, `tests/Integration/RealReportingAnalyticsTests.cs` (uygunluk yorumu "UTC" diyordu) — *2026-11-14 eklendi*
+- Doc: `doc/modules/m04_scheduling.md`, `m07_payments.md`, `m08_study.md`, `m10_progress_tracking.md`, `m11_notifications.md`, `m14_reporting.md` (dashboard-summary burada belgeli), `00_genel_bakis.md`, `doc/architecture/backend.md` §7.1 (yeniden kurulum notu), rapor N-11 (◐ — gün/ay burada, para birimi özeti P18 T3), N-43 ✅, N-50 ✅
+- Test: `tests/Unit/LocalBucketTests.cs` (her dosya için en az bir sınır testi), `tests/Unit/NotificationLocalTimeTextTests.cs`, `tests/Integration/RealLocalDayBoundaryTests.cs` (dashboard "bugün" + para birimi listesi HTTP üzerinden — yalnız `ILocalCalendar` sabit saatli takvimle değiştirilir, `IClock` gerçek kalır (JWT geçerliliği bozulmaz; T6 aynı dikişi kullanır); `internal` tamamlanma okuyucusu gerçek Postgres'te) — *2026-11-14 eklendi*
 
-- [ ] **Step 1: Kırmızı testler** — TR 00:30'daki ders "bugün" listesinde; ertesi günün 00:30 dersi değil; ayın 1'i 01:00 TR vadeli ödeme o ayda; Pazartesi 01:30 TR seansı Reporting'de **bu haftada**; "Pzt 18:00–21:00" uygunluk şablonu 15:00Z–18:00Z ile çakışma hesaplar; ödev son teslim 23:59 TR → bildirim metninde **"23:59"**; TRY+USD gecikmiş ödemeler iki ayrı toplam.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula** (hepsi `ILocalCalendar` üzerinden).
-- [ ] **Step 4: Projeksiyon yeniden kurulumu** — kova kuralı değiştiği için Reporting projeksiyonları `IProjectionRebuilder` ile yeniden kurulur; `RealProjectionRebuildTests` yeşil kalmalı. Göç notu `doc/architecture/backend.md` §7.1'e.
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m07`, `m10`, `m11`, `m14`; rapor N-11/N-43/N-50 ✅.
+- [x] **Step 1: Kırmızı testler** — TR 00:30'daki ders "bugün" listesinde; ertesi günün 00:30 dersi değil; ayın 1'i 01:00 TR vadeli ödeme o ayda; Pazartesi 01:30 TR seansı Reporting'de **bu haftada**; "Pzt 18:00–21:00" uygunluk şablonu 15:00Z–18:00Z ile çakışma hesaplar; ödev son teslim 23:59 TR → bildirim metninde **"23:59"**; TRY+USD gecikmiş ödemeler iki ayrı toplam. *(Ek: dün başlayıp bugüne taşan ve tam gece yarısı biten ders "bugün" değil; eski tekil alan yalnız ilk para biriminin toplamı; 1 Eylül 00:30 TR vade metinde "01.09.2026"; ders hatırlatması "13 Kasım Cuma 10:00"; Pazartesi 01:00 TR uygunluğu Pazar 22:00Z; kapanmış hafta/ay anlık görüntüsü yerel günden; PDF varsayılan dönemi ve ödev penceresi yerel; "çalışıldı" eşleşmesi + okuyucu gerçek Postgres; aylık rapor varsayılanı yerel ay. Mevcut ay/hafta kovası ve dört boş zaman testi İstanbul kuralına göre yeniden yazıldı.)*
+- [x] **Step 2: Kırmızı gör.** *(Önce imza davranışsız: kuruculara `ILocalCalendar`, `ReportingPeriods` takvimli aşırı yükleme, `FreeSlotCalculator.Compute(…, calendar)`, `NotificationTimeText` eski biçimle → 1107 yeşil; sonra 20 birim + 3 integration iddia hatasıyla kırmızı.)* **Step 3: Uygula** (hepsi `ILocalCalendar` üzerinden). *(Mutasyon: dashboard başlangıç süzgeci kaldırılınca iki dashboard testi kırmızı.)*
+- [x] **Step 4: Projeksiyon yeniden kurulumu** — kova kuralı değiştiği için Reporting projeksiyonları `IProjectionRebuilder` ile yeniden kurulur; `RealProjectionRebuildTests` yeşil kalmalı. Göç notu `doc/architecture/backend.md` §7.1'e. *(2026-11-15: `IProjectionRebuilder` uygulaması kodda yok (orkestrasyon P12) ve canlı veri yok → göç notu `backend.md` §7.1; `RealProjectionRebuildTests` yeşil.)*
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 6: Doküman + commit** — `m07`, `m10`, `m11`, `m14`; rapor N-11/N-43/N-50 ✅.
   ```bash
   git commit -m "fix(time): gun/hafta/ay kovalari ve bildirim saatleri Turkiye saatine gore (N-11, N-43, N-50)"
   ```

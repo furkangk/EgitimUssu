@@ -2,6 +2,7 @@ using EgitimUssu.Modules.ProgressTracking.Application;
 using EgitimUssu.Modules.ProgressTracking.Domain;
 using EgitimUssu.Modules.ProgressTracking.Infrastructure;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +37,7 @@ public sealed class RealProgressSnapshotTests(ContainerFixture fixture)
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ProgressTrackingDbContext>();
-            var processor = new ProgressSnapshotProcessor(dbContext, new FixedClock(Now), new GuidIdGenerator());
+            var processor = new ProgressSnapshotProcessor(dbContext, new FixedClock(Now), new GuidIdGenerator(), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
             // GROUP BY + AVG/SUM çevirisi burada gerçekten SQL'e dönüşüyor mu?
             firstRun = await processor.RunAsync();

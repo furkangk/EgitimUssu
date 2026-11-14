@@ -135,7 +135,7 @@ public sealed class RealReportingAnalyticsTests(ContainerFixture fixture)
 
         var teacherUserId = await RegisterAsync(client, role: 2);
 
-        // Uygunluk: Pazartesi 09:00–12:00 (UTC). Profil doğrudan seed edilir — bu testin konusu
+        // Uygunluk: Pazartesi 09:00–12:00 TR (= 06:00–09:00Z; şablon yerel saattir — P16 T5 / N-43). Profil doğrudan seed edilir — bu testin konusu
         // uygunluk sözleşmesinin SQL'e çevrilmesi ve ucun hesabı, profil oluşturma sözleşmesi değil.
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -159,6 +159,7 @@ public sealed class RealReportingAnalyticsTests(ContainerFixture fixture)
         var slots = payload.RootElement.EnumerateArray().ToArray();
         Assert.Single(slots);
         Assert.Equal(180, slots[0].GetProperty("durationMinutes").GetInt32());
+        Assert.Equal(new DateTime(2026, 9, 7, 6, 0, 0, DateTimeKind.Utc), slots[0].GetProperty("startAtUtc").GetDateTime().ToUniversalTime());
     }
 
     private static async Task<Guid> RegisterAsync(HttpClient client, int role)

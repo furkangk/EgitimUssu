@@ -3,6 +3,7 @@ using EgitimUssu.Modules.Notifications.Domain;
 using EgitimUssu.Modules.Notifications.Infrastructure;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -90,7 +91,8 @@ public sealed class PaymentOverdueNotificationHandlerTests
             new FakeParentDirectory(parents),
             userNotifications,
             new SequentialIdGenerator(),
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
     private static NotificationsDbContext NewDbContext() =>
         new(

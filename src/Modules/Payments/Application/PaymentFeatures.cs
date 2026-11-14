@@ -260,10 +260,13 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
 
-    public GetTeacherPaymentSummaryQueryHandler(IPaymentRecordRepository repository, IClock clock)
+    private readonly ILocalCalendar _calendar;
+
+    public GetTeacherPaymentSummaryQueryHandler(IPaymentRecordRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<TeacherPaymentSummaryResponse>> Handle(GetTeacherPaymentSummaryQuery query, CancellationToken cancellationToken)
@@ -290,7 +293,7 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
             })
             .ToArray();
 
-        var monthlyBreakdown = BuildMonthlyBreakdown(paymentRecords, now);
+        var monthlyBreakdown = BuildMonthlyBreakdown(paymentRecords, _calendar);
 
         return Result<TeacherPaymentSummaryResponse>.Success(new TeacherPaymentSummaryResponse(
             query.TeacherUserId,
@@ -300,18 +303,25 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
     }
 
     // Son 6 ayın (eskiden yeniye) beklenen/tahsil toplamı — vade ayına göre; iptaller hariç.
+    // P16 T5 / N-11 (K-19): ay Türkiye ayıdır — "bu ay" ve kaydın vade ayı yerel tarihten (ayın 1'i 01:00 TR vadeli
+    // kayıt önceki aya düşmez). Para birimi boyutu P18 T3'te (bu kırılım henüz para birimlerini toplar).
     private static IReadOnlyCollection<PaymentMonthlyPointResponse> BuildMonthlyBreakdown(
         IReadOnlyCollection<PaymentRecord> records,
-        DateTime now)
+        ILocalCalendar calendar)
     {
-        var active = records.Where(record => record.Status != PaymentStatus.Cancelled).ToArray();
-        var firstMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var active = records
+            .Where(record => record.Status != PaymentStatus.Cancelled)
+            .Select(record => (Record: record, DueDate: calendar.ToLocalDate(record.DueDateUtc)))
+            .ToArray();
+        var today = calendar.Today();
+        var firstMonth = new DateOnly(today.Year, today.Month, 1);
         var points = new List<PaymentMonthlyPointResponse>(6);
         for (var offset = 5; offset >= 0; offset--)
         {
             var month = firstMonth.AddMonths(-offset);
             var inMonth = active
-                .Where(record => record.DueDateUtc.Year == month.Year && record.DueDateUtc.Month == month.Month)
+                .Where(item => item.DueDate.Year == month.Year && item.DueDate.Month == month.Month)
+                .Select(item => item.Record)
                 .ToArray();
             points.Add(new PaymentMonthlyPointResponse(
                 month.Year,

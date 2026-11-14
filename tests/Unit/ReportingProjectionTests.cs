@@ -4,6 +4,7 @@ using EgitimUssu.Modules.Reporting.Infrastructure;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Persistence;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -21,6 +22,7 @@ namespace EgitimUssu.Tests.Unit;
 public sealed class ReportingProjectionTests
 {
     private static readonly DateTime Now = new(2026, 9, 4, 6, 0, 0, DateTimeKind.Utc);
+    private static readonly LocalCalendar Istanbul = new("Europe/Istanbul", new FixedClock(Now));
     private static readonly Guid TeacherUserId = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
     private static readonly Guid StudentId = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
     private static readonly Guid OtherStudentId = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
@@ -28,21 +30,23 @@ public sealed class ReportingProjectionTests
     // --- Dönem kovaları ------------------------------------------------------------------------
 
     [Fact]
-    public void Month_Bucket_Should_Follow_Utc_Not_Local_Time()
+    public void Month_Bucket_Should_Follow_Turkey_Local_Date()
     {
-        // 31 Ağustos 23:00 UTC → Ağustos; 1 Eylül 00:00 UTC → Eylül.
-        Assert.Equal((2026, 8), ReportingPeriods.MonthOf(new DateTime(2026, 8, 31, 23, 0, 0, DateTimeKind.Utc)));
-        Assert.Equal((2026, 9), ReportingPeriods.MonthOf(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc)));
+        // P16 T5 / N-50 (K-19): 31 Ağustos 20:59Z = 23:59 TR → Ağustos; 21:00Z = 1 Eylül 00:00 TR → Eylül.
+        // (Eskiden kova UTC'ydi: 31 Ağustos 23:00Z, yani 1 Eylül 02:00 TR, Ağustos'a düşüyordu.)
+        Assert.Equal((2026, 8), ReportingPeriods.MonthOf(new DateTime(2026, 8, 31, 20, 59, 0, DateTimeKind.Utc), Istanbul));
+        Assert.Equal((2026, 9), ReportingPeriods.MonthOf(new DateTime(2026, 8, 31, 21, 0, 0, DateTimeKind.Utc), Istanbul));
+        Assert.Equal((2026, 9), ReportingPeriods.MonthOf(new DateTime(2026, 8, 31, 23, 0, 0, DateTimeKind.Utc), Istanbul));
     }
 
     [Fact]
     public void Week_Bucket_Should_Use_Iso_Week_And_Cross_Year_Correctly()
     {
         // 2026-01-01 Perşembe → ISO hafta 1 / 2026.
-        Assert.Equal((2026, 1), ReportingPeriods.WeekOf(new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc)));
+        Assert.Equal((2026, 1), ReportingPeriods.WeekOf(new DateOnly(2026, 1, 1)));
 
         // 2027-01-01 Cuma → ISO'da hâlâ 2026'nın 53. haftası (takvim yılı 2027 olsa da).
-        Assert.Equal((2026, 53), ReportingPeriods.WeekOf(new DateTime(2027, 1, 1, 12, 0, 0, DateTimeKind.Utc)));
+        Assert.Equal((2026, 53), ReportingPeriods.WeekOf(new DateOnly(2027, 1, 1)));
     }
 
     // --- M14-1: öğretmen aylık ------------------------------------------------------------------
@@ -158,10 +162,10 @@ public sealed class ReportingProjectionTests
     // --- Handler'lar (event → projeksiyon) ------------------------------------------------------
 
     [Fact]
-    public async Task Completed_Lesson_Event_Should_Land_In_Utc_Month_Bucket()
+    public async Task Completed_Lesson_Event_Should_Land_In_Local_Month_Bucket()
     {
         await using var dbContext = NewDbContext();
-        var handler = new TeacherMonthlyLessonCompletedProjectionHandler(dbContext, new FixedClock(Now));
+        var handler = new TeacherMonthlyLessonCompletedProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
         await handler.HandleAsync(
             Envelope("LessonSessions", "LessonSessionCompletedDomainEvent", new
@@ -176,7 +180,7 @@ public sealed class ReportingProjectionTests
 
         var projection = await dbContext.TeacherMonthlyProjections.Include(p => p.Items).SingleAsync();
         Assert.Equal(2026, projection.Year);
-        Assert.Equal(8, projection.Month);            // yerel saat değil UTC belirler
+        Assert.Equal(9, projection.Month);            // 31 Ağustos 23:30Z = 1 Eylül 02:30 TR → Eylül (K-19)
         Assert.Equal(1, projection.CompletedLessonCount);
     }
 
@@ -184,7 +188,7 @@ public sealed class ReportingProjectionTests
     public async Task Same_Event_Twice_Should_Be_Deduplicated_By_Inbox()
     {
         await using var dbContext = NewDbContext();
-        var handler = new TeacherMonthlyLessonCompletedProjectionHandler(dbContext, new FixedClock(Now));
+        var handler = new TeacherMonthlyLessonCompletedProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var envelope = Envelope("LessonSessions", "LessonSessionCompletedDomainEvent", new
         {
             lessonSessionId = Guid.NewGuid(),
@@ -206,7 +210,7 @@ public sealed class ReportingProjectionTests
     public async Task Payment_Collected_Event_Should_Accumulate_Delta_Only()
     {
         await using var dbContext = NewDbContext();
-        var handler = new TeacherMonthlyPaymentCollectedProjectionHandler(dbContext, new FixedClock(Now));
+        var handler = new TeacherMonthlyPaymentCollectedProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var paymentRecordId = Guid.NewGuid();
 
         await handler.HandleAsync(PaymentUpdated(paymentRecordId, 0m, 200m), CancellationToken.None);
@@ -220,7 +224,7 @@ public sealed class ReportingProjectionTests
     public async Task Study_Session_Event_Should_Land_In_Iso_Week_Bucket()
     {
         await using var dbContext = NewDbContext();
-        var handler = new StudentStudySessionProjectionHandler(dbContext, new FixedClock(Now));
+        var handler = new StudentStudySessionProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
         await handler.HandleAsync(
             Envelope("Study", "StudySessionCompletedDomainEvent", new
@@ -262,8 +266,8 @@ public sealed class ReportingProjectionTests
             takenOnUtc = takenOn
         });
 
-        await new StudentStudyTestProjectionHandler(dbContext, clock).HandleAsync(envelope, CancellationToken.None);
-        await new StudentPerformanceTestProjectionHandler(dbContext, clock).HandleAsync(envelope, CancellationToken.None);
+        await new StudentStudyTestProjectionHandler(dbContext, clock, new LocalCalendar("Europe/Istanbul", clock)).HandleAsync(envelope, CancellationToken.None);
+        await new StudentPerformanceTestProjectionHandler(dbContext, clock, new LocalCalendar("Europe/Istanbul", clock)).HandleAsync(envelope, CancellationToken.None);
 
         var study = await dbContext.StudentStudyProjections.Include(p => p.Items).SingleAsync();
         Assert.Equal(1, study.TestCount);
@@ -278,7 +282,7 @@ public sealed class ReportingProjectionTests
     public async Task Topic_Mastery_Event_Should_Feed_Performance_Projection()
     {
         await using var dbContext = NewDbContext();
-        var handler = new StudentPerformanceMasteryProjectionHandler(dbContext, new FixedClock(Now));
+        var handler = new StudentPerformanceMasteryProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
         await handler.HandleAsync(
             Envelope("ProgressTracking", "TopicMasteryChangedDomainEvent", new
@@ -302,45 +306,48 @@ public sealed class ReportingProjectionTests
     [Fact]
     public void Free_Slots_Should_Subtract_Lessons_From_Weekly_Availability()
     {
-        // 2026-09-07 Pazartesi. Uygunluk 09:00–12:00; 10:00–11:00 ders dolu.
+        // 2026-09-07 Pazartesi. Uygunluk 09:00–12:00 TR (= 06:00–09:00Z, şablon yerel saattir — P16 T5 / N-43);
+        // 10:00–11:00 TR (07:00–08:00Z) ders dolu.
         var slots = new[] { new TeacherWeeklySlot(DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(12, 0)) };
         var busy = new[]
         {
             new TeacherBusyInterval(
-                new DateTime(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc),
-                new DateTime(2026, 9, 7, 11, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 7, 7, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 7, 8, 0, 0, DateTimeKind.Utc),
                 "Lesson")
         };
 
         var free = FreeSlotCalculator.Compute(
             slots, busy,
             new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc));
+            new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc),
+            Istanbul);
 
         Assert.Equal(2, free.Count);
-        Assert.Equal(new DateTime(2026, 9, 7, 9, 0, 0, DateTimeKind.Utc), free[0].StartAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc), free[0].EndAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 7, 11, 0, 0, DateTimeKind.Utc), free[1].StartAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc), free[1].EndAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 6, 0, 0, DateTimeKind.Utc), free[0].StartAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 7, 0, 0, DateTimeKind.Utc), free[0].EndAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 8, 0, 0, DateTimeKind.Utc), free[1].StartAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 9, 0, 0, DateTimeKind.Utc), free[1].EndAtUtc);
     }
 
     [Fact]
     public void Free_Slots_Should_Drop_Fragments_Shorter_Than_Minimum()
     {
-        // 09:00–12:00 uygunluk, 09:20'ye kadar dolu → 20 dakikalık artık parça atılır (varsayılan eşik 30 dk).
+        // 09:00–12:00 TR uygunluk, yalnız 09:20 TR'ye (06:20Z) kadar boş → 20 dakikalık artık parça atılır (varsayılan eşik 30 dk).
         var slots = new[] { new TeacherWeeklySlot(DayOfWeek.Monday, new TimeOnly(9, 0), new TimeOnly(12, 0)) };
         var busy = new[]
         {
             new TeacherBusyInterval(
-                new DateTime(2026, 9, 7, 9, 20, 0, DateTimeKind.Utc),
-                new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 7, 6, 20, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 7, 9, 0, 0, DateTimeKind.Utc),
                 "TimeOff")
         };
 
         var free = FreeSlotCalculator.Compute(
             slots, busy,
             new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc));
+            new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc),
+            Istanbul);
 
         Assert.Empty(free);
     }
@@ -352,23 +359,24 @@ public sealed class ReportingProjectionTests
         var busy = new[]
         {
             new TeacherBusyInterval(
-                new DateTime(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc),
-                new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc), "Lesson"),
+                new DateTime(2026, 9, 7, 7, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 7, 9, 0, 0, DateTimeKind.Utc), "Lesson"),
             new TeacherBusyInterval(
-                new DateTime(2026, 9, 7, 11, 0, 0, DateTimeKind.Utc),
-                new DateTime(2026, 9, 7, 13, 0, 0, DateTimeKind.Utc), "TimeOff")
+                new DateTime(2026, 9, 7, 8, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc), "TimeOff")
         };
 
         var free = FreeSlotCalculator.Compute(
             slots, busy,
             new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc));
+            new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc),
+            Istanbul);
 
         Assert.Equal(2, free.Count);
-        Assert.Equal(new DateTime(2026, 9, 7, 9, 0, 0, DateTimeKind.Utc), free[0].StartAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc), free[0].EndAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 7, 13, 0, 0, DateTimeKind.Utc), free[1].StartAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 7, 15, 0, 0, DateTimeKind.Utc), free[1].EndAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 6, 0, 0, DateTimeKind.Utc), free[0].StartAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 7, 0, 0, DateTimeKind.Utc), free[0].EndAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 10, 0, 0, DateTimeKind.Utc), free[1].StartAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc), free[1].EndAtUtc);
     }
 
     [Fact]
@@ -379,11 +387,12 @@ public sealed class ReportingProjectionTests
         var free = FreeSlotCalculator.Compute(
             slots, Array.Empty<TeacherBusyInterval>(),
             new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc));   // iki tam hafta
+            new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc),   // iki tam hafta
+            Istanbul);
 
         Assert.Equal(2, free.Count);
-        Assert.Equal(new DateTime(2026, 9, 7, 9, 0, 0, DateTimeKind.Utc), free[0].StartAtUtc);
-        Assert.Equal(new DateTime(2026, 9, 14, 9, 0, 0, DateTimeKind.Utc), free[1].StartAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 7, 6, 0, 0, DateTimeKind.Utc), free[0].StartAtUtc);
+        Assert.Equal(new DateTime(2026, 9, 14, 6, 0, 0, DateTimeKind.Utc), free[1].StartAtUtc);
     }
 
     // --- Yardımcılar ---------------------------------------------------------------------------

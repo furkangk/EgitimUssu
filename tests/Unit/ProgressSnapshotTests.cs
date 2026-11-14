@@ -2,6 +2,7 @@ using EgitimUssu.Modules.ProgressTracking.Application;
 using EgitimUssu.Modules.ProgressTracking.Domain;
 using EgitimUssu.Modules.ProgressTracking.Infrastructure;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -76,7 +77,7 @@ public sealed class ProgressSnapshotTests
         db.TopicMasteries.Add(Mastery(student, "Matematik", "Türev", studyMinutes: 180));
         await db.SaveChangesAsync();
 
-        var processor = new ProgressSnapshotProcessor(db, new FixedClock(Now), new SeqIdGenerator());
+        var processor = new ProgressSnapshotProcessor(db, new FixedClock(Now), new SeqIdGenerator(), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
         var firstRun = await processor.RunAsync();
         var secondRun = await processor.RunAsync();
@@ -95,7 +96,7 @@ public sealed class ProgressSnapshotTests
         db.TopicMasteries.Add(Mastery(student, "Matematik", "Türev", studyMinutes: 180));
         await db.SaveChangesAsync();
 
-        await new ProgressSnapshotProcessor(db, new FixedClock(Now), new SeqIdGenerator()).RunAsync();
+        await new ProgressSnapshotProcessor(db, new FixedClock(Now), new SeqIdGenerator(), new LocalCalendar("Europe/Istanbul", new FixedClock(Now))).RunAsync();
 
         var weekly = await db.ProgressSnapshots.SingleAsync(s => s.Period == SnapshotPeriod.Weekly);
         var monthly = await db.ProgressSnapshots.SingleAsync(s => s.Period == SnapshotPeriod.Monthly);
@@ -103,6 +104,27 @@ public sealed class ProgressSnapshotTests
         Assert.Equal(new DateOnly(2026, 8, 24), weekly.PeriodStart);   // 2026-08-31 haftası hâlâ açık
         Assert.Equal(new DateOnly(2026, 8, 1), monthly.PeriodStart);   // 2026-09 ayı hâlâ açık
         Assert.Equal(Now, weekly.CreatedOnUtc);
+    }
+
+    [Theory]
+    // Pazartesi 16 Kasım 00:30 TR (Pazar 21:30Z): 9 Kasım haftası artık kapandı (UTC günü Pazar → 2 Kasım derdi).
+    [InlineData("2026-11-15T21:30:00Z", SnapshotPeriod.Weekly, "2026-11-09")]
+    // 1 Aralık 00:30 TR (30 Kasım 21:30Z): Kasım kapandı (UTC günü 30 Kasım → Ekim derdi).
+    [InlineData("2026-11-30T21:30:00Z", SnapshotPeriod.Monthly, "2026-11-01")]
+    public async Task Closed_Period_Is_Decided_On_The_Turkey_Local_Day(string nowUtc, SnapshotPeriod period, string expectedStart)
+    {
+        // P16 T5 / N-50 (K-19).
+        var now = DateTime.Parse(nowUtc, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal);
+        await using var db = NewContext();
+        db.TopicMasteries.Add(Mastery(Guid.NewGuid(), "Matematik", "Türev", studyMinutes: 180));
+        await db.SaveChangesAsync();
+
+        await new ProgressSnapshotProcessor(
+            db, new FixedClock(now), new SeqIdGenerator(), new LocalCalendar("Europe/Istanbul", new FixedClock(now))).RunAsync();
+
+        var snapshot = await db.ProgressSnapshots.SingleAsync(s => s.Period == period);
+        Assert.Equal(DateOnly.Parse(expectedStart, System.Globalization.CultureInfo.InvariantCulture), snapshot.PeriodStart);
     }
 
     [Fact]
@@ -118,7 +140,7 @@ public sealed class ProgressSnapshotTests
             Mastery(other, "Matematik", "Türev", studyMinutes: 180));                               // ayrı öğrenci
         await db.SaveChangesAsync();
 
-        await new ProgressSnapshotProcessor(db, new FixedClock(Now), new SeqIdGenerator()).RunAsync();
+        await new ProgressSnapshotProcessor(db, new FixedClock(Now), new SeqIdGenerator(), new LocalCalendar("Europe/Istanbul", new FixedClock(Now))).RunAsync();
 
         var math = await db.ProgressSnapshots
             .SingleAsync(s => s.StudentId == student && s.Subject == "Matematik" && s.Period == SnapshotPeriod.Weekly);
