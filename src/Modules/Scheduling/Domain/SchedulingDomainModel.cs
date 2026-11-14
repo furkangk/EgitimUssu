@@ -209,6 +209,64 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
+    /// <summary>
+    /// Tekrar serisini <paramref name="cutoffUtc"/> anından böler ve yeni zamanla devam edecek seriyi üretir.
+    /// Eski seri geçmiş kayıtların kimliğini korur; yeni seri kendi kimliğiyle cutoff ve sonrasını temsil eder.
+    /// </summary>
+    public LessonSchedule SplitSeriesAt(
+        Guid newSeriesId,
+        DateTime cutoffUtc,
+        DateTime newStartAtUtc,
+        DateTime newEndAtUtc,
+        string? newRecurrenceRule,
+        string? note,
+        DateTime updatedOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(RecurrenceRule))
+        {
+            throw new InvalidOperationException("Yalnızca tekrarlı ders serisi bölünebilir.");
+        }
+
+        if (TeacherUserId is not { } teacherUserId || LessonFormat is not { } lessonFormat)
+        {
+            throw new InvalidOperationException("Öğretmensiz ders bu akışla bölünemez.");
+        }
+
+        if (newEndAtUtc <= newStartAtUtc)
+        {
+            throw new ArgumentOutOfRangeException(nameof(newEndAtUtc), "Yeni ders bitişi başlangıçtan sonra olmalı.");
+        }
+
+        EndSeriesBefore(cutoffUtc, updatedOnUtc);
+
+        var newSeries = new LessonSchedule(
+            newSeriesId,
+            teacherUserId,
+            StudentId,
+            Subject,
+            lessonFormat,
+            newStartAtUtc,
+            newEndAtUtc,
+            TimeZone,
+            newRecurrenceRule,
+            Status,
+            ReminderOffsetMinutes,
+            LocationLabel,
+            MeetingUrl,
+            Notes,
+            updatedOnUtc)
+        {
+            Topic = Topic,
+            ColorHex = ColorHex,
+            OriginalStartAtUtc = cutoffUtc,
+            RescheduleNote = note,
+            IsChargeable = IsChargeable,
+        };
+
+        Raise(new LessonSeriesSplitDomainEvent(Id, newSeries.Id, cutoffUtc));
+        return newSeries;
+    }
+
     public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;
@@ -312,6 +370,11 @@ public sealed record LessonScheduleCancelledDomainEvent(
     Guid StudentId,
     DateTime CancelledOnUtc) : DomainEvent;
 
+public sealed record LessonSeriesSplitDomainEvent(
+    Guid OldId,
+    Guid NewId,
+    DateTime CutoffUtc) : DomainEvent;
+
 public sealed record LessonSessionCompletedDomainEvent(
     Guid LessonScheduleId,
     Guid TeacherUserId,
@@ -407,6 +470,19 @@ public sealed class LessonOccurrenceException : Entity<Guid>
         OverrideStartAtUtc = overrideStartAtUtc;
         OverrideEndAtUtc = overrideEndAtUtc;
         Note = note;
+    }
+
+    /// <summary>
+    /// Seri bölündüğünde cutoff ve sonrasındaki istisnayı yeni seriye taşır. Yeni serinin çapası ne kadar kaydıysa
+    /// istisnanın iCal anahtarı ve varsa görünen override saatleri de aynı miktarda kayar; eylem (özellikle iptal)
+    /// değişmez.
+    /// </summary>
+    public void MoveToSeries(Guid newSeriesId, TimeSpan shift)
+    {
+        SeriesLessonScheduleId = newSeriesId;
+        OriginalStartAtUtc = OriginalStartAtUtc.Add(shift);
+        OverrideStartAtUtc = OverrideStartAtUtc?.Add(shift);
+        OverrideEndAtUtc = OverrideEndAtUtc?.Add(shift);
     }
 }
 

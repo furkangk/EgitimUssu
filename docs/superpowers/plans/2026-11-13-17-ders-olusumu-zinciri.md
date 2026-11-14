@@ -52,20 +52,21 @@
 
 ---
 
-### Task 2: "Bu ve sonrakiler" seriyi doğru böler
+### Task 2: "Bu ve sonrakiler" seriyi doğru böler ✅
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`SplitSeriesAt(DateTime cutoffUtc, ...)` → yeni seri)
-- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (reschedule/cancel `ThisAndFuture`)
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`SplitSeriesAt(DateTime cutoffUtc, ...)` → yeni seri; `LessonOccurrenceException.MoveToSeries(...)`; `LessonSeriesSplitDomainEvent`)
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (reschedule/cancel `ThisAndFuture`; `COUNT` kuralında yeni seriye yalnız kalan oluşum sayısını aktar; yeni seri çakışmasında eski serinin yalnız cutoff ve sonraki oluşumlarını hariç tut)
 - Test: `tests/Unit/SeriesSplitTests.cs`
+- Test: `tests/Integration/RealSeriesSplitTests.cs` (Global Constraints'teki görev başına Testcontainers kanıtı: iki seri + taşınan istisna + outbox olayı aynı gerçek transaction'da)
 
 **Interfaces:**
-- `ThisAndFuture` erteleme: eski seri `UNTIL = cutoff - 1 oluşum` ile biter; cutoff'tan itibaren **yeni** `LessonSchedule` (yeni saat, aynı öğrenci/konu/kural) oluşur; cutoff sonrası istisnalar yeni seriye **taşınır** (zaman farkı uygulanarak) veya açıkça düşürülür — karar: taşınır, `Cancelled` istisnalar korunur. Olay: `LessonSeriesSplitDomainEvent(OldId, NewId, CutoffUtc)`.
+- `ThisAndFuture` erteleme: eski seri `UNTIL = cutoff - 1 oluşum` ile biter; cutoff'tan itibaren **yeni** `LessonSchedule` (yeni saat, aynı öğrenci/konu/kural) oluşur; `COUNT` varsa yeni serinin sayısı toplamdan cutoff öncesi oluşumlar düşülerek yazılır (10 haftalık serinin 4. haftadan bölünmesi 3 + 7 kalır). Cutoff sonrası istisnalar yeni seriye **taşınır** (orijinal anahtar ve varsa override saatlerine zaman farkı uygulanır); `Cancelled` eylemi korunur. Başarılı yanıt yeni seriyi döndürür. Olay: `LessonSeriesSplitDomainEvent(OldId, NewId, CutoffUtc)`.
 - `ThisAndFuture` iptal: mevcut `EndSeriesBefore` (davranış korunur).
 
-- [ ] **Step 1: Kırmızı testler** — 10 haftalık serinin 4. haftasından itibaren saat değişimi → ilk 3 hafta eski saatte, 4–10 yeni saatte; geçmiş oluşumların oturum/ödeme kayıtları eski seride kalır; 6. haftadaki iptal istisnası yeni seride korunur.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m04`.
+- [x] **Step 1: Kırmızı testler** — 10 haftalık serinin 4. haftasından itibaren saat değişimi → ilk 3 hafta eski saatte, 4–10 yeni saatte; geçmiş oluşumların oturum/ödeme kayıtları eski seride kalır; 6. haftadaki iptal istisnası yeni seride korunur. *(Ek: başka dersle çakışmada iki seri de değişmez; gerçek PostgreSQL'de eski+yeni seri, taşınan iptal istisnası ve split outbox olayı tek transaction'da.)*
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.** *(İmza iskeleti 0 uyarı/0 hata derlendi; mevcut davranış yeni seri üretmediği için 1/2 kırmızı; uygulama sonrası 2/2 birim + 1/1 gerçek PostgreSQL yeşil. Tam paket: 19 mimari / 1137 birim / 130 integration, başarısız 0, atlanan 0.)*
+- [x] **Step 5: Doküman + commit** — `m04`; rapor N-01 backend seri bölme ayağı güncellendi.
   ```bash
   git commit -m "feat(scheduling): 'bu ve sonrakiler' seriyi boler, gecmis olusumlar korunur"
   ```

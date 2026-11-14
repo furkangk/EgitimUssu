@@ -395,6 +395,47 @@ internal static class OccurrenceScopeRules
             lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, calendar.SeriesZone(lesson.TimeZone), occurrenceStartAtUtc);
 }
 
+/// <summary>P17 T2: RRULE içindeki toplam <c>COUNT</c> değerini eski ve yeni seri arasında paylaştırır.</summary>
+internal static class SeriesSplitRules
+{
+    private static readonly System.Text.RegularExpressions.Regex CountPattern = new(
+        @"\bCOUNT=(\d+)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    public static string? RuleForNewSeries(LessonSchedule lesson, DateTime cutoffUtc, ILocalCalendar calendar)
+    {
+        var rule = lesson.RecurrenceRule;
+        if (string.IsNullOrWhiteSpace(rule))
+        {
+            return rule;
+        }
+
+        var match = CountPattern.Match(rule);
+        if (!match.Success
+            || !int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var totalCount))
+        {
+            return rule;
+        }
+
+        var beforeCutoff = RecurrenceExpander.Expand(
+                lesson.StartAtUtc,
+                lesson.EndAtUtc,
+                rule,
+                calendar.SeriesZone(lesson.TimeZone),
+                lesson.StartAtUtc,
+                cutoffUtc.AddTicks(-1))
+            .Count();
+        var remaining = totalCount - beforeCutoff;
+        if (remaining < 1)
+        {
+            throw new InvalidOperationException("Bölme noktasından sonra seride oluşum kalmadı.");
+        }
+
+        return CountPattern.Replace(rule, $"COUNT={remaining}", 1);
+    }
+}
+
 public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>
 {
     private static readonly Error InvalidRange = new("scheduling.invalid_range", "Ders baslangic ve bitis araligi gecersiz.");
@@ -697,14 +738,23 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
         }
 
         var teacherUserId = lesson.TeacherUserId ?? Guid.Empty;
+        var recurring = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule);
         var singleOccurrence = !string.IsNullOrWhiteSpace(lesson.RecurrenceRule)
             && scope == OccurrenceScope.Single
+            && command.OccurrenceStartAtUtc is not null;
+        var splitOccurrence = recurring
+            && scope == OccurrenceScope.ThisAndFuture
             && command.OccurrenceStartAtUtc is not null;
         var occurrenceException = singleOccurrence
             ? new LessonOccurrenceException(
                 _idGenerator.New(), lesson.Id, command.OccurrenceStartAtUtc!.Value,
                 OccurrenceExceptionAction.Rescheduled, command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow)
             : null;
+        var splitSeriesId = splitOccurrence ? _idGenerator.New() : Guid.Empty;
+        string? splitRule = null;
+        IReadOnlyCollection<LessonOccurrenceException>? exceptionsToMove = null;
+        IReadOnlyCollection<OccurrenceOverride>? shiftedExceptions = null;
+        LessonSchedule? splitSeries = null;
         var applied = false;
 
         return await _scheduleLock.RunExclusiveAsync(teacherUserId, async token =>
@@ -717,6 +767,45 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             {
                 candidates = new[] { new ScheduleOccurrence(command.NewStartAtUtc, command.NewEndAtUtc) };
                 isSelf = (other, occurrence) => other.Id == lesson.Id && occurrence.RecurrenceIdUtc == occurrenceException.OriginalStartAtUtc;
+            }
+            else if (splitOccurrence)
+            {
+                var cutoff = command.OccurrenceStartAtUtc!.Value;
+                var shift = command.NewStartAtUtc - cutoff;
+                if (exceptionsToMove is null)
+                {
+                    var allExceptions = await _repository.ListExceptionsForSeriesAsync(lesson.Id, token);
+                    exceptionsToMove = allExceptions
+                        .Where(item => item.OriginalStartAtUtc >= cutoff
+                            && RecurrenceExpander.IsOccurrence(
+                                lesson.StartAtUtc,
+                                lesson.EndAtUtc,
+                                lesson.RecurrenceRule,
+                                _calendar.SeriesZone(lesson.TimeZone),
+                                item.OriginalStartAtUtc))
+                        .ToArray();
+                    shiftedExceptions = exceptionsToMove
+                        .Select(item => new OccurrenceOverride(
+                            item.OriginalStartAtUtc.Add(shift),
+                            item.Action,
+                            item.OverrideStartAtUtc?.Add(shift),
+                            item.OverrideEndAtUtc?.Add(shift)))
+                        .ToArray();
+                    splitRule = SeriesSplitRules.RuleForNewSeries(lesson, cutoff, _calendar);
+                }
+
+                candidates = TeacherScheduleConflicts.CandidateOccurrences(
+                    command.NewStartAtUtc,
+                    command.NewEndAtUtc,
+                    splitRule,
+                    _calendar.SeriesZone(lesson.TimeZone),
+                    shiftedExceptions!,
+                    _clock.UtcNow,
+                    _settings.Horizon,
+                    includePastOccurrences: false);
+                // Eski serinin yalnız cutoff ve sonraki oluşumları yeni seriyle yer değiştirir. Daha önceki bir oluşuma
+                // doğru taşıma yapılırsa geçmiş bölüm gerçek bir çakışma olarak kalır.
+                isSelf = (other, occurrence) => other.Id == lesson.Id && occurrence.RecurrenceIdUtc >= cutoff;
             }
             else
             {
@@ -739,6 +828,26 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
                 // Upsert yeniden denemede aynı satırı (ya da izlenen eklemeyi) günceller; tekrar satırı doğmaz.
                 await _repository.UpsertExceptionAsync(occurrenceException, token);
             }
+            else if (splitOccurrence && !applied)
+            {
+                var cutoff = command.OccurrenceStartAtUtc!.Value;
+                var shift = command.NewStartAtUtc - cutoff;
+                splitSeries = lesson.SplitSeriesAt(
+                    splitSeriesId,
+                    cutoff,
+                    command.NewStartAtUtc,
+                    command.NewEndAtUtc,
+                    splitRule,
+                    command.Note?.Trim(),
+                    _clock.UtcNow);
+                foreach (var item in exceptionsToMove!)
+                {
+                    item.MoveToSeries(splitSeries.Id, shift);
+                }
+
+                await _repository.AddAsync(splitSeries, token);
+                applied = true;
+            }
             else if (!applied)
             {
                 lesson.Reschedule(command.NewStartAtUtc, command.NewEndAtUtc, command.Note?.Trim(), _clock.UtcNow);
@@ -746,7 +855,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             }
 
             await _repository.SaveChangesAsync(token);
-            return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+            return Result<LessonScheduleResponse>.Success((splitSeries ?? lesson).ToResponse());
         }, cancellationToken);
     }
 }
