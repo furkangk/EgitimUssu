@@ -126,6 +126,25 @@ public sealed class LessonConflictRecurrenceTests
     }
 
     [Fact]
+    public async Task Backdated_weekly_create_is_checked_from_its_own_anchor()
+    {
+        // Geçmişe kayıt: her oluşum yenidir, çapa dahil denetlenir (eski kod çapayı hep karşılaştırıyordu).
+        var lastTuesday = Utc(2026, 11, 10, 14);
+        AddLesson(lastTuesday);
+
+        AssertError(await Create(lastTuesday, "FREQ=WEEKLY;BYDAY=TU"), "scheduling.teacher_conflict");
+    }
+
+    [Fact]
+    public async Task Backdated_series_that_already_ended_is_still_checked()
+    {
+        // COUNT tükenmiş geçmiş seri: "şimdi"den sonra hiç oluşumu yok — aday listesi boş kalıp kontrol atlanmamalı.
+        AddLesson(Utc(2026, 10, 13, 14));
+
+        AssertError(await Create(Utc(2026, 10, 6, 14), "FREQ=WEEKLY;BYDAY=TU;COUNT=2"), "scheduling.teacher_conflict");
+    }
+
+    [Fact]
     public async Task Updating_a_september_series_is_not_blocked_by_a_past_overlap()
     {
         // Bu düzeltmeden önce yazılmış (çakışma görülmeden) geçmiş bir ders, serinin 15 Eylül oluşumunun üstünde.

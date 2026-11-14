@@ -200,15 +200,21 @@ internal static class TeacherScheduleConflicts
 {
     public static readonly Error LessonConflict = new("scheduling.teacher_conflict", "Ogretmenin bu zaman araliginda baska bir dersi var.");
 
+    // Mesaj öğretmene gösterilir (mobil erteleme yolu sunucu mesajını basar); override bayrağının adı burada geçmez.
     public static readonly Error TimeOffConflict = new(
         "scheduling.time_off_conflict",
-        "Bu zaman araligi ogretmenin tatil / musait degil blogunda. Yine de planlamak icin allowTimeOffOverride gonderin.");
+        "Bu saat, tatil / müsait değil olarak işaretlediğin bir zamana denk geliyor.");
 
     /// <summary>
-    /// Adayın denetlenecek oluşumları. Tekil aday kendi anında denetlenir (geçmişe kayıt girmek mümkün); tekrarlı aday
-    /// <c>max(çapa, şimdi)</c>'den itibaren ufuk boyunca genişletilir — Eylül'de çapalanmış serinin notunu düzeltmek
-    /// geçmişteki bir çakışma yüzünden reddedilmesin. <paramref name="ownExceptions"/> serinin kendi istisnalarıdır
-    /// (güncellemede iptal edilmiş kendi oluşumu yer tutmaz).
+    /// Adayın denetlenecek oluşumları. Tekil aday her zaman kendi anında denetlenir. Tekrarlı aday
+    /// <c>max(çapa, şimdi) + ufuk</c>'a kadar genişletilir; başlangıç <paramref name="includePastOccurrences"/>'a bağlıdır:
+    /// <list type="bullet">
+    /// <item><b>Oluşturma</b> (<c>true</c>): çapadan — geçmişe girilen serinin her oluşumu yenidir, çapa dahil denetlenir
+    /// (COUNT'u tükenmiş geçmiş seri de boş listeyle kontrolü atlamaz).</item>
+    /// <item><b>Güncelleme / seri ertelemesi</b> (<c>false</c>): <c>max(çapa, şimdi)</c>'den — Eylül'de çapalanmış serinin
+    /// notunu düzeltmek geçmişteki (bu kontrolden önce yazılmış) bir çakışma yüzünden reddedilmesin.</item>
+    /// </list>
+    /// <paramref name="ownExceptions"/> serinin kendi istisnalarıdır (güncellemede iptal edilmiş kendi oluşumu yer tutmaz).
     /// </summary>
     public static IReadOnlyList<ScheduleOccurrence> CandidateOccurrences(
         DateTime startAtUtc,
@@ -217,16 +223,18 @@ internal static class TeacherScheduleConflicts
         TimeZoneInfo zone,
         IReadOnlyCollection<OccurrenceOverride> ownExceptions,
         DateTime nowUtc,
-        TimeSpan horizon)
+        TimeSpan horizon,
+        bool includePastOccurrences)
     {
         if (string.IsNullOrWhiteSpace(recurrenceRule))
         {
             return new[] { new ScheduleOccurrence(startAtUtc, endAtUtc) };
         }
 
-        var fromUtc = startAtUtc > nowUtc ? startAtUtc : nowUtc;
+        var futureFromUtc = startAtUtc > nowUtc ? startAtUtc : nowUtc;
+        var fromUtc = includePastOccurrences ? startAtUtc : futureFromUtc;
         return RecurrenceExpander
-            .Expand(startAtUtc, endAtUtc, recurrenceRule, zone, fromUtc, fromUtc + horizon, ownExceptions)
+            .Expand(startAtUtc, endAtUtc, recurrenceRule, zone, fromUtc, futureFromUtc + horizon, ownExceptions)
             .Where(occurrence => !occurrence.IsCancelled)
             .ToArray();
     }
@@ -387,7 +395,7 @@ public sealed class CreateLessonScheduleCommandHandler : ICommandHandler<CreateL
 
         var candidates = TeacherScheduleConflicts.CandidateOccurrences(
             lesson.StartAtUtc, lesson.EndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
-            Array.Empty<OccurrenceOverride>(), _clock.UtcNow, _settings.Horizon);
+            Array.Empty<OccurrenceOverride>(), _clock.UtcNow, _settings.Horizon, includePastOccurrences: true);
 
         // P16 T4 / N-07: kontrol + ekleme + kaydetme öğretmen kilidinde, tek transaction'da — eşzamanlı iki istekten biri 409.
         return await _scheduleLock.RunExclusiveAsync(command.TeacherUserId, async token =>
@@ -466,7 +474,7 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
         {
             var ownExceptions = await TeacherScheduleConflicts.OwnExceptionsAsync(_repository, lesson, recurrenceRule, token);
             var candidates = TeacherScheduleConflicts.CandidateOccurrences(
-                command.StartAtUtc, command.EndAtUtc, recurrenceRule, zone, ownExceptions, _clock.UtcNow, _settings.Horizon);
+                command.StartAtUtc, command.EndAtUtc, recurrenceRule, zone, ownExceptions, _clock.UtcNow, _settings.Horizon, includePastOccurrences: false);
             var conflict = await TeacherScheduleConflicts.FindAsync(
                 _repository, _timeOff, _calendar, teacherUserId, candidates,
                 (other, _) => other.Id == lesson.Id, command.AllowTimeOffOverride, token);
@@ -653,7 +661,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
                 var ownExceptions = await TeacherScheduleConflicts.OwnExceptionsAsync(_repository, lesson, lesson.RecurrenceRule, token);
                 candidates = TeacherScheduleConflicts.CandidateOccurrences(
                     command.NewStartAtUtc, command.NewEndAtUtc, lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone),
-                    ownExceptions, _clock.UtcNow, _settings.Horizon);
+                    ownExceptions, _clock.UtcNow, _settings.Horizon, includePastOccurrences: false);
                 isSelf = (other, _) => other.Id == lesson.Id;
             }
 
