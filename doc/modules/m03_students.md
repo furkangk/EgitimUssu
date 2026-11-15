@@ -57,6 +57,10 @@ updated: 2026-11-15
 
 ---
 
+### Mobil öğrenci önbelleği (P20 T3 / N-68, N-70)
+
+`StudentRepositoryImpl.listByTeacher` ortak `CacheStore` üzerinden oturumdaki kullanıcı kimliğiyle saklanır; URL'deki öğretmen kimliği veri sorgusudur. Yalnız bağlantı/timeout hatası kayıtlı listeye dönebilir (boş liste de geçerli). HTTP 403/500 eski veriye çevrilmez. Uygulama kökündeki ARB uyarısı kayıt zamanını gösterir; aynı sorgu tazelenince veya çıkışta kaldırılır. Eski `students.*` cache anahtarları açılışta silinir.
+
 ## 2. Domain Modeli
 
 **P18 T1 — eşzamanlılık (K-22):** `StudentProfile`, `TeacherStudentLink` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
@@ -448,3 +452,9 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 **Outbox teslimi (P19 T2 / N-42):** Veli bağı birincil değilse, öğrenci silinmişse veya veli zaten bağlıysa geçerli etkisiz sonuç da inbox'a yazılır; bozuk yük açık poison hatasıdır. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+## P20 T1 — öğrenci detay başarı mesajları
+
+`StudentDetailCubit` öğrenci güncelleme, branş ekleme/silme ve bekleyen veli talebi için `studentDetail_*` anlam anahtarı taşır. `StudentDetailPage` bunları aktif tr/en ARB’den gösterir; sunucu hata mesajı sözleşmesi korunur. API/repository/domain değişmedi.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

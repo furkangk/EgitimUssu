@@ -16,13 +16,13 @@
 
 - **Commit kapsamı:** her commit bloğundan önce `git add <görevin Files: listesi> <değişen doc dosyaları>`; **`git add -A` / `git add .` yasak** (platforma özgü dosyalar, `pubspec.lock` ve ilgisiz değişiklikler sızmasın).
 - Her görevde: `cd mobile && flutter test && flutter analyze --fatal-infos` → 0 hata, 0 sorun.
-- Dokunulan ekran ARB'ye taşınır (K-26); `localization_test.dart` `_migratedFeatures` listesi güncellenir.
+- Dokunulan ekran ARB'ye taşınır (K-26); `localization_test.dart` tarama kapsamı güncellenir (`_migratedFeatures` veya yalnız dokunulan dosyalar için `_migratedFiles`; dokunulmayan ekranlar taşınmış sayılmaz).
 - Sahte veri yasağı (2026-09-02 §1): ekrandaki her değer gerçek API'den; demo yalnız `--dart-define=USE_MOCK_FALLBACK=true`.
 - Doküman: değişen ekranlar için `doc/pages/*.md`, rota değişikliği için `doc/architecture/mobile_flutter.md` + `ux_rules.md`.
 
 ---
 
-### Task 1: Sahte veri ve yer tutucu temizliği (N-60, P-10, N-72 metin)
+### Task 1: Sahte veri ve yer tutucu temizliği (N-60, P-10, N-72 metin) ✅
 
 **Files:**
 - Modify: `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart` (`_seedEvents` ve kullanımı silinir; tatil/ödev/ödeme etkinlikleri gerçek kaynaktan gelene kadar **gösterilmez**)
@@ -33,16 +33,34 @@
 - Envanter: `grep -rn "StudyDemoBadge\|yakında\|Yakında\|prototip" mobile/lib` → her eşleşme için karar tablosu ILERLEME'ye: (a) P21'de gerçek ekrana bağlanacak → şimdilik **gizle**, (b) özellik yok → kaldır.
 - Test: `mobile/test/features/scheduling/scheduling_no_seed_test.dart`, `mobile/test/core/routing/preview_routes_test.dart`
 
-- [ ] **Step 1: Kırmızı testler** — takvim API boş döndüğünde ekranda **hiç** etkinlik yok; release modunda preview rotaları 404/yönlendirme; `localization_test` `api_exception.dart`'taki "hatasi olustu"yu yakalar.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `doc/pages/scheduling.md`, `dashboard_preview.md`; rapor N-60, P-10 ✅.
+**2026-11-15 kapsam doğrulaması (T1):** Envanter Study ekranlarında da sabit haftalık sayaç, demo hedef/konu puanı ve işlem yapmayan profil satırları gösterdi. Bunlar mevcut T1 envanter yükümlülüğünün parçasıdır; yeni özellik/endpoint eklenmez. `localization_test` zaten `lib/**` tarıyor; eksik olan bozuk yazım sözcükleri ve dokunulan dosyaların ARB geri dönüş korumasıdır. Öğretmen profilinin başlangıç verisi de sunucudan önce sahte bilgi gösterebiliyor; bu görevde gerçek veri gelmeden gösterilmez.
+
+**Ek Files (koddan doğrulandı):**
+- Modify: `mobile/lib/features/teacher_profile/data/repositories/teacher_repository_impl.dart`; Test: `mobile/test/features/teacher_profile/teacher_repository_test.dart` (incelemede 404 yanıtının mock kapalıyken de demo profil döndürdüğü doğrulandı; yalnız açık mock tercihi demo döndürebilir, gerçek 404 hata olarak korunur).
+- Modify: `mobile/lib/features/study/presentation/pages/student_home_page.dart`, `student_profile_page.dart`, `student_goals_overview_page.dart`, `student_lesson_detail_page.dart`, `student_tests_page.dart` (sahte/işlevsiz parçalar kaldırılır; gerçek verili bölümler korunur, kalan kullanıcı metinleri tr/en ARB).
+- Modify: `mobile/lib/features/study/presentation/widgets/study_tab_widgets.dart`, `mobile/lib/features/study/presentation/home/dashboard_stats.dart` (kullanılmayan demo yardımcıları).
+- Modify: `mobile/lib/features/membership/presentation/pages/paywall_page.dart`, `mobile/lib/features/membership/presentation/widgets/membership_widgets.dart` (işlevsiz satın alma/gelecek vaatleri gizlenir; mevcut deneme/üyelik korunur; dokunulan metinler ARB).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`; gerektiğinde ilgili mevcut ekran widget testlerinin locale kurulumu; yeni `mobile/test/features/study/no_demo_surfaces_test.dart`, `mobile/test/features/teacher_profile/no_fake_profile_test.dart`, `mobile/test/core/network/api_exception_test.dart` (mevcut dosya: eski sözleşme testleri korunur); yeni `mobile/test/features/students/student_detail_messages_test.dart`.
+- Docs: `doc/pages/scheduling.md`, `dashboard_preview.md`, `teacher_profile.md`, `more.md`, `students_detail.md`, `study_student.md`, `paywall.md`, `membership.md`, `account_info.md`; `doc/roles/ogrenci.md`, `doc/roles/ogretmen.md`; `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/modules/00_genel_bakis.md`, ilgili M02/M03/M04/M08/M17 dokümanları ve denetim kaydı.
+
+**Ön uyumluluk kontrolü:** T1↔T2 aynı router'ı kullanır: T1 yalnız preview/sahte hesap girişi, rol izin tablosu T2'de kalır. T1↔T3 repository hata mesajı tüketir ama cache/logout sözleşmesini değiştirmez. T1↔T5 Cubit mesajları yerelleştirilir; genel lifecycle/timeout süpürmesi T5'tedir. T1↔T6 ekran davranışları gerçek veriye indirgenir, gerçek cihaz kapanışı T6'da kalır. T2 push rota eşlemesi T4 olay otobüsünden bağımsızdır. T3 reset işlemleri T5 safeEmit ile uyumlu olmalıdır; T4 poll iptali T5 dispose kuralını korur. T1 kendi testi seed/preview/metin gereksinimiyle tutarlı; T2 rota matrisi, T3 cache/logout, T4 poll/push, T5 yaşam döngüsü, T6 cihaz/kapsam testleri kendi dosya ve adımlarıyla tutarlıdır; sonraki görevlerin Files listesi uygulama öncesi ayrıca doğrulanır.
+
+**Interfaces:** Backend/repository sözleşmeleri değişmez. Normal `/account-info` rotası da aynı statik prototipi açtığından preview rotalarıyla birlikte `kDebugMode && enablePreviewRoutes` kapısına alınır; MorePage hesap bilgileri girişi P21 gerçek hesap akışına kadar gizlenir. Preview rotaları derleme modu ile kapatılır; test edilebilir debug tercihi üretim derlemesinde kDebugMode kapısını aşamaz. API mesajlarının mevcut `message` sözleşmesi korunur; istemcinin kendi fallback metinleri yerelleştirilir. Öğrenci detay Cubit mesajları UI'da ARB'ye çevrilecek anlam/anahtar taşır; tüm tüketicileri doğrulanır. Yeni imza gerekiyorsa davranışsız derlenebilir iskelet → gerçek RED → GREEN sırası uygulanır.
+
+**Envanter kararı:** P21 gerçek akışına bağlanacak öğrenci profil düzenleme/veli/gizlilik/abonelik yer tutucuları gizlenir. Veri kaynağı olmayan haftalık sayaç, demo hedef, konu puanı, sahte ilişki ve aylık hedef kartları kaldırılır. API yükleme hatası yakında/demo yerine gerçek hata/yeniden deneme gösterir. P28 satın alma ve kapısı bulunmayan premium vaatleri gösterilmez. Yalnız yorum/dokümantasyon içindeki eşleşmeler işlev sayılmaz; account-info prototipi debug preview rotasının arkasında kalır (gerçek hesap akışı P21).
+
+- [x] **Step 1: Kırmızı testler** — takvim API boş döndüğünde ekranda **hiç** etkinlik yok; gecikmeli gerçek ders yanıtı geldiğinde kullanıcı ekrana dokunmadan ders görünür (seed kaldırma sonrası gerçek veri yolu korunur); release modunda preview rotaları 404/yönlendirme; `localization_test` `api_exception.dart`'taki "hatasi olustu"yu yakalar.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `doc/pages/scheduling.md`, `dashboard_preview.md`; rapor N-60, P-10 ✅.
   ```bash
   git commit -m "fix(mobile): uretimde sahte takvim etkinlikleri ve onizleme rotalari kaldirildi (N-60, P-10)"
   ```
 
+**Doğrulama (2026-11-15):** Gerçek RED→GREEN (seed/preview/profil/Study/API/metin, gecikmeli gerçek ders, 404 repository ve EN tarama). Son Flutter **385/385**, `flutter analyze --fatal-infos` temiz. Backend **19 mimari / 1312 birim / 214 gerçek Docker integration, 0 başarısız / 0 atlanan**; Release `-warnaserror` 0 uyarı/0 hata. İki inceleme bulgusu giderildi ve dar yeniden inceleme onaylandı. Preview kayıt kapısı debug testinde kapalı/açık ve `kDebugMode` koşulu ile doğrulandı; doğrudan release/profile cihaz koşumu bu görevde yapılmadı. Migration yok.
+
 ---
 
-### Task 2: Rol bazlı rota izin tablosu + bildirim rotaları (N-62, N-71 rotalar)
+### Task 2: Rol bazlı rota izin tablosu + bildirim rotaları (N-62, N-71 rotalar) ✅
 
 **Files:**
 - Create: `mobile/lib/core/routing/route_access.dart` (`Map<String, Set<AppRole>>` + ortak rotalar)
@@ -56,35 +74,65 @@
 - Ortak (tüm roller): `/messages`, `/messages/:id`, `/notifications`, `/settings/*`, `/account/*`, `/membership`, `/membership/paywall`.
 - Veli'ye özel: `/parent/**`. Öğrenci'ye özel: `/student-home/**`, `/study/**`. Öğretmen'e özel: `/dashboard`, `/students/**`, `/scheduling`, `/payments/**`, `/teacher/**`.
 
-- [ ] **Step 1: Kırmızı testler** — veli `/messages` → kalır; veli `/students` → `/parent`; öğrenci `/payments` → `/student-home`; push `/parent/payments` → veli ödeme ekranı; bilinmeyen rota → hata ekranı (çökme yok).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `mobile_flutter.md` (rota tablosu), `ux_rules.md`, `roles/veli.md`; rapor N-62, N-71 (rota) ✅.
+**2026-11-15 T2 kapsam doğrulaması:** Push dokunmasını tüketen dosya `mobile/lib/app/app.dart`; Firebase binding rota seçmez. Sunucu ayrıca `/parent/lessons` üretir. Ayrı veli ödeme/ödev listesi yok; mevcut `ParentHomePage` onaylı çocuk seçicisi ve gerçek dashboard verisiyle `overview/assignments/payments/lessons` bölümleri sunacak. Bunlar özet ekranlarıdır; ödeme beyanı ve yeni rol akışları P21'de kalır. `/student/reports` mevcut sözleşmeye göre ortak, `/student/progress` öğrenciye özel kalır. Öğretmen/admin mevcut öğretmen alanını kullanır; çok rollü hesapta mevcut Parent > Teacher > Student önceliği korunur, bilinmeyen rol yalnız ortak ekranlara erişir. İzin tablosu önek yerine kayıtlı tam rota şablonlarını eşler; bilinmeyen URL hata ekranına, bilinmeyen/yetkisiz bildirim hedefi bildirim merkezine gider.
+
+**Ek Files:**
+- Create: `mobile/lib/core/push/push_route_mapping.dart`, `mobile/lib/core/routing/route_not_found_page.dart`.
+- Modify: `mobile/lib/app/app.dart` (oturum geri yüklenirken gelen bildirimi oturum hazır olunca açar), `mobile/lib/features/notifications/presentation/pages/notifications_page.dart` (aynı güvenli eşleyici; zaten ARB'de).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`, `mobile/test/l10n/localization_test.dart` (veli ana ekranı ve hata ekranı ARB).
+- Create (test helper): `mobile/test/helpers/fake_parent_repository.dart`.
+- Test: `mobile/test/features/parent/parent_home_routes_test.dart`, `mobile/test/core/push/push_navigation_test.dart`; mevcut `mobile/test/core/routing/app_router_test.dart`, `preview_routes_test.dart` regresyonları.
+- Docs: `doc/pages/parent.md`, `doc/pages/notifications.md`, `doc/modules/m09_parents.md`, `doc/modules/m11_notifications.md`, `doc/modules/00_genel_bakis.md` ve Step 5 belgeleri; veli sayfası dokümanı olmadığından `parent.md` oluşturulur, `doc/pages/00_pages_index.md` ve `doc/INDEX.md` eklenir.
+
+**Interfaces eki:** `AppRole`, `RouteAccess.roleFor/homeFor/canAccess/redirectFor`, tam şablon izin tablosu; `mapPushRoute(String?, AppRole)` yalnız uygulama içi kayıtlı hedef döndürür. `ParentHomePage(section: ParentHomeSection)` aynı mevcut repository sözleşmesini kullanır; backend ve repository arayüzleri değişmez, sahte imza değişikliği yok. T2/T3 `app.dart` ortak: bu görev yalnız push navigasyonunu değiştirir; cache/reset T3. T2/T4 push ortak: `onMessage`/poll T4. T2/T6 gerçek FCM/cihaz kanıtı T6/P25; burada platform bağımsız akış sınanır.
+
+- [x] **Step 1: Kırmızı testler** — veli `/messages` → kalır; veli `/students` → `/parent`; öğrenci `/payments` → `/student-home`; push `/parent/payments` → veli ödeme ekranı; bilinmeyen rota → hata ekranı (çökme yok).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `mobile_flutter.md` (rota tablosu), `ux_rules.md`, `roles/veli.md`; rapor N-62, N-71 (rota) ✅.
   ```bash
   git commit -m "fix(mobile): rol bazli rota izin tablosu, veli ortak ekranlara girer, push rotalari eslendi (N-62, N-71)"
   ```
 
+**Doğrulama (2026-11-15):** Derlenen davranışsız imzalar → gerçek rota/eşleme, veli özet ve sıcak/soğuk push kırmızıları → yeşil. Dinamik rota şablonu regresyonu RED→GREEN. Bağımsız incelemenin tek önemli bulgusu: üç özet rotasında Ana Sayfa seçili olduğu için dönüş etkisiz; üç yeni widget testi 6 yeşil/3 kırmızı → `ParentNavTab.none` ile 9/9. Son `flutter test` **417 geçti**, `flutter analyze --fatal-infos` temiz; analysis_options geri alındı. Release `-warnaserror` **0 uyarı/0 hata**, tool restore başarılı; tam Docker **19 mimari/1312 birim/214 integration, 0 başarısız/0 atlanan**, exit0. NuGet 76 proje/0 advisory; migration yok. Doc health RED0, mevcut1YELLOW+1BLUE. Gerçek FCM/cihaz teslimi doğrulanmadı (Q8/P25); ön plan T4, cache/çıkış T3.
+
 ---
 
-### Task 3: Çıkış ve önbellek hijyeni (N-68, N-69, N-70)
+### ✅ Task 3: Çıkış ve önbellek hijyeni (N-68, N-69, N-70)
 
 **Files:**
 - Create: `mobile/lib/core/storage/cache_store.dart` (anahtar biçimi `cache.<userId>.<feature>.<key>`; `clearUser(userId)`, `clearAll()`; okuma `CachedValue<T>{ value, savedAt }`)
-- Modify: `mobile/lib/features/payments/data/repositories/payment_repository_impl.dart`, `mobile/lib/features/students/data/repositories/student_repository_impl.dart`, `mobile/lib/features/scheduling/data/repositories/scheduling_repository_impl.dart` (önbelleğe **yalnız ağ hatasında** düş; takvim anahtarı **güne yuvarlanır**)
+- Modify: `mobile/lib/features/payments/data/repositories/payment_repository_impl.dart`, `mobile/lib/features/students/data/repositories/student_repository_impl.dart`, `mobile/lib/features/scheduling/data/repositories/scheduling_repository_impl.dart` (önbelleğe **yalnız ağ hatasında** düş; takvim anahtarı ve istek **güne yuvarlanır**)
 - Create: `mobile/lib/shared/widgets/stale_data_banner.dart`
 - Modify: `mobile/lib/features/auth/data/repositories/auth_repository_impl.dart` (`logout`: sunucu `/api/identity/logout` (hata yutulur ama loglanır) → token sil → `CacheStore.clearAll()`)
 - Modify: `mobile/lib/app/app.dart` (kök `NotificationsCubit`, `MembershipCubit` çıkışta `reset()`)
 - Test: `mobile/test/core/storage/cache_store_test.dart`, `mobile/test/features/auth/logout_cleanup_test.dart`, repository testleri
 
-- [ ] **Step 1: Kırmızı testler** — 403/500'de önbellek **dönmez**, hata gösterilir; ağ hatasında önbellek + `isStale`; aynı gün iki takvim çağrısı aynı anahtar; çıkış sonrası `SharedPreferences`'ta `cache.` önekli anahtar yok, logout ucu çağrıldı, kök cubit'ler başlangıç durumunda.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `mobile_flutter.md` (önbellek kuralı); rapor N-68/69/70 ✅.
+**2026-11-15 T3 kapsam doğrulaması ve karar:** Beş cache okuma yolu var: ödeme özet/kayıt, öğretmen öğrenci listesi, öğretmen/öğrenci ders listeleri. Aynı sonuçlar dashboard, form ve detaylarda da tüketiliyor. Domain repository dönüşlerini değiştirmek yerine tek CacheStore `CachedValue<T>(value, savedAt, isStale)` üretir; repository `.value` döndürür, uygulama kökündeki ortak ARB uyarısı store'un `staleSince` durumunu izler. Böylece tüm tüketicilerde uyarı görünür, onlarca ekranı/sahteyi taşımak gerekmez. Uyarı oturum boyunca herhangi bir eski sonuç kullanıldığında kalır; aynı sorgunun başarılı tazelenmesi veya oturum temizliği kaldırır. HTTP 403/500, iptal, sertifika ve ayrıştırma hataları cache kullanamaz; yalnız bağlantı/timeout ve yanıtsız transport hataları uygundur. Kimlik URL'deki öğretmen/öğrenci değil oturumdaki userId'dir. Takvimde hem istek hem anahtar UTC gün başı/sonuna normalize edilir (aynı cache anahtarı farklı veri dilimlerini temsil etmez); orijinal uçları dahil sunucu sözleşmesi korunur.
+
+**Ek Files (uygulamadan önce koddan doğrulandı):**
+- Modify: `mobile/lib/core/storage/local_cache.dart`, `mobile/test/helpers.dart` (`keys()` envanteri; yalnız SharedPrefsLocalCache ve InMemoryLocalCache uygular).
+- Modify: `mobile/lib/core/di/injector.dart`, `mobile/lib/core/network/api_exception.dart`, `mobile/lib/core/network/api_client.dart` (yalnız ağ sınıflaması ve oturumdaki bekleyen yazma gövdelerini temizleme).
+- Modify: `mobile/lib/features/notifications/presentation/cubit/notifications_cubit.dart`, `mobile/lib/features/membership/presentation/cubit/membership_cubit.dart`, `mobile/lib/features/auth/presentation/cubit/auth_cubit.dart` (reset ve gecikmiş eski oturum yanıtını engelleme).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`, `mobile/test/l10n/localization_test.dart`.
+- Test: `mobile/test/core/storage/cache_repository_test.dart`, `mobile/test/features/auth/root_session_reset_test.dart`, `mobile/test/shared/widgets/stale_data_banner_test.dart`; mevcut `mobile/test/core/network/api_exception_test.dart`, `mobile/test/features/auth/data/auth_repository_impl_test.dart` gerekirse uyum.
+- Docs: `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `widgets.md`; `doc/modules/00_genel_bakis.md`, `m01_identity.md`, `m03_students.md`, `m04_scheduling.md`, `m07_payments.md`, `m11_notifications.md`, `m17_membership.md`; denetim kaydı.
+
+**İnceleme eki (uygulamadan önce):** `mobile/lib/core/network/token_refresh_interceptor.dart` ve yeni `mobile/test/core/network/session_cache_refresh_test.dart` kapsamda. 401 tekrar yolu cache/yazma kuşağını atlıyordu; eski unauthorized yeni kullanıcıyı kapatabiliyordu. Refresh sertifika/iptal/parse hatası network'e dönüşmemeli. Geç başarılı refresh yeni tokenını yerelde yazmadan ayrıca sunucuda revoke eder. Başarısız tazeleme eski uyarıyı gizlemez. Dört bulgu yedi davranış kırmızısıyla doğrulandı; interceptor kuşağı/hata türü, geç refresh revoke ve başarısız tazelemede uyarıyı koruma ile odaklı 29/29 yeşil. Son tam paket aşağıda kaydedilir. PushService izin/token kayıt yarışı değişmeyen yaşam döngüsüdür; P20 T4'te ele alınacak, genel dispose T5, cache dışı aramalar mevcut kapsam dışında.
+
+**Interfaces:** LocalCache.keys → Set<String>; CacheStore.activate(userId), clearUser, clearAll, clearLegacy, read/write/load; read/load CachedValue<T> ve observable staleSince/isStale. Cache işlemleri oturum kuşağını yakalar; çıkış/hesap değişiminden sonra biten istek eski veriyi yazamaz/döndüremez. Eski payments./students./scheduling. anahtarları bir defalık silinir; tema gibi ilgisiz tercihler korunur. CacheStore DI'da tektir; kurucu uyumluluğu için repository testlerine yerel store varsayılanı sağlanır (kimliksiz cache kapalı). Logout refresh token gövdesi + mevcut bearer ile interceptor'sız Dio kullanır (401→refresh→logout döngüsü yok); hata sır içermeden loglanır, yerel temizlik finally'dedir. Refresh/login ve logout yazımları sıralanır, geç refresh oturumu diriltemez. Kök cubit reset yalnız state'i değil bekleyen okumaların/komutların kuşağını geçersiz kılar. T2 soğuk push bekletme korunur; T4 poll/ön plan ve T5 genel safeEmit ayrı görevlerdir. Tek görev/ILERLEME hafızası kuralı skill'in çoklu görev/ayrı ledger önerisine üstün.
+
+- [x] **Step 1: Kırmızı testler** — 403/500'de önbellek **dönmez**, hata gösterilir; ağ hatasında önbellek + `isStale`; aynı gün iki takvim çağrısı aynı anahtar; çıkış sonrası `SharedPreferences`'ta `cache.` önekli anahtar yok, logout ucu çağrıldı, kök cubit'ler başlangıç durumunda.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `mobile_flutter.md` (önbellek kuralı); rapor N-68/69/70 ✅.
   ```bash
   git commit -m "fix(mobile): onbellek kullanici kapsamli ve yalniz ag hatasinda, cikista tam temizlik (N-68..N-70)"
   ```
 
+**Doğrulama (2026-11-15):** Derlenen imzalar → gerçek kırmızı davranış testleri → en az uygulama → yeşil. İnceleme dört önemli bulgu/yedi RED sonrası odaklı29/29; son tam Flutter **468/468**, `flutter analyze --fatal-infos` temiz. Tool restore başarılı; Release `-warnaserror` **0 uyarı/0 hata**; `scripts/test-with-docker.sh` **19 mimari/1312 birim/214 gerçek Docker integration, 0 başarısız/0 atlanan**. NuGet76proje/0advisory; migration yok. Doc health RED0/mevcut1YELLOW+1BLUE. T4 başlamadı, merge/push yok.
+
 ---
 
-### Task 4: Ön planda bildirim ve sohbet tazeleme (N-71 `onMessage`)
+### Task 4: Ön planda bildirim ve sohbet tazeleme (N-71 `onMessage`) ✅
 
 **Files:**
 - Modify: `mobile/lib/core/push/firebase_push_binding.dart` (`FirebaseMessaging.onMessage` → `PushEventBus`)
@@ -92,16 +140,33 @@
 - Modify: `mobile/lib/features/notifications/**` (rozet + liste tazele), `mobile/lib/features/messaging/presentation/cubit/chat_cubit.dart` (açık sohbette 10 sn poll + push gelince anında tazele; ekrandan çıkınca poll durur), `conversations_cubit.dart`
 - Test: `mobile/test/core/push/push_event_bus_test.dart`, `mobile/test/features/messaging/chat_polling_test.dart`
 
-- [ ] **Step 1: Kırmızı testler** — ön planda mesaj push'u → açık sohbet yeni mesajı gösterir, rozet artar; sohbetten çıkınca zamanlayıcı iptal.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `doc/pages/messaging_chat.md`, `notifications.md`; rapor N-71 (`onMessage`) ✅.
+**2026-11-15 T4 kapsam doğrulaması:** `onMessage` bağlantısı yok; ChatCubit yalnız ilk sayfa/elle sayfalama yapıyor. Token izin/kayıt işlemi çıkıştan sonra kullanıcıyı diriltebiliyor (#294). Repository arayüzleri değişmez; mevcut sahteler korunur. T2 dokunma/rol eşlemesi ve T3 oturum kuşağı korunur. K-07 gereği 10 sn REST poll yalnız görünür, ön plandaki sohbette; push anında aynı tazeleme yolunu tetikler. Gerçek FCM cihaz teslimi Q8/P25 bağımlılığıdır; burada platformdan bağımsız kaynak akışı doğrulanır.
+
+**Ek Files:**
+- Modify: `mobile/lib/core/push/push_service.dart`, `mobile/lib/core/di/injector.dart`, `mobile/lib/app/app.dart` (tek olay otobüsü, oturum ve rozet bağlantısı).
+- Modify: `mobile/lib/features/messaging/presentation/pages/chat_page.dart`, `messaging_inbox_page.dart`, `mobile/lib/features/messaging/presentation/widgets/messaging_widgets.dart` (görünürlük/oturum ömrü ve dokunulan ekran ARB).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `app_en.arb`, `mobile/test/l10n/localization_test.dart`, `mobile/test/features/messaging/messaging_pages_test.dart` (yerelleştirme kurulumu).
+- Test: `mobile/test/core/push/push_service_test.dart`, `mobile/test/core/push/foreground_refresh_test.dart`, `mobile/test/features/messaging/chat_visibility_test.dart`.
+- Docs: `doc/pages/messaging_inbox.md`, `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/modules/m11_notifications.md`, `m16_messaging.md`, `00_genel_bakis.md`, denetim kaydı ve yukarıdaki ekran belgeleri.
+
+**Test kapsam eki:** `mobile/pubspec.yaml` dev_dependencies içine zaten Flutter testlerinden transitif gelen `fake_async: ^1.3.3` açık bağımlılık olarak alınır. Poll/stream mikro görevlerini deterministik zamanla sınamak için kullanılır; pubspec.lock §4.3 gereği commit dışıdır.
+
+**Interfaces:** `PushEventBus` tek DI örneği; `activate(userId)` oturum kuşağını değiştirir, `publish(data, messageId)` yalnız etkin oturumda olayı yayar; mesaj kimliği tekrarlarını sınırlı bellekte eler. Push veri içeriği UI verisi değildir, yalnız yetkili API okumalarını tetikler. Chat `setActive(bool)` görünürlük kapısı; `refreshLatest()` tek uçuş, keyset ile yeni mesaj aralığını kapatır, eski sayfaları ve yerel taslakları korur. `close` timer/abonelikleri bitirir; eski oturum ve kapanmış ekran sonuçları elenir. Bildirim merkezi filtreyi koruyarak ilk sayfayı yeniler, rozet yalnız unread-count ile güncellenir. Push token yazmaları sıralanır; geç izin/token sonucu atılır, geç sunucu kaydı yeni kayıttan önce temizlenir. K-26 ekran/widget metinleri TR/EN. Genel SafeEmit süpürmesi T5'te kalır. Kullanıcının tek görev/tek ILERLEME kuralı skill çoklu görev/ledger önerisinden üstündür.
+
+- [x] **Step 1: Kırmızı testler** — ön planda mesaj push'u → açık sohbet yeni mesajı gösterir, rozet artar; sohbetten çıkınca zamanlayıcı iptal.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `doc/pages/messaging_chat.md`, `notifications.md`; rapor N-71 (`onMessage`) ✅.
   ```bash
   git commit -m "feat(mobile): on planda bildirim ve sohbet tazeleme (N-71)"
   ```
 
+**2026-11-15 kapanış kanıtı:** Derlenen imzalar sonrası push bus/sohbet, gerçek kaynak→badge/liste, token izin/kayıt yarışı, rota/lifecycle ve ARB taraması gerçek RED→GREEN. Bağımsız inceleme üç önemli bulgu için dört ek RED üretti: eski hesabın isteği yeni hesabı kilitlemesin; geç GET okundu durumunu/kök rozeti geri almasın; sessiz hata devam cursor’unu silmesin. Düzeltme sonrası odaklı17/17, son tam **484 Flutter**, `flutter analyze --fatal-infos` temiz. Tool restore başarılı; Release -warnaserror **0 uyarı/0 hata**; tam Docker **19 mimari/1312 birim/214 integration, 0 başarısız/0 atlanan**; NuGet76proje/0advisory. Migration yok. Doc health RED0/mevcut1YELLOW+1BLUE; diffcheck temiz. `app.dart` mevcut create factory üzerinden otobüsü alır, ek değişiklik gerekmedi. Gerçek cihaz FCM Q8/P25 kapsamında doğrulanmadı; genel SafeEmit T5.
+
+Güncelleme: 2026-11-15
+
 ---
 
-### Task 5: Cubit yaşam döngüsü, hata yakalama, yükleme zaman aşımı (N-72)
+### Task 5: Cubit yaşam döngüsü, hata yakalama, yükleme zaman aşımı (N-72) ✅
 
 **Files:**
 - Create: `mobile/lib/core/bloc/safe_emit.dart` (`mixin SafeEmit<S> on Cubit<S> { void safeEmit(S s) { if (!isClosed) emit(s); } }`)
@@ -111,19 +176,55 @@
 - Create: `mobile/test/core/bloc/no_raw_emit_after_await_test.dart` (kaynak taraması: listedeki cubit'lerde `await` sonrası çıplak `emit(` yok)
 - Test: `mobile/test/features/auth/auth_cubit_restore_test.dart`
 
-- [ ] **Step 1–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Commit** — rapor N-72 ✅.
+**2026-11-15 T5 kapsam doğrulaması:** Listedeki on Cubit gerçek dosyalarda doğrulandı; T4 üç mesaj/bildirim Cubit’ine zaten kuşak koruması eklemiş, bunlar korunur. AuthCubit’in logout/expire/register yolları da aynı yaşam döngüsünü paylaşır. Repository arayüzleri değişmez; sahtelere zorunlu imza taşıması yok. ApiClient `_post` hem dosya hem multipart ve idempotent tekrarlarını tek noktadan gönderir; 120 sn yalnız FormData isteklerine uygulanır, JSON ve bağlantı/yanıt süreleri değişmez. DI değişikliği gerekmez.
+
+**Ek Files:**
+- Test: `mobile/test/core/bloc/cubit_lifecycle_test.dart`, `mobile/test/core/network/multipart_timeout_test.dart`; plandaki auth restore ve kaynak tarama testleri.
+- Docs: `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/modules/00_genel_bakis.md`, `m01_identity.md`, `m06_assignments.md`, `m10_progress_tracking.md`, `m11_notifications.md`, `m14_reporting.md`, `m15_settings.md`, `m16_messaging.md` ve denetim kaydı.
+
+**Interfaces:** `SafeEmit<S>.safeEmit(S)` kapalı Cubit’e state göndermez. İmza aşaması davranışsız metot, ardından gerçek gecikmeli başarı/hata testleri RED→GREEN. Çok adımlı rapor/dosya yolları kapanıştan sonra yeni okuma/dosya açma başlatmaz. Auth login/register/restore beklenmeyen repository hatasını yakalar, mevcut genel ARB hata metniyle unauthenticated olur; log yalnız işlem ve hata türü içerir. Restore hatası loading’de kalmaz; alttaki işi iptal etmeden yalnız Future.timeout ile yeni oturum yarışı yaratılmaz. Mevcut ağ zaman aşımı sözleşmesi korunur. T2/T3/T4 kuşakları ve timer iptalleri aynen korunur. Ekran dosyası değişmediği için yeni ekran ARB taşıması yok. Tek görev/tek ILERLEME kuralı skill çoklu görev/ayrı ledger önerisinden üstündür.
+
+- [x] **Step 1–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Commit** — rapor N-72 ✅.
   ```bash
   git commit -m "fix(mobile): cubit kapandiktan sonra emit yok, oturum geri yuklemede sonsuz bekleme yok, yukleme zaman asimi (N-72)"
   ```
 
+**2026-11-15 kapanış kanıtı:** Davranışsız SafeEmit imzası analyze ile derlendi; yeni47 test ilk koşumda **7 geçti/40 kırmızı** (gecikmiş başarı/hata, Auth genel hata, kaynak koruması ve multipart15→120sn). Uygulama sonrası **47/47**, tam Flutter **531/531**; `flutter analyze --fatal-infos` temiz. Biçim/import düzeltmesi sonrası timeout6/6 tekrar yeşil. Başlangıç ve kapanış backend ayrı ayrı **19 mimari/1312 birim/214 gerçek Docker integration,0başarısız/0atlanan**; kapanış `test-with-docker.sh` exit0. Toolrestore başarılı; Release -warnaserror0uyarı0hata; NuGet76proje/0advisory. Migration yok. Doc health RED0/mevcut1YELLOW+1BLUE; bağımsız salt-okunur inceleme bulgusuz. İnceleme sınırları: iptalsiz secure-storage Future timeout’u, mevcut diğer form yarışları/genel catch eksikleri ve storage logout hatası T5 davranış yeniden tasarımı değildir; bu alanlar değişmedi. Gerçek cihaz/FCM kapanışı T6/Q8/P25, bu görevden cihaz/ağ teslim garantisi çıkarılmaz. T6 başlamadı; merge/push yok.
+
 ---
 
-### Task 6: Kapanış
+### Task 6: Kapanış ✅ (cihaz turu kullanıcı kararıyla ertelendi)
 
-- [ ] **Step 1:** `cd mobile && flutter test --coverage` → başarılı sayı ve kapsam ILERLEME'ye (hedef: öncesinden yüksek).
-- [ ] **Step 2:** Gerçek cihazda (Honor 400 Pro, kablosuz ADB) üç rolde giriş → ana ekran → mesajlar → bildirimler → çıkış turu; ekran görüntüsü yolu ILERLEME'ye.
-- [ ] **Step 3:** Doküman kapanışı + ILERLEME + commit.
+**Kullanıcı revizyonu (2026-11-15):** "şuan cihaz yok bunu atla o zmaan" talimatıyla Step 2 gerçek Honor 400 Pro turu **ertelendi; doğrulanmadı**. Cihaz erişimi artık P20 kapanışını veya P21'e geçişi bloke etmez. Otomasyon cihaz taramasını tekrar ederek beklemez; sıradaki işlem Step 3 kapsamında cihaz dışı kapanış doğrulamaları ve plan incelemesidir. Zorunlu Docker/Flutter doğrulaması ve inceleme tamamlanınca P20 kalan kapsamıyla kapatılabilir, yetkili merge/push ardından P21 Task 0'a geçilir. Cihaz turu ve ekran görüntüsü borcu ILERLEME'de korunur; kullanıcı cihaz sağladığında ayrıca ele alınır. Q8/P25 gerçek FCM ve yayın kapıları değişmez. Aşağıdaki eski cihaz engeli kayıtları tarihsel kanıttır; bu revizyon onların bekleme koşulunun yerine geçer.
+
+**2026-11-15 T6 kapsam doğrulaması:** Bu görev yeni uygulama davranışı üretmez; mevcut testlerin kapsamını ve gerçek cihaz akışını ölçer. CI `flutter test --coverage` kullanıyor ve LCOV `LH/LF` toplamını raporluyor; `mobile/coverage/` gitignore altında. Mevcut yerel LCOV 2026-09-05 tarihli olduğundan P20 öncesi karşılaştırma kanıtı sayılmaz. Aynı Flutter SDK ve komutla P20 başlangıcı `83986b8` mobil kaynakları ayrı geçici dizinde ölçülür; aktif dalın kapsamı bununla karşılaştırılır. Cihaz ön kontrolünde `adb devices -l` ve `adb mdns services` boş; gerçek Honor 400 Pro turu yapılmadı; yukarıdaki kullanıcı revizyonuyla kapanış kapsamından ertelendi.
+
+**Files:**
+- Modify: `docs/superpowers/plans/2026-11-13-20-mobil-saglamlastirma.md` (kapsam, ölçüm ve yalnız doğrulanan adım kutuları).
+- Modify (tamamlanınca ayrı ilerleme commit’i; yarım görevde planla birlikte docs(ilerleme) ara kaydı): `docs/superpowers/ILERLEME.md` (ölçüm, cihaz kanıtı veya engel, devam noktası).
+- Generated, commit dışı: `mobile/coverage/lcov.info`; test/analiz/ADB logları ve P20 öncesi kaynak/kapsam kopyası `/tmp/egitimussu-p20t6-*` altında. Gerçek cihaz ekran görüntüleri erişim sağlanırsa aynı kanıt dizinine alınır.
+- Kod hatası çıkarsa önce bu liste ilgili üretim ve regresyon testi yollarıyla genişletilir; ardından imza → RED → GREEN uygulanır. Salt ölçüm için davranışsız üretim kodu veya yapay kırmızı test eklenmez.
+
+**2026-11-15 T6 kapanış incelemesi — kapsam eki:** Aynı kullanıcı çıkıp yeniden girdiğinde eski POST yanıtının koşulsuz `_pendingWrites.remove(identity)` çağrısı yeni oturumun belirsiz yazma anahtarını silebiliyor. Sonraki manuel tekrar yeni UUID üretip çift kayıt riski taşıyor. Düzeltme mevcut imzalar içinde kalır; yeni arayüz/iskele gerekmez. Önce gecikmiş 200/400/500 yanıtı + yeni oturumdaki belirsiz yazma için gerçek RED, ardından yalnız kendi oturum/anahtarına ait pending kaydını temizleyen uygulama ve GREEN. Ek Files: `mobile/lib/core/network/api_client.dart`, `mobile/test/core/network/session_cache_refresh_test.dart`; aynı tur dokümanları `doc/architecture/mobile_flutter.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/m07_payments.md`, `doc/modules/m16_messaging.md`. Yeni özellik veya migration yok.
+
+**Interfaces:** Üretim ve repository sözleşmeleri değişmez; T1–T5’in rota, oturum, önbellek, push/poll ve SafeEmit korumaları mevcut test paketiyle sınanır. T6 cihaz turu FCM sağlayıcı teslimini kanıtlamaz; Q8/P25 kapısı ayrı kalır. Kullanıcının tek görev/tek ILERLEME kuralı skill’in çoklu görev ve ayrı ledger önerisinden üstündür.
+
+- [x] **Step 1:** `cd mobile && flutter test --coverage` → başarılı sayı ve kapsam ILERLEME'ye (hedef: öncesinden yüksek).
+- [ ] **Step 2 — ERTELENDİ (kullanıcı, 2026-11-15; kapanışı bloke etmez, doğrulanmadı):** Gerçek cihazda (Honor 400 Pro, kablosuz ADB) üç rolde giriş → ana ekran → mesajlar → bildirimler → çıkış turu; ekran görüntüsü yolu ILERLEME'ye.
+- [x] **Step 3:** Cihaz dışı zorunlu CI/Docker/Flutter doğrulamaları + plan kapanış incelemesi + doküman kapanışı + ILERLEME + commit. Step 2 başarılı işaretlenmez; ertelenmiş kanıt borcu korunur.
   ```bash
   git commit -m "docs(mobile): P20 kapanisi"
   ```
+
+**2026-11-15 T6 ara kanıtı — görev tamamlanmadı:** Aynı Flutter **3.44.2 / Dart 3.12.2** ile `83986b8` kaynak kopyası **342/342**, LCOV **7320/22738 = %32,1928** (198 dosya); aktif `b0daa5b` kodu **531/531**, LCOV **9704/24363 = %39,8309** (205 dosya). Artış **7,6381 yüzde puan**; CI’ın %50 uyarı eşiği hâlâ aşılmadı. Ölçüm varsayılan LCOV’a giren kaynakların satır kapsamıdır, tüm deponun kapsamı iddiası değildir. Kod/test değişikliği yapılmadı; artış T1–T5’in toplam etkisidir. `flutter analyze --fatal-infos` mobile dizininde temiz. Toolrestore başarılı; Release `-warnaserror` 0 uyarı/0 hata. Başlangıç ve son `bash scripts/test-with-docker.sh` ayrı ayrı **19 mimari/1312 birim/214 gerçek Docker integration, 0 başarısız/0 atlanan**, exit0 (Compose yok, Testcontainers gerçek PostgreSQL+Redis çalıştırdı). NuGet76proje/0advisory; migration yok. Ham karşılaştırma `/tmp/egitimussu-p20t6-coverage-summary.json`, `before-lcov.info` ve `after-lcov.info`; tam test çıktıları aynı önekli `before-coverage.log` ve `coverage.log`. ADB cihaz/mDNS listeleri boş; Flutter yalnız macOS ve Chrome buldu. Honor üç rol turu ve ekran görüntüleri **yok**, Step 2/3 açık. Bu ara ölçüm sırasında cihaz engeli nedeniyle plan/merge/push yapılmadı; sonraki kullanıcı revizyonu yukarıdadır.
+
+Güncelleme: 2026-11-15
+
+**2026-11-15 T6 nihai kapanış kanıtı:** Tüm P20 dalı (`8ed28d3..2b2b699`) bağımsız salt-okunur incelendi. Tek Important bulgu eski oturumun yeni bekleyen yazma anahtarını silmesiydi: mevcut imzalarla üç gecikmiş200/400/500 testi **5geçen/3RED → 8/8 GREEN**, iki silme yolu kuşak+anahtar sahipliğiyle korundu. Son tam Flutter **534/534**, `flutter analyze --fatal-infos` temiz; biçim sonrası odaklı8/8 tekrar geçti. LCOV **9706/24367 = %39,8326**, aynı SDK P20 öncesi **%32,1928** (önceki koşumun karşılaştırma kanıtı) üzerine **7,6398 yüzde puan**. %50 uyarı eşiği henüz sağlanmadı.
+
+Başlangıç ve ilk Docker turunda kayıtlı aralıklı `DispatcherCacheTests.Query_invoker_is_built_once_per_type` (#194) 1≠2 ile kırıldı; ayrı birim1312/1312 geçti. **Son varsayılan `bash scripts/test-with-docker.sh`: 19 mimari/1312 birim/214 gerçek PostgreSQL+Redis integration, 0 başarısız/0 atlanan, exit0.** Toolrestore başarılı; Release `-warnaserror`0uyarı/0hata; NuGet76proje/0advisory; drift0 ve171Down kontrolü geçti (yeni migration yok). Doc health RED0/mevcut1YELLOW+1BLUE; diffcheck temiz; platform dosyaları dışarıda. Loglar `/tmp/egitimussu-p20t6-close-*` (red/green/format-green/flutter-final/analyze-final/release/docker-retry/vulnerable.json/drift/down/doc-health-final).
+
+İncelemenin kalan sınırları ILERLEME#307’de sahipleriyle kaydedildi; yeni Critical/Minor bulgu yok. **P20 revize kapsamıyla6/6 kapandı; Step2 hâlâ ertelenmiş ve doğrulanmamıştır.** Honor üçrol ekran görüntüsü ve gerçek FCM/APNs teslimi başarı sayılmaz, Q8/P25 kapıları korunur. Yetkili merge/push sonrası sıradaki koşum yalnız P21 Task0’dır.
+
+Güncelleme: 2026-11-15

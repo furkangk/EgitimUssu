@@ -53,7 +53,7 @@ mobile/lib/
 │   ├── di/                    # injector.dart (get_it kayıtları)
 │   ├── network/               # api_client.dart (Dio sarmalayıcı), api_exception.dart
 │   ├── routing/               # app_router.dart (go_router + redirect)
-│   ├── storage/               # token_storage.dart (secure), local_cache.dart (shared prefs)
+│   ├── storage/               # token_storage.dart (secure), local_cache.dart (shared prefs), cache_store.dart (oturum kapsamı)
 │   └── theme/                 # app_theme.dart (+ design_system token bağlama)
 ├── shared/
 │   └── widgets/               # app_primary_button, state_views, form_fields … (Atomic)
@@ -81,27 +81,15 @@ Bağımlılık yönü içe doğrudur: `presentation → domain ← data`. Cubit,
 Her feature için bir `Cubit<XState>`. State sınıfı immutable + `copyWith`. UI `BlocBuilder`/`BlocListener` ile dinler.
 
 ```dart
-class AuthCubit extends Cubit<AuthState> {
-  AuthCubit(this._repository, {Stream<void>? unauthorizedEvents}) : super(const AuthState()) {
-    _unauthorizedSubscription = unauthorizedEvents?.listen((_) => expireSession());
+mixin SafeEmit<S> on Cubit<S> {
+  void safeEmit(S state) {
+    if (!isClosed) emit(state);
   }
-  factory AuthCubit.create() => AuthCubit(
-        injector<AuthRepository>(),
-        unauthorizedEvents: injector<ApiClient>().unauthorizedEvents, // 401 → oturum düşür
-      );
-
-  Future<void> login({required String email, required String password}) async {
-    emit(state.copyWith(status: AuthStatus.loading, clearError: true));
-    try {
-      final session = await _repository.login(email: email, password: password);
-      emit(state.copyWith(status: AuthStatus.authenticated, session: session));
-    } on ApiException catch (e) {
-      emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: e.message));
-    }
-  }
-  // logout / register / restoreSession / expireSession …
 }
 ```
+
+Asenkron sonuç yayınlayan Cubit bu mixin’i kullanır. Oturum veya yükleme kuşağı kontrolü
+`safeEmit` çağrısından önce yapılır; kapanış koruması eski isteğin yeni oturuma yazmasını tek başına engellemez.
 
 `AuthCubit` uygulama kökünde `BlocProvider.value` ile sağlanır; oturum durumu router redirect'ini besler (§6).
 
@@ -129,25 +117,19 @@ Future<void> configureDependencies() async {
 
 ## 6. Yönlendirme — `go_router`
 
-`AppRouter`, `AuthCubit.stream`'i `refreshListenable` olarak kullanır ve **redirect** ile oturuma göre yönlendirir:
+`AppRouter`, oturum durumunu `AuthCubit.stream` üzerinden izler. Giriş/kayıt sonrası `RouteAccess.roleFor` ile rol seçilir, `homeFor` ile ana ekran bulunur. İzinlerin tek kaynağı `core/routing/route_access.dart` içindeki tam rota şablonlarıdır; `startsWith` ile rol izni verilmez. Router eşleşmiş `fullPath` üzerinden kontrol eder, dinamik kimlikler rol denetimini değiştirmez. Kaynak sahipliği ve paylaşım yetkisi ayrıca API'de uygulanır.
 
-```dart
-redirect: (context, state) {
-  final status = authCubit.state.status;
-  final onAuthScreen = ['/', '/role-selection', '/login', '/register'].contains(state.matchedLocation);
-  if (status == AuthStatus.initial || status == AuthStatus.loading) return onAuth/preview ? null : '/';
-  if (status == AuthStatus.unauthenticated) return onAuthScreen ? null : '/';
-  if (onAuthScreen || state.matchedLocation == '/') return '/dashboard';  // giriş yapılmış
-  return null;
-}
-```
+| Alan | İzin |
+|------|------|
+| `/messages`, `/messages/:conversationId`, `/notifications`, `/settings/notifications`, `/settings/privacy`, `/account/sessions`, `/membership`, `/membership/paywall` | Tüm oturumlu roller |
+| `/student/reports` | Mevcut ortak analiz ekranı; öğrenci erişimi API tarafından denetlenir |
+| `/parent` ve kayıtlı çocuk/profil/bildirim/özet alt rotaları | Parent |
+| `/student-home`, kayıtlı `/student/*` (reports hariç), `/study/*` | Student |
+| `/dashboard`, `/more`, `/students/*`, `/scheduling`, `/lesson-sessions/*`, `/lesson-notes/new`, `/assignments/*`, `/payments/*`, `/teacher-profile`, `/teacher/reports` | Teacher / Admin |
 
-Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/register`, `/dashboard`,
-`/teacher-profile`, `/more`, `/account-info`, `/students`, `/students/:studentId`, `/scheduling`,
-`/lesson-sessions` (+`/detail`, `/detail/note`), `/lesson-notes/new`, `/assignments/:lessonSessionId`,
-`/assignments/new`, `/payments`, `/payments/new`. Önizleme: `/teacher-panel-preview`, `/account-info-preview`.
+Tablodaki `*` gruplama anlatımıdır: yalnız router'da kayıtlı **tam şablonlar** açıktır. Yeni rota eklenince izin tablosuna da eklenmesi envanter testiyle zorlanır. Çok rollü hesapta mevcut Parent > Teacher > Student > Admin önceliği korunur. Bilinmeyen rol öğretmen yetkisi kazanmaz; ortak bildirim merkezi ana ekranıdır. Yetkisiz bilinen rota rolün ana ekranına döner. Bilinmeyen rota ARB tabanlı “Sayfa bulunamadı” ve “Ana sayfaya dön” ekranını açar.
 
-> Not: Yukarıdakiler **öğretmen** rotalarıdır. **Öğrenci** rotaları da mevcut: `/student-home`, `/student/lessons` (+`/student/lessons/:id`), `/student/performance`, `/student/profile`, `/student/teacher`, `/study/timer`, `/study/test`, `/study/goals`, `/study/history`, `/study/achievements`; **veli** için `/parent` alanı. Redirect, oturumdaki role göre öğrenciyi/veliyi kendi paneline yönlendirir ve öğretmene özel ekranlardan geri alır (§9).
+Oturumsuz kullanıcı karşılama akışına yönlendirilir; hesap kurtarma bağlantıları açık kalır. `/account-info`, `/account-info-preview`, `/teacher-panel-preview` yalnız `kDebugMode && enablePreviewRoutes` ile kaydolur (P20 T1). Öğretmen alt menüsünü beşe indiren K-30 uygulaması P21 T4'tedir.
 
 ## 7. Ağ Katmanı, Config & Depolama
 
@@ -182,7 +164,13 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 `isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır **ve 2026-09-02'den itibaren geliştirmede de varsayılan kapalıdır**: bayrak verilmedikçe uygulama daima gerçek API'yi kullanır, API hatası ekranda görünür (A-05 — sahte veri gerçek entegrasyon hatalarını gizliyordu). Bayrak açıkken backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
 
-**Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
+**Depolama:** `SecureTokenStorage` (access/refresh token — Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` ham read/write/remove/keys) ve DI'da tek `CacheStore`.
+
+**P20 T3 / N-68…N-70:** Cache anahtarı `cache.<userId>.<feature>.<key>`; bileşenler encode edilir, kimlik oturumdan alınır. `CachedValue<T>` veri, UTC `savedAt` ve `isStale` taşır. Repository dönüş tipleri korunur; kökte `staleSince` dinlenerek bütün tüketiciler için `StaleDataBanner` gösterilir. Beş yol: ödeme özet/kayıt, öğretmen öğrenci listesi, öğretmen/öğrenci ders listeleri. Yalnız bağlantı/timeout hatası cache'e düşer; HTTP 403/500, iptal, sertifika ve ayrıştırma hataları düşmez. Boş liste geçerli cache'tir; bozuk cache orijinal ağ hatasını gizlemez. Yazma hatası canlı API sonucunu düşürmez, türüyle loglanır. Aynı anahtar tazelenince uyarı kaldırılır; birden çok eski sorguda en eski kayıt zamanı gösterilir.
+
+Takvim istek ve cache anahtarı birlikte UTC gün sınırına normalize edilir (başlangıç 00:00, bitiş gününün 23:59:59.999999'u). Profil/öğretmen kimliği sorguya, oturum kimliği sahibine aittir. `clearUser` yalnız hedef kullanıcının cache'ini, `clearAll` tüm `cache.*` ve eski `payments.*`/`students.*`/`scheduling.*` anahtarlarını siler. Eski anahtarlar açılışta da temizlenir; tema gibi tercihler korunur. Oturum kuşağı ve yazma kuyruğu, geç yanıtın çıkıştan sonra cache'i yeniden yazmasını önler.
+
+Çıkış önce oturum kuşağını geçersiz kılar, sunucuya mevcut bearer + refresh token ile interceptor'sız logout gönderir. Hata yalnız türüyle loglanır; finally token/profil/cache temizliğini yapar. `ApiClient.clearSession` bekleyen idempotent gövdeleri/anahtarları siler; eski otomatik tekrar yeni hesaba taşınmaz. Login/refresh persist kuyruğu geç token yazımını engeller. Kök `NotificationsCubit` ve `MembershipCubit` reset ile başlangıca döner, bekleyen eski yanıtları da kuşakla eler; T2 push bekletmesi korunur. 401 interceptor tekrarı ve unauthorized olayı da isteğin kuşağıyla sınırlıdır; eski isteğin gövdesi yeni hesabın bearer'ıyla gönderilmez. Refresh sırasında iptal/sertifika/parse hatası network'e çevrilmez. Sunucuda rotasyonu bitmiş fakat istemciye geç ulaşmış refresh yanıtı yeni tokenla ayrıca logout gönderir; token yerelde saklanmaz. Bu geç iptal çağrısı da ağ yokken garanti edilemez ve hata türü loglanır. Başarısız tazeleme tüketicinin elindeki eski veriyi kaldırmadığı için eski veri uyarısını da gizlemez.
 
 > **Güvenlik (Y7, 2026-07-02):** Oturum önbelleği (`user_session` → `LocalCache`/SharedPreferences) **token içermez** — yalnız gizli-olmayan profil (userId/email/fullName/roles/expiry). Access/refresh token'lar **yalnız** secure storage'da tutulur; `restoreSession` token'ı oradan okuyup profille birleştirir. `AndroidManifest`'te `allowBackup="false"`. Önceden `toCache()` token'ları düz-metin yazıyordu (denetim Y7).
 
@@ -196,11 +184,12 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 ### 7.1 Push Bildirim (A-04, 2026-09-03)
 
-`core/push/` iki parçadır:
+`core/push/` sorumlulukları:
 
 | Dosya | Sorumluluk |
 |-------|-----------|
 | `push_service.dart` | `PushService` — izin isteği, cihaz token kaydı/silme, token yenileme aboneliği, `taps` akışı. **Firebase'e bağlı değildir**: `tokenProvider` / `permissionRequester` / `tokenRefreshes` / `incomingTaps` dışarıdan verilir → platform kanalı olmadan test edilebilir. |
+| `push_route_mapping.dart` | OS push ve bildirim merkezi için rol bazlı, yalnız kayıtlı uygulama içi hedef eşlemesi. |
 | `firebase_push_binding.dart` | `FirebasePushBinding` — `Firebase.initializeApp()`, arka plan handler'ı ve `FirebaseMessaging` kaynaklarının `PushService`'e bağlanması. |
 
 **Yaşam döngüsü:** `AuthCubit` giriş / kayıt / oturum geri yükleme sonrasında `PushService.registerForUser(userId)`,
@@ -208,8 +197,9 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 (`DeviceTokenRepositoryImpl`), silme `DELETE /api/notifications/device-tokens/{token}`.
 `DevicePlatform` **sayısal** gönderilir (`android=1`, `ios=2`, `web=3`) — backend enum'u JSON'da sayıdır.
 
-**Derin bağlantı:** `app.dart` `PushService.taps` akışını dinler; `tap.route` doluysa `router.push(route)`.
-Backend push gövdesine `data.route` koyar (ders hatırlatması → `/scheduling`, in-app bildirim → kendi rotası).
+**Derin bağlantı (P20 T2):** `app.dart` `PushService.taps` akışını dinler; `mapPushRoute` ile hedefi rol izin tablosundan doğrular. `/scheduling` öğretmende takvim, öğrencide `/student/lessons`, velide `/parent/lessons`; veli ödeme/ödev bildirimleri `/parent/payments` ve `/parent/assignments` özetlerini açar. Sohbet kimliği ve sorgu parametreleri korunur. Boş/bilinmeyen/yetkisiz/dış URL hedefi `/notifications` olur. Bildirim merkezi aynı eşleyiciyi kullanır; hedef yine merkezse yeni kopya açmaz.
+
+Oturum geri yüklenirken son dokunma bekletilir; oturum ve ilk frame hazır olunca bir kez açılır. Çıkışta bekleyen hedef temizlenir. Bu, Firebase'e bağımlı olmayan widget akışıyla doğrulanır; gerçek cihaz FCM Q8/P25, ön plan `onMessage` ve sohbet poll P20 T4 ile uygulanmıştır.
 
 > **Bilinçli fail-open:** `google-services.json` / `GoogleService-Info.plist` yoksa `Firebase.initializeApp()`
 > başarısız olur; uygulama **açılmaya devam eder** ve konsola bir **uyarı** basılır. Push o oturumda çalışmaz.
@@ -537,7 +527,7 @@ Tipler: Ders mor/pembe · Ödev yeşil · Not mavi · Ödeme kırmızı.
 ### 13.19b Üyelik ve Paywall (P09 Task 6)
 **Amaç:** Üyelik durumu, iptal, referans kampanyası ve premium vitrini.
 **UI:** `/membership` — seviye rozeti + dönem sonu kartı, referans kodu (kopyala) ve kod kullanma alanı;
-`/membership/paywall` — rol bazlı Free/Premium tablosu, plan kartları, kampanyalar, "yakında" listesi.
+`/membership/paywall` — rol bazlı Free/Premium tablosu, plan kartları ve çalışan kampanyalar; işlevsiz satın alma/gelecek vaatleri gizli (P20 T1).
 → `pages/membership.md`, `pages/paywall.md`
 
 **Kural (K-09'un mobil karşılığı):** premium kararı **tek** kaynaktan gelir — `MembershipCubit`
@@ -640,3 +630,32 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 *Mobil Mimari & UI (Flutter) | Güncelleme: 2026-11-15 (P15 T7: §7 token yenileme akışı — tek uçuş, yalnız 400/401'de çıkış) · 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+## P20 T1 — gerçek verili yüzeyler ve debug rotaları
+
+`/teacher-panel-preview`, `/account-info-preview` ve aynı statik hesap ekranını kullanan `/account-info` yalnız `kDebugMode && enablePreviewRoutes` ile kaydedilir. Tercih testte debug kapısını kapatabilir; release/profile derlemesinde açamaz. More ve öğrenci profilinden statik hesaba giriş gizlidir.
+
+Takvim seed üretmez; öğretmen profili ilk API yanıtından önce/hata sonrasında örnek profil göstermez. Yorum ve aktif öğrenci sayısı gerçek kaynak gelene kadar görünmez. Study yüzeylerinde sabit sayaç/hedef/konu puanı ve işlem yapmayan satırlar kaldırılmıştır. `localization_test` mevcut feature listesine ek olarak P20’nin dokunduğu ekran ve widget dosyalarını tek tek tarar. API’nin sunucudan gelen `message`/validation metni aynen kalır; istemci fallback metni ARB’den alınır (mevcut uygulamanın sabit tr locale’i varsayılan, açık locale seçimi test edilebilir).
+
+P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını normal modda aynen hata olarak iletir; profil yokluğu demo öğretmen üretmez. Demo yalnız `AppConfig.isMockFallbackEnabled("teacher_profile")` açıkken mümkündür; production/beta bu bayrağı engeller. Başarılı gerçek profil yanıtı korunur, yeni profil oluşturma akışı bu göreve eklenmez.
+
+*Güncelleme: 2026-11-15 — P20 Task 3: cache ve oturum sınırı.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+PushEventBus DI’da tek örnektir; PushService giriş/çıkışta oturum kimliğini etkinleştirir/temizler. Oturum kuşağı gecikmiş okuma sonuçlarını eler; en son 128 FCM messageId tekrarları tekilleştirilir. Firebase onMessage yetkili bildirim/mesaj API okumalarını tetikler; bildirim dokunması ayrı güvenli rota akışında kalır. Açık sohbet yalnız rota en üstte ve uygulama resumed iken 10 sn poll yapar; dönüşte anında tazeler, kapanınca timer/abonelikleri iptal eder. Token yazmaları sıralıdır: çıkış öncesi bekleyen izin/token sonucu atılır, geç başarılı kayıt bir sonraki kullanıcı kaydından önce kaldırılır. Ağda token kaldırma başarısızlığı loglanır; sunucuda iptal garantisi yoktur. Platformdan bağımsız akış testlidir; gerçek cihaz FCM Q8/P25 kapısıdır.
+
+Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+P20 T5: `core/bloc/safe_emit.dart` içindeki `SafeEmit<S>` kapanmış Cubit’e geç state gönderimini eler. Auth, chat, conversations, student_report, lesson_resources, progress, teacher_reports, settings, notification_center, password_reset ve email_verification Cubit’leri kullanır. Bu koruma istek iptali değildir; mevcut oturum/okuma kuşakları, push aboneliklerinin ve poll zamanlayıcısının kapatılması sürer. Rapor indirilirken ekran kapanırsa dosya açılmaz; çok adımlı rapor/gelişim okumaları kapanışta devam etmez. Auth login/register/restore beklenmeyen hatada genel ARB mesajıyla `unauthenticated` olur, yalnız hata türü loglanır; push kaydı hatası başarılı oturumu düşürmez. `ApiClient.postFile/postMultipart` tüm FormData gönderimlerinde (idempotent tekrar dahil) **120 saniye sendTimeout** kullanır. JSON isteklerinin varsayılan 15 saniyesi ve bağlantı/yanıt süreleri korunur.
+
+Güncelleme: 2026-11-15
+
+### P20 Task 6 — Bekleyen yazmanın oturum ve anahtar sahipliği
+
+`ApiClient` bir belirsiz POST sonucunun tekrar anahtarını yalnız aynı oturum kuşağında saklar; başarı veya kesin hata sonrasında silerken de hem kuşağı hem kayıtlı anahtarı karşılaştırır. Aynı kullanıcı çıkıp yeniden giriş yapsa bile eski 200/400/500 yanıtı yeni oturumun bekleyen yazmasını silemez. Böylece yeni oturumdaki manuel tekrar ilk anahtarı korur. Koruma süreç belleğindedir; uygulama kapanışı veya sunucunun erişilemeyen idempotency deposu için ek garanti vermez.
+
+Güncelleme: 2026-11-15

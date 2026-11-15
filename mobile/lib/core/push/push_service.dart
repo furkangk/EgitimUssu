@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
 import 'package:flutter/foundation.dart';
 
@@ -47,11 +47,18 @@ class PushService {
     Stream<String>? tokenRefreshes,
     Stream<PushTap>? incomingTaps,
     String? deviceName,
+    PushEventBus? eventBus,
+    Stream<Map<String, dynamic>>? foregroundMessages,
   }) : _repository = repository,
        _tokenProvider = tokenProvider,
        _permissionRequester = permissionRequester,
        _platform = platform,
-       _deviceName = deviceName {
+       _deviceName = deviceName,
+       _eventBus = eventBus {
+    _foregroundSubscription = foregroundMessages?.listen(
+      (data) =>
+          eventBus?.publish(data, messageId: data['_messageId'] as String?),
+    );
     _tokenRefreshSubscription = tokenRefreshes?.listen(_onTokenRefreshed);
     _incomingTapSubscription = incomingTaps?.listen(_tapController.add);
   }
@@ -68,6 +75,18 @@ class PushService {
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<PushTap>? _incomingTapSubscription;
 
+  final PushEventBus? _eventBus;
+  StreamSubscription<Map<String, dynamic>>? _foregroundSubscription;
+  int _generation = 0;
+  bool _disposed = false;
+  Future<void> _writes = Future.value();
+  bool _current(int generation) => !_disposed && generation == _generation;
+  Future<T> _serial<T>(Future<T> Function() action) {
+    final result = _writes.then((_) => action());
+    _writes = result.then<void>((_) {}, onError: (Object e, StackTrace s) {});
+    return result;
+  }
+
   String? _currentUserId;
   String? _currentToken;
 
@@ -80,43 +99,47 @@ class PushService {
   /// Girişten sonra çağrılır: izin ister, token alır ve backend'e kaydeder.
   /// İzin verilmezse veya token alınamazsa `null` döner — **oturum akışı kesilmez**.
   Future<String?> registerForUser(String userId) async {
-    final granted = await _permissionRequester();
-    if (!granted) {
-      debugPrint('PushService: bildirim izni verilmedi, token kaydedilmedi.');
-      return null;
-    }
-
-    final token = await _tokenProvider();
-    if (token == null || token.isEmpty) {
-      debugPrint('PushService: FCM token alınamadı, kayıt atlandı.');
-      return null;
-    }
-
+    if (_disposed) return null;
+    final generation = ++_generation;
     _currentUserId = userId;
-    final saved = await _register(userId, token);
-    return saved ? token : null;
+    _eventBus?.activate(userId);
+    try {
+      final granted = await _permissionRequester();
+      if (!_current(generation) || !granted) return null;
+      final token = await _tokenProvider();
+      if (!_current(generation) || token == null || token.isEmpty) return null;
+      final saved = await _serial(() => _register(userId, token, generation));
+      return saved ? token : null;
+    } catch (error) {
+      debugPrint('Push setup failed: ${error.runtimeType}');
+      return null;
+    }
   }
 
   /// Çıkışta çağrılır: kayıtlı token backend'de devre dışı bırakılır.
   Future<void> unregister() async {
-    final token = _currentToken;
+    _generation++;
     _currentUserId = null;
-    _currentToken = null;
+    _eventBus?.activate(null);
+    await _serial(() async {
+      final token = _currentToken;
+      _currentToken = null;
+      if (token != null) await _remove(token);
+    });
+  }
 
-    if (token == null) {
-      return;
-    }
-
+  Future<void> _remove(String token) async {
     try {
       await _repository.unregister(token);
     } catch (error) {
-      // Çıkış akışı bir ağ hatası yüzünden bloke olmamalı; token sunucuda
-      // ilk geçersiz gönderimde zaten kapatılır (FCM UNREGISTERED).
-      debugPrint('PushService: token silinemedi ($error).');
+      debugPrint('Push removal failed: ${error.runtimeType}');
     }
   }
 
   Future<void> dispose() async {
+    _disposed = true;
+    _generation++;
+    await _foregroundSubscription?.cancel();
     await _tokenRefreshSubscription?.cancel();
     await _incomingTapSubscription?.cancel();
     await _tapController.close();
@@ -129,10 +152,12 @@ class PushService {
       return;
     }
 
-    await _register(userId, token);
+    final generation = _generation;
+    await _serial(() => _register(userId, token, generation));
   }
 
-  Future<bool> _register(String userId, String token) async {
+  Future<bool> _register(String userId, String token, int generation) async {
+    if (!_current(generation)) return false;
     try {
       await _repository.register(
         userId: userId,
@@ -140,6 +165,11 @@ class PushService {
         platform: _platform,
         deviceName: _deviceName,
       );
+      if (!_current(generation)) {
+        await _remove(token);
+        if (_currentToken == token) _currentToken = null;
+        return false;
+      }
       _currentToken = token;
       return true;
     } catch (error) {

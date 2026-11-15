@@ -4,31 +4,56 @@ import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/core/storage/token_storage.dart';
 import 'package:egitim_ussu_mobile/features/auth/data/models/user_session_model.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/entities/user_session.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required ApiClient apiClient,
     required TokenStorage tokenStorage,
     required LocalCache localCache,
+    CacheStore? cacheStore,
     required AppConfig config,
     required Dio refreshDio,
   }) : _apiClient = apiClient,
        _tokenStorage = tokenStorage,
        _localCache = localCache,
+       _cacheStore = cacheStore ?? CacheStore(localCache),
        _config = config,
        _refreshDio = refreshDio;
 
   final ApiClient _apiClient;
   final TokenStorage _tokenStorage;
   final LocalCache _localCache;
+  final CacheStore _cacheStore;
+  int _sessionGeneration = 0;
+  Future<void> _sessionWrites = Future<void>.value();
+  Future<void>? _logoutInFlight;
+
+  Future<void> _serialize(Future<void> Function() action) {
+    final next = _sessionWrites.then((_) => action());
+    _sessionWrites = next.then((_) {}, onError: (Object _, StackTrace __) {});
+    return next;
+  }
+
+  void _checkSession(int generation) {
+    if (generation != _sessionGeneration) {
+      throw const ApiException(
+        message: 'Oturum değişti.',
+        kind: ApiErrorKind.auth,
+        statusCode: 401,
+      );
+    }
+  }
+
   final AppConfig _config;
 
-  /// Auth interceptor'ından bağımsız ham Dio — yalnızca token yenileme için.
+  /// Auth interceptor'ından bağımsız ham Dio — yenileme ve sunucu logout için.
   final Dio _refreshDio;
 
   static const _sessionKey = 'user_session';
@@ -44,10 +69,12 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
     int roleId = 2,
   }) async {
+    await _logoutInFlight;
+    final generation = _sessionGeneration;
     // Mock önce kontrol edilir — API timeout beklenmez
     if (_config.isMockFallbackEnabled('auth')) {
       final session = _buildMockSession(email: email, roleId: roleId);
-      await _persistSession(session);
+      await _persistSession(session, generation);
       return session;
     }
     final response = await _apiClient.post(
@@ -59,14 +86,57 @@ class AuthRepositoryImpl implements AuthRepository {
       },
     );
     final session = UserSessionModel.fromJson(response);
-    await _persistSession(session);
+    await _persistSession(session, generation);
     return session;
   }
 
   @override
-  Future<void> logout() async {
-    await _tokenStorage.clear();
-    await _localCache.remove(_sessionKey);
+  Future<void> logout() {
+    final inFlight = _logoutInFlight;
+    if (inFlight != null) return inFlight;
+    _sessionGeneration++;
+    _refreshInFlight = null;
+    _apiClient.clearSession();
+    final clearing = _cacheStore.clearAll();
+    clearing.ignore();
+    final future = _logout(clearing);
+    _logoutInFlight = future;
+    return future.whenComplete(() => _logoutInFlight = null);
+  }
+
+  Future<void> _logout(Future<void> clearing) async {
+    try {
+      await _sessionWrites;
+      final refresh = await _tokenStorage.readRefreshToken();
+      final access = await _tokenStorage.readAccessToken();
+      if (refresh != null &&
+          refresh.isNotEmpty &&
+          !_config.isMockFallbackEnabled('auth')) {
+        // No auth interceptor: a logout 401 must never start another refresh.
+        await _refreshDio.post<Object?>(
+          '/api/identity/logout',
+          data: {'refreshToken': refresh},
+          options: Options(
+            headers: {if (access != null) 'Authorization': 'Bearer $access'},
+          ),
+        );
+      }
+    } catch (error) {
+      // Never print Dio error/request data, bearer or refresh token.
+      debugPrint('Server logout failed: ${error.runtimeType}');
+    } finally {
+      await _serialize(() async {
+        try {
+          await _tokenStorage.clear();
+        } finally {
+          try {
+            await _localCache.remove(_sessionKey);
+          } finally {
+            await clearing;
+          }
+        }
+      });
+    }
   }
 
   @override
@@ -78,13 +148,15 @@ class AuthRepositoryImpl implements AuthRepository {
     String? phoneNumber,
     int roleId = 2,
   }) async {
+    await _logoutInFlight;
+    final generation = _sessionGeneration;
     if (_config.isMockFallbackEnabled('auth')) {
       final session = _buildMockSession(
         email: email,
         fullName: '$firstName $lastName',
         roleId: roleId,
       );
-      await _persistSession(session);
+      await _persistSession(session, generation);
       return session;
     }
     final response = await _apiClient.post(
@@ -99,7 +171,7 @@ class AuthRepositoryImpl implements AuthRepository {
       },
     );
     final session = UserSessionModel.fromJson(response);
-    await _persistSession(session);
+    await _persistSession(session, generation);
     return session;
   }
 
@@ -148,8 +220,13 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<UserSession?> restoreSession() async {
+    await _logoutInFlight;
+    final generation = _sessionGeneration;
     final cached = await _localCache.readString(_sessionKey);
-    if (cached == null) return null;
+    if (cached == null) {
+      await _cacheStore.clearAll();
+      return null;
+    }
 
     // Y7: Token'lar yalnız secure storage'da; önbellek token içermez.
     final accessToken = await _tokenStorage.readAccessToken();
@@ -164,12 +241,15 @@ class AuthRepositoryImpl implements AuthRepository {
       accessToken: accessToken,
       refreshToken: refreshToken,
     );
+    _checkSession(generation);
+    _cacheStore.activate(session.userId);
     if (session.isExpiringSoon) {
       // Refresh token varsa sessizce yenile; yoksa oturumu kapat
       if (session.refreshToken != null) {
         try {
           return await refreshSession();
         } on ApiException catch (error) {
+          if (generation != _sessionGeneration) return null;
           // P15 T7 / N-63: Yalnız sunucu refresh token'ı reddederse (400/401) çıkış.
           // Ağ hatası, zaman aşımı ya da 5xx'te (metro, uçak modu, uyanan sunucu)
           // oturum korunur; ilk istek 401 alırsa interceptor yeniden dener.
@@ -179,6 +259,7 @@ class AuthRepositoryImpl implements AuthRepository {
           }
           return session;
         } catch (_) {
+          if (generation != _sessionGeneration) return null;
           // Beklenmeyen hata (ör. okunamayan yanıt) açılışı kilitlememeli: AuthCubit
           // bu çağrıyı yakalamıyor. Oturum korunur; ilk istek gerekirse yeniden yeniler.
           return session;
@@ -193,6 +274,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<UserSession> refreshSession() {
+    if (_logoutInFlight != null) {
+      return Future.error(
+        const ApiException(
+          message: 'Oturum kapanıyor.',
+          kind: ApiErrorKind.auth,
+          statusCode: 401,
+        ),
+      );
+    }
     final inFlight = _refreshInFlight;
     if (inFlight != null) {
       return inFlight.future;
@@ -204,11 +294,14 @@ class AuthRepositoryImpl implements AuthRepository {
     completer.future.ignore();
     _refreshOnce()
         .then(completer.complete, onError: completer.completeError)
-        .whenComplete(() => _refreshInFlight = null);
+        .whenComplete(() {
+          if (identical(_refreshInFlight, completer)) _refreshInFlight = null;
+        });
     return completer.future;
   }
 
   Future<UserSession> _refreshOnce() async {
+    final generation = _sessionGeneration;
     final storedRefreshToken = await _tokenStorage.readRefreshToken();
     if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
       throw const ApiException(
@@ -225,7 +318,28 @@ class AuthRepositoryImpl implements AuthRepository {
       final session = UserSessionModel.fromJson(
         response.data ?? <String, dynamic>{},
       );
-      await _persistSession(session);
+      try {
+        await _persistSession(session, generation);
+      } catch (_) {
+        if (generation != _sessionGeneration) {
+          // Rotation may commit before logout uses the old token. This also
+          // covers logout racing with the queued local persistence operation.
+          try {
+            if (session.refreshToken != null) {
+              await _refreshDio.post<Object?>(
+                '/api/identity/logout',
+                data: {'refreshToken': session.refreshToken},
+                options: Options(
+                  headers: {'Authorization': 'Bearer ${session.accessToken}'},
+                ),
+              );
+            }
+          } catch (error) {
+            debugPrint('Late refresh revocation failed: ${error.runtimeType}');
+          }
+        }
+        rethrow;
+      }
       return session;
     } on DioException catch (e) {
       throw ApiException.fromDioException(e);
@@ -260,12 +374,16 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  Future<void> _persistSession(UserSessionModel session) async {
-    await Future.wait(<Future<void>>[
-      _tokenStorage.writeAccessToken(session.accessToken),
-      if (session.refreshToken != null)
-        _tokenStorage.writeRefreshToken(session.refreshToken!),
-      _localCache.writeString(_sessionKey, session.toCache()),
-    ]);
-  }
+  Future<void> _persistSession(UserSessionModel session, int generation) =>
+      _serialize(() async {
+        _checkSession(generation);
+        await Future.wait(<Future<void>>[
+          _tokenStorage.writeAccessToken(session.accessToken),
+          if (session.refreshToken != null)
+            _tokenStorage.writeRefreshToken(session.refreshToken!),
+          _localCache.writeString(_sessionKey, session.toCache()),
+        ]);
+        _checkSession(generation);
+        _cacheStore.activate(session.userId);
+      });
 }

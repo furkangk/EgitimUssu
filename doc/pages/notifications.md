@@ -16,7 +16,11 @@ updated: 2026-11-15
 # Bildirim Merkezi (`/notifications`)
 
 > **Feature:** `notifications` · **State:** `NotificationCenterCubit` / `NotificationCenterState` · **Veri:** Gerçek API (mock fallback **yok**)
-> **Güncelleme:** 2026-09-03
+> **Güncelleme:** 2026-11-15
+
+## Rota davranışı (P20 T2)
+
+Veli dahil bütün oturumlu roller bu merkeze erişebilir. Kart önce okundu işaretlenir; hedef varsa OS push ile aynı `mapPushRoute` kullanılır. `/scheduling` rolün ders görünümünü, veli ödev/ödeme hedefleri onaylı çocuk özetini açar. Bilinmeyen veya yetkisiz hedefte kullanıcı bildirim merkezinde kalır. Başlık ve göreli zamanlar tr/en ARB'dedir. Veli ana sayfasındaki zil bu ekranı açar; `/parent/notifications` ayrı tercih ekranıdır.
 
 ## Amaç
 Öğrenci, öğretmen ve velinin **tek** bildirim merkezi. Ders hatırlatması, ödev, ödeme ve sistem
@@ -71,3 +75,9 @@ Yetki: kullanıcı yalnız **kendi** bildirimlerini görür (Admin istisna) — 
 Liste `onlyUnread/after/limit=50` ile cursor sayfası ister; sunucudan `items/nextCursor` okur. Kaydırmada tek devam isteği çalışır, son sayfada durur. Kısa sayfa görünümü otomatik doldurur. Devam hatası mevcut kartları ve cursor'u korur, alttaki yeniden deneme düğmesiyle sürer; ilk yükleme hatası tam hata görünümüdür. Tümü/Okunmamış değişimi ve yenileme cursor'u sıfırlar; önceki isteğin gecikmiş yanıtı yeni filtreyi ezmez. Kapanan cubit emit yapmaz. Ekranın tüm sabit metinleri ve göreli zamanları tr/en ARB'dedir. Eski skip/take API tüketicileri çalışmayı sürdürür.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+Firebase onMessage olayı tek PushEventBus üzerinden açık listeyi ve kök zil rozetini tazeler. Rozet payload sayısından artırılmaz; unread-count API’si esas alınır. Liste mevcut Tümü/Okunmamış filtresini korur, ilk sayfaya döner; eski cursor isteği yeni listeyi ezemez. Sessiz tazeleme hatasında mevcut liste ve devam cursor’u korunur. Okundu yazması sürerken gelen push ertelenir; daha eski okuma yanıtı okunma durumunu veya kök rozeti geri alamaz. Hesap değişiminde önceki hesabın bekleyen tazelemesi yeni hesabı kilitlemez. Token izin/kayıt sonuçları oturum kuşağıyla sınırlandırılır. Gerçek FCM cihaz teslimi Q8/P25 nedeniyle bu görevde doğrulanmadı.
+
+Güncelleme: 2026-11-15

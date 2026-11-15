@@ -25,8 +25,7 @@ updated: 2026-11-15
 
 Sunucu yeni mesaj bildirimini `Route = "/messages/{conversationId}"` ile yazar
 (`MessageSentNotificationHandler`). Uygulama kökündeki push dinleyicisi (`app/app.dart`) `data.route`
-alanını olduğu gibi `router.push` eder; bu yüzden **ayrı bir yönlendirme kodu yoktur** — rota adının
-sunucudaki değerle birebir aynı olması yeterlidir.
+alanını rol bazlı `mapPushRoute` ile doğrular; yalnız izinli uygulama içi hedef açılır (P20 T2).
 
 ## 2. İçerik
 
@@ -65,7 +64,7 @@ sunucudaki değerle birebir aynı olması yeterlidir.
 | Mesajı **şikayet et** | M18 uçları yok | P12 |
 | Ek/dosya gönderme | Kapsam dışı (v1 yalnız metin) | — |
 | Gerçek zamanlı teslimat | Karar **K-07**: v1 REST + push; SignalR v2'ye ertelendi | v2 |
-| Yeni mesajın ekran açıkken düşmesi | Poll/realtime yok; ekran yeniden açılınca gelir | v2 |
+| Yeni mesajın ekran açıkken düşmesi | ✅ P20 T4: görünür sohbette10sn poll + ön plan push | Uygulandı |
 | Mesaj silme düğmesi | Uç var (`DELETE /messages/{id}`) ama UI'da tetikleyici yok | M16 sonraki turu |
 
 ---
@@ -73,3 +72,9 @@ sunucudaki değerle birebir aynı olması yeterlidir.
 > İlgili: gelen kutusu → [`messaging_inbox.md`](messaging_inbox.md) · modül → [`../modules/m16_messaging.md`](../modules/m16_messaging.md)
 
 *Sohbet Ekranı | Güncelleme: 2026-11-15 (P10 Task 4 — D-08)*
+
+## P20 Task 4 — Ön plan tazeleme
+
+Görünür ve ön plandaki sohbet her 10 saniyede REST ile tazelenir; aynı sohbetin ön plan push olayı beklemeden tazeler. Başka ekran üzerine açıldığında, uygulama arka plana geçtiğinde ve çıkışta poll durur; dönüşte hemen okunur. Cubit kapanınca timer/abonelik iptal edilir. Yeni sayfalar bilinen mesaja ulaşana kadar keyset ile okunur; yüklü geçmiş ve gönderim taslakları korunur, sunucu kimliğiyle tekrarlar elenir. Geç eski oturum yanıtları uygulanmaz. Push içeriği mesaj olarak gösterilmez. Metinler tr/en ARB’dedir.
+
+Güncelleme: 2026-11-15

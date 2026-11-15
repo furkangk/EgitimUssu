@@ -575,3 +575,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 Deneme bileşeni değişikliği/silmesi ve TotalNet yazımı, outbox ile aynı transaction içindedir. EF değişiklikleri commit başarılı olana kadar kabul edilmez; geçici commit hatasında kaynak ve outbox yeniden yazılır. Commit yanıtı kaybolduğunda aynı outbox kimliklerinin varlığı atomik başarıyı doğrular. Gerçek öğrenci haftası: TR 01:30 çalışması önceki çalışma gününe aittir; üç günün serisi 3, test ekleme/silme sonrası M10/M14 toplamları başlangıç değerine döner.
 
 *Güncelleme: 2026-11-15 — P19 Task 8.*
+
+## P20 T1 — mobil sahte veri temizliği
+
+Mobil ana sayfadaki sabit haftalık sayaçlar, tahmini net hedefi ve sabit konu puanları kaldırıldı. Hedef takibi yalnız gerçek hedefle gösterilir. Öğrenci profilindeki yer tutucu eylemler ve gerçek ders bağı bulunmayan test/konu listeleri gizlendi; mevcut gerçek çalışma, deneme, katalog, hedef, rozet ve gelişim akışları korunur. Ödev okuma hatası hata/tekrar deneme sunar.

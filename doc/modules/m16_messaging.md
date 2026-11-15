@@ -415,3 +415,22 @@ bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu +
 `MarkConversationReadCommand(ConversationId, UpToMessageId?)`, katılımcı kontrolünden sonra sınır mesajının aynı sohbette olduğunu doğrular. Yok/başka sohbet sınırı 404; yabancı katılımcı 403. Sınır verilmemiş eski gövdesiz çağrı 204 ve güvenli etkisiz sonuçtur; yeni mesajları topluca okumaz. Repository SQL yalnız okuyucunun gelen/silinmemiş/okunmamış mesajlarından sınırın kendisini ve zaman bakımından kesin önce olanları alır. Aynı zaman damgalı başka mesaj muhafazakâr biçimde okunmamış kalır. İlk okuma tarihi tekrar istekte korunur. İlişkisi bitmiş katılımcının geçmiş okuma hakkı değişmez.
 
 ChatCubit yüklediği en yeni sunucu mesajının kimliğini gönderir; boş veya yalnız taslak/başarısız mesajlı listede istek üretmez. İstek ile görünüm arasındaki yeni mesaj okunmamış kalır. Mesaj bildiriminde artık önizleme yoktur: yeni ve migration ile temizlenmiş eski bildirimler “Bir kullanıcı size mesaj gönderdi.” taşır. Gerçek HTTP senaryosu öğretmen/öğrenci/veli yabancıları 403 ve görülmeyen yeni mesajın unread kalmasını doğrular.
+
+## P20 Task 4 — Ön plan tazeleme
+
+K-07 REST+poll uygulandı: görünür, resumed sohbet10sn aralıkla; ilgili ön plan push’ında anında tazelenir. Yeni aralık bilinen mesaja kadar keyset sayfalarıyla kapanır; yüklü geçmiş, taslaklar ve benzersiz sunucu kimlikleri korunur. Gelen kutusu push ile yenilenir. Okundu makbuzu görüntülenen en yeni kalıcı mesajla sınırlıdır. Rota kapanışı/arka plan/oturum değişimi poll ve geç yanıtları sınırlar. SignalR, mesaj silme UI’sı, ad çözümleme ve ilişki durumu UI borçları bu görev kapsamında değildir.
+
+Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+ChatCubit ve ConversationsCubit tüm state yayınlarında SafeEmit kullanır. T4 oturum kuşakları, görünürlük kapısı, 10 saniyelik poll iptali ve push abonelik temizliği korunur; SafeEmit ağ isteğini iptal etmez.
+
+Güncelleme: 2026-11-15
+
+### P20 Task 6 — Mesaj tekrar anahtarı izolasyonu
+
+Ortak `ApiClient` eski oturum isteğinin geç başarı/hata sonucuyla yeni oturumun bekleyen mesaj anahtarını silemez; silme yalnız aynı oturum kuşağı ve anahtar sahibi için yapılır. Aynı hesaba yeniden girişte belirsiz gönderimin manuel tekrarı ilk anahtarı korur. Mesaj endpoint veya repository arayüzü değişmedi.
+
+Güncelleme: 2026-11-15

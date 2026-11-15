@@ -5,10 +5,10 @@ import 'package:egitim_ussu_mobile/features/messaging/presentation/cubit/chat_cu
 import 'package:egitim_ussu_mobile/features/messaging/presentation/cubit/conversations_cubit.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/chat_page.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/messaging_inbox_page.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_messaging_repository.dart';
 
@@ -45,7 +45,9 @@ void main() {
     ) async {
       await _pumpInbox(
         tester,
-        FakeMessagingRepository(inbox: <ConversationSummary>[summary(unread: 3)]),
+        FakeMessagingRepository(
+          inbox: <ConversationSummary>[summary(unread: 3)],
+        ),
       );
 
       expect(find.text('Yarınki dersi konuşalım'), findsOneWidget);
@@ -179,7 +181,10 @@ Future<void> _pumpInbox(
   WidgetTester tester,
   FakeMessagingRepository repository,
 ) async {
-  await _pump(tester, MessagingInboxPage(cubit: ConversationsCubit(repository)));
+  await _pump(
+    tester,
+    MessagingInboxPage(cubit: ConversationsCubit(repository)),
+  );
 }
 
 Future<void> _pumpChat(
@@ -207,7 +212,12 @@ Future<void> _pump(WidgetTester tester, Widget page) async {
   await tester.pumpWidget(
     BlocProvider<AuthCubit>.value(
       value: authCubit,
-      child: MaterialApp(home: page),
+      child: MaterialApp(
+        locale: const Locale('tr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: page,
+      ),
     ),
   );
   await tester.pumpAndSettle();

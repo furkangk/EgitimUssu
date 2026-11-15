@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/push/push_route_mapping.dart';
+import 'package:egitim_ussu_mobile/core/routing/route_access.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -37,6 +39,7 @@ class NotificationsPage extends StatelessWidget {
     }
 
     return BlocProvider<NotificationCenterCubit>(
+      key: ValueKey(userId),
       create: (_) => (cubit ?? NotificationCenterCubit.create())..load(userId),
       // Okundu işaretlendiğinde uygulama genelindeki zil rozeti de anında düşsün.
       child: BlocListener<NotificationCenterCubit, NotificationCenterState>(
@@ -104,7 +107,7 @@ class _NotificationsView extends StatelessWidget {
                               .loadMore,
                           builder: (controller) => ListView.builder(
                             controller: controller,
-                  physics: const AlwaysScrollableScrollPhysics(),
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: EdgeInsets.fromLTRB(16, 12, 16, 32),
                             itemCount: state.items.length,
                             itemBuilder: (context, index) =>
@@ -370,7 +373,12 @@ class _NotificationCard extends StatelessWidget {
 
     final route = item.route;
     if (route != null && route.isNotEmpty) {
-      context.push(route);
+      final role = RouteAccess.roleFor(
+        context.read<AuthCubit>().state.session?.roles ?? const [],
+      );
+      final target = mapPushRoute(route, role);
+      // The fallback is the screen already being displayed.
+      if (target != '/notifications') context.push(target);
     }
   }
 

@@ -459,3 +459,10 @@ Ekran dokümanı: [`../pages/progress_overview.md`](../pages/progress_overview.m
 Hedef taraması ile iptal/başarım yarışında tarayıcı yalnız veritabanında hâlâ Active olan, süresi geçmiş hedefi Missed yapar. TopicGoal xmin taşımadığı için koruma koşullu SQL UPDATE ile sağlanır. En çok 200 kimlik okunur; snapshot üretim sayısı sözleşmesi değişmez. İki ayrı DbContext ile Cancelled ve Achieved durumlarının korunması gerçek PostgreSQL üzerinde test edilir.
 
 *Güncelleme: 2026-11-15 — P19 Task 8.*
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+ProgressCubit `SafeEmit` ile geç başarı/hata sonuçlarını kapanmış ekrana göndermez. Özet veya mastery beklenirken kapanmışsa sonraki mastery/snapshot çağrısı başlamaz; kapsam ve mevcut API sözleşmeleri korunur.
+
+Güncelleme: 2026-11-15

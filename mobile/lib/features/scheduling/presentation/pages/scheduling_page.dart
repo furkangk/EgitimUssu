@@ -6,6 +6,7 @@ import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/schedu
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_state.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,6 @@ class _SchedulingPageState extends State<SchedulingPage> {
   bool _loaded = false;
 
   late DateTime _visibleDate;
-  late List<_CalendarEvent> _events;
   _CalendarView _view = _CalendarView.month;
 
   @override
@@ -40,7 +40,6 @@ class _SchedulingPageState extends State<SchedulingPage> {
     _studentsCubit = StudentsCubit.create();
     final now = DateTime.now();
     _visibleDate = DateTime(now.year, now.month, now.day);
-    _events = _seedEvents(_visibleDate);
   }
 
   @override
@@ -70,7 +69,7 @@ class _SchedulingPageState extends State<SchedulingPage> {
         BlocProvider<SchedulingCubit>.value(value: _schedulingCubit),
         BlocProvider<StudentsCubit>.value(value: _studentsCubit),
       ],
-      child: BlocListener<SchedulingCubit, SchedulingState>(
+      child: BlocConsumer<SchedulingCubit, SchedulingState>(
         listener: (context, state) {
           if (state.successMessage != null) {
             ScaffoldMessenger.of(
@@ -86,7 +85,7 @@ class _SchedulingPageState extends State<SchedulingPage> {
             );
           }
         },
-        child: _buildContent(context),
+        builder: (context, state) => _buildContent(context),
       ),
     );
   }
@@ -95,11 +94,11 @@ class _SchedulingPageState extends State<SchedulingPage> {
     final session = _authSessionOrNull(context);
     final teacherName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Ahmet Bey';
+        : AppLocalizations.of(context).finance_ogretmen;
     final title = switch (_view) {
-      _CalendarView.day => _dayTitleLabel(_visibleDate),
+      _CalendarView.day => _dayTitleLabel(context, _visibleDate),
       _CalendarView.week => _weekRangeLabel(_visibleDate),
-      _CalendarView.month => _monthYearLabel(_visibleDate),
+      _CalendarView.month => _monthYearLabel(context, _visibleDate),
     };
 
     return Scaffold(
@@ -109,7 +108,7 @@ class _SchedulingPageState extends State<SchedulingPage> {
         foregroundColor: Colors.white,
         onPressed: _showCreateSheet,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Ders Ekle'),
+        label: Text(AppLocalizations.of(context).lessonSessions_add),
       ),
       body: SafeArea(
         child: CustomScrollView(
@@ -120,7 +119,12 @@ class _SchedulingPageState extends State<SchedulingPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    AppPageHeader(title: teacherName, subtitle: 'Takvim'),
+                    AppPageHeader(
+                      title: teacherName,
+                      subtitle: AppLocalizations.of(
+                        context,
+                      ).scheduling_calendar,
+                    ),
                     const SizedBox(height: 12),
                     _ViewSwitcher(
                       value: _view,
@@ -176,7 +180,6 @@ class _SchedulingPageState extends State<SchedulingPage> {
       ..._schedulingCubit.state.lessons
           .where((l) => l.status != 'Cancelled')
           .map(_CalendarEvent.fromLesson),
-      ..._events,
     ]..sort((a, b) => a.start.compareTo(b.start));
   }
 
@@ -237,7 +240,7 @@ class _SchedulingPageState extends State<SchedulingPage> {
   String _weekRangeLabel(DateTime date) {
     final start = _startOfWeek(date);
     final end = start.add(const Duration(days: 6));
-    return '${_shortDateLabel(start)} - ${_shortDateLabel(end, includeYear: true)}';
+    return '${_shortDateLabel(context, start)} - ${_shortDateLabel(context, end, includeYear: true)}';
   }
 
   static DateTime _startOfWeek(DateTime date) {
@@ -269,24 +272,24 @@ class _SoftActionMenu extends StatelessWidget {
         PopupMenuItem<String>(
           value: 'edit',
           child: Row(
-            children: const <Widget>[
+            children: <Widget>[
               Icon(Icons.edit_rounded, size: 18, color: AppColors.primary),
               SizedBox(width: 10),
-              Text('Düzenle'),
+              Text(AppLocalizations.of(context).finance_duzenle),
             ],
           ),
         ),
         PopupMenuItem<String>(
           value: 'delete',
           child: Row(
-            children: const <Widget>[
+            children: <Widget>[
               Icon(
                 Icons.delete_outline_rounded,
                 size: 18,
                 color: AppColors.accentRed,
               ),
               SizedBox(width: 10),
-              Text('Sil'),
+              Text(AppLocalizations.of(context).scheduling_delete),
             ],
           ),
         ),
@@ -332,9 +335,15 @@ class _ViewSwitcher extends StatelessWidget {
             ].map((view) {
               final selected = view == value;
               final label = switch (view) {
-                _CalendarView.day => 'Günlük',
-                _CalendarView.week => 'Haftalık',
-                _CalendarView.month => 'Aylık',
+                _CalendarView.day => AppLocalizations.of(
+                  context,
+                ).scheduling_daily,
+                _CalendarView.week => AppLocalizations.of(
+                  context,
+                ).p19list_weekly,
+                _CalendarView.month => AppLocalizations.of(
+                  context,
+                ).scheduling_monthly,
               };
               return Expanded(
                 child: InkWell(
@@ -407,7 +416,7 @@ class _DateNavigator extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: const Text('Bugün'),
+          child: Text(AppLocalizations.of(context).dashboard_today),
         ),
         const SizedBox(width: 10),
         _IconSurface(icon: Icons.chevron_right_rounded, onTap: onNext),
@@ -448,9 +457,9 @@ class _SyncfusionCalendarSurface extends StatelessWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: SfCalendar(
-            key: ValueKey<String>('calendar-${view.name}-${visibleDate.month}'),
+            key: ValueKey<int>(Object.hash(view, visibleDate.month)),
             view: _syncfusionView,
-            dataSource: _LessonCalendarDataSource(events),
+            dataSource: _LessonCalendarDataSource(context, events),
             initialDisplayDate: visibleDate,
             initialSelectedDate: visibleDate,
             todayHighlightColor: AppColors.primary,
@@ -548,7 +557,8 @@ class _SyncfusionCalendarSurface extends StatelessWidget {
 }
 
 class _LessonCalendarDataSource extends CalendarDataSource {
-  _LessonCalendarDataSource(List<_CalendarEvent> source) {
+  final BuildContext context;
+  _LessonCalendarDataSource(this.context, List<_CalendarEvent> source) {
     appointments = source;
   }
 
@@ -561,7 +571,7 @@ class _LessonCalendarDataSource extends CalendarDataSource {
   @override
   String getSubject(int index) {
     final event = _eventAt(index);
-    return _eventShortLabel(event.type);
+    return _eventShortLabel(context, event.type);
   }
 
   @override
@@ -600,7 +610,7 @@ class _SelectedDayEventsPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            _selectedDateLabel(date),
+            _selectedDateLabel(context, date),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w900,
@@ -609,7 +619,7 @@ class _SelectedDayEventsPanel extends StatelessWidget {
           const SizedBox(height: 12),
           if (events.isEmpty)
             Text(
-              'Bu güne ait etkinlik yok.',
+              AppLocalizations.of(context).scheduling_noEventsForThisDay,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w600,
@@ -621,12 +631,12 @@ class _SelectedDayEventsPanel extends StatelessWidget {
                   ? null
                   : studentNameFor(event.studentId!);
               final timeLabel = event.isAllDay
-                  ? 'Tüm gün'
+                  ? AppLocalizations.of(context).scheduling_allDay
                   : DateFormat('HH:mm').format(event.start);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _SelectedDayEventTile(
-                  label: _eventShortLabel(event.type),
+                  label: _eventShortLabel(context, event.type),
                   title: event.title,
                   subtitle: student,
                   timeLabel: timeLabel,
@@ -806,7 +816,7 @@ class _HourRow extends StatelessWidget {
                           border: Border.all(color: AppColors.border),
                         ),
                         child: Text(
-                          'Bos saat',
+                          AppLocalizations.of(context).scheduling_freeSlot,
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
@@ -1032,14 +1042,14 @@ class _MonthCalendarView extends StatelessWidget {
           child: Column(
             children: <Widget>[
               Row(
-                children: const <Widget>[
-                  _WeekName('Pzt'),
-                  _WeekName('Sal'),
-                  _WeekName('Car'),
-                  _WeekName('Per'),
-                  _WeekName('Cum'),
-                  _WeekName('Cmt'),
-                  _WeekName('Paz'),
+                children: <Widget>[
+                  _WeekName(AppLocalizations.of(context).scheduling_mon),
+                  _WeekName(AppLocalizations.of(context).scheduling_tue),
+                  _WeekName(AppLocalizations.of(context).scheduling_wed),
+                  _WeekName(AppLocalizations.of(context).scheduling_thu),
+                  _WeekName(AppLocalizations.of(context).scheduling_fri),
+                  _WeekName(AppLocalizations.of(context).scheduling_sat),
+                  _WeekName(AppLocalizations.of(context).scheduling_sun),
                 ],
               ),
               const SizedBox(height: 8),
@@ -1076,7 +1086,7 @@ class _MonthCalendarView extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: Text(
-                _longDateLabel(selectedDate),
+                _longDateLabel(context, selectedDate),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
@@ -1294,7 +1304,7 @@ class _EventDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _eventColor(event.type);
     final timeLabel = event.isAllDay
-        ? 'Tum gun'
+        ? AppLocalizations.of(context).scheduling_allDay
         : '${DateFormat('HH:mm').format(event.start)} - ${DateFormat('HH:mm').format(event.end)}';
     return InkWell(
       borderRadius: BorderRadius.circular(22),
@@ -1348,19 +1358,25 @@ class _EventDetailCard extends StatelessWidget {
                     runSpacing: 6,
                     children: <Widget>[
                       _TimePill(
-                        label: _eventTypeLabel(event.type),
+                        label: _eventTypeLabel(context, event.type),
                         color: color,
                       ),
                       if (event.format != null)
                         _TimePill(
                           label: event.format == 'Online'
-                              ? 'Online'
-                              : 'Yuz Yuze',
+                              ? AppLocalizations.of(context).lessonDetail_online
+                              : AppLocalizations.of(
+                                  context,
+                                ).lessonSessions_inPerson,
                           color: AppColors.primary,
                         ),
                       _TimePill(
-                        label: event.status,
-                        color: event.status == 'Tamamlandi'
+                        label: event.status == 'Completed'
+                            ? AppLocalizations.of(context).p19list_completed
+                            : AppLocalizations.of(
+                                context,
+                              ).lessonSessions_planned,
+                        color: event.status == 'Completed'
                             ? AppColors.accentGreen
                             : AppColors.textSecondary,
                       ),
@@ -1440,7 +1456,7 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        'Haftalık Program',
+                        AppLocalizations.of(context).scheduling_weeklySchedule,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w900,
@@ -1448,7 +1464,7 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '${_shortDateLabel(widget.weekStart)} - ${_shortDateLabel(widget.weekStart.add(const Duration(days: 6)), includeYear: true)}',
+                        '${_shortDateLabel(context, widget.weekStart)} - ${_shortDateLabel(context, widget.weekStart.add(const Duration(days: 6)), includeYear: true)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w700,
@@ -1458,7 +1474,9 @@ class _WeeklyProgramModalState extends State<_WeeklyProgramModal> {
                   ),
                 ),
                 _TimePill(
-                  label: widget.hasConflict ? 'Çakışma var' : 'Uygun',
+                  label: widget.hasConflict
+                      ? AppLocalizations.of(context).scheduling_scheduleConflict
+                      : AppLocalizations.of(context).scheduling_available,
                   color: widget.hasConflict
                       ? AppColors.accentRed
                       : AppColors.accentGreen,
@@ -1528,7 +1546,7 @@ class _ScrollableWeekSchedule extends StatelessWidget {
             alignment: Alignment.center,
             color: const Color(0xFFF7FAFD),
             child: Text(
-              'Günleri görmek için sağa sola kaydır',
+              AppLocalizations.of(context).scheduling_swipeToSeeOtherDays,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w800,
@@ -1608,7 +1626,7 @@ class _WeekDayScheduleColumn extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  _weekdayName(date.weekday),
+                  _weekdayName(context, date.weekday),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1618,7 +1636,7 @@ class _WeekDayScheduleColumn extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _shortDateLabel(date, includeYear: false),
+                  _shortDateLabel(context, date, includeYear: false),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w700,
@@ -1740,7 +1758,9 @@ class _WeeklyAppointment extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           Text(
-            isPreview ? 'Yeni Ders' : event.title,
+            isPreview
+                ? AppLocalizations.of(context).finance_yeniDers
+                : event.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1751,8 +1771,8 @@ class _WeeklyAppointment extends StatelessWidget {
           ),
           Text(
             event.isAllDay
-                ? _eventShortLabel(event.type)
-                : '${DateFormat('HH:mm').format(event.start)} ${_eventShortLabel(event.type)}',
+                ? _eventShortLabel(context, event.type)
+                : '${DateFormat('HH:mm').format(event.start)} ${_eventShortLabel(context, event.type)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1862,13 +1882,15 @@ class _LessonTile extends StatelessWidget {
                       if (!compact)
                         _TimePill(
                           label: lesson.lessonFormat == 'Online'
-                              ? 'Online'
-                              : 'Yuz yuze',
+                              ? AppLocalizations.of(context).lessonDetail_online
+                              : AppLocalizations.of(
+                                  context,
+                                ).lessonSessions_inPerson,
                           color: AppColors.primary,
                         ),
                       if (cancelled)
-                        const _TimePill(
-                          label: 'İptal',
+                        _TimePill(
+                          label: AppLocalizations.of(context).p19list_cancelled,
                           color: AppColors.accentRed,
                         ),
                     ],
@@ -1944,7 +1966,7 @@ class _EmptyDayPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Bu gune ait etkinlik yok',
+            AppLocalizations.of(context).scheduling_noEventsForThisDay2,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -1992,7 +2014,6 @@ class _CalendarEvent {
     this.studentId,
     this.format,
     this.lesson,
-    this.isAllDay = false,
   });
 
   factory _CalendarEvent.fromLesson(LessonSchedule lesson) {
@@ -2002,7 +2023,7 @@ class _CalendarEvent {
       title: lesson.subject,
       start: lesson.startAtUtc.toLocal(),
       end: lesson.endAtUtc.toLocal(),
-      status: lesson.status == 'Completed' ? 'Tamamlandi' : 'Planlandi',
+      status: lesson.status,
       studentId: lesson.studentId,
       format: lesson.lessonFormat,
       lesson: lesson,
@@ -2018,40 +2039,7 @@ class _CalendarEvent {
   final String? studentId;
   final String? format;
   final LessonSchedule? lesson;
-  final bool isAllDay;
-}
-
-List<_CalendarEvent> _seedEvents(DateTime today) {
-  final monday = _SchedulingPageState._startOfWeek(today);
-  return <_CalendarEvent>[
-    _CalendarEvent(
-      id: 'event-unavailable-1',
-      type: _CalendarEventType.unavailable,
-      title: 'Tatil / Musait Degil',
-      start: DateTime(monday.year, monday.month, monday.day + 3),
-      end: DateTime(monday.year, monday.month, monday.day + 3, 23, 59),
-      status: 'Planlandi',
-      isAllDay: true,
-    ),
-    _CalendarEvent(
-      id: 'event-assignment-1',
-      type: _CalendarEventType.assignment,
-      title: 'Ödev Hatırlatması',
-      start: DateTime(monday.year, monday.month, monday.day + 2, 18),
-      end: DateTime(monday.year, monday.month, monday.day + 2, 18, 15),
-      status: 'Planlandi',
-      studentId: 'student-2',
-    ),
-    _CalendarEvent(
-      id: 'event-payment-1',
-      type: _CalendarEventType.payment,
-      title: 'Ödeme Hatırlatması',
-      start: DateTime(monday.year, monday.month, monday.day + 5, 14),
-      end: DateTime(monday.year, monday.month, monday.day + 5, 14, 15),
-      status: 'Planlandi',
-      studentId: 'student-1',
-    ),
-  ];
+  final bool isAllDay = false;
 }
 
 bool _sameDay(DateTime first, DateTime second) {
@@ -2078,113 +2066,59 @@ IconData _eventIcon(_CalendarEventType type) {
   };
 }
 
-String _eventTypeLabel(_CalendarEventType type) {
+String _eventTypeLabel(BuildContext context, _CalendarEventType type) {
   return switch (type) {
-    _CalendarEventType.lesson => 'Ders',
-    _CalendarEventType.unavailable => 'Tatil / Musait Degil',
-    _CalendarEventType.assignment => 'Ödev Hatırlatması',
-    _CalendarEventType.payment => 'Ödeme Hatırlatması',
+    _CalendarEventType.lesson => AppLocalizations.of(context).finance_ders,
+    _CalendarEventType.unavailable => AppLocalizations.of(
+      context,
+    ).scheduling_timeOffUnavailable,
+    _CalendarEventType.assignment => AppLocalizations.of(
+      context,
+    ).scheduling_assignmentReminder,
+    _CalendarEventType.payment => AppLocalizations.of(
+      context,
+    ).scheduling_paymentReminder,
   };
 }
 
-String _eventShortLabel(_CalendarEventType type) {
+String _eventShortLabel(BuildContext context, _CalendarEventType type) {
   return switch (type) {
-    _CalendarEventType.lesson => 'Ders',
-    _CalendarEventType.unavailable => 'Tatil',
-    _CalendarEventType.assignment => 'Ödev',
-    _CalendarEventType.payment => 'Ödeme',
+    _CalendarEventType.lesson => AppLocalizations.of(context).finance_ders,
+    _CalendarEventType.unavailable => AppLocalizations.of(
+      context,
+    ).cancellation_holiday,
+    _CalendarEventType.assignment => AppLocalizations.of(
+      context,
+    ).scheduling_assignment,
+    _CalendarEventType.payment => AppLocalizations.of(context).finance_odeme,
   };
 }
 
-String _dayTitleLabel(DateTime date) {
-  return '${date.day} ${_monthName(date.month)}, ${_weekdayName(date.weekday)}';
-}
-
-String _monthYearLabel(DateTime date) {
-  return '${_monthName(date.month)} ${date.year}';
-}
-
-String _shortDateLabel(DateTime date, {bool includeYear = false}) {
-  final label = '${date.day} ${_shortMonthName(date.month)}';
-  return includeYear ? '$label ${date.year}' : label;
-}
-
-String _selectedDateLabel(DateTime date) {
-  return '${date.day} ${_monthName(date.month)} ${_weekdayName(date.weekday)}';
-}
-
-String _monthName(int month) {
-  const months = <String>[
-    'Ocak',
-    'Şubat',
-    'Mart',
-    'Nisan',
-    'Mayıs',
-    'Haziran',
-    'Temmuz',
-    'Ağustos',
-    'Eylül',
-    'Ekim',
-    'Kasım',
-    'Aralık',
-  ];
-  return months[month - 1];
-}
-
-String _shortMonthName(int month) {
-  const months = <String>[
-    'Oca',
-    'Şub',
-    'Mar',
-    'Nis',
-    'May',
-    'Haz',
-    'Tem',
-    'Ağu',
-    'Eyl',
-    'Eki',
-    'Kas',
-    'Ara',
-  ];
-  return months[month - 1];
-}
-
-String _weekdayName(int weekday) {
-  const weekdays = <String>[
-    'Pazartesi',
-    'Salı',
-    'Çarşamba',
-    'Perşembe',
-    'Cuma',
-    'Cumartesi',
-    'Pazar',
-  ];
-  return weekdays[weekday - 1];
-}
-
-String _longDateLabel(DateTime date) {
-  const months = <String>[
-    'Ocak',
-    'Subat',
-    'Mart',
-    'Nisan',
-    'Mayis',
-    'Haziran',
-    'Temmuz',
-    'Agustos',
-    'Eylul',
-    'Ekim',
-    'Kasim',
-    'Aralik',
-  ];
-  const weekdays = <String>[
-    'Pazartesi',
-    'Sali',
-    'Carsamba',
-    'Persembe',
-    'Cuma',
-    'Cumartesi',
-    'Pazar',
-  ];
-  return '${date.day} ${months[date.month - 1]} ${date.year} ${weekdays[date.weekday - 1]}';
-}
+String _dayTitleLabel(BuildContext context, DateTime date) => DateFormat(
+  'd MMMM, EEEE',
+  Localizations.localeOf(context).toLanguageTag(),
+).format(date);
+String _monthYearLabel(BuildContext context, DateTime date) => DateFormat(
+  'MMMM y',
+  Localizations.localeOf(context).toLanguageTag(),
+).format(date);
+String _shortDateLabel(
+  BuildContext context,
+  DateTime date, {
+  bool includeYear = false,
+}) => DateFormat(
+  includeYear ? 'd MMM y' : 'd MMM',
+  Localizations.localeOf(context).toLanguageTag(),
+).format(date);
+String _selectedDateLabel(BuildContext context, DateTime date) => DateFormat(
+  'd MMMM EEEE',
+  Localizations.localeOf(context).toLanguageTag(),
+).format(date);
+String _weekdayName(BuildContext context, int weekday) => DateFormat(
+  'EEEE',
+  Localizations.localeOf(context).toLanguageTag(),
+).format(DateTime(2026, 11, 9 + weekday - 1));
+String _longDateLabel(BuildContext context, DateTime date) => DateFormat(
+  'd MMMM y EEEE',
+  Localizations.localeOf(context).toLanguageTag(),
+).format(date);

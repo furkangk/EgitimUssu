@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/reporting/domain/reporting_contracts.dart';
@@ -46,7 +47,7 @@ class TeacherReportsState {
   }
 }
 
-class TeacherReportsCubit extends Cubit<TeacherReportsState> {
+class TeacherReportsCubit extends Cubit<TeacherReportsState> with SafeEmit<TeacherReportsState> {
   TeacherReportsCubit(this._repository) : super(const TeacherReportsState());
 
   factory TeacherReportsCubit.create() =>
@@ -79,7 +80,7 @@ class TeacherReportsCubit extends Cubit<TeacherReportsState> {
     if (teacherUserId == null) {
       return;
     }
-    emit(state.copyWith(
+    safeEmit(state.copyWith(
       status: ReportingStatus.loading,
       year: year,
       month: month,
@@ -92,6 +93,7 @@ class TeacherReportsCubit extends Cubit<TeacherReportsState> {
         year: year,
         month: month,
       );
+      if (isClosed) return;
       // Boş zaman analizi hep "bugünden itibaren bir hafta"dır: geçmiş bir ayın
       // boş saatlerini göstermek anlamsız olurdu (planlanamaz).
       final from = DateTime.now();
@@ -101,19 +103,19 @@ class TeacherReportsCubit extends Cubit<TeacherReportsState> {
         to: from.add(const Duration(days: 7)),
       );
 
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ReportingStatus.loaded,
         monthly: monthly,
         freeSlots: slots,
         clearError: true,
       ));
     } on ApiException catch (error) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ReportingStatus.failure,
         errorMessage: error.message,
       ));
     } catch (_) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ReportingStatus.failure,
         errorMessage: 'Rapor yüklenemedi.',
       ));

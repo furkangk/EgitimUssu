@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/not
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/pages/scheduling_page.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,7 +26,12 @@ void main() {
     await tester.pumpWidget(
       BlocProvider<NotificationsCubit>(
         create: (_) => NotificationsCubit(FakeNotificationRepository()),
-        child: const MaterialApp(home: SchedulingPage()),
+        child: const MaterialApp(
+          locale: Locale('tr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: SchedulingPage(),
+        ),
       ),
     );
 
@@ -66,6 +72,7 @@ class _FakeStudentRepository implements StudentRepository {
   }) {
     throw UnimplementedError();
   }
+
   @override
   Future<StudentSubjectTarget> addSubject({
     required String studentId,

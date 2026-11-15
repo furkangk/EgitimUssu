@@ -1,11 +1,16 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/membership/domain/membership_contracts.dart';
 import 'package:egitim_ussu_mobile/features/membership/domain/premium_features.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// Üyelik ve paywall ekranlarının ortak iskeleti.
 class MembershipScaffold extends StatelessWidget {
-  const MembershipScaffold({super.key, required this.title, required this.child});
+  const MembershipScaffold({
+    super.key,
+    required this.title,
+    required this.child,
+  });
 
   final String title;
   final Widget child;
@@ -92,7 +97,9 @@ class MembershipTierBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            isPremium ? 'Premium' : 'Ücretsiz',
+            isPremium
+                ? AppLocalizations.of(context).membership_premium
+                : AppLocalizations.of(context).membership_free,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -106,8 +113,7 @@ class MembershipTierBadge extends StatelessWidget {
 
 /// Paywall plan kartı: fiyat, periyot, deneme rozeti ve eylemler.
 ///
-/// Satın alma düğmesi **bilinçli olarak pasiftir**: `POST /api/membership/checkout` ucu
-/// P09 Task 4'te (iyzico, Q1'e bloke) gelecek. Deneme düğmesi ise bugün gerçekten çalışır.
+/// Satın alma girişi P28 gerçek akışına kadar gizlidir; deneme düğmesi çalışır.
 class PlanCard extends StatelessWidget {
   const PlanCard({
     super.key,
@@ -126,7 +132,9 @@ class PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final periodLabel = plan.isYearly ? 'yıllık' : 'aylık';
+    final periodLabel = plan.isYearly
+        ? AppLocalizations.of(context).membership_yearlyPeriod
+        : AppLocalizations.of(context).membership_monthlyPeriod;
 
     return MembershipPanel(
       child: Column(
@@ -136,7 +144,9 @@ class PlanCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  plan.isYearly ? 'Yıllık Premium' : 'Aylık Premium',
+                  plan.isYearly
+                      ? AppLocalizations.of(context).membership_yearlyPremium
+                      : AppLocalizations.of(context).membership_monthlyPremium,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -155,8 +165,10 @@ class PlanCard extends StatelessWidget {
                   ),
                   child: Text(
                     plan.trialDays >= 30
-                        ? 'İlk ay ücretsiz'
-                        : '${plan.trialDays} gün ücretsiz',
+                        ? AppLocalizations.of(context).membership_firstMonthFree
+                        : AppLocalizations.of(
+                            context,
+                          ).membership_daysFree((plan.trialDays).toString()),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.accentGreen,
                       fontWeight: FontWeight.w800,
@@ -180,21 +192,15 @@ class PlanCard extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: isBusy ? null : onStartTrial,
                 icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
-                label: Text('${plan.trialDays} gün ücretsiz dene'),
+                label: Text(
+                  AppLocalizations.of(
+                    context,
+                  ).membership_tryFreeForDays((plan.trialDays).toString()),
+                ),
               ),
             ),
             const SizedBox(height: 8),
           ],
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              // Ödeme entegrasyonu (P09 Task 4 / K-05) gelmeden düğme açılmaz —
-              // olmayan bir uca istek atmak sessiz başarısızlık olurdu.
-              onPressed: null,
-              icon: const Icon(Icons.credit_card_outlined, size: 18),
-              label: const Text('Satın al (yakında)'),
-            ),
-          ),
         ],
       ),
     );
@@ -222,11 +228,19 @@ class FeatureComparisonTable extends StatelessWidget {
               const Expanded(flex: 4, child: SizedBox.shrink()),
               Expanded(
                 flex: 3,
-                child: Text('Ücretsiz', textAlign: TextAlign.end, style: labelStyle),
+                child: Text(
+                  AppLocalizations.of(context).membership_free,
+                  textAlign: TextAlign.end,
+                  style: labelStyle,
+                ),
               ),
               Expanded(
                 flex: 3,
-                child: Text('Premium', textAlign: TextAlign.end, style: labelStyle),
+                child: Text(
+                  AppLocalizations.of(context).membership_premium,
+                  textAlign: TextAlign.end,
+                  style: labelStyle,
+                ),
               ),
             ],
           ),
@@ -238,7 +252,7 @@ class FeatureComparisonTable extends StatelessWidget {
                 Expanded(
                   flex: 4,
                   child: Text(
-                    row.title,
+                    _membershipFeatureText(context, row.title),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -248,7 +262,7 @@ class FeatureComparisonTable extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: Text(
-                    row.free,
+                    _membershipFeatureText(context, row.free),
                     textAlign: TextAlign.end,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.textSecondary,
@@ -258,7 +272,7 @@ class FeatureComparisonTable extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: Text(
-                    row.premium,
+                    _membershipFeatureText(context, row.premium),
                     textAlign: TextAlign.end,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.accentGreen,
@@ -274,4 +288,24 @@ class FeatureComparisonTable extends StatelessWidget {
       ),
     );
   }
+}
+
+String _membershipFeatureText(BuildContext context, String text) {
+  final l10n = AppLocalizations.of(context);
+  return switch (text) {
+    'Bağlanabilecek öğrenci' => l10n.membership_linkableStudents,
+    'PDF öğrenci raporu' => l10n.membership_pdfStudentReport,
+    'Çalışma ve deneme geçmişi' => l10n.membership_studyExamHistory,
+    'Son 30 gün' => l10n.membership_last30Days,
+    'Sınırsız' => l10n.membership_unlimited,
+    'Hedef net / puan takibi' => l10n.membership_targetTracking,
+    'Açık' => l10n.membership_included,
+    'Zengin bildirimler' => l10n.membership_richNotifications,
+    'Temel' => l10n.membership_basic,
+    'Haftalık özet + ödev/ödeme uyarıları' => l10n.membership_parentAlerts,
+    _ =>
+      RegExp(r'^\d+ öğrenci$').hasMatch(text)
+          ? l10n.membership_studentCount(text.split(' ').first)
+          : text,
+  };
 }

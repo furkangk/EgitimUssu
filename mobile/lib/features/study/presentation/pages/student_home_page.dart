@@ -1,4 +1,5 @@
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
+import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -6,10 +7,10 @@ import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contrac
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_home_cubit.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/cubit/study_home_state.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/home/dashboard_stats.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/student_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -18,13 +19,13 @@ import 'package:go_router/go_router.dart';
 
 /// Dekoratif ışıma dairesi — birincil CTA'nın gradient zemininde derinlik katar.
 Widget _glowCircle(double size, double alpha) => Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: alpha),
-      ),
-    );
+  width: size,
+  height: size,
+  decoration: BoxDecoration(
+    shape: BoxShape.circle,
+    color: Colors.white.withValues(alpha: alpha),
+  ),
+);
 
 class StudentHomePage extends StatelessWidget {
   const StudentHomePage({super.key});
@@ -32,9 +33,11 @@ class StudentHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<StudyHomeCubit>(
-      create: (_) => StudyHomeCubit.create()..load(
+      create: (_) => StudyHomeCubit.create()
+        ..load(
           userId: context.read<AuthCubit>().state.session?.userId ?? '',
-          fullName: context.read<AuthCubit>().state.session?.fullName ?? ''),
+          fullName: context.read<AuthCubit>().state.session?.fullName ?? '',
+        ),
       child: const _StudentHomeView(),
     );
   }
@@ -46,25 +49,26 @@ class _StudentHomeView extends StatelessWidget {
   void _reload(BuildContext context) {
     final session = context.read<AuthCubit>().state.session;
     context.read<StudyHomeCubit>().refresh(
-          userId: session?.userId ?? '',
-          fullName: session?.fullName ?? '',
-        );
+      userId: session?.userId ?? '',
+      fullName: session?.fullName ?? '',
+    );
   }
 
   /// Pozitif dil ilkesine (ogrenci_ux §2) uygun, güne özel motivasyon metni.
-  String _motivationSubtitle(StudyDashboard d) {
+  String _motivationSubtitle(BuildContext context, StudyDashboard d) {
     if (d.todayGoalMinutes <= 0) {
-      return 'Bugün de bir adım daha atalım.';
+      return AppLocalizations.of(context).study_letSTakeAnotherStepToday;
     }
     if (d.todayGoalMet) {
-      return 'Bugün hedefini tamamladın, harikasın! 🎉';
+      return AppLocalizations.of(context).study_youReachedTodaySGoalWellDone;
     }
     final remaining = d.todayGoalMinutes - d.todayEffectiveMinutes;
     if (remaining <= 0) {
-      return 'Bugün de bir adım daha atalım.';
+      return AppLocalizations.of(context).study_letSTakeAnotherStepToday;
     }
-    return 'Bugün ${StudyFormat.minutes(remaining)} daha çalışırsan '
-        'hedefini tamamlayacaksın.';
+    return AppLocalizations.of(context).study_studyForMoreTodayToReachYourGoal2(
+      (studyMinutes(context, remaining)).toString(),
+    );
   }
 
   @override
@@ -73,7 +77,9 @@ class _StudentHomeView extends StatelessWidget {
     final firstName = (session?.fullName.trim().isNotEmpty ?? false)
         ? session!.fullName.trim().split(' ').first
         : null;
-    final greeting = firstName != null ? 'Merhaba, $firstName 👋' : 'Merhaba 👋';
+    final greeting = firstName != null
+        ? AppLocalizations.of(context).study_hello3((firstName).toString())
+        : AppLocalizations.of(context).study_hello2;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -83,13 +89,17 @@ class _StudentHomeView extends StatelessWidget {
           builder: (context, state) {
             if (state.status == StudyHomeStatus.loading ||
                 state.status == StudyHomeStatus.initial) {
-              return const LoadingStateView(
-                message: 'Çalışma panosu yükleniyor...',
+              return LoadingStateView(
+                message: AppLocalizations.of(
+                  context,
+                ).study_loadingStudyDashboard,
               );
             }
             if (state.status == StudyHomeStatus.error) {
               return ErrorStateView(
-                message: state.errorMessage ?? 'Bir hata oluştu.',
+                message:
+                    state.errorMessage ??
+                    AppLocalizations.of(context).study_anErrorOccurred,
                 onRetry: () => _reload(context),
               );
             }
@@ -104,24 +114,27 @@ class _StudentHomeView extends StatelessWidget {
                   // 1) Karşılama — pozitif, güne özel motivasyon (ux §5)
                   AppPageHeader(
                     title: greeting,
-                    subtitle: _motivationSubtitle(d),
+                    subtitle: _motivationSubtitle(context, d),
                   ),
                   const SizedBox(height: 18),
-                  // 2) İstatistik ızgarası — seri + bugünkü çalışma + haftalık demo
-                  // ödev/ders özetleri (ux §3 hiyerarşi).
+                  // 2) Gerçek seri ve bugünkü çalışma özeti.
                   _StatGrid(dashboard: d),
                   const SizedBox(height: 18),
                   // 3) Birincil eylem: sayacı başlat (0 tık ilkesi).
                   _PrimaryActionCard(
                     icon: Icons.timer_rounded,
-                    label: 'Çalışmaya Başla',
-                    subtitle: 'Kronometreyi başlat, serini büyüt',
+                    label: AppLocalizations.of(context).study_startStudying,
+                    subtitle: AppLocalizations.of(
+                      context,
+                    ).study_startTheTimerAndGrowYourStreak,
                     onTap: () =>
                         context.push('/study/timer?studentId=$studentId'),
                   ),
                   const SizedBox(height: 24),
                   // 4) Hızlı erişim — Derslerim/Ödevlerim/Hedeflerim/Performansım.
-                  const StudySectionHeader(title: 'Hızlı erişim'),
+                  StudySectionHeader(
+                    title: AppLocalizations.of(context).study_quickAccess,
+                  ),
                   const SizedBox(height: 12),
                   _QuickAccessGrid(studentId: studentId),
                   // 5) Yaklaşanlar — dersler + ödevler.
@@ -138,8 +151,6 @@ class _StudentHomeView extends StatelessWidget {
   }
 }
 
-/// 2×2 istatistik ızgarası: seri, bugünkü çalışma (+ hedef ilerleme çubuğu) ve
-/// backend'i henüz olmayan haftalık ödev/ders özetleri (demo rozetli).
 class _StatGrid extends StatelessWidget {
   const _StatGrid({required this.dashboard});
 
@@ -147,8 +158,6 @@ class _StatGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hw = DashboardStats.demoWeeklyHomework();
-    final ls = DashboardStats.demoWeeklyLessons();
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -165,21 +174,9 @@ class _StatGrid extends StatelessWidget {
           icon: Icons.local_fire_department_rounded,
           color: AppColors.accentOrange,
           value: '${dashboard.currentStreakDays}',
-          label: 'Gün seri',
+          label: AppLocalizations.of(context).study_dayStreak,
         ),
         _TodayMinutesTile(dashboard: dashboard),
-        _DemoStatTile(
-          icon: Icons.assignment_turned_in_rounded,
-          color: AppColors.accentBlue,
-          value: '${hw.done}/${hw.given}',
-          label: 'Ödev (hafta)',
-        ),
-        _DemoStatTile(
-          icon: Icons.menu_book_rounded,
-          color: AppColors.accentTeal,
-          value: '${ls.done}/${ls.given}',
-          label: 'Ders (hafta)',
-        ),
       ],
     );
   }
@@ -203,61 +200,49 @@ class _TodayMinutesTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           StudyIconChip(
-              icon: Icons.timer_rounded, color: AppColors.primary, size: 32),
+            icon: Icons.timer_rounded,
+            color: AppColors.primary,
+            size: 32,
+          ),
           const SizedBox(height: 4),
-          Text(StudyFormat.minutes(today),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  fontSize: 15)),
+          Text(
+            studyMinutes(context, today),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              fontSize: 15,
+            ),
+          ),
           const SizedBox(height: 1),
-          Text('Bugün',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          Text(
+            AppLocalizations.of(context).dashboard_today,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
           const SizedBox(height: 6),
           if (goal == 0)
-            const Text(
-              'Günlük hedef belirle',
+            Text(
+              AppLocalizations.of(context).study_setADailyGoal,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600),
+                color: AppColors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             )
           else
             StudyProgressBar(
               value: progress,
-              trailingLabel: 'Hedef $goal dk',
+              trailingLabel: AppLocalizations.of(
+                context,
+              ).study_goalMin2((goal).toString()),
             ),
         ],
       ),
-    );
-  }
-}
-
-/// Backend'i henüz olmayan haftalık istatistik kutusu — sağ üstte "Demo" rozeti.
-class _DemoStatTile extends StatelessWidget {
-  const _DemoStatTile({
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: <Widget>[
-        StudyStatTile(icon: icon, color: color, value: value, label: label),
-        const Positioned(top: 8, right: 8, child: StudyDemoBadge()),
-      ],
     );
   }
 }
@@ -281,26 +266,27 @@ class _QuickAccessGrid extends StatelessWidget {
         StudyQuickAccessCard(
           icon: Icons.menu_book_rounded,
           color: AppColors.primary,
-          label: 'Derslerim',
+          label: AppLocalizations.of(context).study_myLessons,
           onTap: () => context.go('/student/lessons'),
         ),
         StudyQuickAccessCard(
           icon: Icons.assignment_rounded,
           color: AppColors.accentBlue,
-          label: 'Ödevlerim',
-          onTap: () => context.push('/student/assignments?studentId=$studentId'),
+          label: AppLocalizations.of(context).p19list_myAssignments,
+          onTap: () =>
+              context.push('/student/assignments?studentId=$studentId'),
         ),
         StudyQuickAccessCard(
           icon: Icons.flag_rounded,
           color: AppColors.accentGreen,
-          label: 'Hedeflerim',
+          label: AppLocalizations.of(context).study_myGoals,
           onTap: () =>
               context.push('/student/goals-overview?studentId=$studentId'),
         ),
         StudyQuickAccessCard(
           icon: Icons.insights_rounded,
           color: AppColors.accentOrange,
-          label: 'Performansım',
+          label: AppLocalizations.of(context).study_myPerformance,
           onTap: () => context.go('/student/performance'),
         ),
       ],
@@ -333,7 +319,11 @@ class _PrimaryActionCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: <Color>[AppColors.primary, Color(0xFF0E4A86), AppColors.secondary],
+              colors: <Color>[
+                AppColors.primary,
+                Color(0xFF0E4A86),
+                AppColors.secondary,
+              ],
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
             ),
@@ -347,11 +337,7 @@ class _PrimaryActionCard extends StatelessWidget {
           ),
           child: Stack(
             children: <Widget>[
-              Positioned(
-                top: -30,
-                right: -10,
-                child: _glowCircle(90, 0.10),
-              ),
+              Positioned(top: -30, right: -10, child: _glowCircle(90, 0.10)),
               Row(
                 children: <Widget>[
                   Container(
@@ -361,7 +347,8 @@ class _PrimaryActionCard extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18)),
+                        color: Colors.white.withValues(alpha: 0.18),
+                      ),
                     ),
                     child: Icon(icon, color: Colors.white, size: 26),
                   ),
@@ -372,9 +359,7 @@ class _PrimaryActionCard extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           label,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
@@ -384,7 +369,9 @@ class _PrimaryActionCard extends StatelessWidget {
                         Text(
                           subtitle,
                           style: const TextStyle(
-                              color: Colors.white70, fontSize: 12),
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -396,8 +383,11 @@ class _PrimaryActionCard extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.chevron_right_rounded,
-                        color: Colors.white, size: 22),
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
                 ],
               ),
@@ -432,15 +422,21 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
 
   Future<void> _load() async {
     try {
-      final lessons = await injector<SchedulingRepository>()
-          .listStudentLessons(studentId: widget.studentId);
+      final lessons = await injector<SchedulingRepository>().listStudentLessons(
+        studentId: widget.studentId,
+      );
       final now = DateTime.now().toUtc();
-      final upcoming = lessons
-          .where((LessonSchedule l) =>
-              l.status != 'Cancelled' && l.startAtUtc.isAfter(now))
-          .toList()
-        ..sort((LessonSchedule a, LessonSchedule b) =>
-            a.startAtUtc.compareTo(b.startAtUtc));
+      final upcoming =
+          lessons
+              .where(
+                (LessonSchedule l) =>
+                    l.status != 'Cancelled' && l.startAtUtc.isAfter(now),
+              )
+              .toList()
+            ..sort(
+              (LessonSchedule a, LessonSchedule b) =>
+                  a.startAtUtc.compareTo(b.startAtUtc),
+            );
       if (!mounted) return;
       setState(() => _next = upcoming.isEmpty ? null : upcoming.first);
     } on Object {
@@ -456,7 +452,9 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
     return Column(
       children: <Widget>[
         const SizedBox(height: 24),
-        const StudySectionHeader(title: 'Yaklaşan dersler'),
+        StudySectionHeader(
+          title: AppLocalizations.of(context).study_upcomingLessons,
+        ),
         const SizedBox(height: 12),
         StudyCard(
           child: Row(
@@ -472,21 +470,30 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(lesson.subject,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
+                    Text(
+                      lesson.subject,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(StudyFormat.date(lesson.startAtUtc),
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 12)),
+                    Text(
+                      StudyFormat.date(lesson.startAtUtc),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ],
           ),
         ),
@@ -495,9 +502,6 @@ class _UpcomingLessonCardState extends State<_UpcomingLessonCard> {
   }
 }
 
-/// Teslim tarihi yaklaşan ödevleri gösterir (`AssignmentRepository.listByStudent`).
-/// Veri yoksa veya çekilemezse "yakında" kartı + Demo rozeti gösterilir; bu
-/// bölümün özel bir "yaklaşan ödev" sorgusu henüz backend'de yoktur.
 class _UpcomingAssignmentsCard extends StatefulWidget {
   const _UpcomingAssignmentsCard({required this.studentId});
 
@@ -512,11 +516,7 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
   List<AssignmentItem> _upcoming = const <AssignmentItem>[];
   bool _loaded = false;
 
-  /// `listByStudent` başarısız olduysa true — bu durumda "gerçekten yaklaşan
-  /// ödev yok" ile "veri alınamadı" karışmasın diye ayrı bir dal gösterilir
-  /// (yalnız gerçek hata/backend yokluğunda Demo rozeti taşıyan "yakında"
-  /// kartı; başarılı ama boş sonuçta dürüst boş durum).
-  bool _loadFailed = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -525,34 +525,44 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loaded = false;
+      _loadError = null;
+    });
     try {
-      final items =
-          await injector<AssignmentRepository>().listByStudent(widget.studentId);
+      final items = await injector<AssignmentRepository>().listByStudent(
+        widget.studentId,
+      );
       final now = DateTime.now().toUtc();
-      final upcoming = items
-          .where((AssignmentItem a) =>
-              a.status != 'Completed' &&
-              a.status != 'Cancelled' &&
-              (a.dueDateUtc == null || a.dueDateUtc!.isAfter(now)))
-          .toList()
-        ..sort((AssignmentItem a, AssignmentItem b) {
-          final ad = a.dueDateUtc;
-          final bd = b.dueDateUtc;
-          if (ad == null && bd == null) return 0;
-          if (ad == null) return 1;
-          if (bd == null) return -1;
-          return ad.compareTo(bd);
-        });
+      final upcoming =
+          items
+              .where(
+                (AssignmentItem a) =>
+                    a.status != 'Completed' &&
+                    a.status != 'Cancelled' &&
+                    (a.dueDateUtc == null || a.dueDateUtc!.isAfter(now)),
+              )
+              .toList()
+            ..sort((AssignmentItem a, AssignmentItem b) {
+              final ad = a.dueDateUtc;
+              final bd = b.dueDateUtc;
+              if (ad == null && bd == null) return 0;
+              if (ad == null) return 1;
+              if (bd == null) return -1;
+              return ad.compareTo(bd);
+            });
       if (!mounted) return;
       setState(() {
         _upcoming = upcoming.take(3).toList();
         _loaded = true;
       });
-    } on Object {
+    } on Object catch (error) {
       if (!mounted) return;
       setState(() {
         _loaded = true;
-        _loadFailed = true;
+        _loadError = error is ApiException
+            ? error.message
+            : AppLocalizations.of(context).study_unableToLoadAssignments;
       });
     }
   }
@@ -560,39 +570,27 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const SizedBox.shrink();
-    if (_upcoming.isEmpty && _loadFailed) {
-      // Veri gerçekten alınamadı (ör. backend yok/ağ hatası) — bunu "yaklaşan
-      // ödev yok"tan ayırmak için Demo rozetli "yakında" kartı gösterilir.
-      return Column(
-        children: <Widget>[
-          const SizedBox(height: 24),
-          Row(
-            children: <Widget>[
-              const Expanded(
-                  child: StudySectionHeader(title: 'Yaklaşan ödevler')),
-              const StudyDemoBadge(),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const StudyComingSoonCard(
-            icon: Icons.assignment_late_rounded,
-            title: 'Ödev takibi',
-            message: 'Teslim tarihi yaklaşan ödevlerin burada listelenecek.',
-          ),
-        ],
+    if (_loadError != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: ErrorStateView(message: _loadError!, onRetry: _load),
       );
     }
     if (_upcoming.isEmpty) {
       // Yükleme başarılı, gerçekten yaklaşan ödev yok — dürüst boş durum,
       // Demo rozeti YOK.
-      return const Column(
+      return Column(
         children: <Widget>[
           SizedBox(height: 24),
-          StudySectionHeader(title: 'Yaklaşan ödevler'),
+          StudySectionHeader(
+            title: AppLocalizations.of(context).study_upcomingAssignments,
+          ),
           SizedBox(height: 12),
           EmptyStateView(
-            title: 'Yaklaşan ödev yok',
-            subtitle: 'Teslim tarihi yaklaşan bir ödevin bulunmuyor.',
+            title: AppLocalizations.of(context).study_noUpcomingAssignments,
+            subtitle: AppLocalizations.of(
+              context,
+            ).study_youHaveNoAssignmentsDueSoon,
           ),
         ],
       );
@@ -600,7 +598,9 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
     return Column(
       children: <Widget>[
         const SizedBox(height: 24),
-        const StudySectionHeader(title: 'Yaklaşan ödevler'),
+        StudySectionHeader(
+          title: AppLocalizations.of(context).study_upcomingAssignments,
+        ),
         const SizedBox(height: 12),
         StudyCard(
           padding: EdgeInsets.zero,
@@ -609,10 +609,11 @@ class _UpcomingAssignmentsCardState extends State<_UpcomingAssignmentsCard> {
               for (var i = 0; i < _upcoming.length; i++) ...<Widget>[
                 if (i > 0)
                   const Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: Color(0xFFEDF1F7)),
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: Color(0xFFEDF1F7),
+                  ),
                 _AssignmentRow(item: _upcoming[i]),
               ],
             ],
@@ -636,25 +637,32 @@ class _AssignmentRow extends StatelessWidget {
       child: Row(
         children: <Widget>[
           StudyIconChip(
-              icon: Icons.assignment_rounded,
-              color: AppColors.accentBlue,
-              size: 38),
+            icon: Icons.assignment_rounded,
+            color: AppColors.accentBlue,
+            size: 38,
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary)),
+            child: Text(
+              item.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
           const SizedBox(width: 8),
           Text(
-            due == null ? 'Süresiz' : StudyFormat.date(due),
+            due == null
+                ? AppLocalizations.of(context).study_noDueDate
+                : StudyFormat.date(due),
             style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600),
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

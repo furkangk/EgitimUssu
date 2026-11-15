@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
 import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -21,7 +25,8 @@ class ConversationsState {
   bool get isLoading => status == ConversationsStatus.loading;
 
   /// Boş liste **hata değildir**: henüz kimseyle konuşmamış kullanıcı normal bir durumdur.
-  bool get isEmpty => status == ConversationsStatus.loaded && conversations.isEmpty;
+  bool get isEmpty =>
+      status == ConversationsStatus.loaded && conversations.isEmpty;
 
   /// Alt navigasyon rozeti için toplam okunmamış.
   int get totalUnread =>
@@ -42,27 +47,92 @@ class ConversationsState {
 }
 
 /// M16-1 (D-08): Gelen kutusunu okur.
-class ConversationsCubit extends Cubit<ConversationsState> {
-  ConversationsCubit(this._repository) : super(const ConversationsState());
+class ConversationsCubit extends Cubit<ConversationsState> with SafeEmit<ConversationsState> {
+  ConversationsCubit(this._repository, {PushEventBus? eventBus})
+    : _eventBus = eventBus,
+      super(const ConversationsState()) {
+    _subscription = eventBus?.events.listen((event) {
+      if (event.conversationId == null) return;
+      _onPush();
+    });
+    eventBus?.addListener(_sessionChanged);
+  }
 
-  factory ConversationsCubit.create() =>
-      ConversationsCubit(injector<MessagingRepository>());
+  factory ConversationsCubit.create() => ConversationsCubit(
+    injector<MessagingRepository>(),
+    eventBus: injector.isRegistered<PushEventBus>()
+        ? injector<PushEventBus>()
+        : null,
+  );
 
   final MessagingRepository _repository;
+  final PushEventBus? _eventBus;
+  StreamSubscription<PushEvent>? _subscription;
+  int _refreshRun = 0;
+  bool _refreshing = false;
+  bool _again = false;
+  void _sessionChanged() {
+    _refreshRun++;
+    _refreshing = false;
+    _again = false;
+    _generation++;
+    if (!isClosed) safeEmit(const ConversationsState());
+  }
+
+  Future<void> _onPush() async {
+    final user = _eventBus?.userId;
+    if (isClosed || user == null) return;
+    if (_refreshing) {
+      _again = true;
+      return;
+    }
+    _refreshing = true;
+    final run = ++_refreshRun;
+    final session = _eventBus?.generation;
+    try {
+      do {
+        _again = false;
+        await load(silent: true);
+      } while (_again && !isClosed && session == _eventBus?.generation);
+    } finally {
+      if (run == _refreshRun) _refreshing = false;
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    _generation++;
+    _eventBus?.removeListener(_sessionChanged);
+    await _subscription?.cancel();
+    return super.close();
+  }
+
+  int _generation = 0;
 
   /// Gelen kutusunu (yeniden) yükler.
-  Future<void> load() async {
-    emit(state.copyWith(status: ConversationsStatus.loading, clearError: true));
+  Future<void> load({bool silent = false}) async {
+    if (isClosed) return;
+    final generation = ++_generation;
+    safeEmit(
+      state.copyWith(
+        status: silent ? state.status : ConversationsStatus.loading,
+        clearError: true,
+      ),
+    );
     try {
       final rows = await _repository.conversations(skip: 0, take: 50);
-      emit(
+      if (isClosed || generation != _generation) return;
+      safeEmit(
         state.copyWith(status: ConversationsStatus.loaded, conversations: rows),
       );
-    } on ApiException catch (error) {
-      emit(
+    } catch (error) {
+      if (isClosed || generation != _generation) return;
+      safeEmit(
         state.copyWith(
-          status: ConversationsStatus.failure,
-          errorMessage: error.message,
+          status: silent ? state.status : ConversationsStatus.failure,
+          errorMessage: error is ApiException
+              ? error.message
+              : 'Mesajlar alınamadı.',
         ),
       );
     }

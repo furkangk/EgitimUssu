@@ -39,7 +39,9 @@ Her rol için öncelik farklıdır — ekran tasarımı bunu yansıtır:
 - **Geri butonu:** Her iç ekranda sol üstte. Başlık metni `h3 (18px, w700)`.
 - **Modal / Bottom Sheet:** Yıkıcı işlemler (silme, iptal) modal'da onaylanır. Sheet üst köşe radius: 24.
 - **Tab geçişi:** Sekme değişiminde scroll pozisyonu sıfırlanmaz.
-- **Deep link:** Her ekranın `go_router` route'u tanımlıdır; direkt erişilebilir.
+- **Deep link:** Kayıtlı rota, rol izin tablosuna göre açılır. Yetkisiz alan rolün ana ekranına döner; bilinmeyen adres “Sayfa bulunamadı” ve ana sayfa düğmesi gösterir.
+- **Ortak ekranlar (P20 T2):** Mesajlar, bildirim merkezi, kayıtlı ayarlar/hesap ve üyelik rotaları veli dahil tüm oturumlu rollere açıktır. Veli ana sayfasında mesaj ve zil girişleri bulunur.
+- **Bildirim hedefi:** OS push ve in-app kart aynı rol eşleyicisini kullanır; bilinmeyen/yetkisiz hedef bildirim merkezine düşer. Veli ödeme/ödev/ders hedefleri mevcut onaylı çocuk seçicili özet ekranlarıdır; yeni işlem yetkisi vermez.
 
 ---
 
@@ -161,3 +163,26 @@ Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün öze
 Ödev, çalışma geçmişi/notlar ve bildirim merkezinde ilk sayfa50kayıttır; aşağı kaydırınca devam eder. Kısa ilk sayfa görünümü doldurur. Devam hatası yüklenmiş satırları silmez, yeniden deneme aynı cursor'u kullanır; hata varken otomatik tekrar döngüsü kurulmaz. Yenileme/filtre değişimi cursor'u ve istek neslini sıfırlar; gecikmiş eski sonuç atılır. Öğretmen ödev özet/filtre sayıları yalnız yüklenen kayıtlar içindir ve bu kapsam etiketle görünürdür. Genel öğretmen panelinin toplamı ise bütün sayfalardan gelir.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+## P20 T1 — gerçek veri ve kullanılabilir eylem
+
+Gerçek kaynağı olmayan kullanıcı sayısı, puan, hedef ve konu hâkimiyeti gösterilmez. Başlangıç/yükleme hatası örnek profil üretmez. Öğrenci ana sayfasında ödev okuma hatası gerçek hata ve tekrar deneme sunar; başarılı boş sonuç ayrı boş durumdur. Çalışmayan profil/veli/gizlilik/abonelik yer tutucuları ve satın alma/gelecek Premium vaatleri gizlidir. Test/katalog kayıtlarına ders adı eşleşmesiyle oluşum ilişkisi atfedilmez; genel gerçek erişimler korunur. Statik geliştirme önizlemelerinin rotaları yalnız debug derlemesinde bulunur.
+
+## Önbellekteki veri ve çıkış (P20 T3)
+
+Bağlantı kurulamadığında son kaydedilen veri kullanılıyorsa uygulama kökünde `StaleDataBanner` görünür; kayıt tarihi/saati yerel biçimde, metin tr/en ARB'den gelir. Uyarı liste/detay/form tüketicilerinin tamamını kapsar; en eski kullanılan kaydın zamanı gösterilir. İlgili sorgular başarıyla tazelenince veya çıkışta kapanır; yalnız ekran değiştirmek eski veri bilgisini gizlemez. HTTP 403/500, iptal veya sertifika hatası önbellek başarısı gibi gösterilmez. Çıkış/hesap değişimi bildirim rozetini, üyelik/premium kararını ve kişisel önbelleği temizler.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+Ön plan push yalnız ilgili veriyi tazeler, kullanıcıyı başka ekrana götürmez. Görünür sohbet 10sn aralıkla ve push geldiğinde güncellenir; mevcut geçmiş/taslaklar korunur, tazeleme ekranı yükleme görünümüne döndürmez. Ekran üstüne başka rota açılması veya uygulamanın arka plana geçmesi poll’u durdurur. Dönüşte anında tazelenir; çıkışta önceki oturum verisi yeniden gösterilmez.
+
+Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+Ekran kapandıktan sonra tamamlanan işlemler o ekranın durumunu güncellemez. PDF indirmesi sürerken rapordan çıkıldıysa uygulama sonradan dosya görüntüleyiciyi açmaz. Oturum geri yükleme bir istisnayla sonuçlandığında yükleniyor ekranında kalınmaz; giriş durumuna geçilir. Dosya/form gönderiminde her deneme en fazla 120 saniye gönderim süresi kullanır; bu toplam işlem süresi değildir (bağlantı, yanıt ve izinli tekrarlar ayrıdır).
+
+Güncelleme: 2026-11-15

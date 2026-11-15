@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract interface class LocalCache {
+  Future<Set<String>> keys();
   Future<void> writeString(String key, String value);
   Future<String?> readString(String key);
   Future<void> remove(String key);
@@ -15,6 +16,9 @@ class SharedPrefsLocalCache implements LocalCache {
     final preferences = await SharedPreferences.getInstance();
     return SharedPrefsLocalCache(preferences);
   }
+
+  @override
+  Future<Set<String>> keys() async => _preferences.getKeys();
 
   @override
   Future<String?> readString(String key) async => _preferences.getString(key);

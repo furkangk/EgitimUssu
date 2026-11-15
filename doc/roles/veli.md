@@ -70,6 +70,12 @@ Veli, **kendi verisi üretmeyen**, çoğunlukla diğer modüllerin verisini veli
 
 ---
 
+### Mobil rota erişimi (P20 T2)
+
+Veli artık `/messages` ve sohbet detayına, `/notifications`, `/settings/notifications`, `/settings/privacy`, `/account/sessions` ve üyelik rotalarına girebilir. Ana sayfadaki mesaj ve zil düğmeleri gelen kutularını açar; ayarlar/üyelik için ek profil girişleri P21'de kalır. `/parent/notifications` eski veli tercih ekranıdır; ortak bildirim gelen kutusu `/notifications` ile ayrıdır.
+
+Bildirimden `/parent/assignments`, `/parent/payments` veya `/parent/lessons` açılınca onaylı çocuk seçicisi ve ilgili gerçek dashboard özeti gösterilir. Özetler salt okunur; “Ödedim” mobil akışı P21 T5'tedir. Ayrıntılar: [`../pages/parent.md`](../pages/parent.md).
+
 ## 5. Altın Akış (Golden Path)
 
 ```

@@ -1,7 +1,9 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// D-08: Mesajlaşma ekranlarının ortak geri-başlıklı üst barı.
 class MessagingHeader extends StatelessWidget {
@@ -138,7 +140,10 @@ class ConversationTile extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            relativeTime(conversation.lastMessageOnUtc),
+                            relativeTime(
+                              conversation.lastMessageOnUtc,
+                              AppLocalizations.of(context),
+                            ),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: AppColors.textMuted),
                           ),
@@ -151,7 +156,8 @@ class ConversationTile extends StatelessWidget {
                             child: Text(
                               // Önizleme yoksa "henüz mesaj yok" demek, boş satır göstermekten
                               // dürüsttür: sohbet açılmış ama kimse yazmamış olabilir.
-                              preview ?? 'Henüz mesaj yok',
+                              preview ??
+                                  AppLocalizations.of(context).chat_noPreview,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodyMedium
@@ -297,7 +303,7 @@ class MessageBubble extends StatelessWidget {
               child: Text(
                 // Silinmiş mesajda gövde `null` gelir; uydurma metin yazmak yerine
                 // ne olduğunu açıkça söyleriz.
-                body ?? 'Bu mesaj silindi',
+                body ?? AppLocalizations.of(context).chat_deleted,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: message.isDeleted
                       ? AppColors.textMuted
@@ -337,7 +343,10 @@ class _MessageFooter extends StatelessWidget {
     return switch (message.status) {
       ChatMessageStatus.sending => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Text('Gönderiliyor…', style: captionStyle),
+        child: Text(
+          AppLocalizations.of(context).chat_sending,
+          style: captionStyle,
+        ),
       ),
       ChatMessageStatus.failed => Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -345,7 +354,8 @@ class _MessageFooter extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              message.failureMessage ?? 'Gönderilemedi',
+              message.failureMessage ??
+                  AppLocalizations.of(context).chat_sendFailed,
               style: captionStyle?.copyWith(color: AppColors.error),
             ),
             const SizedBox(width: 8),
@@ -355,7 +365,7 @@ class _MessageFooter extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Text(
-                  'Tekrar dene',
+                  AppLocalizations.of(context).chat_retry,
                   style: captionStyle?.copyWith(
                     color: AppColors.accentBlue,
                     fontWeight: FontWeight.w700,
@@ -437,7 +447,7 @@ class _MessageComposerState extends State<MessageComposer> {
           border: Border(top: BorderSide(color: AppColors.errorBorder)),
         ),
         child: Text(
-          widget.disabledHint ?? 'Bu sohbet engellendiği için mesaj gönderemezsin.',
+          widget.disabledHint ?? AppLocalizations.of(context).chat_blockedHelp,
           textAlign: TextAlign.center,
           style: Theme.of(
             context,
@@ -465,7 +475,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 textCapitalization: TextCapitalization.sentences,
                 textInputAction: TextInputAction.newline,
                 decoration: InputDecoration(
-                  hintText: 'Mesaj yaz…',
+                  hintText: AppLocalizations.of(context).chat_input,
                   filled: true,
                   fillColor: AppColors.background,
                   contentPadding: const EdgeInsets.symmetric(
@@ -490,7 +500,7 @@ class _MessageComposerState extends State<MessageComposer> {
             const SizedBox(width: 8),
             Semantics(
               button: true,
-              label: 'Mesajı gönder',
+              label: AppLocalizations.of(context).chat_send,
               child: InkWell(
                 borderRadius: BorderRadius.circular(999),
                 onTap: _submit,
@@ -518,18 +528,23 @@ class _MessageComposerState extends State<MessageComposer> {
 
 /// Karşı taraf adının baş harfleri; ad yoksa "?".
 String initialsOf(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
   if (parts.isEmpty) {
     return '?';
   }
   if (parts.length == 1) {
     return parts.first.characters.first.toUpperCase();
   }
-  return (parts.first.characters.first + parts.last.characters.first).toUpperCase();
+  return (parts.first.characters.first + parts.last.characters.first)
+      .toUpperCase();
 }
 
 /// Gelen kutusundaki göreli zaman: bugün saat, dün "Dün", öncesi tarih.
-String relativeTime(DateTime utc, {DateTime? now}) {
+String relativeTime(DateTime utc, AppLocalizations l10n, {DateTime? now}) {
   final local = utc.toLocal();
   final reference = (now ?? DateTime.now()).toLocal();
   final today = DateTime(reference.year, reference.month, reference.day);
@@ -540,11 +555,10 @@ String relativeTime(DateTime utc, {DateTime? now}) {
     return clockTime(utc);
   }
   if (difference == 1) {
-    return 'Dün';
+    return l10n.chat_yesterday;
   }
   if (difference < 7) {
-    const names = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
-    return names[local.weekday - 1];
+    return DateFormat.E(l10n.localeName).format(local);
   }
   return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}';
 }

@@ -1,5 +1,5 @@
-
 import 'dart:async';
+
 import 'package:egitim_ussu_mobile/core/routing/deep_links.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignments_page.dart';
@@ -57,15 +57,29 @@ import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_timer
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/subject_catalog_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/test_entry_page.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/pages/teacher_profile_page.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
+import 'route_access.dart';
+import 'route_not_found_page.dart';
+
 class AppRouter {
-  AppRouter({required AuthCubit authCubit, String initialLocation = '/'})
-    : _refreshListenable = GoRouterRefreshStream(authCubit.stream) {
+  AppRouter({
+    required AuthCubit authCubit,
+    String initialLocation = '/',
+    bool enablePreviewRoutes = true,
+  }) : _refreshListenable = GoRouterRefreshStream(authCubit.stream) {
+    final previewsEnabled = kDebugMode && enablePreviewRoutes;
     router = GoRouter(
       initialLocation: initialLocation,
       refreshListenable: _refreshListenable,
+      errorBuilder: (context, state) => RouteNotFoundPage(
+        home: authCubit.state.status == AuthStatus.authenticated
+            ? RouteAccess.homeFor(
+                RouteAccess.roleFor(authCubit.state.session?.roles ?? const []),
+              )
+            : '/',
+      ),
       redirect: (context, state) {
         // D-02: Sema-bazli derin baglanti (egitimussu://verify-email?token=...)
         // yol tasimaz; once uygulama-ici bir rotaya cevrilir.
@@ -87,8 +101,10 @@ class AppRouter {
             state.matchedLocation.startsWith('/password-reset') ||
             state.matchedLocation.startsWith('/verify-email');
         final onPreviewScreen =
-            state.matchedLocation == '/teacher-panel-preview' ||
-            state.matchedLocation == '/account-info-preview';
+            previewsEnabled &&
+            (state.matchedLocation == '/teacher-panel-preview' ||
+                state.matchedLocation == '/account-info-preview' ||
+                state.matchedLocation == '/account-info');
 
         if (status == AuthStatus.loading) {
           return null;
@@ -113,50 +129,15 @@ class AppRouter {
           return null;
         }
 
-        // Rol bazlı yönlendirme: veli kendi paneline, öğrenci çalışma paneline,
-        // diğerleri (öğretmen/admin) öğretmen paneline.
-        final roles = authCubit.state.session?.roles ?? const <String>[];
-        final isParent = roles.contains('Parent');
-        final isStudent =
-            !isParent &&
-            roles.contains('Student') &&
-            !roles.contains('Teacher');
-        final home = isParent
-            ? '/parent'
-            : isStudent
-            ? '/student-home'
-            : '/dashboard';
-
-        if (onAuthScreen || state.matchedLocation == '/') {
-          return home;
-        }
-
-        // Veli, öğretmen-özel ekranlara düşerse kendi paneline geri al (ve tersi).
-        final onParentArea = state.matchedLocation.startsWith('/parent');
-        if (isParent && !onParentArea) {
-          return '/parent';
-        }
-        if (!isParent && onParentArea) {
-          return '/dashboard';
-        }
-
-        // Öğrenci, öğretmene özel ekranlara düşerse kendi paneline geri al.
-        const teacherOnly = <String>[
-          '/dashboard',
-          '/students',
-          '/scheduling',
-          '/lesson-sessions',
-          '/lesson-notes',
-          '/assignments',
-          '/payments',
-          '/teacher-profile',
-        ];
-        if (isStudent &&
-            teacherOnly.any((path) => state.matchedLocation.startsWith(path))) {
-          return '/student-home';
-        }
-
-        return null;
+        if (onPreviewScreen) return null;
+        final role = RouteAccess.roleFor(
+          authCubit.state.session?.roles ?? const [],
+        );
+        if (onAuthScreen) return RouteAccess.homeFor(role);
+        return RouteAccess.redirectFor(
+          state.fullPath ?? state.uri.toString(),
+          role,
+        );
       },
       routes: <RouteBase>[
         GoRoute(path: '/', builder: (context, state) => const WelcomePage()),
@@ -296,10 +277,11 @@ class AppRouter {
           path: '/dashboard',
           builder: (context, state) => const DashboardPage(),
         ),
-        GoRoute(
-          path: '/teacher-panel-preview',
-          builder: (context, state) => const TeacherPanelPreviewPage(),
-        ),
+        if (previewsEnabled)
+          GoRoute(
+            path: '/teacher-panel-preview',
+            builder: (context, state) => const TeacherPanelPreviewPage(),
+          ),
         GoRoute(
           path: '/teacher-profile',
           builder: (context, state) => const TeacherProfilePage(),
@@ -336,19 +318,21 @@ class AppRouter {
           path: '/settings/privacy',
           builder: (context, state) => const PrivacySettingsPage(),
         ),
-        GoRoute(
-          path: '/account-info',
-          builder: (context, state) => const AccountInfoPage(),
-        ),
+        if (previewsEnabled)
+          GoRoute(
+            path: '/account-info',
+            builder: (context, state) => const AccountInfoPage(),
+          ),
         // M01-4 (D-03): "Hesabım hangi cihazlarda açık?"
         GoRoute(
           path: '/account/sessions',
           builder: (context, state) => const DeviceSessionsPage(),
         ),
-        GoRoute(
-          path: '/account-info-preview',
-          builder: (context, state) => const AccountInfoPage(),
-        ),
+        if (previewsEnabled)
+          GoRoute(
+            path: '/account-info-preview',
+            builder: (context, state) => const AccountInfoPage(),
+          ),
         GoRoute(
           path: '/students',
           builder: (context, state) => const StudentsPage(),
@@ -453,6 +437,21 @@ class AppRouter {
         GoRoute(
           path: '/notifications',
           builder: (context, state) => const NotificationsPage(),
+        ),
+        GoRoute(
+          path: '/parent/assignments',
+          builder: (context, state) =>
+              const ParentHomePage(section: ParentHomeSection.assignments),
+        ),
+        GoRoute(
+          path: '/parent/payments',
+          builder: (context, state) =>
+              const ParentHomePage(section: ParentHomeSection.payments),
+        ),
+        GoRoute(
+          path: '/parent/lessons',
+          builder: (context, state) =>
+              const ParentHomePage(section: ParentHomeSection.lessons),
         ),
         // Veli (Parent) paneli
         GoRoute(

@@ -53,8 +53,6 @@ class _MorePageState extends State<MorePage> {
                   _ProfileSummary(
                     name: displayName,
                     profile: profile,
-                    rating: 4.8,
-                    reviewCount: 126,
                     isPlusMember: isPremium,
                     onTap: () => context.push('/teacher-profile'),
                   ),
@@ -64,17 +62,11 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.person_outline_rounded,
                         title: AppLocalizations.of(context).more_profileTitle,
-                        subtitle: AppLocalizations.of(context).more_profileSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_profileSubtitle,
                         color: AppColors.accentBlue,
                         onTap: () => context.push('/teacher-profile'),
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.manage_accounts_outlined,
-                        title: AppLocalizations.of(context).more_accountTitle,
-                        subtitle: AppLocalizations.of(context).more_accountSubtitle,
-                        color: AppColors.accentGreen,
-                        onTap: () => context.push('/account-info'),
                       ),
                       _DividerLine(),
                       // D-08: P10'da mesajlasma uclari geldi (M16-1); satir
@@ -82,7 +74,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.chat_bubble_outline_rounded,
                         title: AppLocalizations.of(context).more_messagesTitle,
-                        subtitle: AppLocalizations.of(context).more_messagesSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_messagesSubtitle,
                         color: AppColors.accentTeal,
                         onTap: () => context.push('/messages'),
                       ),
@@ -92,10 +86,16 @@ class _MorePageState extends State<MorePage> {
                       // uyelik ekranina gidiyor.
                       _MenuTile(
                         icon: Icons.workspace_premium_outlined,
-                        title: AppLocalizations.of(context).more_membershipTitle,
+                        title: AppLocalizations.of(
+                          context,
+                        ).more_membershipTitle,
                         subtitle: isPremium
-                            ? AppLocalizations.of(context).more_membershipSubtitlePremium
-                            : AppLocalizations.of(context).more_membershipSubtitleFree,
+                            ? AppLocalizations.of(
+                                context,
+                              ).more_membershipSubtitlePremium
+                            : AppLocalizations.of(
+                                context,
+                              ).more_membershipSubtitleFree,
                         color: AppColors.amber,
                         onTap: () => context.push('/membership'),
                       ),
@@ -105,7 +105,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.bar_chart_rounded,
                         title: AppLocalizations.of(context).more_reportsTitle,
-                        subtitle: AppLocalizations.of(context).more_reportsSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_reportsSubtitle,
                         color: AppColors.amber,
                         onTap: () => context.push('/teacher/reports'),
                       ),
@@ -118,8 +120,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.devices_other_rounded,
                         title: AppLocalizations.of(context).sessions_title,
-                        subtitle:
-                            AppLocalizations.of(context).more_sessionsSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_sessionsSubtitle,
                         color: AppColors.accentTeal,
                         onTap: () => context.push('/account/sessions'),
                       ),
@@ -129,16 +132,21 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.shield_outlined,
                         title: AppLocalizations.of(context).more_privacyTitle,
-                        subtitle:
-                            AppLocalizations.of(context).more_privacySubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_privacySubtitle,
                         color: AppColors.accentBlue,
                         onTap: () => context.push('/settings/privacy'),
                       ),
                       _DividerLine(),
                       _MenuTile(
                         icon: Icons.notifications_active_outlined,
-                        title: AppLocalizations.of(context).more_notificationSettingsTitle,
-                        subtitle: AppLocalizations.of(context).more_notificationSettingsSubtitle,
+                        title: AppLocalizations.of(
+                          context,
+                        ).more_notificationSettingsTitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_notificationSettingsSubtitle,
                         color: AppColors.accentRed,
                         onTap: () => context.push('/settings/notifications'),
                       ),
@@ -146,8 +154,12 @@ class _MorePageState extends State<MorePage> {
                       // Gercek karsiligi ogretmen profilidir (ders bicimi + musaitlik).
                       _MenuTile(
                         icon: Icons.work_outline_rounded,
-                        title: AppLocalizations.of(context).more_studySettingsTitle,
-                        subtitle: AppLocalizations.of(context).more_studySettingsSubtitle,
+                        title: AppLocalizations.of(
+                          context,
+                        ).more_studySettingsTitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_studySettingsSubtitle,
                         color: AppColors.accentGreen,
                         onTap: () => context.push('/teacher-profile'),
                       ),
@@ -156,7 +168,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.event_busy_outlined,
                         title: AppLocalizations.of(context).more_holidayTitle,
-                        subtitle: AppLocalizations.of(context).more_holidaySubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_holidaySubtitle,
                         color: AppColors.amber,
                         onTap: () => context.push('/scheduling'),
                       ),
@@ -168,7 +182,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.help_outline_rounded,
                         title: AppLocalizations.of(context).more_helpTitle,
-                        subtitle: AppLocalizations.of(context).more_helpSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_helpSubtitle,
                         color: AppColors.accentBlue,
                         onTap: _showHelpSheet,
                       ),
@@ -176,7 +192,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.support_agent_rounded,
                         title: AppLocalizations.of(context).more_contactTitle,
-                        subtitle: AppLocalizations.of(context).more_contactSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_contactSubtitle,
                         color: AppColors.accentGreen,
                         onTap: _showContactSheet,
                       ),
@@ -184,7 +202,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.info_outline_rounded,
                         title: AppLocalizations.of(context).more_aboutTitle,
-                        subtitle: AppLocalizations.of(context).more_aboutSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_aboutSubtitle,
                         color: AppColors.textSecondary,
                         onTap: _showAboutSheet,
                       ),
@@ -192,7 +212,9 @@ class _MorePageState extends State<MorePage> {
                       _MenuTile(
                         icon: Icons.logout_rounded,
                         title: AppLocalizations.of(context).more_logoutTitle,
-                        subtitle: AppLocalizations.of(context).more_logoutSubtitle,
+                        subtitle: AppLocalizations.of(
+                          context,
+                        ).more_logoutSubtitle,
                         color: AppColors.accentRed,
                         titleColor: AppColors.accentRed,
                         onTap: _confirmLogout,
@@ -214,20 +236,17 @@ class _MorePageState extends State<MorePage> {
       children: <Widget>[
         _FaqTile(
           title: AppLocalizations.of(context).more_faqNotificationsQuestion,
-          body:
-              AppLocalizations.of(context).more_faqNotificationsAnswer,
+          body: AppLocalizations.of(context).more_faqNotificationsAnswer,
         ),
         _DividerLine(),
         _FaqTile(
           title: AppLocalizations.of(context).more_faqHolidayQuestion,
-          body:
-              AppLocalizations.of(context).more_faqHolidayAnswer,
+          body: AppLocalizations.of(context).more_faqHolidayAnswer,
         ),
         _DividerLine(),
         _FaqTile(
           title: AppLocalizations.of(context).more_faqProfileQuestion,
-          body:
-              AppLocalizations.of(context).more_faqProfileAnswer,
+          body: AppLocalizations.of(context).more_faqProfileAnswer,
         ),
       ],
     );
@@ -255,15 +274,21 @@ class _MorePageState extends State<MorePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _SheetTitle(title: 'Bize ulasin'),
+              _SheetTitle(
+                title: AppLocalizations.of(context).more_contactTitle,
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 minLines: 4,
                 maxLines: 6,
                 decoration: InputDecoration(
-                  labelText: AppLocalizations.of(context).more_contactMessageLabel,
-                  hintText: AppLocalizations.of(context).more_contactMessageHint,
+                  labelText: AppLocalizations.of(
+                    context,
+                  ).more_contactMessageLabel,
+                  hintText: AppLocalizations.of(
+                    context,
+                  ).more_contactMessageHint,
                 ),
               ),
               const SizedBox(height: 16),
@@ -273,7 +298,11 @@ class _MorePageState extends State<MorePage> {
                   onPressed: () {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(AppLocalizations.of(context).more_contactSent)),
+                      SnackBar(
+                        content: Text(
+                          AppLocalizations.of(context).more_contactSent,
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.send_rounded),
@@ -290,11 +319,7 @@ class _MorePageState extends State<MorePage> {
   void _showAboutSheet() {
     _showInfoSheet(
       title: AppLocalizations.of(context).more_aboutTitle,
-      children: <Widget>[
-        Text(
-          AppLocalizations.of(context).more_aboutBody,
-        ),
-      ],
+      children: <Widget>[Text(AppLocalizations.of(context).more_aboutBody)],
     );
   }
 
@@ -313,7 +338,7 @@ class _MorePageState extends State<MorePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const _SheetTitle(title: 'Çıkış yap'),
+              _SheetTitle(title: AppLocalizations.of(context).more_logoutTitle),
               const SizedBox(height: 10),
               Text(
                 AppLocalizations.of(context).more_logoutConfirm,
@@ -340,7 +365,9 @@ class _MorePageState extends State<MorePage> {
                         Navigator.of(sheetContext).pop();
                         context.read<AuthCubit>().logout();
                       },
-                      child: const Text('Çıkış yap'),
+                      child: Text(
+                        AppLocalizations.of(context).more_logoutTitle,
+                      ),
                     ),
                   ),
                 ],
@@ -402,16 +429,12 @@ class _ProfileSummary extends StatelessWidget {
   const _ProfileSummary({
     required this.name,
     required this.profile,
-    required this.rating,
-    required this.reviewCount,
     required this.isPlusMember,
     required this.onTap,
   });
 
   final String name;
   final TeacherProfile? profile;
-  final double rating;
-  final int reviewCount;
   final bool isPlusMember;
   final VoidCallback onTap;
 
@@ -446,7 +469,6 @@ class _ProfileSummary extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _RatingLine(rating: rating, reviewCount: reviewCount),
             if (isPlusMember) ...<Widget>[
               const SizedBox(height: 12),
               const _PlusBadge(),
@@ -551,38 +573,6 @@ class _InitialsAvatar extends StatelessWidget {
       return 'OG';
     }
     return parts.map((part) => part.characters.first).join().toUpperCase();
-  }
-}
-
-class _RatingLine extends StatelessWidget {
-  const _RatingLine({required this.rating, required this.reviewCount});
-
-  final double rating;
-  final int reviewCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        const Icon(Icons.star_rounded, size: 22, color: AppColors.amber),
-        const SizedBox(width: 5),
-        Text(
-          rating.toStringAsFixed(1),
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          AppLocalizations.of(context).more_ratingCount(reviewCount),
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-        ),
-      ],
-    );
   }
 }
 

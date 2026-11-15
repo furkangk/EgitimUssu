@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/settings/domain/settings_contracts.dart';
@@ -40,7 +41,7 @@ class SettingsState {
 
 /// D-14: Ayar ekranları gerçek backend'e bağlıdır. Her değişiklik **iyimser**
 /// uygulanır ve anında kaydedilir; sunucu reddederse eski değere dönülür.
-class SettingsCubit extends Cubit<SettingsState> {
+class SettingsCubit extends Cubit<SettingsState> with SafeEmit<SettingsState> {
   SettingsCubit(this._repository) : super(const SettingsState());
 
   factory SettingsCubit.create() => SettingsCubit(injector<SettingsRepository>());
@@ -51,11 +52,11 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> load(String userId) async {
     _userId = userId;
-    emit(state.copyWith(status: SettingsStatus.loading, clearError: true));
+    safeEmit(state.copyWith(status: SettingsStatus.loading, clearError: true));
 
     try {
       final settings = await _repository.load(userId);
-      emit(
+      safeEmit(
         state.copyWith(
           status: SettingsStatus.loaded,
           settings: settings,
@@ -63,14 +64,14 @@ class SettingsCubit extends Cubit<SettingsState> {
         ),
       );
     } on ApiException catch (error) {
-      emit(
+      safeEmit(
         state.copyWith(
           status: SettingsStatus.failure,
           errorMessage: error.message,
         ),
       );
     } catch (_) {
-      emit(
+      safeEmit(
         state.copyWith(
           status: SettingsStatus.failure,
           errorMessage: 'Ayarlar yüklenemedi.',
@@ -120,13 +121,13 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
 
     final updated = change(current);
-    emit(state.copyWith(settings: updated, isSaving: true, clearError: true));
+    safeEmit(state.copyWith(settings: updated, isSaving: true, clearError: true));
 
     try {
       final saved = await _repository.save(userId, updated);
-      emit(state.copyWith(settings: saved, isSaving: false, clearError: true));
+      safeEmit(state.copyWith(settings: saved, isSaving: false, clearError: true));
     } on ApiException catch (error) {
-      emit(
+      safeEmit(
         state.copyWith(
           settings: current,
           isSaving: false,
@@ -134,7 +135,7 @@ class SettingsCubit extends Cubit<SettingsState> {
         ),
       );
     } catch (_) {
-      emit(
+      safeEmit(
         state.copyWith(
           settings: current,
           isSaving: false,

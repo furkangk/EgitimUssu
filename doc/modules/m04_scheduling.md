@@ -85,6 +85,10 @@ Bağımsız kapanış incelemesinde BYDAY ve UNTIL taşıma açıkları kapandı
 
 ---
 
+### Mobil ders önbelleği (P20 T3 / N-68, N-69, N-70)
+
+Öğretmen/öğrenci ders listelerinin cache sahibi giriş yapan `userId`'dir; öğrenci profil kimliği yalnız sorgu anahtarının parçasıdır. Hem HTTP isteği hem anahtar UTC gün başlangıcı ile bitiş gününün son mikro-saniyesine normalize edilir; aynı gün iki çağrı aynı pencereyi temsil eder. Bu taşıma/cache penceresidir, kullanıcı takviminin saat dilimi kuralını değiştirmez. Yalnız bağlantı/timeout hatası kayıt zamanlı eski listeyi döndürür; global uyarı görünür. Çıkış sonrası tamamlanan istek cache'i yeniden oluşturamaz. `/calendar` ucu bu cache'e dahil değildir.
+
 ## 2. Domain Modeli
 
 **P18 T1 — eşzamanlılık (K-22):** `LessonSchedule` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
@@ -542,3 +546,9 @@ POST /lesson-requests/{id}/reject
 **Outbox teslimi (P19 T2 / N-42):** Tamamlama tüketicisinde okunamayan kaynak oturum açık hata ile yeniden denenir; plansız veya artık tamamlanmış olmayan oturum geçerli etkisiz sonuçtur. Bozuk yük poison olur; birleşme tüketicisi de bu kurala uyar. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+## P20 T1 — mobil sahte veri temizliği
+
+Mobil takvim yalnız `SchedulingCubit` gerçek ders oluşumlarını gösterir. `_seedEvents` kaldırıldı; boş API yanıtı sıfır etkinliktir. Tatil/ödev/ödeme etkinlikleri gerçek kaynak bağlanana kadar görünmez. Endpoint/domain/migration sözleşmesi değişmedi.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

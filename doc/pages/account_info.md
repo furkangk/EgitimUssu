@@ -7,16 +7,16 @@ authority: code
 code_refs:
   - mobile/lib/features/more/presentation/pages/account_info_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-06-23
+updated: 2026-11-15
 ---
 
 # Hesap Bilgileri (`/account-info`, `/account-info-preview`)
 
 > **Feature:** `more` · **Dosya:** `mobile/lib/features/more/presentation/pages/account_info_page.dart`
-> **State:** Stateful + `AuthCubit` oturumu · **Veri:** ⚠️ Demo (`AccountData`) · **Güncelleme:** 2026-06-23
+> **State:** Stateful + `AuthCubit` oturumu · **Veri:** ⚠️ Demo (`AccountData`) · **Güncelleme:** 2026-11-15
 
 ## Amaç
-Hesap güvenliği/yönetimi: hesap durumu (tip, üyelik tarihi), güvenlik (şifre, 2FA, aktif oturumlar), hesap kapatma.
+Yalnız debug geliştirme prototipi. Hesap güvenliği/yönetimi: hesap durumu (tip, üyelik tarihi), güvenlik (şifre, 2FA, aktif oturumlar), hesap kapatma.
 
 ## State / API
 - Hesap verisi `AuthCubit` oturumundan; çoğu işlem (2FA, oturum detayı, kapatma) ⚠️ demo.
@@ -27,3 +27,7 @@ Hesap güvenliği/yönetimi: hesap durumu (tip, üyelik tarihi), güvenlik (şif
 
 ## İlgili
 - Modül: [`../modules/m15_settings.md`](../modules/m15_settings.md) (M15), [`../modules/m01_identity.md`](../modules/m01_identity.md) (M01)
+
+## P20 T1 — üretim erişimi
+
+Hem `/account-info` hem `/account-info-preview` yalnız `kDebugMode && enablePreviewRoutes` ile kaydedilir. Release/profile derlemelerinde bu statik hesap ekranının rotası yoktur. More ve öğrenci profilinden girişler gizlidir; P21 gerçek hesap akışını getirecektir.

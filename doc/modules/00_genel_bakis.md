@@ -104,6 +104,10 @@ mobile/lib/features/<ozellik>/
 
 ## 3. Mobil Feature Eşlemesi
 
+**P20 T6:** M07 tahsilat ve M16 mesaj POST’larının ortak `ApiClient` tekrar kaydı oturum kuşağı ve anahtar sahipliğiyle temizlenir. Aynı hesaba yeniden giriş sonrası eski yanıt yeni belirsiz işlemin anahtarını silemez; backend sözleşmesi değişmez. Güncelleme: 2026-11-15.
+
+**P20 T2:** M09 veli ana ekranı ortak M16 mesajlar ve M11 bildirim merkezine erişir; rol izinleri `RouteAccess` tablosundadır. `/parent/assignments`, `/parent/payments`, `/parent/lessons` mevcut çocuk dashboard özetlerini açar. Backend endpoint/domain sözleşmesi değişmedi. Bkz. [veli ekranı](../pages/parent.md), [rota tablosu](../architecture/mobile_flutter.md#6-yönlendirme--go_router).
+
 > Bir kullanıcı rolü birden çok backend modülünü kullanır (bkz. [`../roles/`](../roles/00_roller_genel_bakis.md)). Mevcut mobil app **üç rolü de kapsıyor**:
 > öğretmen (dashboard/öğrenci/takvim/ödev/ödeme), **öğrenci** (`/student-home` 4 sekme + kronometre/test/hedef/başarım) ve **veli** (`/parent` paneli).
 
@@ -382,7 +386,7 @@ POST /plans                           (Admin)  → yeni plan
 PUT  /plans/{planId}                  (Admin)  → fiyat / deneme / satış durumu
 [impl] IEntitlementDirectory (Shared.Contracts) — üyelik haklarının TEK kaynağı (K-09)
 [seed] MembershipPlanSeeder — idempotent, YALNIZ Development; fiyatlar hipotez (Q2 onaylanmadı)
-[mobil] /membership + /membership/paywall (P09 Task 6) — checkout ucu YOK, satın alma düğmesi pasif
+[mobil] /membership + /membership/paywall (P09 Task 6) — checkout ucu YOK, satın alma düğmesi gizli (P20 T1)
 ```
 
 ### İskelet modüller (sadece durum endpoint'i)
@@ -454,3 +458,26 @@ M14 Reporting ve M11 Notifications, StudentProfilesMerged tüketicilerine katıl
 
 
 **P19 T8 CI bağımlılık kapısı (Güncelleme: 2026-11-15):** MailKit/MimeKit üzerinden gelen Pkcs8.0.1, Shared.Infrastructure'da açık `System.Security.Cryptography.Pkcs 8.0.2` referansıyla güvenlik düzeltmesine yükseltilir ([Microsoft advisory](https://github.com/advisories/GHSA-846f-f764-76mx), [ikinci advisory](https://github.com/advisories/GHSA-2fmv-rv2c-59x7)). Testcontainers'ın geçişli SSH.NET sürümü yalnız integration projesinde `2026.0.0` olarak sabitlenir ([SCP yol advisory](https://github.com/advisories/GHSA-mggc-4xg6-vcxf), [SCP indirme advisory](https://github.com/advisories/GHSA-q939-rpr3-3284)). Üst paketlerin API/sürümü değiştirilmez; `dotnet list package --vulnerable` çıkış kodu tek başına yeterli değildir, JSON'da advisoryurl bulunmamalıdır.
+
+## P20 T1 — mobil sahte veri temizliği
+
+M02/M04/M08/M17 mobil yüzeylerinde kaynaksız sayı/hedef/puan ve işlevsiz yer tutucular temizlendi. Takvim ve öğretmen profilinde başlangıç seed’i yoktur. Statik panel/hesap rotaları debug ile sınırlıdır. Üyelik kataloğu/deneme/referans çalışır; satın alma girişi ve gelecek vaatleri gizlidir. Backend uçları/şemaları bu görevde değişmedi.
+
+### P20 T3 — mobil cache ve oturum sınırı
+
+M01 çıkış mevcut sunucu logout ucunu kullanır; yerel token/profil/cache ve bekleyen yazma gövdeleri temizlenir. M03 öğrenci, M04 öğretmen/öğrenci ders ve M07 ödeme özet/kayıt cache'leri giriş yapan kullanıcıya aittir; yalnız bağlantı/timeout durumunda kayıt zamanlı ortak uyarıyla gösterilir. M11 bildirim ve M17 üyelik kök cubit'leri oturum değişiminde reset olur; gecikmiş yanıtlar eski durumu diriltemez. Yeni backend ucu veya migration yoktur.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+M11 ön plan push akışı mobil rozet/listeyi gerçek API’den tazeler; M16 açık sohbet K-07 uyarınca görünür ön planda10sn poll+push kullanır. Hesap değişiminde eski sonuçlar atılır; token izin/kayıt yarışları korunur. Backend endpoint/envanter ve modül durumları değişmedi; gerçek FCM teslimi Q8/P25 bağımlılığıdır.
+
+Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+P20 T5 / N-72: M01, M06, M10, M11, M14, M15 ve M16 mobil Cubit’leri kapanıştan sonra state göndermez. Auth beklenmeyen hataları loading durumundan çıkarır; rapor ekranı kapandıktan sonra PDF açılmaz. Ortak multipart gönderim süresi deneme başına 120 saniyedir; backend uç/sözleşme değişikliği yoktur.
+
+Güncelleme: 2026-11-15

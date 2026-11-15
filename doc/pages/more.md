@@ -8,24 +8,24 @@ code_refs:
   - mobile/lib/features/more/presentation/pages/more_page.dart
   - mobile/lib/core/routing/app_router.dart
   - mobile/lib/features/membership/presentation/cubit/membership_cubit.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Diğer / Ayarlar Merkezi (`/more`)
 
 > **Feature:** `more` · **Dosya:** `mobile/lib/features/more/presentation/pages/more_page.dart`
 > **State:** `TeacherProfileCubit` + kökteki `MembershipCubit` · **Veri:** 🟢 (profil ve üyelik gerçek API; ayar satırları gerçek ekranlara yönlendirir)
-> **Güncelleme:** 2026-09-04
+> **Güncelleme:** 2026-11-15
 
 ## Amaç
-Ayar/profil merkezi: profil özeti, hesap bilgisi, ayar giriş noktaları, yardım/SSS, iletişim, hakkında, çıkış.
+Ayar/profil merkezi: profil özeti, ayar giriş noktaları, yardım/SSS, iletişim, hakkında, çıkış.
 
 ## Menü satırları (P09 sonrası)
 
 | Satır | Davranış |
 |-------|----------|
 | Profil Bilgileri | → `/teacher-profile` |
-| Hesap bilgileri | → `/account-info` |
+| Hesap bilgileri | P21 gerçek hesap akışı gelene kadar gizli; statik `/account-info` yalnız debug |
 | **Üyelik** | → `/membership` — **P09 Task 6'da aktifleşti** (D-10/D-15); alt metin üyelik seviyesine göre değişir |
 | **Raporlar** | → `/teacher/reports` — P08 Task 5'te aktifleşti (D-16) |
 | **Gizlilik ve güvenlik** | → `/settings/privacy` (M15-3/M15-4) |
@@ -56,8 +56,7 @@ Ayar/profil merkezi: profil özeti, hesap bilgisi, ayar giriş noktaları, yard�
 | "Üyelik" satırı | Pasif "Yakında" durumundan çıkıp `/membership` ekranına bağlandı |
 | `_MenuTile.enabled` / `.badge` | Son pasif satır da kalkınca kullanılmayan parametreler silindi (`-warnaserror` karşılığı: `flutter analyze` `unused_element_parameter`) |
 
-> ⚠️ **Hâlâ sahte:** profil kartındaki `rating: 4.8` / `reviewCount: 126`. Karşılığı M13
-> (puanlama/yorum) modülüdür ve **P11**'e aittir.
+> **P20 T1:** Sabit `rating: 4.8` / `reviewCount: 126` ve puan satırı kaldırıldı. Yorum sistemi M13/P11 tamamlanıp gerçek kaynak sağlanana kadar puan gösterilmez. Normal hesap bilgileri menüsü de statik prototipe üretim girişi açmamak için gizlidir.
 
 ## Ana bileşenler
 Profil özet kartı, menü panelleri (`_MenuPanel` + `_MenuTile`), bilgi bottom-sheet'leri.
@@ -70,4 +69,4 @@ Profil özet kartı, menü panelleri (`_MenuPanel` + `_MenuTile`), bilgi bottom-
 
 ---
 
-*Diğer / Ayarlar Merkezi Ekranı | Güncelleme: 2026-09-04*
+*Diğer / Ayarlar Merkezi Ekranı | Güncelleme: 2026-11-15*

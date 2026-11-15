@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/membership/domain/membership_contrac
 import 'package:egitim_ussu_mobile/features/membership/domain/premium_features.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/membership_cubit.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/widgets/membership_widgets.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,7 +24,7 @@ class PaywallPage extends StatelessWidget {
     final role = membershipRoleFor(roles);
 
     return MembershipScaffold(
-      title: 'Premium',
+      title: AppLocalizations.of(context).membership_premium,
       child: BlocConsumer<MembershipCubit, MembershipState>(
         listenWhen: (previous, current) =>
             previous.errorMessage != current.errorMessage ||
@@ -40,7 +41,9 @@ class PaywallPage extends StatelessWidget {
         },
         builder: (context, state) {
           if (state.isLoading) {
-            return const LoadingStateView(message: 'Planlar yükleniyor...');
+            return LoadingStateView(
+              message: AppLocalizations.of(context).membership_loadingPlans,
+            );
           }
 
           final cubit = context.read<MembershipCubit>();
@@ -53,7 +56,9 @@ class PaywallPage extends StatelessWidget {
             children: <Widget>[
               _Header(role: role, isPremium: state.isPremium),
               MembershipSectionTitle(
-                '${membershipRoleLabel(role)} paketinde ne değişiyor?',
+                AppLocalizations.of(context).membership_whatChangesWithThePlan(
+                  (_membershipRoleLabel(context, role)).toString(),
+                ),
               ),
               FeatureComparisonTable(
                 rows: premiumFeaturesFor(
@@ -63,12 +68,17 @@ class PaywallPage extends StatelessWidget {
                       : state.entitlement.maxStudents,
                 ),
               ),
-              const MembershipSectionTitle('Planlar'),
+              MembershipSectionTitle(
+                AppLocalizations.of(context).membership_plans,
+              ),
               if (plans.isEmpty)
-                const EmptyStateView(
-                  title: 'Satışta plan yok',
-                  subtitle:
-                      'Bu rol için henüz bir üyelik planı tanımlanmamış. Daha sonra tekrar dene.',
+                EmptyStateView(
+                  title: AppLocalizations.of(
+                    context,
+                  ).membership_noPlansAvailable,
+                  subtitle: AppLocalizations.of(
+                    context,
+                  ).membership_thereAreNoMembershipPlansForThisRoleYet,
                 )
               else
                 for (final plan in plans) ...<Widget>[
@@ -82,10 +92,10 @@ class PaywallPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                 ],
-              const MembershipSectionTitle('Kampanyalar'),
+              MembershipSectionTitle(
+                AppLocalizations.of(context).membership_offers,
+              ),
               const _CampaignsPanel(),
-              const MembershipSectionTitle('Yakında Premium kapsamında'),
-              _RoadmapPanel(items: premiumRoadmapFor(role)),
             ],
           );
         },
@@ -110,8 +120,12 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             isPremium
-                ? 'Premium üyeliğin aktif'
-                : 'EğitimÜssü Premium ile derinleş',
+                ? AppLocalizations.of(
+                    context,
+                  ).membership_yourPremiumMembershipIsActive
+                : AppLocalizations.of(
+                    context,
+                  ).membership_goFurtherWithEItimSsPremium,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -120,9 +134,14 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             isPremium
-                ? 'Tüm Premium hakların açık. Üyeliğini "Üyelik" ekranından yönetebilirsin.'
-                : '${membershipRoleLabel(role)} paketinde limitleri kaldır, '
-                      'derinlemesine analiz ve raporlara eriş.',
+                ? AppLocalizations.of(
+                    context,
+                  ).membership_allYourPremiumBenefitsAreActiveManageYourPlan
+                : AppLocalizations.of(
+                    context,
+                  ).membership_removeLimitsWithThePlanAndAccessDetailedAnalysis(
+                    (_membershipRoleLabel(context, role)).toString(),
+                  ),
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
@@ -139,22 +158,23 @@ class _CampaignsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MembershipPanel(
+    return MembershipPanel(
       child: Column(
         children: <Widget>[
           _CampaignRow(
             icon: Icons.card_giftcard_rounded,
-            title: 'İlk ay ücretsiz',
-            subtitle:
-                'Aylık planı ilk kez denerken 30 gün ücretsiz. Kullanıcı başına bir kez.',
+            title: AppLocalizations.of(context).membership_firstMonthFree,
+            subtitle: AppLocalizations.of(
+              context,
+            ).membership_tryAMonthlyPlanFreeFor30DaysOnce,
           ),
           Divider(height: 20, color: AppColors.border),
           _CampaignRow(
             icon: Icons.group_add_outlined,
-            title: 'Arkadaşını getir',
-            subtitle:
-                'Referans kodunu paylaş; kodu kullanana da sana da 1 ay Premium yazılır. '
-                'Kodun "Üyelik" ekranında.',
+            title: AppLocalizations.of(context).membership_inviteAFriend,
+            subtitle: AppLocalizations.of(
+              context,
+            ).membership_shareYourReferralCodeToGiveBothYouAnd,
           ),
         ],
       ),
@@ -194,9 +214,9 @@ class _CampaignRow extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -206,42 +226,9 @@ class _CampaignRow extends StatelessWidget {
   }
 }
 
-/// PRD §9'un henüz kapısı olmayan vaatleri — "var" gibi satılmaz, açıkça yakında denir.
-class _RoadmapPanel extends StatelessWidget {
-  const _RoadmapPanel({required this.items});
-
-  final List<String> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return MembershipPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          for (final item in items)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.schedule_rounded,
-                    size: 16,
-                    color: AppColors.textMuted,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      item,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
+String _membershipRoleLabel(BuildContext context, String role) =>
+    switch (role) {
+      'Student' => AppLocalizations.of(context).auth_roleStudent,
+      'Parent' => AppLocalizations.of(context).membership_roleParent,
+      _ => AppLocalizations.of(context).more_roleTeacherFallback,
+    };

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -49,5 +50,57 @@ void main() {
     ]);
     expect(apiException.message, contains('Ogrenci adi zorunlu.'));
     expect(apiException.message, contains('Sinif bilgisi zorunlu.'));
+  });
+
+  for (final entry in <DioExceptionType, String>{
+    DioExceptionType.receiveTimeout: 'Sunucu yanıtı zaman aşımına uğradı.',
+    DioExceptionType.sendTimeout: 'İstek gönderimi zaman aşımına uğradı.',
+    DioExceptionType.connectionError: 'Sunucuya bağlanılamadı.',
+    DioExceptionType.unknown: 'Beklenmeyen bir API hatası oluştu.',
+  }.entries) {
+    test('${entry.key} Türkçe fallback doğru yazılır', () {
+      final error = ApiException.fromDioException(
+        DioException(requestOptions: RequestOptions(), type: entry.key),
+        locale: const Locale('tr'),
+      );
+      expect(error.message, entry.value);
+    });
+  }
+  test('istemci fallback mesajı seçilen dile uyar', () {
+    final error = ApiException.fromDioException(
+      DioException(
+        requestOptions: RequestOptions(),
+        type: DioExceptionType.connectionError,
+      ),
+      locale: const Locale('en'),
+    );
+    expect(error.message, 'Unable to connect to the server.');
+  });
+  test('sunucu ve doğrulama mesajları değiştirilmez', () {
+    final options = RequestOptions();
+    for (final data in <Map<String, dynamic>>[
+      {'message': 'Sunucu açıklaması'},
+      {
+        'errors': {
+          'name': ['Alan gerekli'],
+        },
+      },
+    ]) {
+      final error = ApiException.fromDioException(
+        DioException(
+          requestOptions: options,
+          response: Response<dynamic>(
+            requestOptions: options,
+            statusCode: 422,
+            data: data,
+          ),
+        ),
+        locale: const Locale('en'),
+      );
+      expect(
+        error.message,
+        data.containsKey('message') ? 'Sunucu açıklaması' : 'Alan gerekli',
+      );
+    }
   });
 }

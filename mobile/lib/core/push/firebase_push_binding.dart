@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-
+import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
 import 'package:egitim_ussu_mobile/core/push/push_service.dart';
 import 'package:egitim_ussu_mobile/features/notifications/domain/notification_contracts.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -42,12 +42,14 @@ class FirebasePushBinding {
   static PushService createService({
     required DeviceTokenRepository repository,
     required bool firebaseAvailable,
+    required PushEventBus eventBus,
   }) {
     if (!firebaseAvailable) {
       // Firebase yok: izin hiç istenmez, token üretilmez. Kayıt çağrıları sessizce null döner
       // (PushService zaten log basar) — böylece giriş akışı bozulmaz.
       return PushService(
         repository: repository,
+        eventBus: eventBus,
         tokenProvider: () async => null,
         permissionRequester: () async => false,
         platform: _currentPlatform,
@@ -58,6 +60,7 @@ class FirebasePushBinding {
 
     return PushService(
       repository: repository,
+      eventBus: eventBus,
       tokenProvider: messaging.getToken,
       permissionRequester: () async {
         final settings = await messaging.requestPermission();
@@ -66,13 +69,29 @@ class FirebasePushBinding {
       },
       tokenRefreshes: messaging.onTokenRefresh,
       incomingTaps: _taps(messaging),
+      foregroundMessages: FirebaseMessaging.onMessage.map(
+        (message) => {...message.data, '_messageId': message.messageId},
+      ),
       platform: _currentPlatform,
     );
   }
 
   /// Soğuk açılış (`getInitialMessage`) ve arka plandan dönüş (`onMessageOpenedApp`) tek akışta.
   static Stream<PushTap> _taps(FirebaseMessaging messaging) {
-    final controller = StreamController<PushTap>.broadcast();
+    late StreamController<PushTap> controller;
+    StreamSubscription<RemoteMessage>? subscription;
+    controller = StreamController<PushTap>(
+      onListen: () {
+        subscription = FirebaseMessaging.onMessageOpenedApp.listen((message) {
+          if (!controller.isClosed) {
+            controller.add(PushTap.fromData(message.data));
+          }
+        });
+      },
+      onCancel: () async {
+        await subscription?.cancel();
+      },
+    );
 
     unawaited(
       messaging.getInitialMessage().then((message) {
@@ -81,12 +100,6 @@ class FirebasePushBinding {
         }
       }),
     );
-
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      if (!controller.isClosed) {
-        controller.add(PushTap.fromData(message.data));
-      }
-    });
 
     return controller.stream;
   }

@@ -123,6 +123,10 @@ Veliye bildirim üretir; **yalnız Premium veliye** (PRD 9.3) ve velinin tercih 
   kapısını orada uygular — `MessageReceived` tür bazında **koşulsuzdur** (§5.1), yalnız `PushEnabled`
   kapalıysa push atlanır, in-app kayıt yine durur.
 
+### Mobil kök durum temizliği (P20 T3 / N-70)
+
+`app.dart` oturum kimliği değiştiğinde `NotificationsCubit.reset()` çağırır: hatırlatmalar, okunmamış rozet ve hata durumu başlangıca döner. Reset önceki isteğin kuşağını geçersiz kılar; geç liste/sayaç yanıtı eski hesaba ait veriyi geri getiremez. P20 T2 soğuk push bekletmesi ve çıkışta bekleyen hedefi silme korunur. Ön plan `onMessage` tazelemesi P20 T4 ile uygulanmıştır.
+
 ## 2. Domain Modeli
 
 ### 🟢 Mevcut — `LessonReminder` (AggregateRoot)
@@ -322,6 +326,8 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ## 6. Mobil Ekranlar (Flutter)
 
+**P20 T2 — rota teslimi:** `mapPushRoute` OS push ve in-app bildirim kartlarının ortak eşleyicisidir. Veli dahil ortak ekranlar erişilebilir; `/scheduling` alıcı role göre takvim/öğrenci dersleri/veli ders özetine eşlenir. Veli ödev ve ödeme rotaları kayıtlıdır. Bilinmeyen, yetkisiz veya harici URL `/notifications` olur. Soğuk açılışta dokunma oturum hazır olana kadar bekler. Sunucu payload/event sözleşmesi değişmedi; gerçek FCM doğrulaması Q8/P25, `onMessage` P20 T4 ile uygulanmıştır.
+
 - **Bildirim merkezi (Notification Center):** in-app bildirim listesi (okunmuş/okunmamış ayrımı, rozet sayacı). `GET /users/{userId}` + `unread-count`. Marka rengi `0xFF082B4F` başlık/rozet.
 - **Bildirim ayarları:** [`m15_settings.md`](m15_settings.md) ekranına bağlı; push/e-posta ve tür bazlı anahtarlar.
 - **Cihaz token kaydı:** login/uygulama açılışında push izni istenir, alınan FCM token `POST /devices` ile kaydedilir; logout'ta `DELETE /devices/{token}`.
@@ -434,3 +440,18 @@ Mobil merkez50kayıtla başlar, cursor sonuna kadar kaydırır. Filtre/yenileme 
 `NotificationsStudentMergedHandler`, LessonReminder ve ParentNotification öğrenci referanslarını inbox transaction içinde taşır; teslim durumları/deneme sayıları korunur. Haftalık özetlerde veli+Türkiye ISO haftası başına kanonik kayıt tercih edilir; kanonik v2 dedup işareti de yazılır. Haftalık işlemcinin 200 hedeflik sayfa okuma/yazımı ve birleşim aynı transaction advisory kilidini kullanır; yarış kalıcı çift bildirim oluşturmaz. Diğer bildirim geçmişi korunur.
 
 *Güncelleme: 2026-11-15 — P19 Task 8.*
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+Mobil Firebase onMessage → PushService → oturum kapsamlı PushEventBus bağlantısı hazırdır. Kök zil unread-count ucundan, açık bildirim merkezi mevcut filtreyle ilk sayfadan yeniden okunur. Aynı FCM messageId sınırlı bellekte tekilleştirilir; push payload’ı kullanıcıya veri diye sunulmaz. Token izin/getToken/yazma aşamaları kuşak kontrolü taşır; kayıt/silme sıralıdır. Kapanış aboneliği iptal eder. Gerçek FCM cihaz teslimi Q8/P25 nedeniyle henüz kanıtlanmadı; sunucu şeması/olay/uç değişmedi.
+
+Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+NotificationCenterCubit bütün state yayınlarını SafeEmit üzerinden yapar. T4 oturum/okuma kuşakları, cursor koruması ve abonelik iptali sürer; kapanıştan sonra gelen yanıtlar görünür durumu değiştirmez.
+
+Güncelleme: 2026-11-15

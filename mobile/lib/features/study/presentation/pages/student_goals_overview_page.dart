@@ -6,14 +6,12 @@ import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// "Hedefler" ekranı — günlük/haftalık/net hedef ilerlemesi (ogrenci_ux §9).
-/// "Diğer" hub'ından açılır (alt menüde artık Takvim var). Aylık ve üniversite
-/// hedefi backend'de henüz alan olmadığından "yakında".
 class StudentGoalsOverviewPage extends StatefulWidget {
   const StudentGoalsOverviewPage({super.key});
 
@@ -43,7 +41,8 @@ class _StudentGoalsOverviewPageState extends State<StudentGoalsOverviewPage> {
     });
     try {
       final session = context.read<AuthCubit>().state.session;
-      final studentId = _studentId ??
+      final studentId =
+          _studentId ??
           await StudentScope.resolve(
             userId: session?.userId ?? '',
             fullName: session?.fullName ?? '',
@@ -76,14 +75,16 @@ class _StudentGoalsOverviewPageState extends State<StudentGoalsOverviewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Hedefler')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).study_goals)),
       body: SafeArea(
         bottom: false,
         child: _loading
-            ? const LoadingStateView(message: 'Hedeflerin yükleniyor...')
+            ? LoadingStateView(
+                message: AppLocalizations.of(context).study_loadingYourGoals,
+              )
             : _error != null
-                ? ErrorStateView(message: _error!, onRetry: _load)
-                : _content(),
+            ? ErrorStateView(message: _error!, onRetry: _load)
+            : _content(),
       ),
     );
   }
@@ -103,47 +104,53 @@ class _StudentGoalsOverviewPageState extends State<StudentGoalsOverviewPage> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
         children: <Widget>[
           Text(
-            'Küçük hedefler, büyük ilerleme.',
+            AppLocalizations.of(context).study_smallGoalsBigProgress,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           _GoalCard(
             icon: Icons.today_rounded,
             color: AppColors.primary,
-            title: 'Günlük hedef',
+            title: AppLocalizations.of(context).study_dailyGoal,
             current: d.todayEffectiveMinutes.toDouble(),
             target: dailyGoal.toDouble(),
-            valueLabel: StudyFormat.minutes(d.todayEffectiveMinutes),
-            targetLabel:
-                dailyGoal > 0 ? StudyFormat.minutes(dailyGoal) : 'belirlenmedi',
+            valueLabel: studyMinutes(context, d.todayEffectiveMinutes),
+            targetLabel: dailyGoal > 0
+                ? studyMinutes(context, dailyGoal)
+                : AppLocalizations.of(context).study_notSet,
           ),
           const SizedBox(height: 12),
           _GoalCard(
             icon: Icons.calendar_view_week_rounded,
             color: AppColors.accentTeal,
-            title: 'Haftalık hedef',
+            title: AppLocalizations.of(context).study_weeklyGoal,
             current: d.weekEffectiveMinutes.toDouble(),
             target: (weeklyGoal ?? 0).toDouble(),
-            valueLabel: StudyFormat.minutes(d.weekEffectiveMinutes),
+            valueLabel: studyMinutes(context, d.weekEffectiveMinutes),
             targetLabel: (weeklyGoal != null && weeklyGoal > 0)
-                ? StudyFormat.minutes(weeklyGoal)
-                : 'belirlenmedi',
+                ? studyMinutes(context, weeklyGoal)
+                : AppLocalizations.of(context).study_notSet,
           ),
           const SizedBox(height: 12),
           _GoalCard(
             icon: Icons.track_changes_rounded,
             color: AppColors.accentGreen,
-            title: 'Net hedefi',
+            title: AppLocalizations.of(context).study_netScoreGoal,
             current: currentNet ?? 0,
             target: targetNet ?? 0,
-            valueLabel:
-                currentNet != null ? '${StudyFormat.net(currentNet)} net' : '—',
+            valueLabel: currentNet != null
+                ? AppLocalizations.of(
+                    context,
+                  ).study_net((StudyFormat.net(currentNet)).toString())
+                : '—',
             targetLabel: (targetNet != null && targetNet > 0)
-                ? '${StudyFormat.net(targetNet)} net'
-                : 'belirlenmedi',
+                ? AppLocalizations.of(
+                    context,
+                  ).study_net((StudyFormat.net(targetNet)).toString())
+                : AppLocalizations.of(context).study_notSet,
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -151,29 +158,16 @@ class _StudentGoalsOverviewPageState extends State<StudentGoalsOverviewPage> {
             child: OutlinedButton.icon(
               onPressed: _editGoals,
               icon: const Icon(Icons.tune_rounded),
-              label: const Text('Hedefleri düzenle'),
+              label: Text(AppLocalizations.of(context).study_editGoals),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const StudySectionHeader(title: 'Uzun vadeli hedefler'),
-          const SizedBox(height: 12),
-          const StudyComingSoonCard(
-            icon: Icons.calendar_month_rounded,
-            title: 'Aylık hedef',
-            message: 'Aylık çalışma ve net hedefleri yakında burada olacak.',
-          ),
-          const SizedBox(height: 12),
-          const StudyComingSoonCard(
-            icon: Icons.school_rounded,
-            title: 'Üniversite hedefi',
-            message: 'Hedef bölüm ve sıralaman için takip yakında geliyor.',
           ),
         ],
       ),
@@ -203,8 +197,9 @@ class _GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool hasTarget = target > 0;
-    final double progress =
-        hasTarget ? (current / target).clamp(0.0, 1.0) : 0.0;
+    final double progress = hasTarget
+        ? (current / target).clamp(0.0, 1.0)
+        : 0.0;
     final bool met = hasTarget && current >= target;
     return StudyCard(
       child: Column(
@@ -223,29 +218,44 @@ class _GoalCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                        fontSize: 15)),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                  ),
+                ),
               ),
               if (met)
-                const Icon(Icons.check_circle_rounded,
-                    color: AppColors.accentGreen, size: 20),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.accentGreen,
+                  size: 20,
+                ),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Text(valueLabel,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18)),
-              Text('Hedef: $targetLabel',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12)),
+              Text(
+                valueLabel,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+              Text(
+                AppLocalizations.of(
+                  context,
+                ).study_goal((targetLabel).toString()),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),

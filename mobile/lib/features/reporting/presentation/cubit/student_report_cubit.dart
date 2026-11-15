@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/reporting/domain/reporting_contracts.dart';
@@ -66,7 +67,7 @@ class StudentReportState {
   }
 }
 
-class StudentReportCubit extends Cubit<StudentReportState> {
+class StudentReportCubit extends Cubit<StudentReportState> with SafeEmit<StudentReportState> {
   StudentReportCubit(this._repository, this._fileOpener)
       : super(const StudentReportState());
 
@@ -85,7 +86,7 @@ class StudentReportCubit extends Cubit<StudentReportState> {
     if (studentId.isEmpty) {
       return;
     }
-    emit(state.copyWith(status: ReportingStatus.loading, clearError: true));
+    safeEmit(state.copyWith(status: ReportingStatus.loading, clearError: true));
 
     try {
       final weeks = await _repository.studentStudyAnalysis(
@@ -93,24 +94,25 @@ class StudentReportCubit extends Cubit<StudentReportState> {
         from: from,
         to: to,
       );
+      if (isClosed) return;
       final performance = await _repository.studentPerformance(
         studentId: studentId,
         from: from,
         to: to,
       );
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ReportingStatus.loaded,
         weeks: weeks,
         performance: performance,
         clearError: true,
       ));
     } on ApiException catch (error) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ReportingStatus.failure,
         errorMessage: error.message,
       ));
     } catch (_) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ReportingStatus.failure,
         errorMessage: 'Çalışma analizi yüklenemedi.',
       ));
@@ -124,7 +126,7 @@ class StudentReportCubit extends Cubit<StudentReportState> {
     if (_studentId.isEmpty) {
       return;
     }
-    emit(state.copyWith(
+    safeEmit(state.copyWith(
       isGenerating: true,
       reportStatus: ReportingStatus.loading,
       clearError: true,
@@ -141,7 +143,7 @@ class StudentReportCubit extends Cubit<StudentReportState> {
       // 402 = üyelik yetersiz, 403 = paylaşım/yetki kapalı. İkisi de "kilitli"dir:
       // kullanıcıya hata değil, neden erişemediği gösterilir.
       final locked = error.statusCode == 402 || error.statusCode == 403;
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         isGenerating: false,
         reportStatus:
             locked ? ReportingStatus.premiumRequired : ReportingStatus.failure,
@@ -149,7 +151,7 @@ class StudentReportCubit extends Cubit<StudentReportState> {
       ));
       return;
     } catch (_) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         isGenerating: false,
         reportStatus: ReportingStatus.failure,
         errorMessage: 'Rapor oluşturulamadı.',
@@ -157,12 +159,14 @@ class StudentReportCubit extends Cubit<StudentReportState> {
       return;
     }
 
-    emit(state.copyWith(lastReport: report));
+    if (isClosed) return;
+    safeEmit(state.copyWith(lastReport: report));
 
     try {
       final bytes = await _repository.downloadReport(report.reportId);
+      if (isClosed) return;
       if (bytes == null) {
-        emit(state.copyWith(
+        safeEmit(state.copyWith(
           isGenerating: false,
           reportStatus: ReportingStatus.failure,
           errorMessage: 'Rapor dosyası bulunamadı.',
@@ -174,20 +178,20 @@ class StudentReportCubit extends Cubit<StudentReportState> {
         fileName: report.fileName,
         bytes: bytes,
       );
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         isGenerating: false,
         reportStatus: ReportingStatus.loaded,
         openedFilePath: path,
         clearError: true,
       ));
     } on ApiException catch (error) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         isGenerating: false,
         reportStatus: ReportingStatus.failure,
         errorMessage: error.message,
       ));
     } catch (error) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         isGenerating: false,
         reportStatus: ReportingStatus.failure,
         errorMessage: 'Rapor açılamadı: $error',

@@ -83,6 +83,13 @@ updated: 2026-11-15
 | Ödev/takip | `/assignments/new`, `/assignments/:lessonSessionId` | [assignment_follow_up](assignment_follow_up.md) | 🟢 |
 | Ödevlerim (öğrenci) | `/student/assignments` | [assignments](assignments.md) | 🟢 (2026-07-09: dosya yükleme + tamamlama; 2026-09-04: **puan rozeti + öğretmen geri bildirimi**, M06-4) |
 
+## Veli
+
+| Ekran | Route | md | Veri |
+|-------|-------|-----|------|
+| Veli ana sayfa | `/parent` | [parent](parent.md) | 🟢 |
+| Veli ödev/ödeme/ders özeti | `/parent/assignments`, `/parent/payments`, `/parent/lessons` | [parent](parent.md) | 🟢 onaylı çocuk dashboard'u |
+
 ## Teacher Profile
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/network/token_refresh_interceptor.dart';
@@ -19,7 +20,18 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          final generation = _sessionGeneration;
+          options.extra[TokenRefreshInterceptor.sessionGenerationKey] =
+              generation;
           final token = await tokenStorage.readAccessToken();
+          if (generation != _sessionGeneration) {
+            return handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.cancel,
+              ),
+            );
+          }
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -37,6 +49,7 @@ class ApiClient {
           // N-67: 401 alan istek eski token'la gittiyse yenilemeden depodakiyle tekrarlanır.
           readAccessToken: tokenStorage.readAccessToken,
           onUnauthorized: _fireUnauthorized,
+          sessionGeneration: () => _sessionGeneration,
         ),
       );
     }
@@ -55,6 +68,13 @@ class ApiClient {
     if (!_unauthorizedController.isClosed) {
       _unauthorizedController.add(null);
     }
+  }
+
+  int _sessionGeneration = 0;
+
+  void clearSession() {
+    _sessionGeneration++;
+    _pendingWrites.clear();
   }
 
   void dispose() {
@@ -159,8 +179,15 @@ class ApiClient {
     String? retryIdentity,
   }) async {
     if (!idempotent && idempotencyKey == null) {
-      return _dio.post<Map<String, dynamic>>(path, data: data);
+      return _dio.post<Map<String, dynamic>>(
+        path,
+        data: data,
+        options: data is FormData
+            ? Options(sendTimeout: const Duration(seconds: 120))
+            : null,
+      );
     }
+    final generation = _sessionGeneration;
     final subject = _subject(await _tokenStorage.readAccessToken());
     final identity = jsonEncode([
       subject,
@@ -172,15 +199,27 @@ class ApiClient {
     // A manual retry uses the original body too (e.g. collection timestamp).
     final original =
         pending?.$2 ?? (data is FormData ? data : jsonDecode(jsonEncode(data)));
-    final options = Options(headers: {'Idempotency-Key': key});
-    Future<Response<Map<String, dynamic>>> send() =>
-        _dio.post<Map<String, dynamic>>(
-          path,
-          data: original is FormData && original.isFinalized
-              ? original.clone()
-              : original,
-          options: options,
+    final options = Options(
+      headers: {'Idempotency-Key': key},
+      sendTimeout: original is FormData ? const Duration(seconds: 120) : null,
+    );
+    Future<Response<Map<String, dynamic>>> send() {
+      if (generation != _sessionGeneration) {
+        throw const ApiException(
+          message: 'Oturum değişti.',
+          kind: ApiErrorKind.auth,
+          statusCode: 401,
         );
+      }
+      return _dio.post<Map<String, dynamic>>(
+        path,
+        data: original is FormData && original.isFinalized
+            ? original.clone()
+            : original,
+        options: options,
+      );
+    }
+
     try {
       Response<Map<String, dynamic>> response;
       try {
@@ -189,18 +228,23 @@ class ApiClient {
         if (!_networkFailure(error)) rethrow;
         response = await send();
       }
-      _pendingWrites.remove(identity);
+      if (generation == _sessionGeneration &&
+          _pendingWrites[identity]?.$1 == key) {
+        _pendingWrites.remove(identity);
+      }
       return response;
     } on DioException catch (error) {
       final payload = error.response?.data;
       final inProgress =
           payload is Map && payload['code'] == 'shared.idempotency_in_progress';
-      if (idempotencyKey == null &&
+      if (generation == _sessionGeneration &&
+          idempotencyKey == null &&
           (_networkFailure(error) ||
               inProgress ||
               (error.response?.statusCode ?? 0) >= 500)) {
         _pendingWrites[identity] = (key, original);
-      } else {
+      } else if (generation == _sessionGeneration &&
+          _pendingWrites[identity]?.$1 == key) {
         _pendingWrites.remove(identity);
       }
       rethrow;

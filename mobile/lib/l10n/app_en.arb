@@ -711,5 +711,533 @@
         "type": "String"
       }
     }
+  },
+  "api_unexpectedError": "An unexpected API error occurred.",
+  "api_connectionTimeout": "The connection to the server timed out.",
+  "api_receiveTimeout": "The server response timed out.",
+  "api_sendTimeout": "Sending the request timed out.",
+  "api_connectionError": "Unable to connect to the server.",
+  "api_validationError": "Check the form fields and try again.",
+  "studentDetail_studentUpdated": "Student updated.",
+  "studentDetail_subjectAdded": "Subject added.",
+  "studentDetail_subjectRemoved": "Subject removed.",
+  "studentDetail_parentLinkPending": "Parent link requested; awaiting approval.",
+  "scheduling_calendar": "Calendar",
+  "scheduling_delete": "Delete",
+  "scheduling_daily": "Daily",
+  "scheduling_monthly": "Monthly",
+  "scheduling_noEventsForThisDay": "No events for this day.",
+  "scheduling_allDay": "All day",
+  "scheduling_freeSlot": "Free slot",
+  "scheduling_mon": "Mon",
+  "scheduling_tue": "Tue",
+  "scheduling_wed": "Wed",
+  "scheduling_thu": "Thu",
+  "scheduling_fri": "Fri",
+  "scheduling_sat": "Sat",
+  "scheduling_sun": "Sun",
+  "scheduling_weeklySchedule": "Weekly schedule",
+  "scheduling_scheduleConflict": "Schedule conflict",
+  "scheduling_available": "Available",
+  "scheduling_swipeToSeeOtherDays": "Swipe to see other days",
+  "scheduling_noEventsForThisDay2": "No events for this day",
+  "scheduling_timeOffUnavailable": "Time off / Unavailable",
+  "scheduling_assignmentReminder": "Assignment reminder",
+  "scheduling_paymentReminder": "Payment reminder",
+  "scheduling_assignment": "Assignment",
+  "teacherProfile_teacherProfile": "Teacher profile",
+  "teacherProfile_profileNotFound": "Profile not found.",
+  "teacherProfile_personalDetails": "Personal details",
+  "teacherProfile_location": "Location",
+  "teacherProfile_teacherDetails": "Teacher details",
+  "teacherProfile_subject": "Subject",
+  "teacherProfile_education": "Education",
+  "teacherProfile_experience": "Experience",
+  "teacherProfile_hourlyRate": "Hourly rate",
+  "teacherProfile_lessonFormat": "Lesson format",
+  "teacherProfile_about": "About",
+  "teacherProfile_noteToParents": "Note to parents",
+  "teacherProfile_expertise": "Expertise",
+  "teacherProfile_lessonPreferences": "Lesson preferences",
+  "teacherProfile_availability": "Availability",
+  "teacherProfile_years": "{value} years",
+  "@teacherProfile_years": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_selectAtLeastOneLessonFormat": "Select at least one lesson format.",
+  "teacherProfile_profilePhoto": "Profile photo",
+  "teacherProfile_takeAPhoto": "Take a photo",
+  "teacherProfile_takeAPhotoAndUploadItToYourProfile": "Take a photo and upload it to your profile.",
+  "teacherProfile_chooseFromGallery": "Choose from gallery",
+  "teacherProfile_upTo10MBJpgPngOrWebp": "Up to 10 MB; jpg, png or webp.",
+  "teacherProfile_signInToUploadAPhoto": "Sign in to upload a photo.",
+  "teacherProfile_photoUpdated": "Photo updated.",
+  "teacherProfile_unableToUploadPhoto": "Unable to upload photo: {value}",
+  "@teacherProfile_unableToUploadPhoto": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_isRequired": "{value} is required.",
+  "@teacherProfile_isRequired": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_updated": "{value} updated.",
+  "@teacherProfile_updated": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_city": "City",
+  "teacherProfile_district": "District",
+  "teacherProfile_locationUpdated": "Location updated.",
+  "teacherProfile_lgsMathematics": "LGS Mathematics",
+  "teacherProfile_tytProblems": "TYT Problems",
+  "teacherProfile_aytFunctions": "AYT Functions",
+  "teacherProfile_geometry": "Geometry",
+  "teacherProfile_lessonTracking": "Lesson tracking",
+  "teacherProfile_examCoaching": "Exam coaching",
+  "teacherProfile_schoolSupport": "School support",
+  "teacherProfile_expertiseUpdated": "Expertise updated.",
+  "teacherProfile_tapAFieldToEdit": "Tap a field to edit",
+  "teacherProfile_profileVisibility": "Profile visibility",
+  "teacherProfile_visibleInStudentAndParentSearches": "Visible in student and parent searches.",
+  "teacherProfile_onlineLessons": "Online lessons",
+  "teacherProfile_shownForOnlineLessonRequests": "Shown for online lesson requests.",
+  "teacherProfile_inPersonLessons": "In person lessons",
+  "teacherProfile_listedInLocationSearches": "Listed in location searches.",
+  "teacherProfile_saveProfile": "Save profile",
+  "teacherProfile_onlineInPerson": "Online + In person",
+  "study_letSTakeAnotherStepToday": "Let's take another step today.",
+  "study_youReachedTodaySGoalWellDone": "You reached today's goal. Well done! 🎉",
+  "study_hello2": "Hello 👋",
+  "study_loadingStudyDashboard": "Loading study dashboard...",
+  "study_anErrorOccurred": "An error occurred.",
+  "study_startStudying": "Start studying",
+  "study_startTheTimerAndGrowYourStreak": "Start the timer and grow your streak",
+  "study_quickAccess": "Quick access",
+  "study_dayStreak": "Day streak",
+  "study_setADailyGoal": "Set a daily goal",
+  "study_myLessons": "My lessons",
+  "study_myGoals": "My goals",
+  "study_myPerformance": "My performance",
+  "study_upcomingLessons": "Upcoming lessons",
+  "study_unableToLoadAssignments": "Unable to load assignments.",
+  "study_upcomingAssignments": "Upcoming assignments",
+  "study_noUpcomingAssignments": "No upcoming assignments",
+  "study_youHaveNoAssignmentsDueSoon": "You have no assignments due soon.",
+  "study_noDueDate": "No due date",
+  "study_loadingYourProfile": "Loading your profile...",
+  "study_gradeNotProvided": "Grade not provided",
+  "study_profile": "Profile",
+  "study_yourDetailsSettingsAndStatistics": "Your details, settings and statistics.",
+  "study_totalStudyTime": "Total study time",
+  "study_daysStudied": "Days studied",
+  "study_bestStreak": "Best streak",
+  "study_totalPracticeExams": "Total practice exams",
+  "study_totalNetScore": "Total net score",
+  "study_mostStudied": "Most studied",
+  "study_badges": "Badges",
+  "study_settings": "Settings",
+  "study_myTeachers": "My teachers",
+  "study_yourTeachersAndContactDetails": "Your teachers and contact details",
+  "study_chatWithYourTeachers": "Chat with your teachers",
+  "study_addGoal": "Add goal",
+  "study_createANewStudyGoal": "Create a new study goal",
+  "study_areYouSureYouWantToSignOut": "Are you sure you want to sign out?",
+  "study_dayStreak2": "{value} day streak",
+  "@study_dayStreak2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_startStudyingToday": "Start studying today",
+  "study_goals": "Goals",
+  "study_loadingYourGoals": "Loading your goals...",
+  "study_smallGoalsBigProgress": "Small goals, big progress.",
+  "study_dailyGoal": "Daily goal",
+  "study_weeklyGoal": "Weekly goal",
+  "study_netScoreGoal": "Net score goal",
+  "study_net": "{value} net",
+  "@study_net": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_editGoals": "Edit goals",
+  "study_goal": "Goal: {value}",
+  "@study_goal": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_loadingLesson": "Loading lesson...",
+  "study_lessonNotFound": "Lesson not found.",
+  "study_test": "Test",
+  "study_practiceExam": "Practice exam",
+  "study_addAssignment": "Add assignment",
+  "study_submitAssignment": "Submit assignment",
+  "study_addTopic": "Add topic",
+  "study_topic": "Topic",
+  "study_myPendingAssignments": "My pending assignments",
+  "study_youHaveNoPendingAssignments": "You have no pending assignments.",
+  "study_mySubjectNotes": "My subject notes",
+  "study_allMyNotes": "All my notes",
+  "study_youHaveNoNotesForThisSubject": "You have no notes for this subject.",
+  "study_loadingYourPracticeExams": "Loading your practice exams...",
+  "study_viewYourNetScoresStudyAnalysisAndProgress": "View your net scores, study analysis and progress.",
+  "study_avgNet": "Avg. net",
+  "study_bestNetScore": "Best net score",
+  "study_remainingToGoal": "Remaining to goal",
+  "study_targetNetTracking": "Target net tracking",
+  "study_targetNetScore": "Target net score",
+  "study_averageNetScore": "Average net score",
+  "study_youReachedYourGoal": "You reached your goal!",
+  "study_netRemaining": "{value} net remaining",
+  "@study_netRemaining": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_netScoreTrend": "Net score trend",
+  "study_testStatistics": "Test statistics",
+  "study_allTimeStudyTimeBySubjectAndTopic": "All time · study time by subject and topic",
+  "study_noStudySessionsYet": "No study sessions yet.",
+  "study_practiceExamStatistics": "Practice exam statistics",
+  "study_noPracticeExamsYet": "No practice exams yet.",
+  "study_weeklyMonthlyAnalysis": "Weekly/Monthly analysis",
+  "study_personalRecords": "Personal records",
+  "study_analysisProgress": "Analysis & Progress",
+  "study_detailedAnalysis": "Detailed analysis",
+  "study_weeklyHistoryAndManualSessions": "Weekly history and manual sessions",
+  "study_myProgress": "My progress",
+  "study_topicMasteryStrengthsAndAreasToImprove": "Topic mastery, strengths and areas to improve",
+  "study_addTestPracticeExam": "Add test / practice exam",
+  "study_week": "Week",
+  "study_noPracticeExamsYetAddYourFirstExamTo": "No practice exams yet. Add your first exam to track your net score.",
+  "study_noPracticeExamsInThisPeriod": "No practice exams in this period.",
+  "study_practiceExamsAvgNet": "{value} practice exams · avg. {secondaryValue} net",
+  "@study_practiceExamsAvgNet": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "secondaryValue": {
+        "type": "String"
+      }
+    }
+  },
+  "study_net2": "{value}{secondaryValue} net",
+  "@study_net2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "secondaryValue": {
+        "type": "String"
+      }
+    }
+  },
+  "study_total": "Total: {value}",
+  "@study_total": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_sessions": "{value} sessions",
+  "@study_sessions": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_3WeeksAgo": "3 weeks ago",
+  "study_2WeeksAgo": "2 weeks ago",
+  "study_1WeekAgo": "1 week ago",
+  "study_thisWeek": "This week",
+  "study_noStudySessionsInTheLast28Days": "No study sessions in the last 28 days.",
+  "study_sessionsLast28Days": "{value} sessions · last 28 days",
+  "@study_sessionsLast28Days": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_noTopicSpecified": "No topic specified",
+  "study_topicsSessions": "{value} topics · {secondaryValue} sessions",
+  "@study_topicsSessions": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "secondaryValue": {
+        "type": "String"
+      }
+    }
+  },
+  "study_longestStreakDays": "Longest streak (days)",
+  "study_longestSession": "Longest session",
+  "study_mostStudiedDay": "Most studied day",
+  "study_bestPerformingSubject": "Best performing subject",
+  "study_own": "Own",
+  "membership_premium": "Premium",
+  "membership_loadingPlans": "Loading plans...",
+  "membership_whatChangesWithThePlan": "What changes with the {value} plan?",
+  "@membership_whatChangesWithThePlan": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_plans": "Plans",
+  "membership_noPlansAvailable": "No plans available",
+  "membership_thereAreNoMembershipPlansForThisRoleYet": "There are no membership plans for this role yet. Try again later.",
+  "membership_offers": "Offers",
+  "membership_yourPremiumMembershipIsActive": "Your Premium membership is active",
+  "membership_goFurtherWithEItimSsPremium": "Go further with EğitimÜssü Premium",
+  "membership_allYourPremiumBenefitsAreActiveManageYourPlan": "All your Premium benefits are active. Manage your plan on the Membership screen.",
+  "membership_removeLimitsWithThePlanAndAccessDetailedAnalysis": "Remove limits with the {value} plan and access detailed analysis and reports.",
+  "@membership_removeLimitsWithThePlanAndAccessDetailedAnalysis": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_firstMonthFree": "First month free",
+  "membership_tryAMonthlyPlanFreeFor30DaysOnce": "Try a monthly plan free for 30 days. Once per user.",
+  "membership_inviteAFriend": "Invite a friend",
+  "membership_shareYourReferralCodeToGiveBothYouAnd": "Share your referral code to give both you and your friend one month of Premium. Find your code on the Membership screen.",
+  "membership_free": "Free",
+  "membership_yearlyPremium": "Yearly Premium",
+  "membership_monthlyPremium": "Monthly Premium",
+  "membership_daysFree": "{value} days free",
+  "@membership_daysFree": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_tryFreeForDays": "Try free for {value} days",
+  "@membership_tryFreeForDays": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_studyForMoreTodayToReachYourGoal2": "Study for {value} more today to reach your goal.",
+  "@study_studyForMoreTodayToReachYourGoal2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_hello3": "Hello, {value} 👋",
+  "@study_hello3": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_goalMin2": "Goal: {value} min",
+  "@study_goalMin2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_notSet": "not set",
+  "membership_monthlyPeriod": "monthly",
+  "membership_yearlyPeriod": "yearly",
+  "membership_linkableStudents": "Students you can link",
+  "membership_pdfStudentReport": "PDF student report",
+  "membership_studyExamHistory": "Study and practice exam history",
+  "membership_last30Days": "Last 30 days",
+  "membership_unlimited": "Unlimited",
+  "membership_targetTracking": "Net / score goal tracking",
+  "membership_included": "Included",
+  "membership_richNotifications": "Enhanced notifications",
+  "membership_basic": "Basic",
+  "membership_parentAlerts": "Weekly summary + assignment/payment alerts",
+  "membership_studentCount": "{value} students",
+  "@membership_studentCount": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_roleParent": "Parent",
+  "study_hoursMinutes": "{hours}h {minutes}min",
+  "@study_hoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "study_hoursOnly": "{hours}h",
+  "@study_hoursOnly": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "study_minutesOnly": "{minutes}min",
+  "@study_minutesOnly": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "study_month": "Month",
+  "study_badgesEarned": "{earned} / {total} badges earned",
+  "@study_badgesEarned": {
+    "placeholders": {
+      "earned": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "route_notFound": "Page not found",
+  "route_backHome": "Back to home",
+  "p20parent_weeklyHint": "Your child's progress this week",
+  "p20parent_loading": "Loading parent dashboard...",
+  "p20parent_error": "Something went wrong.",
+  "p20parent_empty": "No approved child yet",
+  "p20parent_linkChild": "Link a child",
+  "p20parent_loadingProgress": "Loading progress...",
+  "p20parent_weeklyStudy": "Study this week",
+  "p20parent_streak": "Study streak",
+  "p20parent_completedLessons": "Completed lessons",
+  "p20parent_openAssignments": "Open assignments",
+  "p20parent_weekly": "Weekly study",
+  "p20parent_notShared": "Individual study data has not been shared yet.",
+  "p20parent_payments": "Payment summary",
+  "p20parent_expected": "Expected",
+  "p20parent_collected": "Collected",
+  "p20parent_outstanding": "Outstanding",
+  "p20parent_detail": "Detailed progress",
+  "p20parent_assignments": "Assignment summary",
+  "p20parent_lessons": "Lesson summary",
+  "p20parent_totalAssignments": "Total assignments",
+  "p20parent_completed": "Completed",
+  "p20parent_plannedLessons": "Planned lessons",
+  "p20parent_role": "Parent",
+  "p20parent_messages": "Messages",
+  "p20parent_linkHint": "Progress will appear here after you link your child and the link is approved.",
+  "p20parent_greeting": "Hello, {name}",
+  "@p20parent_greeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "p20parent_days": "{count} days",
+  "@p20parent_days": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "p20parent_minutes": "{count} min",
+  "@p20parent_minutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "p20parent_studied": "{count} minutes studied this week.",
+  "@p20parent_studied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cache_staleWarning": "Connection unavailable. Previously saved data is in use ({time}).",
+  "@cache_staleWarning": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chat_title": "Chat",
+  "chat_signIn": "Sign in to chat.",
+  "chat_blocked": "Blocked",
+  "chat_loading": "Loading messages...",
+  "chat_failed": "Could not load messages.",
+  "chat_empty": "No messages yet",
+  "chat_first": "Send the first message.",
+  "chat_unblock": "Unblock",
+  "chat_block": "Block",
+  "chat_blockTitle": "Block conversation",
+  "chat_cancel": "Cancel",
+  "chat_inbox": "Messages",
+  "chat_signInInbox": "Sign in to see your messages.",
+  "chat_emptyInbox": "No conversations yet",
+  "chat_startHelp": "Start a conversation with Send message on a student or parent page.",
+  "chat_teacher": "Teacher",
+  "chat_parent": "Parent",
+  "chat_student": "Student",
+  "chat_noPreview": "No messages yet",
+  "chat_deleted": "This message was deleted",
+  "chat_sending": "Sending…",
+  "chat_sendFailed": "Could not send",
+  "chat_retry": "Try again",
+  "chat_blockedHelp": "You cannot send messages in a blocked conversation.",
+  "chat_input": "Write a message…",
+  "chat_send": "Send message",
+  "chat_yesterday": "Yesterday",
+  "chat_blockConfirm": "Neither participant can send messages while blocked. You can unblock this conversation later.",
+  "chat_unread": "{count} unread messages",
+  "@chat_unread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

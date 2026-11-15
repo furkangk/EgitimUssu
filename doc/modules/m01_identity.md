@@ -53,6 +53,10 @@ updated: 2026-11-15
 
 ---
 
+### Mobil çıkış temizliği (P20 T3 / N-70)
+
+`AuthRepositoryImpl.logout` mevcut bearer ve refresh token ile `POST /api/identity/logout` çağırır. Refresh döngüsüne girmemek için interceptor'sız Dio kullanılır. Sunucu hatası yalnız türüyle loglanır; token, profil oturum kaydı, tüm veri cache'leri ve bekleyen idempotent yazma gövdeleri yerelde temizlenir. Ağ yokken sunucu iptali doğrulanamaz; yerel çıkış yine tamamlanır. Login/refresh yazımları kuyruk ve oturum kuşağıyla korunur; çıkıştan sonra gelen yanıt token'ı geri yazamaz. Sunucuda rotasyonu tamamlanmış geç refresh yanıtının yeni tokenı ayrıca logout ile iptal edilir (ağ hatası loglanır). Eski isteğin 401 tekrarı veya unauthorized olayı yeni kullanıcıya taşınmaz. AuthCubit geç restore/login yanıtını oturum açmak için kullanmaz.
+
 ## 2. Domain Modeli
 
 Tüm kaynak: `src/Modules/Identity/Domain/IdentityDomainModel.cs`. Şema: **`identity`** (`IdentityDbContext.SchemaName`).
@@ -405,3 +409,12 @@ Identity EF modeli öğrenci profil kimliğiyle anahtarlanmış tablo içermez. 
 
 
 **P19 T8 CI bağımlılık kapısı (Güncelleme: 2026-11-15):** MailKit/MimeKit üzerinden gelen Pkcs8.0.1, Shared.Infrastructure'da açık `System.Security.Cryptography.Pkcs 8.0.2` referansıyla güvenlik düzeltmesine yükseltilir ([Microsoft advisory](https://github.com/advisories/GHSA-846f-f764-76mx), [ikinci advisory](https://github.com/advisories/GHSA-2fmv-rv2c-59x7)). Testcontainers'ın geçişli SSH.NET sürümü yalnız integration projesinde `2026.0.0` olarak sabitlenir ([SCP yol advisory](https://github.com/advisories/GHSA-mggc-4xg6-vcxf), [SCP indirme advisory](https://github.com/advisories/GHSA-q939-rpr3-3284)). Üst paketlerin API/sürümü değiştirilmez; `dotnet list package --vulnerable` çıkış kodu tek başına yeterli değildir, JSON'da advisoryurl bulunmamalıdır.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+AuthCubit, PasswordResetCubit ve EmailVerificationCubit `SafeEmit` kullanır; gecikmiş başarı/hata kapanan ekrana state göndermez. Login/register/restore beklenmeyen repository hatasıyla loading’de kalmaz: session taşımayan unauthenticated durumu ve mevcut genel ARB hata metni kullanılır. Log yalnız hata türünü içerir. Restore ağ fallback kararı repository’de kalır; iptalsiz yeni Future.timeout eklenmez. Push kayıt hatası başarılı kimlik oturumunu düşürmez. T3 oturum kuşağı korunur.
+
+Güncelleme: 2026-11-15

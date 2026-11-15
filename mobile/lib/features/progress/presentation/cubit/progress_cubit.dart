@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/progress/domain/progress_contracts.dart';
@@ -79,7 +80,7 @@ class ProgressState {
 
 /// M10-1/M10-2: Gelişim ekranını besleyen cubit. Kapsam yükleme anında seçilir;
 /// `refresh()` son kapsamı tekrarlar.
-class ProgressCubit extends Cubit<ProgressState> {
+class ProgressCubit extends Cubit<ProgressState> with SafeEmit<ProgressState> {
   ProgressCubit(this._repository) : super(const ProgressState());
 
   factory ProgressCubit.create() => ProgressCubit(injector<ProgressRepository>());
@@ -124,7 +125,7 @@ class ProgressCubit extends Cubit<ProgressState> {
     if (studentId == null || studentId.isEmpty) {
       return;
     }
-    emit(state.copyWith(
+    safeEmit(state.copyWith(
       status: ProgressStatus.loading,
       scope: _scope,
       clearError: true,
@@ -143,16 +144,18 @@ class ProgressCubit extends Cubit<ProgressState> {
           ),
       };
 
+      if (isClosed) return;
       // Konu listesi ve snapshot serisi öğrenciye özel uçlardır; öğretmen/veli
       // kapsamında çağrılırsa 403 döner — özet zaten gizlilik filtresinden geçmiş.
       final mastery = _scope == ProgressScope.self
           ? await _repository.listMastery(studentId)
           : const <TopicMastery>[];
+      if (isClosed) return;
       final snapshots = _scope == ProgressScope.self
           ? await _repository.listSnapshots(studentId)
           : const <ProgressSnapshot>[];
 
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ProgressStatus.loaded,
         overview: overview,
         mastery: mastery,
@@ -160,12 +163,12 @@ class ProgressCubit extends Cubit<ProgressState> {
         clearError: true,
       ));
     } on ApiException catch (error) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ProgressStatus.failure,
         errorMessage: error.message,
       ));
     } catch (_) {
-      emit(state.copyWith(
+      safeEmit(state.copyWith(
         status: ProgressStatus.failure,
         errorMessage: 'Gelişim verisi yüklenemedi.',
       ));

@@ -48,6 +48,7 @@ updated: 2026-11-15
 | AppHeader | `AppPageHeader` @ `app_page_header.dart` | `title, subtitle?, trailing?` | Tüm ana ekranların ortak başlığı: sol başlık (+alt başlık), sağda bildirim zili. Zil her zaman `/notifications`'a gider; rozet global `NotificationsCubit.state.unreadCount`'tan gelir (`context.select`). Renkler `AppColors` token'larından (sabit kodlu **değil**). Tek tanım → tüm sayfalara yansır. Geri/menü varyantı henüz yok | 🟡 |
 | AppBottomNav | `AppBottomNav` @ `app_bottom_nav.dart` | `current` (`AppNavTab`) | Tüm ana ekranların ortak alt navigasyon menüsü (master page): 6 sabit sekme (Ana sayfa/Dersler/Öğrenciler/Takvim/Finans/Diğer), ikonlar + etiketler + hedef rotalar tek yerde. Sayfa yalnızca aktif sekmeyi (`AppNavTab`) bildirir; widget `context.go` ile yönlendirir. Aktif primary, pasif gri (`AppColors`). Ana sekmeye uymayan alt sayfalar `AppNavTab.none`. Tek tanım → tüm sayfalara yansır | 🟢 |
 | StudentBottomNav | `StudentBottomNav` @ `features/study/presentation/widgets/student_bottom_nav.dart` | `current` (`StudentNavTab`) | Öğrenci paneline özgü alt navigasyon (öğretmen `AppBottomNav` / veli `ParentBottomNav`'dan ayrı): 4 sekme — 🏠 Çalışma (`/student-home`) · 📚 Derslerim (`/student/lessons`) · 📊 Performans (`/student/performance`) · 👤 Profil (`/student/profile`). Görsel dil `AppBottomNav` ile aynı (aktif primary, pasif gri, `context.go`). Dördü de **gerçek ekranlara** gider; `StudentPlaceholderPage` kodda **yok** | 🟢 |
+| StaleDataBanner | `StaleDataBanner` @ `stale_data_banner.dart` | `savedAt: DateTime` | Kökte CacheStore.staleSince dinlenir; son kayıt zamanı, bağlantı ikonu, tr/en ARB metni ve liveRegion. Yalnız cache gerçekten kullanıldığında görünür; tazeleme/çıkış kaldırır | 🟢 |
 | AppAvatar | _(yok)_ | `imageUrl?, size, initials?` | Dairesel; görsel yoksa baş harf | 🔴 |
 | AppBadge | _(yok)_ | `text/count, color` | Durum/sayaç rozeti (10-12px) | 🔴 |
 | AppSegmentedTab | `EgitimUssuTabBar` (tasarım) @ _(yok)_ | `tabs, selectedIndex, onChanged` | 2-4 sekme; aktif lacivert+beyaz, pasif şeffaf+gri. **Derin tasarım →** [`../tab_widget.md`](../tab_widget.md) | 🔴 |
@@ -205,3 +206,5 @@ kullanılıyor — `shared/`'a taşıma adayı.)
 | Sayfalı liste sınırı | `PagedListBoundary` @ `paged_list_boundary.dart` | `builder(ScrollController), hasMore, isLoading, onLoadMore, errorMessage?` | Alt240px'de devam; kısa sayfa görünümü doldurur; hata otomatik istek döngüsü başlatmaz, tr/en yeniden deneme düğmesi verir. Son sayfada istek yok; controller dispose edilir. İstek tekilliği/cursor/geç yanıt kontrolü sahibi cubit veya ekran state'idir. | 🟢 |
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+*Güncelleme: 2026-11-15 — P20 Task 3: StaleDataBanner.*

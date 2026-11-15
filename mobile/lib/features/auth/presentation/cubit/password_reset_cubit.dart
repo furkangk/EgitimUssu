@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
@@ -22,7 +23,7 @@ class PasswordResetState extends Equatable {
 /// D-01: "Şifremi unuttum" akışının durum yönetimi.
 /// İstek ucu kullanıcı bulunmasa da 200 döner (e-posta enumeration engeli),
 /// bu yüzden `sent` durumu "kod gönderildi" değil "istek alındı" anlamına gelir.
-class PasswordResetCubit extends Cubit<PasswordResetState> {
+class PasswordResetCubit extends Cubit<PasswordResetState> with SafeEmit<PasswordResetState> {
   PasswordResetCubit(this._repository) : super(const PasswordResetState());
 
   final AuthRepository _repository;
@@ -31,12 +32,12 @@ class PasswordResetCubit extends Cubit<PasswordResetState> {
       PasswordResetCubit(injector<AuthRepository>());
 
   Future<void> requestReset(String email) async {
-    emit(state.copyWith(status: PasswordResetStatus.sending));
+    safeEmit(state.copyWith(status: PasswordResetStatus.sending));
     try {
       await _repository.requestPasswordReset(email: email);
-      emit(state.copyWith(status: PasswordResetStatus.sent));
+      safeEmit(state.copyWith(status: PasswordResetStatus.sent));
     } on ApiException catch (error) {
-      emit(state.copyWith(status: PasswordResetStatus.failure, message: error.message));
+      safeEmit(state.copyWith(status: PasswordResetStatus.failure, message: error.message));
     }
   }
 
@@ -45,16 +46,16 @@ class PasswordResetCubit extends Cubit<PasswordResetState> {
     required String token,
     required String newPassword,
   }) async {
-    emit(state.copyWith(status: PasswordResetStatus.confirming));
+    safeEmit(state.copyWith(status: PasswordResetStatus.confirming));
     try {
       await _repository.confirmPasswordReset(
         email: email,
         token: token,
         newPassword: newPassword,
       );
-      emit(state.copyWith(status: PasswordResetStatus.done));
+      safeEmit(state.copyWith(status: PasswordResetStatus.done));
     } on ApiException catch (error) {
-      emit(state.copyWith(status: PasswordResetStatus.failure, message: error.message));
+      safeEmit(state.copyWith(status: PasswordResetStatus.failure, message: error.message));
     }
   }
 }

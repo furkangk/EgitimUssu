@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.d
 import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/cubit/conversations_cubit.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/widgets/messaging_widgets.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/session_required_view.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -25,18 +26,19 @@ class MessagingInboxPage extends StatelessWidget {
 
     // D-17: Oturum yokken sahte bir kullanıcı uydurmak yerine açıkça giriş isteriz.
     if (userId == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: SessionRequiredView(
-            title: 'Mesajlar',
-            subtitle: 'Mesajlarını görmek için giriş yapmalısın.',
+            title: AppLocalizations.of(context).chat_inbox,
+            subtitle: AppLocalizations.of(context).chat_signInInbox,
           ),
         ),
       );
     }
 
     return BlocProvider<ConversationsCubit>(
+      key: ValueKey(userId),
       create: (_) => (cubit ?? ConversationsCubit.create())..load(),
       child: const _InboxView(),
     );
@@ -57,9 +59,11 @@ class _InboxView extends StatelessWidget {
               buildWhen: (previous, current) =>
                   previous.totalUnread != current.totalUnread,
               builder: (context, state) => MessagingHeader(
-                title: 'Mesajlar',
+                title: AppLocalizations.of(context).chat_inbox,
                 subtitle: state.totalUnread > 0
-                    ? '${state.totalUnread} okunmamış mesaj'
+                    ? AppLocalizations.of(
+                        context,
+                      ).chat_unread(state.totalUnread)
                     : null,
               ),
             ),
@@ -67,25 +71,30 @@ class _InboxView extends StatelessWidget {
               child: BlocBuilder<ConversationsCubit, ConversationsState>(
                 builder: (context, state) {
                   if (state.isLoading) {
-                    return const LoadingStateView(message: 'Mesajlar yükleniyor...');
+                    return LoadingStateView(
+                      message: AppLocalizations.of(context).chat_loading,
+                    );
                   }
                   if (state.status == ConversationsStatus.failure) {
                     return ErrorStateView(
-                      message: state.errorMessage ?? 'Mesajlar alınamadı.',
-                      onRetry: () => context.read<ConversationsCubit>().refresh(),
+                      message:
+                          state.errorMessage ??
+                          AppLocalizations.of(context).chat_failed,
+                      onRetry: () =>
+                          context.read<ConversationsCubit>().refresh(),
                     );
                   }
                   if (state.conversations.isEmpty) {
-                    return const EmptyStateView(
-                      title: 'Henüz mesajın yok',
-                      subtitle:
-                          'Öğrenci veya veli sayfasından "Mesaj gönder" ile sohbet başlatabilirsin.',
+                    return EmptyStateView(
+                      title: AppLocalizations.of(context).chat_emptyInbox,
+                      subtitle: AppLocalizations.of(context).chat_startHelp,
                     );
                   }
 
                   return RefreshIndicator(
                     color: AppColors.primary,
-                    onRefresh: () => context.read<ConversationsCubit>().refresh(),
+                    onRefresh: () =>
+                        context.read<ConversationsCubit>().refresh(),
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                       itemCount: state.conversations.length,
@@ -93,12 +102,19 @@ class _InboxView extends StatelessWidget {
                         final row = state.conversations[index];
                         return ConversationTile(
                           conversation: row,
-                          title: conversationTitleFor(row.counterpartRole),
+                          title: conversationTitleFor(
+                            row.counterpartRole,
+                            AppLocalizations.of(context),
+                          ),
                           onTap: () async {
-                            await context.push('$kMessagingInboxRoute/${row.id}');
+                            await context.push(
+                              '$kMessagingInboxRoute/${row.id}',
+                            );
                             if (context.mounted) {
                               // Sohbetten dönünce okunmamış rozeti gerçeği yansıtmalı.
-                              await context.read<ConversationsCubit>().refresh();
+                              await context
+                                  .read<ConversationsCubit>()
+                                  .refresh();
                             }
                           },
                         );
@@ -119,9 +135,10 @@ class _InboxView extends StatelessWidget {
 ///
 /// ⚠️ Sunucu bu uçta **ad döndürmüyor** (yalnız `counterpartUserId`). Uydurma bir ad
 /// göstermek yerine rolü yazarız; ad alanı M16'nın sonraki turunda gelecek.
-String conversationTitleFor(String counterpartRole) => switch (counterpartRole) {
-  kParticipantRoleTeacher => 'Öğretmen',
-  kParticipantRoleParent => 'Veli',
-  kParticipantRoleStudent => 'Öğrenci',
-  _ => 'Sohbet',
-};
+String conversationTitleFor(String counterpartRole, AppLocalizations l10n) =>
+    switch (counterpartRole) {
+      kParticipantRoleTeacher => l10n.chat_teacher,
+      kParticipantRoleParent => l10n.chat_parent,
+      kParticipantRoleStudent => l10n.chat_student,
+      _ => l10n.chat_title,
+    };

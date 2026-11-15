@@ -251,3 +251,10 @@ Güvenlik (Identity):
 ### P19 Task 6 — Toplu bildirim tercihleri
 
 `IUserNotificationPreferences.GetManyAsync(userIds, ct)` istenen kimliklerin altı bildirim bayrağını tek AsNoTracking SELECT ile okur. Sonuç her istenen kullanıcıyı içerir; kaydı olmayan için AllEnabled döner. Tekli GetAsync korunur. Notifications iki gönderim yolunda da sayfa/tur bazında bu sözleşmeyi kullanır; başka modülün DbContext'ine erişmez.
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+SettingsCubit yükleme ve iyimser kayıt/geri alma sonuçlarını SafeEmit üzerinden yayınlar. Ekran kapanmışsa gecikmiş başarı/hata state üretmez; kapanmadan önceki ayar kaydı sunucuda tamamlanabilir.
+
+Güncelleme: 2026-11-15

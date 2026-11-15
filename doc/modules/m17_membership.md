@@ -128,7 +128,7 @@ updated: 2026-11-15
   öğretmen öğrenci limiti 5, PDF raporu Premium (402), veli zengin bildirimleri. PRD §9'daki tam
   özellik matrisi (reklam, mesajlaşma limitleri, profil öne çıkarma, streak/motivasyon) hâlâ
   uygulanmadı. **Bu yüzden mobil paywall tablosu PRD §9'un tamamını göstermez**: uygulanmayan
-  satırlar ayrı bir "yakında" bölümünde durur (bkz. [`../pages/paywall.md`](../pages/paywall.md) §2).
+  satırlar P20 T1’den itibaren paywall’da gösterilmez (bkz. [`../pages/paywall.md`](../pages/paywall.md) §2).
 
 ### ✅ Uçtan uca doğrulanan (P09 Task 7 — **kısmi kapanış**, 2026-09-04)
 
@@ -163,6 +163,10 @@ taşınması — yani iki ayrı şemanın tek istekte doğru bağlanması.
 > bileşenlerdendir: Faz 1-3 gerçek kullanıcıda doğrulanmadan premium'a geçilmez.
 
 ---
+
+### Mobil kök üyelik temizliği (P20 T3 / N-70)
+
+Oturum değişince `MembershipCubit.reset()` üyelik/premium kararını Free başlangıcına döndürür; planlar, referans kodu, rol, işlem durumu ve mesajlar temizlenir. Eski oturumun gecikmiş `/me`, plan, referans ya da deneme/iptal yanıtı kuşak kontrolüyle elenir. Yeni kullanıcı için yükleme reset'ten sonra başlar; eski hesabın premium yetkisi yeni hesapta görünmez.
 
 ## 2. Domain Modeli (⚠️ Önerilen)
 
@@ -419,7 +423,7 @@ Ayrıntı: [`../pages/membership.md`](../pages/membership.md) · [`../pages/payw
 
 | Ekran / bileşen | Rota | Durum |
 |-----------------|------|-------|
-| **Paywall** — rol bazlı karşılaştırma, plan kartları, "ilk ay ücretsiz" rozeti, kampanyalar | `/membership/paywall` | 🟡 **kodda** — satın alma düğmesi pasif (checkout ucu Task 4) |
+| **Paywall** — rol bazlı karşılaştırma, plan kartları, "ilk ay ücretsiz" rozeti, kampanyalar | `/membership/paywall` | 🟡 **kodda** — satın alma düğmesi gizli (P20 T1) (checkout ucu Task 4) |
 | **Üyelik yönetimi** — mevcut plan, dönem bitişi, iptal | `/membership` | 🟡 **kodda** — otomatik yenileme anahtarı yok (`AutoRenew` ne dönülüyor ne değiştirilebiliyor) |
 | **Referans** — kod, kopyala, kaç kişi kullandı | `/membership` içinde bölüm | 🟢 **kodda** |
 | **Kod kullan** — referans/kampanya kodu girişi | `/membership` içinde bölüm | 🟢 **kodda** (kayıt akışına henüz bağlı değil) |
@@ -494,3 +498,9 @@ P09 Task 7 (kısmi kapanış, 2026-09-04) itibarıyla durum. ✅ olanlar koşulm
 *Üyelik ve Para Kazanma Modülü (M17) — Detaylı Tasarım | Faz 5 | Durum: 🟡 İskelet + domain + entitlement + plan/kampanya + mobil paywall, uçtan uca doğrulanmış | Güncelleme: 2026-11-15 (**doküman düzeltmesi**: PRD §9 kopyası koda göre güncellendi — streak ve rozetler **Free**, Premium olan yalnız `StreakFreeze`; ayrıntı `../denetim/2026-09-05_rakip_paritesi_analizi.md` §3. Önceki not — 2026-09-04 (**P09 Task 7 — kısmi kapanış**: üyelik zinciri gerçek Postgres'e karşı otomatik regresyona bağlandı (`tests/Integration/RealMembershipEntitlementTests.cs`, 2 test): Free öğretmen 6. öğrenciyi ekleyemiyor (409 `students.free_limit_reached`) → deneme başlıyor (`Trialing`, `maxStudents` sınırsız, `canSeeAds=false`) → 6. öğrenci eklenebiliyor → dönem kapanınca `GET /me` Free dönüyor ve 7. öğrenci yeniden 409; ikinci deneme `membership.trial_already_used`. §7 kabul kriterleri gerçeğe göre işaretlendi. **M17 bilerek 🟡 kaldı** — reklam (Task 5 / Q3) ve ödeme+webhook (Task 4 / Q1) doğrulanamadı, para tahsil edilemiyor; ayrıca `ExpireIfDue`'yu çağıran zamanlanmış iş yok (dönem sonu yalnız okuma anında Free görünür). Önceki not — P09 Task 3 / M17-1+M17-3: `ReferralCode`/`ReferralRedemption` domain'i (kod kimlikten deterministik türetilir), `UserSubscription.PlanId` **nullable** (kampanya ödülü plana bağlı değil) + `GrantCampaignMonths` (ezmez, uzatır), `SubscriptionPlan.UpdatePricing`; uçlar: anonim `GET /plans`, `POST /subscriptions/start-trial`, `POST /subscriptions/cancel`, `GET /referral-code`, `POST /referral/redeem`, Admin `POST/PUT /plans`; migration `AddReferralAndTrial` (`referral_codes`, `referral_redemptions`, `PlanId` nullable); `MembershipPlanSeeder` **yalnız Development** — fiyatlar `codex/03_paket_fiyatlandirma.md` alt sınırı ve **Q2 ile onaylanmadı**. Önceki not — P09 Task 2 / K-09+M17-5+M03-4: `IEntitlementDirectory` + `Entitlement` sözleşmesi (`Shared.Contracts`), `EntitlementPolicy` (seviye→hak eşlemesinin tek yeri), `EntitlementDirectory` (fail-safe, aboneliğe bakar), `GET /api/membership/me`; Study/Students/Reporting/Parents kapıları devralındı; eski `MembershipTier` alanları **geçici köprüye** indirildi (`IMembershipDirectory` artık yalnız köprü sözleşmesi, P12'de silinecek). Plandaki `MembershipTierContract` enum'u yazılmadı; plandaki `D-09` etiketi yanlıştı (doğrusu K-09/M17-5/M03-4). Önceki not — P09 Task 1 / M17-1: `src/Modules/Membership` 4 katman + `membership` şeması (`subscription_plans`, `user_subscriptions`, `InitialCreate`) + `SubscriptionPlan`/`UserSubscription` domain'i + `MembershipChangedDomainEvent`; `MembershipTier` **yeniden tanımlanmadı**, `Shared.Contracts`'taki kanonik enum kullanıldı. İptal ≠ anında kapanma: erişim dönem sonuna kadar sürer, Free'ye düşüş yalnız `ExpireIfDue`'da. Önceki not — 2026-08-19 (Ö-D: Study'de hafif Free/Premium çekirdeği — `StudentProfile.MembershipTier` + `IMembershipDirectory` — kalıcı; M17 modül klasörü hâlâ kodda yok))*
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
+
+## P20 T1 — mobil sahte veri temizliği
+
+Paywall ve ortak plan kartlarında işlevsiz satın alma düğmesi ile henüz kapısı olmayan Premium vaatlerinin bölümü gizlidir. Gerçek plan kataloğu, ücretsiz deneme, abonelik iptali ve referans akışları korunur. Mobil ödeme P28 kapsamındadır; bu görev ödeme entegrasyonu eklemez.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

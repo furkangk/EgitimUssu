@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/models/lesson_schedule_model.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/data/models/study_schedule_models.dart';
@@ -12,13 +12,14 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     required ApiClient apiClient,
     required AppConfig config,
     required LocalCache localCache,
+    CacheStore? cacheStore,
   }) : _apiClient = apiClient,
        _config = config,
-       _localCache = localCache;
+       _cacheStore = cacheStore ?? CacheStore(localCache);
 
   final ApiClient _apiClient;
   final AppConfig _config;
-  final LocalCache _localCache;
+  final CacheStore _cacheStore;
 
   @override
   Future<LessonSchedule> createLesson(LessonSchedule lessonSchedule) async {
@@ -169,31 +170,26 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     if (_config.isMockFallbackEnabled('scheduling')) {
       return _mockLessons(teacherUserId, DateTime.now().toUtc());
     }
-    final start =
-        (startAtUtc ?? DateTime.now().toUtc().subtract(const Duration(days: 7)))
-            .toIso8601String();
-    final end =
-        (endAtUtc ?? DateTime.now().toUtc().add(const Duration(days: 14)))
-            .toIso8601String();
-    final cacheKey = 'scheduling.lessons.$teacherUserId.$start.$end';
-    try {
-      final response = await _apiClient.getList(
+    final now = DateTime.now().toUtc();
+    final start = _dayStart(
+      startAtUtc ?? now.subtract(const Duration(days: 7)),
+    ).toIso8601String();
+    final end = _dayStart(endAtUtc ?? now.add(const Duration(days: 14)))
+        .add(const Duration(days: 1))
+        .subtract(const Duration(microseconds: 1))
+        .toIso8601String();
+    return (await _cacheStore.load<List<LessonSchedule>>(
+      feature: 'scheduling',
+      key: 'teacherLessons.$teacherUserId.$start.$end',
+      fetch: () => _apiClient.getList(
         '/api/scheduling/teachers/$teacherUserId/lessons',
-        queryParameters: <String, dynamic>{
-          'startAtUtc': start,
-          'endAtUtc': end,
-        },
-      );
-      await _localCache.writeString(cacheKey, jsonEncode(response));
-      return response
-          .whereType<Map<String, dynamic>>()
+        queryParameters: {'startAtUtc': start, 'endAtUtc': end},
+      ),
+      decode: (raw) => (raw as List)
+          .cast<Map<String, dynamic>>()
           .map(LessonScheduleModel.fromJson)
-          .toList();
-    } on ApiException {
-      final cached = await _readCachedLessons(cacheKey);
-      if (cached.isNotEmpty) return cached;
-      rethrow;
-    }
+          .toList(),
+    )).value;
   }
 
   @override
@@ -205,32 +201,26 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     if (_config.isMockFallbackEnabled('scheduling')) {
       return _mockStudentLessons(DateTime.now().toUtc());
     }
-    final start =
-        (startAtUtc ??
-                DateTime.now().toUtc().subtract(const Duration(days: 30)))
-            .toIso8601String();
-    final end =
-        (endAtUtc ?? DateTime.now().toUtc().add(const Duration(days: 30)))
-            .toIso8601String();
-    final cacheKey = 'scheduling.studentLessons.$studentId.$start.$end';
-    try {
-      final response = await _apiClient.getList(
+    final now = DateTime.now().toUtc();
+    final start = _dayStart(
+      startAtUtc ?? now.subtract(const Duration(days: 30)),
+    ).toIso8601String();
+    final end = _dayStart(endAtUtc ?? now.add(const Duration(days: 30)))
+        .add(const Duration(days: 1))
+        .subtract(const Duration(microseconds: 1))
+        .toIso8601String();
+    return (await _cacheStore.load<List<LessonSchedule>>(
+      feature: 'scheduling',
+      key: 'studentLessons.$studentId.$start.$end',
+      fetch: () => _apiClient.getList(
         '/api/scheduling/students/$studentId/lessons',
-        queryParameters: <String, dynamic>{
-          'startAtUtc': start,
-          'endAtUtc': end,
-        },
-      );
-      await _localCache.writeString(cacheKey, jsonEncode(response));
-      return response
-          .whereType<Map<String, dynamic>>()
+        queryParameters: {'startAtUtc': start, 'endAtUtc': end},
+      ),
+      decode: (raw) => (raw as List)
+          .cast<Map<String, dynamic>>()
           .map(LessonScheduleModel.fromJson)
-          .toList();
-    } on ApiException {
-      final cached = await _readCachedLessons(cacheKey);
-      if (cached.isNotEmpty) return cached;
-      rethrow;
-    }
+          .toList(),
+    )).value;
   }
 
   @override
@@ -435,18 +425,9 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     }).toList();
   }
 
-  Future<List<LessonSchedule>> _readCachedLessons(String cacheKey) async {
-    final cached = await _localCache.readString(cacheKey);
-    if (cached == null || cached.isEmpty) {
-      return const <LessonSchedule>[];
-    }
-    final decoded = jsonDecode(cached);
-    if (decoded is! List<dynamic>) {
-      return const <LessonSchedule>[];
-    }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(LessonScheduleModel.fromJson)
-        .toList();
+  // Cache transport windows use UTC days, not user-facing calendar decisions.
+  static DateTime _dayStart(DateTime instant) {
+    final utc = instant.toUtc();
+    return DateTime.utc(utc.year, utc.month, utc.day);
   }
 }
