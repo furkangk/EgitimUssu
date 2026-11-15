@@ -191,16 +191,23 @@ Son **Flutter 331 test**, başarısız **0**; `flutter analyze --fatal-infos` **
 
 **Doğrulama (2026-11-15):** İmza Release **0 uyarı/0 hata**. Hedefli ilk unit **4 kırmızı/22 yeşil**, gerçek Redis/HTTP **4 kırmızı/2 yeşil** → uygulamadan sonra **26/26 unit + 6/6 Redis/HTTP yeşil**. Büyük (128 KiB), seek edilemeyen/chunked binary yükleme ve atomik 20 ilk sahiplenme regresyonları eklendi; son tam **bash scripts/test-with-docker.sh: 19 mimari / 1228 birim / 174 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0 uyarı/0 hata**, tool restore başarılı. Aynı tahsilat key/gövde ilk yanıtı döndürür ve tek DB hareketi bırakır; farklı tutar422. Aynı gövde processing409, farklı422; reddedilen tekrar ilk işareti silmez. Eski hash’siz kayıtlar tamamlandı422/processing409; başarısız istekte düzeltilmiş gövde tekrar işlenebilir. Mevcut kullanıcı/anonim/Identity izolasyon testleri korunur. Doc health RED0/mevcut2YELLOW+1BLUE. Migration/mobil değişmedi; drift/Down ve Flutter yeniden gerekmedi. N-55 yalnız idempotency ayağı kapandı; P18 **5/6**, T6 başlamadı, merge/push yok.
 
-### Task 6: Kapanış — finans senaryosu
+### Task 6: Kapanış — finans senaryosu ✅
 
 **T3 ön kontrol kararı (2026-11-15):** Beyan hâlen güncel kalan bakiyeyi tam kapatır (mevcut domain/HTTP sözleşmesi). Eski senaryo 500 borca önce 300 beyan istiyordu ve bu sözleşmeyle çelişiyordu. Önce 200 nakit, sonra kalan 300 beyan sırasıyla aynı 500 tahsil/100 iade sonucu korunur; kısmi beyan özelliği sessizce eklenmez.
 
 **Files:**
 - Create: `tests/Integration/RealTeacherFinanceScenarioTests.cs`
+- Docs: `doc/modules/m07_payments.md`, `doc/modules/m14_reporting.md`, `doc/modules/00_genel_bakis.md`, bu plan; ayrı ilerleme commit'i `docs/superpowers/ILERLEME.md`.
 
-- [ ] **Step 1: Senaryo** — öğretmen ders tamamlar → 500 TL ücret kaydı (P17 sonrası) → öğretmen 200 TL nakit tahsilat girer → veli kalan 300 TL için "ödedim" → öğretmen onay (paralel ikinci cihazdan eski ekranla not düzeltmesi → tahsilat korunur) → kayıt `Paid` → 100 TL iade → `PartiallyPaid` → aylık raporda tahsilat 400, iade 100.
-- [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test`.
-- [ ] **Step 3: Doküman + ILERLEME + commit**
+**Interfaces / T6 kapsam doğrulaması (2026-11-15):** Yeni üretim arayüzü yok. Ders `from-schedule` → oturum `/complete` HTTP yolundan tamamlanır, gerçek `IOutboxProcessor` ile otomatik ücret ve aylık projeksiyon beslenir. Veli bağı davet/claim ile kurulur; beyan doğrudan DB'ye eklenmez. İkinci öğretmen cihazının ayrıntı PUT'u SaveChanges öncesi test bariyerinde beklerken beyan onaylanır; bayat PUT xmin ile409, aynı eski gövde yeniden gönderilince200 ve500 tahsil korunur. Aylık HTTP yanıtı yalnız net `CollectedAmount` içerir;100 iade mevcut `TeacherMonthlyProjection.RefundedAmount` ve hareket kimlikleri üzerinden doğrulanır, bu test görevinde yeni API alanı eklenmez. İmza adımı yalnız test senaryosu iskeletidir; kırmızı kontrol gerçek outbox teslimi bağlanmadan eksik otomatik ücrette görülür (üretim davranışı değişmez).
+
+**T6 test izolasyonu:** Ortak container DB'sinde `RealProgressSnapshotTests` tüm öğrencilerin konu kayıtlarını sayar. Bu senaryonun tamamlamayla ürettiği `TopicMastery` kaydı kendi `finally` bloğunda, yalnız kendi `StudentId`'si için temizlenir (P17 T8'deki desen); başka testin beklentisi değiştirilmez.
+
+- [x] **Step 0: İmza** — senaryo/test yardımcısı iskeletini derle; ardından otomatik ücret beklentisini ekleyip gerçek kırmızıyı gör, outbox teslimini bağla.
+
+- [x] **Step 1: Senaryo** — öğretmen ders tamamlar → 500 TL ücret kaydı (P17 sonrası) → öğretmen 200 TL nakit tahsilat girer → veli kalan 300 TL için "ödedim" → öğretmen onay (paralel ikinci cihazdan eski ekranla not düzeltmesi → tahsilat korunur) → kayıt `Paid` → 100 TL iade → `PartiallyPaid` → aylık raporda tahsilat 400, iade 100.
+- [x] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test`.
+- [x] **Step 3: Doküman + ILERLEME + commit**
   ```bash
   git commit -m "test(payments): ogretmen finans senaryosu, P18 kapanisi"
   ```
@@ -214,3 +221,7 @@ Son **Flutter 331 test**, başarısız **0**; `flutter analyze --fatal-infos` **
 *Güncelleme: 2026-11-15 — P18 T4 tamamlandı; mobil kuruş/niyet uçları/para birimi ve otomatik-manuel idempotency tekrarları.*
 
 *Güncelleme: 2026-11-15 — P18 T5 tamamlandı; Redis processing/completed gövde özeti ve gerçek HTTP tekrar kanıtı.*
+
+**P18 T6 doğrulama (2026-11-15):** İmza Release0/0; ilk liste isteğinin eksik zorunlu outstandingOnly parametresi test kurulumu hatası olarak düzeltildi. Gerçek RED: outbox iskeletiyle otomatik ücret listesi boş; gerçek IOutboxProcessor bağlanınca senaryo GREEN. Veli davet/claim ve beyan HTTP; ikinci cihazın gerçekten eşzamanlı not PUT'u409, aynı eski gövde tekrar200/Paid500, iade100 sonrası400net/100açık. Kaynakta200Cash+300ParentDeclaration+100Refund ve üç hareket olayı; aylık HTTP1ders/500beklenen/400net, projeksiyon100iade ve aynı hareket kimlikleri. İlk tam pakette yeni TopicMastery kaydı eski global snapshot sayımını2→4 yaptı; yeni test kendi kaydını finally'de temizledi. Son **bash scripts/test-with-docker.sh:19 mimari/1228 birim/175 integration**, başarısız **0**, atlanan **0**. **331 Flutter**; pub get başarılı, fatal-infos **No issues found**, analysis_options geri alındı. Release `-warnaserror --no-incremental` **0uyarı/0hata**, tool restore başarılı. Doc health RED0/mevcut2YELLOW+1BLUE. Yeni migration/mobil değişikliği yok; drift/Down bu görevde yeniden gerekmedi (önceki görevlerin gerçek göç kanıtları yukarıda). P18 **6/6**.
+
+*Güncelleme: 2026-11-15 — P18 T6 tamamlandı; finans zinciri ve test izolasyonu kanıtlandı.*

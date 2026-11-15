@@ -46,6 +46,8 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 | Tamamlanan dersten otomatik ücret kaydı (M07-2) | ✅ Mevcut | `LessonSessionCompletedPaymentHandler` (integration event + `IStudentDirectory` ücreti) |
 | Mobil ödeme ekranları | ✅ Mevcut | `mobile/lib/features/payments` |
 
+**P18 T6 finans senaryosu (2026-11-15):** `RealTeacherFinanceScenarioTests` gerçek HTTP/PostgreSQL/outbox yolunda ücretli oturumdan tek 500 TRY borç üretir. 200 nakit → kalan 300 için davetle bağlanan velinin beyanı → onay ile 500 tahsil/`Paid` → 100 iade ile 400 net/100 açık/`PartiallyPaid` doğrulanır. Onay sırasında ikinci cihazın kaydetmeyi bekleyen not PUT'u `409 shared.concurrency_conflict` alır; aynı eski 200 tahsil/PartiallyPaid/USD gövdesi tekrar gönderildiğinde yalnız not değişir, 500 tahsil ve TRY korunur. Kalıcı üç hareket 200 Cash + 300 ParentDeclaration + 100 Refund'dır; not yazımı yeni para hareketi üretmez. M14 HTTP aylık raporu 400 net, projeksiyon 100 iade ve kaynakla aynı üç hareket kimliğini taşır. Test ödeme/beyan kayıtlarını elle eklemez.
+
 > **Güncelleme (2026-09-04, P06 Task 5):** Kalıcı statü değişimi artık var. Okuma anındaki
 > `GetDisplayStatus(calendar)` hesabı **korunur** (tarama turu arasındaki kayıtlar da gecikmiş görünür);
 > `PaymentOverdueScanProcessor` bunun üstüne DB'deki `Status`'ü de `Overdue`'a çeker ve bildirim
@@ -356,3 +358,5 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
 
 *Güncelleme: 2026-11-15 — P18 T5: aynı tahsilat anahtarında gövde eşlemesi ve 422 sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P18 T6: gerçek ders→ücret→nakit/beyan→eşzamanlı not→iade finans senaryosu.*

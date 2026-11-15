@@ -36,6 +36,8 @@ Haftalık yaşam döngüsü kanıtı: 2 tamamlanmış ders, 1 Single iptal, 2 ×
 **P18 T2 (2026-11-15):** Aylık tahsilat artık `PaymentTransactionRecordedIntegrationEvent` tüketir. `TeacherMonthlyItemKind.Collection=4 / Refund=5` satırları `TransactionId` ile upsert edilir; `CollectedAmount` tahsilat eksi iade kümesinden hesaplanır, `RefundedAmount` iade kümesidir. Olayın yerel ayı kullanılır; farklı EventId ile tekrar teslim toplamı büyütmez. Eski `PaymentRecordUpdatedDomainEvent` aylık tahsilata yazılmaz (diğer tüketicileri korunur). `PaymentCollectionProjectionRebuilder` (`IProjectionRebuilder`, `reporting.payment-collections`) kaynak `IPaymentTransactionDirectory` üzerinden yalnız tahsilat boyutunu yeniden kurar; ders/beklenen tutar item’larını korur, transaction ve ortak Reporting advisory lock ile olay tüketimiyle serileşir. Hosted initializer migration’lardan sonra HTTP sunucusu başlamadan yeniden kurucuyu bir kez çalıştırır; `reporting.module_states` geçiş işareti aynı kilit/transaction’da yazılır. Eski 500 + yeni 100 tahsilatın 600 kalması gerçek PostgreSQL’de doğrulanır. Genel yönetim ucu P12’dedir.
 
 
+**P18 T6 finans kanıtı (2026-11-15):** `RealTeacherFinanceScenarioTests` sahte olay üretmeden gerçek `IOutboxProcessor` ile ders tamamlama ve ödeme hareketlerini rapora taşır: aylık HTTP `completedLessonCount=1`, `expectedAmount=500`, `collectedAmount=400`; 200 Cash + 300 ParentDeclaration − 100 Refund. `TeacherMonthlyProjection.RefundedAmount=100` ve Collection/Refund item kimlikleri kaynak üç hareketle birebir eşleşir. Not güncellemesi ve reddedilen bayat yazım bu toplamı büyütmez. Mevcut aylık HTTP yanıtı iade toplamını ayrı alan olarak yayımlamaz; iade toplamı burada projeksiyondan doğrulanır.
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### 🟡 Var olan (P08 Task 4 sonrası)
@@ -402,3 +404,5 @@ Sorgu zamanı:
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
 
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
+
+*Güncelleme: 2026-11-15 — P18 T6: finans zincirinde HTTP net tahsilat ve projeksiyon iade/hareket kanıtı.*

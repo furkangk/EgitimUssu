@@ -38,6 +38,8 @@ updated: 2026-11-15
 
 **P18 T5 (2026-11-15):** Ortak HTTP tekrar koruması `Idempotency-Key` ile ham gövde SHA-256 özetini eşler. Aynı kullanıcı/metot/yol/anahtarda farklı gövde (işlenirken de) `422 shared.idempotency_key_reused`; aynı gövde tamamlandıysa saklı yanıt, sürüyorsa409. M07 gerçek HTTP tahsilat tekrarı tek hareket üretir. Yeni endpoint/migration yok; anonim ve Identity istekleri koruma dışında kalır.
 
+**P18 T6 (2026-11-15):** Gerçek HTTP/PostgreSQL/outbox finans senaryosu M04→M05→M07→M14 zincirini kapsar: ücretli ders→500 TRY borç→200 nakit→300 veli beyanı/onayı→100 iade→400 net/100 açık. İkinci cihazın eşzamanlı bayat not yazımı409, aynı eski gövdeyle tekrar200; tahsilat korunur. Aylık HTTP500 beklenen/400 net, projeksiyon100 iade ve aynı üç hareket kimliği doğrulanır. Yeni endpoint/üretim davranışı/migration yoktur.
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
