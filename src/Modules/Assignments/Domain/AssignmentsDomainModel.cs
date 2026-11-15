@@ -38,6 +38,23 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
         Raise(new AssignmentCreatedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, CreatedOnUtc));
     }
 
+    private readonly List<AssignmentSubmissionVersion> _submissionVersions = [];
+    public IReadOnlyCollection<AssignmentSubmissionVersion> SubmissionVersions => _submissionVersions.AsReadOnly();
+    public DateTime? SubmittedOnUtc { get; private set; }
+    public bool IsLate { get; private set; }
+    public Result CanSubmit() => Status is AssignmentStatus.Pending or AssignmentStatus.InProgress
+        or AssignmentStatus.Completed or AssignmentStatus.ReturnedForRevision
+        ? Result.Success() : Result.Failure(InvalidTransition);
+
+    public Result Cancel()
+    {
+        if (Status != AssignmentStatus.Pending) return Result.Failure(InvalidTransition);
+        Status = AssignmentStatus.Cancelled;
+        return Result.Success();
+    }
+
+    private bool IsSubmitted => Status is AssignmentStatus.InProgress or AssignmentStatus.Completed;
+
     public Guid StudentId { get; private set; }
 
     public Guid TeacherUserId { get; private set; }
@@ -91,7 +108,8 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
     public bool AnonymizePersonalData()
     {
         if (Title == PersonalDataPlaceholder.RemovedContent && Description is null
-            && TeacherFeedback is null && AttachmentStorageKey is null && AttachmentUrl is null)
+            && TeacherFeedback is null && AttachmentStorageKey is null && AttachmentUrl is null
+            && _submissionVersions.All(x => !x.HasPersonalData))
         {
             return false;
         }
@@ -103,69 +121,97 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
         AttachmentStorageKey = null;
         AttachmentFileName = null;
         AttachmentContentType = null;
+        AttachmentSizeBytes = null;
+        foreach (var version in _submissionVersions) version.AnonymizePersonalData();
         return true;
     }
 
     public long? AttachmentSizeBytes { get; private set; }
 
-    public void MarkCompleted(DateTime completedOnUtc)
+    /// <summary>Dosyasız teslim yalnız ilk atama durumundan yapılır.</summary>
+    public Result MarkCompleted(DateTime completedOnUtc, ILocalCalendar calendar)
     {
+        if (Status != AssignmentStatus.Pending) return Result.Failure(InvalidTransition);
+        RecordSubmission(completedOnUtc, calendar, null, null, null, null, null);
         Status = AssignmentStatus.Completed;
         CompletedOnUtc = completedOnUtc;
-
         Raise(new AssignmentCompletedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, completedOnUtc));
+        return Result.Success();
     }
 
-    /// <summary>Öğrenci ödev çözümünü (dosya/bağlantı) yükler. Bekleyen ödev "devam ediyor"a geçer.</summary>
-    public void SubmitWork(string attachmentUrl, DateTime nowUtc)
+    /// <summary>Bağlantı teslimini yeni bir sürüm olarak saklar.</summary>
+    public Result SubmitWork(string attachmentUrl, DateTime nowUtc, ILocalCalendar calendar)
     {
-        AttachmentUrl = attachmentUrl;
-        if (Status is AssignmentStatus.Pending or AssignmentStatus.ReturnedForRevision)
-        {
-            Status = AssignmentStatus.InProgress;
-        }
-
+        var allowed = CanSubmit();
+        if (allowed.IsFailure) return allowed;
+        RecordSubmission(nowUtc, calendar, attachmentUrl, null, null, null, null);
+        Status = AssignmentStatus.InProgress;
         Raise(new AssignmentSubmittedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, nowUtc));
+        return Result.Success();
     }
 
-    /// <summary>
-    /// P04: Ödeve depolanmış bir teslim dosyası bağlar ve <see cref="SubmitWork"/> geçişini uygular.
-    /// Önceki dosyanın anahtarını döndürür; çağıran onu depodan siler (yetim dosya kalmasın).
-    /// </summary>
-    public string? AttachSubmission(
+    /// <summary>Dosyayı yeni sürüme bağlar; önceki sürümlerin dosyaları korunur.</summary>
+    public Result AttachSubmission(
         string storageKey,
         string fileName,
         string contentType,
         long sizeBytes,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        ILocalCalendar calendar)
     {
-        var previousKey = AttachmentStorageKey;
+        var allowed = CanSubmit();
+        if (allowed.IsFailure) return allowed;
+        RecordSubmission(nowUtc, calendar, $"/api/assignments/{Id}/attachment", storageKey, fileName, contentType, sizeBytes);
+        Status = AssignmentStatus.InProgress;
+        Raise(new AssignmentSubmittedDomainEvent(Id, StudentId, TeacherUserId, LessonSessionId, nowUtc));
+        return Result.Success();
+    }
 
-        AttachmentStorageKey = storageKey;
+    private void RecordSubmission(DateTime nowUtc, ILocalCalendar calendar, string? url,
+        string? key, string? fileName, string? contentType, long? sizeBytes)
+    {
+        var dueAtUtc = DueDateUtc is { } due
+            ? calendar.DayRangeUtc(calendar.ToLocalDate(due)).EndUtc.AddTicks(-10)
+            : (DateTime?)null;
+        SubmittedOnUtc = nowUtc;
+        IsLate = dueAtUtc is { } deadline && nowUtc > deadline;
+        AttachmentUrl = url;
+        AttachmentStorageKey = key;
         AttachmentFileName = fileName;
         AttachmentContentType = contentType;
         AttachmentSizeBytes = sizeBytes;
-
-        SubmitWork($"/api/assignments/{Id}/attachment", nowUtc);
-
-        return string.Equals(previousKey, storageKey, StringComparison.Ordinal) ? null : previousKey;
+        Score = null;
+        GradedOnUtc = null;
+        TeacherFeedback = null;
+        _submissionVersions.Add(new AssignmentSubmissionVersion(Id,
+            _submissionVersions.Count == 0 ? 1 : _submissionVersions.Max(x => x.Number) + 1,
+            nowUtc, IsLate, url, key, fileName, contentType, sizeBytes));
     }
 
-    /// <summary>Öğretmen ödevi onaylar; isteğe bağlı geri bildirim ekler.</summary>
-    public void Approve(string? feedback, DateTime nowUtc)
+    public Result Approve(string? feedback, DateTime nowUtc)
     {
+        if (!IsSubmitted) return Result.Failure(InvalidTransition);
         Status = AssignmentStatus.Approved;
         TeacherFeedback = feedback;
+        LatestSubmission?.SetEvaluation(Score, GradedOnUtc, feedback);
         Raise(new AssignmentApprovedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
+        return Result.Success();
     }
 
-    /// <summary>Öğretmen ödevi geri bildirimle revizyona geri gönderir.</summary>
-    public void ReturnForRevision(string feedback, DateTime nowUtc)
+    public Result ReturnForRevision(string feedback, DateTime nowUtc)
     {
+        if (!IsSubmitted) return Result.Failure(InvalidTransition);
+        // Eski kayıtta kalmış puan varsa sürümde saklanır, güncel puan revizyonda boşalır.
+        LatestSubmission?.SetEvaluation(Score, GradedOnUtc, feedback);
+        Score = null;
+        GradedOnUtc = null;
         Status = AssignmentStatus.ReturnedForRevision;
         TeacherFeedback = feedback;
         Raise(new AssignmentReturnedDomainEvent(Id, StudentId, TeacherUserId, nowUtc));
+        return Result.Success();
     }
+
+    private AssignmentSubmissionVersion? LatestSubmission => _submissionVersions.MaxBy(x => x.Number);
 
     /// <summary>
     /// M06-4: Onaylanmış ödeve 0–100 arası puan verir; geri bildirim verilmişse günceller.
@@ -193,6 +239,7 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
             TeacherFeedback = feedback.Trim();
         }
 
+        LatestSubmission?.SetEvaluation(Score, GradedOnUtc, TeacherFeedback);
         Raise(new AssignmentGradedDomainEvent(Id, StudentId, TeacherUserId, score, nowUtc));
         return Result.Success();
     }
@@ -230,10 +277,64 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
         return true;
     }
 
+    private static readonly Error InvalidTransition = new("assignments.invalid_transition", "Ödev durumu bu işleme izin vermiyor.");
+
     private static readonly Error InvalidScore = new("assignments.invalid_score", "Puan 0 ile 100 arasinda olmalidir.");
 
     private static readonly Error GradeRequiresApproval =
         new("assignments.grade_requires_approval", "Yalnizca onaylanmis odev puanlanabilir.");
+}
+
+public sealed class AssignmentSubmissionVersion
+{
+    private AssignmentSubmissionVersion() { }
+
+    internal AssignmentSubmissionVersion(Guid assignmentId, int number, DateTime submittedOnUtc, bool isLate,
+        string? attachmentUrl, string? storageKey, string? fileName, string? contentType, long? sizeBytes)
+    {
+        AssignmentId = assignmentId;
+        Number = number;
+        SubmittedOnUtc = submittedOnUtc;
+        IsLate = isLate;
+        AttachmentUrl = attachmentUrl;
+        StorageKey = storageKey;
+        FileName = fileName;
+        ContentType = contentType;
+        SizeBytes = sizeBytes;
+    }
+
+    internal void SetEvaluation(int? score, DateTime? gradedOnUtc, string? feedback)
+    {
+        Score = score;
+        GradedOnUtc = gradedOnUtc;
+        TeacherFeedback = feedback;
+    }
+
+    internal bool HasPersonalData => AttachmentUrl is not null || StorageKey is not null
+        || FileName is not null || ContentType is not null || TeacherFeedback is not null;
+
+    internal void AnonymizePersonalData()
+    {
+        AttachmentUrl = null;
+        StorageKey = null;
+        FileName = null;
+        ContentType = null;
+        SizeBytes = null;
+        TeacherFeedback = null;
+    }
+
+    public Guid AssignmentId { get; private set; }
+    public int Number { get; private set; }
+    public DateTime SubmittedOnUtc { get; private set; }
+    public bool IsLate { get; private set; }
+    public string? AttachmentUrl { get; private set; }
+    public string? StorageKey { get; private set; }
+    public string? FileName { get; private set; }
+    public string? ContentType { get; private set; }
+    public long? SizeBytes { get; private set; }
+    public int? Score { get; private set; }
+    public DateTime? GradedOnUtc { get; private set; }
+    public string? TeacherFeedback { get; private set; }
 }
 
 public sealed class LessonNote : AggregateRoot<Guid>

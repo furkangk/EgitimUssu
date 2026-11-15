@@ -36,7 +36,15 @@ public sealed record AssignmentResponse(
     DateTime? CompletedOnUtc,
     string? TeacherFeedback,
     int? Score,
-    DateTime? GradedOnUtc);
+    DateTime? GradedOnUtc,
+    DateTime? SubmittedOnUtc,
+    bool IsLate,
+    IReadOnlyCollection<AssignmentSubmissionVersionResponse> SubmissionVersions);
+
+public sealed record AssignmentSubmissionVersionResponse(
+    int Number, DateTime SubmittedOnUtc, bool IsLate, string? AttachmentUrl,
+    string? FileName, string? ContentType, long? SizeBytes,
+    int? Score, DateTime? GradedOnUtc, string? TeacherFeedback);
 
 public sealed record LessonNoteResponse(
     Guid Id,
@@ -321,7 +329,13 @@ internal static class AssignmentMappings
             assignment.CompletedOnUtc,
             assignment.TeacherFeedback,
             assignment.Score,
-            assignment.GradedOnUtc);
+            assignment.GradedOnUtc,
+            assignment.SubmittedOnUtc,
+            assignment.IsLate,
+            assignment.SubmissionVersions.OrderBy(x => x.Number).Select(x => new AssignmentSubmissionVersionResponse(
+                x.Number, x.SubmittedOnUtc, x.IsLate,
+                x.StorageKey is not null ? $"/api/assignments/{assignment.Id}/attachment?version={x.Number}" : x.AttachmentUrl,
+                x.FileName, x.ContentType, x.SizeBytes, x.Score, x.GradedOnUtc, x.TeacherFeedback)).ToArray());
     }
 
     public static LessonNoteResponse ToResponse(this LessonNote note)

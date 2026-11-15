@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Modules.Assignments.Domain;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace EgitimUssu.Modules.Assignments.Infrastructure;
 
@@ -71,8 +72,17 @@ internal sealed class AssignmentRepository : IAssignmentRepository
         return _dbContext.Assignments.AddRangeAsync(assignments, cancellationToken);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken)
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
-        return _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+            { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "PK_assignment_submission_versions" })
+        {
+            // EF çocuğu parent xmin UPDATE'inden önce ekleyebilir: aynı sürüm yarışı da 409'dur.
+            throw new DbUpdateConcurrencyException("Ödev teslimi başka bir istek tarafından değiştirildi.", ex);
+        }
     }
 }

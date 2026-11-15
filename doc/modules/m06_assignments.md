@@ -11,7 +11,7 @@ updated: 2026-11-15
 
 # 📝 Ödev, Not & Kaynak (M06) — Detaylı Tasarım Dokümanı
 
-> **PRD: M06 Not & Ödev** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Yazıldı (öğretmen tarafı), ⚠️ öğrenci yükleme + kaynak genişletme bekliyor**
+> **PRD: M06 Not & Ödev** · **Faz: 1 — Öğretmen Çekirdeği (MVP)** · **Durum: 🟢 Backend teslim sürümleri ve durum koruması mevcut; mobil sürüm/geç teslim gösterimi bekliyor**
 >
 > **Amaç:** Ders sonrası **takip** (follow-up): öğretmen tamamlanan derse **ders notu** yazar ve **ödev**
 > verir. Hedef, `promp.txt`'teki "Öğretmen derslere not, kaynak ve ödev verebilecek; ödev takibi
@@ -38,7 +38,7 @@ updated: 2026-11-15
 | Ödev **onay / geri gönder** + geri bildirim | ✅ Endpoint | `Assignment.Approve()`/`ReturnForRevision()` + `POST /{id}/approve`, `POST /{id}/return` (öğretmen) |
 | Not **görünürlük** kontrolü | ✅ Mevcut | `LessonNote.Visibility` (`Private`/`Student`/`StudentAndParent`) — B-05 |
 | Ders **kaynağı** (`LessonResource`) | 🟢 **Var** (2026-09-03, P04/M06-1) | Dosya veya bağlantı; 4 uç + mobil bölüm |
-| Öğrenci ödev **yükleme** (`AssignmentSubmission`) | 🔴 **Yok** | Önerilen — öğrenci dosya yükler |
+| Öğrenci teslim sürümleri (`AssignmentSubmissionVersion`) | 🟢 **Var** (P19 T3) | Her teslim ayrı sürüm; dosya, teslim anı, gecikme, puan ve geri bildirim korunur |
 | Ödev **puanlama** (0–100) | 🟢 **Var** (2026-09-04, P06/M06-4) | `Assignment.Grade()` + `POST /{id}/grade` (öğretmen) |
 | Son teslim uyarısı (öğrenci + veli bildirimi) | 🟢 **Var** (2026-09-04, P06/M06-3) | `AssignmentDueScanner` (saatlik) → `AssignmentDueSoon`/`AssignmentMissed` → M11 tüketicileri |
 | Öğrenci görünümü endpoint'leri | 🔴 **Kısmi** | `GET /assignments?studentId=` var; not/kaynak öğrenci görünümü eksik |
@@ -71,24 +71,36 @@ updated: 2026-11-15
 | `AttachmentContentType` | `string?` | MIME türü, **maks. 128** |
 | `AttachmentSizeBytes` | `long?` | Dosya boyutu |
 | `CreatedOnUtc` | `DateTime` | Oluşturma |
-| `CompletedOnUtc` | `DateTime?` | Tamamlanma |
+| `CompletedOnUtc` | `DateTime?` | Dosyasız ilk tamamlanma |
+| `SubmittedOnUtc` | `DateTime?` | Son teslimin anı (dosyalı veya dosyasız) |
+| `IsLate` | `bool` | Son teslim yerel son teslim gününün son mikro-saniyesinden sonra mı? |
+| `SubmissionVersions` | `IReadOnlyCollection<AssignmentSubmissionVersion>` | `(AssignmentId, Number)` anahtarlı teslim geçmişi, otomatik yüklenir |
 | `TeacherFeedback` | `string?` | Öğretmenin onay/geri gönder/puanlama geri bildirimi (T-06.7/8, M06-4) |
 | `Score` | `int?` | M06-4: öğretmen puanı **0–100**; puanlanmadıysa `null` |
 | `GradedOnUtc` | `DateTime?` | M06-4: puanın verildiği an |
 | `DueSoonNotifiedOnUtc` | `DateTime?` | M06-3: "teslime 24 saat kaldı" uyarısının üretildiği an (ödev başına bir kez) |
 | `MissedNotifiedOnUtc` | `DateTime?` | M06-3: "teslim edilmedi" uyarısının üretildiği an (ödev başına bir kez) |
 
-**Davranış:**
-- `MarkCompleted(completedOnUtc)` → `Status = Completed`, `AssignmentCompletedDomainEvent` yayılır.
-- `SubmitWork(attachmentUrl, nowUtc)` → teslim; `Pending` **veya** `ReturnedForRevision` durumundaki ödevi `InProgress` yapar, `AssignmentSubmittedDomainEvent` yayılır.
-- `AttachSubmission(storageKey, fileName, contentType, sizeBytes, nowUtc)` (2026-09-03, P04) → depolanmış teslim dosyasını bağlar (`AttachmentStorageKey`/`AttachmentFileName`/`AttachmentContentType`/`AttachmentSizeBytes`), `AttachmentUrl`'i indirme ucuna ayarlar ve `SubmitWork`'ü uygular. **Önceki anahtarı döndürür** — çağıran onu depodan siler (yetim dosya kalmaz).
-- `Approve(feedback?, nowUtc)` → `Status = Approved`, `TeacherFeedback` set edilir, `AssignmentApprovedDomainEvent` yayılır (T-06.7).
-- `ReturnForRevision(feedback, nowUtc)` → `Status = ReturnedForRevision`, `TeacherFeedback` set edilir, `AssignmentReturnedDomainEvent` yayılır (T-06.8).
-- `Grade(score, feedback?, nowUtc) : Result` (2026-09-04, P06/M06-4) → **yalnız `Approved`** durumundaki ödeve **0–100** puan verir; geri bildirim doluysa günceller, `AssignmentGradedDomainEvent` yayılır. Aralık dışı → `assignments.invalid_score`; durum uygun değilse → `assignments.grade_requires_approval`. Kural domain'de olduğu için geçersiz istek `SaveChanges`'e hiç ulaşmaz.
-- `MarkDueSoon(nowUtc) : bool` / `MarkMissed(nowUtc) : bool` (2026-09-04, P06/M06-3) → yalnız **teslim bekleyen** (`Pending`/`ReturnedForRevision`) ve tarihi olan ödevde çalışır; her biri ödev başına **bir kez** olay yayar (`DueSoonNotifiedOnUtc`/`MissedNotifiedOnUtc` ile idempotent). `MarkDueSoon` vadesi geçmiş ödevde, `MarkMissed` vadesi gelmemiş ödevde `false` döner.
-> Yeni ödev her zaman `Pending` ile oluşturulur (`CreateLessonSessionFollowUpCommandHandler`).
+**Davranış (P19 T3 / N-44):** Geçiş metotları `Result` döner; reddedilen geçişte alanlar, dosyalar ve olaylar değişmez. HTTP hata kodu `400 assignments.invalid_transition`.
 
-**Ödev durum makinesi:** `Pending → InProgress` (teslim) `→ Completed` (öğrenci tamamlar) `→ Approved` (öğretmen onaylar) **veya** `→ ReturnedForRevision` (öğretmen geri gönderir) `→ InProgress` (öğrenci yeniden teslim eder).
+| Mevcut durum | İzinli işlem / sonuç |
+|---|---|
+| `Pending` | Dosya/bağlantı teslimi → `InProgress`; dosyasız `MarkCompleted` → `Completed`; domain `Cancel` → `Cancelled` |
+| `InProgress` veya `Completed` | Onay → `Approved`; geri gönder → `ReturnedForRevision`; yeni dosya → yeni sürüm / `InProgress` |
+| `ReturnedForRevision` | Yeni dosya/bağlantı → yeni sürüm / `InProgress`; dosyasız tamamla reddedilir |
+| `Approved`, `Cancelled` | Durum geçişi kapalıdır; onaylı ödev yeniden puanlanabilir |
+
+- `MarkCompleted`, `SubmitWork`, `AttachSubmission` `ILocalCalendar` alır. Son teslim günü `ToLocalDate(DueDateUtc)`, sınır `DayRangeUtc(...).EndUtc - 10 tick` (PostgreSQL mikro-saniyesi). `IsLate = SubmittedOnUtc > sınır`; tarihsiz ödev geç sayılmaz.
+- Her teslim `assignment_submission_versions` çocuğu ekler. Alanlar: `AssignmentId`, `Number`, `SubmittedOnUtc`, `IsLate`, `AttachmentUrl`, `StorageKey`, `FileName`, `ContentType`, `SizeBytes`, `Score`, `GradedOnUtc`, `TeacherFeedback`. Güncel `Assignment.Attachment*` son sürüme işaret eder; **önceki dosyalar silinmez**.
+- Onay/geri gönder geri bildirimi son sürüme yazılır. Revizyon mevcut `Score`/`GradedOnUtc`'yi temizler, tarihî sürüm puanını korur. `Grade` yalnız Approved'da 0–100; yeniden puanlama son sürümün son puanını günceller. Yeni teslim güncel puan/geri bildirimi temizler.
+- Yanıtlar `submittedOnUtc`, `isLate`, `submissionVersions` içerir. Her sürümün indirme adresi `/api/assignments/{id}/attachment?version=N`; `version` verilmezse güncel dosya. Depo anahtarları yanıtlanmaz; sürüm de aynı öğrenci/öğretmen/admin yetkisini ister, olmayan/dosyasız sürüm 404.
+- Geçersiz durum dosya yazılmadan reddedilir. Kaydetme başarısızsa yalnız yeni blob temizlenir. xmin veya aynı `(AssignmentId, Number)` PK yarışı `409 shared.concurrency_conflict`; başarısız işin sürümü/outbox'ı transaction ile geri alınır.
+- Hesap anonimleştirmesi **tüm** sürümlerin dosya/URL/ad/geri bildirimlerini de siler; puan ve teslim geçmişinin iskeleti kalır. İşlem tekrar güvenlidir.
+- `MarkDueSoon`/`MarkMissed` mevcut tarayıcı kurallarıyla çalışır; revizyona dönmüş eski teslim ve tarama açlığı düzeltmesi **P19 T4 / N-45**'tedir. Henüz bu yeni teslim zamanı üzerinden tarama yapmaz.
+
+**Göç:** `AssignmentStateAndSubmissions` teslim durumundaki eski satırları sürüm 1'e taşır. Eski modelde teslim güncelleme alanı yoktur: varsa son dayanıklı `AssignmentSubmitted/Completed` outbox olayının teslim zamanı; yoksa `CompletedOnUtc`, sonra `CreatedOnUtc` kullanılır. Son fallback **yaklaşık**tır; tarihî `IsLate` kesinliği buna bağlıdır. Göç gün sonunu mevcut varsayılan `Europe/Istanbul` ile hesaplar; Pending öğretmen ekini teslim saymaz. Returned eski puanı sürüme taşıdıktan sonra aggregate puanını temizler. Down yeni tablo/alanları kaldırır, Assignment'ın güncel dosya/puan alanlarını tutar; eski sürüm geçmişi downgrade ile kaybolur (üretim rollback'inde yedek gerekir). Olay/enum şekilleri değişmedi.
+
+**Bilinen ayrı erişim açığı (P21 devri):** Mevcut öğrenci authorizer/liste handler'ı profil kimliği yerine UserId karşılaştırıyor. Ayrı profilId kullanan gerçek öğrenci 403/boş liste alabilir; N-44 durum/sürüm testleri mevcut StudentId==UserId sahiplik yolunu sınar. Gerçek profil çözümlemesi P21 öğrenci ödev akışına bırakıldı (ILERLEME #267).
 
 ### 2.2 🟢 Mevcut (koddan) — `LessonNote` (AggregateRoot<Guid>)
 
@@ -148,21 +160,9 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 
 **Yetki:** Oluşturma/arşivleme yalnız kaynağın öğretmeni (veya Admin). Listeleme/indirme: öğretmen kendi kaynaklarını (`teacherUserId` = kendisi), öğrenci `studentId` = kendisi olan **veya** `StudentId = null` (tüm öğrencilere açık) kaynakları görür. `LessonResourceAuthorizer` — varsayılan-deny.
 
-#### B) `AssignmentSubmission` (öğrenci ödev YÜKLEME — yeni Entity/Aggregate)
-Öğrenci ödevini **yükler** (`promp.txt`: "Öğrenci ödevlerini yüklemesi gerekir"). Ödevin teslim tarafı.
+#### B) `AssignmentSubmissionVersion` (P19 T3 — mevcut çocuk entity)
 
-| Alan | Tip | Açıklama |
-|------|-----|----------|
-| `Id` | `Guid` | |
-| `AssignmentId` | `Guid` | Hangi ödev |
-| `StudentId` | `Guid` | Yükleyen öğrenci |
-| `FileUrl` | `string` | Yüklenen dosya |
-| `StudentNote` | `string?` | Öğrenci açıklaması |
-| `SubmissionStatus` | enum (öneri) | `Submitted`, `Late`, `Resubmitted`, `Graded` |
-| `SubmittedOnUtc` | `DateTime` | Teslim zamanı |
-| `Grade` / `Feedback` | `string?` | (Opsiyonel) öğretmen değerlendirmesi |
-
-> Teslim sonrası `Assignment.Status` `InProgress`/`Completed`'a güncellenebilir; öğretmen değerlendirir.
+Teslimler ayrı aggregate yerine Assignment'ın `(AssignmentId, Number)` anahtarlı çocuklarıdır. Dosya, teslim anı, gecikme, puan ve geri bildirim sürümde tutulur; alanlar ve geçiş tablosu §2.1'de. Öğrenci açıklaması (`StudentNote`) ve ayrı `SubmissionStatus` enum'u henüz yoktur.
 
 ---
 
@@ -185,7 +185,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 
 **`LessonSessionFollowUpResponse` (koddan):** `LessonSessionId, Note: LessonNoteResponse, Assignments: AssignmentResponse[]`
 - `LessonNoteResponse`: `Id, LessonSessionId, TeacherUserId, StudentId, Summary, CoveredTopics?, Recommendations?, Visibility (string), CreatedOnUtc`
-- `AssignmentResponse`: `Id, StudentId, TeacherUserId, LessonSessionId?, Title, Description?, DueDateUtc?, Status (string), AttachmentUrl?, CreatedOnUtc, CompletedOnUtc?, TeacherFeedback?, Score?, GradedOnUtc?`
+- `AssignmentResponse`: `Id, StudentId, TeacherUserId, LessonSessionId?, Title, Description?, DueDateUtc?, Status (string), AttachmentUrl?, CreatedOnUtc, CompletedOnUtc?, TeacherFeedback?, Score?, GradedOnUtc?, SubmittedOnUtc?, IsLate, SubmissionVersions[]`
 
 **Hata kodu → HTTP eşlemesi (koddan):**
 | Kod | HTTP | Anlam |
@@ -196,6 +196,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | `assignments.lesson_session_not_completed` | `400` (varsayılan) | Oturum tamamlanmadan not/ödev oluşturulamaz |
 | `assignments.assignment_not_found` | `404` | Ödev yok (onay/geri gönder) |
 | `assignments.feedback_required` | `400` (varsayılan) | Geri gönderme için geri bildirim zorunlu |
+| `assignments.invalid_transition` | `400` | Geçiş tablosunda izin verilmeyen işlem |
 | `assignments.invalid_score` | `400` (varsayılan) | Puan 0–100 aralığında değil |
 | `assignments.grade_requires_approval` | `400` (varsayılan) | Yalnız onaylanmış ödev puanlanabilir |
 | `shared.forbidden` | `403` | Yetki yok |
@@ -205,12 +206,12 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 | Yetenek | Endpoint | Not |
 |---------|----------|-----|
 | Ödev tamamla | `POST /api/assignments/{assignmentId}/complete` | `MarkCompleted()`; yalnızca ödevin öğrencisi/admin |
-| Ödev çözümü yükle | `POST /api/assignments/{assignmentId}/submission` (multipart `file`) | **P04 (2026-09-03):** ortak `IFileStorage` (`assignments/{assignmentId}/` öneki); doğrulama `FileValidation` (10 MB + uzantı beyaz listesi → `storage.file_too_large` / `storage.unsupported_type` / `storage.empty_file`); yetki+doğrulama **yazmadan önce**; yeni dosya bağlanınca eskisi silinir. Teslim ödevi `InProgress` yapar; `AttachmentUrl` = indirme endpoint'i |
-| Teslim dosyasını indir | `GET /api/assignments/{assignmentId}/attachment` | `GetAssignmentAttachmentQuery` (authorizer: ödevin öğrencisi/öğretmeni/Admin) → anahtar çözülür → `IFileStorage.OpenReadAsync` ile akıtılır. **Public URL yok.** Ek yoksa/dosya kayıpsa `assignments.attachment_not_found` (404) |
+| Ödev çözümü yükle | `POST /api/assignments/{assignmentId}/submission` (multipart `file`) | **P04 (2026-09-03):** ortak `IFileStorage` (`assignments/{assignmentId}/` öneki); doğrulama `FileValidation` (10 MB + uzantı beyaz listesi → `storage.file_too_large` / `storage.unsupported_type` / `storage.empty_file`); yetki+doğrulama **yazmadan önce**; yeni dosya ayrı sürüm olur, eskisi korunur. Teslim ödevi `InProgress` yapar; `AttachmentUrl` = indirme endpoint'i |
+| Teslim dosyasını indir | `GET /api/assignments/{assignmentId}/attachment?version=N` | `GetAssignmentAttachmentQuery` (authorizer: ödevin öğrencisi/öğretmeni/Admin) → anahtar çözülür → `IFileStorage.OpenReadAsync` ile akıtılır. **Public URL yok.** Ek yoksa/dosya kayıpsa `assignments.attachment_not_found` (404) |
 
 > Sahiplik `AssignmentStudentActionAuthorizer` ile: tamamlama/teslim yalnızca öğrenci; indirme öğrenci+öğretmen.
 > Dosya önce belleğe alınır, komut/yetki başarılıysa diske yazılır (başka öğrencinin dosyasının üzerine
-> yazılması engellenir). Maks. 20 MB. **Depolama** yerel disk ile başlar; üretimde nesne depolamaya (S3/Blob) geçilebilir.
+> yazılması engellenir). Maks. 10 MB (FileValidation). **Depolama** yerel disk ile başlar; üretimde nesne depolamaya (S3/Blob) geçilebilir.
 
 ### 3.3 ✅ Öğretmen ödev onay / geri gönder (2026-07-18 eklendi — T-06.7/8)
 
@@ -245,7 +246,7 @@ Ders notundan **ayrı**; öğretmenin paylaştığı **kalıcı kaynak/materyal*
 6. **`AttachmentUrl` sahipliği (🟢 kodda):** Bu alan **öğretmen** tarafının ekidir (öğrencinin teslimi değil). Öğrenci teslimi 2026-09-03'te (P04) ayrı `Attachment*` alanlarına taşındı; tam ayrım için hâlâ ayrı bir `AssignmentSubmission` aggregate'i düşünülebilir (⚠️).
 7. **Son teslim uyarısı (🟢 kodda, 2026-09-04 / M06-3):** `AssignmentDueScanner` **saatte bir** koşar. Teslime **24 saat** kalan ve hâlâ teslim edilmemiş ödev için `AssignmentDueSoonDomainEvent`, vadesi geçip teslim edilmemiş ödev için `AssignmentMissedDomainEvent` üretir — her biri **ödev başına bir kez** (`DueSoonNotifiedOnUtc`/`MissedNotifiedOnUtc`). Teslim edilmiş (`InProgress`/`Completed`/`Approved`) ve iptal edilmiş ödevler taranmaz. Bildirim taramada gönderilmez; olaylar outbox → M11 tüketicilerine düşer.
 7a. **Puanlama (🟢 kodda, 2026-09-04 / M06-4):** Puan **0–100** ve yalnız `Approved` durumundaki ödeve verilir; tekrar puanlama serbesttir (son puan geçerlidir).
-8. **⚠️ Öğrenci yükleme zorunluluğu:** Öğrenci ödevini `AssignmentSubmission` ile yükler; geç teslim `Late` işaretlenir.
+8. **Teslim geçmişi (P19 T3):** Dosyalı/dosyasız her teslim sürümlenir. `IsLate` yerel son teslim gününe göre kaydedilir; mobil sürüm/gecikme rozeti henüz yoktur.
 9. **Sahiplik (yetki):** Öğretmen yalnızca kendi öğrencisine ödev/not verir; öğrenci yalnızca kendi ödev/not/kaynaklarını görür (`AssignmentPolicies.cs`).
 
 ---
@@ -271,7 +272,7 @@ AssignmentDueScanner (saatlik, M06-3)
 POST /assignments/{id}/grade (M06-4)
    → AssignmentGradedDomainEvent
 
-(öneri) Öğrenci ödev yükledi (AssignmentSubmission)
+Öğrenci ödev yükledi (AssignmentSubmissionVersion)
    → AssignmentSubmittedDomainEvent → öğretmene bildirim
 POST /assignments/{id}/complete
    → AssignmentCompletedDomainEvent
@@ -325,7 +326,7 @@ POST /assignments/{id}/complete
 - [x] Öğretmen ödevi onaylayabilir / geri bildirimle geri gönderebilir (T-06.7/8); geri gönderme için geri bildirim zorunlu.
 - [x] Ödev "tamamla" endpoint'i (`POST /{id}/complete` → `MarkCompleted`) — 2026-07-09 eklendi.
 - [x] `LessonResource` (ders kaynağı) — paylaşım + öğrenci görünümü **(2026-09-03, P04/M06-1)**; mobilde `LessonResourcesSection` öğretmen ders detayında "Kaynaklar" sekmesi, öğrenci ders detayında liste olarak.
-- [x] **Öğrenci teslimi + değerlendirme** — `POST /{assignmentId}/submission` (dosya) → `Assignment.SubmitWork` + `AssignmentSubmittedDomainEvent`; öğretmen `approve`/`return` ile değerlendirir. (Ayrı `AssignmentSubmission` varlığı yok; teslim alanları `Assignment` üzerinde tutuluyor.)
+- [x] **Öğrenci teslimi + değerlendirme** — `POST /{assignmentId}/submission` (dosya) → `Assignment.SubmitWork` + `AssignmentSubmittedDomainEvent`; öğretmen `approve`/`return` ile değerlendirir. (P19 T3: `AssignmentSubmissionVersion` çocukları teslimleri korur; güncel alanlar `Assignment` üzerinde de tutulur.)
 - [x] **Son teslim uyarısı** (öğrenci + veli bildirimi) — `AssignmentDueScanner` + iki M11 tüketicisi **(2026-09-04, P06/M06-3)**.
 - [x] **Ödev puanlama** (0–100, onaylı ödeve) + mobil değerlendirme akışı **(2026-09-04, P06/M06-4)**.
 - [x] **Öğrenci görünümü uçları** — `GET /` (`studentId` filtresi ile `ListAssignmentsQuery`) + `GET /{assignmentId}/attachment` + `GET /lesson-resources?studentId=` (2026-09-03, P04).
@@ -338,7 +339,7 @@ POST /assignments/{id}/complete
 > Öncelik sırasıyla:
 
 1. ✅ **Dosya depolama altyapısı** — ortak `IFileStorage` (P04); bkz. [`mimari_inceleme.md`](mimari_inceleme.md).
-2. **`AssignmentSubmission` (öğrenci yükleme)** + öğretmen değerlendirme + durum güncelleme.
+2. ✅ **Teslim sürümleri + geçiş koruması** (P19 T3). Mobil sürüm/geç teslim gösterimi ve profilId erişim düzeltmesi P21 devri.
 3. ✅ **`LessonResource` (ders kaynağı)** — aggregate + 4 endpoint + öğrenci görünümü **eklendi (2026-09-03, P04/M06-1)**.
 4. **Ödev güncelle/iptal endpoint'leri** (`PUT/DELETE /{id}`). Ödev "tamamla" (`POST /{id}/complete`) zaten mevcut (2026-07-09).
 5. ✅ **Son teslim uyarı otomasyonu** — `AssignmentDueScanner` + m11 tüketicileri (öğrenci + veli) **eklendi (2026-09-04, P06/M06-3)**.
@@ -364,3 +365,5 @@ POST /assignments/{id}/complete
 **Outbox teslimi (P19 T2 / N-42):** Otomatik ders notu zaten varsa başarılı etkisiz sonuç inbox'a yazılır. Kaynak oturum okunamıyorsa açık hata ile yeniden denenir; güncel kaynak tamamlanmış değilse atlanır. Null tamamlama/birleşme yükü poison olur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+*Güncelleme: 2026-11-15 — P19 Task 3 / N-44: durum koruması, teslim sürümleri, yerel geç teslim, eski dosyaların korunması, sürüm indirme ve göç.*

@@ -51,7 +51,7 @@ updated: 2026-11-15
 | M03 | Öğrenci Profili | [`m03_students.md`](m03_students.md) | `Students` | `/api/students` | 🟢 / 🟡 (self-register) |
 | M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link+tatil+erteleme+occurrence+öğrenci erteleme talebi, 2026-07-18) |
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
-| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (kaynak paylaşımı + onay/geri gönder + puanlama + son teslim uyarısı) |
+| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (teslim sürümleri + durum koruması + geç teslim; mobil sürüm gösterimi bekliyor) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
 | M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
 | M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
@@ -216,6 +216,9 @@ POST /from-schedule/{lessonScheduleId}   (tekil ders uyumluluk köprüsü; tekra
 GET /{lessonSessionId}   (öğrenci kendi profil kimlikleri; veli onaylı çocukları; liste de aynı kapsamda)
 ```
 ### Assignments — `/api/assignments`
+
+P19 T3: mevcut uçlarda durum geçişi hatası `400 assignments.invalid_transition`; yanıt `submittedOnUtc`, `isLate`, `submissionVersions` ekler. Attachment `?version=N` ile tarihî dosya indirir (aynı sahiplik, yoksa 404); parametresiz son dosya. Eski dosyalar korunur; eşzamanlı sürüm/xmin yarışı 409. Yeni uç yok. Öğrenci profilId/UserId erişim ayrımı P21 devridir; tarayıcı düzeltmesi P19 T4.
+
 ```
 GET  /            (liste)
 POST /lesson-sessions/{lessonSessionId}/follow-up
@@ -420,3 +423,5 @@ GET /api/matching/status   /api/reviews/status
 **P19 T2 / N-42:** Ortak outbox dağıtımı her tüketiciyi dener; başarılı tüketiciler inbox sayesinde tekrar uygulanmaz. Bozuk yük açık poison, geçici eksiklik istisna, geçerli etkisiz sonuç başarılı inbox kaydıdır. Dead-letter Error başarısız handler adlarını/türlerini taşır. Endpoint veya olay şeması değişmedi. [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: outbox tüketici izolasyonu.*
+
+*Güncelleme: 2026-11-15 — P19 Task 3: Assignments teslim sürümleri ve geçiş sözleşmesi.*

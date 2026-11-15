@@ -44,8 +44,9 @@ public sealed class AssignmentsPersonalDataAnonymizer : IPersonalDataAnonymizer
             .ToArrayAsync(cancellationToken);
 
         foreach (var key in assignments.Select(assignment => assignment.AttachmentStorageKey)
+                     .Concat(assignments.SelectMany(x => x.SubmissionVersions).Select(x => x.StorageKey))
                      .Concat(resources.Select(resource => resource.StorageKey))
-                     .Where(key => !string.IsNullOrWhiteSpace(key)))
+                     .Where(key => !string.IsNullOrWhiteSpace(key)).Distinct())
         {
             await _fileStorage.DeleteAsync(key!, cancellationToken);
         }

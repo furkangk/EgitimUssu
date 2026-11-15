@@ -289,11 +289,12 @@ public sealed class AssignmentsModule : ModuleDefinition
     private static async Task<IResult> DownloadAttachmentAsync(
         HttpContext context,
         Guid assignmentId,
+        int? version,
         IQueryDispatcher dispatcher,
         IFileStorage fileStorage,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(new GetAssignmentAttachmentQuery(assignmentId), cancellationToken);
+        var result = await dispatcher.Dispatch(new GetAssignmentAttachmentQuery(assignmentId, version), cancellationToken);
         if (!result.IsSuccess)
         {
             return result.Error.Code switch

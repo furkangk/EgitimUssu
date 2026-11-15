@@ -77,7 +77,7 @@ public sealed class AssignmentSubmissionStorageTests
     }
 
     [Fact]
-    public async Task Upload_Should_Delete_Previous_Attachment()
+    public async Task Upload_Should_Keep_Previous_Attachment_As_A_Version()
     {
         var storage = new RecordingFileStorage();
         var assignment = CreateAssignment();
@@ -87,8 +87,26 @@ public sealed class AssignmentSubmissionStorageTests
         var firstKey = assignment.AttachmentStorageKey;
         await handler.Handle(Command(assignment.Id, "ikinci.pdf", 16), default);
 
-        Assert.Equal(new[] { firstKey }, storage.Deleted);
+        Assert.Empty(storage.Deleted);
+        Assert.Equal(firstKey, assignment.SubmissionVersions.OrderBy(x => x.Number).First().StorageKey);
         Assert.NotEqual(firstKey, assignment.AttachmentStorageKey);
+    }
+
+    [Fact]
+    public async Task Upload_To_Approved_Assignment_Should_Reject_Before_Storage_Write()
+    {
+        var storage = new RecordingFileStorage();
+        var assignment = CreateAssignment();
+        var handler = CreateHandler(assignment, storage);
+        await handler.Handle(Command(assignment.Id, "ilk.pdf", 16), default);
+        assignment.Approve(null, Now);
+        assignment.Grade(80, null, Now);
+        var result = await handler.Handle(Command(assignment.Id, "yeni.pdf", 16), default);
+        Assert.True(result.IsFailure);
+        Assert.Equal("assignments.invalid_transition", result.Error.Code);
+        Assert.Single(storage.Saved);
+        Assert.Empty(storage.Deleted);
+        Assert.Equal(80, assignment.Score);
     }
 
     [Fact]
@@ -141,7 +159,7 @@ public sealed class AssignmentSubmissionStorageTests
             new MemoryStream(new byte[Math.Min(sizeBytes, 64)]));
 
     private static SubmitAssignmentWorkCommandHandler CreateHandler(Assignment assignment, IFileStorage storage)
-        => new(new FakeAssignmentRepository(assignment), storage, new FixedClock(Now));
+        => new(new FakeAssignmentRepository(assignment), storage, new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
     private static Assignment CreateAssignment()
         => new(

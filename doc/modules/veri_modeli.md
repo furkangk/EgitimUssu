@@ -102,6 +102,19 @@ updated: 2026-11-15
 
 ---
 
+### P19 T3 — Ödev teslim sürümleri
+
+`assignments.assignments` yeni `SubmittedOnUtc` (`timestamptz?`) ve `IsLate` (`bool`) tutar. `assignments.assignment_submission_versions`:
+
+| Anahtar / alan | Tür / kural |
+|---|---|
+| `(AssignmentId, Number)` | Composite PK, Number 1'den artar, client-generated; Assignment'a cascade FK |
+| `SubmittedOnUtc`, `IsLate` | timestamptz, bool; yerel gün sonuna göre |
+| `AttachmentUrl`, `StorageKey`, `FileName`, `ContentType`, `SizeBytes` | Nullable; üst sınırlar 512/512/256/128 karakter, long? |
+| `Score`, `GradedOnUtc`, `TeacherFeedback` | Nullable int/timestamptz/varchar(2000); sürümün son değerlendirmesi |
+
+Assignment : sürüm = **1:N**; EF AutoInclude. Aggregate xmin yarışı + çocuk PK yarışı aynı 409 sözleşmesindedir. Son dosya Assignment'ta da bulunur. Anonimleştirme bütün sürüm dosya/metinlerini temizler. `AssignmentStateAndSubmissions` eski teslimleri sürüm1'e taşır: son outbox teslim zamanı → CompletedOnUtc → yaklaşık CreatedOnUtc. Down güncel Assignment alanlarını tutar ama sürüm geçmişini kaldırır. Detay ve bilinen profilId erişim açığı: [M06](m06_assignments.md).
+
 ## 3. ER Diyagramı (Mantıksal — 🟢 mevcut + ⚠️ önerilen)
 
 ```mermaid
@@ -155,7 +168,7 @@ erDiagram
     LessonSession ||--o| LessonNote : "LessonSessionId"
     LessonSession ||--o{ PaymentRecord : "RelatedLessonSessionId"
     PaymentRecord ||--o{ PaymentTransaction : "PaymentRecordId"
-    Assignment ||--o{ AssignmentSubmission : "öğrenci yükleme (önerilen)"
+    Assignment ||--o{ AssignmentSubmissionVersion : "teslim sürümleri (mevcut)"
 
     Conversation ||--o{ ConversationParticipant : "önerilen"
     Conversation ||--o{ Message : "önerilen"
@@ -189,6 +202,7 @@ erDiagram
 | | `LessonChangeRequest` (öğrenci ders erteleme talebi, Ö-F 2026-07-18; **P17 T1:** `OccurrenceStartAtUtc` — ertelenecek oluşumun orijinal başlangıcı, tekrarlı derste zorunlu, eski tekrarlı talepte NULL) | `Id` | `LessonScheduleId` → LessonSchedule · `StudentId` → StudentProfile · `TeacherUserId` → UserAccount | [m04](m04_scheduling.md) |
 | LessonSessions (`lesson_sessions`) | `LessonSession` (+`IsChargeable`; P17 T3: `OccurrenceStartUtc timestamptz?`, UNIQUE `(LessonScheduleId, OccurrenceStartUtc)` WHERE `LessonScheduleId IS NOT NULL`) | `Id` | `LessonScheduleId?` → LessonSchedule · `TeacherUserId` · `StudentId` | [m05](m05_lesson_sessions.md) |
 | Assignments (`assignments`) | `Assignment` (+`TeacherFeedback` — T-06.7/8 2026-07-18; +`Score`/`GradedOnUtc` — M06-4 2026-09-04; +`DueSoonNotifiedOnUtc`/`MissedNotifiedOnUtc` — M06-3 2026-09-04) | `Id` | `StudentId` · `TeacherUserId` · `LessonSessionId?` | [m06](m06_assignments.md) |
+| | `AssignmentSubmissionVersion` (`assignment_submission_versions`, P19 T3) | `(AssignmentId, Number)` | Assignment cascade FK; teslim/dosya/puan geçmişi | [m06](m06_assignments.md) |
 | | `LessonNote` (+`Visibility` — B-05 2026-07-18) | `Id` | `LessonSessionId` · `TeacherUserId` · `StudentId` | |
 | | `LessonResource` (ders kaynağı — dosya/bağlantı, M06-1 2026-09-03; `(TeacherUserId,IsActive)` + `(StudentId,IsActive)` indeksli, yumuşak silme) | `Id` | `TeacherUserId` · `StudentId?` (null = tüm öğrencilere açık) · `LessonSessionId?` | `Kind`, `StorageKey`, `FileName`, `ContentType`, `SizeBytes`, `Url`, `IsActive`, `ArchivedOnUtc?` |
 | Payments (`payments`) | `PaymentRecord` (M07-1: `OverdueMarkedOnUtc` `timestamptz?` — tarama turunun `Overdue` işaretlediği an) | `Id` | `TeacherUserId` · `StudentId` · `RelatedLessonSessionId?` | [m07](m07_payments.md) |
@@ -234,7 +248,7 @@ erDiagram
 | Modül | Önerilen varlık(lar) | Anahtar alanlar / referanslar | Doc |
 |-------|----------------------|-------------------------------|-----|
 | M04 Scheduling | (Dilim A tamamlandı 2026-07-18: `MeetingUrl`, `TimeOffBlock`, `LessonOccurrenceException` artık **kodda**; Ö-F: `LessonChangeRequest` öğrenci erteleme talebi **kodda**) | — | [m04](m04_scheduling.md) |
-| M06 Assignments | **`AssignmentSubmission`**, **`LessonResource`** | `AssignmentId`→Assignment, öğrenci yükleme; kaynak (`TeacherUserId`,`LessonSessionId?`) | [m06](m06_assignments.md) |
+| M06 Assignments | ✅ `AssignmentSubmissionVersion` + `LessonResource` mevcut | Teslim sürümleri P19 T3, kaynak P04 | [m06](m06_assignments.md) |
 | M07 Payments | `PaymentRecord`+**`IsSharedWithParent`** | veli görünürlüğü | [m07](m07_payments.md) |
 | M10 ProgressTracking | ✅ `TopicMastery` (**+`AttendedLessonCount`/`TotalLessonMinutes`, 2026-09-04 / P08 Task 2 — M05 ders katılımı**), `TopicGoal`, `ProgressSnapshot` (`progress_snapshots`, **2026-09-04 / P08 Task 1**), `InboxMessage` (kodda, `progress_tracking` şeması — eski `ProcessedEvent`/`processed_events` **kaldırıldı 2026-08-26**, ortak inbox'a taşındı, bkz. §1 not) | `StudentId`→StudentProfile; `ProgressSnapshot` UNIQUE `(StudentId, Subject, Period, PeriodStart)` — aynı dönem iki kez yazılamaz; `InboxMessage` `(EventId,Handler)` idempotency | [m10](m10_progress_tracking.md) |
 | M12 Matching | **`TeacherListing`**, **`StudentRequestListing`**, **`MatchRequest`**, `TeacherSearchProjection` | `TeacherUserId`/`StudentUserId`; konum+yıldız+premium sıralama | [m12](m12_matching.md) |
@@ -275,3 +289,5 @@ erDiagram
 *Güncelleme: 2026-11-15 — P18 T2: PaymentTransaction çocuk tablosu ve tahsilat/iade aylık item türleri (4/5).*
 
 *Güncelleme: 2026-11-15 — P18 T3: beyan kısmi benzersizliği ve xmin.*
+
+*Güncelleme: 2026-11-15 — P19 Task 3: teslim sürümleri tablosu ve geç teslim alanları.*

@@ -110,7 +110,7 @@
 
 **Kanıt (2026-11-15):** İmza Release derlemesi 0 uyarı/0 hata; gerçek birim RED **7 başarısız/11 başarılı** → GREEN. Son `bash scripts/test-with-docker.sh` (exit 0): **19 mimari/1242 birim/183 integration**, başarısız **0**, atlanan **0**. Yeni 4 birim + 6 gerçek PostgreSQL vaka; 4 handler'da ikinci hata, SQL rollback + staged sızıntı yok, diğerleri bir kez; ikinci teslimde yalnız başarısız handler ve hem toparlanma hem dead-letter kanıtlandı. Null/bozuk JSON/boş alıcı gerçek MessageSent tüketicisinde handler adı + PoisonMessageException ile dead-letter, inbox yok, yük hata metnine sızmıyor. Tüm kayıtlı üretim tüketicileri inbox tabanında; kaynak taramasında belirsiz false yok. Ücretsiz veya ücreti tanımlanmamış ders inbox'a başarılı etkisiz kayıt, okunamayan kaynak oturum açık hata. Son Release `-warnaserror --no-incremental` 0/0; tool restore başarılı. Doc health RED0/mevcut2YELLOW+1BLUE (dokunulan M16 tarih uyumsuzluğu da giderildi). Mobil/migration yok; Flutter/drift/Down gerekmedi. Loglar `/tmp/egitimussu-p19t2-{baseline,signature,red,green,real-first,docker,docker-final,release,tool-restore,doc-health-final}.log`.
 
-### Task 3: Ödev durum makinesi ve teslim sürümleri (N-44)
+### Task 3: Ödev durum makinesi ve teslim sürümleri (N-44) ✅
 
 **Files:**
 - Modify: `src/Modules/Assignments/Domain/AssignmentsDomainModel.cs` (geçiş tablosu; `SubmittedOnUtc`, `IsLate`; `AssignmentSubmissionVersion` çocuk entity; puanlanmış dosya silinmez)
@@ -124,12 +124,25 @@
 - `ReturnForRevision` puanı **sıfırlar**; puan geçmişi sürümde kalır.
 - `IsLate = SubmittedOnUtc > DueAtUtc` (yerel gün sonu kuralıyla).
 
-- [ ] **Step 1: Kırmızı testler** — onaylanmış ödeve yeni dosya → 400, eski dosya **duruyor**; `MarkCompleted` `ReturnedForRevision`'ı ezemez; teslimsiz ödev onaylanamaz; revizyona dönen ödevde `Score == null`; son tarihten sonra teslim `IsLate == true`.
-- [ ] **Step 2–4: Kırmızı gör → uygula (+ migration) → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m06_assignments.md`; rapor N-44 ✅.
+**Koddan doğrulanan kapsam / kararlar (2026-11-15):**
+- Modify: `src/Modules/Assignments/Application/AssignmentTeacherFeatures.cs` (Result geçiş hatalarının yayılması)
+- Modify: `src/Modules/Assignments/Infrastructure/AssignmentsDbContext.cs` (çocuk composite anahtar/FK + AutoInclude), `AssignmentsPersonalDataAnonymizer.cs` (tüm sürüm dosyaları ve geri bildirimleri de temizlenir), `AssignmentRepository.cs` (yalnız çocuk sürüm PK yarışını xmin gibi 409 yapar)
+- Modify: `src/Modules/Assignments/API/AssignmentsModule.cs` (mevcut attachment ucuna isteğe bağlı `version` sorgusu)
+- Modify: `tests/Unit/AssignmentTests.cs`, `AssignmentSubmissionStorageTests.cs` (takvim imzaları, eski dosya artık korunur)
+- Create: `tests/Integration/RealAssignmentSubmissionTests.cs` (gerçek HTTP/dosya/PG, yetki, concurrency, anonimleştirme ve ayrı DB göç Up/Down/Up kanıtı)
+- Migration files: `src/Modules/Assignments/Infrastructure/Migrations/*_AssignmentStateAndSubmissions.cs`, aynı `.Designer.cs` ve `AssignmentsDbContextModelSnapshot.cs`.
+- Docs: `doc/modules/m06_assignments.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/veri_modeli.md`, `doc/roles/ogrenci.md`, `doc/roles/ogretmen.md`, N-44 denetim satırı.
+
+**Interfaces — geriye uyum:** `IAssignmentRepository` değişmez (gerçek depo + iki test sahtesi doğrulandı). Durum adları/değerleri korunur: Assigned=`Pending`; Submitted=`InProgress` (dosya) veya `Completed` (dosyasız). İkisi de onay/revizyon/yeni dosya kabul eder; `MarkCompleted` yalnız Pending'den. Approved/Cancelled terminaldir; Cancel yalnız Pending'den domain'de, yeni iptal ucu yok. `MarkCompleted/SubmitWork/AttachSubmission/Approve/ReturnForRevision` Result döner; ilk üçü `ILocalCalendar` alır. Teslim anı/IsLate son sürümden; son tarih yerel günün son mikro-saniyesi (`DayRangeUtc.EndUtc - 10 tick`), gün sınırı yalnız takvimden. Çocuk `(AssignmentId, Number)` anahtarlı; tüm dosyalar korunur, aynı attachment ucunda `?version=N` ile yetkili indirilir; response `SubmissionVersions` dosya anahtarı sızdırmaz. Puan yalnız Approved'da, yeniden puanlama son sürüme yazılır; revizyon aggregate puanını temizler, tarihî sürüm puanını tutar. Approved'dan revizyon açılmaz. Eski DB'de teslim güncelleme zamanı **yok**: migration önce mevcut outbox AssignmentSubmitted/Completed olaylarından son teslim anını, yoksa CompletedOnUtc, yoksa CreatedOnUtc kullanır (tahmini fallback açıkça belgelenir). Öğretmenin Pending ek bağlantısı teslim sayılmaz. Şema göçü eski enum/olay şekillerini değiştirmez; yerel tarih dönüşümü mevcut varsayılan Europe/Istanbul. T4 tarayıcısı bu görevde değişmez.
+
+- [x] **Step 1: Kırmızı testler** — onaylanmış ödeve yeni dosya → 400, eski dosya **duruyor**; `MarkCompleted` `ReturnedForRevision`'ı ezemez; teslimsiz ödev onaylanamaz; revizyona dönen ödevde `Score == null`; son tarihten sonra teslim `IsLate == true`.
+- [x] **Step 2–4: Kırmızı gör → uygula (+ migration) → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `m06_assignments.md`; rapor N-44 ✅.
   ```bash
   git commit -m "fix(assignments): durum makinesi, teslim surumleri, gec teslim isareti (N-44)"
   ```
+
+**Kanıt (2026-11-15):** İmza Release 0 uyarı/0 hata; gerçek birim RED26başarısız/17başarılı → ilgili75yeşil. Dört gerçek PostgreSQL vaka ilk2kırmızı/2yeşil (göç0yerine4sürüm ve PKyarışı500), sonra4/4yeşil: HTTP revizyon/iki sürüm/onay/puan/korunan dosya+yetki; eşzamanlı yüklemede200/409 ve tek blob/sürüm/olay; tüm sürümlerin tekrarlanabilir anonimleştirmesi; ayrıDB’de6eski durumdan4sürüm1, doğru son olay zamanı/fallback/gecikme/puan ve Down/Up. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1277 birim / 187 integration**, **başarısız0/atlanan0**, exit0. Release `-warnaserror --no-incremental`0/0, drift0,166Down, toolrestore başarılı. Mobil değişmedi (Flutter gerekmedi). Doc health RED0/mevcut2YELLOW+1BLUE. Mevcut profilId/UserId erişim açığı T3 kapsamı dışında P21'e devredildi (ILERLEME#267); tarayıcı T4'te. Loglar `/tmp/egitimussu-p19t3-{baseline,signature,red,green,real-red,real-green,docker,release,drift,down,doc-health}.log`.
 
 ---
 
@@ -221,4 +234,4 @@
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 — P19 Task 2 tamamlandı (2/8); sırada yalnız Task 3 (N-44), başlamadı.*
+*Güncelleme: 2026-11-15 — P19 Task 3 tamamlandı (3/8); sırada yalnız Task 4 (N-45), başlamadı.*

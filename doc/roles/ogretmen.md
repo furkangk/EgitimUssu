@@ -18,6 +18,8 @@ updated: 2026-11-15
 > **Güncelleme:** 2026-11-15
 
 
+**Ödev teslimi (P19 T3, backend):** İlk atamada dosyasız tamamlama veya dosya teslimi yapılır. Dosyalı/dosyasız teslim öğretmence onaylanabilir veya revizyona dönebilir; revizyon için yeni dosya gerekir. Onaydan sonra dosya değişmez. Her teslimin dosyası ve değerlendirmesi ayrı sürümde korunur, geç teslim yerel gün sonuna göre işaretlenir. API sürüm geçmişi ve yetkili indirme sunar; mobil sürüm/geç teslim gösterimi henüz yoktur. Öğrenci profilId/UserId erişim düzeltmesi P21'e devredildi (ILERLEME #267), tarayıcı düzeltmesi P19 T4'tedir.
+
 **Ders hatırlatması (P17 T6):** Gelecek 7 günün her aktif oluşumu için öğretmen, bağlı öğrenci hesabı ve ders tercihi açık onaylı velilere ayrı push planlanır. Genel push/ders tercihi gönderimde uygulanır; veli onayı yeniden denetlenir. İptal/silme eski hatırlatmayı kapatır, erteleme saati/metni yeniler. Başlayan ders veya 30 dakikadan fazla gecikmiş uyarı gönderilmez. Gerçek cihaz FCM doğrulaması Q8/P25 T5'tedir.
 
 ---
@@ -263,3 +265,5 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 Öğretmen `1.500` / `750,50` biçiminde tutar girebilir; kuruşlar korunur. Tahsilat ayrı bir hareket olarak kaydedilir, eski ekranın toplamı sunucuyu ezmez. Düzenlemede tahsilat ve para birimi kilitlidir; iptal ayrı komuttur ve net tahsilat varsa önce iade ister. Özet ve grafiklerde para birimi seçilir; öğrenci detayında TRY/USD ayrı metriklerdir. Ağ sonucu belirsizse aynı işlem tekrarında ilk anahtar/gövde korunur; uygulamayı kapatıp açma bu korumaya dahil değildir. Mobil iade formu ve veli beyanı ekranı bu görevde eklenmedi (beyan ekranı P21 T5).
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+*Güncelleme: 2026-11-15 — P19 Task 3: ödev durum/sürüm kuralları ve mobil/erişim devirleri.*
