@@ -164,22 +164,18 @@ public sealed class StudyCompletionService
         }
 
         var streakDate = _calendar.StudyDay(studiedOn);
-        var (streakDayStartUtc, streakDayEndUtc) = _calendar.DayRangeUtc(streakDate);
-        var daySessions = await _repository.ListCompletedSessionsAsync(
-            session.StudentId,
-            streakDayStartUtc,
-            streakDayEndUtc,
-            cancellationToken);
-        var dayTotal = daySessions.Sum(s => s.EffectiveMinutes);
-
+        var today = _calendar.StudyDay(now);
+        var (_, endUtc) = _calendar.StudyDayRangeUtc(today);
+        // SQL henüz Added/Modified olan mevcut seansı görmeyebilir; hesaplayıcı ID ile birleştirir.
+        // Geçmiş günün daha önce sayıldığını tek LastStudiedOnDate alanı ispatlayamaz.
+        var sessions = await _repository.ListCompletedSessionsAsync(
+            session.StudentId, DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc), endUtc, cancellationToken);
         var goal = await _repository.GetActiveGoalAsync(session.StudentId, cancellationToken);
-        var thresholdPercent = goal?.StreakThresholdPercent ?? 60;
-        var dailyGoal = goal?.DailyGoalMinutes ?? 0;
-
-        if (StreakRules.DayCounts(dayTotal, dailyGoal, thresholdPercent))
-        {
-            streak.RegisterStudyDay(streakDate, now);
-        }
+        var days = StudyStreakCalculator.QualifyingDays(sessions, session, goal, _calendar);
+        if (days.Contains(streakDate))
+            streak.RegisterStudyDay(streakDate, days, today, now);
+        else
+            streak.Recalculate(days, today, now);
 
         await _repository.SaveChangesAsync(cancellationToken);
 

@@ -175,13 +175,15 @@ Motivasyon çekirdeği: ardışık çalışılan gün sayısı ve kişisel rekor
 | `TotalStudyDays` | `int` | ✓ | Toplam çalışılan gün sayısı |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
 
-**Davranış:** `RegisterStudyDay(localDate)` →
-- aynı gün ise no-op,
-- dün ise `CurrentStreakDays++`,
-- arada boşluk varsa `CurrentStreakDays = 1` (seri kırıldı, `StreakBrokenDomainEvent`),
-- `LongestStreakDays` güncellenir; rekor kırılırsa `StreakMilestoneReachedDomainEvent`.
+**Davranış (P19 T1 / N-40):** `StudyStreakCalculator` tamamlanmış seansları **bitiş anının seri gününe** gruplar. SQL'de henüz görünmeyen mevcut seans ID ile birleştirilir; zaten listelenmişse ikinci kez eklenmez. `RegisterStudyDay(localDate, studyDays, today, nowUtc)` ve `Recalculate` tarih sıralı tekil günlerden toplamı, son günü, en uzun ve güncel ardışıklığı kurar. Aynı geçmiş güne iki manuel giriş yalnız bir gün sayar; eksik geçmiş gün ardışıklığı da birleştirir. `Recalculate` geçmiş bildirim olaylarını üretmez; normal tamamlamada yeni rekor ve ileri tarihte seri kırılması mevcut olaylarla bildirilir.
 
-**Streak eşiği (B3):** `RegisterStudyDay` artık her tamamlanan seansta çağrılmaz. `StudyCompletionService`, o günün (04:00 tabanlı `StudyLocalTime.StudyDay`) toplam efektif dakikasını hesaplar ve yalnız eşik aşılınca günü seriye işler. Eşik saf `StreakRules` sınıfındadır: günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk** (`MinFixedThresholdMinutes`). Gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).
+**Eşik ve saat:** Günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk**. Pencere yerel **[04:00, ertesi gün 04:00)** (`StudyDayRangeUtc`); TR 01:30 önceki seri günüdür, tam 04:00 yeni gündür. `StudyDay` yerel duvar saatini kullanır; DST olan dilimlerde de 04:00 korunur. Yeniden hesap mevcut aktif hedefi kullanır; hedef geçmişi tutulmaz. İstatistikte bugünkü dakikalar ve haftalık özet yerel **gece yarısını** korur.
+
+**Okuma:** `CurrentAt(studyDay)` son uygun gün dünden eskiyse **0** döndürür; rekor/toplam/son gün korunur. `GET streak` (`studiedToday` dahil), dashboard, başarım ilerlemesi ve veli `IStudyDigestDirectory` bu kuralı paylaşır. Seri eşiğine ulaşmamış bugünkü dakika, `studiedToday=true` yapmaz.
+
+**Tek seferlik onarım:** `Study:RepairStreaksOnStartup=true` (varsayılan kapalı) ile migration/demo seed sonrası, HTTP öncesi `StudyStreakRepairJob` çalışır. Öğrencileri 100'lük partilerle seanslardan yeniden kurar; seansı kalmamış eski sayaçları da sıfırlar. PostgreSQL transaction advisory lock (`study:streak-repair-v1`) ile tüm onarım ve `module_states` işareti atomiktir. Sonraki açılışlar/çağrılar işaret nedeniyle yazmaz; hata açılışı durdurur ve tekrar denenebilir. Şema/migration değişmez; eski rozetler geri alınmaz ve eski olaylar tekrar yayımlanmaz. Oturum başına seans geçmişi yeniden okunur; özetlenmiş gün tablosu henüz yoktur.
+
+**Kanıt:** EF InMemory ile kaydetmeden önce manuel/kronometre bitişi, 04:00 eşiği, geçmiş gün tekilliği, kırılmış okuma ve onarım; gerçek PostgreSQL + HTTP seri senaryosu. Ayrı yerel **Staging** veritabanındaki 12 demo seansta iki öğrencinin kontrollü `99/99/99` sayaçları **`0/1/6`** oldu; işaret yazımına eklenen yapay hata ara parti yazımlarını geri aldı; ikinci başarılı çağrı ve yeniden açılış aynı değerleri/tarihleri korudu (15 Kasım 2026).
 
 ### 2.5 `Achievement` / `StudentAchievement` — Başarım rozetleri
 
@@ -368,7 +370,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - Aynı anda bir öğrencinin yalnızca **bir `Running`/`Paused` seansı** olabilir (yeni başlatma öncekini engeller veya devralmayı önerir).
 - `Discarded` seanslar hiçbir istatistiğe (süre, streak, konu rollup) **dahil edilmez**.
 - Çok uzun (örn. > 8 saat) açık kalan seans için otomatik kapatma/uyarı önerilir (sayaç unutulması).
-- **Seans düzenle/sil (S-08.10):** Yalnızca **tamamlanmış** seans düzenlenir (`EditCompleted`: ders/konu/süre/not; süre > 0). Düzenleme/silme sonrası ilgili `(Subject, Topic)` **konu rollup'ı** (`StudyTopic`) o öğrencinin tamamlanmış seanslarından **yeniden türetilir** (`StudyRecompute.RebuildTopicAsync`; konu değişirse hem eski hem yeni konu için). Kalan seans yoksa rollup silinir. **Streak zinciri v1'de retroaktif geri sarılmaz** (YAGNI): o günün streak-uygunluğu bir sonraki seans kaydında yeniden değerlendirilir.
+- **Seans düzenle/sil (S-08.10):** Yalnızca **tamamlanmış** seans düzenlenir (`EditCompleted`: ders/konu/süre/not; süre > 0). Düzenleme/silme sonrası ilgili `(Subject, Topic)` **konu rollup'ı** (`StudyTopic`) o öğrencinin tamamlanmış seanslarından **yeniden türetilir** (`StudyRecompute.RebuildTopicAsync`; konu değişirse hem eski hem yeni konu için). Kalan seans yoksa rollup silinir. Seri sayaçları düzenle/sil anında güncellenmez; bir sonraki tamamlama tüm seans geçmişinden yeniden hesaplar (olay yayılımı P19 T5).
 
 ### 4.2 Manuel giriş
 - Kronometre kullanmadan geçmişe dönük seans eklenebilir (`Source = Manual`); `studiedOnUtc` bugünden ileri olamaz.
@@ -381,9 +383,9 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; düzenlemede `PenaltyDivisor` verilmezse mevcut bölen korunur (LGS `3` ve yanlış götürmeyen okul sınavı metadata düzeltmesiyle `4`'e dönmez); silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
 ### 4.4 Streak & hedef
-- Bir gün **en az 1 tamamlanmış seans** (veya günlük hedef dakikasının karşılanması — konfigüre edilebilir) o günü "çalışılmış" sayar.
-- Seri, öğrencinin **yerel takvim günü** üzerinden hesaplanır (zaman dilimi M15'ten).
-- Günlük hedef karşılandığında `dashboard.todayProgress` "tamamlandı" döner; ardışık günlerde rozet eşiği kontrol edilir.
+- Yalnız tamamlanmış seanslar ve §2.4'teki günlük eşik sayılır; tek kısa seans kendiliğinden bir gün oluşturmaz.
+- Seri günü `ILocalCalendar` üzerinde yerel 04:00'te döner. Günlük/haftalık dakika istatistiği gece yarısını kullanır.
+- Günlük hedef karşılandığında dashboard ilerlemesi tamamlandı döner; seri rozetleri uygun günlerin ardışıklığından değerlendirilir.
 
 ### 4.5 Gizlilik & paylaşım (PRD §M08 "Veli ile Paylaşım")
 - Öğrenci, her veri türü için (çalışma süresi / test) veli ve öğretmenle paylaşımı **ayrı ayrı** kontrol eder (`IsSharedWith*` bayrakları + M15 tercihleri).
@@ -535,3 +537,5 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P19 Task 1 / N-40: kaydedilmemiş seans, 04:00 penceresi, tekil geçmiş gün, kırılmış seri okuması ve tek seferlik onarım.*

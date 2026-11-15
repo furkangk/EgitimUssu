@@ -40,6 +40,8 @@ updated: 2026-11-15
 
 **P18 T6 (2026-11-15):** Gerçek HTTP/PostgreSQL/outbox finans senaryosu M04→M05→M07→M14 zincirini kapsar: ücretli ders→500 TRY borç→200 nakit→300 veli beyanı/onayı→100 iade→400 net/100 açık. İkinci cihazın eşzamanlı bayat not yazımı409, aynı eski gövdeyle tekrar200; tahsilat korunur. Aylık HTTP500 beklenen/400 net, projeksiyon100 iade ve aynı üç hareket kimliği doğrulanır. Yeni endpoint/üretim davranışı/migration yoktur.
 
+**P19 T1 / N-40 (2026-11-15):** M08 seri hesabı mevcut kaydedilmemiş seansı ID ile bir kez katar; uygun günler yerel 04:00 sınırına göre tekilleşir. Kırılmış seri sorgu/pano/başarım/veli özetinde sıfır okunur. `Study:RepairStreaksOnStartup` bayraklı tek seferlik onarım HTTP öncesi, transaction kilidi + `module_states` işaretiyle atomiktir. Yeni endpoint/şema yok; ayrıntı [M08 §2.4](m08_study.md#24-studystreak-aggregateroot--çalışma-serisi--rekor).
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -412,3 +414,5 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
 
 *Güncelleme: 2026-11-15 — P18 T5: modüller arası ortak idempotency gövde sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P19 Task 1 / N-40: M08 seri davranışı ve onarım işi.*

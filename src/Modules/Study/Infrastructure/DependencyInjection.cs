@@ -24,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<StudyMembershipResolver>();
         services.AddScoped<AchievementEvaluator>();
         services.AddScoped<StudyCompletionService>();
+        services.AddScoped<StudyStreakRepairJob>();
+        services.AddHostedService<StudyStreakRepairInitializer>();
 
         // Öğrenci-kapsamlı istekleri koruyan kapalı-generik sahiplik yetkilendiricileri
         // (AuthorizationCoverageValidator kapalı servis tipi bekler).

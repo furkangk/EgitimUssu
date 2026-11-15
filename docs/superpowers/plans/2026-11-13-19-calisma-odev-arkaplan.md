@@ -24,7 +24,7 @@
 
 ---
 
-### Task 1: Çalışma serisi (streak) düzeltmesi (N-40)
+### Task 1: Çalışma serisi (streak) düzeltmesi (N-40) ✅
 
 **Files:**
 - Modify: `src/Modules/Study/Application/StudySessionFeatures.cs` (`RecordCompletedAsync`: günlük toplam = DB'deki tamamlanmış seanslar **+ mevcut seans** (zaten listede değilse); pencere 04:00 seri gününe hizalı)
@@ -35,15 +35,24 @@
 - Create: `src/Modules/Study/Infrastructure/StudyStreakRepairJob.cs` (tek seferlik: tüm öğrencilerin serisini seanslardan yeniden hesaplar; `Study:RepairStreaksOnStartup` bayrağıyla, idempotent)
 - Test: `tests/Unit/StudyStreakEfTests.cs` (EF InMemory), `tests/Integration/RealStudyStreakTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — günde tek 90 dk seans (hedef 60) → seri **1**; manuel seans aynı; TR 01:30'da biten seans **önceki seri gününe** sayılır; aynı geçmiş güne iki manuel giriş → `TotalStudyDays` +1; 10 gün önce bırakan öğrenci → okumada **0**; onarım işi iki kez koşunca aynı sonuç.
-- [ ] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Onarım işini staging demo verisinde koş**, önce/sonra seri değerlerini ILERLEME'ye yaz.
-- [ ] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 6: Doküman + commit** — `m08_study.md` (seri kuralı); rapor N-40 ✅.
+- Create: `src/Modules/Study/Application/StudyStreakCalculator.cs` (seanslardan tekil uygun günleri türetme; yeni depo arayüzü yok)
+- Modify: `src/Modules/Study/Infrastructure/DependencyInjection.cs` (onarım servisi ve tek seferlik startup işi)
+- Modify: `src/Modules/Study/Infrastructure/StudyDigestDirectory.cs` (veli özeti de kırılmış seriyi sıfır okur)
+- Docs: `doc/modules/m08_study.md`, `doc/modules/00_genel_bakis.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`
+
+**Interfaces / koddan doğrulama (2026-11-15):** `IStudyRepository` değişmez; mevcut `ListCompletedSessionsAsync` EF sorgusu yalnız kaydedilmiş Completed satırları döndürür. Hesaplayıcı mevcut seansı kimliğiyle birleştirir ve 04:00 tabanlı günlere gruplar. Geçmiş günün tekilliği yalnız son-tarih sayacıyla ispatlanamaz: `RegisterStudyDay` uygun gün kümesini alır, `Recalculate` sıralı tekil günlerden sayaçları yeniden kurar. Mevcut hedef geçmişi tutulmadığından yeniden hesap güncel aktif hedefi (yoksa 20 dk) kullanır. `CurrentAt(studyDay)` tüm seri okumalarının ortak kuralıdır; günlük dakika istatistiği gece yarısını korur. Onarım `IHostedService` olarak seed/migration sonrası, HTTP öncesi ve yalnız bayrak açıkken çalışır; PostgreSQL transaction advisory lock + kalıcı `module_states` işareti, veri/sayaçlar atomik. Şema değişmez, migration gerekmez. Onarım eski rozetleri geri almaz ve geçmiş bildirim olaylarını yeniden üretmez. T1 düzenleme/silme akışına dokunmaz (T5).
+
+- [x] **Step 1: Kırmızı testler** — günde tek 90 dk seans (hedef 60) → seri **1**; manuel seans aynı; TR 01:30'da biten seans **önceki seri gününe** sayılır; aynı geçmiş güne iki manuel giriş → `TotalStudyDays` +1; 10 gün önce bırakan öğrenci → okumada **0**; onarım işi iki kez koşunca aynı sonuç.
+- [x] **Step 2: Kırmızı gör.** **Step 3: Uygula.** **Step 4: Onarım işini staging demo verisinde koş**, önce/sonra seri değerlerini ILERLEME'ye yaz.
+- [x] **Step 5: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 6: Doküman + commit** — `m08_study.md` (seri kuralı); rapor N-40 ✅.
   ```bash
   git commit -m "fix(study): seri tamamlanan seansi sayar, 04:00 gun siniri, kirilan seri sifirlanir + onarim isi (N-40)"
   ```
 
 ---
+
+**Kanıt (2026-11-15):** İmza Release derlemesi 0 uyarı/0 hata; EF testleri gerçek RED **7 başarısız/2 başarılı** → GREEN. Son `bash scripts/test-with-docker.sh`: **19 mimari/1238 birim/177 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0/0**, tool restore başarılı. Mobil/migration değişmedi. Ayrı yerel Staging PostgreSQL'de **12 demo seans/2 öğrenci**; kontrollü eski `99/99/99` → iki öğrenci de **0/1/6**. Marker yazımına yapay hata: ara kayıtlar rollback, marker yok; başarılı startup sonrası ikinci çağrı ve restart aynı değerleri/tarihleri korur. İlk tam turdaki global snapshot sayımı **2→4** test izolasyonuydu; yeni HTTP testi kendi bekleyen olaylarını temizler, eski test/üretim değiştirilmedi. Doc health RED0/mevcut2YELLOW+1BLUE. Loglar `/tmp/egitimussu-p19t1-{signature,red,green,real2,staging-proof,docker-final,release,tool-restore,doc-health}.log`.
 
 ### Task 2: Outbox handler izolasyonu ve dönüş anlamı (N-42)
 
@@ -173,3 +182,5 @@
   ```bash
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
+
+*Güncelleme: 2026-11-15 — P19 Task 1 tamamlandı; Task 2 başlamadı.*

@@ -16,8 +16,16 @@ public static class StudyLocalTime
     public const int StudyDayStartHour = 4;
 
     /// <summary>Anın sayıldığı seri günü: yerel saat 04:00'ten önceyse bir önceki gün.</summary>
-    public static DateOnly StudyDay(this ILocalCalendar calendar, DateTime utc) =>
-        calendar.ToLocalDate(utc.AddHours(-StudyDayStartHour));
+    public static DateOnly StudyDay(this ILocalCalendar calendar, DateTime utc)
+    {
+        var date = calendar.ToLocalDate(utc);
+        return calendar.ToLocal(utc).Hour < StudyDayStartHour ? date.AddDays(-1) : date;
+    }
+
+    /// <summary>Seri gününün UTC penceresi: yerel [04:00, ertesi gün 04:00).</summary>
+    public static (DateTime StartUtc, DateTime EndUtc) StudyDayRangeUtc(this ILocalCalendar calendar, DateOnly day)
+        => (calendar.ToUtc(day, new TimeOnly(StudyDayStartHour, 0)),
+            calendar.ToUtc(day.AddDays(1), new TimeOnly(StudyDayStartHour, 0)));
 }
 
 /// <summary>Streak (seri) kuralları — birim testli saf mantık.</summary>

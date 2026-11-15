@@ -147,10 +147,10 @@ public sealed class GetStreakQueryHandler : IQueryHandler<GetStreakQuery, Result
         var now = _clock.UtcNow;
         var streak = await _repository.GetStreakAsync(query.StudentId, cancellationToken);
         var todayMinutes = await StudyStatistics.TodayEffectiveMinutesAsync(_repository, _calendar, query.StudentId, now, cancellationToken);
-        var today = _calendar.ToLocalDate(now);
+        var today = _calendar.StudyDay(now);
 
         var response = new StreakResponse(
-            streak?.CurrentStreakDays ?? 0,
+            streak?.CurrentAt(today) ?? 0,
             streak?.LongestStreakDays ?? 0,
             streak?.LastStudiedOnDate,
             streak?.TotalStudyDays ?? 0,
@@ -165,10 +165,14 @@ public sealed class GetAchievementsQueryHandler
     : IQueryHandler<GetAchievementsQuery, Result<IReadOnlyCollection<AchievementResponse>>>
 {
     private readonly IStudyRepository _repository;
+    private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public GetAchievementsQueryHandler(IStudyRepository repository)
+    public GetAchievementsQueryHandler(IStudyRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
+        _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<AchievementResponse>>> Handle(GetAchievementsQuery query, CancellationToken cancellationToken)
@@ -178,7 +182,7 @@ public sealed class GetAchievementsQueryHandler
         var streak = await _repository.GetStreakAsync(query.StudentId, cancellationToken);
 
         var metrics = new StudyMetrics(
-            streak?.CurrentStreakDays ?? 0,
+            streak?.CurrentAt(_calendar.StudyDay(_clock.UtcNow)) ?? 0,
             await _repository.SumEffectiveMinutesAsync(query.StudentId, cancellationToken),
             await _repository.CountCompletedSessionsAsync(query.StudentId, cancellationToken),
             await _repository.CountTestsAsync(query.StudentId, cancellationToken));
@@ -314,7 +318,7 @@ public sealed class GetStudyDashboardQueryHandler : IQueryHandler<GetStudyDashbo
             dailyGoalMinutes,
             dailyGoalMinutes > 0 && todayMinutes >= dailyGoalMinutes,
             weekSessions.Sum(s => s.EffectiveMinutes),
-            streak?.CurrentStreakDays ?? 0,
+            streak?.CurrentAt(_calendar.StudyDay(_clock.UtcNow)) ?? 0,
             streak?.LongestStreakDays ?? 0,
             goal?.ToResponse(),
             lastTest?.ToResponse(),
