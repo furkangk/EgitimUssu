@@ -9,6 +9,8 @@ import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profi
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_cubit.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/cubit/teacher_profile_state.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/widgets/availability_editor.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -42,36 +44,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     super.initState();
     _cubit = TeacherProfileCubit.create();
     _profile = _TeacherProfileData.initial();
-    _expertise = <String>[
-      'LGS Matematik',
-      'TYT Problemler',
-      'AYT Fonksiyonlar',
-      'Geometri',
-      'Haftalık takip',
-    ];
-    _availability = <TeacherAvailability>[
-      const TeacherAvailability(
-        dayOfWeek: 1,
-        startTime: '18:00:00',
-        endTime: '20:00:00',
-        isOnlineAvailable: true,
-        isInPersonAvailable: true,
-      ),
-      const TeacherAvailability(
-        dayOfWeek: 3,
-        startTime: '19:00:00',
-        endTime: '21:00:00',
-        isOnlineAvailable: true,
-        isInPersonAvailable: true,
-      ),
-      const TeacherAvailability(
-        dayOfWeek: 6,
-        startTime: '10:00:00',
-        endTime: '13:00:00',
-        isOnlineAvailable: true,
-        isInPersonAvailable: true,
-      ),
-    ];
+    _expertise = <String>[];
+    _availability = <TeacherAvailability>[];
   }
 
   @override
@@ -131,6 +105,29 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               body: SafeArea(child: _ShimmerProfile()),
             );
           }
+          if (!_profilePopulated) {
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              appBar: AppBar(
+                title: Text(
+                  AppLocalizations.of(context).teacherProfile_teacherProfile,
+                ),
+              ),
+              body: ErrorStateView(
+                message:
+                    state.errorMessage ??
+                    AppLocalizations.of(context).teacherProfile_profileNotFound,
+                onRetry: () {
+                  final userId = context
+                      .read<AuthCubit>()
+                      .state
+                      .session
+                      ?.userId;
+                  if (userId != null) _cubit.load(userId);
+                },
+              ),
+            );
+          }
           return Scaffold(
             backgroundColor: AppColors.background,
             body: SafeArea(
@@ -146,46 +143,26 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                     onChangePhoto: _showPhotoOptions,
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    children: const <Widget>[
-                      Expanded(
-                        child: _MetricTile(
-                          icon: Icons.star_rounded,
-                          label: 'Puan',
-                          value: '4.8',
-                          helper: '126 yorum',
-                          color: AppColors.amber,
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: _MetricTile(
-                          icon: Icons.groups_rounded,
-                          label: 'Aktif öğrenci',
-                          value: '18',
-                          helper: 'Bu ay',
-                          color: AppColors.accentGreen,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
                   _VisibilityPanel(
                     value: _profileVisible,
                     onChanged: (value) =>
                         setState(() => _profileVisible = value),
                   ),
                   const SizedBox(height: 22),
-                  const _SectionTitle(title: 'Kişisel bilgiler'),
+                  _SectionTitle(
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_personalDetails,
+                  ),
                   const SizedBox(height: 10),
                   _SettingsPanel(
                     children: <Widget>[
                       _SettingTile(
                         icon: Icons.badge_outlined,
-                        label: 'Ad Soyad',
+                        label: AppLocalizations.of(context).finance_adSoyad,
                         value: _profile.fullName,
                         onTap: () => _editText(
-                          title: 'Ad Soyad',
+                          title: AppLocalizations.of(context).finance_adSoyad,
                           initialValue: _profile.fullName,
                           icon: Icons.badge_outlined,
                           onSaved: (value) {
@@ -199,10 +176,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.mail_outline_rounded,
-                        label: 'E-posta',
+                        label: AppLocalizations.of(context).finance_email,
                         value: _profile.email,
                         onTap: () => _editText(
-                          title: 'E-posta',
+                          title: AppLocalizations.of(context).finance_email,
                           initialValue: _profile.email,
                           icon: Icons.mail_outline_rounded,
                           keyboardType: TextInputType.emailAddress,
@@ -216,10 +193,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.phone_outlined,
-                        label: 'Telefon',
+                        label: AppLocalizations.of(context).finance_phone,
                         value: _profile.phone,
                         onTap: () => _editText(
-                          title: 'Telefon',
+                          title: AppLocalizations.of(context).finance_phone,
                           initialValue: _profile.phone,
                           icon: Icons.phone_outlined,
                           keyboardType: TextInputType.phone,
@@ -233,23 +210,29 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.location_on_outlined,
-                        label: 'Konum',
+                        label: AppLocalizations.of(
+                          context,
+                        ).teacherProfile_location,
                         value: '${_profile.city}, ${_profile.district}',
                         onTap: _editLocation,
                       ),
                     ],
                   ),
                   const SizedBox(height: 22),
-                  const _SectionTitle(title: 'Öğretmen bilgileri'),
+                  _SectionTitle(
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_teacherDetails,
+                  ),
                   const SizedBox(height: 10),
                   _SettingsPanel(
                     children: <Widget>[
                       _SettingTile(
                         icon: Icons.workspace_premium_outlined,
-                        label: 'Başlık',
+                        label: AppLocalizations.of(context).p19list_title,
                         value: _profile.title,
                         onTap: () => _editText(
-                          title: 'Başlık',
+                          title: AppLocalizations.of(context).p19list_title,
                           initialValue: _profile.title,
                           icon: Icons.workspace_premium_outlined,
                           onSaved: (value) {
@@ -262,10 +245,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.school_outlined,
-                        label: 'Branş',
+                        label: AppLocalizations.of(
+                          context,
+                        ).teacherProfile_subject,
                         value: _profile.subject,
                         onTap: () => _editText(
-                          title: 'Branş',
+                          title: AppLocalizations.of(
+                            context,
+                          ).teacherProfile_subject,
                           initialValue: _profile.subject,
                           icon: Icons.school_outlined,
                           onSaved: (value) {
@@ -279,10 +266,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.menu_book_outlined,
-                        label: 'Eğitim',
+                        label: AppLocalizations.of(
+                          context,
+                        ).teacherProfile_education,
                         value: _profile.education,
                         onTap: () => _editText(
-                          title: 'Eğitim',
+                          title: AppLocalizations.of(
+                            context,
+                          ).teacherProfile_education,
                           initialValue: _profile.education,
                           icon: Icons.menu_book_outlined,
                           onSaved: (value) {
@@ -297,10 +288,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.timeline_rounded,
-                        label: 'Deneyim',
+                        label: AppLocalizations.of(
+                          context,
+                        ).teacherProfile_experience,
                         value: _profile.experience,
                         onTap: () => _editText(
-                          title: 'Deneyim',
+                          title: AppLocalizations.of(
+                            context,
+                          ).teacherProfile_experience,
                           initialValue: _profile.experience,
                           icon: Icons.timeline_rounded,
                           onSaved: (value) {
@@ -315,10 +310,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.payments_outlined,
-                        label: 'Saatlik ücret',
+                        label: AppLocalizations.of(
+                          context,
+                        ).teacherProfile_hourlyRate,
                         value: _profile.hourlyRate,
                         onTap: () => _editText(
-                          title: 'Saatlik ücret',
+                          title: AppLocalizations.of(
+                            context,
+                          ).teacherProfile_hourlyRate,
                           initialValue: _profile.hourlyRate,
                           icon: Icons.payments_outlined,
                           keyboardType: TextInputType.number,
@@ -334,8 +333,13 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       const _DividerLine(),
                       _SettingTile(
                         icon: Icons.sync_alt_rounded,
-                        label: 'Ders formatı',
-                        value: _profile.lessonFormat,
+                        label: AppLocalizations.of(
+                          context,
+                        ).teacherProfile_lessonFormat,
+                        value: _lessonFormatLabel(
+                          context,
+                          _profile.lessonFormat,
+                        ),
                         onTap: _editLessonFormat,
                       ),
                     ],
@@ -343,11 +347,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   const SizedBox(height: 14),
                   _LongTextTile(
                     icon: Icons.auto_stories_outlined,
-                    title: 'Hakkında',
+                    title: AppLocalizations.of(context).teacherProfile_about,
                     body: _profile.biography,
                     color: AppColors.accentBlue,
                     onTap: () => _editText(
-                      title: 'Hakkında',
+                      title: AppLocalizations.of(context).teacherProfile_about,
                       initialValue: _profile.biography,
                       icon: Icons.auto_stories_outlined,
                       minLines: 5,
@@ -362,11 +366,15 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   const SizedBox(height: 14),
                   _LongTextTile(
                     icon: Icons.family_restroom_rounded,
-                    title: 'Veliye not',
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_noteToParents,
                     body: _profile.parentNote,
                     color: AppColors.accentGreen,
                     onTap: () => _editText(
-                      title: 'Veliye not',
+                      title: AppLocalizations.of(
+                        context,
+                      ).teacherProfile_noteToParents,
                       initialValue: _profile.parentNote,
                       icon: Icons.family_restroom_rounded,
                       minLines: 4,
@@ -380,14 +388,20 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   ),
                   const SizedBox(height: 22),
                   _SectionHeader(
-                    title: 'Uzmanlık alanları',
-                    actionLabel: 'Düzenle',
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_expertise,
+                    actionLabel: AppLocalizations.of(context).finance_duzenle,
                     onAction: _editExpertise,
                   ),
                   const SizedBox(height: 10),
                   _ChipPanel(items: _expertise),
                   const SizedBox(height: 22),
-                  const _SectionTitle(title: 'Ders tercihleri'),
+                  _SectionTitle(
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_lessonPreferences,
+                  ),
                   const SizedBox(height: 10),
                   _PreferencePanel(
                     onlineAvailable: _onlineAvailable,
@@ -397,7 +411,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                         _setLessonFormat(inPerson: value),
                   ),
                   const SizedBox(height: 22),
-                  const _SectionTitle(title: 'Müsaitlik durumu'),
+                  _SectionTitle(
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_availability,
+                  ),
                   const SizedBox(height: 10),
                   // D-04/M02-5: haftanin 7 gunu × saat araliklari; her aralik kendi
                   // "Online"/"Yuz yuze" bayragini tasir, cakisan aralik eklenemez.
@@ -422,11 +440,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   }
 
   void _populateFromProfile(TeacherProfile profile, String? email) {
-    final lessonFormat = switch (profile.lessonFormat) {
-      'InPerson' => 'Yüz yüze',
-      'Online' => 'Online',
-      _ => 'Online + Yüz yüze',
-    };
     _profile = _TeacherProfileData(
       fullName: profile.fullName,
       title: profile.headline ?? '',
@@ -436,10 +449,12 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       phone: '',
       email: email ?? '',
       education: profile.educationLevel,
-      experience: '${profile.experienceYears} yıl',
+      experience: AppLocalizations.of(
+        context,
+      ).teacherProfile_years((profile.experienceYears).toString()),
       hourlyRate:
           '${profile.hourlyRateAmount.toStringAsFixed(0)} ${profile.currency}',
-      lessonFormat: lessonFormat,
+      lessonFormat: profile.lessonFormat,
       // P04: fotoğraf artık ayrı, yetkili uçtan bayt olarak indirilir (bkz. _loadPhoto).
       photoUrl: profile.profilePhotoUrl ?? '',
       biography: profile.biography ?? '',
@@ -452,32 +467,31 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   /// slot bazli online/yuz yuze bayraklari [AvailabilityEditor] icindedir.
   bool get _onlineAvailable =>
       _profile.lessonFormat == 'Online' ||
-      _profile.lessonFormat == 'Online + Yüz yüze';
+      _profile.lessonFormat == 'OnlineAndInPerson';
 
   bool get _inPersonAvailable =>
-      _profile.lessonFormat == 'Yüz yüze' ||
-      _profile.lessonFormat == 'Online + Yüz yüze';
+      _profile.lessonFormat == 'InPerson' ||
+      _profile.lessonFormat == 'OnlineAndInPerson';
 
   void _setLessonFormat({bool? online, bool? inPerson}) {
     final bool nextOnline = online ?? _onlineAvailable;
     final bool nextInPerson = inPerson ?? _inPersonAvailable;
     if (!nextOnline && !nextInPerson) {
-      _showSavedMessage('En az bir ders şekli seçili olmalı.');
+      _showSavedMessage(
+        AppLocalizations.of(
+          context,
+        ).teacherProfile_selectAtLeastOneLessonFormat,
+      );
       return;
     }
     final String format = nextOnline && nextInPerson
-        ? 'Online + Yüz yüze'
-        : (nextOnline ? 'Online' : 'Yüz yüze');
+        ? 'OnlineAndInPerson'
+        : (nextOnline ? 'Online' : 'InPerson');
     setState(() => _profile = _profile.copyWith(lessonFormat: format));
   }
 
   void _saveToCubit(BuildContext context) {
     final session = context.read<AuthCubit>().state.session;
-    final lessonFormat = switch (_profile.lessonFormat) {
-      'Yüz yüze' => 'InPerson',
-      'Online' => 'Online',
-      _ => 'OnlineAndInPerson',
-    };
     final profile = TeacherProfile(
       id: _cubit.state.profile?.id ?? '',
       userId: session?.userId ?? '',
@@ -487,7 +501,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       district: _profile.district,
       biography: _profile.biography.isEmpty ? null : _profile.biography,
       headline: _profile.title.isEmpty ? null : _profile.title,
-      lessonFormat: lessonFormat,
+      lessonFormat: _profile.lessonFormat,
       experienceYears: _parseExperienceYears(_profile.experience),
       educationLevel: _profile.education,
       hourlyRateAmount: _parseHourlyRate(_profile.hourlyRate),
@@ -521,12 +535,16 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const _SheetTitle(title: 'Profil fotoğrafı'),
+              _SheetTitle(
+                title: AppLocalizations.of(context).teacherProfile_profilePhoto,
+              ),
               const SizedBox(height: 14),
               _ActionRow(
                 icon: Icons.photo_camera_outlined,
-                title: 'Kamera ile çek',
-                subtitle: 'Fotoğraf çekilir ve profiline yüklenir.',
+                title: AppLocalizations.of(context).teacherProfile_takeAPhoto,
+                subtitle: AppLocalizations.of(
+                  context,
+                ).teacherProfile_takeAPhotoAndUploadItToYourProfile,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _pickAndUploadPhoto(ImageSource.camera);
@@ -535,8 +553,12 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               const _DividerLine(),
               _ActionRow(
                 icon: Icons.photo_library_outlined,
-                title: 'Galeriden seç',
-                subtitle: 'En fazla 10 MB; jpg, png veya webp.',
+                title: AppLocalizations.of(
+                  context,
+                ).teacherProfile_chooseFromGallery,
+                subtitle: AppLocalizations.of(
+                  context,
+                ).teacherProfile_upTo10MBJpgPngOrWebp,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   _pickAndUploadPhoto(ImageSource.gallery);
@@ -554,7 +576,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   Future<void> _pickAndUploadPhoto(ImageSource source) async {
     final userId = context.read<AuthCubit>().state.session?.userId;
     if (userId == null) {
-      _showSavedMessage('Fotoğraf yüklemek için giriş yapmalısın.');
+      _showSavedMessage(
+        AppLocalizations.of(context).teacherProfile_signInToUploadAPhoto,
+      );
       return;
     }
 
@@ -570,18 +594,27 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     setState(() => _photoUploading = true);
     try {
       final repository = injector<TeacherRepository>();
-      await repository.uploadProfilePhoto(userId: userId, filePath: picked.path);
+      await repository.uploadProfilePhoto(
+        userId: userId,
+        filePath: picked.path,
+      );
       final bytes = await repository.downloadProfilePhoto(userId);
       if (!mounted) return;
       setState(() {
         _photoBytes = bytes;
         _photoUploading = false;
       });
-      _showSavedMessage('Fotoğraf güncellendi.');
+      _showSavedMessage(
+        AppLocalizations.of(context).teacherProfile_photoUpdated,
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() => _photoUploading = false);
-      _showSavedMessage('Fotoğraf yüklenemedi: $error');
+      _showSavedMessage(
+        AppLocalizations.of(
+          context,
+        ).teacherProfile_unableToUploadPhoto((error).toString()),
+      );
     }
   }
 
@@ -592,7 +625,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     }
 
     try {
-      final bytes = await injector<TeacherRepository>().downloadProfilePhoto(userId);
+      final bytes = await injector<TeacherRepository>().downloadProfilePhoto(
+        userId,
+      );
       if (mounted) {
         setState(() => _photoBytes = bytes);
       }
@@ -644,7 +679,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   autofocus: true,
                   validator: (value) {
                     if ((value ?? '').trim().isEmpty) {
-                      return '$title boş bırakılamaz.';
+                      return AppLocalizations.of(
+                        context,
+                      ).teacherProfile_isRequired((title).toString());
                     }
                     return null;
                   },
@@ -659,7 +696,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                     }
                     onSaved(controller.text.trim());
                     Navigator.of(context).pop();
-                    _showSavedMessage('$title güncellendi.');
+                    _showSavedMessage(
+                      AppLocalizations.of(
+                        context,
+                      ).teacherProfile_updated((title).toString()),
+                    );
                   },
                 ),
               ],
@@ -696,23 +737,29 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const _SheetTitle(title: 'Konum'),
+                _SheetTitle(
+                  title: AppLocalizations.of(context).teacherProfile_location,
+                ),
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: cityController,
                   autofocus: true,
-                  validator: _requiredValidator('Şehir'),
+                  validator: _requiredValidator(
+                    AppLocalizations.of(context).teacherProfile_city,
+                  ),
                   decoration: _inputDecoration(
-                    'Şehir',
+                    AppLocalizations.of(context).teacherProfile_city,
                     Icons.location_city_outlined,
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: districtController,
-                  validator: _requiredValidator('İlçe'),
+                  validator: _requiredValidator(
+                    AppLocalizations.of(context).teacherProfile_district,
+                  ),
                   decoration: _inputDecoration(
-                    'İlçe',
+                    AppLocalizations.of(context).teacherProfile_district,
                     Icons.location_on_outlined,
                   ),
                 ),
@@ -730,7 +777,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       );
                     });
                     Navigator.of(context).pop();
-                    _showSavedMessage('Konum güncellendi.');
+                    _showSavedMessage(
+                      AppLocalizations.of(
+                        context,
+                      ).teacherProfile_locationUpdated,
+                    );
                   },
                 ),
               ],
@@ -743,8 +794,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
   void _editLessonFormat() {
     _showChoiceSheet(
-      title: 'Ders formatı',
-      values: const <String>['Online', 'Yüz yüze', 'Online + Yüz yüze'],
+      title: AppLocalizations.of(context).teacherProfile_lessonFormat,
+      values: const <String>['Online', 'InPerson', 'OnlineAndInPerson'],
       selected: _profile.lessonFormat,
       onSelected: (value) {
         setState(() => _profile = _profile.copyWith(lessonFormat: value));
@@ -754,14 +805,14 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
   void _editExpertise() {
     final selected = Set<String>.from(_expertise);
-    const options = <String>[
-      'LGS Matematik',
-      'TYT Problemler',
-      'AYT Fonksiyonlar',
-      'Geometri',
-      'Ders takip sistemi',
-      'Sınav koçluğu',
-      'Okula destek',
+    final options = <String>[
+      AppLocalizations.of(context).teacherProfile_lgsMathematics,
+      AppLocalizations.of(context).teacherProfile_tytProblems,
+      AppLocalizations.of(context).teacherProfile_aytFunctions,
+      AppLocalizations.of(context).teacherProfile_geometry,
+      AppLocalizations.of(context).teacherProfile_lessonTracking,
+      AppLocalizations.of(context).teacherProfile_examCoaching,
+      AppLocalizations.of(context).teacherProfile_schoolSupport,
     ];
 
     showModalBottomSheet<void>(
@@ -780,7 +831,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const _SheetTitle(title: 'Uzmanlık alanları'),
+                  _SheetTitle(
+                    title: AppLocalizations.of(
+                      context,
+                    ).teacherProfile_expertise,
+                  ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 8,
@@ -806,7 +861,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                     onSave: () {
                       setState(() => _expertise = selected.toList());
                       Navigator.of(context).pop();
-                      _showSavedMessage('Uzmanlık alanları güncellendi.');
+                      _showSavedMessage(
+                        AppLocalizations.of(
+                          context,
+                        ).teacherProfile_expertiseUpdated,
+                      );
                     },
                   ),
                 ],
@@ -843,7 +902,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               ...values.map(
                 (value) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(value),
+                  title: Text(_lessonFormatLabel(context, value)),
                   trailing: selected == value
                       ? const Icon(
                           Icons.check_rounded,
@@ -853,7 +912,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                   onTap: () {
                     onSelected(value);
                     Navigator.of(context).pop();
-                    _showSavedMessage('$title güncellendi.');
+                    _showSavedMessage(
+                      AppLocalizations.of(
+                        context,
+                      ).teacherProfile_updated((title).toString()),
+                    );
                   },
                 ),
               ),
@@ -867,7 +930,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   FormFieldValidator<String> _requiredValidator(String label) {
     return (value) {
       if ((value ?? '').trim().isEmpty) {
-        return '$label boş bırakılamaz.';
+        return AppLocalizations.of(
+          context,
+        ).teacherProfile_isRequired((label).toString());
       }
       return null;
     };
@@ -917,7 +982,7 @@ class _TopBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                'Profil Bilgileri',
+                AppLocalizations.of(context).more_profileTitle,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w900,
@@ -925,7 +990,7 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Alanlara dokunarak düzenle',
+                AppLocalizations.of(context).teacherProfile_tapAFieldToEdit,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -1036,73 +1101,6 @@ class _PhotoHeader extends StatelessWidget {
   }
 }
 
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.helper,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String helper;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 112,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _TintedIcon(icon: icon, color: color, size: 36),
-          const Spacer(),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Row(
-            children: <Widget>[
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  helper,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _VisibilityPanel extends StatelessWidget {
   const _VisibilityPanel({required this.value, required this.onChanged});
 
@@ -1130,7 +1128,7 @@ class _VisibilityPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Profil görünürlüğü',
+                  AppLocalizations.of(context).teacherProfile_profileVisibility,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -1138,7 +1136,9 @@ class _VisibilityPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Öğrenci ve veli aramalarında görünür.',
+                  AppLocalizations.of(
+                    context,
+                  ).teacherProfile_visibleInStudentAndParentSearches,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
@@ -1409,16 +1409,20 @@ class _PreferencePanel extends StatelessWidget {
       children: <Widget>[
         _SwitchRow(
           icon: Icons.videocam_outlined,
-          title: 'Online ders',
-          subtitle: 'Uzaktan ders taleplerinde görünür olur.',
+          title: AppLocalizations.of(context).teacherProfile_onlineLessons,
+          subtitle: AppLocalizations.of(
+            context,
+          ).teacherProfile_shownForOnlineLessonRequests,
           value: onlineAvailable,
           onChanged: onOnlineChanged,
         ),
         const _DividerLine(),
         _SwitchRow(
           icon: Icons.location_city_outlined,
-          title: 'Yüz yüze ders',
-          subtitle: 'Konum bazlı aramalarda listelenir.',
+          title: AppLocalizations.of(context).teacherProfile_inPersonLessons,
+          subtitle: AppLocalizations.of(
+            context,
+          ).teacherProfile_listedInLocationSearches,
           value: inPersonAvailable,
           onChanged: onInPersonChanged,
         ),
@@ -1496,12 +1500,15 @@ class _SheetActions extends StatelessWidget {
         Expanded(
           child: OutlinedButton(
             onPressed: onCancel,
-            child: const Text('Vazgeç'),
+            child: Text(AppLocalizations.of(context).finance_vazgec),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: FilledButton(onPressed: onSave, child: const Text('Kaydet')),
+          child: FilledButton(
+            onPressed: onSave,
+            child: Text(AppLocalizations.of(context).p19list_save),
+          ),
         ),
       ],
     );
@@ -1555,11 +1562,11 @@ class _SheetTitle extends StatelessWidget {
 }
 
 class _TintedIcon extends StatelessWidget {
-  const _TintedIcon({required this.icon, required this.color, this.size = 42});
+  const _TintedIcon({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
-  final double size;
+  final double size = 42;
 
   @override
   Widget build(BuildContext context) {
@@ -1665,8 +1672,8 @@ class _SaveButton extends StatelessWidget {
                   color: Colors.white,
                 ),
               )
-            : const Text(
-                'Profili Kaydet',
+            : Text(
+                AppLocalizations.of(context).teacherProfile_saveProfile,
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               ),
       ),
@@ -1694,22 +1701,20 @@ class _TeacherProfileData {
 
   factory _TeacherProfileData.initial() {
     return const _TeacherProfileData(
-      fullName: 'Ahmet Yılmaz',
-      title: 'LGS ve TYT Matematik Eğitmeni',
-      subject: 'Matematik',
-      city: 'İstanbul',
-      district: 'Kadıköy',
-      phone: '+90 532 410 24 18',
-      email: 'ahmet.yilmaz@egitimussu.com',
-      education: 'Boğaziçi Üniversitesi Matematik',
-      experience: '8 yıl',
-      hourlyRate: '850 TRY',
-      lessonFormat: 'Online + Yüz yüze',
-      photoUrl: 'https://i.pravatar.cc/240?img=12',
-      biography:
-          'Sınav gruplarında konu eksiğini hızlı tespit eden, düzenli ödev ve takip sistemiyle ilerleyen bir matematik öğretmeniyim.',
-      parentNote:
-          'Her ders sonunda kısa ders notu, ödev durumu ve bir sonraki hedef veliyle paylaşılır.',
+      fullName: '',
+      title: '',
+      subject: '',
+      city: '',
+      district: '',
+      phone: '',
+      email: '',
+      education: '',
+      experience: '',
+      hourlyRate: '',
+      lessonFormat: '',
+      photoUrl: '',
+      biography: '',
+      parentNote: '',
     );
   }
 
@@ -1773,3 +1778,10 @@ String _initials(String value) {
   }
   return parts.map((part) => part.characters.first).join().toUpperCase();
 }
+
+String _lessonFormatLabel(BuildContext context, String format) =>
+    switch (format) {
+      'Online' => AppLocalizations.of(context).lessonDetail_online,
+      'InPerson' => AppLocalizations.of(context).lessonSessions_inPerson,
+      _ => AppLocalizations.of(context).teacherProfile_onlineInPerson,
+    };

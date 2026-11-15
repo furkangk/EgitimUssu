@@ -182,3 +182,7 @@ Premium öğrenci: reklamsız, geçmiş çalışma kayıtları, haftalık/aylık
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P19 Task 3: ödev durum/sürüm kuralları ve mobil/erişim devirleri.*
+
+## P20 T1 — gerçek verili mobil görünüm
+
+Çalışma panosu yalnız gerçek seri/çalışma değerlerini gösterir; haftalık demo ödev/ders sayısı yoktur. Performansta hedef takibi yalnız kaydedilmiş net hedefi varsa çıkar; tahmini hedef ve sabit konu puanları kaldırılmıştır. Profilde öğretmenler, mesajlar, hedef ekleme ve çıkış korunur; gerçek akışı olmayan profil düzenleme/veli/bildirim/gizlilik/abonelik satırları P21’e kadar gizlidir. Aylık/üniversite hedef vaatleri ve sahte ders-test/konu ilişkilendirmeleri gösterilmez.

@@ -542,3 +542,7 @@ POST /lesson-requests/{id}/reject
 **Outbox teslimi (P19 T2 / N-42):** Tamamlama tüketicisinde okunamayan kaynak oturum açık hata ile yeniden denenir; plansız veya artık tamamlanmış olmayan oturum geçerli etkisiz sonuçtur. Bozuk yük poison olur; birleşme tüketicisi de bu kurala uyar. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+## P20 T1 — mobil sahte veri temizliği
+
+Mobil takvim yalnız `SchedulingCubit` gerçek ders oluşumlarını gösterir. `_seedEvents` kaldırıldı; boş API yanıtı sıfır etkinliktir. Tatil/ödev/ödeme etkinlikleri gerçek kaynak bağlanana kadar görünmez. Endpoint/domain/migration sözleşmesi değişmedi.

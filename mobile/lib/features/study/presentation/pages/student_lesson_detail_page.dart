@@ -9,9 +9,9 @@ import 'package:egitim_ussu_mobile/features/scheduling/presentation/scheduling_f
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/lessons/lesson_detail_permissions.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
-import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/widgets/study_tab_widgets.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/domain/teacher_profile_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -48,8 +48,6 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
   bool _isOwn = false;
   TeacherProfile? _teacher;
   List<AssignmentItem> _assignments = const <AssignmentItem>[];
-  List<TestResult> _tests = const <TestResult>[];
-  List<SubjectCatalog> _subjects = const <SubjectCatalog>[];
   List<StudyNote> _notes = const <StudyNote>[];
   bool _loading = true;
   String? _error;
@@ -89,10 +87,7 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
         }
       }
 
-      final assignments = await injector<AssignmentRepository>()
-          .listByStudent(studentId);
-      final tests = await injector<StudyRepository>().listTests(studentId);
-      final subjects = await injector<StudyRepository>().listSubjects(
+      final assignments = await injector<AssignmentRepository>().listByStudent(
         studentId,
       );
       final notes = await injector<StudyRepository>().listNotes(studentId);
@@ -104,8 +99,6 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
         _isOwn = isOwn;
         _teacher = teacher;
         _assignments = assignments;
-        _tests = tests;
-        _subjects = subjects;
         _notes = notes;
         _loading = false;
       });
@@ -123,11 +116,15 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Ders Detayı')),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).lessonDetail_title),
+      ),
       body: SafeArea(
         bottom: false,
         child: _loading
-            ? const LoadingStateView(message: 'Ders yükleniyor...')
+            ? LoadingStateView(
+                message: AppLocalizations.of(context).study_loadingLesson,
+              )
             : _error != null
             ? ErrorStateView(message: _error!, onRetry: _load)
             : _content(),
@@ -138,7 +135,9 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
   Widget _content() {
     final lesson = _lesson;
     if (lesson == null) {
-      return const ErrorStateView(message: 'Ders bulunamadı.');
+      return ErrorStateView(
+        message: AppLocalizations.of(context).study_lessonNotFound,
+      );
     }
     final bool isOwn = _isOwn;
     final perms = LessonDetailPermissions.forOwnership(isOwn);
@@ -157,21 +156,18 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
           ],
           if (studentId.isNotEmpty) ...<Widget>[
             const SizedBox(height: 20),
-            const StudySectionHeader(title: 'Hızlı erişim'),
+            StudySectionHeader(
+              title: AppLocalizations.of(context).study_quickAccess,
+            ),
             const SizedBox(height: 12),
-            _QuickAccessGrid(lesson: lesson, perms: perms, studentId: studentId),
+            _QuickAccessGrid(
+              lesson: lesson,
+              perms: perms,
+              studentId: studentId,
+            ),
           ],
           const SizedBox(height: 24),
           _AssignmentsSection(items: _assignments),
-          const SizedBox(height: 24),
-          _TestsSection(tests: _tests, lesson: lesson),
-          const SizedBox(height: 24),
-          _TopicsSection(
-            subjects: _subjects,
-            lesson: lesson,
-            perms: perms,
-            studentId: studentId,
-          ),
           const SizedBox(height: 24),
           _NotesSection(notes: _notes, lesson: lesson, studentId: studentId),
           if (studentId.isNotEmpty) ...<Widget>[
@@ -188,16 +184,17 @@ class _StudentLessonDetailPageState extends State<StudentLessonDetailPage> {
   }
 }
 
-String _lessonFormatLabel(String format) => switch (format) {
-  'InPerson' => 'Yüz yüze',
-  'Online' => 'Online',
-  _ => 'Online + Yüz yüze',
-};
+String _lessonFormatLabel(BuildContext context, String format) =>
+    switch (format) {
+      'InPerson' => AppLocalizations.of(context).lessonSessions_inPerson,
+      'Online' => AppLocalizations.of(context).lessonDetail_online,
+      _ => AppLocalizations.of(context).teacherProfile_onlineInPerson,
+    };
 
-String _statusLabel(String status) => switch (status) {
-  'Completed' => 'Tamamlandı',
-  'Cancelled' => 'İptal edildi',
-  'Planned' => 'Planlandı',
+String _statusLabel(BuildContext context, String status) => switch (status) {
+  'Completed' => AppLocalizations.of(context).p19list_completed,
+  'Cancelled' => AppLocalizations.of(context).lessonSessions_cancelledStatus,
+  'Planned' => AppLocalizations.of(context).lessonSessions_planned,
   _ => status,
 };
 
@@ -266,18 +263,13 @@ class _HeaderCard extends StatelessWidget {
           Row(
             children: <Widget>[
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _statusColor(
-                    lesson.status,
-                  ).withValues(alpha: 0.12),
+                  color: _statusColor(lesson.status).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  _statusLabel(lesson.status),
+                  _statusLabel(context, lesson.status),
                   style: TextStyle(
                     color: _statusColor(lesson.status),
                     fontSize: 11,
@@ -304,7 +296,7 @@ class _HeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _lessonFormatLabel(lesson.lessonFormat),
+                  _lessonFormatLabel(context, lesson.lessonFormat),
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w700,
@@ -459,31 +451,35 @@ class _QuickAccessGrid extends StatelessWidget {
         StudyQuickAccessCard(
           icon: Icons.sticky_note_2_rounded,
           color: AppColors.accentOrange,
-          label: 'Not',
+          label: AppLocalizations.of(context).finance_not,
           onTap: () => context.push('/study/notes?studentId=$studentId'),
         ),
         StudyQuickAccessCard(
           icon: Icons.fact_check_rounded,
           color: AppColors.accentBlue,
-          label: 'Test',
+          label: AppLocalizations.of(context).study_test,
           onTap: () => context.push('/study/test?studentId=$studentId'),
         ),
         StudyQuickAccessCard(
           icon: Icons.emoji_events_rounded,
           color: AppColors.accentTeal,
-          label: 'Deneme',
+          label: AppLocalizations.of(context).study_practiceExam,
           onTap: () => context.push('/study/test?studentId=$studentId'),
         ),
         StudyQuickAccessCard(
           icon: Icons.assignment_turned_in_rounded,
           color: AppColors.primary,
-          label: perms.canAddHomework ? 'Ödev ekle' : 'Ödev teslim et',
+          label: perms.canAddHomework
+              ? AppLocalizations.of(context).study_addAssignment
+              : AppLocalizations.of(context).study_submitAssignment,
           onTap: () => context.push('/student/assignments'),
         ),
         StudyQuickAccessCard(
           icon: Icons.menu_book_rounded,
           color: AppColors.accentGreen,
-          label: perms.canAddTopic ? 'Konu ekle' : 'Konu',
+          label: perms.canAddTopic
+              ? AppLocalizations.of(context).study_addTopic
+              : AppLocalizations.of(context).study_topic,
           onTap: () => context.push('/study/catalog?studentId=$studentId'),
         ),
       ],
@@ -513,9 +509,9 @@ class _AssignmentsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         StudySectionHeader(
-          title: 'Ödevler',
+          title: AppLocalizations.of(context).study_myPendingAssignments,
           action: StudySectionAction(
-            label: 'Tümü',
+            label: AppLocalizations.of(context).p19list_all,
             onTap: () => context.push('/student/assignments'),
           ),
         ),
@@ -523,7 +519,7 @@ class _AssignmentsSection extends StatelessWidget {
         if (preview.isEmpty)
           StudyCard(
             child: Text(
-              'Bekleyen ödevin yok.',
+              AppLocalizations.of(context).study_youHaveNoPendingAssignments,
               style: const TextStyle(color: AppColors.textSecondary),
             ),
           )
@@ -581,231 +577,6 @@ class _AssignmentTile extends StatelessWidget {
   }
 }
 
-/// Test & Deneme — TEK liste, tür rozetli (🔹 Test / 🔸 Deneme). `TestResult`'ta
-/// `lessonId` yok; ders bağı `subject` metin eşleşmesiyle (best-effort) kurulur —
-/// gerçek bir yabancı anahtar olmadığı için her satır [StudyDemoBadge] taşır.
-class _TestsSection extends StatelessWidget {
-  const _TestsSection({required this.tests, required this.lesson});
-
-  final List<TestResult> tests;
-  final LessonSchedule lesson;
-
-  @override
-  Widget build(BuildContext context) {
-    final String subject = lesson.subject.trim().toLowerCase();
-    final List<TestResult> matched =
-        tests
-            .where((TestResult t) => t.subject.trim().toLowerCase() == subject)
-            .toList()
-          ..sort(
-            (TestResult a, TestResult b) =>
-                b.takenOnUtc.compareTo(a.takenOnUtc),
-          );
-    final List<TestResult> preview = matched.take(5).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        StudySectionHeader(
-          title: 'Test & Deneme',
-          action: StudySectionAction(
-            label: 'Tümü',
-            onTap: () => context.push('/student/performance'),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (preview.isEmpty)
-          StudyCard(
-            child: Text(
-              'Bu derse ait test/deneme kaydı yok.',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-          )
-        else
-          ...preview.map(
-            (TestResult t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _TestTile(test: t),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TestTile extends StatelessWidget {
-  const _TestTile({required this.test});
-
-  final TestResult test;
-
-  bool get _isDeneme => test.testType == 'Deneme';
-
-  @override
-  Widget build(BuildContext context) {
-    return StudyCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            (_isDeneme
-                                    ? AppColors.accentOrange
-                                    : AppColors.accentBlue)
-                                .withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _isDeneme ? '🔸 Deneme' : '🔹 Test',
-                        style: TextStyle(
-                          color: _isDeneme
-                              ? AppColors.accentOrange
-                              : AppColors.accentBlue,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const StudyDemoBadge(),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  test.testName ?? test.subject,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  StudyFormat.date(test.takenOnUtc),
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            StudyFormat.net(test.net),
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: AppColors.primary,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Konu listesi — dersle eşleşen `SubjectCatalog` (best-effort, isim eşleşmesiyle).
-/// "Hâkimiyet" (mastery) backend'de hesaplanmıyor (`SubjectCatalog`/`TopicCatalog`'da
-/// ilerleme alanı yok); bu yüzden [StudyDemoBadge] ile işaretlenir.
-class _TopicsSection extends StatelessWidget {
-  const _TopicsSection({
-    required this.subjects,
-    required this.lesson,
-    required this.perms,
-    required this.studentId,
-  });
-
-  final List<SubjectCatalog> subjects;
-  final LessonSchedule lesson;
-  final LessonDetailPermissions perms;
-  final String studentId;
-
-  @override
-  Widget build(BuildContext context) {
-    final String subjectName = lesson.subject.trim().toLowerCase();
-    final SubjectCatalog? matched = subjects
-        .cast<SubjectCatalog?>()
-        .firstWhere(
-          (SubjectCatalog? s) => s!.name.trim().toLowerCase() == subjectName,
-          orElse: () => null,
-        );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: StudySectionHeader(
-                title: 'Konular',
-                action: perms.canAddTopic
-                    ? StudySectionAction(
-                        label: 'Ekle',
-                        onTap: () =>
-                            context.push('/study/catalog?studentId=$studentId'),
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 6),
-            const StudyDemoBadge(),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (matched == null || matched.topics.isEmpty)
-          StudyCard(
-            child: Text(
-              perms.canAddTopic
-                  ? 'Bu ders için henüz konu eklemedin.'
-                  : 'Bu derse ait konu kaydı yok.',
-              style: const TextStyle(color: AppColors.textSecondary),
-            ),
-          )
-        else
-          StudyCard(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: matched.topics
-                  .map(
-                    (TopicCatalog t) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        t.name,
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Not listesi — dersle eşleşen `StudyNote` (best-effort, `subject` metin eşleşmesiyle).
 class _NotesSection extends StatelessWidget {
   const _NotesSection({
@@ -838,9 +609,9 @@ class _NotesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         StudySectionHeader(
-          title: 'Notlarım',
+          title: AppLocalizations.of(context).study_mySubjectNotes,
           action: StudySectionAction(
-            label: 'Tüm notlarım',
+            label: AppLocalizations.of(context).study_allMyNotes,
             onTap: () => context.push('/study/notes?studentId=$studentId'),
           ),
         ),
@@ -848,7 +619,7 @@ class _NotesSection extends StatelessWidget {
         if (preview.isEmpty)
           StudyCard(
             child: Text(
-              'Bu derse ait not eklemedin.',
+              AppLocalizations.of(context).study_youHaveNoNotesForThisSubject,
               style: const TextStyle(color: AppColors.textSecondary),
             ),
           )

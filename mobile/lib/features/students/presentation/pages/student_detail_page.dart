@@ -54,7 +54,21 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           if (state.successMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(state.successMessage!),
+                content: Text(switch (state.successMessage!) {
+                  'studentDetail_studentUpdated' => AppLocalizations.of(
+                    context,
+                  ).studentDetail_studentUpdated,
+                  'studentDetail_subjectAdded' => AppLocalizations.of(
+                    context,
+                  ).studentDetail_subjectAdded,
+                  'studentDetail_subjectRemoved' => AppLocalizations.of(
+                    context,
+                  ).studentDetail_subjectRemoved,
+                  'studentDetail_parentLinkPending' => AppLocalizations.of(
+                    context,
+                  ).studentDetail_parentLinkPending,
+                  final message => message,
+                }),
                 backgroundColor: AppColors.accentGreen,
               ),
             );

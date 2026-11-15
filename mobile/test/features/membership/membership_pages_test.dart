@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/member
 import 'package:egitim_ussu_mobile/features/membership/presentation/pages/membership_page.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/pages/paywall_page.dart';
 import 'package:egitim_ussu_mobile/features/membership/presentation/widgets/membership_widgets.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -91,6 +92,21 @@ void main() {
   });
 
   group('PaywallPage', () {
+    testWidgets('İngilizce paywall rol/hak ve plan etiketlerini çevirir', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        FakeMembershipRepository(plans: [_monthly()]),
+        const PaywallPage(),
+        locale: const Locale('en'),
+      );
+      expect(find.text('Students you can link'), findsOneWidget);
+      expect(find.text('PDF student report'), findsOneWidget);
+      expect(find.text('5 students'), findsOneWidget);
+      expect(find.text('Monthly Premium'), findsOneWidget);
+    });
+
     testWidgets('rol plani listelenir, deneme rozeti ve satin alma pasif', (
       tester,
     ) async {
@@ -113,14 +129,7 @@ void main() {
       );
       expect(find.text('249 TRY / aylık'), findsOneWidget);
 
-      final purchase = tester.widget<OutlinedButton>(
-        find.widgetWithText(OutlinedButton, 'Satın al (yakında)'),
-      );
-      expect(
-        purchase.onPressed,
-        isNull,
-        reason: 'checkout ucu P09 Task 4te gelecek',
-      );
+      expect(find.text('Satın al (yakında)'), findsNothing);
     });
 
     testWidgets('deneme dugmesi gercekten start-trial cagirir', (tester) async {
@@ -163,7 +172,7 @@ void main() {
       expect(find.text('Bağlanabilecek öğrenci'), findsOneWidget);
       expect(find.text('PDF öğrenci raporu'), findsOneWidget);
       // Kapısı olmayan vaatler tabloda değil, "yakında" bölümünde durur.
-      expect(find.text('Reklamsız kullanım'), findsOneWidget);
+      expect(find.text('Reklamsız kullanım'), findsNothing);
     });
   });
 }
@@ -171,8 +180,9 @@ void main() {
 Future<void> _pump(
   WidgetTester tester,
   FakeMembershipRepository repository,
-  Widget page,
-) async {
+  Widget page, {
+  Locale locale = const Locale('tr', 'TR'),
+}) async {
   // Ekranlar uzun listeler; varsayılan 800x600 tuvalde alt bölümler hiç
   // kurulmaz ve düğmeler dokunulamaz kalırdı. Tuval bir telefon boyuna açılır.
   tester.view.physicalSize = const Size(1000, 2400);
@@ -193,9 +203,10 @@ Future<void> _pump(
       // yüklerken hazırlar; test uygulaması bu yüzden gerçek `app.dart` kurulumunu
       // birebir taklit eder (aksi hâlde `LocaleDataException` atar).
       child: MaterialApp(
-        locale: const Locale('tr', 'TR'),
-        supportedLocales: const <Locale>[Locale('tr', 'TR')],
+        locale: locale,
+        supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,

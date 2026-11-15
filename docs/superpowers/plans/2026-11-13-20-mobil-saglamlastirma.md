@@ -16,13 +16,13 @@
 
 - **Commit kapsamı:** her commit bloğundan önce `git add <görevin Files: listesi> <değişen doc dosyaları>`; **`git add -A` / `git add .` yasak** (platforma özgü dosyalar, `pubspec.lock` ve ilgisiz değişiklikler sızmasın).
 - Her görevde: `cd mobile && flutter test && flutter analyze --fatal-infos` → 0 hata, 0 sorun.
-- Dokunulan ekran ARB'ye taşınır (K-26); `localization_test.dart` `_migratedFeatures` listesi güncellenir.
+- Dokunulan ekran ARB'ye taşınır (K-26); `localization_test.dart` tarama kapsamı güncellenir (`_migratedFeatures` veya yalnız dokunulan dosyalar için `_migratedFiles`; dokunulmayan ekranlar taşınmış sayılmaz).
 - Sahte veri yasağı (2026-09-02 §1): ekrandaki her değer gerçek API'den; demo yalnız `--dart-define=USE_MOCK_FALLBACK=true`.
 - Doküman: değişen ekranlar için `doc/pages/*.md`, rota değişikliği için `doc/architecture/mobile_flutter.md` + `ux_rules.md`.
 
 ---
 
-### Task 1: Sahte veri ve yer tutucu temizliği (N-60, P-10, N-72 metin)
+### Task 1: Sahte veri ve yer tutucu temizliği (N-60, P-10, N-72 metin) ✅
 
 **Files:**
 - Modify: `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart` (`_seedEvents` ve kullanımı silinir; tatil/ödev/ödeme etkinlikleri gerçek kaynaktan gelene kadar **gösterilmez**)
@@ -33,12 +33,30 @@
 - Envanter: `grep -rn "StudyDemoBadge\|yakında\|Yakında\|prototip" mobile/lib` → her eşleşme için karar tablosu ILERLEME'ye: (a) P21'de gerçek ekrana bağlanacak → şimdilik **gizle**, (b) özellik yok → kaldır.
 - Test: `mobile/test/features/scheduling/scheduling_no_seed_test.dart`, `mobile/test/core/routing/preview_routes_test.dart`
 
-- [ ] **Step 1: Kırmızı testler** — takvim API boş döndüğünde ekranda **hiç** etkinlik yok; release modunda preview rotaları 404/yönlendirme; `localization_test` `api_exception.dart`'taki "hatasi olustu"yu yakalar.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `doc/pages/scheduling.md`, `dashboard_preview.md`; rapor N-60, P-10 ✅.
+**2026-11-15 kapsam doğrulaması (T1):** Envanter Study ekranlarında da sabit haftalık sayaç, demo hedef/konu puanı ve işlem yapmayan profil satırları gösterdi. Bunlar mevcut T1 envanter yükümlülüğünün parçasıdır; yeni özellik/endpoint eklenmez. `localization_test` zaten `lib/**` tarıyor; eksik olan bozuk yazım sözcükleri ve dokunulan dosyaların ARB geri dönüş korumasıdır. Öğretmen profilinin başlangıç verisi de sunucudan önce sahte bilgi gösterebiliyor; bu görevde gerçek veri gelmeden gösterilmez.
+
+**Ek Files (koddan doğrulandı):**
+- Modify: `mobile/lib/features/teacher_profile/data/repositories/teacher_repository_impl.dart`; Test: `mobile/test/features/teacher_profile/teacher_repository_test.dart` (incelemede 404 yanıtının mock kapalıyken de demo profil döndürdüğü doğrulandı; yalnız açık mock tercihi demo döndürebilir, gerçek 404 hata olarak korunur).
+- Modify: `mobile/lib/features/study/presentation/pages/student_home_page.dart`, `student_profile_page.dart`, `student_goals_overview_page.dart`, `student_lesson_detail_page.dart`, `student_tests_page.dart` (sahte/işlevsiz parçalar kaldırılır; gerçek verili bölümler korunur, kalan kullanıcı metinleri tr/en ARB).
+- Modify: `mobile/lib/features/study/presentation/widgets/study_tab_widgets.dart`, `mobile/lib/features/study/presentation/home/dashboard_stats.dart` (kullanılmayan demo yardımcıları).
+- Modify: `mobile/lib/features/membership/presentation/pages/paywall_page.dart`, `mobile/lib/features/membership/presentation/widgets/membership_widgets.dart` (işlevsiz satın alma/gelecek vaatleri gizlenir; mevcut deneme/üyelik korunur; dokunulan metinler ARB).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`; gerektiğinde ilgili mevcut ekran widget testlerinin locale kurulumu; yeni `mobile/test/features/study/no_demo_surfaces_test.dart`, `mobile/test/features/teacher_profile/no_fake_profile_test.dart`, `mobile/test/core/network/api_exception_test.dart` (mevcut dosya: eski sözleşme testleri korunur); yeni `mobile/test/features/students/student_detail_messages_test.dart`.
+- Docs: `doc/pages/scheduling.md`, `dashboard_preview.md`, `teacher_profile.md`, `more.md`, `students_detail.md`, `study_student.md`, `paywall.md`, `membership.md`, `account_info.md`; `doc/roles/ogrenci.md`, `doc/roles/ogretmen.md`; `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/modules/00_genel_bakis.md`, ilgili M02/M03/M04/M08/M17 dokümanları ve denetim kaydı.
+
+**Ön uyumluluk kontrolü:** T1↔T2 aynı router'ı kullanır: T1 yalnız preview/sahte hesap girişi, rol izin tablosu T2'de kalır. T1↔T3 repository hata mesajı tüketir ama cache/logout sözleşmesini değiştirmez. T1↔T5 Cubit mesajları yerelleştirilir; genel lifecycle/timeout süpürmesi T5'tedir. T1↔T6 ekran davranışları gerçek veriye indirgenir, gerçek cihaz kapanışı T6'da kalır. T2 push rota eşlemesi T4 olay otobüsünden bağımsızdır. T3 reset işlemleri T5 safeEmit ile uyumlu olmalıdır; T4 poll iptali T5 dispose kuralını korur. T1 kendi testi seed/preview/metin gereksinimiyle tutarlı; T2 rota matrisi, T3 cache/logout, T4 poll/push, T5 yaşam döngüsü, T6 cihaz/kapsam testleri kendi dosya ve adımlarıyla tutarlıdır; sonraki görevlerin Files listesi uygulama öncesi ayrıca doğrulanır.
+
+**Interfaces:** Backend/repository sözleşmeleri değişmez. Normal `/account-info` rotası da aynı statik prototipi açtığından preview rotalarıyla birlikte `kDebugMode && enablePreviewRoutes` kapısına alınır; MorePage hesap bilgileri girişi P21 gerçek hesap akışına kadar gizlenir. Preview rotaları derleme modu ile kapatılır; test edilebilir debug tercihi üretim derlemesinde kDebugMode kapısını aşamaz. API mesajlarının mevcut `message` sözleşmesi korunur; istemcinin kendi fallback metinleri yerelleştirilir. Öğrenci detay Cubit mesajları UI'da ARB'ye çevrilecek anlam/anahtar taşır; tüm tüketicileri doğrulanır. Yeni imza gerekiyorsa davranışsız derlenebilir iskelet → gerçek RED → GREEN sırası uygulanır.
+
+**Envanter kararı:** P21 gerçek akışına bağlanacak öğrenci profil düzenleme/veli/gizlilik/abonelik yer tutucuları gizlenir. Veri kaynağı olmayan haftalık sayaç, demo hedef, konu puanı, sahte ilişki ve aylık hedef kartları kaldırılır. API yükleme hatası yakında/demo yerine gerçek hata/yeniden deneme gösterir. P28 satın alma ve kapısı bulunmayan premium vaatleri gösterilmez. Yalnız yorum/dokümantasyon içindeki eşleşmeler işlev sayılmaz; account-info prototipi debug preview rotasının arkasında kalır (gerçek hesap akışı P21).
+
+- [x] **Step 1: Kırmızı testler** — takvim API boş döndüğünde ekranda **hiç** etkinlik yok; gecikmeli gerçek ders yanıtı geldiğinde kullanıcı ekrana dokunmadan ders görünür (seed kaldırma sonrası gerçek veri yolu korunur); release modunda preview rotaları 404/yönlendirme; `localization_test` `api_exception.dart`'taki "hatasi olustu"yu yakalar.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `doc/pages/scheduling.md`, `dashboard_preview.md`; rapor N-60, P-10 ✅.
   ```bash
   git commit -m "fix(mobile): uretimde sahte takvim etkinlikleri ve onizleme rotalari kaldirildi (N-60, P-10)"
   ```
+
+**Doğrulama (2026-11-15):** Gerçek RED→GREEN (seed/preview/profil/Study/API/metin, gecikmeli gerçek ders, 404 repository ve EN tarama). Son Flutter **385/385**, `flutter analyze --fatal-infos` temiz. Backend **19 mimari / 1312 birim / 214 gerçek Docker integration, 0 başarısız / 0 atlanan**; Release `-warnaserror` 0 uyarı/0 hata. İki inceleme bulgusu giderildi ve dar yeniden inceleme onaylandı. Preview kayıt kapısı debug testinde kapalı/açık ve `kDebugMode` koşulu ile doğrulandı; doğrudan release/profile cihaz koşumu bu görevde yapılmadı. Migration yok.
 
 ---
 
@@ -127,3 +145,5 @@
   ```bash
   git commit -m "docs(mobile): P20 kapanisi"
   ```
+
+Güncelleme: 2026-11-15

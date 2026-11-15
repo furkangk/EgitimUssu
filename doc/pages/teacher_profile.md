@@ -6,15 +6,16 @@ status: "🟢"
 authority: code
 code_refs:
   - mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart
+  - mobile/lib/features/teacher_profile/data/repositories/teacher_repository_impl.dart
   - mobile/lib/features/teacher_profile/presentation/widgets/availability_editor.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Öğretmen Profili (`/teacher-profile`)
 
 > **Feature:** `teacher_profile` · **Dosya:** `mobile/lib/features/teacher_profile/presentation/pages/teacher_profile_page.dart`
-> **State:** `TeacherProfileCubit` / `TeacherProfileState` + Stateful · **Veri:** Gerçek API · **Güncelleme:** 2026-09-04
+> **State:** `TeacherProfileCubit` / `TeacherProfileState` + Stateful · **Veri:** Gerçek API · **Güncelleme:** 2026-11-15
 
 ## Amaç
 Öğretmen profili düzenleyici: kişisel bilgiler, öğretmen bilgileri (başlık, branş, eğitim, deneyim, saatlik ücret, ders şekli), biyografi, uzmanlık alanları, ders tercihleri, uygunluk slotları.
@@ -26,7 +27,7 @@ updated: 2026-09-04
 - **Profil fotoğrafı (2026-09-03, P04/M02-2/D-05):** `POST /api/teachers/profiles/{userId}/photo` (multipart, `image_picker` ile kamera/galeri) → `GET .../photo` baytları indirilip `Image.memory` ile gösterilir. Fotoğraf **profil gövdesinde gönderilmez**; `toCreatePayload()`/`toUpdatePayload()` artık `profilePhotoUrl` taşımaz.
 
 ## Ana bileşenler
-- Profil fotoğrafı (yükleme sırasında `CircularProgressIndicator`; fotoğraf yoksa baş harfler), metrik kutucukları, görünürlük toggle, modal bottom-sheet'li düzenleme alanları, uzmanlık chip'leri, **uygunluk düzenleyici** (`AvailabilityEditor`).
+- Profil fotoğrafı (yükleme sırasında `CircularProgressIndicator`; fotoğraf yoksa baş harfler), görünürlük toggle, modal bottom-sheet'li düzenleme alanları, uzmanlık chip'leri, **uygunluk düzenleyici** (`AvailabilityEditor`).
 
 ## Uygunluk düzenleyici (D-04/M02-5, 2026-09-04)
 `presentation/widgets/availability_editor.dart` — kontrollü (controlled) widget: listeyi sayfa tutar, her değişiklik `onChanged` ile yukarı verilir.
@@ -48,3 +49,9 @@ updated: 2026-09-04
 ## İlgili
 - Modül: [`../modules/m02_teachers.md`](../modules/m02_teachers.md) (M02)
 - Widget kataloğu: [`../architecture/widgets.md`](../architecture/widgets.md) §3.2
+
+## P20 T1 — sahte profil temizliği
+
+Başlangıçta ad, uzmanlık ve uygunluk örneği üretilmez. İlk gerçek profil yüklenene kadar yükleme görünümü, başarısızlıkta hata ve tekrar deneme gösterilir; düzenleyici yalnız gerçek profil geldikten sonra açılır. Sabit 4.8 puanı, 126 yorum ve 18 aktif öğrenci kutuları kaldırılmıştır; gerçek yorum/sayaç kaynağı gelene kadar gösterilmez. Ekranın sabit metinleri tr/en ARB’dedir; `lessonFormat` içeride API kodu olarak korunur, gösterim etiketi UI’da çevrilir.
+
+P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını normal modda aynen hata olarak iletir; profil yokluğu demo öğretmen üretmez. Demo yalnız `AppConfig.isMockFallbackEnabled("teacher_profile")` açıkken mümkündür; production/beta bu bayrağı engeller. Başarılı gerçek profil yanıtı korunur, yeni profil oluşturma akışı bu göreve eklenmez.

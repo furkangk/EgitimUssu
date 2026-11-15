@@ -161,3 +161,7 @@ Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün öze
 Ödev, çalışma geçmişi/notlar ve bildirim merkezinde ilk sayfa50kayıttır; aşağı kaydırınca devam eder. Kısa ilk sayfa görünümü doldurur. Devam hatası yüklenmiş satırları silmez, yeniden deneme aynı cursor'u kullanır; hata varken otomatik tekrar döngüsü kurulmaz. Yenileme/filtre değişimi cursor'u ve istek neslini sıfırlar; gecikmiş eski sonuç atılır. Öğretmen ödev özet/filtre sayıları yalnız yüklenen kayıtlar içindir ve bu kapsam etiketle görünürdür. Genel öğretmen panelinin toplamı ise bütün sayfalardan gelir.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+## P20 T1 — gerçek veri ve kullanılabilir eylem
+
+Gerçek kaynağı olmayan kullanıcı sayısı, puan, hedef ve konu hâkimiyeti gösterilmez. Başlangıç/yükleme hatası örnek profil üretmez. Öğrenci ana sayfasında ödev okuma hatası gerçek hata ve tekrar deneme sunar; başarılı boş sonuç ayrı boş durumdur. Çalışmayan profil/veli/gizlilik/abonelik yer tutucuları ve satın alma/gelecek Premium vaatleri gizlidir. Test/katalog kayıtlarına ders adı eşleşmesiyle oluşum ilişkisi atfedilmez; genel gerçek erişimler korunur. Statik geliştirme önizlemelerinin rotaları yalnız debug derlemesinde bulunur.

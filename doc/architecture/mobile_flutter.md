@@ -537,7 +537,7 @@ Tipler: Ders mor/pembe · Ödev yeşil · Not mavi · Ödeme kırmızı.
 ### 13.19b Üyelik ve Paywall (P09 Task 6)
 **Amaç:** Üyelik durumu, iptal, referans kampanyası ve premium vitrini.
 **UI:** `/membership` — seviye rozeti + dönem sonu kartı, referans kodu (kopyala) ve kod kullanma alanı;
-`/membership/paywall` — rol bazlı Free/Premium tablosu, plan kartları, kampanyalar, "yakında" listesi.
+`/membership/paywall` — rol bazlı Free/Premium tablosu, plan kartları ve çalışan kampanyalar; işlevsiz satın alma/gelecek vaatleri gizli (P20 T1).
 → `pages/membership.md`, `pages/paywall.md`
 
 **Kural (K-09'un mobil karşılığı):** premium kararı **tek** kaynaktan gelir — `MembershipCubit`
@@ -640,3 +640,11 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 *Mobil Mimari & UI (Flutter) | Güncelleme: 2026-11-15 (P15 T7: §7 token yenileme akışı — tek uçuş, yalnız 400/401'de çıkış) · 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+## P20 T1 — gerçek verili yüzeyler ve debug rotaları
+
+`/teacher-panel-preview`, `/account-info-preview` ve aynı statik hesap ekranını kullanan `/account-info` yalnız `kDebugMode && enablePreviewRoutes` ile kaydedilir. Tercih testte debug kapısını kapatabilir; release/profile derlemesinde açamaz. More ve öğrenci profilinden statik hesaba giriş gizlidir.
+
+Takvim seed üretmez; öğretmen profili ilk API yanıtından önce/hata sonrasında örnek profil göstermez. Yorum ve aktif öğrenci sayısı gerçek kaynak gelene kadar görünmez. Study yüzeylerinde sabit sayaç/hedef/konu puanı ve işlem yapmayan satırlar kaldırılmıştır. `localization_test` mevcut feature listesine ek olarak P20’nin dokunduğu ekran ve widget dosyalarını tek tek tarar. API’nin sunucudan gelen `message`/validation metni aynen kalır; istemci fallback metni ARB’den alınır (mevcut uygulamanın sabit tr locale’i varsayılan, açık locale seçimi test edilebilir).
+
+P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını normal modda aynen hata olarak iletir; profil yokluğu demo öğretmen üretmez. Demo yalnız `AppConfig.isMockFallbackEnabled("teacher_profile")` açıkken mümkündür; production/beta bu bayrağı engeller. Başarılı gerçek profil yanıtı korunur, yeni profil oluşturma akışı bu göreve eklenmez.

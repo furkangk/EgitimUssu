@@ -832,5 +832,430 @@
         "type": "String"
       }
     }
+  },
+  "api_unexpectedError": "Beklenmeyen bir API hatası oluştu.",
+  "api_connectionTimeout": "Sunucuya bağlantı zaman aşımına uğradı.",
+  "api_receiveTimeout": "Sunucu yanıtı zaman aşımına uğradı.",
+  "api_sendTimeout": "İstek gönderimi zaman aşımına uğradı.",
+  "api_connectionError": "Sunucuya bağlanılamadı.",
+  "api_validationError": "Formdaki alanları kontrol edip tekrar dene.",
+  "studentDetail_studentUpdated": "Öğrenci güncellendi.",
+  "studentDetail_subjectAdded": "Branş eklendi.",
+  "studentDetail_subjectRemoved": "Branş silindi.",
+  "studentDetail_parentLinkPending": "Veli bağlama talebi oluşturuldu; onay bekliyor.",
+  "scheduling_calendar": "Takvim",
+  "scheduling_delete": "Sil",
+  "scheduling_daily": "Günlük",
+  "scheduling_monthly": "Aylık",
+  "scheduling_noEventsForThisDay": "Bu güne ait etkinlik yok.",
+  "scheduling_allDay": "Tüm gün",
+  "scheduling_freeSlot": "Boş saat",
+  "scheduling_mon": "Pzt",
+  "scheduling_tue": "Sal",
+  "scheduling_wed": "Çar",
+  "scheduling_thu": "Per",
+  "scheduling_fri": "Cum",
+  "scheduling_sat": "Cmt",
+  "scheduling_sun": "Paz",
+  "scheduling_weeklySchedule": "Haftalık Program",
+  "scheduling_scheduleConflict": "Çakışma var",
+  "scheduling_available": "Uygun",
+  "scheduling_swipeToSeeOtherDays": "Günleri görmek için sağa sola kaydır",
+  "scheduling_noEventsForThisDay2": "Bu güne ait etkinlik yok",
+  "scheduling_timeOffUnavailable": "Tatil / Müsait değil",
+  "scheduling_assignmentReminder": "Ödev Hatırlatması",
+  "scheduling_paymentReminder": "Ödeme Hatırlatması",
+  "scheduling_assignment": "Ödev",
+  "teacherProfile_teacherProfile": "Öğretmen profili",
+  "teacherProfile_profileNotFound": "Profil bulunamadı.",
+  "teacherProfile_personalDetails": "Kişisel bilgiler",
+  "teacherProfile_location": "Konum",
+  "teacherProfile_teacherDetails": "Öğretmen bilgileri",
+  "teacherProfile_subject": "Branş",
+  "teacherProfile_education": "Eğitim",
+  "teacherProfile_experience": "Deneyim",
+  "teacherProfile_hourlyRate": "Saatlik ücret",
+  "teacherProfile_lessonFormat": "Ders formatı",
+  "teacherProfile_about": "Hakkında",
+  "teacherProfile_noteToParents": "Veliye not",
+  "teacherProfile_expertise": "Uzmanlık alanları",
+  "teacherProfile_lessonPreferences": "Ders tercihleri",
+  "teacherProfile_availability": "Müsaitlik durumu",
+  "teacherProfile_years": "{value} yıl",
+  "@teacherProfile_years": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_selectAtLeastOneLessonFormat": "En az bir ders şekli seçili olmalı.",
+  "teacherProfile_profilePhoto": "Profil fotoğrafı",
+  "teacherProfile_takeAPhoto": "Kamera ile çek",
+  "teacherProfile_takeAPhotoAndUploadItToYourProfile": "Fotoğraf çekilir ve profiline yüklenir.",
+  "teacherProfile_chooseFromGallery": "Galeriden seç",
+  "teacherProfile_upTo10MBJpgPngOrWebp": "En fazla 10 MB; jpg, png veya webp.",
+  "teacherProfile_signInToUploadAPhoto": "Fotoğraf yüklemek için giriş yapmalısın.",
+  "teacherProfile_photoUpdated": "Fotoğraf güncellendi.",
+  "teacherProfile_unableToUploadPhoto": "Fotoğraf yüklenemedi: {value}",
+  "@teacherProfile_unableToUploadPhoto": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_isRequired": "{value} boş bırakılamaz.",
+  "@teacherProfile_isRequired": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_updated": "{value} güncellendi.",
+  "@teacherProfile_updated": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "teacherProfile_city": "Şehir",
+  "teacherProfile_district": "İlçe",
+  "teacherProfile_locationUpdated": "Konum güncellendi.",
+  "teacherProfile_lgsMathematics": "LGS Matematik",
+  "teacherProfile_tytProblems": "TYT Problemler",
+  "teacherProfile_aytFunctions": "AYT Fonksiyonlar",
+  "teacherProfile_geometry": "Geometri",
+  "teacherProfile_lessonTracking": "Ders takip sistemi",
+  "teacherProfile_examCoaching": "Sınav koçluğu",
+  "teacherProfile_schoolSupport": "Okula destek",
+  "teacherProfile_expertiseUpdated": "Uzmanlık alanları güncellendi.",
+  "teacherProfile_tapAFieldToEdit": "Alanlara dokunarak düzenle",
+  "teacherProfile_profileVisibility": "Profil görünürlüğü",
+  "teacherProfile_visibleInStudentAndParentSearches": "Öğrenci ve veli aramalarında görünür.",
+  "teacherProfile_onlineLessons": "Online ders",
+  "teacherProfile_shownForOnlineLessonRequests": "Uzaktan ders taleplerinde görünür olur.",
+  "teacherProfile_inPersonLessons": "Yüz yüze ders",
+  "teacherProfile_listedInLocationSearches": "Konum bazlı aramalarda listelenir.",
+  "teacherProfile_saveProfile": "Profili Kaydet",
+  "teacherProfile_onlineInPerson": "Online + Yüz yüze",
+  "study_letSTakeAnotherStepToday": "Bugün de bir adım daha atalım.",
+  "study_youReachedTodaySGoalWellDone": "Bugün hedefini tamamladın, harikasın! 🎉",
+  "study_hello2": "Merhaba 👋",
+  "study_loadingStudyDashboard": "Çalışma panosu yükleniyor...",
+  "study_anErrorOccurred": "Bir hata oluştu.",
+  "study_startStudying": "Çalışmaya Başla",
+  "study_startTheTimerAndGrowYourStreak": "Kronometreyi başlat, serini büyüt",
+  "study_quickAccess": "Hızlı erişim",
+  "study_dayStreak": "Gün seri",
+  "study_setADailyGoal": "Günlük hedef belirle",
+  "study_myLessons": "Derslerim",
+  "study_myGoals": "Hedeflerim",
+  "study_myPerformance": "Performansım",
+  "study_upcomingLessons": "Yaklaşan dersler",
+  "study_unableToLoadAssignments": "Ödevler yüklenemedi.",
+  "study_upcomingAssignments": "Yaklaşan ödevler",
+  "study_noUpcomingAssignments": "Yaklaşan ödev yok",
+  "study_youHaveNoAssignmentsDueSoon": "Teslim tarihi yaklaşan bir ödevin bulunmuyor.",
+  "study_noDueDate": "Süresiz",
+  "study_loadingYourProfile": "Profilin yükleniyor...",
+  "study_gradeNotProvided": "Sınıf bilgisi girilmedi",
+  "study_profile": "Profil",
+  "study_yourDetailsSettingsAndStatistics": "Bilgilerin, ayarların ve istatistiklerin.",
+  "study_totalStudyTime": "Toplam çalışma",
+  "study_daysStudied": "Çalışılan gün",
+  "study_bestStreak": "Rekor seri",
+  "study_totalPracticeExams": "Toplam deneme",
+  "study_totalNetScore": "Toplam net",
+  "study_mostStudied": "En çok çalışılan",
+  "study_badges": "Rozetler",
+  "study_settings": "Ayarlar",
+  "study_myTeachers": "Öğretmenlerim",
+  "study_yourTeachersAndContactDetails": "Bağlı öğretmenlerin ve iletişim",
+  "study_chatWithYourTeachers": "Öğretmenlerinle sohbet et",
+  "study_addGoal": "Hedef ekle",
+  "study_createANewStudyGoal": "Yeni bir çalışma hedefi oluştur",
+  "study_areYouSureYouWantToSignOut": "Oturumunu kapatmak istediğine emin misin?",
+  "study_dayStreak2": "{value} gün seri",
+  "@study_dayStreak2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_startStudyingToday": "Bugün çalışmaya başla",
+  "study_goals": "Hedefler",
+  "study_loadingYourGoals": "Hedeflerin yükleniyor...",
+  "study_smallGoalsBigProgress": "Küçük hedefler, büyük ilerleme.",
+  "study_dailyGoal": "Günlük hedef",
+  "study_weeklyGoal": "Haftalık hedef",
+  "study_netScoreGoal": "Net hedefi",
+  "study_net": "{value} net",
+  "@study_net": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_editGoals": "Hedefleri düzenle",
+  "study_goal": "Hedef: {value}",
+  "@study_goal": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_loadingLesson": "Ders yükleniyor...",
+  "study_lessonNotFound": "Ders bulunamadı.",
+  "study_test": "Test",
+  "study_practiceExam": "Deneme",
+  "study_addAssignment": "Ödev ekle",
+  "study_submitAssignment": "Ödev teslim et",
+  "study_addTopic": "Konu ekle",
+  "study_topic": "Konu",
+  "study_myPendingAssignments": "Bekleyen ödevlerim",
+  "study_youHaveNoPendingAssignments": "Bekleyen ödevin yok.",
+  "study_mySubjectNotes": "Branş notlarım",
+  "study_allMyNotes": "Tüm notlarım",
+  "study_youHaveNoNotesForThisSubject": "Bu branş için not eklemedin.",
+  "study_loadingYourPracticeExams": "Denemelerin yükleniyor...",
+  "study_viewYourNetScoresStudyAnalysisAndProgress": "Net gelişimini, çalışma analizini ve eksik konuları gör.",
+  "study_avgNet": "Ort. net",
+  "study_bestNetScore": "En iyi net",
+  "study_remainingToGoal": "Hedefe kalan",
+  "study_targetNetTracking": "Hedef net takibi",
+  "study_targetNetScore": "Hedef net",
+  "study_averageNetScore": "Ortalama net",
+  "study_youReachedYourGoal": "Hedefine ulaştın!",
+  "study_netRemaining": "{value} net kaldı",
+  "@study_netRemaining": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_netScoreTrend": "Net gelişim grafiği",
+  "study_testStatistics": "Test istatistikleri",
+  "study_allTimeStudyTimeBySubjectAndTopic": "Tüm zamanlar · derse ve konuya göre çalışma süresi",
+  "study_noStudySessionsYet": "Henüz çalışma seansı yok.",
+  "study_practiceExamStatistics": "Deneme istatistikleri",
+  "study_noPracticeExamsYet": "Henüz deneme yok.",
+  "study_weeklyMonthlyAnalysis": "Haftalık/Aylık analiz",
+  "study_personalRecords": "Kişisel rekorlar",
+  "study_analysisProgress": "Analiz & Gelişim",
+  "study_detailedAnalysis": "Detaylı analiz",
+  "study_weeklyHistoryAndManualSessions": "Haftalık geçmiş, manuel seanslar",
+  "study_myProgress": "Gelişimim",
+  "study_topicMasteryStrengthsAndAreasToImprove": "Konu bazlı hâkimiyet, eksik/güçlü konular",
+  "study_addTestPracticeExam": "Test / Deneme gir",
+  "study_week": "Hafta",
+  "study_noPracticeExamsYetAddYourFirstExamTo": "Henüz deneme yok. İlk denemeni girerek net gelişimini takip et.",
+  "study_noPracticeExamsInThisPeriod": "Bu aralıkta deneme yok.",
+  "study_practiceExamsAvgNet": "{value} deneme · ort. {secondaryValue} net",
+  "@study_practiceExamsAvgNet": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "secondaryValue": {
+        "type": "String"
+      }
+    }
+  },
+  "study_net2": "{value}{secondaryValue} net",
+  "@study_net2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "secondaryValue": {
+        "type": "String"
+      }
+    }
+  },
+  "study_total": "Toplam: {value}",
+  "@study_total": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_sessions": "{value} seans",
+  "@study_sessions": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_3WeeksAgo": "3 hafta önce",
+  "study_2WeeksAgo": "2 hafta önce",
+  "study_1WeekAgo": "1 hafta önce",
+  "study_thisWeek": "Bu hafta",
+  "study_noStudySessionsInTheLast28Days": "Son 28 günde çalışma yok.",
+  "study_sessionsLast28Days": "{value} seans · son 28 gün",
+  "@study_sessionsLast28Days": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_noTopicSpecified": "Konu belirtilmemiş",
+  "study_topicsSessions": "{value} konu · {secondaryValue} seans",
+  "@study_topicsSessions": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "secondaryValue": {
+        "type": "String"
+      }
+    }
+  },
+  "study_longestStreakDays": "En uzun seri (gün)",
+  "study_longestSession": "En uzun tek seans",
+  "study_mostStudiedDay": "En çok çalışılan gün",
+  "study_bestPerformingSubject": "En verimli ders",
+  "study_own": "Kendi",
+  "membership_premium": "Premium",
+  "membership_loadingPlans": "Planlar yükleniyor...",
+  "membership_whatChangesWithThePlan": "{value} paketinde ne değişiyor?",
+  "@membership_whatChangesWithThePlan": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_plans": "Planlar",
+  "membership_noPlansAvailable": "Satışta plan yok",
+  "membership_thereAreNoMembershipPlansForThisRoleYet": "Bu rol için henüz bir üyelik planı tanımlanmamış. Daha sonra tekrar dene.",
+  "membership_offers": "Kampanyalar",
+  "membership_yourPremiumMembershipIsActive": "Premium üyeliğin aktif",
+  "membership_goFurtherWithEItimSsPremium": "EğitimÜssü Premium ile derinleş",
+  "membership_allYourPremiumBenefitsAreActiveManageYourPlan": "Tüm Premium hakların açık. Üyeliğini \"Üyelik\" ekranından yönetebilirsin.",
+  "membership_removeLimitsWithThePlanAndAccessDetailedAnalysis": "{value} paketinde limitleri kaldır, derinlemesine analiz ve raporlara eriş.",
+  "@membership_removeLimitsWithThePlanAndAccessDetailedAnalysis": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_firstMonthFree": "İlk ay ücretsiz",
+  "membership_tryAMonthlyPlanFreeFor30DaysOnce": "Aylık planı ilk kez denerken 30 gün ücretsiz. Kullanıcı başına bir kez.",
+  "membership_inviteAFriend": "Arkadaşını getir",
+  "membership_shareYourReferralCodeToGiveBothYouAnd": "Referans kodunu paylaş; kodu kullanana da sana da 1 ay Premium yazılır. Kodun \"Üyelik\" ekranında.",
+  "membership_free": "Ücretsiz",
+  "membership_yearlyPremium": "Yıllık Premium",
+  "membership_monthlyPremium": "Aylık Premium",
+  "membership_daysFree": "{value} gün ücretsiz",
+  "@membership_daysFree": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_tryFreeForDays": "{value} gün ücretsiz dene",
+  "@membership_tryFreeForDays": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_studyForMoreTodayToReachYourGoal2": "Bugün {value} daha çalışırsan hedefini tamamlayacaksın.",
+  "@study_studyForMoreTodayToReachYourGoal2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_hello3": "Merhaba, {value} 👋",
+  "@study_hello3": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_goalMin2": "Hedef {value} dk",
+  "@study_goalMin2": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "study_notSet": "belirlenmedi",
+  "membership_monthlyPeriod": "aylık",
+  "membership_yearlyPeriod": "yıllık",
+  "membership_linkableStudents": "Bağlanabilecek öğrenci",
+  "membership_pdfStudentReport": "PDF öğrenci raporu",
+  "membership_studyExamHistory": "Çalışma ve deneme geçmişi",
+  "membership_last30Days": "Son 30 gün",
+  "membership_unlimited": "Sınırsız",
+  "membership_targetTracking": "Hedef net / puan takibi",
+  "membership_included": "Açık",
+  "membership_richNotifications": "Zengin bildirimler",
+  "membership_basic": "Temel",
+  "membership_parentAlerts": "Haftalık özet + ödev/ödeme uyarıları",
+  "membership_studentCount": "{value} öğrenci",
+  "@membership_studentCount": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "membership_roleParent": "Veli",
+  "study_hoursMinutes": "{hours}s {minutes}dk",
+  "@study_hoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "study_hoursOnly": "{hours}s",
+  "@study_hoursOnly": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "study_minutesOnly": "{minutes}dk",
+  "@study_minutesOnly": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "study_month": "Ay",
+  "study_badgesEarned": "{earned} / {total} rozet kazanıldı",
+  "@study_badgesEarned": {
+    "placeholders": {
+      "earned": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
   }
 }

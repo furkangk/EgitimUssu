@@ -1,6 +1,7 @@
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/study_format.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// Öğrenci çalışma sekmelerinde ortak kullanılan kart/başlık/tile bileşenleri.
@@ -43,9 +44,9 @@ class StudySectionHeader extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         if (action != null)
           InkWell(
@@ -56,7 +57,9 @@ class StudySectionHeader extends StatelessWidget {
               child: Text(
                 action!.label,
                 style: const TextStyle(
-                    color: AppColors.primary, fontWeight: FontWeight.w700),
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -110,84 +113,22 @@ class StudyStatTile extends StatelessWidget {
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(height: 8),
-          Text(value,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  fontSize: 15)),
-          const SizedBox(height: 2),
-          Text(label,
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-        ],
-      ),
-    );
-  }
-}
-
-/// Backend verisi henüz olmayan bölümler için dürüst "yakında" kartı.
-class StudyComingSoonCard extends StatelessWidget {
-  const StudyComingSoonCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return StudyCard(
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.tabBackground,
-              borderRadius: BorderRadius.circular(14),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              fontSize: 15,
             ),
-            child: Icon(icon, color: AppColors.textMuted, size: 22),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Flexible(
-                      child: Text(title,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary)),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.tabBackground,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text('Yakında',
-                          style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(message,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
-              ],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
             ),
           ),
         ],
@@ -233,58 +174,57 @@ class StudySessionTile extends StatelessWidget {
               color: AppColors.primaryLight,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(isManual ? Icons.edit_rounded : Icons.timer_rounded,
-                color: AppColors.primary, size: 20),
+            child: Icon(
+              isManual ? Icons.edit_rounded : Icons.timer_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(topic == null ? subject : '$subject · $topic',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary)),
-                Text(StudyFormat.date(endedAtUtc),
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
+                Text(
+                  topic == null ? subject : '$subject · $topic',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  StudyFormat.date(endedAtUtc),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
           ),
-          Text(StudyFormat.minutes(minutes),
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: AppColors.primary)),
+          Text(
+            studyMinutes(context, minutes),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Backend'i olmayan veri/eylemler için dürüst "demo" rozeti.
-class StudyDemoBadge extends StatelessWidget {
-  const StudyDemoBadge({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.warningSurfaceStrong,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: const Text('Demo',
-          style: TextStyle(
-              color: AppColors.warning, fontSize: 10, fontWeight: FontWeight.w700)),
-    );
-  }
-}
-
 /// Gradient ikon madalyonu (kart başlıkları / hızlı erişim).
 class StudyIconChip extends StatelessWidget {
-  const StudyIconChip(
-      {super.key, required this.icon, required this.color, this.size = 44});
+  const StudyIconChip({
+    super.key,
+    required this.icon,
+    required this.color,
+    this.size = 44,
+  });
 
   final IconData icon;
   final Color color;
@@ -297,7 +237,10 @@ class StudyIconChip extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.08)],
+          colors: [
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.08),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -340,12 +283,13 @@ class _StudyPressableState extends State<StudyPressable> {
 
 /// Dashboard hızlı erişim kartı (ikon + etiket).
 class StudyQuickAccessCard extends StatelessWidget {
-  const StudyQuickAccessCard(
-      {super.key,
-      required this.icon,
-      required this.color,
-      required this.label,
-      required this.onTap});
+  const StudyQuickAccessCard({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final Color color;
@@ -363,9 +307,13 @@ class StudyQuickAccessCard extends StatelessWidget {
           children: <Widget>[
             StudyIconChip(icon: icon, color: color),
             const SizedBox(height: 10),
-            Text(label,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ],
         ),
       ),
@@ -375,8 +323,12 @@ class StudyQuickAccessCard extends StatelessWidget {
 
 /// Hedef ilerleme barı (value 0..1, 1 üzerini kırpar).
 class StudyProgressBar extends StatelessWidget {
-  const StudyProgressBar(
-      {super.key, required this.value, this.color, this.trailingLabel});
+  const StudyProgressBar({
+    super.key,
+    required this.value,
+    this.color,
+    this.trailingLabel,
+  });
 
   final double value;
   final Color? color;
@@ -405,9 +357,13 @@ class StudyProgressBar extends StatelessWidget {
         ),
         if (trailingLabel != null) ...<Widget>[
           const SizedBox(height: 4),
-          Text(trailingLabel!,
-              style:
-                  const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          Text(
+            trailingLabel!,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
         ],
       ],
     );
@@ -432,14 +388,35 @@ class StudyOwnershipBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(isOwn ? Icons.person_rounded : Icons.school_rounded,
-              size: 12, color: color),
+          Icon(
+            isOwn ? Icons.person_rounded : Icons.school_rounded,
+            size: 12,
+            color: color,
+          ),
           const SizedBox(width: 4),
-          Text(isOwn ? 'Kendi' : 'Öğretmen',
-              style: TextStyle(
-                  color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+          Text(
+            isOwn
+                ? AppLocalizations.of(context).study_own
+                : AppLocalizations.of(context).finance_ogretmen,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
   }
+}
+
+/// Çalışma sürelerinin locale uyumlu sunumu.
+String studyMinutes(BuildContext context, int totalMinutes) {
+  final l10n = AppLocalizations.of(context);
+  final safeMinutes = totalMinutes < 0 ? 0 : totalMinutes;
+  final hours = safeMinutes ~/ 60;
+  final minutes = safeMinutes % 60;
+  if (hours > 0 && minutes > 0) return l10n.study_hoursMinutes(hours, minutes);
+  if (hours > 0) return l10n.study_hoursOnly(hours);
+  return l10n.study_minutesOnly(minutes);
 }

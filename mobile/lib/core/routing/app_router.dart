@@ -1,5 +1,5 @@
-
 import 'dart:async';
+
 import 'package:egitim_ussu_mobile/core/routing/deep_links.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignment_follow_up_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assignments_page.dart';
@@ -57,12 +57,16 @@ import 'package:egitim_ussu_mobile/features/study/presentation/pages/study_timer
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/subject_catalog_page.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/pages/test_entry_page.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/pages/teacher_profile_page.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 class AppRouter {
-  AppRouter({required AuthCubit authCubit, String initialLocation = '/'})
-    : _refreshListenable = GoRouterRefreshStream(authCubit.stream) {
+  AppRouter({
+    required AuthCubit authCubit,
+    String initialLocation = '/',
+    bool enablePreviewRoutes = true,
+  }) : _refreshListenable = GoRouterRefreshStream(authCubit.stream) {
+    final previewsEnabled = kDebugMode && enablePreviewRoutes;
     router = GoRouter(
       initialLocation: initialLocation,
       refreshListenable: _refreshListenable,
@@ -87,8 +91,10 @@ class AppRouter {
             state.matchedLocation.startsWith('/password-reset') ||
             state.matchedLocation.startsWith('/verify-email');
         final onPreviewScreen =
-            state.matchedLocation == '/teacher-panel-preview' ||
-            state.matchedLocation == '/account-info-preview';
+            previewsEnabled &&
+            (state.matchedLocation == '/teacher-panel-preview' ||
+                state.matchedLocation == '/account-info-preview' ||
+                state.matchedLocation == '/account-info');
 
         if (status == AuthStatus.loading) {
           return null;
@@ -296,10 +302,11 @@ class AppRouter {
           path: '/dashboard',
           builder: (context, state) => const DashboardPage(),
         ),
-        GoRoute(
-          path: '/teacher-panel-preview',
-          builder: (context, state) => const TeacherPanelPreviewPage(),
-        ),
+        if (previewsEnabled)
+          GoRoute(
+            path: '/teacher-panel-preview',
+            builder: (context, state) => const TeacherPanelPreviewPage(),
+          ),
         GoRoute(
           path: '/teacher-profile',
           builder: (context, state) => const TeacherProfilePage(),
@@ -336,19 +343,21 @@ class AppRouter {
           path: '/settings/privacy',
           builder: (context, state) => const PrivacySettingsPage(),
         ),
-        GoRoute(
-          path: '/account-info',
-          builder: (context, state) => const AccountInfoPage(),
-        ),
+        if (previewsEnabled)
+          GoRoute(
+            path: '/account-info',
+            builder: (context, state) => const AccountInfoPage(),
+          ),
         // M01-4 (D-03): "Hesabım hangi cihazlarda açık?"
         GoRoute(
           path: '/account/sessions',
           builder: (context, state) => const DeviceSessionsPage(),
         ),
-        GoRoute(
-          path: '/account-info-preview',
-          builder: (context, state) => const AccountInfoPage(),
-        ),
+        if (previewsEnabled)
+          GoRoute(
+            path: '/account-info-preview',
+            builder: (context, state) => const AccountInfoPage(),
+          ),
         GoRoute(
           path: '/students',
           builder: (context, state) => const StudentsPage(),

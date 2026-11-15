@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import 'package:dio/dio.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 
 enum ApiErrorKind { auth, validation, conflict, network, unknown }
 
@@ -20,7 +23,11 @@ class ApiException implements Exception {
   bool get isConflict => statusCode == 409;
   bool get isValidation => kind == ApiErrorKind.validation;
 
-  static ApiException fromDioException(DioException exception) {
+  static ApiException fromDioException(
+    DioException exception, {
+    Locale? locale,
+  }) {
+    final l10n = lookupAppLocalizations(locale ?? const Locale('tr'));
     final response = exception.response;
     final data = response?.data;
     final statusCode = response?.statusCode;
@@ -28,10 +35,10 @@ class ApiException implements Exception {
       final code = data['code']?.toString();
       final validationErrors = _readValidationErrors(data);
       final message =
-          _validationMessage(validationErrors) ??
+          _validationMessage(validationErrors, l10n) ??
           data['message']?.toString() ??
           data['title']?.toString() ??
-          'Beklenmeyen bir API hatasi olustu.';
+          l10n.api_unexpectedError;
       return ApiException(
         message: message,
         kind: _kindFor(statusCode, validationErrors),
@@ -43,13 +50,11 @@ class ApiException implements Exception {
 
     return ApiException(
       message: switch (exception.type) {
-        DioExceptionType.connectionTimeout =>
-          'Sunucuya bağlantı zaman aşımına uğradı.',
-        DioExceptionType.receiveTimeout =>
-          'Sunucu yaniti zaman asimina ugradi.',
-        DioExceptionType.sendTimeout => 'Istek gonderimi zaman asimina ugradi.',
-        DioExceptionType.connectionError => 'Sunucuya baglanilamadi.',
-        _ => 'Beklenmeyen bir API hatasi olustu.',
+        DioExceptionType.connectionTimeout => l10n.api_connectionTimeout,
+        DioExceptionType.receiveTimeout => l10n.api_receiveTimeout,
+        DioExceptionType.sendTimeout => l10n.api_sendTimeout,
+        DioExceptionType.connectionError => l10n.api_connectionError,
+        _ => l10n.api_unexpectedError,
       },
       kind: _kindFor(statusCode, const <String, List<String>>{}),
       statusCode: statusCode,
@@ -94,13 +99,16 @@ class ApiException implements Exception {
     });
   }
 
-  static String? _validationMessage(Map<String, List<String>> errors) {
+  static String? _validationMessage(
+    Map<String, List<String>> errors,
+    AppLocalizations l10n,
+  ) {
     if (errors.isEmpty) {
       return null;
     }
     final flattened = errors.values.expand((messages) => messages).toList();
     if (flattened.isEmpty) {
-      return 'Formdaki alanlari kontrol edip tekrar dene.';
+      return l10n.api_validationError;
     }
     return flattened.take(3).join('\n');
   }

@@ -10,7 +10,7 @@ code_refs:
   - mobile/lib/features/membership/domain/membership_contracts.dart
   - mobile/lib/features/membership/data/repositories/membership_repository_impl.dart
   - mobile/lib/features/membership/presentation/widgets/membership_widgets.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Üyelik
@@ -18,7 +18,7 @@ updated: 2026-09-04
 > **Route:** `/membership` · **Feature:** `membership` · **Veri:** 🟢 `/api/membership`
 > **Giriş:** `/more` → "Uyelik" satırı (P05'te "Yakında" pasifti, P09 Task 6'da aktifleşti — D-15)
 > **State:** `MembershipCubit` — **uygulama kökünde** (`app/app.dart`) tek örnek olarak sağlanır
-> **Güncelleme:** 2026-09-04
+> **Güncelleme:** 2026-11-15
 
 ---
 
@@ -60,4 +60,8 @@ Cubit oturum değiştiğinde `AuthCubit` dinleyicisinden tazelenir
 
 ---
 
-*Sayfa dokümanı | Güncelleme: 2026-09-04*
+*Sayfa dokümanı | Güncelleme: 2026-11-15*
+
+## P20 T1 — ortak plan yüzeyleri
+
+Mevcut üyelik/iptal/referans davranışları korunur. Paywall’a gidildiğinde işlevsiz satın alma düğmesi ve henüz sunulmayan Premium vaatleri gösterilmez; yalnız gerçek plan kataloğu, deneme ve referans yer alır. Ortak üyelik rozeti/plan kartı sabit metinleri tr/en ARB’den gelir.

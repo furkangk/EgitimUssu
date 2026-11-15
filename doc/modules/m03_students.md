@@ -448,3 +448,7 @@ Profiller birleştirildi      → StudentProfilesMergedDomainEvent (FromStudentI
 **Outbox teslimi (P19 T2 / N-42):** Veli bağı birincil değilse, öğrenci silinmişse veya veli zaten bağlıysa geçerli etkisiz sonuç da inbox'a yazılır; bozuk yük açık poison hatasıdır. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+## P20 T1 — öğrenci detay başarı mesajları
+
+`StudentDetailCubit` öğrenci güncelleme, branş ekleme/silme ve bekleyen veli talebi için `studentDetail_*` anlam anahtarı taşır. `StudentDetailPage` bunları aktif tr/en ARB’den gösterir; sunucu hata mesajı sözleşmesi korunur. API/repository/domain değişmedi.

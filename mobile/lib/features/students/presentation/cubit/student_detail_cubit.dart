@@ -74,7 +74,7 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
         state.copyWith(
           isSaving: false,
           student: saved,
-          successMessage: 'Öğrenci güncellendi.',
+          successMessage: 'studentDetail_studentUpdated',
           clearMessages: true,
         ),
       );
@@ -86,7 +86,10 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
 
   /// M03-2: Profili baştan güncellemeden tek branş ekler. Sunucu aynı branşı
   /// ikinci kez kabul etmez (`students.duplicate_subject`) — hata kullanıcıya gösterilir.
-  Future<void> addSubject({required String subject, String? targetLevel}) async {
+  Future<void> addSubject({
+    required String subject,
+    String? targetLevel,
+  }) async {
     final current = state.student;
     if (isClosed || current == null) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
@@ -103,7 +106,7 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
           student: current.copyWith(
             subjects: <StudentSubjectTarget>[...current.subjects, added],
           ),
-          successMessage: 'Brans eklendi.',
+          successMessage: 'studentDetail_subjectAdded',
         ),
       );
     } on ApiException catch (error) {
@@ -131,7 +134,7 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
                 .where((subject) => subject.id != subjectId)
                 .toList(),
           ),
-          successMessage: 'Brans silindi.',
+          successMessage: 'studentDetail_subjectRemoved',
         ),
       );
     } on ApiException catch (error) {
@@ -155,7 +158,7 @@ class StudentDetailCubit extends Cubit<StudentDetailState> {
       emit(
         state.copyWith(
           isSaving: false,
-          successMessage: 'Veli baglama talebi olusturuldu; onay bekliyor.',
+          successMessage: 'studentDetail_parentLinkPending',
         ),
       );
     } on ApiException catch (error) {

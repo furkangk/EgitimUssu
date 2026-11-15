@@ -382,7 +382,7 @@ POST /plans                           (Admin)  → yeni plan
 PUT  /plans/{planId}                  (Admin)  → fiyat / deneme / satış durumu
 [impl] IEntitlementDirectory (Shared.Contracts) — üyelik haklarının TEK kaynağı (K-09)
 [seed] MembershipPlanSeeder — idempotent, YALNIZ Development; fiyatlar hipotez (Q2 onaylanmadı)
-[mobil] /membership + /membership/paywall (P09 Task 6) — checkout ucu YOK, satın alma düğmesi pasif
+[mobil] /membership + /membership/paywall (P09 Task 6) — checkout ucu YOK, satın alma düğmesi gizli (P20 T1)
 ```
 
 ### İskelet modüller (sadece durum endpoint'i)
@@ -454,3 +454,7 @@ M14 Reporting ve M11 Notifications, StudentProfilesMerged tüketicilerine katıl
 
 
 **P19 T8 CI bağımlılık kapısı (Güncelleme: 2026-11-15):** MailKit/MimeKit üzerinden gelen Pkcs8.0.1, Shared.Infrastructure'da açık `System.Security.Cryptography.Pkcs 8.0.2` referansıyla güvenlik düzeltmesine yükseltilir ([Microsoft advisory](https://github.com/advisories/GHSA-846f-f764-76mx), [ikinci advisory](https://github.com/advisories/GHSA-2fmv-rv2c-59x7)). Testcontainers'ın geçişli SSH.NET sürümü yalnız integration projesinde `2026.0.0` olarak sabitlenir ([SCP yol advisory](https://github.com/advisories/GHSA-mggc-4xg6-vcxf), [SCP indirme advisory](https://github.com/advisories/GHSA-q939-rpr3-3284)). Üst paketlerin API/sürümü değiştirilmez; `dotnet list package --vulnerable` çıkış kodu tek başına yeterli değildir, JSON'da advisoryurl bulunmamalıdır.
+
+## P20 T1 — mobil sahte veri temizliği
+
+M02/M04/M08/M17 mobil yüzeylerinde kaynaksız sayı/hedef/puan ve işlevsiz yer tutucular temizlendi. Takvim ve öğretmen profilinde başlangıç seed’i yoktur. Statik panel/hesap rotaları debug ile sınırlıdır. Üyelik kataloğu/deneme/referans çalışır; satın alma girişi ve gelecek vaatleri gizlidir. Backend uçları/şemaları bu görevde değişmedi.

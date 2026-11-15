@@ -292,7 +292,7 @@ Profil güncellendi  → TeacherProfileUpdatedDomainEvent (TeacherProfileId, Use
 | Route | Sayfa | Durum | Açıklama |
 |-------|-------|-------|----------|
 | `/teacher-profile` | `TeacherProfilePage` | ✅ | Profil oluştur/düzenle (branş, şehir, ücret, biyografi, uygunluk ızgarası) |
-| `/teacher-panel-preview` | önizleme | ✅ | Giriş yapmadan öğretmen paneli önizlemesi |
+| `/teacher-panel-preview` | önizleme | ✅ | Yalnız debug derlemesinde öğretmen paneli önizlemesi |
 | `/` (dashboard) | `DashboardPage` | ✅ | Bugünkü dersler + bekleyen ödevler + geciken ödemeler (BFF endpoint; `dashboard` feature) |
 
 **Uygunluk düzenleyici (D-04/M02-5, 2026-09-04):** `AvailabilityEditor` widget'ı haftanın 7 gününü ayrı satırlarda
@@ -357,3 +357,9 @@ tamamını taşır; §5 madde 8'deki merge semantiği sayesinde tekrar kaydetme 
 
 *Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P08 Task 4 / M14-4: `ITeacherDirectory` sözleşmesi eklendi — `TeacherDirectory.GetDisplayNameAsync` öğretmen adını Reporting'in PDF rapor başlığına açar; uygunluk sözleşmesinden ayrı tutuldu) · 2026-09-04 (P08 Task 3 / M14-5: `ITeacherAvailabilityDirectory` sözleşmesi eklendi — haftalık uygunluk şablonu Reporting'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **arama filtresi Türkçe 'I' hatası düzeltildi** — `TeacherSearchFilter.NormalizeForSearch` girdiyi Postgres'in `lower()` davranışıyla hizalar; tr-TR sunucuda "Istanbul" araması boş dönüyordu) · 2026-09-04 (P06/D-04/M02-5: mobil uygunluk düzenleyici — `AvailabilityEditor`, slot bazlı online/yüz yüze + çakışma engeli) · 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->
+
+## P20 T1 — mobil sahte veri temizliği
+
+Mobil öğretmen profilinde gerçek profil yüklenmeden örnek veri/düzenleyici gösterilmez. Sabit 4.8/126 yorum ve 18 aktif öğrenci metrikleri kaldırıldı; More özeti de puan üretmez. `/teacher-panel-preview` yalnız debug derlemesinde kayıtlıdır.
+
+P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını normal modda aynen hata olarak iletir; profil yokluğu demo öğretmen üretmez. Demo yalnız `AppConfig.isMockFallbackEnabled("teacher_profile")` açıkken mümkündür; production/beta bu bayrağı engeller. Başarılı gerçek profil yanıtı korunur, yeni profil oluşturma akışı bu göreve eklenmez.

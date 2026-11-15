@@ -267,3 +267,7 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
 
 *Güncelleme: 2026-11-15 — P19 Task 3: ödev durum/sürüm kuralları ve mobil/erişim devirleri.*
+
+## P20 T1 — gerçek verili mobil görünüm
+
+Takvim boş API yanıtında etkinlik üretmez; sabit tatil/ödev/ödeme hatırlatmaları kaldırılmıştır. Öğretmen profili gerçek API yüklenmeden örnek ad/uygunluk göstermez; hatada tekrar deneme sunar. Sabit puan/yorum/aktif öğrenci sayısı yoktur. More içindeki statik hesap girişi P21’e kadar gizlidir; panel/hesap geliştirme önizlemeleri yalnız debug derlemesindedir.

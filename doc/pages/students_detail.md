@@ -32,7 +32,7 @@ Bir öğrencinin profili + sekmeli görünüm: Genel / Dersler / Performans / Ö
 
 ## Veli bağlama (M03-1)
 1. "Veli bağla" → alt sayfa → `StudentDetailCubit.linkParent` → `POST /api/students/profiles/{id}/link-parent`.
-2. Bağ **onay bekler** (`Pending`); ekran "Veli baglama talebi olusturuldu; onay bekliyor." mesajı verir ve profil hemen değişmez.
+2. Bağ **onay bekler** (`Pending`); ekran "Veli bağlama talebi oluşturuldu; onay bekliyor." mesajı verir ve profil hemen değişmez.
 3. ⚠️ **Bilinen sınır:** Identity'de e-postayla kullanıcı arama ucu olmadığı için veli **kullanıcı kimliğiyle** giriliyor. Arama ucu gelince alan e-posta aramasına dönmeli.
 
 ## Aksiyonlar
@@ -44,6 +44,6 @@ Bir öğrencinin profili + sekmeli görünüm: Genel / Dersler / Performans / Ö
 
 ## Para gösterimi ve yerelleştirme (P18 T4)
 
-Genel ve Ödemeler sekmesindeki metrikler PaymentRecord int kuruşlarını para birimine göre ayrı toplar; örneğin TRY ve USD iki ayrı etiketle gösterilir. Ödeme kartı kendi ISO para birimi ve iki ondalıkla biçimlenir. Önceki tümünü TRY diye gösteren toplam kaldırıldı. Bu sayfanın bütün kullanıcı metinleri tr/en `finance_*` ARB anahtarlarından gelir; branş/veli formundaki eski ASCII yazımlar da aynı geçişte düzeltildi. Diğer öğrenci sayfaları ve StudentDetailCubit'in önceki mesajları bu kapsamda taşınmadı.
+Genel ve Ödemeler sekmesindeki metrikler PaymentRecord int kuruşlarını para birimine göre ayrı toplar; örneğin TRY ve USD iki ayrı etiketle gösterilir. Ödeme kartı kendi ISO para birimi ve iki ondalıkla biçimlenir. Önceki tümünü TRY diye gösteren toplam kaldırıldı. Bu sayfanın bütün kullanıcı metinleri tr/en `finance_*` ARB anahtarlarından gelir; branş/veli formundaki eski ASCII yazımlar da aynı geçişte düzeltildi. Diğer öğrenci sayfaları bu kapsamda taşınmadı. P20 T1 ile `StudentDetailCubit` başarı mesajları `studentDetail_*` anlam anahtarları taşır; sayfa güncelleme, branş ekleme/silme ve bekleyen veli talebini aktif tr/en ARB’den gösterir. Sunucudan gelen API hata metni korunur.
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*

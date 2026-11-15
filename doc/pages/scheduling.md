@@ -1,6 +1,6 @@
 ---
 title: "Takvim / Scheduling Ekranı"
-summary: "Ders takvimi (gün/hafta/ay); SchedulingCubit gerçek API'ye bağlı, initState'te demo seed ile karışık"
+summary: "Ders takvimi (gün/hafta/ay); yalnız SchedulingCubit gerçek API verisi"
 tags: [sayfa, scheduling, ogretmen]
 status: "🟡"
 authority: code
@@ -13,18 +13,18 @@ updated: 2026-11-15
 # Takvim / Scheduling (`/scheduling`)
 
 > **Feature:** `scheduling` · **Dosya:** `mobile/lib/features/scheduling/presentation/pages/scheduling_page.dart`
-> **State:** Stateful + `SchedulingCubit`, `StudentsCubit` · **Veri:** Karışık (initState'te demo seed) · **Güncelleme:** 2026-11-15
+> **State:** Stateful + `SchedulingCubit`, `StudentsCubit` · **Veri:** Gerçek API · **Güncelleme:** 2026-11-15
 
 ## Amaç
-Ders takvimi; gün/hafta/ay görünümü. Dersler, müsait olmayan slotlar, ödevler ve ödeme vadeleri gösterilir. Yeni ders için FAB.
+Ders takvimi; gün/hafta/ay görünümü. Yalnız gerçek ders oluşumları gösterilir. Tatil/ödev/ödeme etkinlikleri gerçek kaynak bağlanana kadar gösterilmez. Yeni ders için FAB.
 
 ## Teknik
 - Takvim paketi: `syncfusion_flutter_calendar`.
 - Görünüm switcher (gün/hafta/ay), tarih navigasyonu + bugün butonu, ders detay sheet.
-- **"Ders Planla" FAB**, dersler ekranındaki "Ders Ekle" ile **ortak** `LessonFormSheet` (`scheduling/presentation/widgets/lesson_form_sheet.dart`) açar — tek/tekrarlı ders, öğrenci-bazlı ders seçimi, başlangıç/bitiş saati, format ve haftalık program önizlemesi. Form kapanınca `setState` ile takvim yenilenir.
+- **"Ders Ekle" FAB**, dersler ekranındaki "Ders Ekle" ile **ortak** `LessonFormSheet` (`scheduling/presentation/widgets/lesson_form_sheet.dart`) açar — tek/tekrarlı ders, öğrenci-bazlı ders seçimi, başlangıç/bitiş saati, format ve haftalık program önizlemesi. Form kapanınca `setState` ile takvim yenilenir.
 
 ## Veri / API
-- `SchedulingCubit` üzerinden; başlangıçta demo dersler seed ediliyor. Backend: `GET /api/scheduling/teachers/{teacherUserId}/lessons`, `POST /api/scheduling/lessons`.
+- `SchedulingCubit` üzerinden; başlangıç takvimi boştur; `_seedEvents` ve sabit öğretmen adı kaldırılmıştır (P20 T1). Boş API yanıtı sıfır etkinlik üretir. Backend: `GET /api/scheduling/teachers/{teacherUserId}/lessons`, `POST /api/scheduling/lessons`.
 - **Tekrar açılımı (M04-1, 2026-09-04):** Liste ucu artık seriyi değil **somut oluşumları** döner — haftalık bir ders takvimde her haftasında görünür. Açılım backend'de (`RecurrenceExpander`) yapılır; ekranda istemci tarafı genişletme yoktur. Aynı seriye ait satırlar aynı `id`'yi taşır, saatleri farklıdır; `occurrenceStartAtUtc` alanı tek oluşum iptal/erteleme uçlarının hedef anahtarıdır (mobil iptal girişi ders detayında, P17 T5).
 - Çakışma: ortak form haftalık önizlemede "Çakışma var/Uygun" rozetiyle **yumuşak uyarı** gösterir; sert engelleme backend'de (oluşum genişletmeli kontrol → `409 scheduling.teacher_conflict`, tatil bloğu `409 scheduling.time_off_conflict` — P16 T4; bkz. [`../modules/m04_scheduling.md`](../modules/m04_scheduling.md) §4 kural 2).
 - **Kapsam (P17 T1 / N-01, 2026-11-15):** veri katmanı hazır — `LessonSchedule.occurrenceStartAtUtc` okunur, `SchedulingCubit.cancelLesson(lesson, scope)` tekrarlı derste kapsam + **orijinal** oluşum anahtarını gönderir (sunucu kapsamsız isteği artık `400 scheduling.scope_required` ile reddeder). "Yalnız bu ders / Bu ve sonrakiler / Tüm seri" seçimi `widgets/occurrence_scope_sheet.dart` (`showOccurrenceScopeSheet`, varsayılan "Yalnız bu ders", ARB).
@@ -32,3 +32,9 @@ Ders takvimi; gün/hafta/ay görünümü. Dersler, müsait olmayan slotlar, öde
 
 ## İlgili
 - Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.6 · Modül: M04
+
+## P20 T1 — metin ve boş durum
+
+Bu ekranın sabit metinleri tr/en ARB’den gelir; gün/ay adları aktif locale ile `DateFormat` kullanır. Oturumda ad yoksa genel öğretmen etiketi gösterilir.
+
+P20 T1 regresyonu: `BlocConsumer` mevcut başarı/hata dinleyicilerini korurken Scheduling durum değişince takvim veri kaynağını yeniden kurar. İlk yerleşim tamamlandıktan sonra gelen gerçek ders yanıtı kullanıcı tarih değiştirmeden görünür; gecikmeli yanıt widget testiyle doğrulanır.

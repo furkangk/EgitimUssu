@@ -56,9 +56,8 @@ class TeacherRepositoryImpl implements TeacherRepository {
     try {
       final response = await _apiClient.get('/api/teachers/profiles/$userId');
       return TeacherProfileModel.fromJson(response);
-    } on ApiException catch (error) {
-      if (_config.isMockFallbackEnabled('teacher_profile') ||
-          error.statusCode == 404) {
+    } on ApiException {
+      if (_config.isMockFallbackEnabled('teacher_profile')) {
         return TeacherProfileModel.demo(userId: userId);
       }
       rethrow;
