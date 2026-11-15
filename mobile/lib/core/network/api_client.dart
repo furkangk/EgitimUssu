@@ -228,7 +228,10 @@ class ApiClient {
         if (!_networkFailure(error)) rethrow;
         response = await send();
       }
-      _pendingWrites.remove(identity);
+      if (generation == _sessionGeneration &&
+          _pendingWrites[identity]?.$1 == key) {
+        _pendingWrites.remove(identity);
+      }
       return response;
     } on DioException catch (error) {
       final payload = error.response?.data;
@@ -240,7 +243,8 @@ class ApiClient {
               inProgress ||
               (error.response?.statusCode ?? 0) >= 500)) {
         _pendingWrites[identity] = (key, original);
-      } else {
+      } else if (generation == _sessionGeneration &&
+          _pendingWrites[identity]?.$1 == key) {
         _pendingWrites.remove(identity);
       }
       rethrow;

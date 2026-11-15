@@ -20,6 +20,56 @@ const config = AppConfig(
   mockFallbackFeatures: {},
 );
 void main() {
+  for (final oldStatus in [200, 400, 500]) {
+    test(
+      'late $oldStatus from old session preserves new session write retry key',
+      () async {
+        final tokens = InMemoryTokenStorage();
+        await tokens.writeAccessToken('alice');
+        final oldResponse = Completer<ResponseBody>();
+        final oldStarted = Completer<void>();
+        final requests = <RequestOptions>[];
+        final api = ApiClient(
+          dio: Dio()
+            ..httpClientAdapter = _Adapter((options) async {
+              requests.add(options);
+              if (requests.length == 1) {
+                oldStarted.complete();
+                return oldResponse.future;
+              }
+              if (requests.length <= 3) {
+                throw DioException(
+                  requestOptions: options,
+                  type: DioExceptionType.receiveTimeout,
+                );
+              }
+              return _body({'id': 'saved-write'}, 200);
+            }),
+          tokenStorage: tokens,
+        );
+        addTearDown(api.dispose);
+        Future<Map<String, dynamic>> write() =>
+            api.post('/write', data: {'amount': 100}, idempotent: true);
+        final oldWrite = write();
+        final oldCheck = oldStatus == 200
+            ? expectLater(oldWrite, completion(isEmpty))
+            : expectLater(oldWrite, throwsA(isA<ApiException>()));
+        await oldStarted.future;
+        api.clearSession();
+        // The same account logs in again; the request identity is unchanged.
+        await tokens.writeAccessToken('alice');
+        await expectLater(write(), throwsA(isA<ApiException>()));
+        final newKey = requests[1].headers['Idempotency-Key'];
+        expect(newKey, isNot(requests[0].headers['Idempotency-Key']));
+        expect(requests[2].headers['Idempotency-Key'], newKey);
+        oldResponse.complete(_body({}, oldStatus));
+        await oldCheck;
+        expect(await write(), {'id': 'saved-write'});
+        expect(requests, hasLength(4));
+        expect(requests.last.headers['Idempotency-Key'], newKey);
+      },
+    );
+  }
   test(
     'old POST 401 cannot replay its body using the next account token',
     () async {

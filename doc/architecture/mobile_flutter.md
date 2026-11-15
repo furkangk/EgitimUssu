@@ -653,3 +653,9 @@ Güncelleme: 2026-11-15
 P20 T5: `core/bloc/safe_emit.dart` içindeki `SafeEmit<S>` kapanmış Cubit’e geç state gönderimini eler. Auth, chat, conversations, student_report, lesson_resources, progress, teacher_reports, settings, notification_center, password_reset ve email_verification Cubit’leri kullanır. Bu koruma istek iptali değildir; mevcut oturum/okuma kuşakları, push aboneliklerinin ve poll zamanlayıcısının kapatılması sürer. Rapor indirilirken ekran kapanırsa dosya açılmaz; çok adımlı rapor/gelişim okumaları kapanışta devam etmez. Auth login/register/restore beklenmeyen hatada genel ARB mesajıyla `unauthenticated` olur, yalnız hata türü loglanır; push kaydı hatası başarılı oturumu düşürmez. `ApiClient.postFile/postMultipart` tüm FormData gönderimlerinde (idempotent tekrar dahil) **120 saniye sendTimeout** kullanır. JSON isteklerinin varsayılan 15 saniyesi ve bağlantı/yanıt süreleri korunur.
 
 Güncelleme: 2026-11-15
+
+### P20 Task 6 — Bekleyen yazmanın oturum ve anahtar sahipliği
+
+`ApiClient` bir belirsiz POST sonucunun tekrar anahtarını yalnız aynı oturum kuşağında saklar; başarı veya kesin hata sonrasında silerken de hem kuşağı hem kayıtlı anahtarı karşılaştırır. Aynı kullanıcı çıkıp yeniden giriş yapsa bile eski 200/400/500 yanıtı yeni oturumun bekleyen yazmasını silemez. Böylece yeni oturumdaki manuel tekrar ilk anahtarı korur. Koruma süreç belleğindedir; uygulama kapanışı veya sunucunun erişilemeyen idempotency deposu için ek garanti vermez.
+
+Güncelleme: 2026-11-15

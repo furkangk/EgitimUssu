@@ -104,6 +104,8 @@ mobile/lib/features/<ozellik>/
 
 ## 3. Mobil Feature Eşlemesi
 
+**P20 T6:** M07 tahsilat ve M16 mesaj POST’larının ortak `ApiClient` tekrar kaydı oturum kuşağı ve anahtar sahipliğiyle temizlenir. Aynı hesaba yeniden giriş sonrası eski yanıt yeni belirsiz işlemin anahtarını silemez; backend sözleşmesi değişmez. Güncelleme: 2026-11-15.
+
 **P20 T2:** M09 veli ana ekranı ortak M16 mesajlar ve M11 bildirim merkezine erişir; rol izinleri `RouteAccess` tablosundadır. `/parent/assignments`, `/parent/payments`, `/parent/lessons` mevcut çocuk dashboard özetlerini açar. Backend endpoint/domain sözleşmesi değişmedi. Bkz. [veli ekranı](../pages/parent.md), [rota tablosu](../architecture/mobile_flutter.md#6-yönlendirme--go_router).
 
 > Bir kullanıcı rolü birden çok backend modülünü kullanır (bkz. [`../roles/`](../roles/00_roller_genel_bakis.md)). Mevcut mobil app **üç rolü de kapsıyor**:

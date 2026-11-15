@@ -370,3 +370,9 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
 
 *Güncelleme: 2026-11-15 — P20 Task 3.*
+
+### P20 Task 6 — Geç yanıtın tahsilat tekrar anahtarını silmesi önlendi
+
+Aynı kullanıcı yeniden giriş yaptığında eski isteğin geç başarı/hata yanıtı yeni oturumdaki belirsiz tahsilatın anahtarını temizleyemez. Mobil `ApiClient` silmeyi oturum kuşağı ve anahtar sahipliğiyle sınırlar; manuel tekrar yeni UUID üretmek yerine bekleyen işlemin anahtarını korur. Backend tahsilat sözleşmesi değişmedi.
+
+Güncelleme: 2026-11-15

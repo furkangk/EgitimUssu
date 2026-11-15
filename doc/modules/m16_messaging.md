@@ -428,3 +428,9 @@ Güncelleme: 2026-11-15
 ChatCubit ve ConversationsCubit tüm state yayınlarında SafeEmit kullanır. T4 oturum kuşakları, görünürlük kapısı, 10 saniyelik poll iptali ve push abonelik temizliği korunur; SafeEmit ağ isteğini iptal etmez.
 
 Güncelleme: 2026-11-15
+
+### P20 Task 6 — Mesaj tekrar anahtarı izolasyonu
+
+Ortak `ApiClient` eski oturum isteğinin geç başarı/hata sonucuyla yeni oturumun bekleyen mesaj anahtarını silemez; silme yalnız aynı oturum kuşağı ve anahtar sahibi için yapılır. Aynı hesaba yeniden girişte belirsiz gönderimin manuel tekrarı ilk anahtarı korur. Mesaj endpoint veya repository arayüzü değişmedi.
+
+Güncelleme: 2026-11-15

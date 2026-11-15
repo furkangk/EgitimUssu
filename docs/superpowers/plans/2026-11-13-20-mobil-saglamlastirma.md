@@ -194,7 +194,7 @@ Güncelleme: 2026-11-15
 
 ---
 
-### Task 6: Kapanış
+### Task 6: Kapanış ✅ (cihaz turu kullanıcı kararıyla ertelendi)
 
 **Kullanıcı revizyonu (2026-11-15):** "şuan cihaz yok bunu atla o zmaan" talimatıyla Step 2 gerçek Honor 400 Pro turu **ertelendi; doğrulanmadı**. Cihaz erişimi artık P20 kapanışını veya P21'e geçişi bloke etmez. Otomasyon cihaz taramasını tekrar ederek beklemez; sıradaki işlem Step 3 kapsamında cihaz dışı kapanış doğrulamaları ve plan incelemesidir. Zorunlu Docker/Flutter doğrulaması ve inceleme tamamlanınca P20 kalan kapsamıyla kapatılabilir, yetkili merge/push ardından P21 Task 0'a geçilir. Cihaz turu ve ekran görüntüsü borcu ILERLEME'de korunur; kullanıcı cihaz sağladığında ayrıca ele alınır. Q8/P25 gerçek FCM ve yayın kapıları değişmez. Aşağıdaki eski cihaz engeli kayıtları tarihsel kanıttır; bu revizyon onların bekleme koşulunun yerine geçer.
 
@@ -206,15 +206,25 @@ Güncelleme: 2026-11-15
 - Generated, commit dışı: `mobile/coverage/lcov.info`; test/analiz/ADB logları ve P20 öncesi kaynak/kapsam kopyası `/tmp/egitimussu-p20t6-*` altında. Gerçek cihaz ekran görüntüleri erişim sağlanırsa aynı kanıt dizinine alınır.
 - Kod hatası çıkarsa önce bu liste ilgili üretim ve regresyon testi yollarıyla genişletilir; ardından imza → RED → GREEN uygulanır. Salt ölçüm için davranışsız üretim kodu veya yapay kırmızı test eklenmez.
 
+**2026-11-15 T6 kapanış incelemesi — kapsam eki:** Aynı kullanıcı çıkıp yeniden girdiğinde eski POST yanıtının koşulsuz `_pendingWrites.remove(identity)` çağrısı yeni oturumun belirsiz yazma anahtarını silebiliyor. Sonraki manuel tekrar yeni UUID üretip çift kayıt riski taşıyor. Düzeltme mevcut imzalar içinde kalır; yeni arayüz/iskele gerekmez. Önce gecikmiş 200/400/500 yanıtı + yeni oturumdaki belirsiz yazma için gerçek RED, ardından yalnız kendi oturum/anahtarına ait pending kaydını temizleyen uygulama ve GREEN. Ek Files: `mobile/lib/core/network/api_client.dart`, `mobile/test/core/network/session_cache_refresh_test.dart`; aynı tur dokümanları `doc/architecture/mobile_flutter.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/m07_payments.md`, `doc/modules/m16_messaging.md`. Yeni özellik veya migration yok.
+
 **Interfaces:** Üretim ve repository sözleşmeleri değişmez; T1–T5’in rota, oturum, önbellek, push/poll ve SafeEmit korumaları mevcut test paketiyle sınanır. T6 cihaz turu FCM sağlayıcı teslimini kanıtlamaz; Q8/P25 kapısı ayrı kalır. Kullanıcının tek görev/tek ILERLEME kuralı skill’in çoklu görev ve ayrı ledger önerisinden üstündür.
 
 - [x] **Step 1:** `cd mobile && flutter test --coverage` → başarılı sayı ve kapsam ILERLEME'ye (hedef: öncesinden yüksek).
 - [ ] **Step 2 — ERTELENDİ (kullanıcı, 2026-11-15; kapanışı bloke etmez, doğrulanmadı):** Gerçek cihazda (Honor 400 Pro, kablosuz ADB) üç rolde giriş → ana ekran → mesajlar → bildirimler → çıkış turu; ekran görüntüsü yolu ILERLEME'ye.
-- [ ] **Step 3:** Cihaz dışı zorunlu CI/Docker/Flutter doğrulamaları + plan kapanış incelemesi + doküman kapanışı + ILERLEME + commit. Step 2 başarılı işaretlenmez; ertelenmiş kanıt borcu korunur.
+- [x] **Step 3:** Cihaz dışı zorunlu CI/Docker/Flutter doğrulamaları + plan kapanış incelemesi + doküman kapanışı + ILERLEME + commit. Step 2 başarılı işaretlenmez; ertelenmiş kanıt borcu korunur.
   ```bash
   git commit -m "docs(mobile): P20 kapanisi"
   ```
 
 **2026-11-15 T6 ara kanıtı — görev tamamlanmadı:** Aynı Flutter **3.44.2 / Dart 3.12.2** ile `83986b8` kaynak kopyası **342/342**, LCOV **7320/22738 = %32,1928** (198 dosya); aktif `b0daa5b` kodu **531/531**, LCOV **9704/24363 = %39,8309** (205 dosya). Artış **7,6381 yüzde puan**; CI’ın %50 uyarı eşiği hâlâ aşılmadı. Ölçüm varsayılan LCOV’a giren kaynakların satır kapsamıdır, tüm deponun kapsamı iddiası değildir. Kod/test değişikliği yapılmadı; artış T1–T5’in toplam etkisidir. `flutter analyze --fatal-infos` mobile dizininde temiz. Toolrestore başarılı; Release `-warnaserror` 0 uyarı/0 hata. Başlangıç ve son `bash scripts/test-with-docker.sh` ayrı ayrı **19 mimari/1312 birim/214 gerçek Docker integration, 0 başarısız/0 atlanan**, exit0 (Compose yok, Testcontainers gerçek PostgreSQL+Redis çalıştırdı). NuGet76proje/0advisory; migration yok. Ham karşılaştırma `/tmp/egitimussu-p20t6-coverage-summary.json`, `before-lcov.info` ve `after-lcov.info`; tam test çıktıları aynı önekli `before-coverage.log` ve `coverage.log`. ADB cihaz/mDNS listeleri boş; Flutter yalnız macOS ve Chrome buldu. Honor üç rol turu ve ekran görüntüleri **yok**, Step 2/3 açık. Bu ara ölçüm sırasında cihaz engeli nedeniyle plan/merge/push yapılmadı; sonraki kullanıcı revizyonu yukarıdadır.
+
+Güncelleme: 2026-11-15
+
+**2026-11-15 T6 nihai kapanış kanıtı:** Tüm P20 dalı (`8ed28d3..2b2b699`) bağımsız salt-okunur incelendi. Tek Important bulgu eski oturumun yeni bekleyen yazma anahtarını silmesiydi: mevcut imzalarla üç gecikmiş200/400/500 testi **5geçen/3RED → 8/8 GREEN**, iki silme yolu kuşak+anahtar sahipliğiyle korundu. Son tam Flutter **534/534**, `flutter analyze --fatal-infos` temiz; biçim sonrası odaklı8/8 tekrar geçti. LCOV **9706/24367 = %39,8326**, aynı SDK P20 öncesi **%32,1928** (önceki koşumun karşılaştırma kanıtı) üzerine **7,6398 yüzde puan**. %50 uyarı eşiği henüz sağlanmadı.
+
+Başlangıç ve ilk Docker turunda kayıtlı aralıklı `DispatcherCacheTests.Query_invoker_is_built_once_per_type` (#194) 1≠2 ile kırıldı; ayrı birim1312/1312 geçti. **Son varsayılan `bash scripts/test-with-docker.sh`: 19 mimari/1312 birim/214 gerçek PostgreSQL+Redis integration, 0 başarısız/0 atlanan, exit0.** Toolrestore başarılı; Release `-warnaserror`0uyarı/0hata; NuGet76proje/0advisory; drift0 ve171Down kontrolü geçti (yeni migration yok). Doc health RED0/mevcut1YELLOW+1BLUE; diffcheck temiz; platform dosyaları dışarıda. Loglar `/tmp/egitimussu-p20t6-close-*` (red/green/format-green/flutter-final/analyze-final/release/docker-retry/vulnerable.json/drift/down/doc-health-final).
+
+İncelemenin kalan sınırları ILERLEME#307’de sahipleriyle kaydedildi; yeni Critical/Minor bulgu yok. **P20 revize kapsamıyla6/6 kapandı; Step2 hâlâ ertelenmiş ve doğrulanmamıştır.** Honor üçrol ekran görüntüsü ve gerçek FCM/APNs teslimi başarı sayılmaz, Q8/P25 kapıları korunur. Yetkili merge/push sonrası sıradaki koşum yalnız P21 Task0’dır.
 
 Güncelleme: 2026-11-15
