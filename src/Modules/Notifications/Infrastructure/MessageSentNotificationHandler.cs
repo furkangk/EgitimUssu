@@ -55,7 +55,7 @@ public sealed class MessageSentNotificationHandler : IdempotentIntegrationEventH
                 payload.RecipientUserId,
                 UserNotificationKind.MessageReceived,
                 "Yeni mesajın var",
-                payload.Preview,
+                "Bir kullanıcı size mesaj gönderdi.",
                 $"/messages/{payload.ConversationId}",
                 Clock.UtcNow),
             cancellationToken);

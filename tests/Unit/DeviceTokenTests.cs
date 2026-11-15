@@ -176,6 +176,9 @@ public sealed class DeviceTokenCommandTests
         public Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<DeviceToken>>(Tokens.Where(t => t.UserId == userId && t.IsActive).ToList());
 
+        public Task<IReadOnlyList<DeviceToken>> ListActiveByUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<DeviceToken>>(Tokens.Where(t => userIds.Contains(t.UserId) && t.IsActive).ToArray());
+
         public Task AddAsync(DeviceToken deviceToken, CancellationToken cancellationToken)
         {
             Tokens.Add(deviceToken);

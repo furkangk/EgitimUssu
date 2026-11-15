@@ -213,7 +213,7 @@ erDiagram
 | Notifications (`notifications`) | `LessonReminder` | `Id` | `(LessonScheduleId, OccurrenceStartUtc, RecipientUserId)` UNIQUE · `TeacherUserId` · `StudentId` | [m11](m11_notifications.md) |
 | | `ParentNotification` (veli bildirimi, Veli V-E; `Type` WeeklySummary/NewAssignment/LessonCompleted/PaymentUpdate/LinkConnected/PaymentDeclared) | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile | |
 | | `DeviceToken` (cihaz push token'ı, M11-2 2026-09-03; `Token` UNIQUE, `(UserId,IsActive)` indeksli) | `Id` | `UserId` → UserAccount | |
-| | `UserNotification` (rolden bağımsız in-app bildirim, M11-3 2026-09-03; `(UserId,ReadOnUtc)` + `PushedOnUtc` indeksli) | `Id` | `UserId` → UserAccount | `Kind` (`UserNotificationKind`), `Route`, `ReadOnUtc?`, `PushedOnUtc?` |
+| | `UserNotification` (rolden bağımsız in-app bildirim, M11-3 2026-09-03; `(UserId,ReadOnUtc)` + `PushedOnUtc` indeksli) | `Id` | `UserId` → UserAccount | `Kind` (`UserNotificationKind`), `Route`, `ReadOnUtc?`, `PushedOnUtc?`, `PushAttempts`, `NextAttemptOnUtc?`, `ExpiresOnUtc`, `PushStatus` |
 | | `ProcessedIntegrationEvent` (yalnız **haftalık özet dedup** — `ParentWeeklySummaryService`; event idempotency'si artık `inbox_messages`'a taşındı) | `Id` (deterministik hafta anahtarı) | — | |
 | | `InboxMessage` (ortak tüketici idempotency — bkz. §1 not) | `(EventId, Handler)` composite PK | — | |
 | Settings (`settings`) | `UserSetting` | `Id` | `UserId` → UserAccount (UNIQUE) | [m15](m15_settings.md) |
@@ -295,3 +295,8 @@ erDiagram
 *Güncelleme: 2026-11-15 — P19 Task 3: teslim sürümleri tablosu ve geç teslim alanları.*
 
 *Güncelleme: 2026-11-15 — P19 Task 4: iki ödev tarama kısmi indeksi; yeni kolon yok.*
+
+
+### P19 Task 6 — NotificationDeliveryBackoff
+
+`notifications.user_notifications` dört yeni sütun taşır: PushAttempts int, NextAttemptOnUtc timestamptz nullable, ExpiresOnUtc timestamptz, PushStatus varchar(16) (Pending/Sent/Expired/Failed). Pending filtreli `(NextAttemptOnUtc,CreatedOnUtc,Id)` indeksi vardır; eski PushedOnUtc indeksi korunur. TTL eski CreatedOnUtc'den ders30dk/diğer24saat doldurulur; gönderilenler Sent olur. MessageReceived.Body eski özel metni sabit güvenli bildirim metnine dönüşür. Down sütun/indeksi kaldırır, güvenli metni korur. Veli özeti yeni tablo eklemeden mevcut processed_integration_events içinde v2 veli/öğrenci/yerel hafta anahtarı kullanır. TopicGoal.Missed mevcut enum değeridir; M10 şema değişmez.

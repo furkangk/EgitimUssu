@@ -62,12 +62,13 @@ internal sealed class MessagingRepository : IMessagingRepository
             .ToArrayAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Message>> ListUnreadForRecipientAsync(
-        Guid conversationId, Guid recipientUserId, CancellationToken cancellationToken)
+        Guid conversationId, Guid recipientUserId, CancellationToken cancellationToken, DateTime? upToUtc = null, Guid? upToId = null)
         => await _dbContext.Messages
             .Where(message => message.ConversationId == conversationId
                 && message.SenderUserId != recipientUserId
                 && !message.IsDeleted
-                && message.ReadOnUtc == null)
+                && message.ReadOnUtc == null
+                && (upToUtc == null || message.SentOnUtc < upToUtc || message.Id == upToId))
             .ToArrayAsync(cancellationToken);
 
     public Task<Message?> GetMessageAsync(Guid messageId, CancellationToken cancellationToken)

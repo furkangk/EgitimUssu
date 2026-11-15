@@ -7,7 +7,7 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Tests.Unit;
 
-public sealed class ParentWeeklySummaryTests
+public sealed partial class ParentWeeklySummaryTests
 {
     private static readonly DateTime Now = new(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc);
     private static readonly LocalCalendar Istanbul = new("Europe/Istanbul", new FixedClock(Now));
@@ -76,6 +76,9 @@ public sealed class ParentWeeklySummaryTests
         private readonly IReadOnlyCollection<ParentStudentNotificationTarget> _all;
         public FakeDirectory(IReadOnlyCollection<ParentStudentNotificationTarget> all) => _all = all;
 
+        public Task<ParentNotificationTargetPage> ListApprovedTargetPageAsync(Guid? afterLinkId, int take, CancellationToken cancellationToken)
+            => Task.FromResult(new ParentNotificationTargetPage(_all.ToArray(), null));
+
         public Task<IReadOnlyCollection<ParentNotificationTarget>> GetApprovedParentsForStudentAsync(Guid studentId, CancellationToken ct)
             => Task.FromResult<IReadOnlyCollection<ParentNotificationTarget>>(Array.Empty<ParentNotificationTarget>());
 
@@ -98,6 +101,13 @@ public sealed class ParentWeeklySummaryTests
             => Task.FromResult<IReadOnlyCollection<ParentNotification>>(Added.Where(n => n.ParentUserId == parentUserId).ToArray());
 
         public Task<bool> HasProcessedAsync(Guid eventId, CancellationToken ct) => Task.FromResult(_processed.Contains(eventId));
+
+        public async Task<IReadOnlySet<Guid>> GetProcessedAsync(IReadOnlyCollection<Guid> eventIds, CancellationToken cancellationToken)
+        {
+            var result = new HashSet<Guid>();
+            foreach (var id in eventIds) if (await HasProcessedAsync(id, cancellationToken)) result.Add(id);
+            return result;
+        }
 
         public void MarkProcessed(Guid eventId, string eventName, DateTime nowUtc) => _processed.Add(eventId);
 

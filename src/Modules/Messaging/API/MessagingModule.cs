@@ -92,10 +92,11 @@ public sealed class MessagingModule : ModuleDefinition
     private static async Task<IResult> MarkReadAsync(
         HttpContext context,
         Guid conversationId,
+        MarkConversationReadRequest? request,
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
         => ToHttpResult(context, await dispatcher.Dispatch(
-            new MarkConversationReadCommand(conversationId), cancellationToken));
+            new MarkConversationReadCommand(conversationId, request?.UpToMessageId), cancellationToken));
 
     private static async Task<IResult> BlockAsync(
         HttpContext context,
@@ -175,3 +176,5 @@ public sealed record OpenConversationRequest(Guid CounterpartUserId, string Coun
 /// <summary>Mesaj gönderme isteği.</summary>
 /// <param name="Body">Mesaj metni.</param>
 public sealed record SendMessageRequest(string? Body);
+
+public sealed record MarkConversationReadRequest(Guid? UpToMessageId);

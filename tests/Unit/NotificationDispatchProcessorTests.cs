@@ -252,6 +252,9 @@ public sealed class NotificationDispatchProcessorTests
     // M11-5: Bu testler tercih kapısını konu almaz; hepsi açık varsayılır.
     private sealed class AllEnabledPreferences : EgitimUssu.Shared.Contracts.IUserNotificationPreferences
     {
+        public Task<IReadOnlyDictionary<Guid, EgitimUssu.Shared.Contracts.UserNotificationPreferences>> GetManyAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyDictionary<Guid, EgitimUssu.Shared.Contracts.UserNotificationPreferences>>(userIds.Distinct().ToDictionary(x => x, _ => EgitimUssu.Shared.Contracts.UserNotificationPreferences.AllEnabled));
+
         public Task<EgitimUssu.Shared.Contracts.UserNotificationPreferences> GetAsync(Guid userId, CancellationToken cancellationToken)
             => Task.FromResult(EgitimUssu.Shared.Contracts.UserNotificationPreferences.AllEnabled);
     }
@@ -287,6 +290,9 @@ public sealed class NotificationDispatchProcessorTests
         public Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<DeviceToken>>(
                 _tokens.Where(t => t.UserId == userId && t.IsActive).ToList());
+
+        public Task<IReadOnlyList<DeviceToken>> ListActiveByUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<DeviceToken>>(_tokens.Where(t => userIds.Contains(t.UserId) && t.IsActive).ToArray());
 
         public Task AddAsync(DeviceToken token, CancellationToken cancellationToken)
         {

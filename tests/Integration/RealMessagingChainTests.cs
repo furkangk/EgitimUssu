@@ -31,6 +31,46 @@ namespace EgitimUssu.Tests.Integration;
 public sealed class RealMessagingChainTests(ContainerFixture fixture)
 {
     [SkippableFact]
+    public async Task Read_Marker_Preserves_Unseen_Messages_And_Rejects_Three_Foreign_Roles()
+    {
+        Skip.IfNot(fixture.Available, "Docker gerekli.");
+        using var infra = RealInfrastructure.Use(fixture);
+        await using var factory = new WebApplicationFactory<Program>();
+        using var sender = factory.CreateClient(); sender.DefaultRequestHeaders.Add("X-Forwarded-For", "10.196.0.1");
+        using var reader = factory.CreateClient(); reader.DefaultRequestHeaders.Add("X-Forwarded-For", "10.196.0.2");
+        var senderId = await RegisterAsync(sender, 2, "SinirOgretmen");
+        var readerId = await RegisterAsync(reader, 3, "SinirOgrenci");
+        var conversationId = Guid.NewGuid();
+        var now = factory.Services.GetRequiredService<EgitimUssu.Shared.Kernel.IClock>().UtcNow.AddMinutes(-1);
+        var conversation = EgitimUssu.Modules.Messaging.Domain.Conversation.Create(conversationId,
+            EgitimUssu.Modules.Messaging.Domain.ParticipantRole.Teacher, senderId,
+            EgitimUssu.Modules.Messaging.Domain.ParticipantRole.Student, readerId, Guid.NewGuid(), now).Value!;
+        var seen = conversation.SendMessage(Guid.NewGuid(), senderId, "görülen", now).Value!;
+        var newer = conversation.SendMessage(Guid.NewGuid(), senderId, "görülmeyen", now.AddSeconds(1)).Value!;
+        conversation.ClearDomainEvents(); seen.ClearDomainEvents(); newer.ClearDomainEvents();
+        await using (var seed = factory.Services.CreateAsyncScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<EgitimUssu.Modules.Messaging.Infrastructure.MessagingDbContext>();
+            db.Conversations.Add(conversation); db.Messages.AddRange(seen, newer); await db.SaveChangesAsync();
+        }
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsync($"/api/messaging/conversations/{conversationId}/read", null)).StatusCode);
+        for (var role = 2; role <= 4; role++)
+        {
+            using var foreign = factory.CreateClient();foreign.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.196.1.{role}");
+            await RegisterAsync(foreign, role, "YabanciSinir");
+            Assert.Equal(HttpStatusCode.Forbidden, (await foreign.PostAsJsonAsync($"/api/messaging/conversations/{conversationId}/read",
+                new { upToMessageId = seen.Id })).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.NotFound, (await reader.PostAsJsonAsync($"/api/messaging/conversations/{conversationId}/read",
+            new { upToMessageId = Guid.NewGuid() })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.PostAsJsonAsync($"/api/messaging/conversations/{conversationId}/read",
+            new { upToMessageId = seen.Id })).StatusCode);
+        var rows = await ReadListAsync(sender, $"/api/messaging/conversations/{conversationId}/messages");
+        Assert.Equal(JsonValueKind.Null, Assert.Single(rows, x => x.GetProperty("id").GetGuid() == newer.Id).GetProperty("readOnUtc").ValueKind);
+        Assert.NotEqual(JsonValueKind.Null, Assert.Single(rows, x => x.GetProperty("id").GetGuid() == seen.Id).GetProperty("readOnUtc").ValueKind);
+    }
+
+    [SkippableFact]
     public async Task Teacher_Message_Should_Reach_Student_Notify_And_Come_Back_As_Read()
     {
         Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
@@ -87,7 +127,7 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
         var notification = await SingleNotificationAsync(factory, studentUserId);
         Assert.Equal(UserNotificationKind.MessageReceived, notification.Kind);
         Assert.Equal($"/messages/{conversationId}", notification.Route);
-        Assert.Equal("Yarınki dersi 15:00'a alalım mı?", notification.Body);
+        Assert.Equal("Bir kullanıcı size mesaj gönderdi.", notification.Body);
         // Push turu ayrı: kayıt bekliyor olarak durur (Q8 olmadan cihaza gitmez).
         Assert.Null(notification.PushedOnUtc);
 
@@ -109,8 +149,8 @@ public sealed class RealMessagingChainTests(ContainerFixture fixture)
             student, $"/api/messaging/conversations/{conversationId}/messages");
         Assert.Single(studentMessages);
 
-        var read = await student.PostAsync(
-            $"/api/messaging/conversations/{conversationId}/read", content: null);
+        var read = await student.PostAsJsonAsync(
+            $"/api/messaging/conversations/{conversationId}/read", new { upToMessageId = message.GetProperty("id").GetGuid() });
         Assert.Equal(HttpStatusCode.NoContent, read.StatusCode);
 
         // 8) Öğretmen tarafında "okundu" görünür — damga geri döner.

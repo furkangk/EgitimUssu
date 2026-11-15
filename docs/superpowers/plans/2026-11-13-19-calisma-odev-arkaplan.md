@@ -202,7 +202,7 @@
 
 ---
 
-### Task 6: Bildirim kuyruğu, özetler ve küçük doğruluk hataları (N-51, N-52, N-53, N-55)
+### Task 6: Bildirim kuyruğu, özetler ve küçük doğruluk hataları (N-51, N-52, N-53, N-55) ✅
 
 **Files:**
 - Modify: `src/Modules/Notifications/Infrastructure/UserNotificationRepository.cs`, `NotificationDispatching.cs` (`PushAttempts`, `NextAttemptOnUtc`, `ExpiresOnUtc`; üstel geri çekilme; süresi dolan `Expired`; tercih ve token'lar **toplu** okunur)
@@ -210,16 +210,35 @@
 - Modify: `src/Modules/Notifications/Infrastructure/ParentWeeklySummaryService.cs` (`(veli, öğrenci)` başına özet; sayfalı okuma)
 - Modify: `src/Modules/Study/Application/ExamPenalty.cs` (YDS bölen 0 = ceza yok)
 - Modify: `src/Modules/Messaging/Application/MessagingFeatures.cs` (okundu: `upToMessageId` parametresi; yalnız o mesaja kadar)
-- Modify: `src/Modules/Study/**` (TopicGoal: hedef tarihi geçen ve tamamlanmamış hedef `Missed` — mevcut bir tarayıcıya eklenir)
+- Modify: `src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs`, `src/Modules/ProgressTracking/Infrastructure/ProgressSnapshotService.cs` (TopicGoal.MarkMissed; mevcut günlük kiralı tarayıcıda 200 kayıtlık partiler)
 - Migration: `NotificationDeliveryBackoff` (Notifications)
 - Test: `tests/Unit/NotificationBackoffTests.cs`, `tests/Unit/ParentWeeklySummaryPerChildTests.cs`, `tests/Unit/ExamPenaltyTests.cs` (genişlet), `tests/Unit/MessageReadMarkerTests.cs`, `tests/Unit/TopicGoalMissedTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — en eski 100 bildirim kalıcı geçici-hata verirken yeni bildirim gönderilir; 2 saatlik "ders başlıyor" bildirimi `Expired`; tur başına sorgu sayısı sabit (N+1 yok — EF komut sayımı); silinmiş mesajın metni bildirim merkezinde **yok**; iki çocuklu veli iki özet alır; YDS'de yanlış doğruyu götürmez; okundu işareti verilen mesaj ID'sinden sonrasını okundu yapmaz; tarihi geçen hedef `Missed`.
-- [ ] **Step 2–4: Kırmızı gör → uygula (+ migration) → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m11`, `m08`, `m16`; rapor N-51/52/53/55 ✅.
+**Koddan doğrulanan ek Files / Interfaces (2026-11-15):**
+- Modify: `src/Modules/Notifications/Domain/NotificationsDomainModel.cs`, `Application/NotificationFeatures.cs`, `Infrastructure/NotificationsDbContext.cs`, `Infrastructure/DeviceTokenRepository.cs`, `Infrastructure/ParentNotificationRepository.cs` (buradaki kısa yollar Notifications köküne göredir).
+- Modify: `src/Shared/Contracts/UserNotificationPreferencesContract.cs`, `src/Modules/Settings/Infrastructure/UserNotificationPreferencesDirectory.cs` (GetManyAsync; gerçek + iki test sahtesi).
+- Modify: `src/Shared/Contracts/ParentNotificationContract.cs`, `src/Modules/Parents/Infrastructure/ParentNotificationDirectory.cs` (LinkId keyset ile 200'lük onaylı bağ sayfaları; mevcut tam liste diğer tüketiciler için korunur). Beş IParentNotificationDirectory test sahtesi ve iki IParentNotificationRepository sahtesi; üç IDeviceTokenRepository sahtesi güncellenir.
+- Modify: `src/Modules/Messaging/API/MessagingModule.cs`, `Infrastructure/MessagingRepository.cs`, `tests/Unit/MessagingSupport.cs`, `MessagePagingTests.cs`, `MessagingRelationshipTests.cs`, `tests/Integration/RealMessagingChainTests.cs` (görülen mesaj sınırı SQL'e iner; mevcut yetki kapısı korunur).
+- Modify: `mobile/lib/features/messaging/domain/messaging_contracts.dart`, `data/repositories/messaging_repository_impl.dart`, `presentation/cubit/chat_cubit.dart`, `mobile/test/helpers/fake_messaging_repository.dart`, `mobile/test/features/messaging/messaging_cubit_test.dart`; Create: `mobile/test/features/messaging/message_read_marker_test.dart` (yüklenmiş en yeni sunucu mesajı; boş/taslak listede istek yok). Ekran widget'ı/metinleri değişmez, ARB taşıması tetiklenmez.
+- Modify: `tests/Unit/UserNotificationTests.cs`, `NotificationDispatchProcessorTests.cs`, `NotificationPreferenceGateTests.cs`, `DeviceTokenTests.cs`, `ParentWeeklySummaryTests.cs`, `ParentNotificationTests.cs`, `PaymentOverdueNotificationHandlerTests.cs`, `NotificationLocalTimeTextTests.cs`, `LessonReminderPlannerTests.cs`, `MessageSentNotificationHandlerTests.cs` (imza sahteleri + eski önizleme beklentisi).
+- Create: `tests/Integration/RealNotificationReliabilityTests.cs` (SQL sayımı, HTTP okundu yetkisi, gerçek kuyruk/özet/hedef + ayrı DB göç Up/Down/Up).
+- Migration: Notifications `*_NotificationDeliveryBackoff.cs`, `.Designer.cs`, `NotificationsDbContextModelSnapshot.cs` (mevcut teslimler Sent, kalanlar Pending; expiry geriye doldurma; tüm eski MessageReceived Body sabit güvenli metne çevrilir, Down metni geri sızdırmaz).
+- Docs: `doc/modules/m11_notifications.md`, `m08_study.md`, `m10_progress_tracking.md`, `m15_settings.md`, `m16_messaging.md`, `m09_parents.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/pages/messaging_chat.md`, `doc/roles/veli.md`, N-51/52/53/55 denetim satırları.
+
+- Modify: `src/Modules/ProgressTracking/Application/ProgressTrackingFeatures.cs`, `tests/Unit/ProgressAccessTests.cs` (MasteryService takvimi imzası: günlük taramadan önce gelen geç başarı da önce Missed kontrolünden geçer; altı elle kurucu güncellenir).
+
+**Kararlar:** UserNotification PushStatus Pending/Sent/Expired/Failed; PushAttempts, NextAttemptOnUtc, ExpiresOnUtc. Geri çekilme 30sn × 2^(deneme−1), en fazla 1saat; 8 hatada Failed; ders hatırlatması 30dk, diğer push 24saat sonra Expired. In-app kayıt korunur; tercih kapalı/cihaz yok mevcut MarkPushed semantiğini korur. Pending sorgusu yalnız zamanı gelmiş veya süresi dolmuş satırları seçer, 100 sınırı ve deterministik sıra. Tercih/token okuması sayfa başına birer SQL; eski LessonReminder kaynağının oluşum/yetki uzlaştırması T17 sözleşmesidir, burada değiştirilmez. Mesaj olayı şekli korunur; gönderen-adı sözleşmesi olmadığı için güvenli metin “Bir kullanıcı size mesaj gönderdi.”, kişi adları P21'in sahibi. Özet anahtarı v2 `(veli,öğrenci,yerel ISO hafta)`, eski veli-hafta anahtarı yok sayılır; geçiş haftasında ilk çocuk bir ek özet alabilir, ikinci çocuk kaybolmaz. Sayfa başına toplu dedup + atomik SaveChanges; kira mevcut. MarkConversationReadCommand isteğe bağlı UpToMessageId alır; eski gövdesiz çağrı güvenli etkisiz başarıdır. Başka sohbete ait/yok sınır hata; yalnız sınır mesajı ve ondan kesin eski gelen mesajlar okunur (eşit zamanlı başka mesaj muhafazakâr biçimde okunmamış kalır). TopicGoal tarihi yerel gün sonuna kadar geçerli; günlük snapshot turu geçmiş Active hedefleri Missed yapar, mevcut xmin yarışta hatayı yayar/sonraki tur yeniden dener; kapanmış hedefler değişmez. YDS mevcut cezasız `null` sözleşmesini School ile paylaşır (0'a bölme yok). Master ve kullanıcı teknik karar yetkisiyle geri alınabilir seçimler; tek Task6 sınırı.
+
+- [x] **Step 1: Kırmızı testler** — en eski 100 bildirim kalıcı geçici-hata verirken yeni bildirim gönderilir; 2 saatlik "ders başlıyor" bildirimi `Expired`; tur başına sorgu sayısı sabit (N+1 yok — EF komut sayımı); silinmiş mesajın metni bildirim merkezinde **yok**; iki çocuklu veli iki özet alır; YDS'de yanlış doğruyu götürmez; okundu işareti verilen mesaj ID'sinden sonrasını okundu yapmaz; tarihi geçen hedef `Missed`.
+- [x] **Step 2–4: Kırmızı gör → uygula (+ migration) → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `m11`, `m08`, `m16`; rapor N-51/52/53/55 ✅.
   ```bash
   git commit -m "fix(notifications): push geri cekilme + sure, toplu okuma, mesaj metni sizmaz, cocuk basina ozet (N-51..N-53, N-55)"
   ```
+
+---
+
+**Kanıt (2026-11-15):** İmza Release0uyarı/0hata; ilk gerçek birim RED12başarısız/13başarılı → yeşil; sonradan geç başarı/hedef tarihi RED1 (Achieved yerine Missed) →27ilgiliyeşil. Toplam12yeniunit. Mobil gerçekRED2→GREEN; ek gerçek repository JSON sınırıyla3yeni, tam334Flutteryeşil; fatal-infos temiz (ilk import sırası3info düzeltildi). Yeni5PG+mevcutmesajzinciri ilk1kırmızı/5yeşil: eski gövde göçte temizlenmiyordu; SQL backfill sonrası6/6. Ek HTTP sınır/üçyabancırol403 ile9ilgiliPGyeşil. 100hatalı→yenipush ve turbaşına3SELECT,2saatlikExpired/kapalıtercih,205çocuk/2sayfa/yerelhafta/dedup,205hedef/2parti,ayrıDBUp/Down/Up kanıtlı. Son Release `-warnaserror --no-incremental`0/0,drift0,168Down,toolrestore başarılı. Üç varsayılan nihai Docker turu bilinen #194 Query_invoker globalcache sayaç yarışında kırmızı (beklenen1/gerçek2); her birinde19mimari/201integrationyeşil,0atlanan. Test veya üretim kodu bu aralıklı hata için değiştirilmedi; sahibiP26. **Son `DOTNET_PROCESSOR_COUNT=1 bash scripts/test-with-docker.sh`:19mimari/1302birim/201integration,0başarısız/0atlanan,exit0** (hiçbir test filtrelenmedi; tek işlemci görünürlüğü). #194 ayrı7/7. Doc healthRED0/mevcut2YELLOW+1BLUE,diff-checktemiz. Loglar `/tmp/egitimussu-p19t6-{signature,red,deadline-red,deadline-green,mobile-red,mobile-final,analyze-final,real-red,real-final,release-final,drift,down,docker-final,docker-final2,docker-final3,docker-serial,flake-retry,doc-health-final}.log`.
 
 ---
 
@@ -256,4 +275,4 @@
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 — P19 Task 5 tamamlandı (5/8); sırada yalnız Task 6 (N-51, N-52, N-53, N-55), başlamadı.*
+*Güncelleme: 2026-11-15 — P19 Task 6 tamamlandı (6/8); sırada yalnız Task 7 (sayfalama/indeksler + #272 kaynak okuyucu ölçeği), başlamadı.*

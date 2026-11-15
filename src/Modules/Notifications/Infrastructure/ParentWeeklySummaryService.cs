@@ -54,57 +54,37 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
         var isoWeek = ISOWeek.GetWeekOfYear(localMidnight);
         var isoYear = ISOWeek.GetYear(localMidnight);
         var created = 0;
-        var handledParents = new HashSet<Guid>();
-
-        var targets = await _directory.ListAllApprovedTargetsAsync(cancellationToken);
-        foreach (var entry in targets)
+        Guid? cursor = null;
+        do
         {
-            var target = entry.Target;
-
-            // Premium + haftalık özet tercihi açık olmalı; her veli hafta başına bir kez.
-            if (target.Tier != MembershipTier.Premium || !target.Prefs.WeeklyProgressSummary)
+            var page = await _directory.ListApprovedTargetPageAsync(cursor, 200, cancellationToken);
+            var eligible = page.Items.Where(x => x.Target.Tier == MembershipTier.Premium && x.Target.Prefs.WeeklyProgressSummary)
+                .DistinctBy(x => (x.Target.ParentUserId, x.StudentId)).ToArray();
+            var keys = eligible.Select(x => WeeklyDedupKey(x.Target.ParentUserId, x.StudentId, isoYear, isoWeek)).ToArray();
+            var processed = await _repository.GetProcessedAsync(keys, cancellationToken);
+            var pageCreated = 0;
+            foreach (var entry in eligible)
             {
-                continue;
+                var key = WeeklyDedupKey(entry.Target.ParentUserId, entry.StudentId, isoYear, isoWeek);
+                if (processed.Contains(key)) continue;
+                await _repository.AddAsync(new ParentNotification(_idGenerator.New(), entry.Target.ParentUserId,
+                    entry.StudentId, ParentNotificationType.WeeklySummary, "Haftalık özet hazır",
+                    "Çocuğunuzun haftalık gelişim özeti hazır.", nowUtc), cancellationToken);
+                _repository.MarkProcessed(key, $"weekly-v2:{isoYear}-W{isoWeek}", nowUtc);
+                pageCreated++;
             }
-
-            if (!handledParents.Add(target.ParentUserId))
-            {
-                continue;
-            }
-
-            var dedupKey = WeeklyDedupKey(target.ParentUserId, isoYear, isoWeek);
-            if (await _repository.HasProcessedAsync(dedupKey, cancellationToken))
-            {
-                continue;
-            }
-
-            await _repository.AddAsync(
-                new ParentNotification(
-                    _idGenerator.New(),
-                    target.ParentUserId,
-                    entry.StudentId,
-                    ParentNotificationType.WeeklySummary,
-                    "Haftalık özet hazır",
-                    "Çocuğunuzun haftalık gelişim özeti hazır.",
-                    nowUtc),
-                cancellationToken);
-
-            _repository.MarkProcessed(dedupKey, $"weekly:{isoYear}-W{isoWeek}", nowUtc);
-            created++;
-        }
-
-        if (created > 0)
-        {
-            await _repository.SaveChangesAsync(cancellationToken);
-        }
+            if (pageCreated > 0) await _repository.SaveChangesAsync(cancellationToken);
+            created += pageCreated;
+            cursor = page.NextLinkId;
+        } while (cursor.HasValue);
 
         return created;
     }
 
-    // Hafta+veli için deterministik Guid (ProcessedIntegrationEvent dedup anahtarı). Aynı hafta tekrar üretilmez.
-    internal static Guid WeeklyDedupKey(Guid parentUserId, int isoYear, int isoWeek)
+    // Hafta+veli+öğrenci için deterministik Guid (ProcessedIntegrationEvent dedup anahtarı). Aynı hafta tekrar üretilmez.
+    internal static Guid WeeklyDedupKey(Guid parentUserId, Guid studentId, int isoYear, int isoWeek)
     {
-        var raw = $"weekly:{parentUserId:N}:{isoYear}:{isoWeek}";
+        var raw = $"weekly-v2:{parentUserId:N}:{studentId:N}:{isoYear}:{isoWeek}";
         var bytes = MD5.HashData(Encoding.UTF8.GetBytes(raw));
         return new Guid(bytes);
     }

@@ -70,11 +70,14 @@ public sealed class MasteryService
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
-    public MasteryService(IProgressRepository repository, IIdGenerator idGenerator, IClock clock)
+    private readonly ILocalCalendar _calendar;
+
+    public MasteryService(IProgressRepository repository, IIdGenerator idGenerator, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _idGenerator = idGenerator;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task ApplyStudyAsync(Guid studentId, string subject, string? topic, int effectiveMinutes, CancellationToken cancellationToken)
@@ -141,6 +144,8 @@ public sealed class MasteryService
         var goals = await _repository.ListActiveGoalsForTopicAsync(mastery.StudentId, mastery.Subject, mastery.Topic, cancellationToken);
         foreach (var goal in goals)
         {
+            // Tarayıcı henüz koşmamış olsa bile süresi geçen hedef sonradan kazanılamaz.
+            goal.MarkMissed(_calendar.ToLocalDate(_clock.UtcNow));
             if (IsGoalMet(mastery, goal))
             {
                 // M10-3: Hedef kendiliğinden kapanır ve TopicGoalAchievedDomainEvent yayınlanır

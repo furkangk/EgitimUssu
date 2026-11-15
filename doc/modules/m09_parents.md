@@ -436,3 +436,8 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 **Outbox teslimi (P19 T2 / N-42):** Read-model ve profil birleşme tüketicilerinde null yük açık poison hatasıdır; öğrenci–kullanıcı eşlemesinin zaten güncel olması başarılı etkisiz sonuç olarak inbox'a yazılır. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+
+### P19 Task 6 — Haftalık hedeflerin sayfalı okunması (N-53)
+
+`IParentNotificationDirectory.ListApprovedTargetPageAsync(afterLinkId, take, ct)` onaylı veli–öğrenci bağlarını LinkId keyset ile en fazla 200'lük sayfada okur; üyelik `IEntitlementDirectory.GetManyAsync` ile o sayfa için topludur. Sonraki imleç ham son bağ kimliğidir; filtrelenen Free/tercih kapalı bağlar sayfa ilerlemesini bozmaz. Mevcut tek öğrenci ve tam liste okumaları korunur. M11 haftalık özeti her veli–çocuk–yerel hafta için ayrı üretir (205 çocuk/iki sayfa/tekrar gerçek PostgreSQL kanıtı).

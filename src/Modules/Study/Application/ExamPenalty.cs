@@ -2,13 +2,13 @@ namespace EgitimUssu.Modules.Study.Application;
 
 /// <summary>
 /// Hedef sınav türüne göre net ceza bölenini (yanlış / böleni) türeten saf yardımcı.
-/// LGS → 3, TYT/AYT/YDS/diğer → 4, School → null (okul denemesi yanlış götürmez).
+/// LGS → 3, TYT/AYT/diğer → 4, School/YDS → null (okul denemesi yanlış götürmez).
 /// Study modülü Students'a referans vermez; hedef sınav istemci tarafından string olarak geçer.
 /// </summary>
 public static class ExamPenalty
 {
     /// <summary>
-    /// Verilen hedef sınav için net ceza bölenini döndürür. School için null (yanlış götürmez);
+    /// Verilen hedef sınav için net ceza bölenini döndürür. School/YDS için null (yanlış götürmez);
     /// null/None/bilinmeyen değerler için varsayılan 4.
     /// </summary>
     public static int? DivisorFor(string? targetExam)
@@ -21,7 +21,7 @@ public static class ExamPenalty
         return targetExam.Trim().ToUpperInvariant() switch
         {
             "LGS" => 3,
-            "SCHOOL" => null,
+            "SCHOOL" or "YDS" => null,
             _ => 4
         };
     }

@@ -96,7 +96,7 @@ public sealed class MessagePagingTests
 
         var marked = await new MarkConversationReadCommandHandler(
                 new FakeMessagingCurrentUser(TeacherUserId, "Teacher"), repository, new MessagingClock(Start.AddHours(1)))
-            .Handle(new MarkConversationReadCommand(ConversationId), CancellationToken.None);
+            .Handle(new MarkConversationReadCommand(ConversationId, repository.Messages.Last().Id), CancellationToken.None);
 
         Assert.True(marked.IsSuccess);
         Assert.Equal(0, Assert.Single(await InboxAsync(repository, TeacherUserId)).UnreadCount);
@@ -110,8 +110,8 @@ public sealed class MessagePagingTests
         var handler = new MarkConversationReadCommandHandler(
             new FakeMessagingCurrentUser(TeacherUserId, "Teacher"), repository, new MessagingClock(Start.AddHours(1)));
 
-        await handler.Handle(new MarkConversationReadCommand(ConversationId), CancellationToken.None);
-        await handler.Handle(new MarkConversationReadCommand(ConversationId), CancellationToken.None);
+        await handler.Handle(new MarkConversationReadCommand(ConversationId, repository.Messages.Last().Id), CancellationToken.None);
+        await handler.Handle(new MarkConversationReadCommand(ConversationId, repository.Messages.Last().Id), CancellationToken.None);
 
         Assert.All(repository.Messages, message => Assert.Equal(Start.AddHours(1), message.ReadOnUtc));
     }

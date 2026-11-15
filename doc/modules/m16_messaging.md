@@ -181,7 +181,7 @@ GET    /api/messaging/conversations?skip=&take=             (auth) → gelen kut
 GET    /api/messaging/conversations/{id}/messages?beforeUtc=&take=
                                                             (auth) → mesaj geçmişi (keyset, yeniden eskiye)
 POST   /api/messaging/conversations/{id}/messages           (auth) → { body } · dakikada 30 mesaj sınırı
-POST   /api/messaging/conversations/{id}/read               (auth) → gelen mesajları okundu işaretle (204)
+POST   /api/messaging/conversations/{id}/read               (auth) → body: { upToMessageId }; sınıra kadar gelen mesajlar (204)
 POST   /api/messaging/conversations/{id}/block              (auth) → sohbeti engelle
 POST   /api/messaging/conversations/{id}/unblock            (auth) → kendi engelini kaldır
 DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak sil (gönderen veya Admin, 204)
@@ -408,3 +408,10 @@ bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu +
 **Outbox teslimi (P19 T2 / N-42):** Profil birleşme tüketicisinde null yük açık poison hatasıdır. MessageSent bildirim tüketicisinde bozuk yük artık sessiz başarılı sayılmaz; dead-letter kaydı Notifications handler adını taşır. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+
+### P19 Task 6 — Görülen mesaj sınırı ve bildirim gizliliği (N-52, N-55)
+
+`MarkConversationReadCommand(ConversationId, UpToMessageId?)`, katılımcı kontrolünden sonra sınır mesajının aynı sohbette olduğunu doğrular. Yok/başka sohbet sınırı 404; yabancı katılımcı 403. Sınır verilmemiş eski gövdesiz çağrı 204 ve güvenli etkisiz sonuçtur; yeni mesajları topluca okumaz. Repository SQL yalnız okuyucunun gelen/silinmemiş/okunmamış mesajlarından sınırın kendisini ve zaman bakımından kesin önce olanları alır. Aynı zaman damgalı başka mesaj muhafazakâr biçimde okunmamış kalır. İlk okuma tarihi tekrar istekte korunur. İlişkisi bitmiş katılımcının geçmiş okuma hakkı değişmez.
+
+ChatCubit yüklediği en yeni sunucu mesajının kimliğini gönderir; boş veya yalnız taslak/başarısız mesajlı listede istek üretmez. İstek ile görünüm arasındaki yeni mesaj okunmamış kalır. Mesaj bildiriminde artık önizleme yoktur: yeni ve migration ile temizlenmiş eski bildirimler “Bir kullanıcı size mesaj gönderdi.” taşır. Gerçek HTTP senaryosu öğretmen/öğrenci/veli yabancıları 403 ve görülmeyen yeni mesajın unread kalmasını doğrular.

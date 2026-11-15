@@ -114,6 +114,11 @@ internal sealed class UserNotificationConfiguration : IEntityTypeConfiguration<U
         builder.Property(entity => entity.Body).HasMaxLength(1000).IsRequired();
         builder.Property(entity => entity.Route).HasMaxLength(256);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.Property(entity => entity.PushStatus).HasConversion<string>().HasMaxLength(16).IsRequired();
+        builder.Property(entity => entity.PushAttempts).IsRequired();
+        builder.Property(entity => entity.ExpiresOnUtc).IsRequired();
+        builder.HasIndex(entity => new { entity.NextAttemptOnUtc, entity.CreatedOnUtc, entity.Id })
+            .HasDatabaseName("IX_user_notifications_push_due").HasFilter("\"PushStatus\" = 'Pending'");
         builder.Ignore(entity => entity.IsRead);
         builder.HasIndex(entity => new { entity.UserId, entity.ReadOnUtc });
         builder.HasIndex(entity => entity.PushedOnUtc);

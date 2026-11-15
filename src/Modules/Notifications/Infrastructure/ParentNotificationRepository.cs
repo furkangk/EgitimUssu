@@ -22,6 +22,10 @@ internal sealed class ParentNotificationRepository : IParentNotificationReposito
     public Task<bool> HasProcessedAsync(Guid eventId, CancellationToken cancellationToken)
         => _dbContext.ProcessedIntegrationEvents.AnyAsync(p => p.Id == eventId, cancellationToken);
 
+    public async Task<IReadOnlySet<Guid>> GetProcessedAsync(IReadOnlyCollection<Guid> eventIds, CancellationToken cancellationToken)
+        => (await _dbContext.ProcessedIntegrationEvents.Where(x => eventIds.Contains(x.Id))
+            .Select(x => x.Id).ToArrayAsync(cancellationToken)).ToHashSet();
+
     public void MarkProcessed(Guid eventId, string eventName, DateTime nowUtc)
         => _dbContext.ProcessedIntegrationEvents.Add(new ProcessedIntegrationEvent(eventId, eventName, nowUtc));
 

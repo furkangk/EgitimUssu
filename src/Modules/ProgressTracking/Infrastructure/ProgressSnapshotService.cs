@@ -63,6 +63,17 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
 
         var now = _clock.UtcNow;
         var today = _calendar.ToLocalDate(now);   // P16 T5 / N-50: kapanmış hafta/ay Türkiye gününe göre
+        // Günlük mevcut kira altında; snapshot sayısı sözleşmesi değişmez.
+        while (true)
+        {
+            var expired = await _dbContext.TopicGoals.Where(g => g.Status == TopicGoalStatus.Active
+                && g.TargetDate != null && g.TargetDate < today).OrderBy(g => g.TargetDate).ThenBy(g => g.Id)
+                .Take(200).ToArrayAsync(cancellationToken);
+            if (expired.Length == 0) break;
+            foreach (var goal in expired) goal.MarkMissed(today);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            foreach (var goal in expired) _dbContext.Entry(goal).State = EntityState.Detached;
+        }
         var createdCount = 0;
 
         foreach (var period in Periods)

@@ -19,6 +19,9 @@ internal sealed class DeviceTokenRepository : IDeviceTokenRepository
             .OrderByDescending(entity => entity.LastSeenOnUtc)
             .ToArrayAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<DeviceToken>> ListActiveByUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+        => await _dbContext.DeviceTokens.Where(t => userIds.Contains(t.UserId) && t.IsActive).ToArrayAsync(cancellationToken);
+
     public Task AddAsync(DeviceToken deviceToken, CancellationToken cancellationToken)
         => _dbContext.DeviceTokens.AddAsync(deviceToken, cancellationToken).AsTask();
 

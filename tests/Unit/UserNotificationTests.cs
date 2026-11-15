@@ -224,9 +224,10 @@ public sealed class UserNotificationTests
         public Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken)
             => Task.FromResult(_items.FirstOrDefault(n => n.Id == notificationId));
 
-        public Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken, DateTime? nowUtc = null)
             => Task.FromResult<IReadOnlyList<UserNotification>>(
-                _items.Where(n => n.PushedOnUtc is null).Take(maxCount).ToList());
+                _items.Where(n => n.PushedOnUtc is null && n.PushStatus == NotificationPushStatus.Pending
+                    && (nowUtc == null || n.ExpiresOnUtc <= nowUtc || n.NextAttemptOnUtc == null || n.NextAttemptOnUtc <= nowUtc)).Take(maxCount).ToList());
 
         public Task AddAsync(UserNotification notification, CancellationToken cancellationToken)
         {

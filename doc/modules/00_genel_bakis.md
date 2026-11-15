@@ -433,3 +433,8 @@ GET /api/matching/status   /api/reviews/status
 **P19 T5 (N-47/N-48 trend, 2026-11-15):** M08 edit/delete yeni olayları aynı kaynak yazımıyla outbox'a alır; `IStudyStatisticsReader` M10/M14'ün güncel seans/test kaynağıdır. Öğrenci kilidi altında eski konu/hafta/ay katkıları temizlenir, geç gelen eski olay kayıt diriltmez. Trend `TakenOnUtc`, eşitlikte `Id` sırası; ders katılımı korunur. Deneme `TotalNet` bileşenleriyle tek transaction ve deneme kilidinde yeniden hesaplanır. HTTP/şema değişmedi; tarihî snapshot/rozet/kapanmış hedef geri alınmaz.
 
 *Güncelleme: 2026-11-15 — P19 Task 5: Study düzeltmelerinin istatistiklere yayılımı ve tarih sıralı trend.*
+
+
+### P19 Task 6 — Bildirim ve küçük doğruluk sözleşmeleri
+
+M11 push kuyruğu deneme sayacı/üstel backoff/TTL/Expired ile yeni kayıtları aç bırakmaz; tercih/token toplu okunur. Eski mesaj bildirim metinleri NotificationDeliveryBackoff göçünde temizlenir. Haftalık veli özeti her çocuk için ayrı, 200 bağlık keyset ve toplu dedup ile üretilir. M16 `POST /conversations/{id}/read` artık isteğe bağlı `{ upToMessageId }` alır; sınır yoksa no-op, sınırdan sonra gelenler unread. Mobil yüklü son sunucu kimliğini gönderir. M08 YDS cezasız; M10 geçmiş Active konu hedefi günlük taramada ve başarı öncesinde Missed olur. Uç sayısı değişmedi, yeni göç yalnız Notifications şemasında.

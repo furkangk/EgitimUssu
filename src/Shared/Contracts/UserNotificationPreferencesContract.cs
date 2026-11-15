@@ -17,6 +17,8 @@ public sealed record UserNotificationPreferences(
 
 public interface IUserNotificationPreferences
 {
+    Task<IReadOnlyDictionary<Guid, UserNotificationPreferences>> GetManyAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
     // userId: bildirimin alıcısı. Ayar kaydı yoksa AllEnabled döner.
     Task<UserNotificationPreferences> GetAsync(Guid userId, CancellationToken cancellationToken);
 }

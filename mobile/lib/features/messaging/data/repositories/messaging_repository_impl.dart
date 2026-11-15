@@ -105,8 +105,11 @@ class MessagingRepositoryImpl implements MessagingRepository {
   );
 
   @override
-  Future<void> markRead(String conversationId) =>
-      _apiClient.post('$_base/conversations/$conversationId/read');
+  Future<void> markRead(String conversationId, {String? upToMessageId}) =>
+      _apiClient.post(
+        '$_base/conversations/$conversationId/read',
+        data: <String, dynamic>{'upToMessageId': upToMessageId},
+      );
 
   @override
   Future<ConversationDetail> openConversation({

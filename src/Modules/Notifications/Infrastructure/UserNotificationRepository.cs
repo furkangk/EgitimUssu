@@ -41,10 +41,11 @@ internal sealed class UserNotificationRepository : IUserNotificationRepository
     public Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken)
         => _dbContext.UserNotifications.FindAsync(new object?[] { notificationId }, cancellationToken).AsTask();
 
-    public async Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken, DateTime? nowUtc = null)
         => await _dbContext.UserNotifications
-            .Where(entity => entity.PushedOnUtc == null)
-            .OrderBy(entity => entity.CreatedOnUtc)
+            .Where(entity => entity.PushedOnUtc == null && entity.PushStatus == NotificationPushStatus.Pending
+                && (nowUtc == null || entity.ExpiresOnUtc <= nowUtc || entity.NextAttemptOnUtc == null || entity.NextAttemptOnUtc <= nowUtc))
+            .OrderBy(entity => entity.CreatedOnUtc).ThenBy(entity => entity.Id)
             .Take(maxCount)
             .ToArrayAsync(cancellationToken);
 

@@ -129,7 +129,9 @@ class ChatMessage {
       readOnUtc: readOnUtc ?? this.readOnUtc,
       isDeleted: isDeleted ?? this.isDeleted,
       status: status ?? this.status,
-      failureMessage: clearFailure ? null : (failureMessage ?? this.failureMessage),
+      failureMessage: clearFailure
+          ? null
+          : (failureMessage ?? this.failureMessage),
     );
   }
 }
@@ -151,10 +153,13 @@ abstract interface class MessagingRepository {
   });
 
   /// Mesaj gönderir.
-  Future<ChatMessage> send({required String conversationId, required String body});
+  Future<ChatMessage> send({
+    required String conversationId,
+    required String body,
+  });
 
   /// Sohbetteki gelen mesajları okundu işaretler.
-  Future<void> markRead(String conversationId);
+  Future<void> markRead(String conversationId, {String? upToMessageId});
 
   /// Sohbeti açar; aynı çift + öğrenci bağlamı için varsa mevcudu döner.
   Future<ConversationDetail> openConversation({

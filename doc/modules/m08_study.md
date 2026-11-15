@@ -378,7 +378,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 ### 4.3 Test/net hesabı
 - **Doğrulama:** `Correct + Wrong + Blank == TotalQuestions` (ihlalde komut reddedilir).
 - **Net formülü:** `Net = Correct - (Wrong / PenaltyDivisor)`; varsayılan `PenaltyDivisor = 4` (4 yanlış 1 doğruyu götürür).
-- **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/YDS/diğer → 4**, **School → null** (okul denemesi **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
+- **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/diğer → 4**, **School/YDS → null** (okul denemesi ve YDS **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
 - `Net` negatif olabilir; saklanır (ham veri).
 - **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; düzenlemede `PenaltyDivisor` verilmezse mevcut bölen korunur (LGS `3` ve yanlış götürmeyen okul sınavı metadata düzeltmesiyle `4`'e dönmez); silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
@@ -551,3 +551,8 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 `MockExam.TotalNet`, gerçek repository'de değişen/eklenen/silinen bileşenlerin DB netleri + izlenen değişikliklerinden yeniden hesaplanır. Deneme bazlı PostgreSQL transaction advisory kilidi, bileşen yazımı/toplam/outbox ile aynı transaction'dadır; farklı iki bileşenin eşzamanlı değişimi toplamı ezmez. Son bileşen silinince toplam sıfırdır, deneme kaydı korunur. Yeni kolon/migration yoktur. Bu görev tarihî snapshot/rozet/kapanmış hedefleri geri almaz; mevcut yerel konu rollup'ı ve seri onarım mekanizması korunur.
 
 *Güncelleme: 2026-11-15 — P19 Task 5: düzenleme/silme olayları ve deneme toplamının atomik yeniden hesabı.*
+
+
+### P19 Task 6 — YDS neti (N-55)
+
+`ExamPenalty.DivisorFor("YDS")` büyük/küçük harf ve çevre boşluklarından bağımsız olarak `null` döndürür; School ile aynı cezasız yol kullanılır. Handler'ın mevcut int.MaxValue temsili, iki ondalıklı net hesabında yanlışların doğruyu azaltmamasını sağlar. Açık pozitif penaltyDivisor önceliği ve eski kayıtlar korunur.

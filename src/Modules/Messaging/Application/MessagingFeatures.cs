@@ -62,7 +62,7 @@ public interface IMessagingRepository
 
     /// <summary>Alıcının henüz okumadığı mesajlar (okundu işaretleme için, izlenen).</summary>
     Task<IReadOnlyList<Message>> ListUnreadForRecipientAsync(
-        Guid conversationId, Guid recipientUserId, CancellationToken cancellationToken);
+        Guid conversationId, Guid recipientUserId, CancellationToken cancellationToken, DateTime? upToUtc = null, Guid? upToId = null);
 
     /// <summary>Mesajı kimliğiyle getirir (izlenen).</summary>
     Task<Message?> GetMessageAsync(Guid messageId, CancellationToken cancellationToken);
@@ -239,7 +239,8 @@ public sealed record SendMessageCommand(Guid ConversationId, string Body) : ICom
 
 /// <summary>M16-1: Sohbetteki gelen mesajları okundu işaretler.</summary>
 /// <param name="ConversationId">Sohbet.</param>
-public sealed record MarkConversationReadCommand(Guid ConversationId) : ICommand<Result>;
+/// <param name="UpToMessageId">İstemcinin gördüğü son mesaj.</param>
+public sealed record MarkConversationReadCommand(Guid ConversationId, Guid? UpToMessageId = null) : ICommand<Result>;
 
 /// <summary>M16-1: Sohbeti engeller veya engeli kaldırır.</summary>
 /// <param name="ConversationId">Sohbet.</param>
@@ -583,8 +584,12 @@ public sealed class MarkConversationReadCommandHandler
             return Result.Failure(MessagingErrors.NotParticipant);
         }
 
+        if (command.UpToMessageId is null) return Result.Success();
+        var anchor = await _repository.GetMessageAsync(command.UpToMessageId.Value, cancellationToken);
+        if (anchor is null || anchor.ConversationId != conversation.Id)
+            return Result.Failure(MessagingErrors.MessageNotFound);
         var unread = await _repository.ListUnreadForRecipientAsync(
-            command.ConversationId, userId, cancellationToken);
+            command.ConversationId, userId, cancellationToken, anchor.SentOnUtc, anchor.Id);
 
         foreach (var message in unread)
         {

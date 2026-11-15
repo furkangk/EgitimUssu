@@ -118,6 +118,9 @@ public sealed class PaymentOverdueNotificationHandlerTests
 
         public FakeParentDirectory(IReadOnlyCollection<ParentNotificationTarget> targets) => _targets = targets;
 
+        public Task<ParentNotificationTargetPage> ListApprovedTargetPageAsync(Guid? afterLinkId, int take, CancellationToken cancellationToken)
+            => Task.FromResult(new ParentNotificationTargetPage(Array.Empty<ParentStudentNotificationTarget>(), null));
+
         public Task<IReadOnlyCollection<ParentNotificationTarget>> GetApprovedParentsForStudentAsync(Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult(_targets);
 

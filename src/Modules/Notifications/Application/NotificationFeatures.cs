@@ -41,6 +41,8 @@ public interface IParentNotificationRepository
 
     Task<bool> HasProcessedAsync(Guid eventId, CancellationToken cancellationToken);
 
+    Task<IReadOnlySet<Guid>> GetProcessedAsync(IReadOnlyCollection<Guid> eventIds, CancellationToken cancellationToken);
+
     void MarkProcessed(Guid eventId, string eventName, DateTime nowUtc);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
@@ -135,6 +137,8 @@ public interface IDeviceTokenRepository
     Task<DeviceToken?> GetByTokenAsync(string token, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<DeviceToken>> ListActiveByUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
 
     Task AddAsync(DeviceToken deviceToken, CancellationToken cancellationToken);
 
@@ -244,8 +248,8 @@ public interface IUserNotificationRepository
 
     Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken);
 
-    /// <summary>Henuz push edilmemis bildirimler (dispatcher turu bunlari gonderir).</summary>
-    Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken);
+    /// <summary>Zamanı gelmiş veya süresi dolmuş Pending bildirimler; dispatcher UTC anını verir.</summary>
+    Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken, DateTime? nowUtc = null);
 
     Task AddAsync(UserNotification notification, CancellationToken cancellationToken);
 

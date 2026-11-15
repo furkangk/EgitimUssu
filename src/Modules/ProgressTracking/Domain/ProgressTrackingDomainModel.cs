@@ -220,6 +220,12 @@ public sealed class TopicGoal : AggregateRoot<Guid>
 
     public DateTime CreatedOnUtc { get; private set; }
 
+    public void MarkMissed(DateOnly today)
+    {
+        if (Status == TopicGoalStatus.Active && TargetDate is { } date && date < today)
+            Status = TopicGoalStatus.Missed;
+    }
+
     public void MarkAchieved(DateTime nowUtc)
     {
         if (Status != TopicGoalStatus.Active)
