@@ -349,8 +349,10 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 
 `Money` kuruş ayrıştırma/gösterim/decimal JSON sınırının tek yeridir. `1.500`=150000 kuruş, `750,50`=75050. Üç ödeme modelinin Amount alanları int kuruştur. Mobil JSON number sınırında kuruş hassasiyetini korumak için en büyük desteklenen tutar 999.999.999.999,99'dur; taşma sessiz yuvarlanmaz, reddedilir. Öğrenci detayının ödeme metrikleri para birimi başına ayrı gösterilir. Dashboard'un ayrı eski ana-birim modeli yalnız Cubit adaptörüyle beslenir; kendi model/UI dönüşümü P21'de kalır.
 
-Ödeme oluşturma/tahsilat/iptal POST'ları UUID v4 `Idempotency-Key` taşır. Başarısız ağ denemesinde aynı anahtarla tek tekrar, iki sonuçsuz denemeden sonra aynı kullanıcı/uç/içerikle manuel tekrar ilk anahtar ve gövdeyi korur; başarılı işlemden sonraki aynı içerik yeni işlemdir. Koruma ApiClient belleğindedir, uygulama yeniden açılışı kurtarılmaz. Sunucu gövde özeti P18 T5'tir.
+Ödeme oluşturma/tahsilat/iptal POST'ları UUID v4 `Idempotency-Key` taşır. Başarısız ağ denemesinde aynı anahtarla tek tekrar, iki sonuçsuz denemeden sonra aynı kullanıcı/uç/içerikle manuel tekrar ilk anahtar ve gövdeyi korur; başarılı işlemden sonraki aynı içerik yeni işlemdir. Koruma ApiClient belleğindedir, uygulama yeniden açılışı kurtarılmaz. Sunucu P18 T5 ile ham gövdenin SHA-256 özetini aynı anahtarla saklar: aynı gövde tekrarında tek tahsilat hareketi ve ilk yanıt; farklı tutar/not/tarih/gövde gönderilirse `422 shared.idempotency_key_reused`. İlk iş sürerken aynı gövde409, farklı gövde422 alır. İstemci aynı mantıksal işlemde ilk anahtarı **ve ilk gövde baytlarını** korur. Yeni işlem yeni anahtar gerektirir. Koruma Redis erişilebildiğinde geçerlidir; mevcut fail-open sözleşmesi sürer.
 
 *Güncelleme: 2026-11-15 — P18 T4: mobil kuruş, niyet uçları, para birimi seçimi ve tekrar anahtarı.*
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+*Güncelleme: 2026-11-15 — P18 T5: aynı tahsilat anahtarında gövde eşlemesi ve 422 sözleşmesi.*

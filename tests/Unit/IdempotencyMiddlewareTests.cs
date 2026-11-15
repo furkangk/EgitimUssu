@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Middleware;
@@ -163,6 +164,77 @@ public sealed class IdempotencyMiddlewareTests
         Assert.Null(store.Completed);
     }
 
+    [Fact]
+    public async Task Different_Body_Returns_422_And_Does_Not_Release_Original_Key()
+    {
+        var store = new FakeIdempotencyStore(IdempotencyOutcome.BodyMismatch);
+        var calls = 0;
+        var middleware = new IdempotencyMiddleware(_ => { calls++; return Task.CompletedTask; }, store);
+        var context = MakeContext("POST", "/api/payments/records", "same-key");
+        context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("{\"amount\":200}"));
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(422, context.Response.StatusCode);
+        Assert.Contains("shared.idempotency_key_reused", Encoding.UTF8.GetString(ReadBody(context)));
+        Assert.Equal(0, calls);
+        Assert.Equal(0, store.ReleaseCalls);
+        Assert.Null(store.Completed);
+    }
+
+    [Theory]
+    [InlineData("application/json", "{\"amount\":1500,\"note\":\"Öğrenci\"}")]
+    [InlineData("multipart/form-data; boundary=test-boundary", "--test-boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"ödev.txt\"\r\n\r\nödev\r\n--test-boundary--\r\n")]
+    [InlineData("application/json", "")]
+    public async Task Raw_Body_Hash_Is_Passed_To_Store_And_Completed_Response_Without_Consuming_Body(string contentType, string body)
+    {
+        var bytes = Encoding.UTF8.GetBytes(body);
+        var store = new FakeIdempotencyStore(IdempotencyOutcome.Proceed);
+        byte[]? received = null;
+        var middleware = new IdempotencyMiddleware(async ctx =>
+        {
+            using var memory = new MemoryStream();
+            await ctx.Request.Body.CopyToAsync(memory);
+            received = memory.ToArray();
+        }, store);
+        var context = MakeContext("POST", "/api/payments/records", "same-key");
+        context.Request.ContentType = contentType;
+        context.Request.Body = new MemoryStream(bytes);
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(bytes, received);
+        var expected = Convert.ToHexString(SHA256.HashData(bytes));
+        Assert.Equal(expected, store.RequestBodyHash);
+        Assert.Equal(expected, store.Completed?.RequestBodyHash);
+    }
+
+    [Fact]
+    public async Task NonSeekable_Chunked_Upload_Is_Hashed_And_Rewound_After_Disk_Buffering()
+    {
+        var bytes = new byte[128 * 1024];
+        Random.Shared.NextBytes(bytes);
+        var store = new FakeIdempotencyStore(IdempotencyOutcome.Proceed);
+        var middleware = new IdempotencyMiddleware(async ctx =>
+        {
+            using var received = new MemoryStream();
+            await ctx.Request.Body.CopyToAsync(received);
+            Assert.Equal(bytes, received.ToArray());
+        }, store);
+        var context = MakeContext("POST", "/api/assignments/submissions", "upload");
+        using var source = new NonSeekableStream(bytes);
+        context.Request.Body = source;
+        try
+        {
+            await middleware.InvokeAsync(context);
+            Assert.Equal(Convert.ToHexString(SHA256.HashData(bytes)), store.Completed?.RequestBodyHash);
+        }
+        finally
+        {
+            await context.Request.Body.DisposeAsync();
+        }
+    }
+
     private static DefaultHttpContext MakeContext(string method, string path, string? idempotencyKey)
     {
         var services = new ServiceCollection();
@@ -191,15 +263,35 @@ public sealed class IdempotencyMiddlewareTests
         return memory.ToArray();
     }
 
+    private sealed class NonSeekableStream(byte[] bytes) : Stream
+    {
+        private readonly MemoryStream _source = new(bytes);
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => _source.Read(buffer, offset, count);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => _source.ReadAsync(buffer, cancellationToken);
+        public override void Flush() => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        protected override void Dispose(bool disposing) { if (disposing) _source.Dispose(); base.Dispose(disposing); }
+    }
+
     private sealed class FakeIdempotencyStore(IdempotencyOutcome outcome, IdempotentResponse? stored = null) : IIdempotencyStore
     {
         public int BeginCalls { get; private set; }
 
+        public string? RequestBodyHash { get; private set; }
+
         public IdempotentResponse? Completed { get; private set; }
 
-        public Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(string key, CancellationToken cancellationToken = default)
+        public Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(string key, string requestBodyHash, CancellationToken cancellationToken = default)
         {
             BeginCalls++;
+            RequestBodyHash = requestBodyHash;
             return Task.FromResult((outcome, stored));
         }
 

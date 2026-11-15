@@ -166,20 +166,30 @@
 
 Son **Flutter 331 test**, başarısız **0**; `flutter analyze --fatal-infos` **No issues found**. `flutter pub get` başarılı. Aynı koşumda **bash scripts/test-with-docker.sh: 19 mimari / 1223 birim / 167 integration**, başarısız **0**, atlanan **0**; Release `-warnaserror --no-incremental` **0 uyarı/0 hata**, tool restore başarılı. Backend/migration değişmedi; drift/Down bu mobil görevde yeniden gerekmedi. Doc-health RED **0**, mevcut **2 YELLOW + 1 BLUE**. Platform dosyaları dışarıda. P18 **4/6**, sonraki yalnız T5; merge/push yok.
 
-### Task 5: Idempotency anahtarında gövde özeti (N-55 idempotency)
+### Task 5: Idempotency anahtarında gövde özeti (N-55 idempotency) ✅
 
 **Files:**
 - Modify: `src/Shared/Infrastructure/Middleware/IdempotencyMiddleware.cs` (anahtar + SHA-256 gövde özeti; farklı gövde → `422 shared.idempotency_key_reused`)
+- Modify: `src/Shared/Infrastructure/Caching/IIdempotencyStore.cs`, `RedisIdempotencyStore.cs` (işleniyor işareti ve tamamlanmış yanıtta gövde özeti; aynı anahtar/farklı gövde atomik sahiplenmede de ayrılır)
 - Test: `tests/Unit/IdempotencyMiddlewareTests.cs` (genişlet)
+- Modify: `tests/Unit/IdempotencyIdentityIsolationTests.cs` (ikinci depo sahtesi yeni imza; izolasyon beklentileri korunur)
+- Create: `tests/Integration/RealIdempotencyBodyHashTests.cs` (gerçek Redis: replay, farklı/eşzamanlı gövde, eski kayıt, hata sonrası tekrar; gerçek HTTP ödeme yazımı)
+- Docs: `doc/architecture/backend.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/m07_payments.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`, bu plan; ayrı ilerleme `docs/superpowers/ILERLEME.md`
 
-- [ ] **Step 1: Kırmızı test** — aynı anahtar + farklı gövde → 422; aynı anahtar + aynı gövde → önbellekli yanıt; mevcut `IdempotencyIdentityIsolationTests` yeşil.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Commit** — rapor N-55 (idempotency) ✅.
+**Interfaces / T5 kapsam kararı (2026-11-15):** `TryBeginAsync(string key, string requestBodyHash, CancellationToken)`; `IdempotencyOutcome.BodyMismatch`; `IdempotentResponse(..., string? RequestBodyHash = null)`. İki test sahtesi rg ile doğrulandı. SHA-256 ham gövde baytlarından akışla hesaplanır, istek başa sarılır (JSON sıralama/boşluk ve multipart boundary de içeriktir; mobil ilk gövdeyi korur). Hash yalnız yanıtla değil SET NX processing işaretiyle saklanır; farklı gövde iş sürerken de422, aynı gövde409. Redis namespace/TTL korunur:5dk processing/24saat completed. Eski hash’siz tamamlanmış kayıt422 ile reddedilir, eski processing409 kalır; eski kaydı silip yeniden mutasyon üretmek seçilmez. Hatalı istek serbest bırakma ve Redis fail-open mevcut sözleşmedir. N-55 toplu maddesinin yalnız idempotency ayağı kapanır; diğer ayaklar P19 T6’da açık kalır. Kullanıcının devrettiği karar yetkisiyle en düşük riskli geçiş seçildi.
+
+- [x] **Step 0: İmza** — yeni enum/yanıt alanı/depo imzası ve iki sahte, davranış eklemeden Release derle.
+
+- [x] **Step 1: Kırmızı test** — aynı anahtar + farklı gövde → 422; aynı anahtar + aynı gövde → önbellekli yanıt; mevcut `IdempotencyIdentityIsolationTests` yeşil.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Commit** — rapor N-55 (idempotency) ✅.
   ```bash
   git commit -m "fix(idempotency): anahtar govde ozetiyle eslesir, farkli govde 422 (N-55)"
   ```
 
 ---
+
+**Doğrulama (2026-11-15):** İmza Release **0 uyarı/0 hata**. Hedefli ilk unit **4 kırmızı/22 yeşil**, gerçek Redis/HTTP **4 kırmızı/2 yeşil** → uygulamadan sonra **26/26 unit + 6/6 Redis/HTTP yeşil**. Büyük (128 KiB), seek edilemeyen/chunked binary yükleme ve atomik 20 ilk sahiplenme regresyonları eklendi; son tam **bash scripts/test-with-docker.sh: 19 mimari / 1228 birim / 174 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0 uyarı/0 hata**, tool restore başarılı. Aynı tahsilat key/gövde ilk yanıtı döndürür ve tek DB hareketi bırakır; farklı tutar422. Aynı gövde processing409, farklı422; reddedilen tekrar ilk işareti silmez. Eski hash’siz kayıtlar tamamlandı422/processing409; başarısız istekte düzeltilmiş gövde tekrar işlenebilir. Mevcut kullanıcı/anonim/Identity izolasyon testleri korunur. Doc health RED0/mevcut2YELLOW+1BLUE. Migration/mobil değişmedi; drift/Down ve Flutter yeniden gerekmedi. N-55 yalnız idempotency ayağı kapandı; P18 **5/6**, T6 başlamadı, merge/push yok.
 
 ### Task 6: Kapanış — finans senaryosu
 
@@ -202,3 +212,5 @@ Son **Flutter 331 test**, başarısız **0**; `flutter analyze --fatal-infos` **
 *Güncelleme: 2026-11-15 — P18 T3 tamamlandı; aylık Currency, tek bekleyen beyan, güvenli göç ve sonuç bildirimi. T4 mobil devri ve T6 senaryo sözleşme düzeltmesi kaydedildi.*
 
 *Güncelleme: 2026-11-15 — P18 T4 tamamlandı; mobil kuruş/niyet uçları/para birimi ve otomatik-manuel idempotency tekrarları.*
+
+*Güncelleme: 2026-11-15 — P18 T5 tamamlandı; Redis processing/completed gövde özeti ve gerçek HTTP tekrar kanıtı.*

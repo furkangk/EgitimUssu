@@ -133,7 +133,7 @@ public sealed class IdempotencyIdentityIsolationTests
         public Dictionary<string, IdempotentResponse> Completed { get; } = [];
 
         public Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(
-            string key, CancellationToken cancellationToken = default)
+            string key, string requestBodyHash, CancellationToken cancellationToken = default)
         {
             BeginCalls++;
             return Task.FromResult(Completed.TryGetValue(key, out var response)

@@ -36,6 +36,8 @@ updated: 2026-11-15
 **P18 T2 (2026-11-15):** M07’ye `POST /records/{id}/collections`, `/refunds`, `/cancel` eklendi (14 uç); PUT yalnız ayrıntıları günceller. Net tahsilat/durum hareketlerden türetilir, eski istemci toplam göndererek tahsilatı ezemez. `PaymentTransactions` göçü eski tahsilatı tek `Migrated` harekete taşır; `IPaymentTransactionDirectory` ve `reporting.payment-collections` yeniden kurucusu aylık raporu besler. Mobil geçiş T4’tedir.
 
 
+**P18 T5 (2026-11-15):** Ortak HTTP tekrar koruması `Idempotency-Key` ile ham gövde SHA-256 özetini eşler. Aynı kullanıcı/metot/yol/anahtarda farklı gövde (işlenirken de) `422 shared.idempotency_key_reused`; aynı gövde tamamlandıysa saklı yanıt, sürüyorsa409. M07 gerçek HTTP tahsilat tekrarı tek hareket üretir. Yeni endpoint/migration yok; anonim ve Identity istekleri koruma dışında kalır.
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -406,3 +408,5 @@ GET /api/matching/status   /api/reviews/status
 **P18 T4 (mobil):** Yeni backend ucu eklenmedi. Mobil ödeme oluşturma/tahsilat/iptal idempotency anahtarı taşır; mevcut `/collections` ve `/cancel` POST'ları tüketilir, PUT yalnız ayrıntı gönderir. Ödeme modelleri int kuruş, para birimi seçimi özet ve iki grafiğe uygulanır. Öğrenci detay metrikleri de para birimi başınadır.
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+*Güncelleme: 2026-11-15 — P18 T5: modüller arası ortak idempotency gövde sözleşmesi.*
