@@ -13,7 +13,8 @@ public readonly record struct ScheduleOccurrence(
     DateTime StartAtUtc,
     DateTime EndAtUtc,
     bool IsCancelled = false,
-    DateTime? OriginalStartAtUtc = null)
+    DateTime? OriginalStartAtUtc = null,
+    bool IsCompleted = false)
 {
     /// <summary>iCal RECURRENCE-ID: bu oluşumu hedefleyen istisna kaydının anahtarı.</summary>
     public DateTime RecurrenceIdUtc => OriginalStartAtUtc ?? StartAtUtc;
@@ -288,12 +289,13 @@ public static class RecurrenceExpander
                 case OccurrenceExceptionAction.Cancelled:
                     yield return occurrence with { IsCancelled = true };
                     break;
+                case OccurrenceExceptionAction.Completed:
                 case OccurrenceExceptionAction.Rescheduled:
                     var start = ex.OverrideStartAtUtc ?? occurrence.StartAtUtc;
                     var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
                     if (start <= rangeEndUtc && end >= rangeStartUtc)
                     {
-                        yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc);
+                        yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc, ex.Action == OccurrenceExceptionAction.Completed);
                     }
 
                     break;
@@ -303,7 +305,7 @@ public static class RecurrenceExpander
         // N-14: orijinali pencere dışında kalan, pencereye ertelenmiş oluşumlar.
         foreach (var ex in byOriginal.Values)
         {
-            if (ex.Action != OccurrenceExceptionAction.Rescheduled
+            if (ex.Action is not (OccurrenceExceptionAction.Rescheduled or OccurrenceExceptionAction.Completed)
                 || ex.OverrideStartAtUtc is not { } start
                 || start > rangeEndUtc
                 || (ex.OverrideEndAtUtc.HasValue && ex.OverrideEndAtUtc.Value < rangeStartUtc)
@@ -332,7 +334,7 @@ public static class RecurrenceExpander
             var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
             if (end >= rangeStartUtc)
             {
-                yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc);
+                yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc, ex.Action == OccurrenceExceptionAction.Completed);
             }
         }
     }

@@ -15,7 +15,9 @@ public sealed record LessonSessionDetails(
     string? TeacherNotes,
     // M07-2: Ücretlendirilecek ders mi (Payments tüketir). Varsayılan false — mevcut çağrı yerleri değişmez.
     bool IsChargeable = false,
-    string AttendanceStatus = "Unknown");
+    string AttendanceStatus = "Unknown",
+    DateTime? OccurrenceStartUtc = null,
+    DateTime? PlannedStartAtUtc = null);
 
 public interface ILessonSessionAccessService
 {

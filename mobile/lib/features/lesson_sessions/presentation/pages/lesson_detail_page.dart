@@ -6,6 +6,7 @@ import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assig
 import 'package:egitim_ussu_mobile/features/assignments/presentation/widgets/lesson_resources_section.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/scheduled_session_completion.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
@@ -112,7 +113,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       );
 
   bool get _canComplete =>
-      _payload.lessonId != null && _lessonStatus == 'Planned';
+      _payload.lesson != null && _lessonStatus == 'Planned';
 
   /// M05-1: Ders henuz baslamadiysa "baslat" gosterilir.
   bool get _canStartSession =>
@@ -204,38 +205,29 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
-                  child: BlocBuilder<SchedulingCubit, SchedulingState>(
-                    bloc: _schedulingCubit,
-                    builder: (context, state) {
-                      return FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.accentGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: state.isSaving
-                            ? null
-                            : () => _schedulingCubit!.completeLesson(
-                                lessonId: _payload.lessonId!,
-                              ),
-                        icon: state.isSaving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.check_circle_outline_rounded),
-                        label: Text(
-                          AppLocalizations.of(context).lessonDetail_complete,
-                        ),
-                      );
-                    },
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accentGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: _sessionBusy ? null : _completeSession,
+                    icon: _sessionBusy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_circle_outline_rounded),
+                    label: Text(
+                      AppLocalizations.of(context).lessonDetail_complete,
+                    ),
                   ),
                 ),
               ],
@@ -342,12 +334,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
             bloc: cubit,
             listener: (context, state) {
               if (state.successMessage != null) {
-                if (state.successMessage!.contains('tamamland')) {
-                  setState(() {
-                    _lessonStatus = 'Completed';
-                    _didChange = true;
-                  });
-                }
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
@@ -374,6 +360,38 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       },
       child: body,
     );
+  }
+
+  Future<void> _completeSession() async {
+    final lesson = _payload.lesson;
+    if (lesson == null || _sessionBusy) return;
+    setState(() => _sessionBusy = true);
+    try {
+      final completed = await completeScheduledSession(
+        injector<LessonSessionRepository>(),
+        lesson,
+      );
+      if (!mounted) return;
+      setState(() {
+        _sessionStatus = completed.status;
+        _lessonStatus = completed.status;
+        _didChange = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).lessonSessions_completedMessage,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _sessionBusy = false);
+    }
   }
 
   /// M05-1 + M05-2: Plandan oturum turetir (idempotent) ve dersi baslatir.

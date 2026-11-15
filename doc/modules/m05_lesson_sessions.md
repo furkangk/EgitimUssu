@@ -26,6 +26,8 @@ updated: 2026-11-15
 
 > **P17 Task 3 (2026-11-15):** Haftalık derslerin her haftası ayrı oturumdur. `OccurrenceKeyedSessions` önce `PlannedStartAtUtc` ile geri doldurur, aynı anahtardaki en erken kayıt dışındakileri `Cancelled` + NULL anahtar yapar ve sayısını NOTICE ile raporlar; ardından `LessonScheduleId IS NOT NULL` filtreli benzersiz indeks kurar. `Down` kolonu ve indeksi geri alır, iptal edilen veriyi silmez; eski durumları yeniden üretmez. API yanıtında anahtar `occurrenceStartAtUtc` olarak görünür. Mobil yoklama yükü backend enum’una eşittir (`Unknown=1`, `Attended/Present=2`, `Late=3`, `Absent=4`); eski `Absent=2` hatası giderildi. `RealWeeklyLessonSessionTests` haftalar, eşzamanlı türetme, erteleme, öğrenci/veli erişimi, katılım ve göçü gerçek PostgreSQL’de doğrular.
 
+> **P17 T4 / K-21:** Ders tamamlamanın tek yazma yolu LessonSessions’tır. Scheduling `/complete` kaldırıldı; liste kartı ve detay ekranı ortak `completeScheduledSession` ile orijinal oluşumu türetip `/lesson-sessions/{id}/complete` çağırır. Scheduling tüketicisi inbox ve öğretmen takvim kilidinde durumu yansıtır; ikinci tamamlanma olayı üretmez.
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 | Katman | Durum | Kanıt |
@@ -205,7 +207,7 @@ POST /lesson-sessions/{id}/complete (Completed)
          (Assignments/Infrastructure/LessonSessionCompletedIntegrationEventHandler.cs)
        → m10 ProgressTracking: Attended/Late katılımı makbuzla bir kez sayılır
        → m07 Payments: ücretli oturumdan LessonFee türü ödeme kaydı üretilir
-       → (öneri) m04 Scheduling: ilgili LessonSchedule.Status = Completed
+       → m04 Scheduling (P17 T4): tekil plan Completed, tekrarlı derste yalnız orijinal anahtarlı Completed istisnası; erteleme saatleri korunur
 
 M04 planlı ders → POST /lesson-sessions/from-schedule {lessonScheduleId, occurrenceStartAtUtc}   (🟢 P06/M05-2)
    → ILessonScheduleDirectory ile plan ve orijinal oluşum okunur (Scheduling uygular; ertelemede görünen saat çözülür)
@@ -220,10 +222,10 @@ M04 planlı ders → POST /lesson-sessions/from-schedule {lessonScheduleId, occu
 > StartAtUtc, EndAtUtc, Subject, MeetingUrl?, Status, IsRecurring }` döner. Öğrencinin **kendi** dersi (öğretmensiz, Ç-06)
 > bu sözleşmeden `null` döner → o plandan oturum türetilemez.
 >
-> **Çapraz-modül erişim:** Assignments (otomatik ders notu) ve **Payments** (M07-2 ders ücreti) modülleri
+> **Çapraz-modül erişim:** Assignments (otomatik ders notu), **Payments** (M07-2 ders ücreti) ve **Scheduling** (P17 T4 durum senkronu) modülleri
 > oturum bilgisine `ILessonSessionAccessService` (`LessonSessionAccess.cs`) üzerinden
 > `LessonSessionDetails { Id, LessonScheduleId?, TeacherUserId, StudentId, IsCompleted, CompletedOnUtc?,
-> TopicTitle, CoveredContent, TeacherNotes, IsChargeable, AttendanceStatus }` projeksiyonuyla erişir — modül sınırı korunur.
+> TopicTitle, CoveredContent, TeacherNotes, IsChargeable, AttendanceStatus, OccurrenceStartUtc?, PlannedStartAtUtc? }` projeksiyonuyla erişir — modül sınırı korunur.
 > `IsChargeable` alanı 2026-09-04'te (M07-2) eklendi; sözleşmede **varsayılan `false`** olduğundan mevcut
 > çağrı yerleri değişmedi.
 > Olaylar **Outbox** ile yayılır.
@@ -299,3 +301,5 @@ M04 planlı ders → POST /lesson-sessions/from-schedule {lessonScheduleId, occu
 ---
 
 *Ders Oturumları (M05) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P17 T3: oluşum anahtarlı ders oturumu, öğrenci/veli okuması ve çift katılım koruması) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 7 — manuel oturum `Private` kapsam ister; bağlanan planlı ders aynı öğretmen–öğrenci ikilisine ait olmalı → `403 lesson_sessions.schedule_not_owned`) · 2026-09-04 (P06 Task 5 / M07-2: `LessonSessionDetails` sözleşmesine `IsChargeable` eklendi — tamamlanan ücretli ders Payments'ta ödeme kaydı üretir) · 2026-09-04 (P06/M05-2: `POST /from-schedule/{id}` + `ILessonScheduleDirectory` sözleşmesi; idempotent türetme) · 2026-09-04 (P06/M05-1 + M05-3 + M05-4: `Start()`/`Cancel()` geçişleri + `invalid_transition` 409, `ActualEnd > ActualStart` invariant'ı, `MeetingUrl`/`RecordingUrl`/`CancellationReason` alanları; domain metotları artık `Result` döner) · 2026-07-19 (Veli V-F: `IStudentLastLessonDirectory` — veli paneli için son tamamlanan ders özeti; TeacherNotes veli-görünürlük garantisi olmadan doldurulmaz; Shared.Contracts) · 2026-07-18*
+
+*Güncelleme: 2026-11-15 — P17 Task 4 / N-03, K-21: tek oturum tamamlama yolu ve oluşum durum senkronizasyonu.*

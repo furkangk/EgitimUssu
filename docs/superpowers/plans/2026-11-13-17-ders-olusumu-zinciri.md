@@ -115,7 +115,7 @@
 
 ---
 
-### Task 4: Tek tamamlama yolu (N-03, K-21)
+### Task 4: Tek tamamlama yolu (N-03, K-21) ✅
 
 **Files:**
 - Modify: `src/Modules/Scheduling/API/SchedulingModule.cs` (`/complete` ucu kaldırılır)
@@ -125,9 +125,22 @@
 - Modify: `src/Modules/Payments/Infrastructure/LessonSessionCompletedPaymentHandler.cs` ve diğer tüketicilerin `SourceModule` filtresi (yalnız LessonSessions kaynağı kalır — artık tek kaynak)
 - Test: `tests/Unit/SingleCompletionPathTests.cs`, `tests/Integration/RealCompletionSyncTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — oturum tamamlanınca planın o oluşumu `Completed`; tamamlanmış oluşum iptal → 409; rapor aynı dersi hem tamamlanmış hem iptal saymaz; mobil: ders kartında "Tamamla" `from-schedule` + oturum `complete` çağırır, `SchedulingCubit.completeLesson` artık yok (`grep -rn completeLesson mobile/lib` boş).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m04`, `m05`, `00_genel_bakis.md` (uç envanteri: `/complete` kaldırıldı); rapor N-03 ✅.
+**Kapsam doğrulaması (2026-11-15, #232):**
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs`, `LessonSchedulePolicies.cs`, `RecurrenceExpander.cs`, `StudentCalendarQuery.cs`; `Infrastructure/DependencyInjection.cs`, `LessonScheduleRepository.cs` (tamamlanan ertelenmiş oluşum pencere sorgularında da görünür). Eski komut/handler/authorizer ve Scheduling tamamlanma olayı kaldırılır; oluşum durumu genişletme ve yanıta taşınır. Tamamlanmış oluşumu kapsayan Single/ThisAndFuture/All iptal/erteleme 409 verir. Tüm seri düzenlemesi de tamamlanmış geçmişi değiştiremez.
+- Modify: `src/Shared/Contracts/LessonSessionReadContract.cs`, `src/Modules/LessonSessions/Infrastructure/LessonSessionAccessService.cs` (orijinal oluşum ve planlı saat salt-okunur sözleşmede; eski olay şeması değişmez). Tüketici aynı öğretmen takvim kilidinde ve inbox transaction'ında yazar; yeniden teslim ek olay üretmez.
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Scheduling Infrastructure referansı — gerçek EF InMemory tüketici testi), `tests/Unit/SchedulingMutationIntegrityTests.cs`, `tests/Unit/LessonScheduleTests.cs` (kaldırılan Scheduling komutu testleri yerini kanonik yol testlerine bırakır). İsteğe bağlı ek sözleşme alanlarıyla mevcut sahtelerin imzaları korunur; `ILessonSessionAccessService` uygulayan tüm sahteler tarandı.
+- Modify (mobil): `mobile/test/helpers/fake_scheduling_repository.dart`; Create: `mobile/lib/features/lesson_sessions/domain/scheduled_session_completion.dart`, `mobile/test/features/lesson_sessions/presentation/single_completion_path_test.dart`. İki ekran aynı oturum tamamlama yardımcısını kullanır; liste K-26 gereği tr/en ARB'ye taşınır (`mobile/lib/l10n/app_tr.arb`, `app_en.arb`). Tamamlama sonrası yalnız hedef oluşum yerelde güncellenir (olay senkronunun kısa gecikmesi kullanıcıyı ikinci tamamlamaya yöneltmez).
+- Doc: `doc/modules/m04_scheduling.md`, `m05_lesson_sessions.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/pages/lesson_detail.md`, `lesson_sessions_list.md`, `doc/roles/ogretmen.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`.
+- Payments / Assignments / ProgressTracking / Reporting / Notifications / Parents tüketicilerinin tamamı zaten `SourceModule == LessonSessions` filtresine sahip; davranış değişmediğinden bu dosyalara dokunulmaz.
+
+**Interfaces:** `OccurrenceExceptionAction.Completed = 4`; `ScheduleOccurrence.IsCompleted`; `LessonSessionDetails` sonuna opsiyonel `OccurrenceStartUtc` ve `PlannedStartAtUtc`. Tamamlama olayından oturum okunur, tekil ders `Completed`, tekrarlıda yalnız orijinal anahtarlı istisna `Completed`; varsa erteleme saatleri korunur. `409 scheduling.occurrence_completed` tamamlanmış oluşumu değiştiren kapsamı reddeder. Göç gerekmez (enum mevcut string kolonuna `Completed` olarak yazılır, sözleşme salt-okunur).
+
+
+- [x] **Step 1: Kırmızı testler** — oturum tamamlanınca planın o oluşumu `Completed`; tamamlanmış oluşum iptal → 409; rapor aynı dersi hem tamamlanmış hem iptal saymaz; mobil: ders kartında "Tamamla" `from-schedule` + oturum `complete` çağırır, `SchedulingCubit.completeLesson` artık yok (`grep -rn completeLesson mobile/lib` boş).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imza iskeleti Release `-warnaserror` ile 0 uyarı / 0 hata derlendi. Önce **5/8** yeni birim testi ve gerçek PostgreSQL **2/2** senaryo iddia hatasıyla kırmızı; mobil iki ekran eski Scheduling çağrısında kırmızı; seri PUT ile tamamlanmış geçmişi değiştirme testi ayrıca kırmızı görüldü. Sonra **19 mimari / 1151 birim / 136 integration**, başarısız 0, atlanan 0 (`bash scripts/test-with-docker.sh`); Release `-warnaserror --no-incremental` **0/0**; **289 Flutter testi** geçti, `flutter analyze --fatal-infos` temiz. Son yerel kart→detay durumu düzeltmesinden sonra 3/3 hedefli Flutter testi ve fatal-infos analiz yeniden geçti. Migration yok. Tüm tüketicilerin kaynak filtresi koddan doğrulandı; yeni Scheduling tüketicisi inbox ile tekrar teslimde ek olay üretmez.
+
+- [x] **Step 5: Doküman + commit** — `m04`, `m05`, `00_genel_bakis.md` (uç envanteri: `/complete` kaldırıldı); rapor N-03 ✅.
   ```bash
   git commit -m "refactor(scheduling): tamamlama yalniz LessonSessions'ta, plan olayla senkron (N-03, K-21)"
   ```
@@ -214,4 +227,4 @@
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 (P17 Task 3: kapsam koddan doğrulandı, TDD + gerçek PostgreSQL göçü + backend/mobil doğrulama).*
+*Güncelleme: 2026-11-15 (P17 Task 4: tek tamamlama yolu, kapsam doğrulaması + TDD + Docker/backend/mobil doğrulama).*

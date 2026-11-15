@@ -146,30 +146,6 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     }
   }
 
-  Future<void> completeLesson({required String lessonId}) async {
-    if (isClosed) return;
-    emit(state.copyWith(isSaving: true, clearMessages: true));
-    try {
-      final completed = await _repository.completeLesson(lessonId: lessonId);
-      if (isClosed) return;
-      final lessons = state.lessons
-          .map((item) => item.id == completed.id ? completed : item)
-          .toList();
-      emit(
-        state.copyWith(
-          isSaving: false,
-          lessons: lessons,
-          selectedLesson: completed,
-          successMessage: 'Ders tamamlandı olarak işaretlendi.',
-          clearMessages: true,
-        ),
-      );
-    } on ApiException catch (error) {
-      if (isClosed) return;
-      emit(state.copyWith(isSaving: false, errorMessage: error.message));
-    }
-  }
-
   /// P17 T1 / N-01: tekrarlı derste [scope] kullanıcıya sorulur
   /// (`showOccurrenceScopeSheet`, varsayılan "Yalnız bu ders"). Ekran girişi P17 T5'te.
   Future<void> cancelLesson({

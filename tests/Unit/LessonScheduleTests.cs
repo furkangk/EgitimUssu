@@ -159,7 +159,7 @@ public sealed class LessonScheduleTests
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();
 
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken)
-            => throw new NotImplementedException();
+            => Task.FromResult<IReadOnlyCollection<LessonOccurrenceException>>(AddedExceptions);
 
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken)
             => throw new NotImplementedException();

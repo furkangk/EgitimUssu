@@ -154,7 +154,6 @@ abstract interface class SchedulingRepository {
     required OccurrenceScope scope,
     String? cancellationNote,
   });
-  Future<LessonSchedule> completeLesson({required String lessonId});
   Future<List<LessonSchedule>> listTeacherLessons({
     required String teacherUserId,
     DateTime? startAtUtc,

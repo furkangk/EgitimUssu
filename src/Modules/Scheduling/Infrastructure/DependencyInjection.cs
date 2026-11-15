@@ -26,7 +26,6 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CancelLessonScheduleCommand, Result<LessonScheduleResponse>>, CancelLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<RescheduleLessonScheduleCommand, Result<LessonScheduleResponse>>, RescheduleLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteLessonScheduleCommand, Result>, DeleteLessonScheduleCommandHandler>();
-        services.AddScoped<ICommandHandler<CompleteLessonScheduleCommand, Result<LessonScheduleResponse>>, CompleteLessonScheduleCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonScheduleByIdQuery, Result<LessonScheduleResponse>>, GetLessonScheduleByIdQueryHandler>();
         services.AddScoped<IQueryHandler<ListLessonSchedulesForTeacherQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>, ListLessonSchedulesForTeacherQueryHandler>();
         services.AddScoped<IQueryHandler<ListLessonSchedulesForStudentQuery, Result<IReadOnlyCollection<LessonScheduleResponse>>>, ListLessonSchedulesForStudentQueryHandler>();
@@ -37,7 +36,6 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<CancelLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<RescheduleLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DeleteLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
-        services.AddScoped<ICommandAuthorizer<CompleteLessonScheduleCommand>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetLessonScheduleByIdQuery>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSchedulesForTeacherQuery>, LessonScheduleCommandAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListLessonSchedulesForStudentQuery>, StudentLessonQueryAuthorizer>();
@@ -63,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<UpdateSelfLessonCommand>, SelfLessonAuthorizer>();
         services.AddScoped<ICommandAuthorizer<DeleteSelfLessonCommand>, SelfLessonAuthorizer>();
         services.AddScoped<IQueryAuthorizer<GetStudentCalendarQuery>, SelfLessonAuthorizer>();
+
+        services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedSchedulingHandler>();
 
         // Ö-C: profil birleştirmede kaynak öğrenciye ait kayıtları kanonik öğrenciye taşır.
         services.AddScoped<IIntegrationEventHandler, SchedulingStudentMergedHandler>();

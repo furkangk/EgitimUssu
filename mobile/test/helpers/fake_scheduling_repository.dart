@@ -41,11 +41,6 @@ class FakeSchedulingRepository implements SchedulingRepository {
   }
 
   @override
-  Future<LessonSchedule> completeLesson({required String lessonId}) {
-    throw UnimplementedError();
-  }
-
-  @override
   Future<List<LessonSchedule>> listTeacherLessons({
     required String teacherUserId,
     DateTime? startAtUtc,

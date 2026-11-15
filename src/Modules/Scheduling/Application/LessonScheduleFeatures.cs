@@ -57,8 +57,6 @@ public sealed record RescheduleLessonScheduleCommand(
     DateTime? OccurrenceStartAtUtc = null,
     bool AllowTimeOffOverride = false) : ICommand<Result<LessonScheduleResponse>>;
 
-public sealed record CompleteLessonScheduleCommand(Guid LessonId) : ICommand<Result<LessonScheduleResponse>>;
-
 public sealed record DeleteLessonScheduleCommand(Guid LessonId) : ICommand<Result>;
 
 public sealed record GetLessonScheduleByIdQuery(Guid LessonId) : IQuery<Result<LessonScheduleResponse>>;
@@ -570,6 +568,8 @@ public sealed class UpdateLessonScheduleCommandHandler : ICommandHandler<UpdateL
         // yer tutmaz). Aggregate yalnız bir kez değişir — iş yeniden denenirse olay ikinci kez yayılmasın.
         return await _scheduleLock.RunExclusiveAsync(teacherUserId, async token =>
         {
+            var completionError = await OccurrenceCompletionRules.CheckAsync(_repository, lesson, OccurrenceScope.All, null, token);
+            if (completionError is not null) return Result<LessonScheduleResponse>.Failure(completionError);
             var ownExceptions = await TeacherScheduleConflicts.OwnExceptionsAsync(_repository, lesson, recurrenceRule, token);
             var candidates = TeacherScheduleConflicts.CandidateOccurrences(
                 command.StartAtUtc, command.EndAtUtc, recurrenceRule, zone, ownExceptions, _clock.UtcNow, _settings.Horizon, includePastOccurrences: false);
@@ -637,6 +637,9 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             return Result<LessonScheduleResponse>.Failure(NotFound);
         }
 
+        if (lesson.Status == LessonScheduleStatus.Completed)
+            return Result<LessonScheduleResponse>.Failure(OccurrenceCompletionRules.Completed);
+
         if (!lesson.IsEditable)
         {
             return Result<LessonScheduleResponse>.Failure(NotEditable);
@@ -650,33 +653,35 @@ public sealed class CancelLessonScheduleCommandHandler : ICommandHandler<CancelL
             return Result<LessonScheduleResponse>.Failure(scopeError);
         }
 
-        if (isRecurring && scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
+        return await _scheduleLock.RunExclusiveAsync(lesson.TeacherUserId ?? Guid.Empty, async token =>
         {
-            var occurrenceException = new LessonOccurrenceException(
-                _idGenerator.New(), lesson.Id, occStart,
-                OccurrenceExceptionAction.Cancelled, null, null, command.CancellationNote?.Trim(), _clock.UtcNow);
-
-            // P16 T4 (Öğrenilenler #223 g): upsert "oku → yoksa ekle"dir; aynı oluşuma eşzamanlı erteleme/iptal benzersiz
-            // indekse çarpıp 500 almasın diye ertelemeyle aynı öğretmen kilidinde serileşir.
-            return await _scheduleLock.RunExclusiveAsync(lesson.TeacherUserId ?? Guid.Empty, async token =>
+            var completionError = await OccurrenceCompletionRules.CheckAsync(_repository, lesson, scope, command.OccurrenceStartAtUtc, token);
+            if (completionError is not null) return Result<LessonScheduleResponse>.Failure(completionError);
+            if (isRecurring && scope == OccurrenceScope.Single && command.OccurrenceStartAtUtc is { } occStart)
             {
+                var occurrenceException = new LessonOccurrenceException(
+                    _idGenerator.New(), lesson.Id, occStart,
+                    OccurrenceExceptionAction.Cancelled, null, null, command.CancellationNote?.Trim(), _clock.UtcNow);
+
+                // P16 T4 (Öğrenilenler #223 g): upsert "oku → yoksa ekle"dir; aynı oluşuma eşzamanlı erteleme/iptal benzersiz
+                // indekse çarpıp 500 almasın diye ertelemeyle aynı öğretmen kilidinde serileşir.
                 await _repository.UpsertExceptionAsync(occurrenceException, token);
                 await _repository.SaveChangesAsync(token);
                 return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
-            }, cancellationToken);
-        }
+            }
 
-        if (isRecurring && scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
-        {
-            lesson.EndSeriesBefore(cutoff, _clock.UtcNow);
-            await _repository.SaveChangesAsync(cancellationToken);
+            if (isRecurring && scope == OccurrenceScope.ThisAndFuture && command.OccurrenceStartAtUtc is { } cutoff)
+            {
+                lesson.EndSeriesBefore(cutoff, _clock.UtcNow);
+                await _repository.SaveChangesAsync(token);
+                return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+            }
+
+            lesson.Cancel(command.Reason, command.IsChargeable, command.CancellationNote?.Trim(), _clock.UtcNow);
+            await _repository.SaveChangesAsync(token);
+            // Y1: Hatirlatma iptali LessonScheduleCancelledDomainEvent -> outbox -> Notifications handler yoluyla yapilir.
             return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
-        }
-
-        lesson.Cancel(command.Reason, command.IsChargeable, command.CancellationNote?.Trim(), _clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
-        // Y1: Hatirlatma iptali LessonScheduleCancelledDomainEvent -> outbox -> Notifications handler yoluyla yapilir.
-        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
+        }, cancellationToken);
     }
 }
 
@@ -725,6 +730,9 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             return Result<LessonScheduleResponse>.Failure(NotFound);
         }
 
+        if (lesson.Status == LessonScheduleStatus.Completed)
+            return Result<LessonScheduleResponse>.Failure(OccurrenceCompletionRules.Completed);
+
         if (!lesson.IsEditable)
         {
             return Result<LessonScheduleResponse>.Failure(NotEditable);
@@ -759,6 +767,8 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
 
         return await _scheduleLock.RunExclusiveAsync(teacherUserId, async token =>
         {
+            var completionError = await OccurrenceCompletionRules.CheckAsync(_repository, lesson, scope, command.OccurrenceStartAtUtc, token);
+            if (completionError is not null) return Result<LessonScheduleResponse>.Failure(completionError);
             // P16 T4 / N-07: tek oluşum taşınırken yalnız o oluşum hariç tutulur — aynı serinin kardeş oluşumunun üstüne
             // taşımak da çakışmadır. Seri bütün taşınırken aday yeni çapadan genişletilir, dersin kendisi hariç.
             IReadOnlyList<ScheduleOccurrence> candidates;
@@ -857,44 +867,6 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             await _repository.SaveChangesAsync(token);
             return Result<LessonScheduleResponse>.Success((splitSeries ?? lesson).ToResponse());
         }, cancellationToken);
-    }
-}
-
-public sealed class CompleteLessonScheduleCommandHandler : ICommandHandler<CompleteLessonScheduleCommand, Result<LessonScheduleResponse>>
-{
-    private static readonly Error NotFound = new("scheduling.lesson_not_found", "Ders plani bulunamadi.");
-    private static readonly Error AlreadyCompleted = new("scheduling.already_completed", "Ders zaten tamamlanmis.");
-    private static readonly Error NotEditable = new("scheduling.not_editable", "Iptal edilmis ders tamamlanamaz.");
-    private readonly ILessonScheduleRepository _repository;
-    private readonly IClock _clock;
-
-    public CompleteLessonScheduleCommandHandler(ILessonScheduleRepository repository, IClock clock)
-    {
-        _repository = repository;
-        _clock = clock;
-    }
-
-    public async Task<Result<LessonScheduleResponse>> Handle(CompleteLessonScheduleCommand command, CancellationToken cancellationToken)
-    {
-        var lesson = await _repository.GetByIdAsync(command.LessonId, cancellationToken);
-        if (lesson is null)
-        {
-            return Result<LessonScheduleResponse>.Failure(NotFound);
-        }
-
-        if (lesson.Status == LessonScheduleStatus.Completed)
-        {
-            return Result<LessonScheduleResponse>.Failure(AlreadyCompleted);
-        }
-
-        if (!lesson.IsEditable)
-        {
-            return Result<LessonScheduleResponse>.Failure(NotEditable);
-        }
-
-        lesson.Complete(_clock.UtcNow);
-        await _repository.SaveChangesAsync(cancellationToken);
-        return Result<LessonScheduleResponse>.Success(lesson.ToResponse());
     }
 }
 
@@ -1041,7 +1013,7 @@ internal static class LessonScheduleMappings
             occurrence?.EndAtUtc ?? lesson.EndAtUtc,
             lesson.TimeZone,
             lesson.RecurrenceRule,
-            lesson.Status.ToString(),
+            occurrence?.IsCompleted == true ? "Completed" : lesson.Status.ToString(),
             lesson.ReminderOffsetMinutes,
             lesson.LocationLabel,
             lesson.MeetingUrl,
@@ -1052,5 +1024,22 @@ internal static class LessonScheduleMappings
             lesson.CancellationReason?.ToString(),
             lesson.IsChargeable,
             occurrence?.RecurrenceIdUtc ?? lesson.StartAtUtc);
+    }
+}
+
+internal static class OccurrenceCompletionRules
+{
+    public static readonly Error Completed = new("scheduling.occurrence_completed", "Tamamlanmış ders oluşumu değiştirilemez.");
+
+    public static async Task<Error?> CheckAsync(ILessonScheduleRepository repository, LessonSchedule lesson,
+        OccurrenceScope scope, DateTime? key, CancellationToken ct)
+    {
+        if (lesson.Status == LessonScheduleStatus.Completed) return Completed;
+        if (string.IsNullOrWhiteSpace(lesson.RecurrenceRule)) return null;
+        var exceptions = await repository.ListExceptionsForSeriesAsync(lesson.Id, ct);
+        return exceptions.Any(item => item.Action == OccurrenceExceptionAction.Completed
+            && (scope == OccurrenceScope.All
+                || (scope == OccurrenceScope.Single && item.OriginalStartAtUtc == key)
+                || (scope == OccurrenceScope.ThisAndFuture && item.OriginalStartAtUtc >= key))) ? Completed : null;
     }
 }

@@ -258,5 +258,19 @@
   "lessonDetail_demoPaymentOneAmount": "TRY 2,000",
   "lessonDetail_demoPaymentTwo": "Extra Lesson Payment",
   "lessonDetail_demoPaymentTwoMeta": "1 hour  May 23, 2025",
-  "lessonDetail_demoPaymentTwoAmount": "TRY 1,000"
+  "lessonDetail_demoPaymentTwoAmount": "TRY 1,000",
+  "lessonSessions_upcoming": "Upcoming",
+  "lessonSessions_past": "Past",
+  "lessonSessions_cancelled": "Cancelled",
+  "lessonSessions_teacher": "Teacher",
+  "lessonSessions_title": "Lessons",
+  "lessonSessions_add": "Add lesson",
+  "lessonSessions_student": "Student",
+  "lessonSessions_completed": "Completed",
+  "lessonSessions_cancelledStatus": "Cancelled",
+  "lessonSessions_draft": "Draft",
+  "lessonSessions_pending": "Pending",
+  "lessonSessions_planned": "Planned",
+  "lessonSessions_completedMessage": "Lesson completed.",
+  "lessonSessions_inPerson": "In person"
 }

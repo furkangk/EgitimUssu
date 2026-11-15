@@ -38,7 +38,7 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
                     // P16 T3 / N-14: seri pencereden sonra başlasa da bir oluşumu pencereye öne alınmış olabilir
                     // (ilk ders bir önceki haftaya) — seri yüklenir, pencereye düşüp düşmediğine genişletici karar verir.
                     || _dbContext.LessonOccurrenceExceptions.Any(x => x.SeriesLessonScheduleId == lesson.Id
-                        && x.Action == OccurrenceExceptionAction.Rescheduled
+                        && (x.Action == OccurrenceExceptionAction.Rescheduled || x.Action == OccurrenceExceptionAction.Completed)
                         && x.OverrideStartAtUtc <= untilUtc)))
             .ToArrayAsync(cancellationToken);
     }
@@ -53,7 +53,7 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
                 && (lesson.StartAtUtc <= untilUtc
                     // P16 T3 / N-14: pencereye öne alınmış oluşumu olan seri (öğrenci sorgusundaki kural).
                     || _dbContext.LessonOccurrenceExceptions.Any(x => x.SeriesLessonScheduleId == lesson.Id
-                        && x.Action == OccurrenceExceptionAction.Rescheduled
+                        && (x.Action == OccurrenceExceptionAction.Rescheduled || x.Action == OccurrenceExceptionAction.Completed)
                         && x.OverrideStartAtUtc <= untilUtc)))
             .ToArrayAsync(cancellationToken);
     }

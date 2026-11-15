@@ -379,5 +379,19 @@
   "lessonDetail_demoPaymentOneAmount": "2.000 TL",
   "lessonDetail_demoPaymentTwo": "Ek Etüt Ödeme Kaydı",
   "lessonDetail_demoPaymentTwoMeta": "1 Saat  23 Mayıs 2025",
-  "lessonDetail_demoPaymentTwoAmount": "1.000 TL"
+  "lessonDetail_demoPaymentTwoAmount": "1.000 TL",
+  "lessonSessions_upcoming": "Yaklaşan",
+  "lessonSessions_past": "Geçmiş",
+  "lessonSessions_cancelled": "İptal Edilen",
+  "lessonSessions_teacher": "Öğretmen",
+  "lessonSessions_title": "Dersler",
+  "lessonSessions_add": "Ders Ekle",
+  "lessonSessions_student": "Öğrenci",
+  "lessonSessions_completed": "Tamamlandı",
+  "lessonSessions_cancelledStatus": "İptal edildi",
+  "lessonSessions_draft": "Taslak",
+  "lessonSessions_pending": "Bekliyor",
+  "lessonSessions_planned": "Planlandı",
+  "lessonSessions_completedMessage": "Ders tamamlandı.",
+  "lessonSessions_inPerson": "Yüz yüze"
 }

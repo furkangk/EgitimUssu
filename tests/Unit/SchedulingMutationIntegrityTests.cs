@@ -24,24 +24,7 @@ public sealed class SchedulingMutationIntegrityTests
             false, null, scope, Start.AddDays(7)), default);
 
         Assert.True(result.IsFailure);
-        Assert.Equal("scheduling.not_editable", result.Error.Code);
-        Assert.Equal(status, lesson.Status);
-        AssertUnchanged(lesson, repository);
-    }
-
-    [Theory]
-    [InlineData(LessonScheduleStatus.Cancelled, "scheduling.not_editable")]
-    [InlineData(LessonScheduleStatus.Completed, "scheduling.already_completed")]
-    public async Task Closed_lesson_cannot_be_completed(LessonScheduleStatus status, string error)
-    {
-        var lesson = NewLesson(status);
-        var repository = new RecordingRepository(lesson);
-        var handler = new CompleteLessonScheduleCommandHandler(repository, new FakeClock());
-
-        var result = await handler.Handle(new CompleteLessonScheduleCommand(lesson.Id), default);
-
-        Assert.True(result.IsFailure);
-        Assert.Equal(error, result.Error.Code);
+        Assert.Equal(status == LessonScheduleStatus.Completed ? "scheduling.occurrence_completed" : "scheduling.not_editable", result.Error.Code);
         Assert.Equal(status, lesson.Status);
         AssertUnchanged(lesson, repository);
     }
@@ -83,20 +66,6 @@ public sealed class SchedulingMutationIntegrityTests
         Assert.Equal("scheduling.invalid_request", result.Error.Code);
         Assert.Equal(Start, lesson.StartAtUtc);
         AssertUnchanged(lesson, repository);
-    }
-
-    [Fact]
-    public async Task Planned_lesson_can_still_be_completed()
-    {
-        var lesson = NewLesson(LessonScheduleStatus.Planned);
-        var repository = new RecordingRepository(lesson);
-        var handler = new CompleteLessonScheduleCommandHandler(repository, new FakeClock());
-
-        var result = await handler.Handle(new CompleteLessonScheduleCommand(lesson.Id), default);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(LessonScheduleStatus.Completed, lesson.Status);
-        Assert.Equal(1, repository.SaveCount);
     }
 
     private static LessonSchedule NewLesson(LessonScheduleStatus status)

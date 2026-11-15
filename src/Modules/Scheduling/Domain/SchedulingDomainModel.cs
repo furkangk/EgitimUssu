@@ -284,13 +284,12 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Raise(new LessonScheduleCancelledDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
     }
 
-    public void Complete(DateTime updatedOnUtc)
+    /// <summary>LessonSessions tamamlanmasını yansıtır; yeni tamamlanma olayı üretmez.</summary>
+    public void MarkCompleted(DateTime completedOnUtc)
     {
+        if (Status == LessonScheduleStatus.Completed) return;
         Status = LessonScheduleStatus.Completed;
-        UpdatedOnUtc = updatedOnUtc;
-
-        // Self derste öğretmen yoktur; tamamlanma olayı öğretmen kimliği taşır, boş Guid ile geçilir.
-        Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId ?? Guid.Empty, StudentId, updatedOnUtc));
+        UpdatedOnUtc = completedOnUtc;
     }
 
     /// <summary>
@@ -374,12 +373,6 @@ public sealed record LessonSeriesSplitDomainEvent(
     Guid OldId,
     Guid NewId,
     DateTime CutoffUtc) : DomainEvent;
-
-public sealed record LessonSessionCompletedDomainEvent(
-    Guid LessonScheduleId,
-    Guid TeacherUserId,
-    Guid StudentId,
-    DateTime CompletedOnUtc) : DomainEvent;
 
 public sealed class TimeOffBlock : AggregateRoot<Guid>
 {
@@ -490,7 +483,8 @@ public enum OccurrenceExceptionAction
 {
     Skipped = 1,
     Cancelled = 2,
-    Rescheduled = 3
+    Rescheduled = 3,
+    Completed = 4
 }
 
 /// <summary>
