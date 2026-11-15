@@ -170,9 +170,7 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
     private void RecordSubmission(DateTime nowUtc, ILocalCalendar calendar, string? url,
         string? key, string? fileName, string? contentType, long? sizeBytes)
     {
-        var dueAtUtc = DueDateUtc is { } due
-            ? calendar.DayRangeUtc(calendar.ToLocalDate(due)).EndUtc.AddTicks(-10)
-            : (DateTime?)null;
+        var dueAtUtc = DeadlineUtc(calendar);
         SubmittedOnUtc = nowUtc;
         IsLate = dueAtUtc is { } deadline && nowUtc > deadline;
         AttachmentUrl = url;
@@ -249,15 +247,17 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
     /// ya da vadesi çoktan geçmiş ödev için hiçbir şey yapmaz (idempotent).
     /// </summary>
     /// <returns>Uyarı bu çağrıda üretildiyse <c>true</c>.</returns>
-    public bool MarkDueSoon(DateTime nowUtc)
+    public bool MarkDueSoon(DateTime nowUtc, ILocalCalendar calendar)
     {
-        if (DueSoonNotifiedOnUtc is not null || DueDateUtc is null || !IsOutstanding || DueDateUtc <= nowUtc)
+        var deadline = DeadlineUtc(calendar);
+        if (DueSoonNotifiedOnUtc is not null || SubmittedOnUtc is not null || !IsOutstanding
+            || deadline is null || deadline <= nowUtc || deadline > nowUtc.AddHours(24))
         {
             return false;
         }
 
         DueSoonNotifiedOnUtc = nowUtc;
-        Raise(new AssignmentDueSoonDomainEvent(Id, StudentId, TeacherUserId, Title, DueDateUtc.Value, nowUtc));
+        Raise(new AssignmentDueSoonDomainEvent(Id, StudentId, TeacherUserId, Title, deadline.Value, nowUtc));
         return true;
     }
 
@@ -265,17 +265,24 @@ public sealed class Assignment : AggregateRoot<Guid>, IVersioned
     /// M06-3: Vadesi geçmiş ve hâlâ teslim edilmemiş ödev için "teslim edilmedi" uyarısını bir kez üretir.
     /// </summary>
     /// <returns>Uyarı bu çağrıda üretildiyse <c>true</c>.</returns>
-    public bool MarkMissed(DateTime nowUtc)
+    public bool MarkMissed(DateTime nowUtc, ILocalCalendar calendar)
     {
-        if (MissedNotifiedOnUtc is not null || DueDateUtc is null || !IsOutstanding || DueDateUtc > nowUtc)
+        var deadline = DeadlineUtc(calendar);
+        if (MissedNotifiedOnUtc is not null || SubmittedOnUtc is not null || !IsOutstanding
+            || deadline is null || deadline > nowUtc)
         {
             return false;
         }
 
         MissedNotifiedOnUtc = nowUtc;
-        Raise(new AssignmentMissedDomainEvent(Id, StudentId, TeacherUserId, Title, DueDateUtc.Value, nowUtc));
+        Raise(new AssignmentMissedDomainEvent(Id, StudentId, TeacherUserId, Title, deadline.Value, nowUtc));
         return true;
     }
+
+    // PostgreSQL ve teslim gecikmesi aynı son mikro-saniyeyi kullanır.
+    private DateTime? DeadlineUtc(ILocalCalendar calendar) => DueDateUtc is { } due
+        ? calendar.DayRangeUtc(calendar.ToLocalDate(due)).EndUtc.AddTicks(-10)
+        : null;
 
     private static readonly Error InvalidTransition = new("assignments.invalid_transition", "Ödev durumu bu işleme izin vermiyor.");
 

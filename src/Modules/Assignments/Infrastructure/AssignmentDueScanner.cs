@@ -40,16 +40,18 @@ public sealed class AssignmentDueScanProcessor : IAssignmentDueScanProcessor
     /// <summary>Uyarının ne kadar önce üretileceği (plan: 24 saat).</summary>
     private static readonly TimeSpan DueSoonWindow = TimeSpan.FromHours(24);
 
-    /// <summary>Tek turda işlenecek ödev üst sınırı (tur süresini sınırlar).</summary>
+    /// <summary>Her uyarı türünde işlenecek üst sınır (turda toplam en fazla 400).</summary>
     private const int BatchSize = 200;
 
     private readonly AssignmentsDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public AssignmentDueScanProcessor(AssignmentsDbContext dbContext, IClock clock)
+    public AssignmentDueScanProcessor(AssignmentsDbContext dbContext, IClock clock, ILocalCalendar calendar)
     {
         _dbContext = dbContext;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<AssignmentDueScanResult> ScanAsync(CancellationToken cancellationToken = default)
@@ -61,33 +63,31 @@ public sealed class AssignmentDueScanProcessor : IAssignmentDueScanProcessor
             ActivityKind.Internal);
 
         var now = _clock.UtcNow;
-        var horizon = now + DueSoonWindow;
-
-        var candidates = await _dbContext.Assignments
-            .Where(assignment => assignment.DueDateUtc != null
-                && assignment.DueDateUtc <= horizon
+        // DueDateUtc bir tarih seçiminin UTC temsili; teslim sınırı o yerel günün sonudur.
+        // Bitmiş günlerin üst sınırını takvimde bir kez çöz, SQL'de indeksli UTC aralığı kullan.
+        var missedBefore = EndedDaysBoundary(now);
+        var dueSoonBefore = EndedDaysBoundary(now + DueSoonWindow);
+        var outstanding = _dbContext.Assignments.IgnoreAutoIncludes()
+            .Where(assignment => assignment.SubmittedOnUtc == null
                 && (assignment.Status == AssignmentStatus.Pending
-                    || assignment.Status == AssignmentStatus.ReturnedForRevision)
-                && (assignment.DueSoonNotifiedOnUtc == null || assignment.MissedNotifiedOnUtc == null))
-            .OrderBy(assignment => assignment.DueDateUtc)
+                    || assignment.Status == AssignmentStatus.ReturnedForRevision));
+
+        // İki kuyruğun ayrı bütçesi var; birikmiş kaçırmalar yaklaşan ödevleri aç bırakmaz.
+        var dueSoon = await outstanding
+            .Where(assignment => assignment.DueSoonNotifiedOnUtc == null
+                && assignment.DueDateUtc >= missedBefore && assignment.DueDateUtc < dueSoonBefore)
+            .OrderBy(assignment => assignment.DueDateUtc).ThenBy(assignment => assignment.Id)
+            .Take(BatchSize)
+            .ToArrayAsync(cancellationToken);
+        var missed = await outstanding
+            .Where(assignment => assignment.MissedNotifiedOnUtc == null
+                && assignment.DueDateUtc < missedBefore)
+            .OrderBy(assignment => assignment.DueDateUtc).ThenBy(assignment => assignment.Id)
             .Take(BatchSize)
             .ToArrayAsync(cancellationToken);
 
-        var dueSoonCount = 0;
-        var missedCount = 0;
-
-        foreach (var assignment in candidates)
-        {
-            // Vadesi geçmişse "teslim edilmedi", geçmemişse "az kaldı" — ikisi aynı turda çakışmaz.
-            if (assignment.MarkMissed(now))
-            {
-                missedCount++;
-            }
-            else if (assignment.MarkDueSoon(now))
-            {
-                dueSoonCount++;
-            }
-        }
+        var dueSoonCount = dueSoon.Count(assignment => assignment.MarkDueSoon(now, _calendar));
+        var missedCount = missed.Count(assignment => assignment.MarkMissed(now, _calendar));
 
         if (dueSoonCount + missedCount > 0)
         {
@@ -95,6 +95,12 @@ public sealed class AssignmentDueScanProcessor : IAssignmentDueScanProcessor
         }
 
         return new AssignmentDueScanResult(dueSoonCount, missedCount);
+    }
+
+    private DateTime EndedDaysBoundary(DateTime instant)
+    {
+        var range = _calendar.DayRangeUtc(_calendar.ToLocalDate(instant));
+        return range.EndUtc.AddTicks(-10) <= instant ? range.EndUtc : range.StartUtc;
     }
 }
 

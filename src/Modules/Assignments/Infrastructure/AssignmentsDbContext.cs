@@ -56,6 +56,12 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
         builder.HasIndex(entity => entity.LessonSessionId);
         // M06-3: son teslim taramasi (AssignmentDueScanProcessor) bu indeksi kullanir.
         builder.HasIndex(entity => new { entity.Status, entity.DueDateUtc });
+        // İki bağımsız kuyruk: yalnız hiç teslim edilmemiş ve ilgili uyarısı üretilmemiş satırlar.
+        const string outstanding = "\"SubmittedOnUtc\" IS NULL AND \"Status\" IN ('Pending', 'ReturnedForRevision')";
+        builder.HasIndex(entity => new { entity.DueDateUtc, entity.Id }, "IX_assignments_due_soon_scan")
+            .HasFilter(outstanding + " AND \"DueSoonNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
+        builder.HasIndex(entity => new { entity.DueDateUtc, entity.Id }, "IX_assignments_missed_scan")
+            .HasFilter(outstanding + " AND \"MissedNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
     }
 }
 

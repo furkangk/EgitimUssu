@@ -116,6 +116,12 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
 
                     b.HasIndex("StudentId", "Status");
 
+                    b.HasIndex(new[] { "DueDateUtc", "Id" }, "IX_assignments_due_soon_scan")
+                        .HasFilter("\"SubmittedOnUtc\" IS NULL AND \"Status\" IN ('Pending', 'ReturnedForRevision') AND \"DueSoonNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
+
+                    b.HasIndex(new[] { "DueDateUtc", "Id" }, "IX_assignments_missed_scan")
+                        .HasFilter("\"SubmittedOnUtc\" IS NULL AND \"Status\" IN ('Pending', 'ReturnedForRevision') AND \"MissedNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
+
                     b.ToTable("assignments", "assignments");
                 });
 

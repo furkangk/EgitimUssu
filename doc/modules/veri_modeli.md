@@ -37,6 +37,8 @@ updated: 2026-11-15
 
 **P18 T3 (2026-11-15):** `payments.parent_payment_declarations` üzerinde `PaymentRecordId` için `Status = 'Declared'` koşullu unique indeks vardır; ödeme başına tek bekleyen beyan, veli kimliğinden bağımsızdır. `ParentPaymentDeclaration.Version` PostgreSQL `xmin` sistem kolonudur (yeni fiziksel kolon yok). `SinglePendingDeclaration` göçü en yeni `CreatedOnUtc`/büyük `Id` satırını koruyup fazla bekleyenleri Rejected yapar; ret olayları aynı transaction'da outbox'a girer. Down geçmiş retleri açmaz.
 
+**P19 T4 (N-45):** `assignments.assignments` üzerinde `IX_assignments_due_soon_scan` ve `IX_assignments_missed_scan`, `(DueDateUtc,Id)` sıralı kısmi indekslerdir. Ortak filtre `SubmittedOnUtc IS NULL AND Status IN ('Pending','ReturnedForRevision') AND DueDateUtc IS NOT NULL`; birincisi ayrıca `DueSoonNotifiedOnUtc IS NULL`, ikincisi `MissedNotifiedOnUtc IS NULL` ister. Mevcut `(Status,DueDateUtc)` indeksi korunur. `AssignmentDueScanIndexes` Up iki indeksi oluşturur, Down yalnız onları düşürür; veri/damgalar korunur. Kalıcı `DueAtUtc` alanı eklenmedi: tarama ve teslim `ILocalCalendar` yerel gün sonunu kullanır.
+
 ## 1. Modül Sınırı Kuralı (Önemli)
 
 > Her modül **kendi şemasında** ayrı `DbContext` ile yaşar (`identity`, `teachers`, `students`, ...). Aşağıdaki "→" referansları
@@ -291,3 +293,5 @@ erDiagram
 *Güncelleme: 2026-11-15 — P18 T3: beyan kısmi benzersizliği ve xmin.*
 
 *Güncelleme: 2026-11-15 — P19 Task 3: teslim sürümleri tablosu ve geç teslim alanları.*
+
+*Güncelleme: 2026-11-15 — P19 Task 4: iki ödev tarama kısmi indeksi; yeni kolon yok.*

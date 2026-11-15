@@ -217,7 +217,9 @@ GET /{lessonSessionId}   (öğrenci kendi profil kimlikleri; veli onaylı çocuk
 ```
 ### Assignments — `/api/assignments`
 
-P19 T3: mevcut uçlarda durum geçişi hatası `400 assignments.invalid_transition`; yanıt `submittedOnUtc`, `isLate`, `submissionVersions` ekler. Attachment `?version=N` ile tarihî dosya indirir (aynı sahiplik, yoksa 404); parametresiz son dosya. Eski dosyalar korunur; eşzamanlı sürüm/xmin yarışı 409. Yeni uç yok. Öğrenci profilId/UserId erişim ayrımı P21 devridir; tarayıcı düzeltmesi P19 T4.
+P19 T3: mevcut uçlarda durum geçişi hatası `400 assignments.invalid_transition`; yanıt `submittedOnUtc`, `isLate`, `submissionVersions` ekler. Attachment `?version=N` ile tarihî dosya indirir (aynı sahiplik, yoksa 404); parametresiz son dosya. Eski dosyalar korunur; eşzamanlı sürüm/xmin yarışı 409. Yeni uç yok. Öğrenci profilId/UserId erişim ayrımı P21 devridir.
+
+P19 T4: son tarih taraması teslimle aynı yerel gün sonunu kullanır. Yaklaşan ve kaçırılmış kuyrukları ayrı 200 satır (tur≤400) işler; teslim edilmiş revizyon uyarılmaz, eski kaçırma damgalı satırlar tekrar seçilmez. İki `(DueDateUtc,Id)` kısmi indeks ve iki SQL SELECT; teslim sürümleri yüklenmez. `AssignmentDueScanIndexes` Down yalnız indeksleri kaldırır. Yeni endpoint yok.
 
 ```
 GET  /            (liste)
@@ -425,3 +427,5 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P19 Task 2: outbox tüketici izolasyonu.*
 
 *Güncelleme: 2026-11-15 — P19 Task 3: Assignments teslim sürümleri ve geçiş sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P19 Task 4: açlık yaşamayan ödev son tarih taraması.*

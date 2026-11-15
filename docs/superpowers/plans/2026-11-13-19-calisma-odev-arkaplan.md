@@ -146,19 +146,26 @@
 
 ---
 
-### Task 4: Son tarih tarayıcısı (N-45)
+### Task 4: Son tarih tarayıcısı (N-45) ✅
 
 **Files:**
-- Modify: `src/Modules/Assignments/Infrastructure/AssignmentDueScanner.cs` (sorgu: `(DueSoonNotifiedOnUtc IS NULL AND DueAtUtc > now AND DueAtUtc <= now+24h) OR (MissedNotifiedOnUtc IS NULL AND DueAtUtc <= now AND SubmittedOnUtc IS NULL)`; pencere dışı kalan eski "az kaldı" adayları **atlanır ve işaretlenir**)
+- Modify: `src/Modules/Assignments/Infrastructure/AssignmentDueScanner.cs` (yerel gün sonuna göre birbirinden bağımsız, en fazla 200 yaklaşan + 200 kaçırılmış aday; SQL yalnız gerçekten işlenebilir satırları alır, AutoInclude kapalı)
 - Modify: `src/Modules/Assignments/Infrastructure/AssignmentsDbContext.cs` (iki kısmi indeks)
+- Modify: `src/Modules/Assignments/Domain/AssignmentsDomainModel.cs` (`MarkDueSoon/MarkMissed` takvim alır; SubmittedOnUtc doluysa iki uyarı da üretilmez; teslimle aynı yerel gün sonu)
+- Migration: `AssignmentDueScanIndexes` (`.cs`, `.Designer.cs`, `AssignmentsDbContextModelSnapshot.cs`; yalnız iki kısmi indeks, Up/Down doğrulaması)
+- Docs: `doc/modules/m06_assignments.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/veri_modeli.md`, N-45 denetim satırı.
 - Test: `tests/Unit/AssignmentDueScannerTests.cs` (genişlet), `tests/Integration/RealAssignmentDueScannerTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — 250 eski bekleyen ödev varken yeni ödev için "az kaldı" uyarısı **gider**; zamanında teslim edilip son tarihten sonra revizyona dönen ödev için "teslim edilmedi" **gitmez**.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Commit** — rapor N-45 ✅.
+**Interfaces / koddan doğrulama (2026-11-15):** Kalıcı `DueAtUtc` yoktur; yeni kolon eklenmez. `AssignmentDueScanProcessor(db, clock, calendar)` ve domain `MarkDueSoon/MarkMissed(now, calendar)` imzaları önce davranış değiştirmeden derlenir. Gerçek depo + iki IAssignmentRepository sahtesi ve tek IAssignmentDueScanProcessor uygulaması doğrulandı; depo/işlemci arayüzleri değişmez. Son tarih teslimle aynı yerel günün son mikro-saniyesidir. Takvimden şimdi ve 24 saat ufkunun bitmiş gün sınırları çıkarılır; SQL DueDateUtc üzerinde UTC aralık karşılaştırır, istemcide filtreleme yoktur. İki akış ayrı 200 sınırı ve `(DueDateUtc,Id)` sırası kullanır (tur en fazla 400); biri diğerini aç bırakmaz. Her iki sorgu ve domain SubmittedOnUtc==null + Pending/ReturnedForRevision ister. Eski pencere dışı satırlar SQL ile dışlanır; gönderilmemiş DueSoon için sahte bildirim damgası yazılmaz, gerçek kaçırma MissedNotifiedOnUtc ile işaretlenir. İki kısmi indeks bu koşullara göre DueDateUtc/Id üzerindedir; mevcut genel indeks korunur. Olay şekli değişmez; yeni olayın DueDateUtc değeri gerçek yerel gün sonudur, mevcut tüketici doğru saati gösterir. Mobil/uç/sürüm davranışı kapsam dışıdır.
+
+- [x] **Step 1: Kırmızı testler** — 250 eski bekleyen ödev varken yeni ödev için "az kaldı" uyarısı **gider**; zamanında teslim edilip son tarihten sonra revizyona dönen ödev için "teslim edilmedi" **gitmez**.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Commit** — rapor N-45 ✅.
   ```bash
   git commit -m "fix(assignments): son tarih taramasi aclik yasamaz, teslim edilmis odeve yanlis uyari gitmez (N-45)"
   ```
+
+**Kanıt (2026-11-15):** İmza Release0uyarı/0hata; birim gerçek RED10başarısız/4başarılı →14/14yeşil (önceki8yerine14). Gerçek PostgreSQL ilk3/3kırmızı →3/3yeşil: ayrı DB 750 ödev (250 eski kaçırma damgalı +250 kaçırılmış aday +250 yaklaşan), ilk tur200+200 ve ikinci50+50; üçüncü0, iki SELECT ve teslim geçmişi yüklenmez; kalıcı zamanında teslim/revizyon yanlış uyarı üretmez, yerel son mikro-saniye ve tam tekrar; indeks Up/Down/Up veriyi ve eski damgayı korur. Birim Berlin23/25saat DST gününde24saat ufku dahil sınırlar yeşil. İlk yeşil denemede test outbox zarfını doğrudan olay sanıyordu (KeyNotFound); zarf→Payload çözümüyle düzeltildi. İlk tam paket19/1283/(189yeşil+1testhatası), ardından son **bash scripts/test-with-docker.sh:19mimari/1283birim/190integration**, **0başarısız/0atlanan**,exit0. Release `-warnaserror --no-incremental`0/0 (xUnit2031 test stili uyarısı giderildi), toolrestore başarılı; drift0,167Down. Doc health RED0/mevcut2YELLOW+1BLUE. Mobil değişmedi. Loglar `/tmp/egitimussu-p19t4-{baseline,signature,red,green,real-red,real-green2,docker,docker-final,release-final,drift,down,doc-health}.log`.
 
 ---
 
@@ -234,4 +241,4 @@
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 — P19 Task 3 tamamlandı (3/8); sırada yalnız Task 4 (N-45), başlamadı.*
+*Güncelleme: 2026-11-15 — P19 Task 4 tamamlandı (4/8); sırada yalnız Task 5 (N-47, N-48 trend), başlamadı.*
