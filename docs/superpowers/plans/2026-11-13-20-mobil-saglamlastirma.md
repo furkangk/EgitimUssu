@@ -196,11 +196,23 @@ Güncelleme: 2026-11-15
 
 ### Task 6: Kapanış
 
-- [ ] **Step 1:** `cd mobile && flutter test --coverage` → başarılı sayı ve kapsam ILERLEME'ye (hedef: öncesinden yüksek).
+**2026-11-15 T6 kapsam doğrulaması:** Bu görev yeni uygulama davranışı üretmez; mevcut testlerin kapsamını ve gerçek cihaz akışını ölçer. CI `flutter test --coverage` kullanıyor ve LCOV `LH/LF` toplamını raporluyor; `mobile/coverage/` gitignore altında. Mevcut yerel LCOV 2026-09-05 tarihli olduğundan P20 öncesi karşılaştırma kanıtı sayılmaz. Aynı Flutter SDK ve komutla P20 başlangıcı `83986b8` mobil kaynakları ayrı geçici dizinde ölçülür; aktif dalın kapsamı bununla karşılaştırılır. Cihaz ön kontrolünde `adb devices -l` ve `adb mdns services` boş; gerçek Honor 400 Pro erişimi sağlanmadan Step 2 ve görev kapanmaz.
+
+**Files:**
+- Modify: `docs/superpowers/plans/2026-11-13-20-mobil-saglamlastirma.md` (kapsam, ölçüm ve yalnız doğrulanan adım kutuları).
+- Modify (tamamlanınca ayrı ilerleme commit’i; yarım görevde planla birlikte docs(ilerleme) ara kaydı): `docs/superpowers/ILERLEME.md` (ölçüm, cihaz kanıtı veya engel, devam noktası).
+- Generated, commit dışı: `mobile/coverage/lcov.info`; test/analiz/ADB logları ve P20 öncesi kaynak/kapsam kopyası `/tmp/egitimussu-p20t6-*` altında. Gerçek cihaz ekran görüntüleri erişim sağlanırsa aynı kanıt dizinine alınır.
+- Kod hatası çıkarsa önce bu liste ilgili üretim ve regresyon testi yollarıyla genişletilir; ardından imza → RED → GREEN uygulanır. Salt ölçüm için davranışsız üretim kodu veya yapay kırmızı test eklenmez.
+
+**Interfaces:** Üretim ve repository sözleşmeleri değişmez; T1–T5’in rota, oturum, önbellek, push/poll ve SafeEmit korumaları mevcut test paketiyle sınanır. T6 cihaz turu FCM sağlayıcı teslimini kanıtlamaz; Q8/P25 kapısı ayrı kalır. Kullanıcının tek görev/tek ILERLEME kuralı skill’in çoklu görev ve ayrı ledger önerisinden üstündür.
+
+- [x] **Step 1:** `cd mobile && flutter test --coverage` → başarılı sayı ve kapsam ILERLEME'ye (hedef: öncesinden yüksek).
 - [ ] **Step 2:** Gerçek cihazda (Honor 400 Pro, kablosuz ADB) üç rolde giriş → ana ekran → mesajlar → bildirimler → çıkış turu; ekran görüntüsü yolu ILERLEME'ye.
 - [ ] **Step 3:** Doküman kapanışı + ILERLEME + commit.
   ```bash
   git commit -m "docs(mobile): P20 kapanisi"
   ```
+
+**2026-11-15 T6 ara kanıtı — görev tamamlanmadı:** Aynı Flutter **3.44.2 / Dart 3.12.2** ile `83986b8` kaynak kopyası **342/342**, LCOV **7320/22738 = %32,1928** (198 dosya); aktif `b0daa5b` kodu **531/531**, LCOV **9704/24363 = %39,8309** (205 dosya). Artış **7,6381 yüzde puan**; CI’ın %50 uyarı eşiği hâlâ aşılmadı. Ölçüm varsayılan LCOV’a giren kaynakların satır kapsamıdır, tüm deponun kapsamı iddiası değildir. Kod/test değişikliği yapılmadı; artış T1–T5’in toplam etkisidir. `flutter analyze --fatal-infos` mobile dizininde temiz. Toolrestore başarılı; Release `-warnaserror` 0 uyarı/0 hata. Başlangıç ve son `bash scripts/test-with-docker.sh` ayrı ayrı **19 mimari/1312 birim/214 gerçek Docker integration, 0 başarısız/0 atlanan**, exit0 (Compose yok, Testcontainers gerçek PostgreSQL+Redis çalıştırdı). NuGet76proje/0advisory; migration yok. Ham karşılaştırma `/tmp/egitimussu-p20t6-coverage-summary.json`, `before-lcov.info` ve `after-lcov.info`; tam test çıktıları aynı önekli `before-coverage.log` ve `coverage.log`. ADB cihaz/mDNS listeleri boş; Flutter yalnız macOS ve Chrome buldu. Honor üç rol turu ve ekran görüntüleri **yok**, Step 2/3 açık. Gerçek cihaz kanıtı gelmeden plan/merge/push yok.
 
 Güncelleme: 2026-11-15
