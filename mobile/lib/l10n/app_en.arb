@@ -1203,5 +1203,41 @@
         "type": "String"
       }
     }
+  },
+  "chat_title": "Chat",
+  "chat_signIn": "Sign in to chat.",
+  "chat_blocked": "Blocked",
+  "chat_loading": "Loading messages...",
+  "chat_failed": "Could not load messages.",
+  "chat_empty": "No messages yet",
+  "chat_first": "Send the first message.",
+  "chat_unblock": "Unblock",
+  "chat_block": "Block",
+  "chat_blockTitle": "Block conversation",
+  "chat_cancel": "Cancel",
+  "chat_inbox": "Messages",
+  "chat_signInInbox": "Sign in to see your messages.",
+  "chat_emptyInbox": "No conversations yet",
+  "chat_startHelp": "Start a conversation with Send message on a student or parent page.",
+  "chat_teacher": "Teacher",
+  "chat_parent": "Parent",
+  "chat_student": "Student",
+  "chat_noPreview": "No messages yet",
+  "chat_deleted": "This message was deleted",
+  "chat_sending": "Sending…",
+  "chat_sendFailed": "Could not send",
+  "chat_retry": "Try again",
+  "chat_blockedHelp": "You cannot send messages in a blocked conversation.",
+  "chat_input": "Write a message…",
+  "chat_send": "Send message",
+  "chat_yesterday": "Yesterday",
+  "chat_blockConfirm": "Neither participant can send messages while blocked. You can unblock this conversation later.",
+  "chat_unread": "{count} unread messages",
+  "@chat_unread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 /// P13 Task 6 / D-19 + D-20: Yerelleştirme ve metin kalitesi.
@@ -221,6 +220,9 @@ void main() {
 const _migratedFeatures = <String>['dashboard'];
 
 const _migratedFiles = <String>[
+  'features/messaging/presentation/pages/chat_page.dart',
+  'features/messaging/presentation/pages/messaging_inbox_page.dart',
+  'features/messaging/presentation/widgets/messaging_widgets.dart',
   'shared/widgets/stale_data_banner.dart',
   'features/parent/presentation/pages/parent_home_page.dart',
   'core/routing/route_not_found_page.dart',

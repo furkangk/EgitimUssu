@@ -1324,5 +1324,41 @@
         "type": "String"
       }
     }
+  },
+  "chat_title": "Sohbet",
+  "chat_signIn": "Mesajlaşmak için giriş yapmalısın.",
+  "chat_blocked": "Engellendi",
+  "chat_loading": "Mesajlar yükleniyor...",
+  "chat_failed": "Mesajlar alınamadı.",
+  "chat_empty": "Sohbet boş",
+  "chat_first": "İlk mesajı sen yaz.",
+  "chat_unblock": "Engeli kaldır",
+  "chat_block": "Engelle",
+  "chat_blockTitle": "Sohbeti engelle",
+  "chat_cancel": "Vazgeç",
+  "chat_inbox": "Mesajlar",
+  "chat_signInInbox": "Mesajlarını görmek için giriş yapmalısın.",
+  "chat_emptyInbox": "Henüz mesajın yok",
+  "chat_startHelp": "Öğrenci veya veli sayfasından \"Mesaj gönder\" ile sohbet başlatabilirsin.",
+  "chat_teacher": "Öğretmen",
+  "chat_parent": "Veli",
+  "chat_student": "Öğrenci",
+  "chat_noPreview": "Henüz mesaj yok",
+  "chat_deleted": "Bu mesaj silindi",
+  "chat_sending": "Gönderiliyor…",
+  "chat_sendFailed": "Gönderilemedi",
+  "chat_retry": "Tekrar dene",
+  "chat_blockedHelp": "Bu sohbet engellendiği için mesaj gönderemezsin.",
+  "chat_input": "Mesaj yaz…",
+  "chat_send": "Mesajı gönder",
+  "chat_yesterday": "Dün",
+  "chat_blockConfirm": "Engellersen bu sohbette iki taraf da mesaj gönderemez. Engeli daha sonra kaldırabilirsin.",
+  "chat_unread": "{count} okunmamış mesaj",
+  "@chat_unread": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

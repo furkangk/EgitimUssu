@@ -173,3 +173,9 @@ Gerçek kaynağı olmayan kullanıcı sayısı, puan, hedef ve konu hâkimiyeti 
 Bağlantı kurulamadığında son kaydedilen veri kullanılıyorsa uygulama kökünde `StaleDataBanner` görünür; kayıt tarihi/saati yerel biçimde, metin tr/en ARB'den gelir. Uyarı liste/detay/form tüketicilerinin tamamını kapsar; en eski kullanılan kaydın zamanı gösterilir. İlgili sorgular başarıyla tazelenince veya çıkışta kapanır; yalnız ekran değiştirmek eski veri bilgisini gizlemez. HTTP 403/500, iptal veya sertifika hatası önbellek başarısı gibi gösterilmez. Çıkış/hesap değişimi bildirim rozetini, üyelik/premium kararını ve kişisel önbelleği temizler.
 
 *Güncelleme: 2026-11-15 — P20 Task 3.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+Ön plan push yalnız ilgili veriyi tazeler, kullanıcıyı başka ekrana götürmez. Görünür sohbet 10sn aralıkla ve push geldiğinde güncellenir; mevcut geçmiş/taslaklar korunur, tazeleme ekranı yükleme görünümüne döndürmez. Ekran üstüne başka rota açılması veya uygulamanın arka plana geçmesi poll’u durdurur. Dönüşte anında tazelenir; çıkışta önceki oturum verisi yeniden gösterilmez.
+
+Güncelleme: 2026-11-15

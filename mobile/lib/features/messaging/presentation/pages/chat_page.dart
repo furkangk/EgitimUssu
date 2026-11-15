@@ -4,6 +4,7 @@ import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts
 import 'package:egitim_ussu_mobile/features/messaging/presentation/cubit/chat_cubit.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/pages/messaging_inbox_page.dart';
 import 'package:egitim_ussu_mobile/features/messaging/presentation/widgets/messaging_widgets.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/session_required_view.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// D-08 / M16-1: Tek sohbet ekranı — balonlar, eskiye kaydırınca sayfalama, iyimser gönderim.
 class ChatPage extends StatelessWidget {
-  const ChatPage({required this.conversationId, super.key, this.cubit, this.detail});
+  const ChatPage({
+    required this.conversationId,
+    super.key,
+    this.cubit,
+    this.detail,
+  });
 
   final String conversationId;
 
@@ -26,20 +32,22 @@ class ChatPage extends StatelessWidget {
     final userId = context.select((AuthCubit c) => c.state.session?.userId);
 
     if (userId == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: SessionRequiredView(
-            title: 'Sohbet',
-            subtitle: 'Mesajlaşmak için giriş yapmalısın.',
+            title: AppLocalizations.of(context).chat_title,
+            subtitle: AppLocalizations.of(context).chat_signIn,
           ),
         ),
       );
     }
 
     return BlocProvider<ChatCubit>(
+      key: ValueKey(userId),
       create: (_) =>
-          (cubit ?? ChatCubit.create(userId))..load(conversationId, detail: detail),
+          (cubit ?? ChatCubit.create(userId))
+            ..load(conversationId, detail: detail),
       child: const _ChatView(),
     );
   }
@@ -52,17 +60,44 @@ class _ChatView extends StatefulWidget {
   State<_ChatView> createState() => _ChatViewState();
 }
 
-class _ChatViewState extends State<_ChatView> {
+class _ChatViewState extends State<_ChatView> with WidgetsBindingObserver {
+  bool _visible = true;
+  bool _foreground = true;
+  void _syncActivity({bool refresh = false}) {
+    final cubit = context.read<ChatCubit>();
+    cubit.setActive(_visible && _foreground);
+    if (refresh && _visible && _foreground) cubit.refreshLatest();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final wasVisible = _visible;
+    _visible = ModalRoute.isCurrentOf(context) ?? true;
+    _syncActivity(refresh: !wasVisible && _visible);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    _syncActivity(refresh: _foreground);
+  }
+
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -90,15 +125,21 @@ class _ChatViewState extends State<_ChatView> {
           children: [
             BlocBuilder<ChatCubit, ChatState>(
               buildWhen: (previous, current) =>
-                  previous.conversation?.isBlocked != current.conversation?.isBlocked ||
+                  previous.conversation?.isBlocked !=
+                      current.conversation?.isBlocked ||
                   previous.conversation?.counterpartRole !=
                       current.conversation?.counterpartRole,
               builder: (context, state) {
                 final role = state.conversation?.counterpartRole;
                 return MessagingHeader(
-                  title: role == null ? 'Sohbet' : conversationTitleFor(role),
+                  title: role == null
+                      ? AppLocalizations.of(context).chat_title
+                      : conversationTitleFor(
+                          role,
+                          AppLocalizations.of(context),
+                        ),
                   subtitle: state.conversation?.isBlocked ?? false
-                      ? 'Engellendi'
+                      ? AppLocalizations.of(context).chat_blocked
                       : null,
                   trailing: const _BlockMenu(),
                 );
@@ -122,19 +163,23 @@ class _ChatViewState extends State<_ChatView> {
                 },
                 builder: (context, state) {
                   if (state.isLoading) {
-                    return const LoadingStateView(message: 'Mesajlar yükleniyor...');
+                    return LoadingStateView(
+                      message: AppLocalizations.of(context).chat_loading,
+                    );
                   }
                   if (state.status == ChatStatus.failure) {
                     return ErrorStateView(
-                      message: state.errorMessage ?? 'Mesajlar alınamadı.',
+                      message:
+                          state.errorMessage ??
+                          AppLocalizations.of(context).chat_failed,
                       onRetry: () =>
                           context.read<ChatCubit>().load(state.conversationId),
                     );
                   }
                   if (state.messages.isEmpty) {
-                    return const EmptyStateView(
-                      title: 'Sohbet boş',
-                      subtitle: 'İlk mesajı sen yaz.',
+                    return EmptyStateView(
+                      title: AppLocalizations.of(context).chat_empty,
+                      subtitle: AppLocalizations.of(context).chat_first,
                     );
                   }
 
@@ -145,7 +190,8 @@ class _ChatViewState extends State<_ChatView> {
                     // Ters liste: en yeni mesaj altta, kaydırma yukarı doğru geçmişe gider.
                     reverse: true,
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    itemCount: state.messages.length + (state.isLoadingMore ? 1 : 0),
+                    itemCount:
+                        state.messages.length + (state.isLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index >= state.messages.length) {
                         return const Padding(
@@ -164,7 +210,8 @@ class _ChatViewState extends State<_ChatView> {
                       return MessageBubble(
                         message: message,
                         isMine: message.senderUserId == currentUserId,
-                        onRetry: () => context.read<ChatCubit>().retry(message.id),
+                        onRetry: () =>
+                            context.read<ChatCubit>().retry(message.id),
                       );
                     },
                   );
@@ -172,7 +219,8 @@ class _ChatViewState extends State<_ChatView> {
               ),
             ),
             BlocBuilder<ChatCubit, ChatState>(
-              buildWhen: (previous, current) => previous.canSend != current.canSend,
+              buildWhen: (previous, current) =>
+                  previous.canSend != current.canSend,
               builder: (context, state) => MessageComposer(
                 enabled: state.canSend,
                 onSend: (text) => context.read<ChatCubit>().send(text),
@@ -192,7 +240,8 @@ class _BlockMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ChatCubit, ChatState>(
       buildWhen: (previous, current) =>
-          previous.canSend != current.canSend || previous.canUnblock != current.canUnblock,
+          previous.canSend != current.canSend ||
+          previous.canUnblock != current.canUnblock,
       builder: (context, state) {
         // Karşı tarafın koyduğu engeli kaldıramazsın: menüde tek seçenek de kalmazsa
         // düğmeyi hiç göstermeyiz (ölü menü açmak yanıltıcı olurdu).
@@ -202,7 +251,10 @@ class _BlockMenu extends StatelessWidget {
         }
 
         return PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary),
+          icon: const Icon(
+            Icons.more_vert_rounded,
+            color: AppColors.textSecondary,
+          ),
           onSelected: (value) async {
             final cubit = context.read<ChatCubit>();
             if (value == 'block') {
@@ -216,14 +268,14 @@ class _BlockMenu extends StatelessWidget {
           },
           itemBuilder: (context) => <PopupMenuEntry<String>>[
             if (state.canUnblock)
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'unblock',
-                child: Text('Engeli kaldır'),
+                child: Text(AppLocalizations.of(context).chat_unblock),
               )
             else
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'block',
-                child: Text('Engelle'),
+                child: Text(AppLocalizations.of(context).chat_block),
               ),
           ],
         );
@@ -236,20 +288,17 @@ class _BlockMenu extends StatelessWidget {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Sohbeti engelle'),
-        content: const Text(
-          'Engellersen bu sohbette iki taraf da mesaj gönderemez. '
-          'Engeli daha sonra kaldırabilirsin.',
-        ),
+        title: Text(AppLocalizations.of(context).chat_blockTitle),
+        content: Text(AppLocalizations.of(context).chat_blockConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Vazgeç'),
+            child: Text(AppLocalizations.of(context).chat_cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
-            child: const Text('Engelle'),
+            child: Text(AppLocalizations.of(context).chat_block),
           ),
         ],
       ),

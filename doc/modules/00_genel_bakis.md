@@ -466,3 +466,9 @@ M02/M04/M08/M17 mobil yüzeylerinde kaynaksız sayı/hedef/puan ve işlevsiz yer
 M01 çıkış mevcut sunucu logout ucunu kullanır; yerel token/profil/cache ve bekleyen yazma gövdeleri temizlenir. M03 öğrenci, M04 öğretmen/öğrenci ders ve M07 ödeme özet/kayıt cache'leri giriş yapan kullanıcıya aittir; yalnız bağlantı/timeout durumunda kayıt zamanlı ortak uyarıyla gösterilir. M11 bildirim ve M17 üyelik kök cubit'leri oturum değişiminde reset olur; gecikmiş yanıtlar eski durumu diriltemez. Yeni backend ucu veya migration yoktur.
 
 *Güncelleme: 2026-11-15 — P20 Task 3.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+M11 ön plan push akışı mobil rozet/listeyi gerçek API’den tazeler; M16 açık sohbet K-07 uyarınca görünür ön planda10sn poll+push kullanır. Hesap değişiminde eski sonuçlar atılır; token izin/kayıt yarışları korunur. Backend endpoint/envanter ve modül durumları değişmedi; gerçek FCM teslimi Q8/P25 bağımlılığıdır.
+
+Güncelleme: 2026-11-15

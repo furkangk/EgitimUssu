@@ -211,7 +211,7 @@ Takvim istek ve cache anahtarı birlikte UTC gün sınırına normalize edilir (
 
 **Derin bağlantı (P20 T2):** `app.dart` `PushService.taps` akışını dinler; `mapPushRoute` ile hedefi rol izin tablosundan doğrular. `/scheduling` öğretmende takvim, öğrencide `/student/lessons`, velide `/parent/lessons`; veli ödeme/ödev bildirimleri `/parent/payments` ve `/parent/assignments` özetlerini açar. Sohbet kimliği ve sorgu parametreleri korunur. Boş/bilinmeyen/yetkisiz/dış URL hedefi `/notifications` olur. Bildirim merkezi aynı eşleyiciyi kullanır; hedef yine merkezse yeni kopya açmaz.
 
-Oturum geri yüklenirken son dokunma bekletilir; oturum ve ilk frame hazır olunca bir kez açılır. Çıkışta bekleyen hedef temizlenir. Bu, Firebase'e bağımlı olmayan widget akışıyla doğrulanır; gerçek cihaz FCM Q8/P25, ön plan `onMessage` ve sohbet poll P20 T4 kapsamıdır.
+Oturum geri yüklenirken son dokunma bekletilir; oturum ve ilk frame hazır olunca bir kez açılır. Çıkışta bekleyen hedef temizlenir. Bu, Firebase'e bağımlı olmayan widget akışıyla doğrulanır; gerçek cihaz FCM Q8/P25, ön plan `onMessage` ve sohbet poll P20 T4 ile uygulanmıştır.
 
 > **Bilinçli fail-open:** `google-services.json` / `GoogleService-Info.plist` yoksa `Firebase.initializeApp()`
 > başarısız olur; uygulama **açılmaya devam eder** ve konsola bir **uyarı** basılır. Push o oturumda çalışmaz.
@@ -652,3 +652,9 @@ Takvim seed üretmez; öğretmen profili ilk API yanıtından önce/hata sonras�
 P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını normal modda aynen hata olarak iletir; profil yokluğu demo öğretmen üretmez. Demo yalnız `AppConfig.isMockFallbackEnabled("teacher_profile")` açıkken mümkündür; production/beta bu bayrağı engeller. Başarılı gerçek profil yanıtı korunur, yeni profil oluşturma akışı bu göreve eklenmez.
 
 *Güncelleme: 2026-11-15 — P20 Task 3: cache ve oturum sınırı.*
+
+## P20 Task 4 — Ön plan tazeleme
+
+PushEventBus DI’da tek örnektir; PushService giriş/çıkışta oturum kimliğini etkinleştirir/temizler. Oturum kuşağı gecikmiş okuma sonuçlarını eler; en son 128 FCM messageId tekrarları tekilleştirilir. Firebase onMessage yetkili bildirim/mesaj API okumalarını tetikler; bildirim dokunması ayrı güvenli rota akışında kalır. Açık sohbet yalnız rota en üstte ve uygulama resumed iken 10 sn poll yapar; dönüşte anında tazeler, kapanınca timer/abonelikleri iptal eder. Token yazmaları sıralıdır: çıkış öncesi bekleyen izin/token sonucu atılır, geç başarılı kayıt bir sonraki kullanıcı kaydından önce kaldırılır. Ağda token kaldırma başarısızlığı loglanır; sunucuda iptal garantisi yoktur. Platformdan bağımsız akış testlidir; gerçek cihaz FCM Q8/P25 kapısıdır.
+
+Güncelleme: 2026-11-15

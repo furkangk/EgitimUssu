@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/push/firebase_push_binding.dart';
+import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
 import 'package:egitim_ussu_mobile/core/push/push_service.dart';
 import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
@@ -195,10 +196,12 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
     ..registerLazySingleton<DeviceTokenRepository>(
       () => DeviceTokenRepositoryImpl(apiClient: injector<ApiClient>()),
     )
+    ..registerLazySingleton<PushEventBus>(PushEventBus.new)
     ..registerLazySingleton<PushService>(
       () => FirebasePushBinding.createService(
         repository: injector<DeviceTokenRepository>(),
         firebaseAvailable: firebaseAvailable,
+        eventBus: injector<PushEventBus>(),
       ),
     )
     ..registerLazySingleton<ParentRepository>(

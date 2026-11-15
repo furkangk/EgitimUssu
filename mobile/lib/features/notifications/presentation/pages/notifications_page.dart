@@ -39,6 +39,7 @@ class NotificationsPage extends StatelessWidget {
     }
 
     return BlocProvider<NotificationCenterCubit>(
+      key: ValueKey(userId),
       create: (_) => (cubit ?? NotificationCenterCubit.create())..load(userId),
       // Okundu işaretlendiğinde uygulama genelindeki zil rozeti de anında düşsün.
       child: BlocListener<NotificationCenterCubit, NotificationCenterState>(

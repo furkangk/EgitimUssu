@@ -10,7 +10,7 @@ code_refs:
   - mobile/lib/features/messaging/domain/messaging_contracts.dart
   - mobile/lib/features/messaging/data/repositories/messaging_repository_impl.dart
   - mobile/lib/features/messaging/presentation/widgets/messaging_widgets.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Mesajlar (Gelen Kutusu)
@@ -18,7 +18,7 @@ updated: 2026-09-04
 > **Route:** `/messages` · **Feature:** `messaging` · **Veri:** 🟢 `GET /api/messaging/conversations`
 > **Giriş:** öğretmen `/more` → "Mesajlar" · öğrenci `/student/profile` → "Mesajlar" · veli `/parent/home` başlık ikonu
 > **State:** `ConversationsCubit` (ekran ömrü — kökte tek örnek değildir)
-> **Güncelleme:** 2026-09-04
+> **Güncelleme:** 2026-11-15
 
 ---
 
@@ -57,4 +57,10 @@ updated: 2026-09-04
 
 > İlgili: sohbet ekranı → [`messaging_chat.md`](messaging_chat.md) · modül → [`../modules/m16_messaging.md`](../modules/m16_messaging.md)
 
-*Mesajlar (Gelen Kutusu) | Güncelleme: 2026-09-04 (P10 Task 4 — D-08)*
+*Mesajlar (Gelen Kutusu) | Güncelleme: 2026-11-15 (P10 Task 4 — D-08)*
+
+## P20 Task 4 — Ön plan tazeleme
+
+Ön planda mesaj bildirimi geldiğinde açık gelen kutusu ve okunmamış toplamı yetkili API’den yeniden okunur. Tek uçuş ve bir bekleyen yenileme push yığınlarını birleştirir. Hesap değişiminde ekranın cubit’i yeniden oluşturulur; eski yanıtlar uygulanmaz. Sohbetten dönüş ve elle yenileme korunur. Ekran/ortak mesaj widget metinleri tr/en ARB’dedir.
+
+Güncelleme: 2026-11-15

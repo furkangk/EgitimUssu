@@ -132,7 +132,7 @@
 
 ---
 
-### Task 4: Ön planda bildirim ve sohbet tazeleme (N-71 `onMessage`)
+### Task 4: Ön planda bildirim ve sohbet tazeleme (N-71 `onMessage`) ✅
 
 **Files:**
 - Modify: `mobile/lib/core/push/firebase_push_binding.dart` (`FirebaseMessaging.onMessage` → `PushEventBus`)
@@ -140,12 +140,29 @@
 - Modify: `mobile/lib/features/notifications/**` (rozet + liste tazele), `mobile/lib/features/messaging/presentation/cubit/chat_cubit.dart` (açık sohbette 10 sn poll + push gelince anında tazele; ekrandan çıkınca poll durur), `conversations_cubit.dart`
 - Test: `mobile/test/core/push/push_event_bus_test.dart`, `mobile/test/features/messaging/chat_polling_test.dart`
 
-- [ ] **Step 1: Kırmızı testler** — ön planda mesaj push'u → açık sohbet yeni mesajı gösterir, rozet artar; sohbetten çıkınca zamanlayıcı iptal.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `doc/pages/messaging_chat.md`, `notifications.md`; rapor N-71 (`onMessage`) ✅.
+**2026-11-15 T4 kapsam doğrulaması:** `onMessage` bağlantısı yok; ChatCubit yalnız ilk sayfa/elle sayfalama yapıyor. Token izin/kayıt işlemi çıkıştan sonra kullanıcıyı diriltebiliyor (#294). Repository arayüzleri değişmez; mevcut sahteler korunur. T2 dokunma/rol eşlemesi ve T3 oturum kuşağı korunur. K-07 gereği 10 sn REST poll yalnız görünür, ön plandaki sohbette; push anında aynı tazeleme yolunu tetikler. Gerçek FCM cihaz teslimi Q8/P25 bağımlılığıdır; burada platformdan bağımsız kaynak akışı doğrulanır.
+
+**Ek Files:**
+- Modify: `mobile/lib/core/push/push_service.dart`, `mobile/lib/core/di/injector.dart`, `mobile/lib/app/app.dart` (tek olay otobüsü, oturum ve rozet bağlantısı).
+- Modify: `mobile/lib/features/messaging/presentation/pages/chat_page.dart`, `messaging_inbox_page.dart`, `mobile/lib/features/messaging/presentation/widgets/messaging_widgets.dart` (görünürlük/oturum ömrü ve dokunulan ekran ARB).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `app_en.arb`, `mobile/test/l10n/localization_test.dart`, `mobile/test/features/messaging/messaging_pages_test.dart` (yerelleştirme kurulumu).
+- Test: `mobile/test/core/push/push_service_test.dart`, `mobile/test/core/push/foreground_refresh_test.dart`, `mobile/test/features/messaging/chat_visibility_test.dart`.
+- Docs: `doc/pages/messaging_inbox.md`, `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/modules/m11_notifications.md`, `m16_messaging.md`, `00_genel_bakis.md`, denetim kaydı ve yukarıdaki ekran belgeleri.
+
+**Test kapsam eki:** `mobile/pubspec.yaml` dev_dependencies içine zaten Flutter testlerinden transitif gelen `fake_async: ^1.3.3` açık bağımlılık olarak alınır. Poll/stream mikro görevlerini deterministik zamanla sınamak için kullanılır; pubspec.lock §4.3 gereği commit dışıdır.
+
+**Interfaces:** `PushEventBus` tek DI örneği; `activate(userId)` oturum kuşağını değiştirir, `publish(data, messageId)` yalnız etkin oturumda olayı yayar; mesaj kimliği tekrarlarını sınırlı bellekte eler. Push veri içeriği UI verisi değildir, yalnız yetkili API okumalarını tetikler. Chat `setActive(bool)` görünürlük kapısı; `refreshLatest()` tek uçuş, keyset ile yeni mesaj aralığını kapatır, eski sayfaları ve yerel taslakları korur. `close` timer/abonelikleri bitirir; eski oturum ve kapanmış ekran sonuçları elenir. Bildirim merkezi filtreyi koruyarak ilk sayfayı yeniler, rozet yalnız unread-count ile güncellenir. Push token yazmaları sıralanır; geç izin/token sonucu atılır, geç sunucu kaydı yeni kayıttan önce temizlenir. K-26 ekran/widget metinleri TR/EN. Genel SafeEmit süpürmesi T5'te kalır. Kullanıcının tek görev/tek ILERLEME kuralı skill çoklu görev/ledger önerisinden üstündür.
+
+- [x] **Step 1: Kırmızı testler** — ön planda mesaj push'u → açık sohbet yeni mesajı gösterir, rozet artar; sohbetten çıkınca zamanlayıcı iptal.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `doc/pages/messaging_chat.md`, `notifications.md`; rapor N-71 (`onMessage`) ✅.
   ```bash
   git commit -m "feat(mobile): on planda bildirim ve sohbet tazeleme (N-71)"
   ```
+
+**2026-11-15 kapanış kanıtı:** Derlenen imzalar sonrası push bus/sohbet, gerçek kaynak→badge/liste, token izin/kayıt yarışı, rota/lifecycle ve ARB taraması gerçek RED→GREEN. Bağımsız inceleme üç önemli bulgu için dört ek RED üretti: eski hesabın isteği yeni hesabı kilitlemesin; geç GET okundu durumunu/kök rozeti geri almasın; sessiz hata devam cursor’unu silmesin. Düzeltme sonrası odaklı17/17, son tam **484 Flutter**, `flutter analyze --fatal-infos` temiz. Tool restore başarılı; Release -warnaserror **0 uyarı/0 hata**; tam Docker **19 mimari/1312 birim/214 integration, 0 başarısız/0 atlanan**; NuGet76proje/0advisory. Migration yok. Doc health RED0/mevcut1YELLOW+1BLUE; diffcheck temiz. `app.dart` mevcut create factory üzerinden otobüsü alır, ek değişiklik gerekmedi. Gerçek cihaz FCM Q8/P25 kapsamında doğrulanmadı; genel SafeEmit T5.
+
+Güncelleme: 2026-11-15
 
 ---
 
