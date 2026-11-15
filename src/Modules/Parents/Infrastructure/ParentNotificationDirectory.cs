@@ -52,6 +52,19 @@ internal sealed class ParentNotificationDirectory : IParentNotificationDirectory
             .ToArray();
     }
 
+    public async Task<ParentNotificationTargetPage> ListApprovedTargetPageAsync(Guid? afterLinkId, int take, CancellationToken cancellationToken)
+    {
+        take = Math.Clamp(take, 1, 200);
+        var rows = await ApprovedLinks().AsNoTracking()
+            .Where(link => afterLinkId == null || link.Id.CompareTo(afterLinkId.Value) > 0)
+            .Join(_dbContext.ParentProfiles, link => link.ParentUserId, profile => profile.UserId,
+                (link, profile) => new { link.Id, link.StudentId, Profile = profile })
+            .OrderBy(row => row.Id).Take(take).ToArrayAsync(cancellationToken);
+        var tiers = await TiersAsync(rows.Select(row => row.Profile).ToArray(), cancellationToken);
+        return new ParentNotificationTargetPage(rows.Select(row => new ParentStudentNotificationTarget(row.StudentId,
+            ToTarget(row.Profile, tiers))).ToArray(), rows.Length == take ? rows[^1].Id : null);
+    }
+
     private IQueryable<ParentChildLink> ApprovedLinks()
         => _dbContext.ParentChildLinks.Where(link => link.Status == ParentChildLinkStatus.Approved);
 

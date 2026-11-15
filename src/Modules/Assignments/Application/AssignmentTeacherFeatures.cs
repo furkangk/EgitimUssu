@@ -33,7 +33,8 @@ public sealed class ApproveAssignmentCommandHandler : ICommandHandler<ApproveAss
             return Result<AssignmentResponse>.Failure(NotFound);
         }
 
-        assignment.Approve(command.Feedback?.Trim(), _clock.UtcNow);
+        var transition = assignment.Approve(command.Feedback?.Trim(), _clock.UtcNow);
+        if (transition.IsFailure) return Result<AssignmentResponse>.Failure(transition.Error);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<AssignmentResponse>.Success(assignment.ToResponse());
     }
@@ -65,7 +66,8 @@ public sealed class ReturnAssignmentCommandHandler : ICommandHandler<ReturnAssig
             return Result<AssignmentResponse>.Failure(NotFound);
         }
 
-        assignment.ReturnForRevision(command.Feedback.Trim(), _clock.UtcNow);
+        var transition = assignment.ReturnForRevision(command.Feedback.Trim(), _clock.UtcNow);
+        if (transition.IsFailure) return Result<AssignmentResponse>.Failure(transition.Error);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<AssignmentResponse>.Success(assignment.ToResponse());
     }

@@ -70,11 +70,14 @@ public sealed class MasteryService
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
 
-    public MasteryService(IProgressRepository repository, IIdGenerator idGenerator, IClock clock)
+    private readonly ILocalCalendar _calendar;
+
+    public MasteryService(IProgressRepository repository, IIdGenerator idGenerator, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _idGenerator = idGenerator;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task ApplyStudyAsync(Guid studentId, string subject, string? topic, int effectiveMinutes, CancellationToken cancellationToken)
@@ -99,6 +102,30 @@ public sealed class MasteryService
         await EvaluateGoalsAsync(mastery, cancellationToken);
     }
 
+    public async Task RebuildStudyAsync(Guid studentId, StudyStatistics source, CancellationToken cancellationToken)
+    {
+        static (string Subject, string Topic) Key(string subject, string? topic)
+            => (subject.Trim(), string.IsNullOrWhiteSpace(topic) ? GeneralTopic : topic.Trim());
+        var sessions = source.Sessions.GroupBy(x => Key(x.Subject, x.Topic)).ToDictionary(g => g.Key, g => g.Sum(x => x.EffectiveMinutes));
+        var tests = source.Tests.GroupBy(x => Key(x.Subject, x.Topic)).ToDictionary(g => g.Key, g => g.ToArray());
+        var masteries = (await _repository.ListMasteryAsync(studentId, null, cancellationToken)).ToList();
+        foreach (var key in sessions.Keys.Concat(tests.Keys).Distinct())
+        {
+            if (masteries.Any(x => x.Subject == key.Subject && x.Topic == key.Topic)) continue;
+            var mastery = new TopicMastery(_idGenerator.New(), studentId, key.Subject, key.Topic, _clock.UtcNow);
+            await _repository.AddMasteryAsync(mastery, cancellationToken);
+            masteries.Add(mastery);
+        }
+        foreach (var mastery in masteries)
+        {
+            var key = (mastery.Subject, mastery.Topic);
+            var attempts = tests.GetValueOrDefault(key) ?? [];
+            mastery.RebuildStudy(sessions.GetValueOrDefault(key),
+                attempts.Select(x => (x.Id, x.TakenOnUtc, x.TotalQuestions, x.Net)), _clock.UtcNow);
+            await EvaluateGoalsAsync(mastery, cancellationToken);
+        }
+    }
+
     private async Task<TopicMastery> ResolveAsync(Guid studentId, string subject, string? topic, CancellationToken cancellationToken)
     {
         var normalizedTopic = string.IsNullOrWhiteSpace(topic) ? GeneralTopic : topic.Trim();
@@ -117,6 +144,8 @@ public sealed class MasteryService
         var goals = await _repository.ListActiveGoalsForTopicAsync(mastery.StudentId, mastery.Subject, mastery.Topic, cancellationToken);
         foreach (var goal in goals)
         {
+            // Tarayıcı henüz koşmamış olsa bile süresi geçen hedef sonradan kazanılamaz.
+            goal.MarkMissed(_calendar.ToLocalDate(_clock.UtcNow));
             if (IsGoalMet(mastery, goal))
             {
                 // M10-3: Hedef kendiliğinden kapanır ve TopicGoalAchievedDomainEvent yayınlanır

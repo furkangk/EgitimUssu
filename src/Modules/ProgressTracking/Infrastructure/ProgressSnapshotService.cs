@@ -63,6 +63,25 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
 
         var now = _clock.UtcNow;
         var today = _calendar.ToLocalDate(now);   // P16 T5 / N-50: kapanmış hafta/ay Türkiye gününe göre
+        // Günlük mevcut kira altında; snapshot sayısı sözleşmesi değişmez.
+        while (true)
+        {
+            var expired = await _dbContext.TopicGoals.AsNoTracking().Where(g => g.Status == TopicGoalStatus.Active
+                && g.TargetDate != null && g.TargetDate < today).OrderBy(g => g.TargetDate).ThenBy(g => g.Id)
+                .Select(g => g.Id).Take(200).ToArrayAsync(cancellationToken);
+            if (expired.Length == 0) break;
+            var active = _dbContext.TopicGoals.Where(g => expired.Contains(g.Id) && g.Status == TopicGoalStatus.Active
+                && g.TargetDate != null && g.TargetDate < today);
+            if (_dbContext.Database.IsRelational())
+                await active.ExecuteUpdateAsync(s => s.SetProperty(g => g.Status, TopicGoalStatus.Missed), cancellationToken);
+            else
+            {
+                var goals = await active.ToArrayAsync(cancellationToken);
+                foreach (var goal in goals) goal.MarkMissed(today);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                foreach (var goal in goals) _dbContext.Entry(goal).State = EntityState.Detached;
+            }
+        }
         var createdCount = 0;
 
         foreach (var period in Periods)
@@ -85,44 +104,44 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
         DateTime now,
         CancellationToken cancellationToken)
     {
-        var alreadyWritten = (await _dbContext.ProgressSnapshots
-                .Where(snapshot => snapshot.Period == period && snapshot.PeriodStart == periodStart)
-                .Select(snapshot => new { snapshot.StudentId, snapshot.Subject })
-                .ToArrayAsync(cancellationToken))
-            .Select(row => (row.StudentId, row.Subject))
-            .ToHashSet();
-
-        var subjectTotals = await _dbContext.TopicMasteries
-            .GroupBy(mastery => new { mastery.StudentId, mastery.Subject })
-            .Select(group => new SubjectTotals(
-                group.Key.StudentId,
-                group.Key.Subject,
-                group.Average(mastery => mastery.MasteryScore),
-                group.Sum(mastery => mastery.TotalStudyMinutes),
-                group.Sum(mastery => mastery.TestAttemptCount),
-                group.Average(mastery => mastery.AverageNetRatio)))
-            .ToArrayAsync(cancellationToken);
-
         var createdCount = 0;
-        foreach (var totals in subjectTotals)
+        Guid? afterStudent = null;
+        while (true)
         {
-            if (alreadyWritten.Contains((totals.StudentId, totals.Subject)))
-            {
-                continue;
-            }
+            var studentsQuery = _dbContext.TopicMasteries.Select(x => x.StudentId).Distinct();
+            if (afterStudent is { } after) studentsQuery = studentsQuery.Where(id => id.CompareTo(after) > 0);
+            var students = await studentsQuery.OrderBy(id => id).Take(200).ToArrayAsync(cancellationToken);
+            if (students.Length == 0) break;
 
-            _dbContext.ProgressSnapshots.Add(new ProgressSnapshot(
-                _idGenerator.New(),
-                totals.StudentId,
-                totals.Subject,
-                period,
-                periodStart,
-                (int)Math.Round(totals.AverageMasteryScore, MidpointRounding.AwayFromZero),
-                totals.StudyMinutes,
-                totals.TestCount,
-                totals.AverageNetRatio ?? 0m,
-                now));
-            createdCount++;
+            var alreadyWritten = (await _dbContext.ProgressSnapshots.AsNoTracking()
+                    .Where(snapshot => students.Contains(snapshot.StudentId)
+                        && snapshot.Period == period && snapshot.PeriodStart == periodStart)
+                    .Select(snapshot => new { snapshot.StudentId, snapshot.Subject })
+                    .ToArrayAsync(cancellationToken))
+                .Select(row => (row.StudentId, row.Subject)).ToHashSet();
+            var subjectTotals = await _dbContext.TopicMasteries.Where(x => students.Contains(x.StudentId))
+                .GroupBy(mastery => new { mastery.StudentId, mastery.Subject })
+                .Select(group => new SubjectTotals(group.Key.StudentId, group.Key.Subject,
+                    group.Average(mastery => mastery.MasteryScore), group.Sum(mastery => mastery.TotalStudyMinutes),
+                    group.Sum(mastery => mastery.TestAttemptCount), group.Average(mastery => mastery.AverageNetRatio)))
+                .ToArrayAsync(cancellationToken);
+            var added = new List<ProgressSnapshot>();
+            foreach (var totals in subjectTotals)
+            {
+                if (alreadyWritten.Contains((totals.StudentId, totals.Subject))) continue;
+                var snapshot = new ProgressSnapshot(_idGenerator.New(), totals.StudentId, totals.Subject, period, periodStart,
+                    (int)Math.Round(totals.AverageMasteryScore, MidpointRounding.AwayFromZero), totals.StudyMinutes,
+                    totals.TestCount, totals.AverageNetRatio ?? 0m, now);
+                _dbContext.ProgressSnapshots.Add(snapshot);
+                added.Add(snapshot);
+            }
+            if (added.Count > 0)
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                foreach (var snapshot in added) _dbContext.Entry(snapshot).State = EntityState.Detached;
+                createdCount += added.Count;
+            }
+            afterStudent = students[^1];
         }
 
         return createdCount;

@@ -3,7 +3,7 @@ title: "Sayfa (Ekran) Dokümanları — İndeks"
 summary: "doc/pages/ altındaki tüm sayfa dokümanlarının indeksi: route, dosya, veri durumu tablosu (Auth/Dashboard/Students/Study/Lesson Sessions/Scheduling/Payments/Assignments/Teacher Profile/Progress/Reporting/Membership/Messaging/More/Notifications/Parent)"
 tags: [sayfa-index, indeks, mobil]
 authority: derived
-updated: 2026-10-16
+updated: 2026-11-15
 ---
 
 # 📱 Sayfa (Ekran) Dokümanları — İndeks
@@ -79,9 +79,9 @@ updated: 2026-10-16
 ## Assignments
 | Ekran | Route | md | Veri |
 |-------|-------|-----|------|
-| Ödevler (öğretmen) | `/assignments` | — | 🟢 (liste + filtre; 2026-09-04: karta dokununca **değerlendirme alt sayfası** — puan 0–100 + geri bildirim, M06-4) |
+| Ödevler (öğretmen) | `/assignments` | [assignments](assignments.md) | 🟢 (liste + filtre; 2026-09-04: karta dokununca **değerlendirme alt sayfası** — puan 0–100 + geri bildirim, M06-4) |
 | Ödev/takip | `/assignments/new`, `/assignments/:lessonSessionId` | [assignment_follow_up](assignment_follow_up.md) | 🟢 |
-| Ödevlerim (öğrenci) | `/student/assignments` | — | 🟢 (2026-07-09: dosya yükleme + tamamlama; 2026-09-04: **puan rozeti + öğretmen geri bildirimi**, M06-4) |
+| Ödevlerim (öğrenci) | `/student/assignments` | [assignments](assignments.md) | 🟢 (2026-07-09: dosya yükleme + tamamlama; 2026-09-04: **puan rozeti + öğretmen geri bildirimi**, M06-4) |
 
 ## Teacher Profile
 | Ekran | Route | md | Veri |
@@ -136,3 +136,5 @@ updated: 2026-10-16
 > ekranları ve yeni özellik ekranları (mesajlaşma, ilan/keşif, üyelik/paywall) için rol ve modül dokümanlarına bakın →
 > [`../roles/ogrenci.md`](../roles/ogrenci.md), [`../roles/veli.md`](../roles/veli.md), [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md).
 > Yeni ekran kodda eklendikçe buraya bir satır + ekranın md'si eklenir (bkz. kökteki `CLAUDE.md`).
+
+*Güncelleme: 2026-11-15 — P19 Task 7: ödev listeleri belgesi ve sonsuz kaydırma.*

@@ -49,7 +49,7 @@ Haftalık yaşam döngüsü kanıtı: 2 tamamlanmış ders, 1 Single iptal, 2 ×
 | Domain (analitik) | `src/Modules/Reporting/Domain/ReportingProjections.cs` **(P08 Task 3)** | `TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection` (+ item tipleri) · `ReportingPeriods` (yerel ay / ISO hafta) · `ReportingDelta` |
 | Domain (rapor kaydı) | **`src/Modules/Reporting/Domain/StudentReport.cs`** (P08 Task 4) | `StudentReport` aggregate — üretilmiş PDF'in `IFileStorage` anahtarı + dönem + üreten kullanıcı |
 | DbContext | `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` | 9 tablo: panel 2 + analitik 6 + **`student_reports`** (`reporting` şeması) |
-| Projeksiyon handler'ları | `.../TeacherDashboardProjectionHandlers.cs` + **`.../ReportingProjectionHandlers.cs`** | 7 panel + **9 analitik** handler (Scheduling/Assignments/Payments/Students/LessonSessions/Study/ProgressTracking) |
+| Projeksiyon handler'ları | `.../TeacherDashboardProjectionHandlers.cs` + **`.../ReportingProjectionHandlers.cs`** | 7 panel + analitik handler'lar (Study için tek kaynak uzlaştırıcısı) (Scheduling/Assignments/Payments/Students/LessonSessions/Study/ProgressTracking) |
 | Sorgu | `.../Application/ReportingFeatures.cs` + `ReportingAnalyticsFeatures.cs` | `GetTeacherDashboardQuery` + 4 analitik sorgu/handler |
 | PDF raporu | **`.../Application/StudentReportFeatures.cs`** (P08 Task 4) | `GenerateStudentReportCommand` + `GetStudentReportFileQuery` · `StudentReportComposer` (saf metin) · `StudentReportAssembler` · `ReportEntitlementResolver` (premium kapısı — `IEntitlementDirectory`, P09 Task 2) |
 | PDF üretici | **`.../Infrastructure/StudentReportPdfGenerator.cs`** | QuestPDF (Community lisansı statik kurucuda ayarlanır) |
@@ -60,7 +60,7 @@ Haftalık yaşam döngüsü kanıtı: 2 tamamlanmış ders, 1 Single iptal, 2 ×
 | Migration | `*_AddTeacherDashboardProjection.cs` + `*_AddReportingProjections.cs` + **`*_AddStudentReports.cs`** | `reporting` şeması + outbox/inbox/module_states + 8 projeksiyon tablosu + `student_reports` |
 
 **Doğrulanmış gerçekler:**
-- Analitik projeksiyonlar integration event'lerden, pano dersleri olayla ve günlük işçiyle **`ITeacherDashboardLessonSource` üzerinden güncel kaynaktan** beslenir; Reporting hiçbir modülün DbContext'ini okumaz (`Modules_Should_Not_Reference_Other_Modules` yeşil).
+- Analitik projeksiyonlar integration event'lerden; Study katkıları `IStudyStatisticsReader` güncel kaynağından, pano dersleri olayla ve günlük işçiyle **`ITeacherDashboardLessonSource` üzerinden güncel kaynaktan** beslenir; Reporting hiçbir modülün DbContext'ini okumaz (`Modules_Should_Not_Reference_Other_Modules` yeşil).
 - Idempotency ortak `inbox_messages` guard'ından gelir; ayrıca sayaçlar **küme üyeliğinden türetilir** (aşağıya bkz.), bu yüzden aynı olay iki kez gelse de bozulmaz.
 - Canlı doğrulandı: ders planlandı → `todayLessonCount = 1`, ders iptal edildi → `todayLessonCount = 0`.
 
@@ -75,8 +75,8 @@ Haftalık yaşam döngüsü kanıtı: 2 tamamlanmış ders, 1 Single iptal, 2 ×
   Arayüz modül içinde uygulanamaz: yeniden inşa kaynağı diğer modüllerin outbox'ı, Reporting onları okuyamaz
   (modül sınırı) → host seviyesinde orkestre edilecek.
   **P08 Task 6'da uygulamanın dayandığı özellik kanıtlandı:** `RealProjectionRebuildTests` gerçek Postgres'te
-  projeksiyon tablolarını **ve** Reporting inbox satırlarını boşaltıp aynı olay akışını (aynı `EventId`'lerle)
-  yeniden oynatıyor; sayaçlar birebir aynı çıkıyor, üçüncü teslimde değişmiyor. Analitik projeksiyonlar olay
+  projeksiyon tablolarını **ve** Reporting inbox satırlarını boşaltıp aynı olay akışını (aynı `EventId`'lerle) ve güncel Study kaynağını
+  yeniden uyguluyor; sayaçlar birebir aynı çıkıyor, üçüncü teslimde değişmiyor. Analitik projeksiyonlar olay
   akışından yeniden kurulur. P17 T7 pano dersleri güncel kaynak + kayan pencereyle yeniden kurulur; bunun da gerçek PostgreSQL yeniden kurma kanıtı vardır.
 - ⚠️ **Geriye dönük besleme yok:** analitik projeksiyonlar yalnız kendilerinden **sonra** yayınlanan event'leri
   görür; geçmiş aylar rebuild yapılana kadar boş kalır (#93 → P12).
@@ -406,3 +406,20 @@ Sorgu zamanı:
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
 
 *Güncelleme: 2026-11-15 — P18 T6: finans zincirinde HTTP net tahsilat ve projeksiyon iade/hareket kanıtı.*
+
+**Outbox teslimi (P19 T2 / N-42):** Projeksiyon hatası diğer modüllerin tüketimini durdurmaz; başarılı projeksiyon inbox ile tekrar uygulanmaz. Bozuk JSON/null veya mevcut zorunlu alan kontrolünün reddettiği yük poison olur. Öğretmensiz ders, ilgili olmayan iptal kapsamı, zaten kapalı durum veya çıkarılacak satır yokluğu başarılı etkisiz sonuçtur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+**P19 T5 — silme/dönem taşıma ve yeniden kurulum (2026-11-15):** `StudyStatisticsProjectionHandler`, M08 tamamlanma/kayıt ve dört yeni Edited/Deleted olayını tek inbox tüketicisinde işler. Öğrenci transaction advisory kilidinden sonra `IStudyStatisticsReader` üzerinden tamamlanmış seans/test kayıtlarını okur. Mevcut ve güncel kaynağın yerel ISO hafta kovaları uzlaştırılır: eksik seans/test item'ı silinir, süre upsert edilir. Testin `Subject`/`TakenOnUtc` değişimi eski ders/ay katkısını temizler ve yeni ders/aya net oranını yazar. `StudentPerformanceProjection` yalnız test item'larını budar; M10 mastery item'ları korunur ve mevcut `TopicMasteryChanged` olayından güncellenir. Bu tüketici de aynı öğrenci kilidini kullanır. Boş eski kovalar sıfırlı kalabilir; sayaçlar item kümesinden türetilir. Gecikmiş eski Recorded/Completed olayı güncel kaynakla uzlaşır, silinmiş kayıt geri gelmez.
+
+Yeni şema/migration/uç yoktur. Kaynak ile projeksiyonlar farklı modüllerde olduğundan tutarlılık outbox teslimiyle sağlanır. Tam yeniden kurulumda ilgili projeksiyonlar ve inbox satırları temizlenir; güncel Study kaynağı + Study olayları, ardından M10'un ürettiği güncel mastery olayları uygulanır. Eski M10 mastery olaylarını keyfî sırada tekrar oynatmak bu sözleşmenin parçası değildir. `RealProjectionRebuildTests` aynı kaynak+akışı, `RealStudyEditPropagationTests` silme/dönem taşıma ve ters sıradaki Study olaylarını gerçek PostgreSQL'de doğrular.
+
+*Güncelleme: 2026-11-15 — P19 Task 5: haftalık/aylık Study katkıları güncel kaynaktan uzlaştırılır.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+`ReportingStudentMergedHandler` dashboard aktif öğrenci kümesini, aylık ders StudentId alanlarını, haftalık çalışma ve aylık performans katkılarını, StudentReport metadata kimliğini kanoniğe taşır. Bileşik anahtarlı çocuklar yeni parent altında kopyalanır; aynı katkı anahtarında kanonik kazanır, çakışmayan katkılar korunur; toplamlar domain kurallarıyla türetilir. Mevcut öğrenci/dashboard kilitleri ve inbox aynı transaction içindedir. Geçmiş PDF dosyası yeniden üretilmez. Birleşim sonrası kaynak uzlaştırması ve Payments tüketicisi hata verirken Reporting’in ilerlemesi gerçek PostgreSQL/outbox testleriyle korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

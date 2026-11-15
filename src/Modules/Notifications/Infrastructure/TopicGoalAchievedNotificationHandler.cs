@@ -42,7 +42,7 @@ public sealed class TopicGoalAchievedNotificationHandler : IdempotentIntegration
         var payload = JsonSerializer.Deserialize<TopicGoalAchievedPayload>(envelope.Payload, JsonOptions);
         if (payload is null)
         {
-            return false; // bozuk yük: inbox'a yazılmaz, yeniden denenebilir
+            throw new PoisonMessageException("Olay yükü null olamaz."); // bozuk yük: açık hata, inbox yazılmaz
         }
 
         var studentUserId = await _students.GetOwnerUserIdAsync(payload.StudentId, cancellationToken);

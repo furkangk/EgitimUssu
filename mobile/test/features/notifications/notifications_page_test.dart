@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/features/notifications/domain/notification_co
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/pages/notifications_page.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,6 +86,9 @@ Future<void> _pumpPage(
           BlocProvider<NotificationsCubit>.value(value: badgeCubit),
       ],
       child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('tr'),
         home: NotificationsPage(cubit: NotificationCenterCubit(repository)),
       ),
     ),

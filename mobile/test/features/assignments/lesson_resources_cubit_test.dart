@@ -1,4 +1,5 @@
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/network/cursor_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/lesson_resources_cubit.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/lesson_resources_state.dart';
@@ -111,6 +112,9 @@ LessonResource _file(String id) => LessonResource(
 );
 
 class _FakeAssignmentRepository implements AssignmentRepository {
+  @override
+  Future<CursorPage<AssignmentItem>> listPage({String? teacherUserId, String? studentId, String? after, int limit = 50}) async => const CursorPage(items: []);
+
   _FakeAssignmentRepository({
     this.resources = const <LessonResource>[],
     this.failList = false,

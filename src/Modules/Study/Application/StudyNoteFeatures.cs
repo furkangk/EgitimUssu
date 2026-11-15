@@ -19,8 +19,8 @@ public sealed record StudyNoteResponse(
 
 // ---- Komut/Sorgu ----
 
-public sealed record ListStudyNotesQuery(Guid StudentId)
-    : IQuery<Result<IReadOnlyCollection<StudyNoteResponse>>>, IStudentScopedRequest;
+public sealed record ListStudyNotesQuery(Guid StudentId, string? After = null, int? Limit = null)
+    : IQuery<Result<PagedResult<StudyNoteResponse>>>, IStudentScopedRequest;
 
 public sealed record CreateStudyNoteCommand(
     Guid StudentId, string Title, string Body, string? Subject, string? Topic, string? AttachmentUrl)
@@ -47,7 +47,7 @@ internal static class StudyNoteMappings
 // ---- Handler'lar ----
 
 public sealed class ListStudyNotesQueryHandler
-    : IQueryHandler<ListStudyNotesQuery, Result<IReadOnlyCollection<StudyNoteResponse>>>
+    : IQueryHandler<ListStudyNotesQuery, Result<PagedResult<StudyNoteResponse>>>
 {
     private readonly IStudyRepository _repository;
 
@@ -56,12 +56,15 @@ public sealed class ListStudyNotesQueryHandler
         _repository = repository;
     }
 
-    public async Task<Result<IReadOnlyCollection<StudyNoteResponse>>> Handle(
+    public async Task<Result<PagedResult<StudyNoteResponse>>> Handle(
         ListStudyNotesQuery query, CancellationToken cancellationToken)
     {
-        var notes = await _repository.ListNotesAsync(query.StudentId, cancellationToken);
-        return Result<IReadOnlyCollection<StudyNoteResponse>>.Success(
-            notes.Select(n => n.ToResponse()).ToArray());
+        if (!KeysetPage.TryCreate(query.After, query.Limit, out var page))
+            return Result<PagedResult<StudyNoteResponse>>.Failure(KeysetPage.Invalid);
+
+        var notes = await _repository.ListNotesAsync(query.StudentId, cancellationToken, page);
+        return Result<PagedResult<StudyNoteResponse>>.Success(
+            page.Finish(notes.Select(n => n.ToResponse()).ToArray(), x => x.CreatedOnUtc, x => x.Id));
     }
 }
 

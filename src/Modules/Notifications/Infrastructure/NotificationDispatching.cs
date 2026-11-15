@@ -73,6 +73,9 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
         var now = _clock.UtcNow;
         var dueReminders = await _repository.ListDuePendingAsync(now, cancellationToken);
+        var recipients = dueReminders.Select(r => r.RecipientUserId).Distinct().ToArray();
+        var preferencesByUser = await _preferences.GetManyAsync(recipients, cancellationToken);
+        var tokensByUser = (await _deviceTokens.ListActiveByUsersAsync(recipients, cancellationToken)).ToLookup(t => t.UserId);
         var sentCount = 0;
 
         foreach (var reminder in dueReminders)
@@ -104,7 +107,7 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
             }
             // M11-5 tercih kapısı: kullanıcı ders hatırlatmasını ya da tüm push'u kapattıysa gönderme.
             // Kuyruğu tıkamaması için gönderilmiş sayılır (tekrar denenmez).
-            var preferences = await _preferences.GetAsync(reminder.RecipientUserId, cancellationToken);
+            var preferences = preferencesByUser[reminder.RecipientUserId];
             if (!preferences.PushEnabled || !preferences.LessonReminderEnabled)
             {
                 reminder.MarkSent(now);
@@ -113,8 +116,8 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
             }
 
             // Üçlü anahtardaki alıcının aktif cihazları; öğretmen/öğrenci/veli ayrı satırlardır.
-            var tokens = await _deviceTokens.ListActiveByUserAsync(reminder.RecipientUserId, cancellationToken);
-            if (tokens.Count == 0)
+            var tokens = tokensByUser[reminder.RecipientUserId].Where(t => t.IsActive).ToArray();
+            if (tokens.Length == 0)
             {
                 // Teslim edilecek cihaz yok; kuyruğu tıkamasın diye gönderilmiş sayılır.
                 reminder.MarkSent(now);
@@ -179,7 +182,8 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
     /// <summary>
     /// M11-3: In-app bildirim yazıldığı anda push gönderilmez (olay tüketicisi senkron ağ çağrısı yapmaz);
     /// bu tur onları toplu gönderir. <c>PushedOnUtc</c> yalnız gerçekten teslim edilince yazılır —
-    /// başarısız olan bir sonraki turda tekrar denenir, teslim edilen ikinci kez gönderilmez.
+    /// başarısız olan üstel geri çekilmeyle yeniden denenir; 8 hatada Failed, TTL sonunda Expired olur.
+    /// Teslim edilen ikinci kez gönderilmez; tercih/token okuması tur başına topludur.
     /// </summary>
     public async Task<int> DispatchPendingUserNotificationsAsync(CancellationToken cancellationToken = default)
     {
@@ -190,26 +194,31 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
             ActivityKind.Internal);
 
         var now = _clock.UtcNow;
-        var pending = await _userNotifications.ListPendingPushAsync(PendingUserNotificationBatchSize, cancellationToken);
+        var pending = await _userNotifications.ListPendingPushAsync(PendingUserNotificationBatchSize, cancellationToken, now);
         if (pending.Count == 0)
         {
             return 0;
         }
 
+        var recipients = pending.Where(n => n.ExpiresOnUtc > now).Select(n => n.UserId).Distinct().ToArray();
+        var preferencesByUser = await _preferences.GetManyAsync(recipients, cancellationToken);
+        var tokensByUser = (await _deviceTokens.ListActiveByUsersAsync(recipients, cancellationToken)).ToLookup(t => t.UserId);
         var pushedCount = 0;
 
         foreach (var notification in pending)
         {
             // M11-5 tercih kapısı: in-app kaydı DURUR (bildirim merkezinde görünür) ama push atlanır.
-            var preferences = await _preferences.GetAsync(notification.UserId, cancellationToken);
+            notification.ExpirePush(now);
+            if (notification.PushStatus != NotificationPushStatus.Pending) continue;
+            var preferences = preferencesByUser[notification.UserId];
             if (!preferences.PushEnabled || !IsKindEnabled(notification.Kind, preferences))
             {
                 notification.MarkPushed(now);
                 continue;
             }
 
-            var tokens = await _deviceTokens.ListActiveByUserAsync(notification.UserId, cancellationToken);
-            if (tokens.Count == 0)
+            var tokens = tokensByUser[notification.UserId].Where(t => t.IsActive).ToArray();
+            if (tokens.Length == 0)
             {
                 // Cihazı yok: in-app kaydı durur, push kuyruğunu tıkamaması için gönderilmiş sayılır.
                 notification.MarkPushed(now);
@@ -250,6 +259,7 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
                 notification.MarkPushed(now);
                 pushedCount++;
             }
+            else notification.MarkPushFailed(now);
         }
 
         await _userNotifications.SaveChangesAsync(cancellationToken);

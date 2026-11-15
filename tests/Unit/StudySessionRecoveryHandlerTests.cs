@@ -140,12 +140,12 @@ public sealed class StudySessionRecoveryHandlerTests
         // Kullanılmayanlar
         public Task<StudyStudent?> GetLinkAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddLinkAsync(StudyStudent link, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyList<StudySession>> ListSessionsAsync(Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<StudySession>> ListSessionsAsync(Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task AddSessionAsync(StudySession session, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void RemoveSession(StudySession session) => throw new NotImplementedException();
         public Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(Guid studentId, string subject, string topic, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyList<TestResult>> ListTestsAsync(Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<TestResult>> ListTestsAsync(Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void RemoveTest(TestResult testResult) => throw new NotImplementedException();
         public Task AddMockExamAsync(MockExam mockExam, CancellationToken cancellationToken) => throw new NotImplementedException();
@@ -160,7 +160,7 @@ public sealed class StudySessionRecoveryHandlerTests
         public Task<StudentTopicCatalog?> GetCatalogTopicAsync(Guid topicId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task RemoveCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddNoteAsync(StudyNote note, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task RemoveNoteAsync(StudyNote note, CancellationToken cancellationToken) => throw new NotImplementedException();

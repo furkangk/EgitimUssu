@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Modules.Reporting.Domain;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Projections;
@@ -80,7 +81,7 @@ public sealed class LessonScheduleUpsertProjectionHandler(
         {
             var property = json.RootElement.EnumerateObject().FirstOrDefault(p =>
                 p.Name.Equals("lessonScheduleId", StringComparison.OrdinalIgnoreCase)).Value;
-            if (property.ValueKind != System.Text.Json.JsonValueKind.String || !property.TryGetGuid(out var id)) return false;
+            if (property.ValueKind != System.Text.Json.JsonValueKind.String || !property.TryGetGuid(out var id)) throw new PoisonMessageException("Ders kimliği geçersiz.");
             await processor.ReconcileAsync(id, cancellationToken, envelope.EventId);
         }
         return true;
@@ -101,7 +102,7 @@ public sealed class LessonScheduleCancelledProjectionHandler(
     {
         var payload = System.Text.Json.JsonSerializer.Deserialize<LessonScheduleCancelledPayload>(
             envelope.Payload, IntegrationEventSerialization.Options);
-        if (payload is null) return false;
+        if (payload is null) throw new PoisonMessageException("Olay yükü null olamaz.");
         await processor.ReconcileAsync(payload.LessonScheduleId, cancellationToken, envelope.EventId);
         return true;
     }
@@ -127,7 +128,7 @@ public sealed class AssignmentOpenedProjectionHandler : TeacherDashboardProjecti
         var projection = await GetOrCreateAsync(payload.TeacherUserId, cancellationToken);
         if (projection is null)
         {
-            return false;
+            return true; // Çıkarılacak satır veya öğretmen bağlamı yok; geçerli etkisiz sonuç.
         }
 
         projection.TrackOpenAssignment(payload.AssignmentId);
@@ -159,7 +160,7 @@ public sealed class AssignmentClosedProjectionHandler : TeacherDashboardProjecti
         var projection = await FindAsync(payload.TeacherUserId, cancellationToken);
         if (projection is null)
         {
-            return false;
+            return true; // Çıkarılacak satır veya öğretmen bağlamı yok; geçerli etkisiz sonuç.
         }
 
         projection.UntrackAssignment(payload.AssignmentId);
@@ -188,7 +189,7 @@ public sealed class PaymentOverdueProjectionHandler : TeacherDashboardProjection
         var projection = await GetOrCreateAsync(payload.TeacherUserId, cancellationToken);
         if (projection is null)
         {
-            return false;
+            return true; // Çıkarılacak satır veya öğretmen bağlamı yok; geçerli etkisiz sonuç.
         }
 
         projection.TrackOverduePayment(payload.PaymentRecordId, payload.OutstandingAmount, payload.Currency);
@@ -220,13 +221,13 @@ public sealed class PaymentSettledProjectionHandler : TeacherDashboardProjection
         if (payload.CurrentStatus == OverdueStatus)
         {
             // Hâlâ gecikmiş — küme değişmez.
-            return false;
+            return true;
         }
 
         var projection = await FindAsync(payload.TeacherUserId, cancellationToken);
         if (projection is null)
         {
-            return false;
+            return true; // Çıkarılacak satır veya öğretmen bağlamı yok; geçerli etkisiz sonuç.
         }
 
         projection.UntrackOverduePayment(payload.PaymentRecordId);
@@ -255,7 +256,7 @@ public sealed class TeacherStudentLinkProjectionHandler : TeacherDashboardProjec
         var projection = await GetOrCreateAsync(payload.TeacherUserId, cancellationToken);
         if (projection is null)
         {
-            return false;
+            return true; // Çıkarılacak satır veya öğretmen bağlamı yok; geçerli etkisiz sonuç.
         }
 
         projection.TrackStudent(payload.StudentId);

@@ -33,12 +33,13 @@ internal sealed class ParentChildLinkEndedIntegrationEventHandler : IdempotentIn
         var payload = JsonSerializer.Deserialize<ParentChildLinkEndedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var student = await StudentsDb.StudentProfiles
             .Include(profile => profile.Subjects)
             .FirstOrDefaultAsync(profile => profile.Id == payload.StudentId, cancellationToken);
-        return student is not null && student.UnlinkParent(payload.ParentUserId, Clock.UtcNow);
+        student?.UnlinkParent(payload.ParentUserId, Clock.UtcNow);
+        return true;
     }
 }

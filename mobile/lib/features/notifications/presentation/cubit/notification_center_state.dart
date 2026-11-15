@@ -10,6 +10,8 @@ class NotificationCenterState {
     this.unreadCount = 0,
     this.onlyUnread = false,
     this.errorMessage,
+    this.nextCursor,
+    this.isLoadingMore = false,
   });
 
   final NotificationCenterStatus status;
@@ -17,6 +19,8 @@ class NotificationCenterState {
   final int unreadCount;
   final bool onlyUnread;
   final String? errorMessage;
+  final String? nextCursor;
+  final bool isLoadingMore;
 
   bool get isLoading => status == NotificationCenterStatus.loading;
 
@@ -30,12 +34,17 @@ class NotificationCenterState {
     bool? onlyUnread,
     String? errorMessage,
     bool clearError = false,
+    String? nextCursor,
+    bool clearCursor = false,
+    bool? isLoadingMore,
   }) {
     return NotificationCenterState(
       status: status ?? this.status,
       items: items ?? this.items,
       unreadCount: unreadCount ?? this.unreadCount,
       onlyUnread: onlyUnread ?? this.onlyUnread,
+      nextCursor: clearCursor ? null : nextCursor ?? this.nextCursor,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

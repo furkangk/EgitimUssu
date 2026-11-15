@@ -31,9 +31,10 @@ public sealed class LessonSessionCompletedSchedulingHandler : IdempotentIntegrat
     {
         // Var olan olay şemasına alan eklenmez. Orijinal anahtar/saatler oturumun okuma sözleşmesinden gelir.
         var payload = JsonSerializer.Deserialize<CompletionPayload>(envelope.Payload, IntegrationEventSerialization.Options);
-        if (payload is null) return false;
+        if (payload is null) throw new PoisonMessageException("Olay yükü null olamaz.");
         var session = await _sessions.GetByIdAsync(payload.LessonSessionId, cancellationToken);
-        if (session is not { IsCompleted: true, LessonScheduleId: { } scheduleId }) return false;
+        if (session is null) throw new InvalidOperationException("Ders oturumu henüz okunamıyor.");
+        if (session is not { IsCompleted: true, LessonScheduleId: { } scheduleId }) return true;
         var db = (SchedulingDbContext)DbContext;
 
         var result = await _scheduleLock.RunExclusiveAsync(session.TeacherUserId, async token =>

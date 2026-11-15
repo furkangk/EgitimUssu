@@ -1,6 +1,7 @@
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/network/cursor_page.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/models/assignment_model.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/models/lesson_resource_model.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
@@ -14,6 +15,55 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
 
   final ApiClient _apiClient;
   final AppConfig _config;
+
+  @override
+  Future<CursorPage<AssignmentItem>> listPage({
+    String? teacherUserId,
+    String? studentId,
+    String? after,
+    int limit = 50,
+  }) async {
+    if (_config.isMockFallbackEnabled('assignments')) {
+      return CursorPage(
+        items: after == null ? AssignmentItemModel.demoList() : [],
+      );
+    }
+    final response = await _apiClient.get(
+      '/api/assignments',
+      queryParameters: {
+        if (teacherUserId != null) 'teacherUserId': teacherUserId,
+        if (studentId != null) 'studentId': studentId,
+        if (after != null) 'after': after,
+        'limit': limit,
+      },
+    );
+    return CursorPage(
+      items: (response['items'] as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .map(AssignmentItemModel.fromJson)
+          .toList(),
+      nextCursor: response['nextCursor'] as String?,
+    );
+  }
+
+  Future<List<AssignmentItem>> _allPages({
+    String? teacherUserId,
+    String? studentId,
+  }) async {
+    final items = <AssignmentItem>[];
+    String? cursor;
+    do {
+      final page = await listPage(
+        teacherUserId: teacherUserId,
+        studentId: studentId,
+        after: cursor,
+        limit: 100,
+      );
+      items.addAll(page.items);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return items;
+  }
 
   @override
   Future<FollowUpAssignment> getFollowUp(String lessonSessionId) async {
@@ -58,19 +108,8 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
   }
 
   @override
-  Future<List<AssignmentItem>> listByStudent(String studentId) async {
-    if (_config.isMockFallbackEnabled('assignments')) {
-      return AssignmentItemModel.demoList();
-    }
-    final response = await _apiClient.getList(
-      '/api/assignments',
-      queryParameters: <String, dynamic>{'studentId': studentId},
-    );
-    return response
-        .whereType<Map<String, dynamic>>()
-        .map(AssignmentItemModel.fromJson)
-        .toList();
-  }
+  Future<List<AssignmentItem>> listByStudent(String studentId) =>
+      _allPages(studentId: studentId);
 
   @override
   Future<AssignmentItem> completeAssignment(String assignmentId) async {
@@ -122,23 +161,8 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
   }
 
   @override
-  Future<List<AssignmentItem>> listByTeacher(String teacherUserId) async {
-    if (_config.isMockFallbackEnabled('assignments')) {
-      return AssignmentItemModel.demoList();
-    }
-    try {
-      final response = await _apiClient.getList(
-        '/api/assignments',
-        queryParameters: <String, dynamic>{'teacherUserId': teacherUserId},
-      );
-      return response
-          .whereType<Map<String, dynamic>>()
-          .map(AssignmentItemModel.fromJson)
-          .toList();
-    } on ApiException {
-      rethrow;
-    }
-  }
+  Future<List<AssignmentItem>> listByTeacher(String teacherUserId) =>
+      _allPages(teacherUserId: teacherUserId);
 
   // ---- M06-1 (P04): ders kaynagi paylasimi. Mock fallback YOK — sahte kaynak,
   // gercek paylasim hatasini gizler (A-05 ilkesi).

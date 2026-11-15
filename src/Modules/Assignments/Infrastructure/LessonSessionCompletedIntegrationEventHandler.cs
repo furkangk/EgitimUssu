@@ -42,7 +42,7 @@ internal sealed class LessonSessionCompletedIntegrationEventHandler : Idempotent
         var payload = JsonSerializer.Deserialize<LessonSessionCompletedEventPayload>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         // İş kuralı (unique index): LessonSessionId başına tek ders notu. Zaten varsa yeniden üretilmez.
@@ -50,14 +50,12 @@ internal sealed class LessonSessionCompletedIntegrationEventHandler : Idempotent
             .AnyAsync(note => note.LessonSessionId == payload.LessonSessionId, cancellationToken);
         if (existingNote)
         {
-            return false;
+            return true;
         }
 
         var lessonSession = await _lessonSessionAccessService.GetByIdAsync(payload.LessonSessionId, cancellationToken);
-        if (lessonSession is null || !lessonSession.IsCompleted)
-        {
-            return false;
-        }
+        if (lessonSession is null) throw new InvalidOperationException("Ders oturumu henüz okunamıyor.");
+        if (!lessonSession.IsCompleted) return true; // Kaynağın güncel durumu artık tamamlanmış değil.
 
         var summary = BuildSummary(lessonSession);
         var note = new LessonNote(

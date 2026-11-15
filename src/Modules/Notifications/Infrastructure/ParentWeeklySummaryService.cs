@@ -50,61 +50,50 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
 
         // P16 T6 / K-19: hafta Türkiye haftasıdır — Pazartesi 00:00 TR'de (Pazar 21:00Z) yeni hafta başlar. Eskiden UTC
         // anın ISO haftasıydı; Pazar 21:00–24:00Z turu bir önceki haftanın anahtarıyla özeti atlıyordu.
-        var localMidnight = _calendar.ToLocalDate(nowUtc).ToDateTime(TimeOnly.MinValue);
-        var isoWeek = ISOWeek.GetWeekOfYear(localMidnight);
-        var isoYear = ISOWeek.GetYear(localMidnight);
+        var (isoYear, isoWeek) = WeekOf(nowUtc, _calendar);
         var created = 0;
-        var handledParents = new HashSet<Guid>();
-
-        var targets = await _directory.ListAllApprovedTargetsAsync(cancellationToken);
-        foreach (var entry in targets)
+        Guid? cursor = null;
+        do
         {
-            var target = entry.Target;
-
-            // Premium + haftalık özet tercihi açık olmalı; her veli hafta başına bir kez.
-            if (target.Tier != MembershipTier.Premium || !target.Prefs.WeeklyProgressSummary)
+            var page = await _directory.ListApprovedTargetPageAsync(cursor, 200, cancellationToken);
+            var eligible = page.Items.Where(x => x.Target.Tier == MembershipTier.Premium && x.Target.Prefs.WeeklyProgressSummary)
+                .DistinctBy(x => (x.Target.ParentUserId, x.StudentId)).ToArray();
+            created += await _repository.RunWeeklySummaryBatchAsync(async () =>
             {
-                continue;
-            }
-
-            if (!handledParents.Add(target.ParentUserId))
-            {
-                continue;
-            }
-
-            var dedupKey = WeeklyDedupKey(target.ParentUserId, isoYear, isoWeek);
-            if (await _repository.HasProcessedAsync(dedupKey, cancellationToken))
-            {
-                continue;
-            }
-
-            await _repository.AddAsync(
-                new ParentNotification(
-                    _idGenerator.New(),
-                    target.ParentUserId,
-                    entry.StudentId,
-                    ParentNotificationType.WeeklySummary,
-                    "Haftalık özet hazır",
-                    "Çocuğunuzun haftalık gelişim özeti hazır.",
-                    nowUtc),
-                cancellationToken);
-
-            _repository.MarkProcessed(dedupKey, $"weekly:{isoYear}-W{isoWeek}", nowUtc);
-            created++;
-        }
-
-        if (created > 0)
-        {
-            await _repository.SaveChangesAsync(cancellationToken);
-        }
+                var keys = eligible.Select(x => WeeklyDedupKey(x.Target.ParentUserId, x.StudentId, isoYear, isoWeek)).ToArray();
+                var processed = await _repository.GetProcessedAsync(keys, cancellationToken);
+                var pageCreated = 0;
+                foreach (var entry in eligible)
+                {
+                    var key = WeeklyDedupKey(entry.Target.ParentUserId, entry.StudentId, isoYear, isoWeek);
+                    if (processed.Contains(key)) continue;
+                    await _repository.AddAsync(new ParentNotification(_idGenerator.New(), entry.Target.ParentUserId,
+                        entry.StudentId, ParentNotificationType.WeeklySummary, "Haftalık özet hazır",
+                        "Çocuğunuzun haftalık gelişim özeti hazır.", nowUtc), cancellationToken);
+                    _repository.MarkProcessed(key, $"weekly-v2:{isoYear}-W{isoWeek}", nowUtc);
+                    pageCreated++;
+                }
+                if (pageCreated > 0) await _repository.SaveChangesAsync(cancellationToken);
+                return pageCreated;
+            }, cancellationToken);
+            cursor = page.NextLinkId;
+        } while (cursor.HasValue);
 
         return created;
     }
 
-    // Hafta+veli için deterministik Guid (ProcessedIntegrationEvent dedup anahtarı). Aynı hafta tekrar üretilmez.
-    internal static Guid WeeklyDedupKey(Guid parentUserId, int isoYear, int isoWeek)
+    internal static (int Year, int Week) WeekOf(DateTime nowUtc, ILocalCalendar calendar)
     {
-        var raw = $"weekly:{parentUserId:N}:{isoYear}:{isoWeek}";
+        var localMidnight = calendar.ToLocalDate(nowUtc).ToDateTime(TimeOnly.MinValue);
+        var isoWeek = ISOWeek.GetWeekOfYear(localMidnight);
+        var isoYear = ISOWeek.GetYear(localMidnight);
+        return (isoYear, isoWeek);
+    }
+
+    // Hafta+veli+öğrenci için deterministik Guid (ProcessedIntegrationEvent dedup anahtarı). Aynı hafta tekrar üretilmez.
+    internal static Guid WeeklyDedupKey(Guid parentUserId, Guid studentId, int isoYear, int isoWeek)
+    {
+        var raw = $"weekly-v2:{parentUserId:N}:{studentId:N}:{isoYear}:{isoWeek}";
         var bytes = MD5.HashData(Encoding.UTF8.GetBytes(raw));
         return new Guid(bytes);
     }

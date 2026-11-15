@@ -29,7 +29,7 @@ internal sealed class AssignmentsStudentMergedHandler : IdempotentIntegrationEve
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         await AssignmentsDb.Assignments.Where(x => x.StudentId == payload.FromStudentId)

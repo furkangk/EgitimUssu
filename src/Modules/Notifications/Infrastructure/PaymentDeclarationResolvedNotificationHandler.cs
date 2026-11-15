@@ -17,7 +17,7 @@ public sealed class PaymentDeclarationResolvedNotificationHandler(NotificationsD
     {
         var payload = JsonSerializer.Deserialize<Resolution>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null || payload.ParentUserId == Guid.Empty || payload.Status is not (2 or 3))
-            return Task.FromResult(false);
+            throw new PoisonMessageException("Ödeme beyanı olay yükü geçersiz.");
 
         var confirmed = payload.Status == 2;
         dbContext.UserNotifications.Add(new UserNotification(

@@ -360,3 +360,7 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 *Güncelleme: 2026-11-15 — P18 T5: aynı tahsilat anahtarında gövde eşlemesi ve 422 sözleşmesi.*
 
 *Güncelleme: 2026-11-15 — P18 T6: gerçek ders→ücret→nakit/beyan→eşzamanlı not→iade finans senaryosu.*
+
+**Outbox teslimi (P19 T2 / N-42):** Otomatik ücrette zaten faturalanmış/ücretsiz oturum veya anlaşılmış ücret yokluğu başarılı etkisiz sonuçtur ve inbox'a yazılır; okunamayan oturum açık hata ile yeniden denenir. İptalde değişecek kayıt yokluğu başarıdır; bozuk yük poison olur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*

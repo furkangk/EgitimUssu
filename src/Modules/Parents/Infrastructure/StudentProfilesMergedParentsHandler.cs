@@ -20,16 +20,16 @@ namespace EgitimUssu.Modules.Parents.Infrastructure;
 /// <item><b>Öğrenci→kullanıcı eşlemesi</b> (<c>known_students</c>, benzersiz): kanonik satır doğru kullanıcıyı
 /// taşır, kaynak satır silinir; kanonik satır henüz yoksa kaynak taşınır (kanoniğin oluşturma olayı düzeltir).</item>
 /// <item><b>Veli paneli özeti</b> (<c>child_progress_snapshots</c>, benzersiz): kanonikte yoksa taşınır, varsa
-/// sayaçlar toplanır ve kaynak silinir.</item>
+/// ödev dışı sayaçlar toplanır, ödev sayısı kaynaktan uzlaştırılır ve kaynak silinir.</item>
 /// </list>
-/// Doğrudan cross-module DB erişimi yok — yalnız integration event. Replay koruması ortak inbox üzerinden.
+/// Doğrudan cross-module DB erişimi yok — integration event ve ödev kaynak okuma sözleşmesi. Replay koruması ortak inbox üzerinden.
 /// </summary>
 internal sealed class StudentProfilesMergedParentsHandler : IdempotentIntegrationEventHandler
 {
-    public StudentProfilesMergedParentsHandler(ParentsDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
-    {
-    }
+    private readonly IStudentAssignmentStatusReader _assignments;
+
+    public StudentProfilesMergedParentsHandler(ParentsDbContext dbContext, IClock clock, IStudentAssignmentStatusReader assignments)
+        : base(dbContext, clock) => _assignments = assignments;
 
     private ParentsDbContext ParentsDb => (ParentsDbContext)DbContext;
 
@@ -42,16 +42,26 @@ internal sealed class StudentProfilesMergedParentsHandler : IdempotentIntegratio
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var from = payload.FromStudentId;
         var to = payload.ToStudentId;
         var now = Clock.UtcNow;
 
+        if (ParentsDb.Database.IsNpgsql())
+            foreach (var student in new[] { from, to }.Order())
+            {
+                var key = $"parents:assignments:{student:D}";
+                await ParentsDb.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))", cancellationToken);
+            }
         await MergeLinksAsync(from, to, now, cancellationToken);
         await MergeKnownStudentAsync(from, to, cancellationToken);
         await MergeSnapshotAsync(from, to, now, cancellationToken);
+        // Kaynak taşıması bu tüketiciden önce veya sonra çalışabilir; iki kimliği tek SQL'de say.
+        var counts = await _assignments.ReadAsync([from, to], cancellationToken);
+        var snapshot = await ParentsDb.ChildProgressSnapshots.FirstOrDefaultAsync(x => x.StudentId == to, cancellationToken);
+        snapshot?.SetAssignmentCounts(counts.Total, counts.Open, counts.Completed, now);
         return true;
     }
 

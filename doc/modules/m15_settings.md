@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Settings/**
-updated: 2026-09-03
+updated: 2026-11-15
 ---
 
 # ⚙️ Ayarlar ve Güvenlik Modülü (M15) — Detaylı Tasarım Dokümanı
@@ -245,4 +245,9 @@ Güvenlik (Identity):
 
 ---
 
-*Ayarlar ve Güvenlik Modülü (M15) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-09-03*
+*Ayarlar ve Güvenlik Modülü (M15) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-11-15*
+
+
+### P19 Task 6 — Toplu bildirim tercihleri
+
+`IUserNotificationPreferences.GetManyAsync(userIds, ct)` istenen kimliklerin altı bildirim bayrağını tek AsNoTracking SELECT ile okur. Sonuç her istenen kullanıcıyı içerir; kaydı olmayan için AllEnabled döner. Tekli GetAsync korunur. Notifications iki gönderim yolunda da sayfa/tur bazında bu sözleşmeyi kullanır; başka modülün DbContext'ine erişmez.

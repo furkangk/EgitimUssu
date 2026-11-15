@@ -10,7 +10,7 @@ code_refs:
   - src/Modules/Messaging/Application/MessagingPolicies.cs
   - src/Modules/Messaging/Infrastructure/MessagingStudentMergedHandler.cs
   - src/Modules/Messaging/API/MessagingModule.cs
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # 💬 Mesajlaşma Modülü (M16) — Detaylı Tasarım Dokümanı
@@ -181,7 +181,7 @@ GET    /api/messaging/conversations?skip=&take=             (auth) → gelen kut
 GET    /api/messaging/conversations/{id}/messages?beforeUtc=&take=
                                                             (auth) → mesaj geçmişi (keyset, yeniden eskiye)
 POST   /api/messaging/conversations/{id}/messages           (auth) → { body } · dakikada 30 mesaj sınırı
-POST   /api/messaging/conversations/{id}/read               (auth) → gelen mesajları okundu işaretle (204)
+POST   /api/messaging/conversations/{id}/read               (auth) → body: { upToMessageId }; sınıra kadar gelen mesajlar (204)
 POST   /api/messaging/conversations/{id}/block              (auth) → sohbeti engelle
 POST   /api/messaging/conversations/{id}/unblock            (auth) → kendi engelini kaldır
 DELETE /api/messaging/messages/{messageId}                  (auth) → yumuşak sil (gönderen veya Admin, 204)
@@ -403,4 +403,15 @@ bildirim entegrasyonu (in-app) ✅ · hız sınırı ✅ · mobil gelen kutusu +
 
 ---
 
-*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-11-14 (**P15 Task 5 / N-46, K-28**: ilişki her gönderimde kaynaktan yeniden sorulur — bitince `403 messaging.relationship_ended`, geçmiş okunur, yanıtlarda `isReadOnly`; kapı `ITeacherStudentAccess == Private`'a geçti; Messaging `StudentProfilesMerged`'i tüketir (#189 — sohbet kanoniğe taşınır, çakışmada mesajlar kanoniğe katılır); §1–§5, §7 #11–12, §8 #10) · 2026-10-16 (denetim: silinen mesaj metninin gelen kutusu önizlemesinde kalması düzeltildi; gönderen/Admin silme, eski mesaj silme ve yetkisiz erişim `MessageDeletionPreviewTests` ile kapsandı) · 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+*Mesajlaşma Modülü (M16) — Detaylı Tasarım | Faz 2-3 | Güncelleme: 2026-11-15 (P19 T2: açık outbox tüketim sonuçları) · 2026-11-14 (**P15 Task 5 / N-46, K-28**: ilişki her gönderimde kaynaktan yeniden sorulur — bitince `403 messaging.relationship_ended`, geçmiş okunur, yanıtlarda `isReadOnly`; kapı `ITeacherStudentAccess == Private`'a geçti; Messaging `StudentProfilesMerged`'i tüketir (#189 — sohbet kanoniğe taşınır, çakışmada mesajlar kanoniğe katılır); §1–§5, §7 #11–12, §8 #10) · 2026-10-16 (denetim: silinen mesaj metninin gelen kutusu önizlemesinde kalması düzeltildi; gönderen/Admin silme, eski mesaj silme ve yetkisiz erişim `MessageDeletionPreviewTests` ile kapsandı) · 2026-09-04 (P10 Task 5 — **KAPANIŞ**: zincir gerçek Postgres + Redis'te uçtan uca doğrulandı (`RealMessagingChainTests`, 3 test / 12 adım); doğrulama **bir hata çıkardı** — kullanıcı başına mesaj kotası `UseAuthentication` sırası yüzünden sessizce IP'ye düşüyordu, düzeltildi. §7 kabul kriterleri ve §8 eksikler gerçeğe göre yeniden yazıldı. **M16 bilerek 🟡** — karşı tarafın adı sunucudan gelmiyor, veli sohbet başlatamıyor, şikayet (M18) P12'de, cihaza push Q8'e bloke. Önceki not — P10 Task 4: mobil gelen kutusu + sohbet ekranı, üç rolde giriş noktaları, keyset sayfalama + iyimser gönderim; §6 koda göre yeniden yazıldı, `flutter_chat_ui` kullanılmadı ve pubspec'ten kaldırıldı (D-18). Önceki not — P10 Task 3: yeni mesajda alıcıya in-app bildirim — `MessageSentNotificationHandler`; §5 olay akışı koda göre yeniden yazıldı, ayrı integration-event sınıfı ve ilişki projeksiyonu **bilerek yazılmadı**. Önceki not — P10 Task 2: 8 uç + ilişki kapısı + katılımcı yetkisi + keyset sayfalama + kullanıcı başına 30/dk hız sınırı; §3-§4 koda göre yeniden yazıldı. Önceki not — P10 Task 1: modül iskeleti + `Conversation`/`Message` domain'i + `messaging` şeması kodda; §1-§2 koda göre yeniden yazıldı, durum 🔴 → 🟡)*
+
+**Outbox teslimi (P19 T2 / N-42):** Profil birleşme tüketicisinde null yük açık poison hatasıdır. MessageSent bildirim tüketicisinde bozuk yük artık sessiz başarılı sayılmaz; dead-letter kaydı Notifications handler adını taşır. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+
+### P19 Task 6 — Görülen mesaj sınırı ve bildirim gizliliği (N-52, N-55)
+
+`MarkConversationReadCommand(ConversationId, UpToMessageId?)`, katılımcı kontrolünden sonra sınır mesajının aynı sohbette olduğunu doğrular. Yok/başka sohbet sınırı 404; yabancı katılımcı 403. Sınır verilmemiş eski gövdesiz çağrı 204 ve güvenli etkisiz sonuçtur; yeni mesajları topluca okumaz. Repository SQL yalnız okuyucunun gelen/silinmemiş/okunmamış mesajlarından sınırın kendisini ve zaman bakımından kesin önce olanları alır. Aynı zaman damgalı başka mesaj muhafazakâr biçimde okunmamış kalır. İlk okuma tarihi tekrar istekte korunur. İlişkisi bitmiş katılımcının geçmiş okuma hakkı değişmez.
+
+ChatCubit yüklediği en yeni sunucu mesajının kimliğini gönderir; boş veya yalnız taslak/başarısız mesajlı listede istek üretmez. İstek ile görünüm arasındaki yeni mesaj okunmamış kalır. Mesaj bildiriminde artık önizleme yoktur: yeni ve migration ile temizlenmiş eski bildirimler “Bir kullanıcı size mesaj gönderdi.” taşır. Gerçek HTTP senaryosu öğretmen/öğrenci/veli yabancıları 403 ve görülmeyen yeni mesajın unread kalmasını doğrular.

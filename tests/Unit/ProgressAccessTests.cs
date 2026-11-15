@@ -258,7 +258,7 @@ public sealed class ProgressAccessTests
     {
         await using var dbContext = NewDbContext();
         var repository = new ProgressRepository(dbContext);
-        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now));
+        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var lessonSessionId = Guid.NewGuid();
         var lessonScheduleId = Guid.NewGuid();
 
@@ -286,7 +286,7 @@ public sealed class ProgressAccessTests
     {
         await using var dbContext = NewDbContext();
         var repository = new ProgressRepository(dbContext);
-        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now));
+        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var lessonSessionId = Guid.NewGuid();
         var lessonScheduleId = Guid.NewGuid();
         var envelope = Envelope(lessonSessionId, lessonScheduleId);
@@ -319,7 +319,7 @@ public sealed class ProgressAccessTests
         var sessionId = Guid.NewGuid();
         var scheduleId = Guid.NewGuid();
         var handler = new LessonSessionCompletedProgressHandler(db,
-            new MasteryService(new ProgressRepository(db), new SeqIdGenerator(), new FixedClock(Now)),
+            new MasteryService(new ProgressRepository(db), new SeqIdGenerator(), new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now))),
             new FakeLessonScheduleDirectory(new LessonScheduleDetails(scheduleId, TeacherUserId, StudentId,
                 Now.AddHours(-1), Now, "Matematik", null, "Planned")),
             new FakeLessonSessionAccessService(new LessonSessionDetails(sessionId, scheduleId, TeacherUserId,
@@ -335,7 +335,7 @@ public sealed class ProgressAccessTests
         // Plansız (ad-hoc) oturumda ders/branş bilgisi yoktur; hâkimiyet satırı üretilmez.
         await using var dbContext = NewDbContext();
         var repository = new ProgressRepository(dbContext);
-        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now));
+        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var lessonSessionId = Guid.NewGuid();
 
         var handler = new LessonSessionCompletedProgressHandler(
@@ -358,7 +358,7 @@ public sealed class ProgressAccessTests
     {
         await using var dbContext = NewDbContext();
         var repository = new ProgressRepository(dbContext);
-        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now));
+        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var goal = new TopicGoal(
             Guid.NewGuid(), StudentId, "Matematik", "Türev", MasteryLevel.Developing,
             null, StudentUserId, TopicGoalSetterRole.Student, null, Now);
@@ -378,7 +378,7 @@ public sealed class ProgressAccessTests
     {
         await using var dbContext = NewDbContext();
         var repository = new ProgressRepository(dbContext);
-        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now));
+        var masteryService = new MasteryService(repository, new SeqIdGenerator(), new FixedClock(Now), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
         var goal = new TopicGoal(
             Guid.NewGuid(), StudentId, "Matematik", "Türev", MasteryLevel.Developing,
             targetNetRatio: 0.95m, StudentUserId, TopicGoalSetterRole.Student, null, Now);

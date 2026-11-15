@@ -53,8 +53,8 @@ public sealed record GetStudySessionQuery(Guid SessionId) : IQuery<Result<StudyS
 public sealed record GetActiveSessionQuery(Guid StudentId)
     : IQuery<Result<ActiveSessionResponse?>>, IStudentScopedRequest;
 
-public sealed record ListStudySessionsQuery(Guid StudentId, DateTime? FromUtc, DateTime? ToUtc, string? Subject)
-    : IQuery<Result<IReadOnlyCollection<StudySessionResponse>>>, IStudentScopedRequest;
+public sealed record ListStudySessionsQuery(Guid StudentId, DateTime? FromUtc, DateTime? ToUtc, string? Subject, string? After = null, int? Limit = null)
+    : IQuery<Result<PagedResult<StudySessionResponse>>>, IStudentScopedRequest;
 
 public sealed record WeeklySummaryQuery(Guid StudentId, DateOnly? WeekStart)
     : IQuery<Result<WeeklySummaryResponse>>, IStudentScopedRequest;
@@ -164,22 +164,18 @@ public sealed class StudyCompletionService
         }
 
         var streakDate = _calendar.StudyDay(studiedOn);
-        var (streakDayStartUtc, streakDayEndUtc) = _calendar.DayRangeUtc(streakDate);
-        var daySessions = await _repository.ListCompletedSessionsAsync(
-            session.StudentId,
-            streakDayStartUtc,
-            streakDayEndUtc,
-            cancellationToken);
-        var dayTotal = daySessions.Sum(s => s.EffectiveMinutes);
-
+        var today = _calendar.StudyDay(now);
+        var (_, endUtc) = _calendar.StudyDayRangeUtc(today);
+        // SQL henüz Added/Modified olan mevcut seansı görmeyebilir; hesaplayıcı ID ile birleştirir.
+        // Geçmiş günün daha önce sayıldığını tek LastStudiedOnDate alanı ispatlayamaz.
+        var sessions = await _repository.ListCompletedSessionsAsync(
+            session.StudentId, DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc), endUtc, cancellationToken);
         var goal = await _repository.GetActiveGoalAsync(session.StudentId, cancellationToken);
-        var thresholdPercent = goal?.StreakThresholdPercent ?? 60;
-        var dailyGoal = goal?.DailyGoalMinutes ?? 0;
-
-        if (StreakRules.DayCounts(dayTotal, dailyGoal, thresholdPercent))
-        {
-            streak.RegisterStudyDay(streakDate, now);
-        }
+        var days = StudyStreakCalculator.QualifyingDays(sessions, session, goal, _calendar);
+        if (days.Contains(streakDate))
+            streak.RegisterStudyDay(streakDate, days, today, now);
+        else
+            streak.Recalculate(days, today, now);
 
         await _repository.SaveChangesAsync(cancellationToken);
 
@@ -550,7 +546,7 @@ public sealed class GetActiveSessionQueryHandler
 }
 
 public sealed class ListStudySessionsQueryHandler
-    : IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>
+    : IQueryHandler<ListStudySessionsQuery, Result<PagedResult<StudySessionResponse>>>
 {
     private readonly IStudyRepository _repository;
     private readonly StudyMembershipResolver _membership;
@@ -563,15 +559,18 @@ public sealed class ListStudySessionsQueryHandler
         _clock = clock;
     }
 
-    public async Task<Result<IReadOnlyCollection<StudySessionResponse>>> Handle(ListStudySessionsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<StudySessionResponse>>> Handle(ListStudySessionsQuery query, CancellationToken cancellationToken)
     {
         // Ö-D: Free geçmiş penceresi son 30 güne kısılır; Premium sınırsız.
         var tier = await _membership.CurrentTierAsync(cancellationToken);
         var fromUtc = MembershipGate.ClampFrom(tier, query.FromUtc, _clock.UtcNow);
 
-        var sessions = await _repository.ListSessionsAsync(query.StudentId, fromUtc, query.ToUtc, query.Subject, cancellationToken);
+        if (!KeysetPage.TryCreate(query.After, query.Limit, out var page))
+            return Result<PagedResult<StudySessionResponse>>.Failure(KeysetPage.Invalid);
+
+        var sessions = await _repository.ListSessionsAsync(query.StudentId, fromUtc, query.ToUtc, query.Subject, cancellationToken, page);
         var payload = sessions.Select(s => s.ToResponse()).ToArray();
-        return Result<IReadOnlyCollection<StudySessionResponse>>.Success(payload);
+        return Result<PagedResult<StudySessionResponse>>.Success(page.Finish(payload, x => x.StartedAtUtc, x => x.Id));
     }
 }
 

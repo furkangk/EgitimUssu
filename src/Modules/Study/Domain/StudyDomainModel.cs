@@ -262,7 +262,10 @@ public sealed class StudySession : AggregateRoot<Guid>
         EffectiveMinutes = effectiveMinutes;
         PersonalNote = string.IsNullOrWhiteSpace(personalNote) ? PersonalNote : personalNote.Trim();
         UpdatedOnUtc = nowUtc;
+        Raise(new StudySessionEditedDomainEvent(Id, StudentId));
     }
+
+    public void NotifyDeleted() => Raise(new StudySessionDeletedDomainEvent(Id, StudentId));
 
     /// <summary>Yanlış başlatılan seansı iptal eder; hiçbir istatistiğe dahil edilmez.</summary>
     public void Discard(DateTime nowUtc)
@@ -419,7 +422,10 @@ public sealed class TestResult : AggregateRoot<Guid>
         Net = Math.Round(correct - ((decimal)wrong / penaltyDivisor), 2, MidpointRounding.AwayFromZero);
         DurationMinutes = durationMinutes;
         TakenOnUtc = takenOnUtc;
+        Raise(new TestResultEditedDomainEvent(Id, StudentId));
     }
+
+    public void NotifyDeleted() => Raise(new TestResultDeletedDomainEvent(Id, StudentId));
 
     /// <summary>Bu sonuç bir çok dersli denemenin (MockExam) parçasıysa o denemenin kimliği; tekil test ise null.</summary>
     public void AttachToMockExam(Guid mockExamId) => MockExamId = mockExamId;
@@ -502,6 +508,8 @@ public sealed class MockExam : AggregateRoot<Guid>
         subjectResult.AttachToMockExam(Id);
         TotalNet += subjectResult.Net;
     }
+
+    public void RecalculateTotalNet(IEnumerable<decimal> nets) => TotalNet = nets.Sum();
 
     /// <summary>Deneme için tahmini sıralamayı ayarlar (dış hesaplama/istemci girdisi).</summary>
     public void SetEstimatedRank(int? estimatedRank) => EstimatedRank = estimatedRank;
@@ -619,48 +627,44 @@ public sealed class StudyStreak : AggregateRoot<Guid>, IVersioned
 
     public DateTime UpdatedOnUtc { get; private set; }
 
-    /// <summary>Bir çalışma gününü seriye işler. Aynı gün ise no-op.</summary>
-    public void RegisterStudyDay(DateOnly localDate, DateTime nowUtc)
+    /// <summary>Uygun tekil günlerden sayaçları kurar; onarım geçmiş olay üretmez.</summary>
+    public void Recalculate(IEnumerable<DateOnly> studyDays, DateOnly today, DateTime nowUtc)
     {
-        if (LastStudiedOnDate == localDate)
+        var days = studyDays.Where(day => day <= today).Distinct().Order().ToArray();
+        var run = 0;
+        var longest = 0;
+        DateOnly? previous = null;
+        foreach (var day in days)
         {
-            return;
+            run = previous is { } last && day.DayNumber - last.DayNumber == 1 ? run + 1 : 1;
+            longest = Math.Max(longest, run);
+            previous = day;
         }
-
-        if (LastStudiedOnDate is { } last)
-        {
-            if (last.AddDays(1) == localDate)
-            {
-                CurrentStreakDays += 1;
-            }
-            else if (localDate > last)
-            {
-                Raise(new StreakBrokenDomainEvent(Id, StudentId, CurrentStreakDays));
-                CurrentStreakDays = 1;
-            }
-            else
-            {
-                // Geçmiş bir gün girildi; seriyi bozmadan toplam günü sayar.
-                TotalStudyDays += 1;
-                UpdatedOnUtc = nowUtc;
-                return;
-            }
-        }
-        else
-        {
-            CurrentStreakDays = 1;
-        }
-
-        TotalStudyDays += 1;
-        LastStudiedOnDate = localDate;
-
-        if (CurrentStreakDays > LongestStreakDays)
-        {
-            LongestStreakDays = CurrentStreakDays;
-            Raise(new StreakMilestoneReachedDomainEvent(Id, StudentId, CurrentStreakDays, LongestStreakDays));
-        }
-
+        var current = previous is { } latest && latest.DayNumber >= today.DayNumber - 1 ? run : 0;
+        if (CurrentStreakDays == current && LongestStreakDays == longest
+            && LastStudiedOnDate == previous && TotalStudyDays == days.Length) return;
+        CurrentStreakDays = current;
+        LongestStreakDays = longest;
+        LastStudiedOnDate = previous;
+        TotalStudyDays = days.Length;
         UpdatedOnUtc = nowUtc;
+    }
+
+    /// <summary>Okuma anında kırılmış seriyi sıfır döndürür.</summary>
+    public int CurrentAt(DateOnly today) => LastStudiedOnDate is { } last
+        && last.DayNumber >= today.DayNumber - 1 && last <= today ? CurrentStreakDays : 0;
+
+    /// <summary>Seanslardan türetilmiş gün kümesiyle günü bir kez sayar; yeni seri olaylarını üretir.</summary>
+    public void RegisterStudyDay(DateOnly localDate, IEnumerable<DateOnly> studyDays, DateOnly today, DateTime nowUtc)
+    {
+        var oldLast = LastStudiedOnDate;
+        var oldCurrent = CurrentStreakDays;
+        var oldLongest = LongestStreakDays;
+        Recalculate(studyDays.Append(localDate), today, nowUtc);
+        if (oldLast is { } last && localDate.DayNumber - last.DayNumber > 1 && oldCurrent > 0)
+            Raise(new StreakBrokenDomainEvent(Id, StudentId, oldCurrent));
+        if (LongestStreakDays > oldLongest)
+            Raise(new StreakMilestoneReachedDomainEvent(Id, StudentId, CurrentStreakDays, LongestStreakDays));
     }
 }
 
@@ -933,3 +937,8 @@ public sealed record AchievementEarnedDomainEvent(
     Guid StudentId,
     string AchievementCode,
     DateTime EarnedOnUtc) : DomainEvent;
+
+public sealed record StudySessionEditedDomainEvent(Guid SessionId, Guid StudentId) : DomainEvent;
+public sealed record StudySessionDeletedDomainEvent(Guid SessionId, Guid StudentId) : DomainEvent;
+public sealed record TestResultEditedDomainEvent(Guid TestResultId, Guid StudentId) : DomainEvent;
+public sealed record TestResultDeletedDomainEvent(Guid TestResultId, Guid StudentId) : DomainEvent;

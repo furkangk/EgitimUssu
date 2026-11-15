@@ -42,6 +42,8 @@ abstract interface class NotificationRepository {
     bool onlyUnread = false,
     int skip = 0,
     int take = 20,
+    String? after,
+    int? limit,
   });
 
   /// M11-4: Okunmamış bildirim sayısı — rozet.
@@ -120,8 +122,13 @@ class UserNotification {
 
 /// Sayfalı bildirim listesi (`PagedResult<UserNotificationResponse>` karşılığı).
 class UserNotificationPage {
-  const UserNotificationPage({required this.items, required this.totalCount});
+  const UserNotificationPage({
+    required this.items,
+    required this.totalCount,
+    this.nextCursor,
+  });
 
   final List<UserNotification> items;
-  final int totalCount;
+  final int? totalCount;
+  final String? nextCursor;
 }

@@ -1,14 +1,13 @@
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
+import 'package:egitim_ussu_mobile/core/network/cursor_page.dart';
 import 'package:egitim_ussu_mobile/features/study/data/models/study_models.dart';
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
 
 class StudyRepositoryImpl implements StudyRepository {
-  StudyRepositoryImpl({
-    required ApiClient apiClient,
-    required AppConfig config,
-  })  : _apiClient = apiClient,
-        _config = config;
+  StudyRepositoryImpl({required ApiClient apiClient, required AppConfig config})
+    : _apiClient = apiClient,
+      _config = config;
 
   final ApiClient _apiClient;
   final AppConfig _config;
@@ -22,10 +21,81 @@ class StudyRepositoryImpl implements StudyRepository {
   final List<StudyNote> _mockNotes = <StudyNote>[];
 
   @override
+  Future<CursorPage<StudyNote>> listNotesPage(
+    String studentId, {
+    String? after,
+    int limit = 50,
+  }) async {
+    if (_mock) {
+      return CursorPage(
+        items: after == null ? List<StudyNote>.unmodifiable(_mockNotes) : [],
+      );
+    }
+    final response = await _apiClient.get(
+      '$_base/students/$studentId/notes',
+      queryParameters: {if (after != null) 'after': after, 'limit': limit},
+    );
+    return CursorPage(
+      items: (response['items'] as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .map(StudyMappers.note)
+          .toList(),
+      nextCursor: response['nextCursor'] as String?,
+    );
+  }
+
+  @override
+  Future<CursorPage<StudySession>> listSessionsPage(
+    String studentId, {
+    String? after,
+    int limit = 50,
+  }) async {
+    if (_mock) {
+      return CursorPage(items: after == null ? _mockSessions(studentId) : []);
+    }
+    final response = await _apiClient.get(
+      '$_base/students/$studentId/sessions',
+      queryParameters: {if (after != null) 'after': after, 'limit': limit},
+    );
+    return CursorPage(
+      items: (response['items'] as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .map(StudyMappers.session)
+          .toList(),
+      nextCursor: response['nextCursor'] as String?,
+    );
+  }
+
+  @override
+  Future<CursorPage<TestResult>> listTestsPage(
+    String studentId, {
+    String? after,
+    int limit = 50,
+  }) async {
+    if (_mock) return CursorPage(items: after == null ? _mockTests() : []);
+    final response = await _apiClient.get(
+      '$_base/students/$studentId/test-results',
+      queryParameters: {if (after != null) 'after': after, 'limit': limit},
+    );
+    return CursorPage(
+      items: (response['items'] as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .map(StudyMappers.test)
+          .toList(),
+      nextCursor: response['nextCursor'] as String?,
+    );
+  }
+
+  @override
   Future<List<StudyNote>> listNotes(String studentId) async {
-    if (_mock) return List<StudyNote>.unmodifiable(_mockNotes);
-    final r = await _apiClient.getList('$_base/students/$studentId/notes');
-    return r.whereType<Map<String, dynamic>>().map(StudyMappers.note).toList();
+    final items = <StudyNote>[];
+    String? cursor;
+    do {
+      final page = await listNotesPage(studentId, after: cursor, limit: 100);
+      items.addAll(page.items);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return items;
   }
 
   @override
@@ -184,7 +254,10 @@ class StudyRepositoryImpl implements StudyRepository {
   }
 
   @override
-  Future<TopicCatalog> addTopic(String subjectId, {required String name}) async {
+  Future<TopicCatalog> addTopic(
+    String subjectId, {
+    required String name,
+  }) async {
     if (_mock) {
       final idx = _mockCatalog.indexWhere((s) => s.id == subjectId);
       final old = _mockCatalog[idx];
@@ -314,12 +387,14 @@ class StudyRepositoryImpl implements StudyRepository {
 
   @override
   Future<List<StudySession>> listSessions(String studentId) async {
-    if (_mock) return _mockSessions(studentId);
-    final r = await _apiClient.getList('$_base/students/$studentId/sessions');
-    return r
-        .whereType<Map<String, dynamic>>()
-        .map(StudyMappers.session)
-        .toList();
+    final items = <StudySession>[];
+    String? cursor;
+    do {
+      final page = await listSessionsPage(studentId, after: cursor, limit: 100);
+      items.addAll(page.items);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return items;
   }
 
   @override
@@ -360,14 +435,16 @@ class StudyRepositoryImpl implements StudyRepository {
   Future<StudySession> pauseSession(String sessionId) async {
     if (_mock) return _mockSession(id: sessionId, status: 'Paused');
     return StudyMappers.session(
-        await _apiClient.post('$_base/sessions/$sessionId/pause'));
+      await _apiClient.post('$_base/sessions/$sessionId/pause'),
+    );
   }
 
   @override
   Future<StudySession> resumeSession(String sessionId) async {
     if (_mock) return _mockSession(id: sessionId, status: 'Running');
     return StudyMappers.session(
-        await _apiClient.post('$_base/sessions/$sessionId/resume'));
+      await _apiClient.post('$_base/sessions/$sessionId/resume'),
+    );
   }
 
   @override
@@ -415,8 +492,9 @@ class StudyRepositoryImpl implements StudyRepository {
         source: 'Manual',
         effectiveMinutes: effectiveMinutes,
         startedAtUtc: studiedOnUtc.toUtc(),
-        endedAtUtc:
-            studiedOnUtc.toUtc().add(Duration(minutes: effectiveMinutes)),
+        endedAtUtc: studiedOnUtc.toUtc().add(
+          Duration(minutes: effectiveMinutes),
+        ),
         personalNote: personalNote,
       );
     }
@@ -436,9 +514,14 @@ class StudyRepositoryImpl implements StudyRepository {
 
   @override
   Future<List<TestResult>> listTests(String studentId) async {
-    if (_mock) return _mockTests();
-    final r = await _apiClient.getList('$_base/students/$studentId/test-results');
-    return r.whereType<Map<String, dynamic>>().map(StudyMappers.test).toList();
+    final items = <TestResult>[];
+    String? cursor;
+    do {
+      final page = await listTestsPage(studentId, after: cursor, limit: 100);
+      items.addAll(page.items);
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return items;
   }
 
   @override
@@ -498,7 +581,9 @@ class StudyRepositoryImpl implements StudyRepository {
   @override
   Future<List<StudyAchievement>> getAchievements(String studentId) async {
     if (_mock) return _mockAchievements();
-    final r = await _apiClient.getList('$_base/students/$studentId/achievements');
+    final r = await _apiClient.getList(
+      '$_base/students/$studentId/achievements',
+    );
     return r
         .whereType<Map<String, dynamic>>()
         .map(StudyMappers.achievement)
@@ -570,19 +655,19 @@ class StudyRepositoryImpl implements StudyRepository {
   }
 
   StudyStreak _mockStreak() => const StudyStreak(
-        currentStreakDays: 4,
-        longestStreakDays: 11,
-        totalStudyDays: 37,
-        studiedToday: true,
-        todayEffectiveMinutes: 95,
-      );
+    currentStreakDays: 4,
+    longestStreakDays: 11,
+    totalStudyDays: 37,
+    studiedToday: true,
+    todayEffectiveMinutes: 95,
+  );
 
   StudyGoal _mockGoal() => const StudyGoal(
-        dailyGoalMinutes: 120,
-        weeklyGoalMinutes: 720,
-        targetNet: 85,
-        subject: null,
-      );
+    dailyGoalMinutes: 120,
+    weeklyGoalMinutes: 720,
+    targetNet: 85,
+    subject: null,
+  );
 
   List<StudySession> _mockSessions(String studentId) {
     final today = DateTime.utc(_now.year, _now.month, _now.day);
@@ -621,8 +706,9 @@ class StudyRepositoryImpl implements StudyRepository {
         effectiveMinutes: 30,
         breakMinutes: 5,
         startedAtUtc: today.subtract(const Duration(days: 1, hours: 4)),
-        endedAtUtc:
-            today.subtract(const Duration(days: 1, hours: 3, minutes: 25)),
+        endedAtUtc: today.subtract(
+          const Duration(days: 1, hours: 3, minutes: 25),
+        ),
       ),
     ];
   }
@@ -736,9 +822,20 @@ class StudyRepositoryImpl implements StudyRepository {
       sessionCount: 9,
       perSubject: const <SubjectMinutes>[
         SubjectMinutes(
-            subject: 'Matematik', effectiveMinutes: 240, sessionCount: 4),
-        SubjectMinutes(subject: 'Fizik', effectiveMinutes: 180, sessionCount: 3),
-        SubjectMinutes(subject: 'Türkçe', effectiveMinutes: 120, sessionCount: 2),
+          subject: 'Matematik',
+          effectiveMinutes: 240,
+          sessionCount: 4,
+        ),
+        SubjectMinutes(
+          subject: 'Fizik',
+          effectiveMinutes: 180,
+          sessionCount: 3,
+        ),
+        SubjectMinutes(
+          subject: 'Türkçe',
+          effectiveMinutes: 120,
+          sessionCount: 2,
+        ),
       ],
       perDay: <DayMinutes>[
         for (var i = 0; i < 7; i++)

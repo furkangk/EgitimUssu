@@ -69,9 +69,9 @@ public sealed class MessageSentNotificationHandlerTests
         Assert.Single(await userNotifications.ListPendingPushAsync(10, default));
     }
 
-    /// <summary>Bildirim gövdesi mesajın önizlemesidir; alıcı ne geldiğini uygulamayı açmadan görür.</summary>
+    /// <summary>Bildirim gövdesi mesaj metni taşımaz.</summary>
     [Fact]
-    public async Task Notification_Body_Carries_The_Message_Preview()
+    public async Task Notification_Body_Never_Carries_The_Message_Preview()
     {
         var userNotifications = new UserNotificationTests.FakeUserNotificationRepository();
         await using var dbContext = NewDbContext();
@@ -80,7 +80,7 @@ public sealed class MessageSentNotificationHandlerTests
         await handler.HandleAsync(Envelope(Guid.NewGuid(), preview: "Yarınki dersi 15:00'a alalım mı?"));
 
         var notification = Assert.Single(await userNotifications.ListPendingPushAsync(10, default));
-        Assert.Equal("Yarınki dersi 15:00'a alalım mı?", notification.Body);
+        Assert.Equal("Bir kullanıcı size mesaj gönderdi.", notification.Body);
     }
 
     /// <summary>Başka modülün olayı bu handler'ı ilgilendirmez.</summary>
@@ -104,8 +104,8 @@ public sealed class MessageSentNotificationHandlerTests
         await using var dbContext = NewDbContext();
         var handler = NewHandler(dbContext, userNotifications);
 
-        await handler.HandleAsync(new IntegrationEvent(
-            Guid.NewGuid(), Now, "MessageSentDomainEvent", "Messaging", "null"));
+        await Assert.ThrowsAsync<PoisonMessageException>(() => handler.HandleAsync(new IntegrationEvent(
+            Guid.NewGuid(), Now, "MessageSentDomainEvent", "Messaging", "null")));
 
         Assert.Empty(await userNotifications.ListPendingPushAsync(10, default));
         Assert.Empty(dbContext.InboxMessages);

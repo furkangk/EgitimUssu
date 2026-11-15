@@ -3,7 +3,7 @@ title: "Doküman Haritası (INDEX)"
 summary: "doc/ altındaki tüm dokümanların tek listesi ve kanonik gerçekler; hangi konuda hangi dokümana bakılacağını gösterir"
 tags: [index, harita, kanonik]
 authority: derived
-updated: 2026-09-05
+updated: 2026-11-15
 ---
 
 # 📚 EğitimÜssü — Doküman Haritası (INDEX)
@@ -128,6 +128,8 @@ updated: 2026-09-05
 
 > P10 ile gelen ekran dokümanları: [`pages/messaging_inbox.md`](pages/messaging_inbox.md) (M16 gelen kutusu · okunmamış rozeti) ve [`pages/messaging_chat.md`](pages/messaging_chat.md) (sohbet · keyset sayfalama · iyimser gönderim · engelleme; **şikayet P12, gerçek zamanlı v2**).
 
+> P19 Task 7: [`pages/assignments.md`](pages/assignments.md) öğretmen/öğrenci ödev listelerini belgeler; ödev, çalışma geçmişi/notlar ve bildirim merkezi cursor ile sonsuz kaydırır.
+
 ## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
 
 > Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak fonksiyonel dokümanlar **arşivlendi** (2026-08-19) → `doc/_arsiv/*_rolu_fonksiyonel_dokuman_v1.md`; güncel otorite `doc/roles/`'tedir. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).
@@ -185,3 +187,5 @@ updated: 2026-09-05
 - **"Bu ekran nasıl görünmeli / ne yapıyor?"** → [`architecture/mobile_flutter`](architecture/mobile_flutter.md) §13 + [`pages/`](pages/00_pages_index.md)
 - **"Hangi açıkları düzeltmeliyim?"** → [`modules/mimari_inceleme`](modules/mimari_inceleme.md)
 - **"Hangi sırayla / hangi fazda geliştireyim?"** → [`yol_haritasi.md`](yol_haritasi.md) + [`jira_backlog_from_modules.csv`](jira_backlog_from_modules.csv)
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

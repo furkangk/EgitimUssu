@@ -29,7 +29,7 @@ internal sealed class PaymentsStudentMergedHandler : IdempotentIntegrationEventH
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         await PaymentsDb.PaymentRecords.Where(x => x.StudentId == payload.FromStudentId)

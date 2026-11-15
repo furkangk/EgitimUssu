@@ -52,7 +52,7 @@ public sealed class LessonSessionCompletedPaymentHandler : IdempotentIntegration
         var payload = JsonSerializer.Deserialize<LessonSessionCompletedEventPayload>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         // İş kuralı: oturum başına tek ödeme kaydı.
@@ -60,14 +60,12 @@ public sealed class LessonSessionCompletedPaymentHandler : IdempotentIntegration
             .AnyAsync(record => record.RelatedLessonSessionId == payload.LessonSessionId, cancellationToken);
         if (alreadyBilled)
         {
-            return false;
+            return true;
         }
 
         var session = await _lessonSessions.GetByIdAsync(payload.LessonSessionId, cancellationToken);
-        if (session is null || !session.IsCompleted || !session.IsChargeable)
-        {
-            return false;
-        }
+        if (session is null) throw new InvalidOperationException("Ders oturumu henüz okunamıyor.");
+        if (!session.IsCompleted || !session.IsChargeable) return true;
 
         var rate = await _students.GetAgreedLessonRateAsync(session.TeacherUserId, session.StudentId, cancellationToken);
         if (rate is null)
@@ -78,7 +76,7 @@ public sealed class LessonSessionCompletedPaymentHandler : IdempotentIntegration
                 session.Id,
                 session.TeacherUserId,
                 session.StudentId);
-            return false;
+            return true;
         }
 
         var completedOnUtc = session.CompletedOnUtc ?? payload.CompletedOnUtc;

@@ -83,7 +83,7 @@ Veliye bildirim üretir; **yalnız Premium veliye** (PRD 9.3) ve velinin tercih 
   | Ödemeyi takip eden **öğretmen** (`TeacherUserId`) | **koşulsuz** (kendi tahsilat kaydı) | `PaymentOverdue` / `/payments` |
   | Öğrencinin onaylı velileri | `Tier == Premium` **ve** `Prefs.Payments` | `PaymentOverdue` / `/parent/payments` |
 
-  Push burada gönderilmez — `NotificationDispatchProcessor` turu `PushedOnUtc == null` kayıtları toplu gönderir
+  Push burada gönderilmez — `NotificationDispatchProcessor` turu zamanı gelmiş `PushStatus=Pending` kayıtları toplu gönderir
   (Öğrenilenler #40/#55). Gövde: vade tarihi + kalan tutar + para birimi (tr-TR biçimi). **P16 T5 / N-50:** vade tarihi
   **Türkiye yerel günüdür** (`NotificationTimeText.LocalDate` — 1 Eylül 00:30 TR vade "01.09.2026", eskiden "31.08.2026");
   ödev son teslimi `dd.MM.yyyy HH:mm` **yerel** (`NotificationTimeText.LocalDateTime` — 23:59 TR "23:59", eskiden "20:59").
@@ -105,7 +105,7 @@ Veliye bildirim üretir; **yalnız Premium veliye** (PRD 9.3) ve velinin tercih 
   taşır; alıcı `IStudentDirectory.GetOwnerUserIdAsync` ile çözülür — bağlı kullanıcı yoksa bildirim atlanır ama
   olay işlenmiş sayılır (aksi hâlde outbox sonsuza dek yeniden denerdi). Push gönderim turunda yapılır.
 - **`ParentWeeklySummaryService : BackgroundService`** (6 saatte bir poll) → `ParentWeeklySummaryProcessor.RunAsync(now)` her Premium +
-  `NotifyWeeklyProgressSummary` açık veliye **hafta başına bir** `WeeklySummary` üretir; hafta dedup anahtarı deterministik `Guid(parentUserId, isoYear, isoWeek)`
+  `NotifyWeeklyProgressSummary` açık velinin **her onaylı çocuğuna hafta başına bir** `WeeklySummary` üretir; v2 dedup anahtarı deterministik `Guid(parentUserId, studentId, isoYear, isoWeek)`
   (`ProcessedIntegrationEvent` ile). Metin MVP'de sabit; V-F study verisiyle zenginleşecek. **P16 T6 / K-19 (2026-11-15):**
   hafta **Türkiye haftasıdır** — ISO hafta `ILocalCalendar.ToLocalDate(now)`'ın gece yarısından alınır, Pazartesi 00:00 TR'de
   (Pazar 21:00Z) yeni hafta başlar. Eskiden UTC anın ISO haftasıydı: Pazar 21:00–24:00Z turu bir önceki haftanın anahtarıyla
@@ -292,7 +292,7 @@ PaymentOverdueScanner (Payments, saatlik)
      → PaymentOverdueNotificationHandler (inbox idempotent)
         → UserNotification(Kind=PaymentOverdue) → öğretmen (koşulsuz)
         → UserNotification(Kind=PaymentOverdue) → Premium + Prefs.Payments açık veli
-           ↓ NotificationDispatchProcessor turu: PushedOnUtc boş olanları push eder
+           ↓ NotificationDispatchProcessor turu: zamanı gelmiş Pending kayıtları TTL/backoff kuralıyla push eder
 ```
 
 ### 🟢 Mevcut — ödev son teslim uyarısı (M06-3, 2026-09-04)
@@ -306,7 +306,7 @@ AssignmentDueScanner (Assignments, saatlik)
      → AssignmentMissedNotificationHandler (inbox idempotent)
         → UserNotification(Kind=AssignmentMissed) → öğrenci
         → UserNotification(Kind=AssignmentMissed) + ParentNotification → Premium + Prefs.MissedAssignment açık veli
-           ↓ NotificationDispatchProcessor turu: PushedOnUtc boş olanları push eder (HomeworkReminderEnabled kapısı)
+           ↓ NotificationDispatchProcessor turu: zamanı gelmiş Pending kayıtları TTL/backoff kuralıyla push eder (HomeworkReminderEnabled kapısı)
 ```
 
 ### Önerilen (yeni türler)
@@ -400,3 +400,37 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P18 T3: veli ödeme beyanı onay/ret sonucunun inbox korumalı bildirimi.*
+
+**Outbox teslimi (P19 T2 / N-42):** Bozuk/null yük ve geçersiz mesaj alıcısı açık PoisonMessageException üretir. Bir bildirim tüketicisinin hatası diğerlerini durdurmaz; başarılı olanlar inbox sayesinde tekrar bildirim üretmez. Tercih/üyelik/bağlı kullanıcı yokluğu geçerli etkisiz sonuç olarak korunur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+
+### P19 Task 6 — Push teslim kuyruğu ve özet doğruluğu (N-51, N-52, N-53)
+
+`UserNotification` üzerinde `PushAttempts` (int), `NextAttemptOnUtc` (nullable timestamptz), `ExpiresOnUtc` (timestamptz) ve `PushStatus` (Pending/Sent/Expired/Failed, string16) tutulur. Geçici teslim hatası 30 saniye × 2^(deneme−1), en fazla 1 saat gecikme verir; 8 başarısız denemede Failed olur. Başarıda Sent; cihaz yoksa veya tercih kapalıysa mevcut MarkPushed semantiğiyle kuyruktan çıkar, in-app kayıt durur. TTL oluşturma anından ders hatırlatmasında 30 dakika, diğerlerinde 24 saattir; süresi dolan push Expired olur, teslim tarihi uydurulmaz. Ayrı LessonReminder beş deneme ve oluşum doğrulaması sözleşmesini korur.
+
+Dispatcher 100 adet zamanı gelmiş veya süresi dolmuş Pending kaydı `(CreatedOnUtc,Id)` sırasıyla okur. Backoff zamanı gelmeyenler yeni kayıtları engellemez. Her sayfa için Settings tercihleri `GetManyAsync`, cihazlar `ListActiveByUsersAsync` ile tek tek toplu sorgulanır: genel push turunda **3 SELECT**, 1 veya 100 bildirimde aynı. LessonReminder turu da tercih/token toplu okur; oluşum/erişim doğrulamalarının kaynak okumaları ayrıca korunur.
+
+Mesaj bildiriminin gövdesi **“Bir kullanıcı size mesaj gönderdi.”** sabit metnidir. Mesaj içeriği ve önizlemesi kaydedilmez; gönderen adı sözleşmesi P21'dedir. `NotificationDeliveryBackoff` migration'ı mevcut TTL'leri CreatedOnUtc'den doldurur, PushedOnUtc doluysa Sent yapar ve **tüm eski MessageReceived gövdelerini de temizler**. Down yeni alan/indeksi kaldırır, güvenli metni korur. Eski outbox olay şekli değişmez; geç teslim edilen eski olay da önizlemeyi kopyalamaz.
+
+Veli hedefleri `ListApprovedTargetPageAsync` ile LinkId keyset üzerinden 200'lük sayfalarda okunur; haklar her sayfada topludur. Notifications o sayfanın dedup kimliklerini tek SELECT ile okur; bildirimler+dedup aynı SaveChanges transaction'ında yazılır, mevcut kira korunur. v2 anahtarı `(veli,öğrenci,yerel ISO hafta)` kullanır. Eski veli-hafta anahtarı ikinci çocuğu bastırmaz; geçiş haftasında ilk çocuk bir ek özet alabilir. Özet metni hâlâ sabit “hazır” bildirimidir; zengin içerik eklenmedi.
+
+Gerçek PostgreSQL kanıtı: 100 hatalı kayıt + yeni bildirim, iki saatlik ders bildirimi, kapalı tercih, 205 çocuk/iki sayfa/tekrar/yerel hafta geçişi ve ayrı DB'de Up/Down/Up. Firebase cihaz teslimi bu testin kanıtı değildir (Q8).
+
+### P19 Task 7 — Cursor listeleri (N-54)
+
+`after` veya `limit` verildiğinde yanıt `PagedResult<T>`: `{ items, page: 1, pageSize, totalCount: null, totalPages: null, nextCursor }`. Toplam sayımı yoktur; cursor son sayfada null olur. Varsayılan 50, üst sınır 100; geçersiz cursor veya 1–100 dışındaki limit `400 shared.invalid_pagination`. Cursor azalan `(UTC an, Id)` çiftidir; PostgreSQL row-value karşılaştırması bileşik indekse doğrudan atlar. Sahiplik ve mevcut filtreler her sayfada yeniden uygulanır.
+
+Bildirim merkezinin `GET /users/{userId}/notifications?onlyUnread=&after=&limit=` yolu `(CreatedOnUtc,Id)` azalan keyset kullanır. Eski `skip/take` yolu ve toplam/sayfa metadata'sı aynen korunur (`take` varsayılan20); after/limit yoksa offset çalışır. `(UserId,CreatedOnUtc,Id)` genel ve ReadOnUtc null kısmi indeksi `ListKeysetIndexes` ile eklenir. Okunmamış filtreleme ve sahiplik SQL'de uygulanır. Dispatcher'ın `ListPendingPushAsync` yolu bu UI sayfalamasından ayrıdır; backoff/TTL/PushStatus koşulları korunur. N-54'teki LessonReminder `(Status,RemindAtUtc)` kısmi indeksi P17'de zaten vardır; ikinci kez eklenmedi.
+
+Mobil merkez50kayıtla başlar, cursor sonuna kadar kaydırır. Filtre/yenileme eski isteği geçersiz kılar; tek devam isteği, hata sonrası aynı cursor'la tekrar ve dispose sonrası emit koruması vardır. Okundu geri alımı daha sonra yüklenen sayfaları silmez. Ekran metinleri tr/en ARB'dedir; sunucudan gelen bildirim başlık/gövdeleri korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+`NotificationsStudentMergedHandler`, LessonReminder ve ParentNotification öğrenci referanslarını inbox transaction içinde taşır; teslim durumları/deneme sayıları korunur. Haftalık özetlerde veli+Türkiye ISO haftası başına kanonik kayıt tercih edilir; kanonik v2 dedup işareti de yazılır. Haftalık işlemcinin 200 hedeflik sayfa okuma/yazımı ve birleşim aynı transaction advisory kilidini kullanır; yarış kalıcı çift bildirim oluşturmaz. Diğer bildirim geçmişi korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

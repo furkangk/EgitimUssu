@@ -362,6 +362,7 @@ public sealed class UserNotification : AggregateRoot<Guid>
         Body = body;
         Route = route;
         CreatedOnUtc = createdOnUtc;
+        ExpiresOnUtc = createdOnUtc.AddMinutes(kind == UserNotificationKind.LessonReminder ? 30 : 1440);
     }
 
     public Guid UserId { get; private set; }
@@ -382,11 +383,43 @@ public sealed class UserNotification : AggregateRoot<Guid>
     /// <summary>Push olarak gönderildiği an; <c>null</c> ise dispatcher turunda gönderilecek.</summary>
     public DateTime? PushedOnUtc { get; private set; }
 
+    public int PushAttempts { get; private set; }
+    public DateTime? NextAttemptOnUtc { get; private set; }
+    public DateTime ExpiresOnUtc { get; private set; }
+    public NotificationPushStatus PushStatus { get; private set; }
+    public void MarkPushFailed(DateTime nowUtc)
+    {
+        if (PushStatus != NotificationPushStatus.Pending || PushedOnUtc.HasValue) return;
+        ExpirePush(nowUtc);
+        if (PushStatus != NotificationPushStatus.Pending) return;
+        PushAttempts++;
+        if (PushAttempts >= 8)
+        {
+            PushStatus = NotificationPushStatus.Failed;
+            NextAttemptOnUtc = null;
+        }
+        else NextAttemptOnUtc = nowUtc.AddSeconds(Math.Min(3600, 30 * Math.Pow(2, PushAttempts - 1)));
+    }
+    public void ExpirePush(DateTime nowUtc)
+    {
+        if (PushStatus != NotificationPushStatus.Pending || PushedOnUtc.HasValue || nowUtc < ExpiresOnUtc) return;
+        PushStatus = NotificationPushStatus.Expired;
+        NextAttemptOnUtc = null;
+    }
+
     public bool IsRead => ReadOnUtc.HasValue;
 
     /// <summary>Okundu işareti idempotenttir; ilk okuma zamanı korunur.</summary>
     public void MarkRead(DateTime nowUtc) => ReadOnUtc ??= nowUtc;
 
     /// <summary>Push gönderimi idempotenttir; aynı bildirim iki kez push edilmez.</summary>
-    public void MarkPushed(DateTime nowUtc) => PushedOnUtc ??= nowUtc;
+    public void MarkPushed(DateTime nowUtc)
+    {
+        if (PushStatus != NotificationPushStatus.Pending) return;
+        PushedOnUtc ??= nowUtc;
+        PushStatus = NotificationPushStatus.Sent;
+        NextAttemptOnUtc = null;
+    }
 }
+
+public enum NotificationPushStatus { Pending = 0, Sent = 1, Expired = 2, Failed = 3 }

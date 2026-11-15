@@ -27,6 +27,8 @@ class FakeNotificationRepository implements NotificationRepository {
     bool onlyUnread = false,
     int skip = 0,
     int take = 20,
+    String? after,
+    int? limit,
   }) async {
     final items = onlyUnread
         ? notifications.where((item) => !item.isRead).toList()

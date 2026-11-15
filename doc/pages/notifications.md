@@ -10,7 +10,7 @@ code_refs:
   - mobile/lib/features/notifications/presentation/cubit/notification_center_state.dart
   - mobile/lib/features/notifications/data/repositories/notification_repository_impl.dart
   - mobile/lib/shared/widgets/app_page_header.dart
-updated: 2026-09-03
+updated: 2026-11-15
 ---
 
 # Bildirim Merkezi (`/notifications`)
@@ -30,7 +30,7 @@ Oturum yoksa "Bildirimleri görmek için giriş yapmalısın." boş durumu göst
 
 | İşlem | Uç |
 |-------|-----|
-| Liste | `GET /api/notifications/users/{userId}/notifications?onlyUnread=&skip=&take=` |
+| Liste | `GET /api/notifications/users/{userId}/notifications?onlyUnread=&after=&limit=` |
 | Rozet | `GET /api/notifications/users/{userId}/unread-count` |
 | Okundu | `POST /api/notifications/{notificationId}/read` |
 
@@ -65,3 +65,9 @@ Yetki: kullanıcı yalnız **kendi** bildirimlerini görür (Admin istisna) — 
 - Modül: [`../modules/m11_notifications.md`](../modules/m11_notifications.md) (M11)
 - Push zinciri: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §7.1
 - Veli bildirim tercihleri: [`../modules/m15_settings.md`](../modules/m15_settings.md) (P05)
+
+## P19 Task 7 — Sonsuz kaydırma
+
+Liste `onlyUnread/after/limit=50` ile cursor sayfası ister; sunucudan `items/nextCursor` okur. Kaydırmada tek devam isteği çalışır, son sayfada durur. Kısa sayfa görünümü otomatik doldurur. Devam hatası mevcut kartları ve cursor'u korur, alttaki yeniden deneme düğmesiyle sürer; ilk yükleme hatası tam hata görünümüdür. Tümü/Okunmamış değişimi ve yenileme cursor'u sıfırlar; önceki isteğin gecikmiş yanıtı yeni filtreyi ezmez. Kapanan cubit emit yapmaz. Ekranın tüm sabit metinleri ve göreli zamanları tr/en ARB'dedir. Eski skip/take API tüketicileri çalışmayı sürdürür.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

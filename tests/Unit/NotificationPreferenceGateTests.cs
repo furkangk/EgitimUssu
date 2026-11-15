@@ -191,6 +191,9 @@ public sealed class NotificationPreferenceGateTests
 
     private sealed class FakeUserNotificationPreferences(UserNotificationPreferences preferences) : IUserNotificationPreferences
     {
+        public Task<IReadOnlyDictionary<Guid, EgitimUssu.Shared.Contracts.UserNotificationPreferences>> GetManyAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyDictionary<Guid, EgitimUssu.Shared.Contracts.UserNotificationPreferences>>(userIds.Distinct().ToDictionary(x => x, _ => preferences));
+
         public Task<UserNotificationPreferences> GetAsync(Guid userId, CancellationToken cancellationToken)
             => Task.FromResult(preferences);
     }
@@ -220,6 +223,9 @@ public sealed class NotificationPreferenceGateTests
 
         public Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<DeviceToken>>(_tokens.Where(t => t.UserId == userId && t.IsActive).ToList());
+
+        public Task<IReadOnlyList<DeviceToken>> ListActiveByUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<DeviceToken>>(_tokens.Where(t => userIds.Contains(t.UserId) && t.IsActive).ToArray());
 
         public Task AddAsync(DeviceToken token, CancellationToken cancellationToken)
         {

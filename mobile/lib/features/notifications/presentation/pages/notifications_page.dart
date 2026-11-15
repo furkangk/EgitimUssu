@@ -5,6 +5,8 @@ import 'package:egitim_ussu_mobile/features/notifications/domain/notification_co
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notification_center_state.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/paged_list_boundary.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,20 +25,19 @@ class NotificationsPage extends StatelessWidget {
     final userId = context.select((AuthCubit c) => c.state.session?.userId);
 
     if (userId == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: EmptyStateView(
-            title: 'Bildirim yok',
-            subtitle: 'Bildirimleri görmek için giriş yapmalısın.',
+            title: AppLocalizations.of(context).p19list_noNotification,
+            subtitle: AppLocalizations.of(context).p19list_signInNotifications,
           ),
         ),
       );
     }
 
     return BlocProvider<NotificationCenterCubit>(
-      create: (_) =>
-          (cubit ?? NotificationCenterCubit.create())..load(userId),
+      create: (_) => (cubit ?? NotificationCenterCubit.create())..load(userId),
       // Okundu işaretlendiğinde uygulama genelindeki zil rozeti de anında düşsün.
       child: BlocListener<NotificationCenterCubit, NotificationCenterState>(
         listenWhen: (previous, current) =>
@@ -45,7 +46,7 @@ class NotificationsPage extends StatelessWidget {
           final badge = context.read<NotificationsCubit?>();
           badge?.setUnreadCount(state.unreadCount);
         },
-        child: const _NotificationsView(),
+        child: _NotificationsView(),
       ),
     );
   }
@@ -61,16 +62,16 @@ class _NotificationsView extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const _Header(),
-            const _FilterTabs(),
+            _Header(),
+            _FilterTabs(),
             Expanded(
               child:
                   BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
                     builder: (context, state) {
                       if (state.isLoading) {
-                        return const LoadingStateView();
+                        return LoadingStateView();
                       }
-                      if (state.errorMessage != null) {
+                      if (state.errorMessage != null && state.items.isEmpty) {
                         return ErrorStateView(
                           message: state.errorMessage!,
                           onRetry: () =>
@@ -79,10 +80,14 @@ class _NotificationsView extends StatelessWidget {
                       }
                       if (state.items.isEmpty) {
                         return EmptyStateView(
-                          title: 'Henüz bildirimin yok',
+                          title: AppLocalizations.of(
+                            context,
+                          ).p19list_noNotificationsYet,
                           subtitle: state.onlyUnread
-                              ? 'Okunmamış bildirimin yok.'
-                              : 'Ders, ödev ve ödeme bildirimleri burada görünecek.',
+                              ? AppLocalizations.of(context).p19list_noUnread
+                              : AppLocalizations.of(
+                                  context,
+                                ).p19list_notificationsHint,
                         );
                       }
 
@@ -90,11 +95,21 @@ class _NotificationsView extends StatelessWidget {
                         color: AppColors.primary,
                         onRefresh: () =>
                             context.read<NotificationCenterCubit>().refresh(),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                          itemCount: state.items.length,
-                          itemBuilder: (context, index) =>
-                              _NotificationCard(item: state.items[index]),
+                        child: PagedListBoundary(
+                          hasMore: state.nextCursor != null,
+                          isLoading: state.isLoadingMore,
+                          errorMessage: state.errorMessage,
+                          onLoadMore: context
+                              .read<NotificationCenterCubit>()
+                              .loadMore,
+                          builder: (controller) => ListView.builder(
+                            controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(16, 12, 16, 32),
+                            itemCount: state.items.length,
+                            itemBuilder: (context, index) =>
+                                _NotificationCard(item: state.items[index]),
+                          ),
                         ),
                       );
                     },
@@ -113,8 +128,8 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
@@ -131,37 +146,36 @@ class _Header extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.border),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.arrow_back_rounded,
                 color: AppColors.primary,
                 size: 20,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Bildirimler',
+                  AppLocalizations.of(context).p19list_notifications,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                BlocBuilder<
-                  NotificationCenterCubit,
-                  NotificationCenterState
-                >(
+                BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
                   buildWhen: (previous, current) =>
                       previous.unreadCount != current.unreadCount,
                   builder: (context, state) {
                     if (state.unreadCount == 0) {
-                      return const SizedBox.shrink();
+                      return SizedBox.shrink();
                     }
                     return Text(
-                      '${state.unreadCount} okunmamış',
+                      AppLocalizations.of(
+                        context,
+                      ).p19list_unreadCount(state.unreadCount.toString()),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -171,11 +185,7 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.notifications_rounded,
-            color: AppColors.primary,
-            size: 24,
-          ),
+          Icon(Icons.notifications_rounded, color: AppColors.primary, size: 24),
         ],
       ),
     );
@@ -192,18 +202,19 @@ class _FilterTabs extends StatelessWidget {
           previous.onlyUnread != current.onlyUnread,
       builder: (context, state) {
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
               _FilterChip(
-                label: 'Tümü',
+                label: AppLocalizations.of(context).p19list_all,
                 selected: !state.onlyUnread,
-                onTap: () =>
-                    context.read<NotificationCenterCubit>().setOnlyUnread(false),
+                onTap: () => context
+                    .read<NotificationCenterCubit>()
+                    .setOnlyUnread(false),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               _FilterChip(
-                label: 'Okunmamış',
+                label: AppLocalizations.of(context).p19list_unread,
                 selected: state.onlyUnread,
                 onTap: () =>
                     context.read<NotificationCenterCubit>().setOnlyUnread(true),
@@ -233,7 +244,7 @@ class _FilterChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
@@ -265,7 +276,7 @@ class _NotificationCard extends StatelessWidget {
         : AppColors.primary;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -278,7 +289,7 @@ class _NotificationCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () => _onTap(context),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -293,7 +304,7 @@ class _NotificationCard extends StatelessWidget {
                 ),
                 child: Icon(_iconFor(item.kind), color: accentColor, size: 20),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,9 +324,9 @@ class _NotificationCard extends StatelessWidget {
                                 ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text(
-                          _relativeTime(item.createdOnUtc),
+                          _relativeTime(context, item.createdOnUtc),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: AppColors.textSecondary,
@@ -324,7 +335,7 @@ class _NotificationCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       item.body,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -336,12 +347,12 @@ class _NotificationCard extends StatelessWidget {
                 ),
               ),
               if (!item.isRead) ...[
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Container(
                   width: 8,
                   height: 8,
-                  margin: const EdgeInsets.only(top: 6),
-                  decoration: const BoxDecoration(
+                  margin: EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
@@ -382,13 +393,27 @@ class _NotificationCard extends StatelessWidget {
     }
   }
 
-  static String _relativeTime(DateTime createdOnUtc) {
+  static String _relativeTime(BuildContext context, DateTime createdOnUtc) {
     final diff = DateTime.now().difference(createdOnUtc.toLocal());
 
-    if (diff.inMinutes < 1) return 'az önce';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} dk önce';
-    if (diff.inHours < 24) return '${diff.inHours} sa önce';
-    if (diff.inDays < 7) return '${diff.inDays} gün önce';
-    return '${(diff.inDays / 7).floor()} hf önce';
+    if (diff.inMinutes < 1) return AppLocalizations.of(context).p19list_justNow;
+    if (diff.inMinutes < 60) {
+      return AppLocalizations.of(
+        context,
+      ).p19list_minutesAgo(diff.inMinutes.toString());
+    }
+    if (diff.inHours < 24) {
+      return AppLocalizations.of(
+        context,
+      ).p19list_hoursAgo(diff.inHours.toString());
+    }
+    if (diff.inDays < 7) {
+      return AppLocalizations.of(
+        context,
+      ).p19list_daysAgo(diff.inDays.toString());
+    }
+    return AppLocalizations.of(
+      context,
+    ).p19list_weeksAgo((diff.inDays / 7).floor().toString());
   }
 }

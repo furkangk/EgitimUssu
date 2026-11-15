@@ -29,7 +29,7 @@ internal sealed class SchedulingStudentMergedHandler : IdempotentIntegrationEven
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         // Ç-06: öğretmen dersleri + öğrencinin kendi dersleri (self) tek tabloda (lesson_schedules) tutulur.

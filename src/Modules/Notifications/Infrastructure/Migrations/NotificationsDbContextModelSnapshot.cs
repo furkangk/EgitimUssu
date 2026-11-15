@@ -206,10 +206,24 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime>("ExpiresOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("NextAttemptOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PushAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PushStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<DateTime?>("PushedOnUtc")
                         .HasColumnType("timestamp with time zone");
@@ -234,6 +248,15 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                     b.HasIndex("PushedOnUtc");
 
                     b.HasIndex("UserId", "ReadOnUtc");
+
+                    b.HasIndex("NextAttemptOnUtc", "CreatedOnUtc", "Id")
+                        .HasDatabaseName("IX_user_notifications_push_due")
+                        .HasFilter("\"PushStatus\" = 'Pending'");
+
+                    b.HasIndex("UserId", "CreatedOnUtc", "Id");
+
+                    b.HasIndex(new[] { "UserId", "CreatedOnUtc", "Id" }, "IX_user_notifications_unread_keyset")
+                        .HasFilter("\"ReadOnUtc\" IS NULL");
 
                     b.ToTable("user_notifications", "notifications");
                 });

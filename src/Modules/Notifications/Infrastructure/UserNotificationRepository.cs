@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Modules.Notifications.Application;
 using EgitimUssu.Modules.Notifications.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -15,13 +16,16 @@ internal sealed class UserNotificationRepository : IUserNotificationRepository
         bool onlyUnread,
         int skip,
         int take,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
     {
-        var query = _dbContext.UserNotifications.Where(entity => entity.UserId == userId);
+        var query = _dbContext.UserNotifications.AsNoTracking().Where(entity => entity.UserId == userId);
         if (onlyUnread)
         {
             query = query.Where(entity => entity.ReadOnUtc == null);
         }
+
+        if (page is not null)
+            return (await query.Seek(page, x => x.CreatedOnUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken), 0);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
@@ -41,10 +45,11 @@ internal sealed class UserNotificationRepository : IUserNotificationRepository
     public Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken)
         => _dbContext.UserNotifications.FindAsync(new object?[] { notificationId }, cancellationToken).AsTask();
 
-    public async Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken, DateTime? nowUtc = null)
         => await _dbContext.UserNotifications
-            .Where(entity => entity.PushedOnUtc == null)
-            .OrderBy(entity => entity.CreatedOnUtc)
+            .Where(entity => entity.PushedOnUtc == null && entity.PushStatus == NotificationPushStatus.Pending
+                && (nowUtc == null || entity.ExpiresOnUtc <= nowUtc || entity.NextAttemptOnUtc == null || entity.NextAttemptOnUtc <= nowUtc))
+            .OrderBy(entity => entity.CreatedOnUtc).ThenBy(entity => entity.Id)
             .Take(maxCount)
             .ToArrayAsync(cancellationToken);
 

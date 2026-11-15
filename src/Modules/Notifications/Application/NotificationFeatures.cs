@@ -35,11 +35,15 @@ public sealed record ParentNotificationResponse(
 
 public interface IParentNotificationRepository
 {
+    Task<int> RunWeeklySummaryBatchAsync(Func<Task<int>> write, CancellationToken cancellationToken);
+
     Task AddAsync(ParentNotification notification, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<ParentNotification>> ListByParentAsync(Guid parentUserId, CancellationToken cancellationToken);
 
     Task<bool> HasProcessedAsync(Guid eventId, CancellationToken cancellationToken);
+
+    Task<IReadOnlySet<Guid>> GetProcessedAsync(IReadOnlyCollection<Guid> eventIds, CancellationToken cancellationToken);
 
     void MarkProcessed(Guid eventId, string eventName, DateTime nowUtc);
 
@@ -136,6 +140,8 @@ public interface IDeviceTokenRepository
 
     Task<IReadOnlyList<DeviceToken>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<DeviceToken>> ListActiveByUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
     Task AddAsync(DeviceToken deviceToken, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
@@ -213,7 +219,7 @@ public sealed class UnregisterDeviceTokenCommandHandler : ICommandHandler<Unregi
 }
 
 // M11-3/M11-4: Rolden bagimsiz in-app bildirim merkezi (liste + rozet + okundu).
-public sealed record ListUserNotificationsQuery(Guid UserId, bool OnlyUnread, int Skip, int Take)
+public sealed record ListUserNotificationsQuery(Guid UserId, bool OnlyUnread, int Skip, int Take, string? After = null, int? Limit = null)
     : IQuery<Result<PagedResult<UserNotificationResponse>>>;
 
 public sealed record GetUnreadNotificationCountQuery(Guid UserId) : IQuery<Result<int>>;
@@ -238,14 +244,14 @@ public interface IUserNotificationRepository
         bool onlyUnread,
         int skip,
         int take,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null);
 
     Task<int> CountUnreadAsync(Guid userId, CancellationToken cancellationToken);
 
     Task<UserNotification?> GetByIdAsync(Guid notificationId, CancellationToken cancellationToken);
 
-    /// <summary>Henuz push edilmemis bildirimler (dispatcher turu bunlari gonderir).</summary>
-    Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken);
+    /// <summary>Zamanı gelmiş veya süresi dolmuş Pending bildirimler; dispatcher UTC anını verir.</summary>
+    Task<IReadOnlyList<UserNotification>> ListPendingPushAsync(int maxCount, CancellationToken cancellationToken, DateTime? nowUtc = null);
 
     Task AddAsync(UserNotification notification, CancellationToken cancellationToken);
 
@@ -269,6 +275,15 @@ public sealed class ListUserNotificationsQueryHandler
         ListUserNotificationsQuery query,
         CancellationToken cancellationToken)
     {
+        if (query.After is not null || query.Limit.HasValue)
+        {
+            if (!KeysetPage.TryCreate(query.After, query.Limit, out var page))
+                return Result<PagedResult<UserNotificationResponse>>.Failure(KeysetPage.Invalid);
+            var (rows, _) = await _repository.ListAsync(query.UserId, query.OnlyUnread, 0, page.Limit, cancellationToken, page);
+            return Result<PagedResult<UserNotificationResponse>>.Success(
+                page.Finish(rows.Select(ToResponse).ToArray(), x => x.CreatedOnUtc, x => x.Id));
+        }
+
         var skip = Math.Max(query.Skip, 0);
         var take = Math.Clamp(query.Take <= 0 ? 20 : query.Take, 1, MaxTake);
 

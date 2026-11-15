@@ -6,10 +6,13 @@ import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contra
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignments_list_cubit.dart';
 import 'package:egitim_ussu_mobile/features/assignments/presentation/cubit/assignments_list_state.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/paged_list_boundary.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 class AssignmentsPage extends StatefulWidget {
@@ -20,14 +23,21 @@ class AssignmentsPage extends StatefulWidget {
 }
 
 enum _AssignmentFilter {
-  all('Tümü'),
-  pending('Bekleyen'),
-  inProgress('Devam'),
-  completed('Tamamlanan');
+  all,
+  pending,
+  inProgress,
+  completed;
 
-  const _AssignmentFilter(this.label);
-
-  final String label;
+  String label(BuildContext context) => switch (this) {
+    _AssignmentFilter.all => AppLocalizations.of(context).p19list_all,
+    _AssignmentFilter.pending => AppLocalizations.of(context).p19list_pending,
+    _AssignmentFilter.inProgress => AppLocalizations.of(
+      context,
+    ).p19list_inProgress,
+    _AssignmentFilter.completed => AppLocalizations.of(
+      context,
+    ).p19list_completedGroup,
+  };
 
   bool matches(String? status) {
     return switch (this) {
@@ -85,7 +95,11 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Puan kaydedildi: ${result.score}'),
+          content: Text(
+            AppLocalizations.of(
+              context,
+            ).p19list_scoreSaved(result.score.toString()),
+          ),
           backgroundColor: AppColors.accentGreen,
         ),
       );
@@ -110,7 +124,7 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
       value: _cubit,
       child: Scaffold(
         backgroundColor: AppColors.background,
-        bottomNavigationBar: const AppBottomNav(current: AppNavTab.none),
+        bottomNavigationBar: AppBottomNav(current: AppNavTab.none),
         body: SafeArea(
           child: BlocBuilder<AssignmentsListCubit, AssignmentsListState>(
             builder: (context, state) {
@@ -131,49 +145,62 @@ class _AssignmentsPageState extends State<AssignmentsPage> {
                   }
                   return Future<void>.value();
                 },
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-                  children: <Widget>[
-                    const AppPageHeader(title: 'Ödevler'),
-                    const SizedBox(height: 20),
-                    _SummaryRow(assignments: state.assignments),
-                    const SizedBox(height: 18),
-                    _FilterTabs(
-                      selected: _filter,
-                      onChanged: (f) => setState(() => _filter = f),
-                    ),
-                    const SizedBox(height: 14),
-                    if (state.isLoading)
-                      _ShimmerList()
-                    else if (state.errorMessage != null)
-                      _ErrorCard(
-                        message: state.errorMessage!,
-                        onRetry: () {
-                          final userId = context
-                              .read<AuthCubit>()
-                              .state
-                              .session
-                              ?.userId;
-                          if (userId != null) {
-                            _cubit.load(userId);
-                          }
-                        },
-                      )
-                    else if (filtered.isEmpty)
-                      _EmptyCard(filter: _filter)
-                    else
-                      ...filtered.map(
-                        (a) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _AssignmentTile(
-                            item: a,
-                            onGrade: a.id == null
-                                ? null
-                                : () => _openGradeSheet(a),
+                child: PagedListBoundary(
+                  hasMore: state.nextCursor != null,
+                  isLoading: state.isLoadingMore,
+                  errorMessage: state.assignments.isEmpty
+                      ? null
+                      : state.errorMessage,
+                  onLoadMore: _cubit.loadMore,
+                  builder: (controller) => ListView(
+                    controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(16, 10, 16, 20),
+                    children: <Widget>[
+                      AppPageHeader(
+                        title: AppLocalizations.of(context).p19list_assignments,
+                      ),
+                      SizedBox(height: 20),
+                      _SummaryRow(assignments: state.assignments),
+                      SizedBox(height: 18),
+                      _FilterTabs(
+                        selected: _filter,
+                        onChanged: (f) => setState(() => _filter = f),
+                      ),
+                      SizedBox(height: 14),
+                      if (state.isLoading)
+                        _ShimmerList()
+                      else if (state.errorMessage != null &&
+                          state.assignments.isEmpty)
+                        _ErrorCard(
+                          message: state.errorMessage!,
+                          onRetry: () {
+                            final userId = context
+                                .read<AuthCubit>()
+                                .state
+                                .session
+                                ?.userId;
+                            if (userId != null) {
+                              _cubit.load(userId);
+                            }
+                          },
+                        )
+                      else if (filtered.isEmpty)
+                        _EmptyCard(filter: _filter)
+                      else
+                        ...filtered.map(
+                          (a) => Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: _AssignmentTile(
+                              item: a,
+                              onGrade: a.id == null
+                                  ? null
+                                  : () => _openGradeSheet(a),
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -198,7 +225,7 @@ class _SummaryRow extends StatelessWidget {
     final completed = assignments.where((a) => a.status == 'Completed').length;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(22),
@@ -208,44 +235,44 @@ class _SummaryRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Ödev Özeti',
+            AppLocalizations.of(context).p19list_assignmentSummary,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
-            'Tüm öğrencilerin ödev durumu',
+            AppLocalizations.of(context).p19list_assignmentSummaryHint,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Colors.white.withValues(alpha: 0.72),
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Row(
             children: <Widget>[
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Bekleyen',
+                  label: AppLocalizations.of(context).p19list_pending,
                   value: '$pending',
                   icon: Icons.hourglass_empty_rounded,
                   color: AppColors.amber,
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Devam',
+                  label: AppLocalizations.of(context).p19list_inProgress,
                   value: '$inProgress',
                   icon: Icons.autorenew_rounded,
                   color: AppColors.accentBlue,
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Tamamlanan',
+                  label: AppLocalizations.of(context).p19list_completedGroup,
                   value: '$completed',
                   icon: Icons.check_circle_outline_rounded,
                   color: AppColors.accentGreen,
@@ -275,8 +302,8 @@ class _SummaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 96),
-      padding: const EdgeInsets.all(10),
+      constraints: BoxConstraints(minHeight: 96),
+      padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
@@ -286,7 +313,7 @@ class _SummaryMetric extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(icon, color: color, size: 20),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(
             label,
             maxLines: 2,
@@ -296,7 +323,7 @@ class _SummaryMetric extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -319,7 +346,7 @@ class _FilterTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -333,8 +360,8 @@ class _FilterTabs extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               onTap: () => onChanged(f),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                duration: Duration(milliseconds: 160),
+                padding: EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
@@ -342,7 +369,7 @@ class _FilterTabs extends StatelessWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    f.label,
+                    f.label(context),
                     maxLines: 1,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: isSelected
@@ -371,155 +398,155 @@ class _AssignmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (color, icon, label) = _statusMeta(item.status);
-    final dueText = _dueLabel(item.dueDateUtc);
+    final (color, icon, label) = _statusMeta(context, item.status);
+    final dueText = _dueLabel(context, item.dueDateUtc);
 
     return InkWell(
       borderRadius: BorderRadius.circular(22),
       onTap: onGrade,
       child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadows.soft,
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+        padding: EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadows.soft,
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 22),
             ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (item.description.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 3),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
                   Text(
-                    item.description,
+                    item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                ],
-                if (dueText != null) ...<Widget>[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: <Widget>[
-                      Icon(
-                        Icons.event_rounded,
-                        size: 13,
+                  if (item.description.isNotEmpty) ...<Widget>[
+                    SizedBox(height: 3),
+                    Text(
+                      item.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textSecondary,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        dueText,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    ),
+                  ],
+                  if (dueText != null) ...<Widget>[
+                    SizedBox(height: 6),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.event_rounded,
+                          size: 13,
                           color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 4),
+                        Text(
+                          dueText,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
                   ),
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (item.isGraded) ...<Widget>[
+                  SizedBox(height: 6),
+                  _ScoreBadge(score: item.score!),
                 ],
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              if (item.isGraded) ...<Widget>[
-                const SizedBox(height: 6),
-                _ScoreBadge(score: item.score!),
-              ],
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 
-  static (Color, IconData, String) _statusMeta(String? status) {
+  static (Color, IconData, String) _statusMeta(
+    BuildContext context,
+    String? status,
+  ) {
     return switch (status) {
-      'Pending' => (AppColors.amber, Icons.hourglass_empty_rounded, 'Bekleyen'),
-      'InProgress' => (AppColors.accentBlue, Icons.autorenew_rounded, 'Devam'),
+      'Pending' => (
+        AppColors.amber,
+        Icons.hourglass_empty_rounded,
+        AppLocalizations.of(context).p19list_pending,
+      ),
+      'InProgress' => (
+        AppColors.accentBlue,
+        Icons.autorenew_rounded,
+        AppLocalizations.of(context).p19list_inProgress,
+      ),
       'Completed' => (
         AppColors.accentGreen,
         Icons.check_circle_outline_rounded,
-        'Tamamlandı',
+        AppLocalizations.of(context).p19list_completed,
       ),
-      'Cancelled' => (AppColors.accentRed, Icons.cancel_outlined, 'İptal'),
+      'Cancelled' => (
+        AppColors.accentRed,
+        Icons.cancel_outlined,
+        AppLocalizations.of(context).p19list_cancelled,
+      ),
       'Approved' => (
         AppColors.accentGreen,
         Icons.verified_rounded,
-        'Onaylandı',
+        AppLocalizations.of(context).p19list_approved,
       ),
       'ReturnedForRevision' => (
         AppColors.amber,
         Icons.replay_rounded,
-        'Revizyon',
+        AppLocalizations.of(context).p19list_revision,
       ),
       _ => (AppColors.purple, Icons.assignment_outlined, status ?? '-'),
     };
   }
 
-  static String? _dueLabel(DateTime? date) {
+  static String? _dueLabel(BuildContext context, DateTime? date) {
     if (date == null) return null;
-    const months = <String>[
-      'Oca',
-      'Şub',
-      'Mar',
-      'Nis',
-      'May',
-      'Haz',
-      'Tem',
-      'Ağu',
-      'Eyl',
-      'Eki',
-      'Kas',
-      'Ara',
-    ];
-    final local = date.toLocal();
-    return '${local.day} ${months[local.month - 1]} ${local.year}';
+    return DateFormat.yMMMd(
+      Localizations.localeOf(context).toString(),
+    ).format(date.toLocal());
   }
 }
 
@@ -527,13 +554,13 @@ class _ShimmerList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFEEF4FB),
+      baseColor: Color(0xFFEEF4FB),
       highlightColor: Colors.white,
       child: Column(
         children: List<Widget>.generate(
           5,
           (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: EdgeInsets.only(bottom: 12),
             child: Container(
               height: 80,
               decoration: BoxDecoration(
@@ -557,7 +584,7 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -570,19 +597,21 @@ class _EmptyCard extends StatelessWidget {
             size: 40,
             color: AppColors.textSecondary.withValues(alpha: 0.5),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             filter == _AssignmentFilter.all
-                ? 'Henüz ödev yok'
-                : '${filter.label} ödev yok',
+                ? AppLocalizations.of(context).p19list_noAssignments
+                : AppLocalizations.of(
+                    context,
+                  ).p19list_filteredEmpty(filter.label(context)),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
-            'Ders sonrası ödev vermek için ders detayından takip ekleyebilirsiniz.',
+            AppLocalizations.of(context).p19list_giveAssignmentHint,
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -604,7 +633,7 @@ class _ErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -617,15 +646,15 @@ class _ErrorCard extends StatelessWidget {
             size: 36,
             color: AppColors.accentRed,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Text(
-            'Ödevler yüklenemedi',
+            AppLocalizations.of(context).p19list_assignmentsFailed,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -633,14 +662,16 @@ class _ErrorCard extends StatelessWidget {
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 14),
-          TextButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
+          SizedBox(height: 14),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(AppLocalizations.of(context).p19list_retry),
+          ),
         ],
       ),
     );
   }
 }
-
 
 /// M06-4: Ödev puan rozeti (0–100).
 class _ScoreBadge extends StatelessWidget {
@@ -651,13 +682,13 @@ class _ScoreBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '$score puan',
+        AppLocalizations.of(context).p19list_scoreValue(score.toString()),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: AppColors.primary,
           fontWeight: FontWeight.w900,
@@ -704,8 +735,8 @@ class _GradeSheetState extends State<_GradeSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -723,15 +754,15 @@ class _GradeSheetState extends State<_GradeSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Text(
-              'Ödevi değerlendir',
+              AppLocalizations.of(context).p19list_reviewAssignment,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text(
               widget.item.title,
               maxLines: 2,
@@ -740,17 +771,17 @@ class _GradeSheetState extends State<_GradeSheet> {
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             Row(
               children: <Widget>[
                 Text(
-                  'Puan',
+                  AppLocalizations.of(context).p19list_score,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const Spacer(),
+                Spacer(),
                 _ScoreBadge(score: _score.round()),
               ],
             ),
@@ -763,17 +794,19 @@ class _GradeSheetState extends State<_GradeSheet> {
               activeColor: AppColors.primary,
               onChanged: (value) => setState(() => _score = value),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             TextField(
               controller: _feedback,
               maxLines: 3,
               maxLength: 2000,
-              decoration: const InputDecoration(
-                labelText: 'Geri bildirim (isteğe bağlı)',
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(
+                  context,
+                ).p19list_feedbackOptional,
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -785,7 +818,7 @@ class _GradeSheetState extends State<_GradeSheet> {
                         : _feedback.text.trim(),
                   ),
                 ),
-                child: const Text('Puanı kaydet'),
+                child: Text(AppLocalizations.of(context).p19list_saveScore),
               ),
             ),
           ],

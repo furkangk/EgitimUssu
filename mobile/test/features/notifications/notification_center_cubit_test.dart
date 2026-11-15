@@ -147,6 +147,8 @@ class _FakeNotificationRepository implements NotificationRepository {
     bool onlyUnread = false,
     int skip = 0,
     int take = 20,
+    String? after,
+    int? limit,
   }) async {
     if (failList) {
       throw const ApiException(message: 'Bildirimler yüklenemedi.');

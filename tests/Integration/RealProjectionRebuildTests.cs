@@ -13,7 +13,7 @@ namespace EgitimUssu.Tests.Integration;
 /// <para>
 /// Burada kanıtlanan şey, `IProjectionRebuilder`'ın <i>uygulaması</i> değil (o host seviyesindedir,
 /// Öğrenilenler #93 → P12), o uygulamanın dayandığı **özellik**tir: M14 projeksiyonları aynı event
-/// akışının saf bir katlaması (fold) mıdır? Üç faz:
+/// akışı ve güncel Study kaynağıyla aynı değerlere döner mi? Üç faz:
 /// </para>
 /// <list type="number">
 ///   <item>Olay akışı işlenir → sayaçlar okunur.</item>
@@ -43,6 +43,19 @@ public sealed class RealProjectionRebuildTests(ContainerFixture fixture)
         var teacherUserId = Guid.NewGuid();
         var studentId = Guid.NewGuid();
         var stream = BuildEventStream(teacherUserId, studentId);
+
+        // P19 T5: Study düzeltmeleri artık payload yerine güncel kalıcı kaynaktan uzlaştırılır.
+        await using (var seed = factory.Services.CreateAsyncScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<EgitimUssu.Modules.Study.Infrastructure.StudyDbContext>();
+            var session = EgitimUssu.Modules.Study.Domain.StudySession.CreateManual(
+                Guid.Parse("55555555-5555-5555-5555-555555555555"), studentId, "Matematik", null, 95, September, null, false, false, September);
+            var test = new EgitimUssu.Modules.Study.Domain.TestResult(
+                Guid.Parse("66666666-6666-6666-6666-666666666666"), studentId, "Matematik", "Türev", null,
+                EgitimUssu.Modules.Study.Domain.TestType.Subject, 40, 30, 0, 10, 4, null, September, false, false, September);
+            session.ClearDomainEvents(); test.ClearDomainEvents();
+            db.AddRange(session, test); await db.SaveChangesAsync();
+        }
 
         // --- Faz 1: ilk besleme -----------------------------------------------------------------
         await PublishAsync(factory, stream);

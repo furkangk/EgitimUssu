@@ -175,13 +175,15 @@ Motivasyon çekirdeği: ardışık çalışılan gün sayısı ve kişisel rekor
 | `TotalStudyDays` | `int` | ✓ | Toplam çalışılan gün sayısı |
 | `UpdatedOnUtc` | `DateTime` | ✓ | |
 
-**Davranış:** `RegisterStudyDay(localDate)` →
-- aynı gün ise no-op,
-- dün ise `CurrentStreakDays++`,
-- arada boşluk varsa `CurrentStreakDays = 1` (seri kırıldı, `StreakBrokenDomainEvent`),
-- `LongestStreakDays` güncellenir; rekor kırılırsa `StreakMilestoneReachedDomainEvent`.
+**Davranış (P19 T1 / N-40):** `StudyStreakCalculator` tamamlanmış seansları **bitiş anının seri gününe** gruplar. SQL'de henüz görünmeyen mevcut seans ID ile birleştirilir; zaten listelenmişse ikinci kez eklenmez. `RegisterStudyDay(localDate, studyDays, today, nowUtc)` ve `Recalculate` tarih sıralı tekil günlerden toplamı, son günü, en uzun ve güncel ardışıklığı kurar. Aynı geçmiş güne iki manuel giriş yalnız bir gün sayar; eksik geçmiş gün ardışıklığı da birleştirir. `Recalculate` geçmiş bildirim olaylarını üretmez; normal tamamlamada yeni rekor ve ileri tarihte seri kırılması mevcut olaylarla bildirilir.
 
-**Streak eşiği (B3):** `RegisterStudyDay` artık her tamamlanan seansta çağrılmaz. `StudyCompletionService`, o günün (04:00 tabanlı `StudyLocalTime.StudyDay`) toplam efektif dakikasını hesaplar ve yalnız eşik aşılınca günü seriye işler. Eşik saf `StreakRules` sınıfındadır: günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk** (`MinFixedThresholdMinutes`). Gün sınırı 04:00'tir (gece geç çalışan öğrenci dünü korur).
+**Eşik ve saat:** Günlük hedef varsa `ceil(DailyGoalMinutes × StreakThresholdPercent / 100)`, hedef yoksa sabit **20 dk**. Pencere yerel **[04:00, ertesi gün 04:00)** (`StudyDayRangeUtc`); TR 01:30 önceki seri günüdür, tam 04:00 yeni gündür. `StudyDay` yerel duvar saatini kullanır; DST olan dilimlerde de 04:00 korunur. Yeniden hesap mevcut aktif hedefi kullanır; hedef geçmişi tutulmaz. İstatistikte bugünkü dakikalar ve haftalık özet yerel **gece yarısını** korur.
+
+**Okuma:** `CurrentAt(studyDay)` son uygun gün dünden eskiyse **0** döndürür; rekor/toplam/son gün korunur. `GET streak` (`studiedToday` dahil), dashboard, başarım ilerlemesi ve veli `IStudyDigestDirectory` bu kuralı paylaşır. Seri eşiğine ulaşmamış bugünkü dakika, `studiedToday=true` yapmaz.
+
+**Tek seferlik onarım:** `Study:RepairStreaksOnStartup=true` (varsayılan kapalı) ile migration/demo seed sonrası, HTTP öncesi `StudyStreakRepairJob` çalışır. Öğrencileri 100'lük partilerle seanslardan yeniden kurar; seansı kalmamış eski sayaçları da sıfırlar. PostgreSQL transaction advisory lock (`study:streak-repair-v1`) ile tüm onarım ve `module_states` işareti atomiktir. Sonraki açılışlar/çağrılar işaret nedeniyle yazmaz; hata açılışı durdurur ve tekrar denenebilir. Şema/migration değişmez; eski rozetler geri alınmaz ve eski olaylar tekrar yayımlanmaz. Oturum başına seans geçmişi yeniden okunur; özetlenmiş gün tablosu henüz yoktur.
+
+**Kanıt:** EF InMemory ile kaydetmeden önce manuel/kronometre bitişi, 04:00 eşiği, geçmiş gün tekilliği, kırılmış okuma ve onarım; gerçek PostgreSQL + HTTP seri senaryosu. Ayrı yerel **Staging** veritabanındaki 12 demo seansta iki öğrencinin kontrollü `99/99/99` sayaçları **`0/1/6`** oldu; işaret yazımına eklenen yapay hata ara parti yazımlarını geri aldı; ikinci başarılı çağrı ve yeniden açılış aynı değerleri/tarihleri korudu (15 Kasım 2026).
 
 ### 2.5 `Achievement` / `StudentAchievement` — Başarım rozetleri
 
@@ -278,7 +280,7 @@ GET    /api/study/sessions/{id}                                 → 200 seans de
 PUT    /api/study/sessions/{id}
        body: { subject, topic?, effectiveMinutes, personalNote? } → 200 (yalnız tamamlanmış seans; konu rollup yeniden türetilir)
 DELETE /api/study/sessions/{id}                                 → 200 (konu rollup yeniden türetilir)
-GET    /api/study/students/{studentId}/sessions?from=&to=&subject=
+GET    /api/study/students/{studentId}/sessions?from=&to=&subject=&after=&limit=
                                                                 → 200 seans listesi (sayfalı)
 GET    /api/study/students/{studentId}/weekly-summary?weekStart=
                                                                 → 200 { totalMinutes, perSubject[], perDay[] }
@@ -296,7 +298,7 @@ PUT    /api/study/test-results/{id}
                correct, wrong, blank, penaltyDivisor?, durationMinutes?,
                takenOnUtc }                                      → 200 (net yeniden hesaplanır)
 DELETE /api/study/test-results/{id}                             → 200
-GET    /api/study/students/{studentId}/test-results?subject=&from=&to=
+GET    /api/study/students/{studentId}/test-results?subject=&topic=&from=&to=&after=&limit=
                                                                 → 200 liste
 GET    /api/study/students/{studentId}/net-trend?subject=&topic=
                                                                 → 200 zaman serisi (net artış/azalış)
@@ -351,7 +353,7 @@ DELETE /api/study/topics/{topicId}                         → 200
 Öğrencinin kendi tuttuğu not (`StudyNote`). Öğretmenin ders oturumuna bağlı `LessonNote`'undan (M06) **ayrıdır**;
 öğrencinin kendi çalışma dünyasına aittir, opsiyonel ders/konu ile ilişkilendirilir.
 ```
-GET    /api/study/students/{studentId}/notes                          → 200 notlar (güncelleme sırasına göre)
+GET    /api/study/students/{studentId}/notes?after=&limit=            → 200 notlar (oluşturulma zamanı/Id azalan)
 POST   /api/study/students/{studentId}/notes
        body: { title, body, subject?, topic?, attachmentUrl? }        → 200 not
 PUT    /api/study/notes/{noteId}   body: { title, body, subject?, topic?, attachmentUrl? }  → 200
@@ -368,7 +370,7 @@ DELETE /api/study/notes/{noteId}                                       → 200
 - Aynı anda bir öğrencinin yalnızca **bir `Running`/`Paused` seansı** olabilir (yeni başlatma öncekini engeller veya devralmayı önerir).
 - `Discarded` seanslar hiçbir istatistiğe (süre, streak, konu rollup) **dahil edilmez**.
 - Çok uzun (örn. > 8 saat) açık kalan seans için otomatik kapatma/uyarı önerilir (sayaç unutulması).
-- **Seans düzenle/sil (S-08.10):** Yalnızca **tamamlanmış** seans düzenlenir (`EditCompleted`: ders/konu/süre/not; süre > 0). Düzenleme/silme sonrası ilgili `(Subject, Topic)` **konu rollup'ı** (`StudyTopic`) o öğrencinin tamamlanmış seanslarından **yeniden türetilir** (`StudyRecompute.RebuildTopicAsync`; konu değişirse hem eski hem yeni konu için). Kalan seans yoksa rollup silinir. **Streak zinciri v1'de retroaktif geri sarılmaz** (YAGNI): o günün streak-uygunluğu bir sonraki seans kaydında yeniden değerlendirilir.
+- **Seans düzenle/sil (S-08.10):** Yalnızca **tamamlanmış** seans düzenlenir (`EditCompleted`: ders/konu/süre/not; süre > 0). Düzenleme/silme sonrası ilgili `(Subject, Topic)` **konu rollup'ı** (`StudyTopic`) o öğrencinin tamamlanmış seanslarından **yeniden türetilir** (`StudyRecompute.RebuildTopicAsync`; konu değişirse hem eski hem yeni konu için). Kalan seans yoksa rollup silinir. Seri sayaçları düzenle/sil anında güncellenmez; bir sonraki tamamlama tüm seans geçmişinden yeniden hesaplar (olay yayılımı P19 T5).
 
 ### 4.2 Manuel giriş
 - Kronometre kullanmadan geçmişe dönük seans eklenebilir (`Source = Manual`); `studiedOnUtc` bugünden ileri olamaz.
@@ -376,14 +378,14 @@ DELETE /api/study/notes/{noteId}                                       → 200
 ### 4.3 Test/net hesabı
 - **Doğrulama:** `Correct + Wrong + Blank == TotalQuestions` (ihlalde komut reddedilir).
 - **Net formülü:** `Net = Correct - (Wrong / PenaltyDivisor)`; varsayılan `PenaltyDivisor = 4` (4 yanlış 1 doğruyu götürür).
-- **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/YDS/diğer → 4**, **School → null** (okul denemesi **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
+- **Sınav tipine göre ceza böleni (`ExamPenalty.DivisorFor`, B4):** Saf, testli yardımcı (Study/Application). Açık `PenaltyDivisor` verilmezse böleni öğrencinin **hedef sınavından** (string) türetir: **LGS → 3**, **TYT/AYT/diğer → 4**, **School/YDS → null** (okul denemesi ve YDS **yanlış götürmez**; handler bunu `int.MaxValue` bölene çevirir → `Net ≈ Correct`). `null/None/bilinmeyen → 4`. Hedef sınav M03 `StudentProfile.TargetExam`'da tutulur; Study, Students'a referans vermez — değer istemci üzerinden geçer.
 - `Net` negatif olabilir; saklanır (ham veri).
 - **Test düzenle/sil (S-08.18):** `TestResult.Edit` aynı doğrulamayı uygular ve **net'i D/Y/B'den yeniden hesaplar**; düzenlemede `PenaltyDivisor` verilmezse mevcut bölen korunur (LGS `3` ve yanlış götürmeyen okul sınavı metadata düzeltmesiyle `4`'e dönmez); silme kaydı kaldırır. Sahiplik `testResultId` üzerinden (öğrenci yalnız kendi kaydı; admin serbest).
 
 ### 4.4 Streak & hedef
-- Bir gün **en az 1 tamamlanmış seans** (veya günlük hedef dakikasının karşılanması — konfigüre edilebilir) o günü "çalışılmış" sayar.
-- Seri, öğrencinin **yerel takvim günü** üzerinden hesaplanır (zaman dilimi M15'ten).
-- Günlük hedef karşılandığında `dashboard.todayProgress` "tamamlandı" döner; ardışık günlerde rozet eşiği kontrol edilir.
+- Yalnız tamamlanmış seanslar ve §2.4'teki günlük eşik sayılır; tek kısa seans kendiliğinden bir gün oluşturmaz.
+- Seri günü `ILocalCalendar` üzerinde yerel 04:00'te döner. Günlük/haftalık dakika istatistiği gece yarısını kullanır.
+- Günlük hedef karşılandığında dashboard ilerlemesi tamamlandı döner; seri rozetleri uygun günlerin ardışıklığından değerlendirilir.
 
 ### 4.5 Gizlilik & paylaşım (PRD §M08 "Veli ile Paylaşım")
 - Öğrenci, her veri türü için (çalışma süresi / test) veli ve öğretmenle paylaşımı **ayrı ayrı** kontrol eder (`IsSharedWith*` bayrakları + M15 tercihleri).
@@ -535,3 +537,41 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P19 Task 1 / N-40: kaydedilmemiş seans, 04:00 penceresi, tekil geçmiş gün, kırılmış seri okuması ve tek seferlik onarım.*
+
+**Outbox teslimi (P19 T2 / N-42):** Profil birleşme tüketicisinde null yük açık poison hatasıdır; aynı event'in başarılı birleşme işlemi inbox ile tekrar uygulanmaz. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+**P19 T5 — düzenleme/silme yayılımı (N-47, 2026-11-15):** `StudySession.EditCompleted` ve `TestResult.Edit` yeni `StudySessionEditedDomainEvent` / `TestResultEditedDomainEvent` üretir. Gerçek repository silmeden önce `NotifyDeleted` çağırır; `StudySessionDeletedDomainEvent` / `TestResultDeletedDomainEvent` silinen aggregate izlenirken aynı SaveChanges ile outbox'a alınır. Eski tamamlanma/kayıt olaylarının şeması korunur; yeni olaylar kaynak kayıt ve öğrenci kimliğini taşır. Mevcut edit/delete HTTP ve yanıt sözleşmesi değişmedi.
+
+`IStudyStatisticsReader.ReadAsync(studentId, ct)` yalnız öğrencinin güncel tamamlanmış seanslarını ve testlerini döndürür (kişisel not/dosya/paylaşım alanı taşımaz). M10 hâkimiyeti ve M14 hafta/ay test satırları altı olayda bu kaynağa göre uzlaştırılır; silinen veya eski döneme taşınan katkı temizlenir. Gecikmiş eski kayıt olayı da güncel kaynağı okur, silineni diriltmez. Kaynak öğrenci bazındadır; P19 T7 ölçek ölçümü ve tam kaynak okuma kararı aşağıdadır.
+
+`MockExam.TotalNet`, gerçek repository'de değişen/eklenen/silinen bileşenlerin DB netleri + izlenen değişikliklerinden yeniden hesaplanır. Deneme bazlı PostgreSQL transaction advisory kilidi, bileşen yazımı/toplam/outbox ile aynı transaction'dadır; farklı iki bileşenin eşzamanlı değişimi toplamı ezmez. Son bileşen silinince toplam sıfırdır, deneme kaydı korunur. Yeni kolon/migration yoktur. Bu görev tarihî snapshot/rozet/kapanmış hedefleri geri almaz; mevcut yerel konu rollup'ı ve seri onarım mekanizması korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 5: düzenleme/silme olayları ve deneme toplamının atomik yeniden hesabı.*
+
+
+### P19 Task 6 — YDS neti (N-55)
+
+`ExamPenalty.DivisorFor("YDS")` büyük/küçük harf ve çevre boşluklarından bağımsız olarak `null` döndürür; School ile aynı cezasız yol kullanılır. Handler'ın mevcut int.MaxValue temsili, iki ondalıklı net hesabında yanlışların doğruyu azaltmamasını sağlar. Açık pozitif penaltyDivisor önceliği ve eski kayıtlar korunur.
+
+### P19 Task 7 — Cursor listeleri (N-54)
+
+`after` veya `limit` verildiğinde yanıt `PagedResult<T>`: `{ items, page: 1, pageSize, totalCount: null, totalPages: null, nextCursor }`. Toplam sayımı yoktur; cursor son sayfada null olur. Varsayılan 50, üst sınır 100; geçersiz cursor veya 1–100 dışındaki limit `400 shared.invalid_pagination`. Cursor azalan `(UTC an, Id)` çiftidir; PostgreSQL row-value karşılaştırması bileşik indekse doğrudan atlar. Sahiplik ve mevcut filtreler her sayfada yeniden uygulanır.
+
+`GET /students/{studentId}/sessions?from=&to=&subject=&after=&limit=&after=&limit=`, `/test-results?subject=&topic=&from=&to=&after=&limit=` ve `/notes?after=&limit=` sayfalıdır. Parametresiz çağrıda eski dizi biçimiyle ilk50 korunur. Seans StartedAtUtc, test TakenOnUtc, not CreatedOnUtc anahtarını kullanır; not düzenlemek sayfa sırasını değiştirmez. Free son30gün geçmiş kapısı seans/test sorgusunda **her sayfadan önce** uygulanır. Öğrenci önekli üç zaman+Id indeksi `ListKeysetIndexes` ile eklenir.
+
+Çalışma geçmişinin seans ve deneme sekmeleri bağımsız cursor; notlar ayrı cursor kullanır. Yükleme hatası yeniden denenebilir; yenilemeden önce başlayan eski istek yeni listeyi ezmez. Bu ekranlar tr/en ARB kullanır. Performans/analiz gibi tam geçmiş isteyen eski mobil repository metotları yeni sayfaları sırayla birleştirir; istatistikleri ilk50'de kesmez. İç seri/özet sorguları isteğe bağlı KeysetPage olmadan tam kaynağı okur.
+
+**#272 ölçümü:** Gerçek, ayrı PostgreSQL veritabanında 5.000 tamamlanmış seans +5.000 test için `StudyStatisticsReader` iki dar SELECT ile yaklaşık28–32ms ve4,5MB tahsis kullandı. Değerler yerel test ölçümüdür. Kesin M10/M14 yeniden hesap anlamını korumak için sözleşme ve tam kaynak okuması tutuldu; UI sınırı bu okuyucuya uygulanmaz. Bellek ve maliyet geçmişle doğrusal büyür; ölçek artışında P26'da SQL özet/streaming sözleşmesi ayrıca değerlendirilmelidir.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+Deneme bileşeni değişikliği/silmesi ve TotalNet yazımı, outbox ile aynı transaction içindedir. EF değişiklikleri commit başarılı olana kadar kabul edilmez; geçici commit hatasında kaynak ve outbox yeniden yazılır. Commit yanıtı kaybolduğunda aynı outbox kimliklerinin varlığı atomik başarıyı doğrular. Gerçek öğrenci haftası: TR 01:30 çalışması önceki çalışma gününe aittir; üç günün serisi 3, test ekleme/silme sonrası M10/M14 toplamları başlangıç değerine döner.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

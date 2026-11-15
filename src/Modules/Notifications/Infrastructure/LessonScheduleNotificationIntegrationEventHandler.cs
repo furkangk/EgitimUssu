@@ -24,7 +24,7 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler(
         else
         {
             var id = json.RootElement.EnumerateObject().FirstOrDefault(p => p.Name.Equals("lessonScheduleId", StringComparison.OrdinalIgnoreCase)).Value;
-            if (id.ValueKind != JsonValueKind.String || !id.TryGetGuid(out var scheduleId)) return false;
+            if (id.ValueKind != JsonValueKind.String || !id.TryGetGuid(out var scheduleId)) throw new PoisonMessageException("Ders kimliği geçersiz.");
             await planner.ReconcileAsync(scheduleId, cancellationToken);
         }
         return true;

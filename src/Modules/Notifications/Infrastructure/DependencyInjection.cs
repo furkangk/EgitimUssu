@@ -14,6 +14,7 @@ public static class DependencyInjection
     public static IServiceCollection AddNotificationsModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<NotificationsDbContext>(configuration, "Notifications", NotificationsDbContext.SchemaName);
+        services.AddScoped<IIntegrationEventHandler, NotificationsStudentMergedHandler>();
         services.AddScoped<ILessonReminderRepository, LessonReminderRepository>();
         services.AddScoped<IParentNotificationRepository, ParentNotificationRepository>();
         services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();

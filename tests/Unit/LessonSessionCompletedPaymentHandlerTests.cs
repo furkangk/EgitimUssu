@@ -71,6 +71,7 @@ public sealed class LessonSessionCompletedPaymentHandlerTests
         await handler.HandleAsync(Envelope(Guid.NewGuid()));
 
         Assert.Equal(0, await dbContext.PaymentRecords.CountAsync());
+        Assert.Single(await dbContext.InboxMessages.ToListAsync());
     }
 
     [Fact]
@@ -83,6 +84,17 @@ public sealed class LessonSessionCompletedPaymentHandlerTests
 
         // Sessizce yanlış tutar üretmektense hiç kayıt üretme (plan Task 5 Step 4).
         Assert.Equal(0, await dbContext.PaymentRecords.CountAsync());
+        Assert.Single(await dbContext.InboxMessages.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Missing_Source_Session_Throws_And_Remains_Retryable_Without_Inbox()
+    {
+        await using var dbContext = NewDbContext();
+        var handler = NewHandler(dbContext, Session(true) with { Id = Guid.NewGuid() }, Rate(250m, "TRY"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(Envelope(Guid.NewGuid())));
+        Assert.Empty(await dbContext.InboxMessages.ToListAsync());
+        Assert.Empty(await dbContext.PaymentRecords.ToListAsync());
     }
 
     private static LessonSessionCompletedPaymentHandler NewHandler(

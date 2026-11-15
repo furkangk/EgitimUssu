@@ -40,6 +40,8 @@ updated: 2026-11-15
 
 **P18 T6 (2026-11-15):** Gerçek HTTP/PostgreSQL/outbox finans senaryosu M04→M05→M07→M14 zincirini kapsar: ücretli ders→500 TRY borç→200 nakit→300 veli beyanı/onayı→100 iade→400 net/100 açık. İkinci cihazın eşzamanlı bayat not yazımı409, aynı eski gövdeyle tekrar200; tahsilat korunur. Aylık HTTP500 beklenen/400 net, projeksiyon100 iade ve aynı üç hareket kimliği doğrulanır. Yeni endpoint/üretim davranışı/migration yoktur.
 
+**P19 T1 / N-40 (2026-11-15):** M08 seri hesabı mevcut kaydedilmemiş seansı ID ile bir kez katar; uygun günler yerel 04:00 sınırına göre tekilleşir. Kırılmış seri sorgu/pano/başarım/veli özetinde sıfır okunur. `Study:RepairStreaksOnStartup` bayraklı tek seferlik onarım HTTP öncesi, transaction kilidi + `module_states` işaretiyle atomiktir. Yeni endpoint/şema yok; ayrıntı [M08 §2.4](m08_study.md#24-studystreak-aggregateroot--çalışma-serisi--rekor).
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -49,7 +51,7 @@ updated: 2026-11-15
 | M03 | Öğrenci Profili | [`m03_students.md`](m03_students.md) | `Students` | `/api/students` | 🟢 / 🟡 (self-register) |
 | M04 | Takvim & Planlama | [`m04_scheduling.md`](m04_scheduling.md) | `Scheduling` | `/api/scheduling` | 🟢 (link+tatil+erteleme+occurrence+öğrenci erteleme talebi, 2026-07-18) |
 | M05 | Ders Oturumu | [`m05_lesson_sessions.md`](m05_lesson_sessions.md) | `LessonSessions` | `/api/lesson-sessions` | 🟢 |
-| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (kaynak paylaşımı + onay/geri gönder + puanlama + son teslim uyarısı) |
+| M06 | Not, Ödev & Kaynak | [`m06_assignments.md`](m06_assignments.md) | `Assignments` | `/api/assignments` | 🟢 (teslim sürümleri + durum koruması + geç teslim; mobil sürüm gösterimi bekliyor) |
 | M07 | Ödeme Takibi | [`m07_payments.md`](m07_payments.md) | `Payments` | `/api/payments` | 🟢 (veli paylaşımı ⚠️) |
 | M08 | Bireysel Çalışma | [`m08_study.md`](m08_study.md) | `Study` | `/api/study` | 🟢 (mobil dahil) |
 | M09 | Veli Paneli | [`m09_parents.md`](m09_parents.md) | `Parents` | `/api/parents` | 🟢 |
@@ -214,6 +216,11 @@ POST /from-schedule/{lessonScheduleId}   (tekil ders uyumluluk köprüsü; tekra
 GET /{lessonSessionId}   (öğrenci kendi profil kimlikleri; veli onaylı çocukları; liste de aynı kapsamda)
 ```
 ### Assignments — `/api/assignments`
+
+P19 T3: mevcut uçlarda durum geçişi hatası `400 assignments.invalid_transition`; yanıt `submittedOnUtc`, `isLate`, `submissionVersions` ekler. Attachment `?version=N` ile tarihî dosya indirir (aynı sahiplik, yoksa 404); parametresiz son dosya. Eski dosyalar korunur; eşzamanlı sürüm/xmin yarışı 409. Yeni uç yok. Öğrenci profilId/UserId erişim ayrımı P21 devridir.
+
+P19 T4: son tarih taraması teslimle aynı yerel gün sonunu kullanır. Yaklaşan ve kaçırılmış kuyrukları ayrı 200 satır (tur≤400) işler; teslim edilmiş revizyon uyarılmaz, eski kaçırma damgalı satırlar tekrar seçilmez. İki `(DueDateUtc,Id)` kısmi indeks ve iki SQL SELECT; teslim sürümleri yüklenmez. `AssignmentDueScanIndexes` Down yalnız indeksleri kaldırır. Yeni endpoint yok.
+
 ```
 GET  /            (liste)
 POST /lesson-sessions/{lessonSessionId}/follow-up
@@ -250,7 +257,7 @@ GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
 GET /parents/{parentUserId}/notifications   (veli bildirim listesi, Premium; Veli V-E 2026-07-19)
 POST /device-tokens   DELETE /device-tokens/{token}   (cihaz push token kaydi/silme, auth; M11-2 2026-09-03)
-GET /users/{userId}/notifications?onlyUnread=&skip=&take=   (in-app bildirim merkezi, self/Admin; M11-3 2026-09-03)
+GET /users/{userId}/notifications?onlyUnread=&after=&limit= (eski skip/take de korunur)   (in-app bildirim merkezi, self/Admin; M11-3 2026-09-03)
 GET /users/{userId}/unread-count   (rozet sayisi, self/Admin; M11-4 2026-09-03)
 POST /{notificationId}/read   (okundu isaretle, idempotent; M11-4 2026-09-03)
 [consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification + UserNotification (Premium + tercih kapılı, idempotent (ortak inbox_messages))
@@ -280,9 +287,9 @@ POST /sessions/start   /sessions/manual
 POST /sessions/{id}/pause   /resume   /complete   /discard   /recover   (pause/complete: opsiyonel clientEffectiveMinutes; recover: takılı seansı kurtarır — Ö-E)
 GET  /sessions/{id}   PUT /sessions/{id}   DELETE /sessions/{id}
 GET  /students/{studentId}/active-session   (aktif seans + IsStale takılı bayrağı — Ö-E)
-GET  /students/{studentId}/sessions?from=&to=&subject=   /weekly-summary?weekStart=
+GET  /students/{studentId}/sessions?from=&to=&subject=&after=&limit=   /weekly-summary?weekStart=
 POST /test-results   GET /test-results/{id}   PUT /test-results/{id}   DELETE /test-results/{id}
-GET  /students/{studentId}/test-results?subject=&topic=&from=&to=   /net-trend?subject=&topic=
+GET  /students/{studentId}/test-results?subject=&topic=&from=&to=&after=&limit=   /net-trend?subject=&topic=
 POST /students/{studentId}/mock-exams   (çok dersli deneme; net ExamPenalty böleniyle)
 GET  /students/{studentId}/goals   PUT /students/{studentId}/goals
 GET  /students/{studentId}/streak   /achievements   /dashboard
@@ -290,7 +297,7 @@ GET  /students/{studentId}/sharing   PUT /students/{studentId}/sharing
 GET  /students/{studentId}/subjects   POST /students/{studentId}/subjects
 PUT  /subjects/{subjectId}   DELETE /subjects/{subjectId}
 POST /subjects/{subjectId}/topics   PUT /topics/{topicId}   DELETE /topics/{topicId}
-GET  /students/{studentId}/notes   POST /students/{studentId}/notes
+GET  /students/{studentId}/notes?after=&limit=   POST /students/{studentId}/notes
 PUT  /notes/{noteId}   DELETE /notes/{noteId}
 ```
 ### ProgressTracking — `/api/progress-tracking`  (🟢)
@@ -302,7 +309,7 @@ GET  /teachers/{teacherUserId}/students/{studentId}/overview   → öğretmen ge
 GET  /parents/{parentUserId}/children/{studentId}/overview     → veli gelişim görünümü (gizlilik filtreli, M10-2)
 GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topic-goals
 POST /topic-goals/{goalId}/cancel
-[consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent (ortak inbox_messages))
+[consume] Study Completed/Recorded + StudySessionEdited/Deleted + TestResultEdited/Deleted → IStudyStatisticsReader güncel kaynak → TopicMastery yeniden hesabı (ortak inbox_messages, öğrenci transaction kilidi)
 [consume] LessonSessions.LessonSessionCompletedDomainEvent → konuya ders katılımı katkısı (yalnız Attended/Late; LessonSessionId makbuzu + inbox ile idempotent, P17 T3)
 [consume] Students.StudentProfilesMerged → hedefler taşınır; hâkimiyet/fotoğraf çakışmayan satır taşınır, çakışanda kanonik kazanır (P15 T3 / N-28, idempotent)
 [scheduler] ProgressSnapshotService — günde bir tur, kapanmış son hafta/ay için ProgressSnapshot yazar (idempotent + unique index)
@@ -332,7 +339,7 @@ GET /status
           → teacher_dashboard_projections (read-model, idempotent — ortak inbox_messages)
 [consume] LessonSessions LessonSessionCompleted · Scheduling LessonScheduleCancelled ·
           Payments PaymentRecordCreated/PaymentTransactionRecordedIntegrationEvent  → teacher_monthly_projections (M14-1)
-[consume] Study StudySessionCompleted/TestResultRecorded      → student_study_projections (M14-2)
+[consume] Study Completed/Recorded + Edited/Deleted → IStudyStatisticsReader güncel kaynak → student_study_projections + test performans item'ları (M14-2/3)
 [consume] Study TestResultRecorded · ProgressTracking TopicMasteryChanged
                                                               → student_performance_projections (M14-3)
 [use] IStudentDirectory.GetDisplayNameAsync · ITeacherDirectory · IStudentAssignmentDigestDirectory ·
@@ -412,3 +419,38 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
 
 *Güncelleme: 2026-11-15 — P18 T5: modüller arası ortak idempotency gövde sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P19 Task 1 / N-40: M08 seri davranışı ve onarım işi.*
+
+**P19 T2 / N-42:** Ortak outbox dağıtımı her tüketiciyi dener; başarılı tüketiciler inbox sayesinde tekrar uygulanmaz. Bozuk yük açık poison, geçici eksiklik istisna, geçerli etkisiz sonuç başarılı inbox kaydıdır. Dead-letter Error başarısız handler adlarını/türlerini taşır. Endpoint veya olay şeması değişmedi. [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: outbox tüketici izolasyonu.*
+
+*Güncelleme: 2026-11-15 — P19 Task 3: Assignments teslim sürümleri ve geçiş sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P19 Task 4: açlık yaşamayan ödev son tarih taraması.*
+
+**P19 T5 (N-47/N-48 trend, 2026-11-15):** M08 edit/delete yeni olayları aynı kaynak yazımıyla outbox'a alır; `IStudyStatisticsReader` M10/M14'ün güncel seans/test kaynağıdır. Öğrenci kilidi altında eski konu/hafta/ay katkıları temizlenir, geç gelen eski olay kayıt diriltmez. Trend `TakenOnUtc`, eşitlikte `Id` sırası; ders katılımı korunur. Deneme `TotalNet` bileşenleriyle tek transaction ve deneme kilidinde yeniden hesaplanır. HTTP/şema değişmedi; tarihî snapshot/rozet/kapanmış hedef geri alınmaz.
+
+*Güncelleme: 2026-11-15 — P19 Task 5: Study düzeltmelerinin istatistiklere yayılımı ve tarih sıralı trend.*
+
+
+### P19 Task 6 — Bildirim ve küçük doğruluk sözleşmeleri
+
+M11 push kuyruğu deneme sayacı/üstel backoff/TTL/Expired ile yeni kayıtları aç bırakmaz; tercih/token toplu okunur. Eski mesaj bildirim metinleri NotificationDeliveryBackoff göçünde temizlenir. Haftalık veli özeti her çocuk için ayrı, 200 bağlık keyset ve toplu dedup ile üretilir. M16 `POST /conversations/{id}/read` artık isteğe bağlı `{ upToMessageId }` alır; sınır yoksa no-op, sınırdan sonra gelenler unread. Mobil yüklü son sunucu kimliğini gönderir. M08 YDS cezasız; M10 geçmiş Active konu hedefi günlük taramada ve başarı öncesinde Missed olur. Uç sayısı değişmedi, yeni göç yalnız Notifications şemasında.
+
+### P19 Task 7 — Liste sözleşmesi ve indeksler
+
+M06 ödev, M08 seans/test/not ve M11 bildirim listelerinde `after/limit` keyset desteği var (50/max100, `items/nextCursor`, toplam sayımı yok). M06/M08 parametresiz eski JSON dizisi ilk50 ile korunur; M11 eski skip/take ve toplam metadata'sını korur. [M06](m06_assignments.md), [M08](m08_study.md), [M11](m11_notifications.md) ayrıntıları. Üç modülde `ListKeysetIndexes` migration'ları ve M10'da200öğrencilik snapshot partileri; mobil liste/geçmiş/bildirim sonsuz kaydırma ve tr/en ARB. Endpoint sayısı değişmedi.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+M14 Reporting ve M11 Notifications, StudentProfilesMerged tüketicilerine katıldı; Identity’de StudentId anahtarlı tablo bulunmadığı ölçüldü (#189 kapanışı). M06 `IStudentAssignmentStatusReader` → M09 kaynak ödev sayımı, beş durum olayı ve birleşimde çift sayım koruması eklendi. M08 commit yeniden denemesi/outbox, M10 hedef son tarih yarışı ve M11 haftalık özet/birleşim yarışı düzeltildi. Yeni HTTP uç/şema yok. Eski olayların kanonik kimliğe çözülmesi ayrı sözleşme, ödev profilId/UserId yetkisi P21 kapsamındadır.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*
+
+
+**P19 T8 CI bağımlılık kapısı (Güncelleme: 2026-11-15):** MailKit/MimeKit üzerinden gelen Pkcs8.0.1, Shared.Infrastructure'da açık `System.Security.Cryptography.Pkcs 8.0.2` referansıyla güvenlik düzeltmesine yükseltilir ([Microsoft advisory](https://github.com/advisories/GHSA-846f-f764-76mx), [ikinci advisory](https://github.com/advisories/GHSA-2fmv-rv2c-59x7)). Testcontainers'ın geçişli SSH.NET sürümü yalnız integration projesinde `2026.0.0` olarak sabitlenir ([SCP yol advisory](https://github.com/advisories/GHSA-mggc-4xg6-vcxf), [SCP indirme advisory](https://github.com/advisories/GHSA-q939-rpr3-3284)). Üst paketlerin API/sürümü değiştirilmez; `dotnet list package --vulnerable` çıkış kodu tek başına yeterli değildir, JSON'da advisoryurl bulunmamalıdır.

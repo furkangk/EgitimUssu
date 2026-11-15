@@ -50,10 +50,21 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
         builder.Property(entity => entity.AttachmentContentType).HasMaxLength(128);
         builder.Property(entity => entity.TeacherFeedback).HasMaxLength(2000);
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
+        builder.HasMany(entity => entity.SubmissionVersions).WithOne().HasForeignKey(entity => entity.AssignmentId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(entity => entity.SubmissionVersions).HasField("_submissionVersions").UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
         builder.HasIndex(entity => new { entity.StudentId, entity.Status });
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.CreatedOnUtc, entity.Id });
+        builder.HasIndex(entity => new { entity.StudentId, entity.CreatedOnUtc, entity.Id });
+        builder.HasIndex(entity => new { entity.LessonSessionId, entity.CreatedOnUtc, entity.Id });
         builder.HasIndex(entity => entity.LessonSessionId);
         // M06-3: son teslim taramasi (AssignmentDueScanProcessor) bu indeksi kullanir.
         builder.HasIndex(entity => new { entity.Status, entity.DueDateUtc });
+        // İki bağımsız kuyruk: yalnız hiç teslim edilmemiş ve ilgili uyarısı üretilmemiş satırlar.
+        const string outstanding = "\"SubmittedOnUtc\" IS NULL AND \"Status\" IN ('Pending', 'ReturnedForRevision')";
+        builder.HasIndex(entity => new { entity.DueDateUtc, entity.Id }, "IX_assignments_due_soon_scan")
+            .HasFilter(outstanding + " AND \"DueSoonNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
+        builder.HasIndex(entity => new { entity.DueDateUtc, entity.Id }, "IX_assignments_missed_scan")
+            .HasFilter(outstanding + " AND \"MissedNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
     }
 }
 
@@ -93,5 +104,21 @@ internal sealed class LessonResourceConfiguration : IEntityTypeConfiguration<Les
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.IsActive });
         builder.HasIndex(entity => new { entity.StudentId, entity.IsActive });
         builder.HasIndex(entity => entity.LessonSessionId);
+    }
+}
+
+internal sealed class AssignmentSubmissionVersionConfiguration : IEntityTypeConfiguration<AssignmentSubmissionVersion>
+{
+    public void Configure(EntityTypeBuilder<AssignmentSubmissionVersion> builder)
+    {
+        builder.ToTable("assignment_submission_versions");
+        builder.HasKey(x => new { x.AssignmentId, x.Number });
+        builder.Property(x => x.AssignmentId).ValueGeneratedNever();
+        builder.Property(x => x.Number).ValueGeneratedNever();
+        builder.Property(x => x.AttachmentUrl).HasMaxLength(512);
+        builder.Property(x => x.StorageKey).HasMaxLength(512);
+        builder.Property(x => x.FileName).HasMaxLength(256);
+        builder.Property(x => x.ContentType).HasMaxLength(128);
+        builder.Property(x => x.TeacherFeedback).HasMaxLength(2000);
     }
 }

@@ -67,6 +67,9 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                     b.Property<DateTime?>("GradedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsLate")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("LessonSessionId")
                         .HasColumnType("uuid");
 
@@ -83,6 +86,9 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
 
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SubmittedOnUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TeacherFeedback")
                         .HasMaxLength(2000)
@@ -110,7 +116,67 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
 
                     b.HasIndex("StudentId", "Status");
 
+                    b.HasIndex("LessonSessionId", "CreatedOnUtc", "Id");
+
+                    b.HasIndex("StudentId", "CreatedOnUtc", "Id");
+
+                    b.HasIndex("TeacherUserId", "CreatedOnUtc", "Id");
+
+                    b.HasIndex(new[] { "DueDateUtc", "Id" }, "IX_assignments_due_soon_scan")
+                        .HasFilter("\"SubmittedOnUtc\" IS NULL AND \"Status\" IN ('Pending', 'ReturnedForRevision') AND \"DueSoonNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
+
+                    b.HasIndex(new[] { "DueDateUtc", "Id" }, "IX_assignments_missed_scan")
+                        .HasFilter("\"SubmittedOnUtc\" IS NULL AND \"Status\" IN ('Pending', 'ReturnedForRevision') AND \"MissedNotifiedOnUtc\" IS NULL AND \"DueDateUtc\" IS NOT NULL");
+
                     b.ToTable("assignments", "assignments");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Assignments.Domain.AssignmentSubmissionVersion", b =>
+                {
+                    b.Property<Guid>("AssignmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AttachmentUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("GradedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsLate")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime>("SubmittedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TeacherFeedback")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("AssignmentId", "Number");
+
+                    b.ToTable("assignment_submission_versions", "assignments");
                 });
 
             modelBuilder.Entity("EgitimUssu.Modules.Assignments.Domain.LessonNote", b =>
@@ -386,6 +452,20 @@ namespace EgitimUssu.Modules.Assignments.Infrastructure.Migrations
                         .HasFilter("\"SentOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
 
                     b.ToTable("outgoing_emails", "assignments");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Assignments.Domain.AssignmentSubmissionVersion", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Assignments.Domain.Assignment", null)
+                        .WithMany("SubmissionVersions")
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Assignments.Domain.Assignment", b =>
+                {
+                    b.Navigation("SubmissionVersions");
                 });
 #pragma warning restore 612, 618
         }

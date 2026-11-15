@@ -20,7 +20,7 @@ public sealed record CreateLessonSessionFollowUpCommand(
     LessonNoteVisibility Visibility = LessonNoteVisibility.Private) : ICommand<Result<LessonSessionFollowUpResponse>>;
 
 public sealed record GetLessonSessionFollowUpQuery(Guid LessonSessionId) : IQuery<Result<LessonSessionFollowUpResponse>>;
-public sealed record ListAssignmentsQuery(Guid? TeacherUserId, Guid? StudentId, Guid? LessonSessionId) : IQuery<Result<IReadOnlyCollection<AssignmentResponse>>>;
+public sealed record ListAssignmentsQuery(Guid? TeacherUserId, Guid? StudentId, Guid? LessonSessionId, string? After = null, int? Limit = null) : IQuery<Result<PagedResult<AssignmentResponse>>>;
 
 public sealed record AssignmentResponse(
     Guid Id,
@@ -36,7 +36,15 @@ public sealed record AssignmentResponse(
     DateTime? CompletedOnUtc,
     string? TeacherFeedback,
     int? Score,
-    DateTime? GradedOnUtc);
+    DateTime? GradedOnUtc,
+    DateTime? SubmittedOnUtc,
+    bool IsLate,
+    IReadOnlyCollection<AssignmentSubmissionVersionResponse> SubmissionVersions);
+
+public sealed record AssignmentSubmissionVersionResponse(
+    int Number, DateTime SubmittedOnUtc, bool IsLate, string? AttachmentUrl,
+    string? FileName, string? ContentType, long? SizeBytes,
+    int? Score, DateTime? GradedOnUtc, string? TeacherFeedback);
 
 public sealed record LessonNoteResponse(
     Guid Id,
@@ -61,7 +69,7 @@ public interface IAssignmentRepository
     Task<LessonNote?> GetLessonNoteByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<Assignment>> ListByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken);
-    Task<IReadOnlyCollection<Assignment>> ListAsync(Guid? teacherUserId, Guid? studentId, Guid? lessonSessionId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<Assignment>> ListAsync(Guid? teacherUserId, Guid? studentId, Guid? lessonSessionId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null);
 
     Task AddLessonNoteAsync(LessonNote lessonNote, CancellationToken cancellationToken);
 
@@ -70,7 +78,7 @@ public interface IAssignmentRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
-public sealed class ListAssignmentsQueryHandler : IQueryHandler<ListAssignmentsQuery, Result<IReadOnlyCollection<AssignmentResponse>>>
+public sealed class ListAssignmentsQueryHandler : IQueryHandler<ListAssignmentsQuery, Result<PagedResult<AssignmentResponse>>>
 {
     private static readonly Error Forbidden = new("shared.forbidden", "Bu işlemi yapma yetkiniz yok.");
     private readonly IAssignmentRepository _repository;
@@ -82,7 +90,7 @@ public sealed class ListAssignmentsQueryHandler : IQueryHandler<ListAssignmentsQ
         _currentUser = currentUser;
     }
 
-    public async Task<Result<IReadOnlyCollection<AssignmentResponse>>> Handle(ListAssignmentsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<AssignmentResponse>>> Handle(ListAssignmentsQuery query, CancellationToken cancellationToken)
     {
         // K2: Sahiplik filtresi server tarafında zorlanır; istemci filtresine güvenilmez (varsayılan-deny).
         var teacherFilter = query.TeacherUserId;
@@ -92,7 +100,7 @@ public sealed class ListAssignmentsQueryHandler : IQueryHandler<ListAssignmentsQ
         {
             if (!_currentUser.IsAuthenticated || !Guid.TryParse(_currentUser.UserId, out var currentUserId))
             {
-                return Result<IReadOnlyCollection<AssignmentResponse>>.Failure(Forbidden);
+                return Result<PagedResult<AssignmentResponse>>.Failure(Forbidden);
             }
 
             if (_currentUser.Roles.Contains("Teacher"))
@@ -105,8 +113,11 @@ public sealed class ListAssignmentsQueryHandler : IQueryHandler<ListAssignmentsQ
             }
         }
 
-        var assignments = await _repository.ListAsync(teacherFilter, studentFilter, query.LessonSessionId, cancellationToken);
-        return Result<IReadOnlyCollection<AssignmentResponse>>.Success(assignments.Select(x => x.ToResponse()).ToArray());
+        if (!KeysetPage.TryCreate(query.After, query.Limit, out var page))
+            return Result<PagedResult<AssignmentResponse>>.Failure(KeysetPage.Invalid);
+
+        var assignments = await _repository.ListAsync(teacherFilter, studentFilter, query.LessonSessionId, cancellationToken, page);
+        return Result<PagedResult<AssignmentResponse>>.Success(page.Finish(assignments.Select(x => x.ToResponse()).ToArray(), x => x.CreatedOnUtc, x => x.Id));
     }
 }
 
@@ -321,7 +332,13 @@ internal static class AssignmentMappings
             assignment.CompletedOnUtc,
             assignment.TeacherFeedback,
             assignment.Score,
-            assignment.GradedOnUtc);
+            assignment.GradedOnUtc,
+            assignment.SubmittedOnUtc,
+            assignment.IsLate,
+            assignment.SubmissionVersions.OrderBy(x => x.Number).Select(x => new AssignmentSubmissionVersionResponse(
+                x.Number, x.SubmittedOnUtc, x.IsLate,
+                x.StorageKey is not null ? $"/api/assignments/{assignment.Id}/attachment?version={x.Number}" : x.AttachmentUrl,
+                x.FileName, x.ContentType, x.SizeBytes, x.Score, x.GradedOnUtc, x.TeacherFeedback)).ToArray());
     }
 
     public static LessonNoteResponse ToResponse(this LessonNote note)

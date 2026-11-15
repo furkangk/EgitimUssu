@@ -9,6 +9,8 @@ public sealed class AssignmentTests
     private static Assignment New(AssignmentStatus status = AssignmentStatus.Completed)
         => new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, "Ödev", null, null, status, null, Now, null);
 
+    private sealed class Clock : EgitimUssu.Shared.Kernel.IClock { public DateTime UtcNow => Now; }
+
     [Fact]
     public void Approve_SetsApprovedAndFeedback()
     {
@@ -31,7 +33,7 @@ public sealed class AssignmentTests
     public void SubmitWork_MovesReturnedToInProgress()
     {
         var a = New(AssignmentStatus.ReturnedForRevision);
-        a.SubmitWork("https://file", Now);
+        a.SubmitWork("https://file", Now, new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new Clock()));
         Assert.Equal(AssignmentStatus.InProgress, a.Status);
     }
 }

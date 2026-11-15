@@ -1,4 +1,6 @@
 using EgitimUssu.Modules.Study.Domain;
+using EgitimUssu.Modules.Study.Application;
+using EgitimUssu.Shared.Kernel;
 using EgitimUssu.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +15,12 @@ internal sealed class StudyDigestDirectory : IStudyDigestDirectory
 {
     private readonly StudyDbContext _dbContext;
 
-    public StudyDigestDirectory(StudyDbContext dbContext) => _dbContext = dbContext;
+    private readonly ILocalCalendar _calendar;
+    public StudyDigestDirectory(StudyDbContext dbContext, ILocalCalendar calendar)
+    {
+        _dbContext = dbContext;
+        _calendar = calendar;
+    }
 
     public async Task<StudyDigest> GetWeeklyDigestAsync(Guid studentId, DateTime nowUtc, CancellationToken cancellationToken)
     {
@@ -37,9 +44,8 @@ internal sealed class StudyDigestDirectory : IStudyDigestDirectory
 
         var streak = await _dbContext.StudyStreaks
             .Where(s => s.StudentId == studentId)
-            .Select(s => (int?)s.CurrentStreakDays)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return new StudyDigest(totalMinutes, streak ?? 0, breakdown);
+        return new StudyDigest(totalMinutes, streak?.CurrentAt(_calendar.StudyDay(nowUtc)) ?? 0, breakdown);
     }
 }

@@ -52,8 +52,7 @@ public abstract class AssignmentDueNotificationHandlerBase : IdempotentIntegrati
         var payload = JsonSerializer.Deserialize<AssignmentDuePayload>(envelope.Payload, JsonOptions);
         if (payload is null)
         {
-            // Bozuk payload: işlenmiş sayılmaz (inbox'a yazılmaz), yeniden denenebilir.
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var dueDate = NotificationTimeText.LocalDateTime(Calendar, payload.DueDateUtc);

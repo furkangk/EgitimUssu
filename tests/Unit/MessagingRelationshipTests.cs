@@ -366,7 +366,7 @@ public sealed class MessagingRelationshipTests
 
         public Task<Result> MarkReadAsync(Guid conversationId)
             => new MarkConversationReadCommandHandler(CurrentUser(), Repository, new MessagingClock(Now))
-                .Handle(new MarkConversationReadCommand(conversationId), CancellationToken.None);
+                .Handle(new MarkConversationReadCommand(conversationId, Repository.Messages.Where(m => m.ConversationId == conversationId).OrderByDescending(m => m.SentOnUtc).FirstOrDefault()?.Id), CancellationToken.None);
 
         public Task<Result<ConversationResponse>> BlockAsync(Guid conversationId, bool blocked)
             => new SetConversationBlockCommandHandler(CurrentUser(), Repository, Policy(), new MessagingClock(Now))

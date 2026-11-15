@@ -88,6 +88,13 @@ public sealed class TeacherDashboardProjection : ProjectionEntity
         _items.FirstOrDefault(item => item.Kind == TeacherDashboardItemKind.OverduePayment && item.Currency is not null)?.Currency
         ?? "TRY";
 
+    public void MergeStudent(Guid from, Guid to)
+    {
+        if (Find(TeacherDashboardItemKind.ActiveStudent, from) is null) return;
+        TrackStudent(to);
+        Remove(TeacherDashboardItemKind.ActiveStudent, from);
+    }
+
     public int ActiveStudentCount => _items.Count(item => item.Kind == TeacherDashboardItemKind.ActiveStudent);
 
     private void Upsert(

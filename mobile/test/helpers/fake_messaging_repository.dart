@@ -28,6 +28,7 @@ class FakeMessagingRepository implements MessagingRepository {
 
   final ApiException? inboxError;
   final ApiException? messagesError;
+
   /// Değiştirilebilir: "önce hata, sonra başarı" (tekrar dene) senaryosu tek sahteyle kurulur.
   ApiException? sendError;
   final ApiException? markReadError;
@@ -47,7 +48,10 @@ class FakeMessagingRepository implements MessagingRepository {
   DateTime nextSentOnUtc = DateTime.utc(2026, 9, 4, 12, 0);
 
   @override
-  Future<List<ConversationSummary>> conversations({int skip = 0, int take = 30}) async {
+  Future<List<ConversationSummary>> conversations({
+    int skip = 0,
+    int take = 30,
+  }) async {
     if (inboxError != null) throw inboxError!;
     return inbox.skip(skip).take(take).toList();
   }
@@ -61,17 +65,24 @@ class FakeMessagingRepository implements MessagingRepository {
     messageCursors.add(beforeUtc);
     if (messagesError != null) throw messagesError!;
 
-    final rows = store
-        .where((message) => message.conversationId == conversationId)
-        .where((message) => beforeUtc == null || message.sentOnUtc.isBefore(beforeUtc))
-        .toList()
-      ..sort((a, b) => b.sentOnUtc.compareTo(a.sentOnUtc));
+    final rows =
+        store
+            .where((message) => message.conversationId == conversationId)
+            .where(
+              (message) =>
+                  beforeUtc == null || message.sentOnUtc.isBefore(beforeUtc),
+            )
+            .toList()
+          ..sort((a, b) => b.sentOnUtc.compareTo(a.sentOnUtc));
 
     return rows.take(take).toList();
   }
 
   @override
-  Future<ChatMessage> send({required String conversationId, required String body}) async {
+  Future<ChatMessage> send({
+    required String conversationId,
+    required String body,
+  }) async {
     sentBodies.add(body);
     if (sendError != null) throw sendError!;
 
@@ -89,7 +100,7 @@ class FakeMessagingRepository implements MessagingRepository {
   }
 
   @override
-  Future<void> markRead(String conversationId) async {
+  Future<void> markRead(String conversationId, {String? upToMessageId}) async {
     markReadCalls.add(conversationId);
     if (markReadError != null) throw markReadError!;
   }
@@ -128,7 +139,10 @@ class FakeMessagingRepository implements MessagingRepository {
     return detail = _withBlock(isBlocked: false, blockedByMe: false);
   }
 
-  ConversationDetail _withBlock({required bool isBlocked, required bool blockedByMe}) {
+  ConversationDetail _withBlock({
+    required bool isBlocked,
+    required bool blockedByMe,
+  }) {
     final current = detail;
     return ConversationDetail(
       id: current?.id ?? 'c-1',
@@ -136,7 +150,8 @@ class FakeMessagingRepository implements MessagingRepository {
       counterpartUserId: current?.counterpartUserId ?? 'student-1',
       counterpartRole: current?.counterpartRole ?? kParticipantRoleStudent,
       studentId: current?.studentId ?? 's-1',
-      lastMessageOnUtc: current?.lastMessageOnUtc ?? DateTime.utc(2026, 9, 4, 12),
+      lastMessageOnUtc:
+          current?.lastMessageOnUtc ?? DateTime.utc(2026, 9, 4, 12),
       lastMessagePreview: current?.lastMessagePreview,
       isBlocked: isBlocked,
       blockedByMe: blockedByMe,

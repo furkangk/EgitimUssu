@@ -12,6 +12,11 @@ public sealed class ExamPenaltyTests
     public void DivisorFor_KnownExams(string exam, int expected)
         => Assert.Equal(expected, ExamPenalty.DivisorFor(exam));
 
+    [Theory]
+    [InlineData("YDS")]
+    [InlineData(" yds ")]
+    public void Yds_Has_No_Wrong_Answer_Penalty(string exam) => Assert.Null(ExamPenalty.DivisorFor(exam));
+
     [Fact]
     public void DivisorFor_School_ReturnsNull() // yanlış götürmez
         => Assert.Null(ExamPenalty.DivisorFor("School"));

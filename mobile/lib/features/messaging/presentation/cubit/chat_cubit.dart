@@ -41,7 +41,9 @@ class ChatState {
   bool get canSend => !(conversation?.isBlocked ?? false);
 
   /// Engeli yalnız koyan taraf kaldırabilir; karşı tarafın engeli için düğme gösterilmez.
-  bool get canUnblock => (conversation?.isBlocked ?? false) && (conversation?.blockedByMe ?? false);
+  bool get canUnblock =>
+      (conversation?.isBlocked ?? false) &&
+      (conversation?.blockedByMe ?? false);
 
   ChatState copyWith({
     ChatStatus? status,
@@ -67,10 +69,12 @@ class ChatState {
 
 /// M16-1 (D-08): Tek sohbetin mesajlarını yönetir — keyset sayfalama + iyimser gönderim.
 class ChatCubit extends Cubit<ChatState> {
-  ChatCubit({required MessagingRepository repository, required String currentUserId})
-    : _repository = repository,
-      _currentUserId = currentUserId,
-      super(const ChatState());
+  ChatCubit({
+    required MessagingRepository repository,
+    required String currentUserId,
+  }) : _repository = repository,
+       _currentUserId = currentUserId,
+       super(const ChatState());
 
   factory ChatCubit.create(String currentUserId) => ChatCubit(
     repository: injector<MessagingRepository>(),
@@ -119,7 +123,9 @@ class ChatCubit extends Cubit<ChatState> {
         ),
       );
     } on ApiException catch (error) {
-      emit(state.copyWith(status: ChatStatus.failure, errorMessage: error.message));
+      emit(
+        state.copyWith(status: ChatStatus.failure, errorMessage: error.message),
+      );
       return;
     }
 
@@ -207,7 +213,10 @@ class ChatCubit extends Cubit<ChatState> {
       state.copyWith(
         messages: _replace(
           messageId,
-          (row) => row.copyWith(status: ChatMessageStatus.sending, clearFailure: true),
+          (row) => row.copyWith(
+            status: ChatMessageStatus.sending,
+            clearFailure: true,
+          ),
         ),
         clearError: true,
       ),
@@ -223,8 +232,15 @@ class ChatCubit extends Cubit<ChatState> {
     if (state.conversationId.isEmpty) {
       return;
     }
+    final rows =
+        state.messages
+            .where((row) => row.status == ChatMessageStatus.sent)
+            .toList()
+          ..sort((a, b) => b.sentOnUtc.compareTo(a.sentOnUtc));
+    if (rows.isEmpty) return;
+    final marker = rows.first.id;
     try {
-      await _repository.markRead(state.conversationId);
+      await _repository.markRead(state.conversationId, upToMessageId: marker);
     } on ApiException {
       // Sessiz: mesajlar görünür kalır, bir sonraki açılışta yeniden denenir.
     }

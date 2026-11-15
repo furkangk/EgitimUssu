@@ -15,6 +15,7 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<StudyDbContext>(configuration, "Study", StudyDbContext.SchemaName);
         services.AddScoped<IStudyRepository, StudyRepository>();
+        services.AddScoped<IStudyStatisticsReader, StudyStatisticsReader>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudyDigestDirectory, StudyDigestDirectory>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudyPlanCompletionReader, StudyPlanCompletionReader>();
 
@@ -24,6 +25,8 @@ public static class DependencyInjection
         services.AddScoped<StudyMembershipResolver>();
         services.AddScoped<AchievementEvaluator>();
         services.AddScoped<StudyCompletionService>();
+        services.AddScoped<StudyStreakRepairJob>();
+        services.AddHostedService<StudyStreakRepairInitializer>();
 
         // Öğrenci-kapsamlı istekleri koruyan kapalı-generik sahiplik yetkilendiricileri
         // (AuthorizationCoverageValidator kapalı servis tipi bekler).
@@ -92,7 +95,7 @@ public static class DependencyInjection
         // Seans sorguları
         services.AddScoped<IQueryHandler<GetStudySessionQuery, Result<StudySessionResponse>>, GetStudySessionQueryHandler>();
         services.AddScoped<IQueryHandler<GetActiveSessionQuery, Result<ActiveSessionResponse?>>, GetActiveSessionQueryHandler>();
-        services.AddScoped<IQueryHandler<ListStudySessionsQuery, Result<IReadOnlyCollection<StudySessionResponse>>>, ListStudySessionsQueryHandler>();
+        services.AddScoped<IQueryHandler<ListStudySessionsQuery, Result<PagedResult<StudySessionResponse>>>, ListStudySessionsQueryHandler>();
         services.AddScoped<IQueryHandler<WeeklySummaryQuery, Result<WeeklySummaryResponse>>, WeeklySummaryQueryHandler>();
 
         // Test komut/sorguları
@@ -101,7 +104,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<DeleteTestResultCommand, Result<bool>>, DeleteTestResultCommandHandler>();
         services.AddScoped<ICommandHandler<CreateMockExamCommand, Result<MockExamResponse>>, CreateMockExamCommandHandler>();
         services.AddScoped<IQueryHandler<GetTestResultQuery, Result<TestResultResponse>>, GetTestResultQueryHandler>();
-        services.AddScoped<IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>, ListTestResultsQueryHandler>();
+        services.AddScoped<IQueryHandler<ListTestResultsQuery, Result<PagedResult<TestResultResponse>>>, ListTestResultsQueryHandler>();
         services.AddScoped<IQueryHandler<NetTrendQuery, Result<NetTrendResponse>>, NetTrendQueryHandler>();
 
         // Hedef / streak / başarım / paylaşım / dashboard
@@ -123,7 +126,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<DeleteTopicCatalogCommand, Result<bool>>, DeleteTopicCatalogCommandHandler>();
 
         // Öğrenci ders notları
-        services.AddScoped<IQueryHandler<ListStudyNotesQuery, Result<IReadOnlyCollection<StudyNoteResponse>>>, ListStudyNotesQueryHandler>();
+        services.AddScoped<IQueryHandler<ListStudyNotesQuery, Result<PagedResult<StudyNoteResponse>>>, ListStudyNotesQueryHandler>();
         services.AddScoped<ICommandHandler<CreateStudyNoteCommand, Result<StudyNoteResponse>>, CreateStudyNoteCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateStudyNoteCommand, Result<StudyNoteResponse>>, UpdateStudyNoteCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteStudyNoteCommand, Result<bool>>, DeleteStudyNoteCommandHandler>();

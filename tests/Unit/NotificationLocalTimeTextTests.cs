@@ -84,6 +84,9 @@ public sealed class NotificationLocalTimeTextTests
 
     private sealed class NoParents : IParentNotificationDirectory
     {
+        public Task<ParentNotificationTargetPage> ListApprovedTargetPageAsync(Guid? afterLinkId, int take, CancellationToken cancellationToken)
+            => Task.FromResult(new ParentNotificationTargetPage(Array.Empty<ParentStudentNotificationTarget>(), null));
+
         public Task<IReadOnlyCollection<ParentNotificationTarget>> GetApprovedParentsForStudentAsync(Guid studentId, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<ParentNotificationTarget>>([]);
 

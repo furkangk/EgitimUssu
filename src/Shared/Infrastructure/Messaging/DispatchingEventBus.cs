@@ -31,21 +31,37 @@ public sealed class DispatchingEventBus(
             integrationEvent.SourceModule);
 
         using var scope = scopeFactory.CreateScope();
-        var matchingHandlers = scope.ServiceProvider
+        var handlers = scope.ServiceProvider
             .GetServices<IIntegrationEventHandler>()
-            .Where(handler => handler.CanHandle(integrationEvent))
             .ToArray();
 
-        foreach (var handler in matchingHandlers)
+        var failures = new List<Exception>();
+        foreach (var handler in handlers)
         {
-            // C-04: Handler başına span. Aynı olayı birden çok modül dinlediğinde, "hangisi yavaş /
-            // hangisi patladı" sorusunun cevabı ancak burada ayrışır — tek bir dispatch span'ının
-            // altında hepsi tek bir süreye karışırdı.
-            using var activity = EgitimUssuActivitySource.Instance.StartActivity(
-                $"handler {handler.GetType().Name}",
-                ActivityKind.Internal);
-
-            await handler.HandleAsync(integrationEvent, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            Activity? activity = null;
+            try
+            {
+                if (!handler.CanHandle(integrationEvent)) continue;
+                activity = EgitimUssuActivitySource.Instance.StartActivity(
+                    $"handler {handler.GetType().Name}", ActivityKind.Internal);
+                await handler.HandleAsync(integrationEvent, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var failure = new IntegrationEventHandlerException(handler.GetType().FullName ?? handler.GetType().Name, exception);
+                failures.Add(failure);
+                activity?.SetStatus(ActivityStatusCode.Error, failure.Message);
+                logger.LogWarning("Integration event {EventId}: {HandlerFailure}", integrationEvent.EventId, failure.Message);
+            }
+            finally
+            {
+                activity?.Dispose();
+            }
         }
+
+        if (failures.Count > 0)
+            throw new AggregateException("Integration event handlers failed.", failures);
     }
 }

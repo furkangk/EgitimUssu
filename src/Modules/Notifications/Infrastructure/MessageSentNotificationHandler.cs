@@ -46,7 +46,7 @@ public sealed class MessageSentNotificationHandler : IdempotentIntegrationEventH
         var payload = JsonSerializer.Deserialize<MessageSentPayload>(envelope.Payload, JsonOptions);
         if (payload is null || payload.RecipientUserId == Guid.Empty)
         {
-            return false; // bozuk yük: inbox'a yazılmaz, yeniden denenebilir
+            throw new PoisonMessageException("Olay yükü veya alıcı kimliği geçersiz."); // bozuk yük: açık hata, inbox yazılmaz
         }
 
         await _userNotifications.AddAsync(
@@ -55,7 +55,7 @@ public sealed class MessageSentNotificationHandler : IdempotentIntegrationEventH
                 payload.RecipientUserId,
                 UserNotificationKind.MessageReceived,
                 "Yeni mesajın var",
-                payload.Preview,
+                "Bir kullanıcı size mesaj gönderdi.",
                 $"/messages/{payload.ConversationId}",
                 Clock.UtcNow),
             cancellationToken);

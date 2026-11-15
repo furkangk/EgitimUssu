@@ -53,8 +53,7 @@ public sealed class ParentEventNotificationHandler : IdempotentIntegrationEventH
         var mapped = Map(envelope);
         if (mapped is null)
         {
-            // Bilinmeyen/bozuk payload: eski davranışla birebir — işlenmiş sayılmaz (inbox'a yazılmaz), yeniden denenebilir.
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var (studentId, type, requiredPref, title, message) = mapped.Value;

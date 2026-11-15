@@ -150,6 +150,9 @@ public sealed class LessonReminderPlannerTests
     public sealed class Parents : IParentNotificationDirectory
     {
         public List<ParentNotificationTarget> Items { get; } = [];
+        public Task<ParentNotificationTargetPage> ListApprovedTargetPageAsync(Guid? afterLinkId, int take, CancellationToken cancellationToken)
+            => Task.FromResult(new ParentNotificationTargetPage(Array.Empty<ParentStudentNotificationTarget>(), null));
+
         public Task<IReadOnlyCollection<ParentNotificationTarget>> GetApprovedParentsForStudentAsync(Guid id, CancellationToken ct) => Task.FromResult<IReadOnlyCollection<ParentNotificationTarget>>(Items);
         public Task<IReadOnlyCollection<ParentStudentNotificationTarget>> ListAllApprovedTargetsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyCollection<ParentStudentNotificationTarget>>(Array.Empty<ParentStudentNotificationTarget>());
     }

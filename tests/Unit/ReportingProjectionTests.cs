@@ -224,7 +224,11 @@ public sealed class ReportingProjectionTests
     public async Task Study_Session_Event_Should_Land_In_Iso_Week_Bucket()
     {
         await using var dbContext = NewDbContext();
-        var handler = new StudentStudySessionProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
+        await using var studySource = NewStudySource();
+        studySource.StudySessions.Add(EgitimUssu.Modules.Study.Domain.StudySession.CreateManual(Guid.NewGuid(), StudentId,
+            "Matematik", null, 50, new DateTime(2026, 9, 3, 18, 0, 0, DateTimeKind.Utc), null, false, false, Now));
+        await studySource.SaveChangesAsync();
+        var handler = new StudyStatisticsProjectionHandler(dbContext, new EgitimUssu.Modules.Study.Infrastructure.StudyStatisticsReader(studySource), new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
         await handler.HandleAsync(
             Envelope("Study", "StudySessionCompletedDomainEvent", new
@@ -266,8 +270,12 @@ public sealed class ReportingProjectionTests
             takenOnUtc = takenOn
         });
 
-        await new StudentStudyTestProjectionHandler(dbContext, clock, new LocalCalendar("Europe/Istanbul", clock)).HandleAsync(envelope, CancellationToken.None);
-        await new StudentPerformanceTestProjectionHandler(dbContext, clock, new LocalCalendar("Europe/Istanbul", clock)).HandleAsync(envelope, CancellationToken.None);
+        await using var studySource = NewStudySource();
+        studySource.TestResults.Add(new EgitimUssu.Modules.Study.Domain.TestResult(Guid.NewGuid(), StudentId, "Matematik", "Türev", null,
+            EgitimUssu.Modules.Study.Domain.TestType.Subject, 20, 12, 0, 8, 4, null, takenOn, false, false, Now));
+        await studySource.SaveChangesAsync();
+        await new StudyStatisticsProjectionHandler(dbContext, new EgitimUssu.Modules.Study.Infrastructure.StudyStatisticsReader(studySource), clock,
+            new LocalCalendar("Europe/Istanbul", clock)).HandleAsync(envelope, CancellationToken.None);
 
         var study = await dbContext.StudentStudyProjections.Include(p => p.Items).SingleAsync();
         Assert.Equal(1, study.TestCount);
@@ -419,6 +427,10 @@ public sealed class ReportingProjectionTests
             name,
             sourceModule,
             System.Text.Json.JsonSerializer.Serialize(payload, IntegrationEventSerialization.Options));
+
+    private static EgitimUssu.Modules.Study.Infrastructure.StudyDbContext NewStudySource()
+        => new(new DbContextOptionsBuilder<EgitimUssu.Modules.Study.Infrastructure.StudyDbContext>()
+            .UseInMemoryDatabase($"reporting-source-{Guid.NewGuid()}").Options, new NoOpDomainEventMapper());
 
     private static ReportingDbContext NewDbContext()
     {

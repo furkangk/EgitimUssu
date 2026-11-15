@@ -43,14 +43,15 @@ updated: 2026-11-15
   (`MarkAchieved`/`Cancel`). Enum'lar: `MasteryLevel`, `ProgressTrend`,
   `MasterySource`, `TopicGoalStatus`, `TopicGoalSetterRole`. Olaylar: `TopicMasteryChanged`, `TopicGoalAchieved`.
 - **Besleme (idempotent consumer'lar)** (`Infrastructure/StudyProgressIntegrationEventHandlers.cs`):
-  M08 `StudySessionCompletedDomainEvent` → süre; `TestResultRecordedDomainEvent` → net oranı. Tekrar-koruma artık
+  `StudyStatisticsProgressHandler`, M08 tamamlanma/kayıt ve dört yeni düzenleme/silme olayında güncel
+  `IStudyStatisticsReader` kaynağından `MasteryService.RebuildStudyAsync` çağırır. Tekrar-koruma artık
   modüle özel bir tablo yerine paylaşılan `IdempotentIntegrationEventHandler` tabanı + `inbox_messages` tablosu
   (composite PK `(EventId, Handler)`) ile sağlanır; eski `ProcessedEvent` entity'si ve `processed_events` tablosu
   **kaldırıldı** (2026-08-26, bkz. `mimari_inceleme.md` Y4).
   (M08 `TestResultRecordedDomainEvent` bu iş kapsamında `Topic`/`TotalQuestions`/D-Y-B alanlarıyla zenginleştirildi.)
 - **Skor motoru** (`TopicMastery.Recalculate`): çalışma bileşeni (maks 30, 3 saatte doyar) + test net oranı (maks 70);
   seviye bantları 0–20 Weak / 20–45 Developing / 45–75 Proficient / 75–100 Mastered; veri yoksa NotStarted.
-  Trend son iki net oranından; `IsWeakSpot`/`IsStrength` §4.2'ye göre.
+  Trend `TakenOnUtc`, eşitlikte `Id` sırasındaki son iki net oranından; `IsWeakSpot`/`IsStrength` §4.2'ye göre.
 - **API** (`API/ProgressTrackingModule.cs`): mastery / weak-spots / strengths / overview + topic-goals (liste/oluştur/iptal). Sahiplik `IStudentDirectory` ile.
 - **Öğretmen/veli görünümü (M10-2, 2026-09-04)**: `teachers/{id}/students/{id}/overview` ve
   `parents/{id}/children/{id}/overview` uçları + `Application/ProgressTrackingPolicies.cs` yetkilendiricileri
@@ -275,7 +276,7 @@ katılımından gelir, öğrencinin kendi profilininki kendi çalışmasından �
 
 ### 4.1 Türetilmiş veri (kendi ölçümü yok)
 - ProgressTracking **kendi ham ölçümünü üretmez**; tüm girdi M08 (çalışma/test) ve M05 (ders) olaylarından gelir.
-- Veri kaynak olayların **yeniden oynatılmasıyla (replay)** yeniden hesaplanabilir olmalı (idempotent handler'lar).
+- Study katkısı olayların tetiklediği **güncel kaynak yeniden hesabıyla**, ders katılımı makbuzlu olay tüketimiyle beslenir. Replay sırasında Study kaynağı da erişilebilir olmalıdır (idempotent handler'lar).
 
 ### 4.2 Hâkimiyet skoru (öneri)
 - `MasteryScore` (0–100), ağırlıklı bir formülle hesaplanır: test net oranı (ana sinyal) + çalışma süresi + ders kapsamı.
@@ -285,7 +286,7 @@ katılımından gelir, öğrencinin kendi profilininki kendi çalışmasından �
 - Skor formülü ve bantlar **M15 (Settings)** ile konfigüre edilebilir olmalı.
 
 ### 4.3 Trend (artış/azalış)
-- `Trend`, son N test/snapshot'ın net oranı eğiminden hesaplanır; yeterli veri yoksa `Stable`.
+- `TopicMastery.Trend`, testlerin `TakenOnUtc`, eşitlikte `Id` sırasındaki son iki net oranını karşılaştırır: fark +0,02'den büyükse `Improving`, −0,02'den küçükse `Declining`, aksi `Stable`. İkiden az testte `Stable`; geriye dönük giriş işlenme sırasıyla trendi ters çeviremez. `ProgressSnapshot` trendi ayrı olarak komşu dönemler arasındaki ±5 puan eşiğini kullanır.
 - Net **artış/azalış analizi** M08 `TestResult` zaman serisiyle hizalıdır (aynı `Subject/Topic`).
 
 ### 4.4 Hedef değerlendirme (🟢 Kodda)
@@ -430,3 +431,31 @@ Ekran dokümanı: [`../pages/progress_overview.md`](../pages/progress_overview.m
 *M10 Gelişim Takibi (ProgressTracking) Modülü — Detaylı Tasarım | Faz 3 | Durum: 🟢 Tamam (TopicMastery+TopicGoal+ProgressSnapshot+besleme+API+öğretmen/veli görünümü+mobil çizgi grafiği) | Güncelleme: 2026-11-15 (P17 T3: oluşum anahtarlı ders oturumu, öğrenci/veli okuması ve çift katılım koruması) · 2026-11-15 (P16 Task 5 / N-50: kapanmış hafta/ay anlık görüntüsü Türkiye yerel gününe göre) · 2026-11-14 (P15 Task 3 / N-28: yeni tüketici `StudentProfilesMergedProgressHandler` — profil birleşmesinde hedefler taşınır, hâkimiyet/fotoğraflarda çakışmayan satır taşınır, çakışanda kanonik kazanır; §3.5). Önceki not — 2026-09-04 (P08 kapanış / Task 6: durum 🟡 → 🟢, §1 'kalan' listesi *isteğe bağlı genişletme* olarak yeniden çerçevelendi. Önceki not — P08 Task 5: mobil `ProgressCubit` + `ProgressSnapshotChart` — üç kapsam (öğrenci/öğretmen/veli) tek gövdede; snapshot serisi yalnız öğrenci kapsamında yükleniyor. Önceki not — P08 Task 2 / M10-2+M10-3+M10-4: öğretmen ve veli `overview` uçları + `ProgressTrackingPolicies` yetkilendiricileri + `ProgressPrivacyFilter` gizlilik kapısı + `LessonSessionCompletedProgressHandler` (M05 ders katılımı → `TopicMastery.RegisterLessonAttendance`, yeni `AttendedLessonCount`/`TotalLessonMinutes` alanları + `AddLessonAttendanceToTopicMastery` migration) + hedefte net-oranı koşulu + M11 `TopicGoalAchievedNotificationHandler`; `IStudentDirectory.IsLinkedTeacherOfStudentAsync` sözleşmeye eklendi. Önceki not — P08 Task 1 / M10-1: `ProgressSnapshot` + `SnapshotPeriod` + `SnapshotPeriods` + `ProgressTrendCalculator` (±5) + günlük `ProgressSnapshotService` turu + `GET /students/{id}/snapshots`; §2.3 önerilen tablo koda göre düzeltildi — `Daily`/`Topic`/`LessonCount` kodda yok. Önceki not — 2026-08-26 (idempotency doküman drift'i giderildi: eski `ProcessedEvent`/`processed_events` kaldırıldı, yerine paylaşılan `IdempotentIntegrationEventHandler` + `inbox_messages`; önceki not — 2026-08-19 kod-senkron: API 8 endpoint doğrulandı — status + mastery/weak-spots/strengths/overview + topic-goals liste/oluştur/iptal; `progress-overview` → gerçek route `overview`; `mastery/{subject}/{topic}` detayı ve `snapshots` kodda yok, "önerilen" olarak işaretlendi)*
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
+
+**Outbox teslimi (P19 T2 / N-42):** Null çalışma/test/tamamlama/birleşme yükü açık poison hatasıdır. Tamamlama tüketicisinde kaynak oturum veya plan okunamıyorsa açık hata ile yeniden denenir; plansız/katılımsız ders ve mevcut katılım makbuzu başarılı etkisiz sonuçtur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+**P19 T5 — güncel kaynak uzlaştırması (2026-11-15):** M08 `StudySessionCompleted`, `TestResultRecorded` ve iki türün `Edited`/`Deleted` olaylarının tümü `StudyStatisticsProgressHandler` tarafından inbox tabanında işlenir. Öğrenci transaction advisory kilidi alındıktan sonra `IStudyStatisticsReader` okunur. Mevcut ve kaynakta bulunan konu anahtarları birlikte yeniden hesaplanır; taşınan/eski konu sıfırlanır, hiç konu kalmadığında eski satır `NotStarted` olur. `TotalStudyMinutes`, test sayısı, net toplamı/ortalaması ve son iki net kaynaktan türetilir. `(Genel)` konu normalizasyonu korunur. `AttendedLessonCount` / `TotalLessonMinutes` değişmez; ders tüketicisi aynı öğrenci kilidini kullanır. Değer değişmediyse yeni mastery olayı üretilmez. Aktif hedefler yeniden değerlendirilir; kazanılmış hedef/rozet ve kapanmış `ProgressSnapshot` tarihî kayıttır, geri alınmaz. Önceden kalmış bozuk Study katkıları öğrencinin bir sonraki bu altı olayından biriyle düzelir; otomatik tüm-öğrenci startup taraması eklenmedi. Profil birleşmesi devri P19 T8'de sürer.
+
+*Güncelleme: 2026-11-15 — P19 Task 5: kaynak yeniden hesabı, silinen katkının temizliği, sınav tarihine göre trend.*
+
+
+### P19 Task 6 — Süresi geçen konu hedefi (N-55)
+
+`TopicGoal.MarkMissed(today)` yalnız Active ve TargetDate < today ise Missed yapar; hedef günü sonuna kadar geçerlidir, tarihsiz/Achieved/Cancelled hedefler değişmez. Gün mevcut `ILocalCalendar` üzerinden belirlenir. Mevcut kiralı günlük `ProgressSnapshotProcessor`, süresi geçenlerin en çok 200 kimliğini okur ve hâlâ Active olanları koşullu SQL güncellemesiyle değiştirir. Snapshot dönüş sayısı yalnız üretilen snapshot sayısıdır. Yeni iş/migration/olay eklenmez. TopicGoal xmin taşımaz; koşullu UPDATE eşzamanlı Cancelled/Achieved durumunu korur (P19 T8).
+
+`MasteryService` takvimi alır ve başarı değerlendirmesinden önce aynı MarkMissed kontrolünü uygular; günlük tarama henüz koşmamışsa bile geç başarı geçmiş hedefi kazanamaz. Kapanmış hedef geri açılmaz ve Missed için sahte başarı bildirimi üretilmez. Gerçek PostgreSQL'de 205 hedef/iki parti ve ikinci turun etkisizliği, birim testinde yerel gece yarısı + geç başarı doğrulandı.
+
+### P19 Task 7 — Snapshot öğrenci partileri
+
+`ProgressSnapshotProcessor` her kapalı hafta/ay için TopicMastery öğrenci kimliklerini artan Guid keyset ile **200'lük partilerde** okur. Varolan snapshot anahtarları ve SQL GROUP BY/AVG/SUM yalnız o öğrenci partisine uygulanır; her parti kaydedilir, yeni snapshot nesneleri tracker'dan çıkarılır. Yarım turdan sonra tekrar çalıştırma yazılmış öğrenci/ders/dönemleri atlar. Mevcut günlük kira, kapanmış dönem ve toplam dönen kayıt sayısı sözleşmeleri korunur. Gerçek PostgreSQL'de205öğrenci→410snapshot, sonraki tur0 ve boş snapshot tracker doğrulandı. Şema/olay değişmedi.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+Hedef taraması ile iptal/başarım yarışında tarayıcı yalnız veritabanında hâlâ Active olan, süresi geçmiş hedefi Missed yapar. TopicGoal xmin taşımadığı için koruma koşullu SQL UPDATE ile sağlanır. En çok 200 kimlik okunur; snapshot üretim sayısı sözleşmesi değişmez. İki ayrı DbContext ile Cancelled ve Achieved durumlarının korunması gerçek PostgreSQL üzerinde test edilir.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

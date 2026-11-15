@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Modules.Study.Application;
 using EgitimUssu.Modules.Study.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -29,9 +30,9 @@ internal sealed class StudyRepository : IStudyRepository
             cancellationToken);
 
     public async Task<IReadOnlyList<StudySession>> ListSessionsAsync(
-        Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken)
+        Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
     {
-        var query = _dbContext.StudySessions
+        var query = _dbContext.StudySessions.AsNoTracking()
             .Where(x => x.StudentId == studentId && x.Status != StudySessionStatus.Discarded);
 
         if (fromUtc.HasValue)
@@ -49,6 +50,7 @@ internal sealed class StudyRepository : IStudyRepository
             query = query.Where(x => x.Subject == subject);
         }
 
+        if (page is not null) return await query.Seek(page, x => x.StartedAtUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
         return await query.OrderByDescending(x => x.StartedAtUtc).ToArrayAsync(cancellationToken);
     }
 
@@ -79,7 +81,11 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddSessionAsync(StudySession session, CancellationToken cancellationToken) =>
         _dbContext.StudySessions.AddAsync(session, cancellationToken).AsTask();
 
-    public void RemoveSession(StudySession session) => _dbContext.StudySessions.Remove(session);
+    public void RemoveSession(StudySession session)
+    {
+        session.NotifyDeleted();
+        _dbContext.StudySessions.Remove(session);
+    }
 
     public async Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(
         Guid studentId, string subject, string topic, CancellationToken cancellationToken) =>
@@ -94,9 +100,9 @@ internal sealed class StudyRepository : IStudyRepository
         _dbContext.TestResults.FindAsync(new object?[] { testResultId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyList<TestResult>> ListTestsAsync(
-        Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken)
+        Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
     {
-        var query = _dbContext.TestResults.Where(x => x.StudentId == studentId);
+        var query = _dbContext.TestResults.AsNoTracking().Where(x => x.StudentId == studentId);
 
         if (!string.IsNullOrWhiteSpace(subject))
         {
@@ -118,6 +124,7 @@ internal sealed class StudyRepository : IStudyRepository
             query = query.Where(x => x.TakenOnUtc < toUtc.Value);
         }
 
+        if (page is not null) return await query.Seek(page, x => x.TakenOnUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
         return await query.OrderByDescending(x => x.TakenOnUtc).ToArrayAsync(cancellationToken);
     }
 
@@ -127,7 +134,11 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken) =>
         _dbContext.TestResults.AddAsync(testResult, cancellationToken).AsTask();
 
-    public void RemoveTest(TestResult testResult) => _dbContext.TestResults.Remove(testResult);
+    public void RemoveTest(TestResult testResult)
+    {
+        testResult.NotifyDeleted();
+        _dbContext.TestResults.Remove(testResult);
+    }
 
     public Task AddMockExamAsync(MockExam mockExam, CancellationToken cancellationToken) =>
         _dbContext.MockExams.AddAsync(mockExam, cancellationToken).AsTask();
@@ -198,11 +209,12 @@ internal sealed class StudyRepository : IStudyRepository
         return Task.CompletedTask;
     }
 
-    public async Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken) =>
-        await _dbContext.StudyNotes
-            .Where(x => x.StudentId == studentId)
-            .OrderByDescending(x => x.UpdatedOnUtc)
-            .ToArrayAsync(cancellationToken);
+    public async Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
+    {
+        var query = _dbContext.StudyNotes.AsNoTracking().Where(x => x.StudentId == studentId);
+        if (page is not null) return await query.Seek(page, x => x.CreatedOnUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
+        return await query.OrderByDescending(x => x.UpdatedOnUtc).ToArrayAsync(cancellationToken);
+    }
 
     public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) =>
         _dbContext.StudyNotes.FindAsync(new object?[] { noteId }, cancellationToken).AsTask();
@@ -225,6 +237,53 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddEarnedAsync(StudentAchievement earned, CancellationToken cancellationToken) =>
         _dbContext.StudentAchievements.AddAsync(earned, cancellationToken).AsTask();
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
-        _dbContext.SaveChangesAsync(cancellationToken);
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        var changed = _dbContext.ChangeTracker.Entries<TestResult>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(x => x.Entity.MockExamId != null).ToArray();
+        var examIds = changed.Select(x => x.Entity.MockExamId!.Value).Distinct().Order().ToArray();
+        if (examIds.Length == 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        // Bileşen yazımı ve deneme toplamı tek transaction; iki farklı bileşenin eşzamanlı
+        // düzenlenmesi de son toplamı ezemez. Kilitler kimlik sırasıyla alınır.
+        Guid[] pendingEventIds = [];
+        await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+            // Commit yanıtı kaybolmuşsa aynı atomik yazımın outbox işaretleri başarıyı doğrular.
+            if (pendingEventIds.Length > 0 && await _dbContext.OutboxMessages.AsNoTracking()
+                .CountAsync(x => pendingEventIds.Contains(x.Id), cancellationToken) == pendingEventIds.Length)
+                return;
+            foreach (var examId in examIds)
+            {
+                if (_dbContext.Database.IsNpgsql())
+                {
+                    var key = $"study:mock-exam:{examId:D}";
+                    await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))", cancellationToken);
+                }
+                var exam = await _dbContext.MockExams.FindAsync(new object?[] { examId }, cancellationToken);
+                if (exam is null) continue;
+                var nets = await _dbContext.TestResults.AsNoTracking().Where(x => x.MockExamId == examId)
+                    .ToDictionaryAsync(x => x.Id, x => x.Net, cancellationToken);
+                foreach (var entry in changed.Where(x => x.Entity.MockExamId == examId))
+                {
+                    if (entry.State == EntityState.Deleted) nets.Remove(entry.Entity.Id);
+                    else nets[entry.Entity.Id] = entry.Entity.Net;
+                }
+                exam.RecalculateTotalNet(nets.Values);
+            }
+            // Tracker ve yakalanmış outbox kayıtları commit tamamlanana kadar Added/Modified/Deleted kalır.
+            await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, cancellationToken);
+            pendingEventIds = _dbContext.ChangeTracker.Entries<EgitimUssu.Shared.Infrastructure.Persistence.OutboxMessage>()
+                .Where(x => x.State == EntityState.Added).Select(x => x.Entity.Id).ToArray();
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+        });
+        _dbContext.ChangeTracker.AcceptAllChanges();
+    }
 }

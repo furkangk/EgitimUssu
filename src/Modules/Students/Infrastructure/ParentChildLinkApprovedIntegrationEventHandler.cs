@@ -31,9 +31,10 @@ internal sealed class ParentChildLinkApprovedIntegrationEventHandler : Idempoten
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
         var payload = JsonSerializer.Deserialize<ParentChildLinkApprovedPayload>(envelope.Payload, IntegrationEventSerialization.Options);
-        if (payload is null || !payload.IsPrimaryContact)
+        if (payload is null) throw new PoisonMessageException("Veli bağı olay yükü null olamaz.");
+        if (!payload.IsPrimaryContact)
         {
-            return false;
+            return true;
         }
 
         var student = await StudentsDb.StudentProfiles
@@ -41,7 +42,7 @@ internal sealed class ParentChildLinkApprovedIntegrationEventHandler : Idempoten
             .FirstOrDefaultAsync(profile => profile.Id == payload.StudentId, cancellationToken);
         if (student is null || student.ParentUserId == payload.ParentUserId)
         {
-            return false;
+            return true;
         }
 
         student.LinkParent(payload.ParentUserId, Clock.UtcNow);

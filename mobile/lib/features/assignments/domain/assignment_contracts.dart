@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/network/cursor_page.dart';
+
 class AssignmentItem {
   const AssignmentItem({
     this.id,
@@ -71,6 +73,12 @@ class FollowUpAssignment {
 }
 
 abstract interface class AssignmentRepository {
+  Future<CursorPage<AssignmentItem>> listPage({
+    String? teacherUserId,
+    String? studentId,
+    String? after,
+    int limit = 50,
+  });
   Future<FollowUpAssignment> getFollowUp(String lessonSessionId);
   Future<FollowUpAssignment> saveFollowUp(
     FollowUpAssignment followUpAssignment,

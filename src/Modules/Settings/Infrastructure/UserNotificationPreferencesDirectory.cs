@@ -13,6 +13,16 @@ internal sealed class UserNotificationPreferencesDirectory : IUserNotificationPr
 
     public UserNotificationPreferencesDirectory(SettingsDbContext dbContext) => _dbContext = dbContext;
 
+    public async Task<IReadOnlyDictionary<Guid, UserNotificationPreferences>> GetManyAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken)
+    {
+        var rows = await _dbContext.UserSettings.AsNoTracking().Where(s => userIds.Contains(s.UserId))
+            .Select(s => new { s.UserId, Prefs = new UserNotificationPreferences(s.PushNotificationsEnabled,
+                s.EmailNotificationsEnabled, s.UpcomingLessonReminderEnabled, s.HomeworkReminderEnabled,
+                s.PaymentReminderEnabled, s.WeeklySummaryEnabled) }).ToArrayAsync(cancellationToken);
+        var found = rows.ToDictionary(x => x.UserId, x => x.Prefs);
+        return userIds.Distinct().ToDictionary(x => x, x => found.GetValueOrDefault(x) ?? UserNotificationPreferences.AllEnabled);
+    }
+
     public async Task<UserNotificationPreferences> GetAsync(Guid userId, CancellationToken cancellationToken)
     {
         var row = await _dbContext.UserSettings

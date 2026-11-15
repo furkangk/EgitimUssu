@@ -83,7 +83,17 @@ public static class TeacherDashboardEndpoints
             .Select(l => new DashboardTodayLessonItem(l.Id, l.StudentId, l.Subject, l.LessonFormat, l.StartAtUtc, l.EndAtUtc, l.LocationLabel))
             .ToArray();
 
-        var pendingAssignments = assignmentsResult.Value!
+        var allAssignments = assignmentsResult.Value!.Items.ToList();
+        var cursor = assignmentsResult.Value!.NextCursor;
+        while (cursor is not null)
+        {
+            var next = await queryDispatcher.Dispatch(new ListAssignmentsQuery(teacherUserId, null, null, cursor, 100), cancellationToken);
+            if (next.IsFailure) return ApiErrorHttpResults.FromError(context, StatusCodes.Status502BadGateway, next.Error);
+            allAssignments.AddRange(next.Value!.Items);
+            cursor = next.Value!.NextCursor;
+        }
+
+        var pendingAssignments = allAssignments
             .Where(a => a.Status == "Pending")
             .OrderBy(a => a.DueDateUtc)
             .Select(a => new DashboardPendingAssignmentItem(a.Id, a.StudentId, a.TeacherUserId, a.Title, a.DueDateUtc))

@@ -45,8 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<CancelTopicGoalCommand, Result<bool>>, CancelTopicGoalCommandHandler>();
 
         // M08 çalışma/test olaylarını tüketen (idempotent) gelişim besleme handler'ları
-        services.AddScoped<IIntegrationEventHandler, StudySessionCompletedProgressHandler>();
-        services.AddScoped<IIntegrationEventHandler, TestResultRecordedProgressHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudyStatisticsProgressHandler>();
 
         // M10-4: tamamlanan ders → konuya katılım katkısı
         services.AddScoped<IIntegrationEventHandler, LessonSessionCompletedProgressHandler>();

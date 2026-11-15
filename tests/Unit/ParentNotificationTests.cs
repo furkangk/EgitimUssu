@@ -150,6 +150,9 @@ public sealed class ParentNotificationTests
         private readonly IReadOnlyCollection<ParentNotificationTarget> _targets;
         public FakeDirectory(IReadOnlyCollection<ParentNotificationTarget> targets) => _targets = targets;
 
+        public Task<ParentNotificationTargetPage> ListApprovedTargetPageAsync(Guid? afterLinkId, int take, CancellationToken cancellationToken)
+            => Task.FromResult(new ParentNotificationTargetPage(Array.Empty<ParentStudentNotificationTarget>(), null));
+
         public Task<IReadOnlyCollection<ParentNotificationTarget>> GetApprovedParentsForStudentAsync(Guid studentId, CancellationToken ct)
             => Task.FromResult(_targets);
 
@@ -160,6 +163,8 @@ public sealed class ParentNotificationTests
 
     private sealed class FakeRepo : IParentNotificationRepository
     {
+        public Task<int> RunWeeklySummaryBatchAsync(Func<Task<int>> write, CancellationToken cancellationToken) => write();
+
         public List<ParentNotification> Added { get; } = new();
         private readonly HashSet<Guid> _processed = new();
 
@@ -173,6 +178,13 @@ public sealed class ParentNotificationTests
             => Task.FromResult<IReadOnlyCollection<ParentNotification>>(Added.Where(n => n.ParentUserId == parentUserId).ToArray());
 
         public Task<bool> HasProcessedAsync(Guid eventId, CancellationToken ct) => Task.FromResult(_processed.Contains(eventId));
+
+        public async Task<IReadOnlySet<Guid>> GetProcessedAsync(IReadOnlyCollection<Guid> eventIds, CancellationToken cancellationToken)
+        {
+            var result = new HashSet<Guid>();
+            foreach (var id in eventIds) if (await HasProcessedAsync(id, cancellationToken)) result.Add(id);
+            return result;
+        }
 
         public void MarkProcessed(Guid eventId, string eventName, DateTime nowUtc) => _processed.Add(eventId);
 

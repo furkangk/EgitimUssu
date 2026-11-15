@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/network/cursor_page.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_theme.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -348,6 +349,9 @@ class _StudentRepository implements StudentRepository {
 }
 
 class _NoteRepository implements AssignmentRepository {
+  @override
+  Future<CursorPage<AssignmentItem>> listPage({String? teacherUserId, String? studentId, String? after, int limit = 50}) async => const CursorPage(items: []);
+
   FollowUpAssignment existing = _followUp();
   FollowUpAssignment? saved;
   ApiException? saveError;

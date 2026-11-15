@@ -23,7 +23,7 @@ public sealed record SubmitAssignmentWorkCommand(
     Stream Content) : ICommand<Result<AssignmentResponse>>;
 
 /// <summary>P04: İndirme için teslim dosyasının depolama anahtarı ve meta verisi.</summary>
-public sealed record GetAssignmentAttachmentQuery(Guid AssignmentId)
+public sealed record GetAssignmentAttachmentQuery(Guid AssignmentId, int? Version = null)
     : IQuery<Result<AssignmentAttachmentResponse>>;
 
 public sealed record AssignmentAttachmentResponse(string StorageKey, string FileName, string ContentType);
@@ -58,11 +58,13 @@ public sealed class MarkAssignmentCompletedCommandHandler
 {
     private readonly IAssignmentRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public MarkAssignmentCompletedCommandHandler(IAssignmentRepository repository, IClock clock)
+    public MarkAssignmentCompletedCommandHandler(IAssignmentRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<AssignmentResponse>> Handle(MarkAssignmentCompletedCommand command, CancellationToken cancellationToken)
@@ -73,7 +75,8 @@ public sealed class MarkAssignmentCompletedCommandHandler
             return Result<AssignmentResponse>.Failure(AssignmentErrors.NotFound);
         }
 
-        assignment.MarkCompleted(_clock.UtcNow);
+        var transition = assignment.MarkCompleted(_clock.UtcNow, _calendar);
+        if (transition.IsFailure) return Result<AssignmentResponse>.Failure(transition.Error);
         await _repository.SaveChangesAsync(cancellationToken);
         return Result<AssignmentResponse>.Success(assignment.ToResponse());
     }
@@ -82,7 +85,7 @@ public sealed class MarkAssignmentCompletedCommandHandler
 /// <summary>
 /// P04 (C-02): Teslim dosyasını ortak <see cref="IFileStorage"/> üzerinden saklar.
 /// Sıra önemlidir: **önce** doğrulama ve ödevin varlığı, **sonra** yazma — yetkisiz/hatalı bir istek
-/// depoya hiçbir şey bırakmaz. Yeni dosya bağlandığında eskisi silinir (yetim dosya kalmaz).
+/// depoya hiçbir şey bırakmaz. Eski dosya teslim sürümünde korunur.
 /// </summary>
 public sealed class SubmitAssignmentWorkCommandHandler
     : ICommandHandler<SubmitAssignmentWorkCommand, Result<AssignmentResponse>>
@@ -90,15 +93,18 @@ public sealed class SubmitAssignmentWorkCommandHandler
     private readonly IAssignmentRepository _repository;
     private readonly IFileStorage _fileStorage;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
     public SubmitAssignmentWorkCommandHandler(
         IAssignmentRepository repository,
         IFileStorage fileStorage,
-        IClock clock)
+        IClock clock,
+        ILocalCalendar calendar)
     {
         _repository = repository;
         _fileStorage = fileStorage;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<AssignmentResponse>> Handle(SubmitAssignmentWorkCommand command, CancellationToken cancellationToken)
@@ -120,6 +126,9 @@ public sealed class SubmitAssignmentWorkCommandHandler
             return Result<AssignmentResponse>.Failure(AssignmentErrors.NotFound);
         }
 
+        var transition = assignment.CanSubmit();
+        if (transition.IsFailure) return Result<AssignmentResponse>.Failure(transition.Error);
+
         var stored = await _fileStorage.SaveAsync(
             $"assignments/{command.AssignmentId}",
             command.FileName,
@@ -127,18 +136,21 @@ public sealed class SubmitAssignmentWorkCommandHandler
             command.Content,
             cancellationToken);
 
-        var previousKey = assignment.AttachSubmission(
+        assignment.AttachSubmission(
             stored.Key,
             stored.FileName,
             stored.ContentType,
             stored.SizeBytes,
-            _clock.UtcNow);
+            _clock.UtcNow, _calendar);
 
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(previousKey))
+        try
         {
-            await _fileStorage.DeleteAsync(previousKey, cancellationToken);
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            await _fileStorage.DeleteAsync(stored.Key, CancellationToken.None);
+            throw;
         }
 
         return Result<AssignmentResponse>.Success(assignment.ToResponse());
@@ -164,6 +176,14 @@ public sealed class GetAssignmentAttachmentQueryHandler
         if (assignment is null)
         {
             return Result<AssignmentAttachmentResponse>.Failure(AssignmentErrors.NotFound);
+        }
+
+        if (query.Version is { } number)
+        {
+            var version = assignment.SubmissionVersions.SingleOrDefault(x => x.Number == number);
+            return version?.StorageKey is { Length: > 0 } key
+                ? Result<AssignmentAttachmentResponse>.Success(new(key, version.FileName ?? "odev", version.ContentType ?? "application/octet-stream"))
+                : Result<AssignmentAttachmentResponse>.Failure(AssignmentErrors.AttachmentNotFound);
         }
 
         if (string.IsNullOrWhiteSpace(assignment.AttachmentStorageKey))

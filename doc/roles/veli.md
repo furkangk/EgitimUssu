@@ -182,3 +182,8 @@ Premium veli: reklamsız, detaylı gelişim grafikleri, haftalık rapor, çalı�
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
 
 *Güncelleme: 2026-11-15 — P18 T3: tek bekleyen ödeme beyanı ve veliye onay/ret bildirimi (backend; mobil beyan ekranları P21).*
+
+
+### P19 Task 6 — Her çocuk için haftalık bildirim
+
+Premium ve haftalık gelişim özeti tercihi açık velinin her onaylı çocuğuna ayrı haftalık “özet hazır” bildirimi gelir. Bir çocuğun bildirimi diğerini bastırmaz; hafta Türkiye yerel Pazartesi sınırına göre tekilleşir. Mevcut bildirim metni sabittir, çalışma/ödev ayrıntıları otomatik özete eklenmiş sayılmaz.

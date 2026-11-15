@@ -9,7 +9,7 @@ code_refs:
   - mobile/lib/features/messaging/presentation/cubit/chat_cubit.dart
   - mobile/lib/features/messaging/presentation/widgets/messaging_widgets.dart
   - mobile/lib/features/messaging/presentation/open_conversation_action.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # Sohbet
@@ -17,7 +17,7 @@ updated: 2026-09-04
 > **Route:** `/messages/:conversationId` · **Feature:** `messaging` · **Veri:** 🟢 `/api/messaging`
 > **Giriş:** gelen kutusundan satıra dokunma · "Mesaj gönder" düğmeleri · **push bildirimine dokunma**
 > **State:** `ChatCubit` (ekran ömrü)
-> **Güncelleme:** 2026-09-04
+> **Güncelleme:** 2026-11-15
 
 ---
 
@@ -52,7 +52,7 @@ sunucudaki değerle birebir aynı olması yeterlidir.
 - **Engel çift yönlüdür.** Kim koyarsa koysun yazma alanı kapanır ve yerine açıklama çıkar; boşuna
   yazdırmak yerine nedeni söylenir. Engeli **yalnız koyan taraf** kaldırabilir — karşı tarafın koyduğu
   engelde menü hiç gösterilmez (ölü menü açmak yanıltıcı olurdu).
-- **Okundu işareti yan etkidir.** Ekran açılınca `POST /read` çağrılır; başarısız olursa **yutulur**,
+- **Okundu işareti yan etkidir.** Ekran açılınca yüklü en yeni sunucu mesajının `upToMessageId` alanıyla `POST /read` çağrılır; boş/taslak listede çağrı yapılmaz. Daha sonra gelen mesaj unread kalır; başarısız olursa **yutulur**,
   mesajlar görünür kalır ve bir sonraki açılışta yeniden denenir.
 - **Silinmiş mesaj listede kalır**, içeriği yerine "Bu mesaj silindi" yazar (sunucu `body: null` döner).
 - Boş/boşluk mesaj sunucuya hiç gitmez.
@@ -72,4 +72,4 @@ sunucudaki değerle birebir aynı olması yeterlidir.
 
 > İlgili: gelen kutusu → [`messaging_inbox.md`](messaging_inbox.md) · modül → [`../modules/m16_messaging.md`](../modules/m16_messaging.md)
 
-*Sohbet Ekranı | Güncelleme: 2026-09-04 (P10 Task 4 — D-08)*
+*Sohbet Ekranı | Güncelleme: 2026-11-15 (P10 Task 4 — D-08)*
