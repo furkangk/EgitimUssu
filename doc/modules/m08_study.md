@@ -280,7 +280,7 @@ GET    /api/study/sessions/{id}                                 → 200 seans de
 PUT    /api/study/sessions/{id}
        body: { subject, topic?, effectiveMinutes, personalNote? } → 200 (yalnız tamamlanmış seans; konu rollup yeniden türetilir)
 DELETE /api/study/sessions/{id}                                 → 200 (konu rollup yeniden türetilir)
-GET    /api/study/students/{studentId}/sessions?from=&to=&subject=
+GET    /api/study/students/{studentId}/sessions?from=&to=&subject=&after=&limit=
                                                                 → 200 seans listesi (sayfalı)
 GET    /api/study/students/{studentId}/weekly-summary?weekStart=
                                                                 → 200 { totalMinutes, perSubject[], perDay[] }
@@ -298,7 +298,7 @@ PUT    /api/study/test-results/{id}
                correct, wrong, blank, penaltyDivisor?, durationMinutes?,
                takenOnUtc }                                      → 200 (net yeniden hesaplanır)
 DELETE /api/study/test-results/{id}                             → 200
-GET    /api/study/students/{studentId}/test-results?subject=&from=&to=
+GET    /api/study/students/{studentId}/test-results?subject=&topic=&from=&to=&after=&limit=
                                                                 → 200 liste
 GET    /api/study/students/{studentId}/net-trend?subject=&topic=
                                                                 → 200 zaman serisi (net artış/azalış)
@@ -353,7 +353,7 @@ DELETE /api/study/topics/{topicId}                         → 200
 Öğrencinin kendi tuttuğu not (`StudyNote`). Öğretmenin ders oturumuna bağlı `LessonNote`'undan (M06) **ayrıdır**;
 öğrencinin kendi çalışma dünyasına aittir, opsiyonel ders/konu ile ilişkilendirilir.
 ```
-GET    /api/study/students/{studentId}/notes                          → 200 notlar (güncelleme sırasına göre)
+GET    /api/study/students/{studentId}/notes?after=&limit=            → 200 notlar (oluşturulma zamanı/Id azalan)
 POST   /api/study/students/{studentId}/notes
        body: { title, body, subject?, topic?, attachmentUrl? }        → 200 not
 PUT    /api/study/notes/{noteId}   body: { title, body, subject?, topic?, attachmentUrl? }  → 200
@@ -546,7 +546,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 
 **P19 T5 — düzenleme/silme yayılımı (N-47, 2026-11-15):** `StudySession.EditCompleted` ve `TestResult.Edit` yeni `StudySessionEditedDomainEvent` / `TestResultEditedDomainEvent` üretir. Gerçek repository silmeden önce `NotifyDeleted` çağırır; `StudySessionDeletedDomainEvent` / `TestResultDeletedDomainEvent` silinen aggregate izlenirken aynı SaveChanges ile outbox'a alınır. Eski tamamlanma/kayıt olaylarının şeması korunur; yeni olaylar kaynak kayıt ve öğrenci kimliğini taşır. Mevcut edit/delete HTTP ve yanıt sözleşmesi değişmedi.
 
-`IStudyStatisticsReader.ReadAsync(studentId, ct)` yalnız öğrencinin güncel tamamlanmış seanslarını ve testlerini döndürür (kişisel not/dosya/paylaşım alanı taşımaz). M10 hâkimiyeti ve M14 hafta/ay test satırları altı olayda bu kaynağa göre uzlaştırılır; silinen veya eski döneme taşınan katkı temizlenir. Gecikmiş eski kayıt olayı da güncel kaynağı okur, silineni diriltmez. Kaynak öğrenci bazındadır; büyük geçmişlerin sayfalama/partileme çalışması P19 T7 kapsamındadır.
+`IStudyStatisticsReader.ReadAsync(studentId, ct)` yalnız öğrencinin güncel tamamlanmış seanslarını ve testlerini döndürür (kişisel not/dosya/paylaşım alanı taşımaz). M10 hâkimiyeti ve M14 hafta/ay test satırları altı olayda bu kaynağa göre uzlaştırılır; silinen veya eski döneme taşınan katkı temizlenir. Gecikmiş eski kayıt olayı da güncel kaynağı okur, silineni diriltmez. Kaynak öğrenci bazındadır; P19 T7 ölçek ölçümü ve tam kaynak okuma kararı aşağıdadır.
 
 `MockExam.TotalNet`, gerçek repository'de değişen/eklenen/silinen bileşenlerin DB netleri + izlenen değişikliklerinden yeniden hesaplanır. Deneme bazlı PostgreSQL transaction advisory kilidi, bileşen yazımı/toplam/outbox ile aynı transaction'dadır; farklı iki bileşenin eşzamanlı değişimi toplamı ezmez. Son bileşen silinince toplam sıfırdır, deneme kaydı korunur. Yeni kolon/migration yoktur. Bu görev tarihî snapshot/rozet/kapanmış hedefleri geri almaz; mevcut yerel konu rollup'ı ve seri onarım mekanizması korunur.
 
@@ -556,3 +556,15 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 ### P19 Task 6 — YDS neti (N-55)
 
 `ExamPenalty.DivisorFor("YDS")` büyük/küçük harf ve çevre boşluklarından bağımsız olarak `null` döndürür; School ile aynı cezasız yol kullanılır. Handler'ın mevcut int.MaxValue temsili, iki ondalıklı net hesabında yanlışların doğruyu azaltmamasını sağlar. Açık pozitif penaltyDivisor önceliği ve eski kayıtlar korunur.
+
+### P19 Task 7 — Cursor listeleri (N-54)
+
+`after` veya `limit` verildiğinde yanıt `PagedResult<T>`: `{ items, page: 1, pageSize, totalCount: null, totalPages: null, nextCursor }`. Toplam sayımı yoktur; cursor son sayfada null olur. Varsayılan 50, üst sınır 100; geçersiz cursor veya 1–100 dışındaki limit `400 shared.invalid_pagination`. Cursor azalan `(UTC an, Id)` çiftidir; PostgreSQL row-value karşılaştırması bileşik indekse doğrudan atlar. Sahiplik ve mevcut filtreler her sayfada yeniden uygulanır.
+
+`GET /students/{studentId}/sessions?from=&to=&subject=&after=&limit=&after=&limit=`, `/test-results?subject=&topic=&from=&to=&after=&limit=` ve `/notes?after=&limit=` sayfalıdır. Parametresiz çağrıda eski dizi biçimiyle ilk50 korunur. Seans StartedAtUtc, test TakenOnUtc, not CreatedOnUtc anahtarını kullanır; not düzenlemek sayfa sırasını değiştirmez. Free son30gün geçmiş kapısı seans/test sorgusunda **her sayfadan önce** uygulanır. Öğrenci önekli üç zaman+Id indeksi `ListKeysetIndexes` ile eklenir.
+
+Çalışma geçmişinin seans ve deneme sekmeleri bağımsız cursor; notlar ayrı cursor kullanır. Yükleme hatası yeniden denenebilir; yenilemeden önce başlayan eski istek yeni listeyi ezmez. Bu ekranlar tr/en ARB kullanır. Performans/analiz gibi tam geçmiş isteyen eski mobil repository metotları yeni sayfaları sırayla birleştirir; istatistikleri ilk50'de kesmez. İç seri/özet sorguları isteğe bağlı KeysetPage olmadan tam kaynağı okur.
+
+**#272 ölçümü:** Gerçek, ayrı PostgreSQL veritabanında 5.000 tamamlanmış seans +5.000 test için `StudyStatisticsReader` iki dar SELECT ile yaklaşık28–32ms ve4,5MB tahsis kullandı. Değerler yerel test ölçümüdür. Kesin M10/M14 yeniden hesap anlamını korumak için sözleşme ve tam kaynak okuması tutuldu; UI sınırı bu okuyucuya uygulanmaz. Bellek ve maliyet geçmişle doğrusal büyür; ölçek artışında P26'da SQL özet/streaming sözleşmesi ayrıca değerlendirilmelidir.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

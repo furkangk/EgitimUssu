@@ -257,7 +257,7 @@ GET /teachers/{teacherUserId}/payment-declarations?onlyPending=   POST /payment-
 GET /teachers/{teacherUserId}/lesson-reminders?activeOnly=
 GET /parents/{parentUserId}/notifications   (veli bildirim listesi, Premium; Veli V-E 2026-07-19)
 POST /device-tokens   DELETE /device-tokens/{token}   (cihaz push token kaydi/silme, auth; M11-2 2026-09-03)
-GET /users/{userId}/notifications?onlyUnread=&skip=&take=   (in-app bildirim merkezi, self/Admin; M11-3 2026-09-03)
+GET /users/{userId}/notifications?onlyUnread=&after=&limit= (eski skip/take de korunur)   (in-app bildirim merkezi, self/Admin; M11-3 2026-09-03)
 GET /users/{userId}/unread-count   (rozet sayisi, self/Admin; M11-4 2026-09-03)
 POST /{notificationId}/read   (okundu isaretle, idempotent; M11-4 2026-09-03)
 [consume] Assignments.AssignmentCreated / LessonSessions.LessonSessionCompleted / Payments.PaymentRecordUpdated / Parents.ParentLinkConnectionNotice → ParentNotification + UserNotification (Premium + tercih kapılı, idempotent (ortak inbox_messages))
@@ -287,9 +287,9 @@ POST /sessions/start   /sessions/manual
 POST /sessions/{id}/pause   /resume   /complete   /discard   /recover   (pause/complete: opsiyonel clientEffectiveMinutes; recover: takılı seansı kurtarır — Ö-E)
 GET  /sessions/{id}   PUT /sessions/{id}   DELETE /sessions/{id}
 GET  /students/{studentId}/active-session   (aktif seans + IsStale takılı bayrağı — Ö-E)
-GET  /students/{studentId}/sessions?from=&to=&subject=   /weekly-summary?weekStart=
+GET  /students/{studentId}/sessions?from=&to=&subject=&after=&limit=   /weekly-summary?weekStart=
 POST /test-results   GET /test-results/{id}   PUT /test-results/{id}   DELETE /test-results/{id}
-GET  /students/{studentId}/test-results?subject=&topic=&from=&to=   /net-trend?subject=&topic=
+GET  /students/{studentId}/test-results?subject=&topic=&from=&to=&after=&limit=   /net-trend?subject=&topic=
 POST /students/{studentId}/mock-exams   (çok dersli deneme; net ExamPenalty böleniyle)
 GET  /students/{studentId}/goals   PUT /students/{studentId}/goals
 GET  /students/{studentId}/streak   /achievements   /dashboard
@@ -297,7 +297,7 @@ GET  /students/{studentId}/sharing   PUT /students/{studentId}/sharing
 GET  /students/{studentId}/subjects   POST /students/{studentId}/subjects
 PUT  /subjects/{subjectId}   DELETE /subjects/{subjectId}
 POST /subjects/{subjectId}/topics   PUT /topics/{topicId}   DELETE /topics/{topicId}
-GET  /students/{studentId}/notes   POST /students/{studentId}/notes
+GET  /students/{studentId}/notes?after=&limit=   POST /students/{studentId}/notes
 PUT  /notes/{noteId}   DELETE /notes/{noteId}
 ```
 ### ProgressTracking — `/api/progress-tracking`  (🟢)
@@ -438,3 +438,9 @@ GET /api/matching/status   /api/reviews/status
 ### P19 Task 6 — Bildirim ve küçük doğruluk sözleşmeleri
 
 M11 push kuyruğu deneme sayacı/üstel backoff/TTL/Expired ile yeni kayıtları aç bırakmaz; tercih/token toplu okunur. Eski mesaj bildirim metinleri NotificationDeliveryBackoff göçünde temizlenir. Haftalık veli özeti her çocuk için ayrı, 200 bağlık keyset ve toplu dedup ile üretilir. M16 `POST /conversations/{id}/read` artık isteğe bağlı `{ upToMessageId }` alır; sınır yoksa no-op, sınırdan sonra gelenler unread. Mobil yüklü son sunucu kimliğini gönderir. M08 YDS cezasız; M10 geçmiş Active konu hedefi günlük taramada ve başarı öncesinde Missed olur. Uç sayısı değişmedi, yeni göç yalnız Notifications şemasında.
+
+### P19 Task 7 — Liste sözleşmesi ve indeksler
+
+M06 ödev, M08 seans/test/not ve M11 bildirim listelerinde `after/limit` keyset desteği var (50/max100, `items/nextCursor`, toplam sayımı yok). M06/M08 parametresiz eski JSON dizisi ilk50 ile korunur; M11 eski skip/take ve toplam metadata'sını korur. [M06](m06_assignments.md), [M08](m08_study.md), [M11](m11_notifications.md) ayrıntıları. Üç modülde `ListKeysetIndexes` migration'ları ve M10'da200öğrencilik snapshot partileri; mobil liste/geçmiş/bildirim sonsuz kaydırma ve tr/en ARB. Endpoint sayısı değişmedi.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

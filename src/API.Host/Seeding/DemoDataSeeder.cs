@@ -534,7 +534,7 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
             var existing = await session.QueryOrDefaultAsync(
                 new ListStudySessionsQuery(student.StudentId, fromUtc, clock.UtcNow, null));
 
-            if (existing is { Count: > 0 })
+            if (existing is { Items.Count: > 0 })
             {
                 continue;
             }

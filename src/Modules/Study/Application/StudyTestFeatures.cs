@@ -38,8 +38,8 @@ public sealed record DeleteTestResultCommand(Guid TestResultId) : ICommand<Resul
 
 public sealed record GetTestResultQuery(Guid TestResultId) : IQuery<Result<TestResultResponse>>;
 
-public sealed record ListTestResultsQuery(Guid StudentId, string? Subject, string? Topic, DateTime? FromUtc, DateTime? ToUtc)
-    : IQuery<Result<IReadOnlyCollection<TestResultResponse>>>, IStudentScopedRequest;
+public sealed record ListTestResultsQuery(Guid StudentId, string? Subject, string? Topic, DateTime? FromUtc, DateTime? ToUtc, string? After = null, int? Limit = null)
+    : IQuery<Result<PagedResult<TestResultResponse>>>, IStudentScopedRequest;
 
 public sealed record NetTrendQuery(Guid StudentId, string? Subject, string? Topic)
     : IQuery<Result<NetTrendResponse>>, IStudentScopedRequest;
@@ -225,7 +225,7 @@ public sealed class GetTestResultQueryHandler
 }
 
 public sealed class ListTestResultsQueryHandler
-    : IQueryHandler<ListTestResultsQuery, Result<IReadOnlyCollection<TestResultResponse>>>
+    : IQueryHandler<ListTestResultsQuery, Result<PagedResult<TestResultResponse>>>
 {
     private readonly IStudyRepository _repository;
     private readonly StudyMembershipResolver _membership;
@@ -238,15 +238,18 @@ public sealed class ListTestResultsQueryHandler
         _clock = clock;
     }
 
-    public async Task<Result<IReadOnlyCollection<TestResultResponse>>> Handle(ListTestResultsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<TestResultResponse>>> Handle(ListTestResultsQuery query, CancellationToken cancellationToken)
     {
         // Ö-D: Free deneme geçmişi son 30 güne kısılır; Premium sınırsız.
         var tier = await _membership.CurrentTierAsync(cancellationToken);
         var fromUtc = MembershipGate.ClampFrom(tier, query.FromUtc, _clock.UtcNow);
 
-        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, fromUtc, query.ToUtc, cancellationToken);
+        if (!KeysetPage.TryCreate(query.After, query.Limit, out var page))
+            return Result<PagedResult<TestResultResponse>>.Failure(KeysetPage.Invalid);
+
+        var tests = await _repository.ListTestsAsync(query.StudentId, query.Subject, query.Topic, fromUtc, query.ToUtc, cancellationToken, page);
         var payload = tests.Select(t => t.ToResponse()).ToArray();
-        return Result<IReadOnlyCollection<TestResultResponse>>.Success(payload);
+        return Result<PagedResult<TestResultResponse>>.Success(page.Finish(payload, x => x.TakenOnUtc, x => x.Id));
     }
 }
 

@@ -53,6 +53,9 @@ internal sealed class AssignmentConfiguration : IEntityTypeConfiguration<Assignm
         builder.HasMany(entity => entity.SubmissionVersions).WithOne().HasForeignKey(entity => entity.AssignmentId).OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(entity => entity.SubmissionVersions).HasField("_submissionVersions").UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
         builder.HasIndex(entity => new { entity.StudentId, entity.Status });
+        builder.HasIndex(entity => new { entity.TeacherUserId, entity.CreatedOnUtc, entity.Id });
+        builder.HasIndex(entity => new { entity.StudentId, entity.CreatedOnUtc, entity.Id });
+        builder.HasIndex(entity => new { entity.LessonSessionId, entity.CreatedOnUtc, entity.Id });
         builder.HasIndex(entity => entity.LessonSessionId);
         // M06-3: son teslim taramasi (AssignmentDueScanProcessor) bu indeksi kullanir.
         builder.HasIndex(entity => new { entity.Status, entity.DueDateUtc });

@@ -36,7 +36,7 @@ public sealed class TestResultScoringIntegrityTests
         public Task AddLinkAsync(StudyStudent link, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<StudySession?> GetSessionAsync(Guid sessionId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<StudySession?> GetActiveSessionAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyList<StudySession>> ListSessionsAsync( Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<StudySession>> ListSessionsAsync( Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task<IReadOnlyList<StudySession>> ListCompletedSessionsAsync( Guid studentId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<int> CountCompletedSessionsAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<int> SumEffectiveMinutesAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
@@ -44,7 +44,7 @@ public sealed class TestResultScoringIntegrityTests
         public void RemoveSession(StudySession session) => throw new NotImplementedException();
         public Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync( Guid studentId, string subject, string topic, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken) => Task.FromResult<TestResult?>(test);
-        public Task<IReadOnlyList<TestResult>> ListTestsAsync( Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<TestResult>> ListTestsAsync( Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task<int> CountTestsAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken) => throw new NotImplementedException();
         public void RemoveTest(TestResult testResult) => throw new NotImplementedException();
@@ -65,7 +65,7 @@ public sealed class TestResultScoringIntegrityTests
         public Task<StudentTopicCatalog?> GetCatalogTopicAsync(Guid topicId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task RemoveCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddNoteAsync(StudyNote note, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task RemoveNoteAsync(StudyNote note, CancellationToken cancellationToken) => throw new NotImplementedException();

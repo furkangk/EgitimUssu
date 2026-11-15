@@ -219,7 +219,7 @@ public sealed class AssignmentSubmissionStorageTests
         public Task<IReadOnlyCollection<Assignment>> ListByLessonSessionIdAsync(Guid lessonSessionId, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<Assignment>>([assignment]);
 
-        public Task<IReadOnlyCollection<Assignment>> ListAsync(Guid? teacherUserId, Guid? studentId, Guid? lessonSessionId, CancellationToken cancellationToken)
+        public Task<IReadOnlyCollection<Assignment>> ListAsync(Guid? teacherUserId, Guid? studentId, Guid? lessonSessionId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
             => Task.FromResult<IReadOnlyCollection<Assignment>>([assignment]);
 
         public Task AddLessonNoteAsync(LessonNote lessonNote, CancellationToken cancellationToken) => Task.CompletedTask;

@@ -355,12 +355,13 @@ public sealed class AssignmentsModule : ModuleDefinition
         Guid? studentId,
         Guid? lessonSessionId,
         IQueryDispatcher dispatcher,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? after = null, int? limit = null)
     {
         var result = await dispatcher.Dispatch(
-            new ListAssignmentsQuery(teacherUserId, studentId, lessonSessionId),
+            new ListAssignmentsQuery(teacherUserId, studentId, lessonSessionId, after, limit),
             cancellationToken);
-        return ToHttpResult(context, result);
+        return result.IsSuccess && after is null && limit is null
+            ? Results.Ok(result.Value!.Items) : ToHttpResult(context, result);
     }
 
     private static IResult ToHttpResult<T>(HttpContext context, Result<T> result)

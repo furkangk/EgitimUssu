@@ -660,5 +660,177 @@
   "finance_notAdded": "Eklenmemiş",
   "finance_clearGoal": "Net",
   "finance_missingGoal": "Eksik",
-  "finance_parent": "Veli"
+  "finance_parent": "Veli",
+  "pagination_retry": "Sonraki sayfa yüklenemedi. Tekrar dene",
+  "p19list_all": "Tümü",
+  "p19list_pending": "Bekleyen",
+  "p19list_inProgress": "Devam",
+  "p19list_completedGroup": "Tamamlanan",
+  "p19list_completed": "Tamamlandı",
+  "p19list_cancelled": "İptal",
+  "p19list_approved": "Onaylandı",
+  "p19list_revision": "Revizyon",
+  "p19list_waiting": "Bekliyor",
+  "p19list_assignments": "Ödevler",
+  "p19list_assignmentSummary": "Yüklenen ödevler",
+  "p19list_assignmentSummaryHint": "Gösterilen kayıtların durumu",
+  "p19list_noAssignments": "Henüz ödev yok",
+  "p19list_giveAssignmentHint": "Ders sonrası ödev vermek için ders detayından takip ekleyebilirsiniz.",
+  "p19list_assignmentsFailed": "Ödevler yüklenemedi",
+  "p19list_retry": "Tekrar Dene",
+  "p19list_reviewAssignment": "Ödevi değerlendir",
+  "p19list_score": "Puan",
+  "p19list_feedbackOptional": "Geri bildirim (isteğe bağlı)",
+  "p19list_saveScore": "Puanı kaydet",
+  "p19list_solutionUploaded": "Çözüm yüklendi.",
+  "p19list_myAssignments": "Ödevlerim",
+  "p19list_loading": "Yükleniyor...",
+  "p19list_noAssignment": "Ödev yok",
+  "p19list_studentAssignmentHint": "Öğretmenin sana ödev verdiğinde burada görünür.",
+  "p19list_hasSolution": "Çözüm yüklendi",
+  "p19list_uploadSolution": "Çözüm yükle",
+  "p19list_complete": "Tamamla",
+  "p19list_history": "Çalışma Geçmişi",
+  "p19list_sessions": "Seanslar",
+  "p19list_tests": "Denemeler",
+  "p19list_weekly": "Haftalık",
+  "p19list_manualSession": "Manuel seans",
+  "p19list_noSessions": "Seans yok",
+  "p19list_startSessionHint": "Kronometreyle ilk çalışmanı başlat.",
+  "p19list_noTests": "Deneme yok",
+  "p19list_startTestHint": "İlk denemeni girerek net takibine başla.",
+  "p19list_net": "net",
+  "p19list_noData": "Veri yok",
+  "p19list_noStudyThisWeek": "Bu hafta henüz çalışma yok.",
+  "p19list_subjectDistribution": "Ders dağılımı",
+  "p19list_addManual": "Manuel seans ekle",
+  "p19list_subjectRequired": "Ders *",
+  "p19list_topicOptional": "Konu (opsiyonel)",
+  "p19list_minutesRequired": "Süre (dakika) *",
+  "p19list_add": "Ekle",
+  "p19list_subjectMinutesRequired": "Ders ve süre zorunlu.",
+  "p19list_myNotes": "Notlarım",
+  "p19list_addNote": "Not ekle",
+  "p19list_noNotes": "Henüz not yok",
+  "p19list_notesHint": "Kendi derslerin için not ekle; istersen ders ve konu ile ilişkilendir.",
+  "p19list_editNote": "Notu düzenle",
+  "p19list_title": "Başlık",
+  "p19list_titleRequired": "Başlık zorunlu.",
+  "p19list_subjectOptional": "Ders (opsiyonel)",
+  "p19list_content": "İçerik",
+  "p19list_contentRequired": "İçerik zorunlu.",
+  "p19list_save": "Kaydet",
+  "p19list_noNotification": "Bildirim yok",
+  "p19list_signInNotifications": "Bildirimleri görmek için giriş yapmalısın.",
+  "p19list_noNotificationsYet": "Henüz bildirimin yok",
+  "p19list_noUnread": "Okunmamış bildirimin yok.",
+  "p19list_notificationsHint": "Ders, ödev ve ödeme bildirimleri burada görünecek.",
+  "p19list_notifications": "Bildirimler",
+  "p19list_unread": "Okunmamış",
+  "p19list_justNow": "az önce",
+  "p19list_scoreSaved": "Puan kaydedildi: {score}",
+  "p19list_scoreValue": "{score} puan",
+  "p19list_filteredEmpty": "{filter} ödev yok",
+  "p19list_teacherFeedback": "Öğretmen: {feedback}",
+  "p19list_testCounts": "{subject} · D:{correct} Y:{wrong} B:{blank}",
+  "p19list_weekTotal": "Bu hafta toplam: {minutes}",
+  "p19list_sessionCount": "{count} seans",
+  "p19list_unreadCount": "{count} okunmamış",
+  "p19list_minutesAgo": "{count} dk önce",
+  "p19list_hoursAgo": "{count} sa önce",
+  "p19list_daysAgo": "{count} gün önce",
+  "p19list_weeksAgo": "{count} hf önce",
+  "@p19list_scoreSaved": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_scoreValue": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_filteredEmpty": {
+    "placeholders": {
+      "filter": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_teacherFeedback": {
+    "placeholders": {
+      "feedback": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_testCounts": {
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      },
+      "correct": {
+        "type": "String"
+      },
+      "wrong": {
+        "type": "String"
+      },
+      "blank": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_weekTotal": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_sessionCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_unreadCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_minutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_hoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_daysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@p19list_weeksAgo": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  }
 }

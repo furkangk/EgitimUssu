@@ -371,3 +371,13 @@ POST /assignments/{id}/complete
 *Güncelleme: 2026-11-15 — P19 Task 3 / N-44: durum koruması, teslim sürümleri, yerel geç teslim, eski dosyaların korunması, sürüm indirme ve göç.*
 
 *Güncelleme: 2026-11-15 — P19 Task 4: yerel gün sonu, bağımsız tarama partileri ve teslimli revizyonlarda uyarı koruması.*
+
+### P19 Task 7 — Cursor listeleri (N-54)
+
+`after` veya `limit` verildiğinde yanıt `PagedResult<T>`: `{ items, page: 1, pageSize, totalCount: null, totalPages: null, nextCursor }`. Toplam sayımı yoktur; cursor son sayfada null olur. Varsayılan 50, üst sınır 100; geçersiz cursor veya 1–100 dışındaki limit `400 shared.invalid_pagination`. Cursor azalan `(UTC an, Id)` çiftidir; PostgreSQL row-value karşılaştırması bileşik indekse doğrudan atlar. Sahiplik ve mevcut filtreler her sayfada yeniden uygulanır.
+
+`GET /api/assignments?teacherUserId=&studentId=&lessonSessionId=&after=&limit=` artık `(CreatedOnUtc,Id)` azalan sıralıdır. Parametresiz çağrı eski JSON dizi biçiminde **ilk 50** kaydı döndürür. Öğretmen/öğrenci/oturum önekli üç `(…Id,CreatedOnUtc,Id)` indeks `ListKeysetIndexes` migration'ıyla eklenir; Down yalnız bu indeksleri kaldırır. Ders oturumu takip ayrıntısının tam ödev listesi değişmez. Öğretmen paneli tüm sayfaları okuyarak bekleyen toplamını korur.
+
+Mobil öğretmen ve öğrenci listeleri 50'lik sayfalarda sonsuz kaydırır; kısa ilk sayfa görünümü doldurur, hata mevcut satırları ve cursor'u korur. Öğretmen özet ve durum filtreleri **yüklenen kayıtlar** içindir; etiket bunu belirtir. İki ekranın bütün görünen sabit metinleri tr/en ARB'dedir. ProfilId/UserId ayrımı (#267) bu görevde çözülmedi; P21'de kalır.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

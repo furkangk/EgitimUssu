@@ -113,8 +113,12 @@ public sealed class StudyModule : ModuleDefinition
     private static async Task<IResult> ActiveSessionAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new GetActiveSessionQuery(studentId), ct));
 
-    private static async Task<IResult> ListSessionsAsync(HttpContext ctx, Guid studentId, DateTime? from, DateTime? to, string? subject, IQueryDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new ListStudySessionsQuery(studentId, from, to, subject), ct));
+    private static async Task<IResult> ListSessionsAsync(HttpContext ctx, Guid studentId, DateTime? from, DateTime? to, string? subject, IQueryDispatcher dispatcher, CancellationToken ct, string? after = null, int? limit = null)
+    {
+        var result = await dispatcher.Dispatch(new ListStudySessionsQuery(studentId, from, to, subject, after, limit), ct);
+        return result.IsSuccess && after is null && limit is null
+            ? Results.Ok(result.Value!.Items) : ToHttpResult(ctx, result);
+    }
 
     private static async Task<IResult> WeeklySummaryAsync(HttpContext ctx, Guid studentId, DateOnly? weekStart, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new WeeklySummaryQuery(studentId, weekStart), ct));
@@ -135,8 +139,12 @@ public sealed class StudyModule : ModuleDefinition
     private static async Task<IResult> DeleteTestAsync(HttpContext ctx, Guid testResultId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteTestResultCommand(testResultId), ct));
 
-    private static async Task<IResult> ListTestsAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, DateTime? from, DateTime? to, IQueryDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new ListTestResultsQuery(studentId, subject, topic, from, to), ct));
+    private static async Task<IResult> ListTestsAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, DateTime? from, DateTime? to, IQueryDispatcher dispatcher, CancellationToken ct, string? after = null, int? limit = null)
+    {
+        var result = await dispatcher.Dispatch(new ListTestResultsQuery(studentId, subject, topic, from, to, after, limit), ct);
+        return result.IsSuccess && after is null && limit is null
+            ? Results.Ok(result.Value!.Items) : ToHttpResult(ctx, result);
+    }
 
     private static async Task<IResult> NetTrendAsync(HttpContext ctx, Guid studentId, string? subject, string? topic, IQueryDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new NetTrendQuery(studentId, subject, topic), ct));
@@ -193,8 +201,12 @@ public sealed class StudyModule : ModuleDefinition
     private static async Task<IResult> DeleteTopicAsync(HttpContext ctx, Guid topicId, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(new DeleteTopicCatalogCommand(topicId), ct));
 
-    private static async Task<IResult> ListNotesAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct)
-        => ToHttpResult(ctx, await dispatcher.Dispatch(new ListStudyNotesQuery(studentId), ct));
+    private static async Task<IResult> ListNotesAsync(HttpContext ctx, Guid studentId, IQueryDispatcher dispatcher, CancellationToken ct, string? after = null, int? limit = null)
+    {
+        var result = await dispatcher.Dispatch(new ListStudyNotesQuery(studentId, after, limit), ct);
+        return result.IsSuccess && after is null && limit is null
+            ? Results.Ok(result.Value!.Items) : ToHttpResult(ctx, result);
+    }
 
     private static async Task<IResult> CreateNoteAsync(HttpContext ctx, Guid studentId, StudyNoteRequest req, ICommandDispatcher dispatcher, CancellationToken ct)
         => ToHttpResult(ctx, await dispatcher.Dispatch(

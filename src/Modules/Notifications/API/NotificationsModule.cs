@@ -100,10 +100,10 @@ public sealed class NotificationsModule : ModuleDefinition
         // gonderilmezse BadHttpRequestException → **500** olur (istemci hatasi sunucu hatasi gibi gorunur).
         bool onlyUnread = false,
         int skip = 0,
-        int take = 20)
+        int take = 20, string? after = null, int? limit = null)
     {
         var result = await dispatcher.Dispatch(
-            new ListUserNotificationsQuery(userId, onlyUnread, skip, take),
+            new ListUserNotificationsQuery(userId, onlyUnread, skip, take, after, limit),
             cancellationToken);
 
         return ToHttpResult(context, result);

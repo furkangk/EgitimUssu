@@ -5,6 +5,8 @@ import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/assignments/domain/assignment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/study/presentation/student_scope.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/paged_list_boundary.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +30,39 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
   List<AssignmentItem> _items = <AssignmentItem>[];
   String? _busyId;
 
+  String? _nextCursor;
+  bool _loadingMore = false;
+  String? _moreError;
+  int _generation = 0;
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _loading || _nextCursor == null) return;
+    final generation = _generation;
+    setState(() {
+      _loadingMore = true;
+      _moreError = null;
+    });
+    try {
+      final page = await _repo.listPage(
+        studentId: _studentId,
+        after: _nextCursor,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        final ids = _items.map((x) => x.id).toSet();
+        _items = [..._items, ...page.items.where((x) => !ids.contains(x.id))];
+        _nextCursor = page.nextCursor;
+        _loadingMore = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _loadingMore = false;
+        _moreError = error.message;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,26 +70,32 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
   }
 
   Future<void> _load() async {
+    final generation = ++_generation;
     setState(() {
       _loading = true;
+      _loadingMore = false;
+      _moreError = null;
+      _nextCursor = null;
       _error = null;
     });
     try {
       final session = context.read<AuthCubit>().state.session;
-      final studentId = _studentId ??
+      final studentId =
+          _studentId ??
           await StudentScope.resolve(
             userId: session?.userId ?? '',
             fullName: session?.fullName ?? '',
           );
-      final items = await _repo.listByStudent(studentId);
-      if (!mounted) return;
+      final page = await _repo.listPage(studentId: studentId);
+      if (!mounted || generation != _generation) return;
       setState(() {
         _studentId = studentId;
-        _items = items;
+        _items = page.items;
+        _nextCursor = page.nextCursor;
         _loading = false;
       });
     } on ApiException catch (e) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = e.message;
           _loading = false;
@@ -84,7 +125,11 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
     setState(() => _busyId = item.id);
     try {
       await _repo.submitWork(item.id!, path);
-      _snack('Çözüm yüklendi.', success: true);
+      if (!mounted) return;
+      _snack(
+        AppLocalizations.of(context).p19list_solutionUploaded,
+        success: true,
+      );
       await _load();
     } on ApiException catch (e) {
       _snack(e.message);
@@ -97,33 +142,45 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Ödevlerim')),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).p19list_myAssignments),
+      ),
       body: _loading
-          ? const LoadingStateView(message: 'Yükleniyor...')
+          ? LoadingStateView(
+              message: AppLocalizations.of(context).p19list_loading,
+            )
           : _error != null
-              ? ErrorStateView(message: _error!, onRetry: _load)
-              : _content(),
+          ? ErrorStateView(message: _error!, onRetry: _load)
+          : _content(),
     );
   }
 
   Widget _content() {
     if (_items.isEmpty) {
-      return const EmptyStateView(
-        title: 'Ödev yok',
-        subtitle: 'Öğretmenin sana ödev verdiğinde burada görünür.',
+      return EmptyStateView(
+        title: AppLocalizations.of(context).p19list_noAssignment,
+        subtitle: AppLocalizations.of(context).p19list_studentAssignmentHint,
       );
     }
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: _items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, i) => _AssignmentCard(
-          item: _items[i],
-          busy: _busyId == _items[i].id,
-          onComplete: () => _complete(_items[i]),
-          onUpload: () => _upload(_items[i]),
+      child: PagedListBoundary(
+        hasMore: _nextCursor != null,
+        isLoading: _loadingMore,
+        errorMessage: _moreError,
+        onLoadMore: _loadMore,
+        builder: (controller) => ListView.separated(
+          controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 24),
+          itemCount: _items.length,
+          separatorBuilder: (_, __) => SizedBox(height: 12),
+          itemBuilder: (context, i) => _AssignmentCard(
+            item: _items[i],
+            busy: _busyId == _items[i].id,
+            onComplete: () => _complete(_items[i]),
+            onUpload: () => _upload(_items[i]),
+          ),
         ),
       ),
     );
@@ -131,10 +188,12 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
 
   void _snack(String message, {bool success = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: success ? AppColors.accentGreen : AppColors.error,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: success ? AppColors.accentGreen : AppColors.error,
+      ),
+    );
   }
 }
 
@@ -165,7 +224,7 @@ class _AssignmentCard extends StatelessWidget {
         border: Border.all(color: AppColors.skyBorder),
         boxShadow: AppShadows.soft,
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -175,55 +234,60 @@ class _AssignmentCard extends StatelessWidget {
                 child: Text(
                   item.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               if (item.isGraded) ...<Widget>[
                 _StudentScoreBadge(score: item.score!),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
               ],
               _StatusPill(status: item.status),
             ],
           ),
           if (item.description.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               item.description,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
           ],
           if (item.teacherFeedback != null &&
               item.teacherFeedback!.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Öğretmen: ${item.teacherFeedback!.trim()}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                AppLocalizations.of(
+                  context,
+                ).p19list_teacherFeedback(item.teacherFeedback!.trim()),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
             ),
           ],
           if (item.attachmentUrl != null &&
               item.attachmentUrl!.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Row(
-              children: const <Widget>[
-                Icon(Icons.attach_file_rounded,
-                    size: 16, color: AppColors.primary),
+              children: <Widget>[
+                Icon(
+                  Icons.attach_file_rounded,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
                 SizedBox(width: 4),
                 Text(
-                  'Çözüm yüklendi',
+                  AppLocalizations.of(context).p19list_hasSolution,
                   style: TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w600,
@@ -233,17 +297,19 @@ class _AssignmentCard extends StatelessWidget {
             ),
           ],
           if (!_isCompleted) ...<Widget>[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: <Widget>[
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: busy ? null : onUpload,
-                    icon: const Icon(Icons.upload_file_rounded, size: 18),
-                    label: const Text('Çözüm yükle'),
+                    icon: Icon(Icons.upload_file_rounded, size: 18),
+                    label: Text(
+                      AppLocalizations.of(context).p19list_uploadSolution,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
@@ -251,17 +317,18 @@ class _AssignmentCard extends StatelessWidget {
                     ),
                     onPressed: busy ? null : onComplete,
                     icon: busy
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
-                        : const Icon(Icons.check_rounded, size: 18),
-                    label: const Text('Tamamla'),
+                        : Icon(Icons.check_rounded, size: 18),
+                    label: Text(AppLocalizations.of(context).p19list_complete),
                   ),
                 ),
               ],
@@ -281,27 +348,48 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (String label, Color color) = switch (status) {
-      'Completed' => ('Tamamlandı', AppColors.accentGreen),
-      'InProgress' => ('Devam', AppColors.accentBlue),
-      'Cancelled' => ('İptal', AppColors.textSecondary),
-      'Approved' => ('Onaylandı', AppColors.accentGreen),
-      'ReturnedForRevision' => ('Revizyon', AppColors.accentOrange),
-      _ => ('Bekliyor', AppColors.accentOrange),
+      'Completed' => (
+        AppLocalizations.of(context).p19list_completed,
+        AppColors.accentGreen,
+      ),
+      'InProgress' => (
+        AppLocalizations.of(context).p19list_inProgress,
+        AppColors.accentBlue,
+      ),
+      'Cancelled' => (
+        AppLocalizations.of(context).p19list_cancelled,
+        AppColors.textSecondary,
+      ),
+      'Approved' => (
+        AppLocalizations.of(context).p19list_approved,
+        AppColors.accentGreen,
+      ),
+      'ReturnedForRevision' => (
+        AppLocalizations.of(context).p19list_revision,
+        AppColors.accentOrange,
+      ),
+      _ => (
+        AppLocalizations.of(context).p19list_waiting,
+        AppColors.accentOrange,
+      ),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
       ),
     );
   }
 }
-
 
 /// M06-4: Öğrenci ödev kartındaki puan rozeti (0–100).
 class _StudentScoreBadge extends StatelessWidget {
@@ -312,14 +400,14 @@ class _StudentScoreBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '$score puan',
-        style: const TextStyle(
+        AppLocalizations.of(context).p19list_scoreValue(score.toString()),
+        style: TextStyle(
           color: AppColors.primary,
           fontWeight: FontWeight.w800,
           fontSize: 12,

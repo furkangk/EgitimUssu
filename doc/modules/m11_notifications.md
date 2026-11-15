@@ -417,3 +417,13 @@ Mesaj bildiriminin gövdesi **“Bir kullanıcı size mesaj gönderdi.”** sabi
 Veli hedefleri `ListApprovedTargetPageAsync` ile LinkId keyset üzerinden 200'lük sayfalarda okunur; haklar her sayfada topludur. Notifications o sayfanın dedup kimliklerini tek SELECT ile okur; bildirimler+dedup aynı SaveChanges transaction'ında yazılır, mevcut kira korunur. v2 anahtarı `(veli,öğrenci,yerel ISO hafta)` kullanır. Eski veli-hafta anahtarı ikinci çocuğu bastırmaz; geçiş haftasında ilk çocuk bir ek özet alabilir. Özet metni hâlâ sabit “hazır” bildirimidir; zengin içerik eklenmedi.
 
 Gerçek PostgreSQL kanıtı: 100 hatalı kayıt + yeni bildirim, iki saatlik ders bildirimi, kapalı tercih, 205 çocuk/iki sayfa/tekrar/yerel hafta geçişi ve ayrı DB'de Up/Down/Up. Firebase cihaz teslimi bu testin kanıtı değildir (Q8).
+
+### P19 Task 7 — Cursor listeleri (N-54)
+
+`after` veya `limit` verildiğinde yanıt `PagedResult<T>`: `{ items, page: 1, pageSize, totalCount: null, totalPages: null, nextCursor }`. Toplam sayımı yoktur; cursor son sayfada null olur. Varsayılan 50, üst sınır 100; geçersiz cursor veya 1–100 dışındaki limit `400 shared.invalid_pagination`. Cursor azalan `(UTC an, Id)` çiftidir; PostgreSQL row-value karşılaştırması bileşik indekse doğrudan atlar. Sahiplik ve mevcut filtreler her sayfada yeniden uygulanır.
+
+Bildirim merkezinin `GET /users/{userId}/notifications?onlyUnread=&after=&limit=` yolu `(CreatedOnUtc,Id)` azalan keyset kullanır. Eski `skip/take` yolu ve toplam/sayfa metadata'sı aynen korunur (`take` varsayılan20); after/limit yoksa offset çalışır. `(UserId,CreatedOnUtc,Id)` genel ve ReadOnUtc null kısmi indeksi `ListKeysetIndexes` ile eklenir. Okunmamış filtreleme ve sahiplik SQL'de uygulanır. Dispatcher'ın `ListPendingPushAsync` yolu bu UI sayfalamasından ayrıdır; backoff/TTL/PushStatus koşulları korunur. N-54'teki LessonReminder `(Status,RemindAtUtc)` kısmi indeksi P17'de zaten vardır; ikinci kez eklenmedi.
+
+Mobil merkez50kayıtla başlar, cursor sonuna kadar kaydırır. Filtre/yenileme eski isteği geçersiz kılar; tek devam isteği, hata sonrası aynı cursor'la tekrar ve dispose sonrası emit koruması vardır. Okundu geri alımı daha sonra yüklenen sayfaları silmez. Ekran metinleri tr/en ARB'dedir; sunucudan gelen bildirim başlık/gövdeleri korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

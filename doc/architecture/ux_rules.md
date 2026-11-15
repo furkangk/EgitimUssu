@@ -155,3 +155,9 @@ Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün öze
 *UX Kuralları | Güncelleme: 2026-11-15 (hata sonrası kayıt tekrarında form verisini koruma) · 2026-09-05 (P13 Task 6 / D-19+D-20: §8 metin dili ve yazım kuralı — eksiksiz Türkçe, ARB'den metin, otomatik denetim) · 2026-06-27*
 
 *Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+### Cursor ile liste devamı (P19 Task 7)
+
+Ödev, çalışma geçmişi/notlar ve bildirim merkezinde ilk sayfa50kayıttır; aşağı kaydırınca devam eder. Kısa ilk sayfa görünümü doldurur. Devam hatası yüklenmiş satırları silmez, yeniden deneme aynı cursor'u kullanır; hata varken otomatik tekrar döngüsü kurulmaz. Yenileme/filtre değişimi cursor'u ve istek neslini sıfırlar; gecikmiş eski sonuç atılır. Öğretmen ödev özet/filtre sayıları yalnız yüklenen kayıtlar içindir ve bu kapsam etiketle görünürdür. Genel öğretmen panelinin toplamı ise bütün sayfalardan gelir.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

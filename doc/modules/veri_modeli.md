@@ -300,3 +300,9 @@ erDiagram
 ### P19 Task 6 — NotificationDeliveryBackoff
 
 `notifications.user_notifications` dört yeni sütun taşır: PushAttempts int, NextAttemptOnUtc timestamptz nullable, ExpiresOnUtc timestamptz, PushStatus varchar(16) (Pending/Sent/Expired/Failed). Pending filtreli `(NextAttemptOnUtc,CreatedOnUtc,Id)` indeksi vardır; eski PushedOnUtc indeksi korunur. TTL eski CreatedOnUtc'den ders30dk/diğer24saat doldurulur; gönderilenler Sent olur. MessageReceived.Body eski özel metni sabit güvenli bildirim metnine dönüşür. Down sütun/indeksi kaldırır, güvenli metni korur. Veli özeti yeni tablo eklemeden mevcut processed_integration_events içinde v2 veli/öğrenci/yerel hafta anahtarı kullanır. TopicGoal.Missed mevcut enum değeridir; M10 şema değişmez.
+
+### P19 Task 7 — Okuma indeksleri (2026-11-15)
+
+Varlık/alan/FK değişmedi. Üç `ListKeysetIndexes` migration'ı: Assignments'ta TeacherUserId/StudentId/LessonSessionId önekli CreatedOnUtc+Id üçlüsü; Study'de StudentId önekli StartedAtUtc+Id, TakenOnUtc+Id ve CreatedOnUtc+Id; Notifications'ta UserId+CreatedOnUtc+Id genel ve `ReadOnUtc IS NULL` kısmi indeks. Cursor çiftleri timestamp+Guid'tir. Up/Down/Up doğrulanır; Down yalnız yeni indeksleri kaldırır, kayıtları silmez. Snapshot partilemesi ve kaynak ölçümü şema eklemez.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

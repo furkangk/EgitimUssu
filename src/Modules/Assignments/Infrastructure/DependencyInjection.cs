@@ -18,7 +18,7 @@ public static class DependencyInjection
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudentNotesDirectory, StudentNotesDirectory>();
         services.AddScoped<ICommandHandler<CreateLessonSessionFollowUpCommand, Result<LessonSessionFollowUpResponse>>, CreateLessonSessionFollowUpCommandHandler>();
         services.AddScoped<IQueryHandler<GetLessonSessionFollowUpQuery, Result<LessonSessionFollowUpResponse>>, GetLessonSessionFollowUpQueryHandler>();
-        services.AddScoped<IQueryHandler<ListAssignmentsQuery, Result<IReadOnlyCollection<AssignmentResponse>>>, ListAssignmentsQueryHandler>();
+        services.AddScoped<IQueryHandler<ListAssignmentsQuery, Result<PagedResult<AssignmentResponse>>>, ListAssignmentsQueryHandler>();
         services.AddScoped<ICommandValidator<CreateLessonSessionFollowUpCommand>, CreateLessonSessionFollowUpCommandValidator>();
         services.AddScoped<IQueryValidator<GetLessonSessionFollowUpQuery>, GetLessonSessionFollowUpQueryValidator>();
         services.AddScoped<IQueryValidator<ListAssignmentsQuery>, ListAssignmentsQueryValidator>();

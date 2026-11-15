@@ -136,7 +136,7 @@ public interface IStudyRepository
     Task<StudySession?> GetActiveSessionAsync(Guid studentId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<StudySession>> ListSessionsAsync(
-        Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken);
+        Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null);
 
     Task<IReadOnlyList<StudySession>> ListCompletedSessionsAsync(
         Guid studentId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken);
@@ -156,7 +156,7 @@ public interface IStudyRepository
     Task<TestResult?> GetTestAsync(Guid testResultId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<TestResult>> ListTestsAsync(
-        Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken);
+        Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null);
 
     Task<int> CountTestsAsync(Guid studentId, CancellationToken cancellationToken);
 
@@ -204,7 +204,7 @@ public interface IStudyRepository
     Task RemoveCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken);
 
     // Öğrenci ders notları
-    Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null);
 
     Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken);
 

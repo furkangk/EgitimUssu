@@ -45,13 +45,17 @@ class NotificationRepositoryImpl implements NotificationRepository {
     bool onlyUnread = false,
     int skip = 0,
     int take = 20,
+    String? after,
+    int? limit,
   }) async {
     final response = await _apiClient.get(
       '/api/notifications/users/$userId/notifications',
       queryParameters: <String, dynamic>{
         'onlyUnread': onlyUnread,
-        'skip': skip,
-        'take': take,
+        if (after != null) 'after': after,
+        if (limit != null) 'limit': limit,
+        if (limit == null && after == null) 'skip': skip,
+        if (limit == null && after == null) 'take': take,
       },
     );
 
@@ -62,7 +66,8 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
     return UserNotificationPage(
       items: items,
-      totalCount: response['totalCount'] as int? ?? items.length,
+      totalCount: response['totalCount'] as int?,
+      nextCursor: response['nextCursor'] as String?,
     );
   }
 

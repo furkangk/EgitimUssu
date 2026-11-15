@@ -94,14 +94,14 @@ public sealed class MembershipGateHandlerTests
         public DateTime? CapturedTestsFrom { get; private set; }
 
         public Task<IReadOnlyList<StudySession>> ListSessionsAsync(
-            Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken)
+            Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
         {
             CapturedSessionsFrom = fromUtc;
             return Task.FromResult<IReadOnlyList<StudySession>>(Array.Empty<StudySession>());
         }
 
         public Task<IReadOnlyList<TestResult>> ListTestsAsync(
-            Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken)
+            Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
         {
             CapturedTestsFrom = fromUtc;
             return Task.FromResult<IReadOnlyList<TestResult>>(Array.Empty<TestResult>());
@@ -138,7 +138,7 @@ public sealed class MembershipGateHandlerTests
         public Task<StudentTopicCatalog?> GetCatalogTopicAsync(Guid topicId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task RemoveCatalogTopicAsync(StudentTopicCatalog topic, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task AddNoteAsync(StudyNote note, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task RemoveNoteAsync(StudyNote note, CancellationToken cancellationToken) => throw new NotImplementedException();

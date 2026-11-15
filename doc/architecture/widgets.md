@@ -5,7 +5,7 @@ tags: [mimari, widget, flutter]
 authority: code
 code_refs:
   - mobile/lib/shared/widgets/**
-updated: 2026-10-16
+updated: 2026-11-15
 ---
 
 # 🧩 Ortak Widget Kataloğu (Shared Widgets)
@@ -196,4 +196,12 @@ kullanılıyor — `shared/`'a taşıma adayı.)
 
 ---
 
-*Ortak Widget Kataloğu | Güncelleme: 2026-09-04 (P09: `PremiumLock` + `PremiumLockCard`) · 2026-09-04 (P08: gelişim/rapor grafikleri) · 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*
+*Ortak Widget Kataloğu | Güncelleme: 2026-11-15 (P09: `PremiumLock` + `PremiumLockCard`) · 2026-09-04 (P08: gelişim/rapor grafikleri) · 2026-09-04 (P06: öğretmen uygunluk düzenleyici) · 2026-09-03 (P05: `SessionRequiredView` + ayar ekranı bileşenleri)*
+
+## Cursor sayfası sınırı (P19 Task 7)
+
+| Katalog | Kod | API | Kural | Durum |
+|---|---|---|---|---|
+| Sayfalı liste sınırı | `PagedListBoundary` @ `paged_list_boundary.dart` | `builder(ScrollController), hasMore, isLoading, onLoadMore, errorMessage?` | Alt240px'de devam; kısa sayfa görünümü doldurur; hata otomatik istek döngüsü başlatmaz, tr/en yeniden deneme düğmesi verir. Son sayfada istek yok; controller dispose edilir. İstek tekilliği/cursor/geç yanıt kontrolü sahibi cubit veya ekran state'idir. | 🟢 |
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

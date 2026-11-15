@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Modules.Study.Application;
 using EgitimUssu.Modules.Study.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -29,9 +30,9 @@ internal sealed class StudyRepository : IStudyRepository
             cancellationToken);
 
     public async Task<IReadOnlyList<StudySession>> ListSessionsAsync(
-        Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken)
+        Guid studentId, DateTime? fromUtc, DateTime? toUtc, string? subject, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
     {
-        var query = _dbContext.StudySessions
+        var query = _dbContext.StudySessions.AsNoTracking()
             .Where(x => x.StudentId == studentId && x.Status != StudySessionStatus.Discarded);
 
         if (fromUtc.HasValue)
@@ -49,6 +50,7 @@ internal sealed class StudyRepository : IStudyRepository
             query = query.Where(x => x.Subject == subject);
         }
 
+        if (page is not null) return await query.Seek(page, x => x.StartedAtUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
         return await query.OrderByDescending(x => x.StartedAtUtc).ToArrayAsync(cancellationToken);
     }
 
@@ -98,9 +100,9 @@ internal sealed class StudyRepository : IStudyRepository
         _dbContext.TestResults.FindAsync(new object?[] { testResultId }, cancellationToken).AsTask();
 
     public async Task<IReadOnlyList<TestResult>> ListTestsAsync(
-        Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken)
+        Guid studentId, string? subject, string? topic, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
     {
-        var query = _dbContext.TestResults.Where(x => x.StudentId == studentId);
+        var query = _dbContext.TestResults.AsNoTracking().Where(x => x.StudentId == studentId);
 
         if (!string.IsNullOrWhiteSpace(subject))
         {
@@ -122,6 +124,7 @@ internal sealed class StudyRepository : IStudyRepository
             query = query.Where(x => x.TakenOnUtc < toUtc.Value);
         }
 
+        if (page is not null) return await query.Seek(page, x => x.TakenOnUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
         return await query.OrderByDescending(x => x.TakenOnUtc).ToArrayAsync(cancellationToken);
     }
 
@@ -206,11 +209,12 @@ internal sealed class StudyRepository : IStudyRepository
         return Task.CompletedTask;
     }
 
-    public async Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken) =>
-        await _dbContext.StudyNotes
-            .Where(x => x.StudentId == studentId)
-            .OrderByDescending(x => x.UpdatedOnUtc)
-            .ToArrayAsync(cancellationToken);
+    public async Task<IReadOnlyList<StudyNote>> ListNotesAsync(Guid studentId, CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
+    {
+        var query = _dbContext.StudyNotes.AsNoTracking().Where(x => x.StudentId == studentId);
+        if (page is not null) return await query.Seek(page, x => x.CreatedOnUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
+        return await query.OrderByDescending(x => x.UpdatedOnUtc).ToArrayAsync(cancellationToken);
+    }
 
     public Task<StudyNote?> GetNoteAsync(Guid noteId, CancellationToken cancellationToken) =>
         _dbContext.StudyNotes.FindAsync(new object?[] { noteId }, cancellationToken).AsTask();

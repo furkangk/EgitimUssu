@@ -392,6 +392,8 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
 
                     b.HasIndex("StudentId", "UpdatedOnUtc");
 
+                    b.HasIndex("StudentId", "CreatedOnUtc", "Id");
+
                     b.ToTable("study_notes", "study");
                 });
 
@@ -467,6 +469,8 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
                     b.HasIndex("StudentId", "StartedAtUtc");
 
                     b.HasIndex("StudentId", "Status");
+
+                    b.HasIndex("StudentId", "StartedAtUtc", "Id");
 
                     b.ToTable("study_sessions", "study");
                 });
@@ -656,6 +660,8 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
                     b.HasIndex("MockExamId");
 
                     b.HasIndex("StudentId", "Subject", "TakenOnUtc");
+
+                    b.HasIndex("StudentId", "TakenOnUtc", "Id");
 
                     b.ToTable("test_results", "study");
                 });

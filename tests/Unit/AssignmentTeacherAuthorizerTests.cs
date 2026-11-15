@@ -23,7 +23,7 @@ public sealed class AssignmentTeacherAuthorizerTests
         public Task<Assignment?> GetAssignmentByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<Assignment?>(_a.Id == id ? _a : null);
         public Task<LessonNote?> GetLessonNoteByLessonSessionIdAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<Assignment>> ListByLessonSessionIdAsync(Guid id, CancellationToken ct) => throw new NotImplementedException();
-        public Task<IReadOnlyCollection<Assignment>> ListAsync(Guid? t, Guid? s, Guid? l, CancellationToken ct) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<Assignment>> ListAsync(Guid? t, Guid? s, Guid? l, CancellationToken ct, EgitimUssu.Shared.Kernel.KeysetPage? page = null) => throw new NotImplementedException();
         public Task AddLessonNoteAsync(LessonNote n, CancellationToken ct) => throw new NotImplementedException();
         public Task AddAssignmentsAsync(IEnumerable<Assignment> a, CancellationToken ct) => throw new NotImplementedException();
         public Task SaveChangesAsync(CancellationToken ct) => Task.CompletedTask;

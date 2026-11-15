@@ -66,6 +66,7 @@ internal sealed class StudySessionConfiguration : IEntityTypeConfiguration<Study
         builder.Property(e => e.StartedAtUtc).IsRequired();
         builder.HasIndex(e => new { e.StudentId, e.Status });
         builder.HasIndex(e => new { e.StudentId, e.StartedAtUtc });
+        builder.HasIndex(e => new { e.StudentId, e.StartedAtUtc, e.Id });
         // Ç-06: plana bağlı seansları (completion) sorgulamak için.
         builder.HasIndex(e => e.LessonId);
     }
@@ -83,6 +84,7 @@ internal sealed class TestResultConfiguration : IEntityTypeConfiguration<TestRes
         builder.Property(e => e.TestType).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(e => e.Net).HasPrecision(7, 2);
         builder.HasIndex(e => new { e.StudentId, e.Subject, e.TakenOnUtc });
+        builder.HasIndex(e => new { e.StudentId, e.TakenOnUtc, e.Id });
         builder.HasIndex(e => e.MockExamId);
     }
 }
@@ -213,6 +215,7 @@ internal sealed class StudyNoteConfiguration : IEntityTypeConfiguration<StudyNot
         builder.Property(e => e.Topic).HasMaxLength(160);
         builder.Property(e => e.AttachmentUrl).HasMaxLength(500);
         builder.HasIndex(e => new { e.StudentId, e.UpdatedOnUtc });
+        builder.HasIndex(e => new { e.StudentId, e.CreatedOnUtc, e.Id });
     }
 }
 

@@ -18,7 +18,7 @@ code_refs:
   - mobile/lib/features/study/presentation/pages/study_history_page.dart
   - mobile/lib/features/study/presentation/pages/achievements_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # 📱 Öğrenci — Bireysel Çalışma Ekranları (M08 `study` feature)
@@ -56,4 +56,10 @@ updated: 2026-09-04
 - Teknik modül → [`../modules/m08_study.md`](../modules/m08_study.md) · Rol → [`../roles/ogrenci.md`](../roles/ogrenci.md)
 
 ---
-*Öğrenci Bireysel Çalışma Ekranları | Güncelleme: 2026-09-04 (M04-2/M08-1: özel ders çakışması uyarısı) · 2026-08-19*
+*Öğrenci Bireysel Çalışma Ekranları | Güncelleme: 2026-11-15 (M04-2/M08-1: özel ders çakışması uyarısı) · 2026-08-19*
+
+## P19 Task 7 — Geçmiş ve not sayfaları
+
+`/study/history` seans/deneme sekmeleri bağımsız50'lik cursor sayfalarıyla sonsuz kaydırır; haftalık toplam ayrı summary ucundan gelir. `/study/notes` oluşturulma zamanına göre notları sayfalar; düzenleme cursor anahtarını oynatmaz. Kısa ilk sayfa görünümü doldurur, devam hatası aynı cursor ile tekrar denenir. Yenileme/yeniden yükleme önceki istekleri geçersiz kılar. Bu iki ekranın sabit metinleri tr/en ARB, tarih/gün adları mevcut locale ile biçimlenir. Performans gibi tam geçmiş kullanan diğer ekranların repository adaptörleri tüm sayfaları okuyarak eski hesap anlamını korur.
+
+*Güncelleme: 2026-11-15 — P19 Task 7.*

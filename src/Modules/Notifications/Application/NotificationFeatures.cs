@@ -217,7 +217,7 @@ public sealed class UnregisterDeviceTokenCommandHandler : ICommandHandler<Unregi
 }
 
 // M11-3/M11-4: Rolden bagimsiz in-app bildirim merkezi (liste + rozet + okundu).
-public sealed record ListUserNotificationsQuery(Guid UserId, bool OnlyUnread, int Skip, int Take)
+public sealed record ListUserNotificationsQuery(Guid UserId, bool OnlyUnread, int Skip, int Take, string? After = null, int? Limit = null)
     : IQuery<Result<PagedResult<UserNotificationResponse>>>;
 
 public sealed record GetUnreadNotificationCountQuery(Guid UserId) : IQuery<Result<int>>;
@@ -242,7 +242,7 @@ public interface IUserNotificationRepository
         bool onlyUnread,
         int skip,
         int take,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null);
 
     Task<int> CountUnreadAsync(Guid userId, CancellationToken cancellationToken);
 
@@ -273,6 +273,15 @@ public sealed class ListUserNotificationsQueryHandler
         ListUserNotificationsQuery query,
         CancellationToken cancellationToken)
     {
+        if (query.After is not null || query.Limit.HasValue)
+        {
+            if (!KeysetPage.TryCreate(query.After, query.Limit, out var page))
+                return Result<PagedResult<UserNotificationResponse>>.Failure(KeysetPage.Invalid);
+            var (rows, _) = await _repository.ListAsync(query.UserId, query.OnlyUnread, 0, page.Limit, cancellationToken, page);
+            return Result<PagedResult<UserNotificationResponse>>.Success(
+                page.Finish(rows.Select(ToResponse).ToArray(), x => x.CreatedOnUtc, x => x.Id));
+        }
+
         var skip = Math.Max(query.Skip, 0);
         var take = Math.Clamp(query.Take <= 0 ? 20 : query.Take, 1, MaxTake);
 

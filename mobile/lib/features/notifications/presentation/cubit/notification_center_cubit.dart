@@ -17,11 +17,62 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   String? _userId;
 
+  int _generation = 0;
+
+  Future<void> loadMore() async {
+    final userId = _userId;
+    final cursor = state.nextCursor;
+    if (isClosed ||
+        state.isLoading ||
+        state.isLoadingMore ||
+        cursor == null ||
+        userId == null) {
+      return;
+    }
+    final generation = _generation;
+    emit(state.copyWith(isLoadingMore: true, clearError: true));
+    try {
+      final page = await _repository.listUserNotifications(
+        userId: userId,
+        onlyUnread: state.onlyUnread,
+        after: cursor,
+        limit: 50,
+      );
+      if (isClosed || generation != _generation) return;
+      final ids = state.items.map((x) => x.id).toSet();
+      emit(
+        state.copyWith(
+          items: [
+            ...state.items,
+            ...page.items.where((x) => !ids.contains(x.id)),
+          ],
+          isLoadingMore: false,
+          nextCursor: page.nextCursor,
+          clearCursor: page.nextCursor == null,
+        ),
+      );
+    } catch (error) {
+      if (isClosed || generation != _generation) return;
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: error is ApiException
+              ? error.message
+              : 'Bildirimler yüklenemedi.',
+        ),
+      );
+    }
+  }
+
   Future<void> load(String userId) async {
+    if (isClosed) return;
+    final generation = ++_generation;
     _userId = userId;
     emit(
       state.copyWith(
         status: NotificationCenterStatus.loading,
+        isLoadingMore: false,
+        clearCursor: true,
         clearError: true,
       ),
     );
@@ -30,18 +81,23 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       final page = await _repository.listUserNotifications(
         userId: userId,
         onlyUnread: state.onlyUnread,
+        limit: 50,
       );
       final unread = await _repository.unreadNotificationCount(userId);
+      if (isClosed || generation != _generation) return;
 
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: page.items,
+          nextCursor: page.nextCursor,
+          clearCursor: page.nextCursor == null,
           unreadCount: unread,
           clearError: true,
         ),
       );
     } on ApiException catch (error) {
+      if (isClosed || generation != _generation) return;
       emit(
         state.copyWith(
           status: NotificationCenterStatus.failure,
@@ -49,6 +105,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         ),
       );
     } catch (_) {
+      if (isClosed || generation != _generation) return;
       emit(
         state.copyWith(
           status: NotificationCenterStatus.failure,
@@ -67,7 +124,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   /// "Tümü / Okunmamış" filtresi; değişince liste yeniden yüklenir.
   Future<void> setOnlyUnread(bool onlyUnread) async {
-    if (state.onlyUnread == onlyUnread) {
+    if (isClosed || state.onlyUnread == onlyUnread) {
       return;
     }
 
@@ -76,6 +133,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> markRead(String notificationId) async {
+    if (isClosed) return;
+    final generation = _generation;
     final index = state.items.indexWhere((item) => item.id == notificationId);
     if (index < 0 || state.items[index].isRead) {
       // Zaten okunmuş: gereksiz istek gönderilmez, rozet de bozulmaz.
@@ -104,7 +163,16 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       await _repository.markNotificationRead(notificationId);
     } catch (_) {
       // Sunucu reddetti: iyimser değişikliği geri al, kullanıcı yanlış bilgilenmesin.
-      emit(state.copyWith(items: previousItems, unreadCount: previousUnread));
+      if (isClosed || generation != _generation) return;
+      final original = previousItems[index];
+      final items = state.onlyUnread
+          ? [...state.items, original]
+          : state.items.map((x) => x.id == original.id ? original : x).toList();
+      items.sort((a, b) {
+        final time = b.createdOnUtc.compareTo(a.createdOnUtc);
+        return time != 0 ? time : b.id.compareTo(a.id);
+      });
+      emit(state.copyWith(items: items, unreadCount: state.unreadCount + 1));
     }
   }
 }

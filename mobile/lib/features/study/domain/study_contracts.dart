@@ -1,3 +1,5 @@
+import 'package:egitim_ussu_mobile/core/network/cursor_page.dart';
+
 // M08 Bireysel Çalışma (Study) — mobil domain sözleşmeleri.
 // Backend: `/api/study`. Öğrenci kendi StudentId'sine ait verilere erişir.
 
@@ -279,6 +281,22 @@ abstract interface class StudyRepository {
   Future<StudyDashboard> getDashboard(String studentId);
 
   // Öğrenci ders notları
+  Future<CursorPage<StudyNote>> listNotesPage(
+    String studentId, {
+    String? after,
+    int limit = 50,
+  });
+  Future<CursorPage<StudySession>> listSessionsPage(
+    String studentId, {
+    String? after,
+    int limit = 50,
+  });
+  Future<CursorPage<TestResult>> listTestsPage(
+    String studentId, {
+    String? after,
+    int limit = 50,
+  });
+
   Future<List<StudyNote>> listNotes(String studentId);
   Future<StudyNote> createNote(
     String studentId, {
@@ -340,7 +358,10 @@ abstract interface class StudyRepository {
   });
   Future<StudySession> pauseSession(String sessionId);
   Future<StudySession> resumeSession(String sessionId);
-  Future<StudySession> completeSession(String sessionId, {String? personalNote});
+  Future<StudySession> completeSession(
+    String sessionId, {
+    String? personalNote,
+  });
   Future<void> discardSession(String sessionId);
   Future<StudySession> createManualSession(
     String studentId, {

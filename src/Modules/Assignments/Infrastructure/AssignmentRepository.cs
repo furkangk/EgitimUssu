@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Modules.Assignments.Application;
 using EgitimUssu.Modules.Assignments.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -37,9 +38,9 @@ internal sealed class AssignmentRepository : IAssignmentRepository
         Guid? teacherUserId,
         Guid? studentId,
         Guid? lessonSessionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
     {
-        var query = _dbContext.Assignments.AsQueryable();
+        var query = _dbContext.Assignments.AsNoTracking();
 
         if (teacherUserId.HasValue)
         {
@@ -55,6 +56,9 @@ internal sealed class AssignmentRepository : IAssignmentRepository
         {
             query = query.Where(x => x.LessonSessionId == lessonSessionId.Value);
         }
+
+        if (page is not null)
+            return await query.Seek(page, x => x.CreatedOnUtc, x => x.Id, _dbContext.Database.IsNpgsql()).ToArrayAsync(cancellationToken);
 
         return await query
             .OrderBy(x => x.DueDateUtc ?? DateTime.MaxValue)

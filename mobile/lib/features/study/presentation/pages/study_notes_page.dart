@@ -3,6 +3,8 @@ import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/study/domain/study_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/paged_list_boundary.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 
@@ -24,6 +26,39 @@ class _StudyNotesPageState extends State<StudyNotesPage> {
   String? _error;
   List<StudyNote> _notes = <StudyNote>[];
 
+  String? _nextCursor;
+  bool _loadingMore = false;
+  String? _moreError;
+  int _generation = 0;
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _loading || _nextCursor == null) return;
+    final generation = _generation;
+    setState(() {
+      _loadingMore = true;
+      _moreError = null;
+    });
+    try {
+      final page = await _repo.listNotesPage(
+        widget.studentId,
+        after: _nextCursor,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        final ids = _notes.map((x) => x.id).toSet();
+        _notes = [..._notes, ...page.items.where((x) => !ids.contains(x.id))];
+        _nextCursor = page.nextCursor;
+        _loadingMore = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _loadingMore = false;
+        _moreError = error.message;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -31,19 +66,24 @@ class _StudyNotesPageState extends State<StudyNotesPage> {
   }
 
   Future<void> _load() async {
+    final generation = ++_generation;
     setState(() {
       _loading = true;
+      _loadingMore = false;
+      _moreError = null;
+      _nextCursor = null;
       _error = null;
     });
     try {
-      final notes = await _repo.listNotes(widget.studentId);
-      if (!mounted) return;
+      final page = await _repo.listNotesPage(widget.studentId);
+      if (!mounted || generation != _generation) return;
       setState(() {
-        _notes = notes;
+        _notes = page.items;
+        _nextCursor = page.nextCursor;
         _loading = false;
       });
     } on ApiException catch (e) {
-      if (mounted) {
+      if (mounted && generation == _generation) {
         setState(() {
           _error = e.message;
           _loading = false;
@@ -57,10 +97,11 @@ class _StudyNotesPageState extends State<StudyNotesPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _NoteEditor(studentId: widget.studentId, existing: existing),
+      builder: (_) =>
+          _NoteEditor(studentId: widget.studentId, existing: existing),
     );
     if (saved == true) await _load();
   }
@@ -71,11 +112,9 @@ class _StudyNotesPageState extends State<StudyNotesPage> {
       await _load();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(
-          content: Text(e.message),
-          backgroundColor: AppColors.error,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message), backgroundColor: AppColors.error),
+        );
       }
     }
   }
@@ -84,43 +123,60 @@ class _StudyNotesPageState extends State<StudyNotesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Notlarım')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).p19list_myNotes)),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
         onPressed: _openEditor,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('Not ekle', style: TextStyle(color: Colors.white)),
+        icon: Icon(Icons.add_rounded, color: Colors.white),
+        label: Text(
+          AppLocalizations.of(context).p19list_addNote,
+          style: TextStyle(color: Colors.white),
+        ),
       ),
       body: _loading
-          ? const LoadingStateView(message: 'Yükleniyor...')
+          ? LoadingStateView(
+              message: AppLocalizations.of(context).p19list_loading,
+            )
           : _error != null
-              ? ErrorStateView(message: _error!, onRetry: _load)
-              : _content(),
+          ? ErrorStateView(message: _error!, onRetry: _load)
+          : _content(),
     );
   }
 
   Widget _content() {
     if (_notes.isEmpty) {
-      return const EmptyStateView(
-        title: 'Henüz not yok',
-        subtitle: 'Kendi derslerin için not ekle; istersen ders ve konu ile ilişkilendir.',
+      return EmptyStateView(
+        title: AppLocalizations.of(context).p19list_noNotes,
+        subtitle: AppLocalizations.of(context).p19list_notesHint,
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      itemCount: _notes.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, i) => _NoteCard(
-        note: _notes[i],
-        onTap: () => _openEditor(existing: _notes[i]),
-        onDelete: () => _delete(_notes[i]),
+    return PagedListBoundary(
+      hasMore: _nextCursor != null,
+      isLoading: _loadingMore,
+      errorMessage: _moreError,
+      onLoadMore: _loadMore,
+      builder: (controller) => ListView.separated(
+        controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 96),
+        itemCount: _notes.length,
+        separatorBuilder: (_, __) => SizedBox(height: 12),
+        itemBuilder: (context, i) => _NoteCard(
+          note: _notes[i],
+          onTap: () => _openEditor(existing: _notes[i]),
+          onDelete: () => _delete(_notes[i]),
+        ),
       ),
     );
   }
 }
 
 class _NoteCard extends StatelessWidget {
-  const _NoteCard({required this.note, required this.onTap, required this.onDelete});
+  const _NoteCard({
+    required this.note,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   final StudyNote note;
   final VoidCallback onTap;
@@ -142,7 +198,7 @@ class _NoteCard extends StatelessWidget {
           border: Border.all(color: AppColors.skyBorder),
           boxShadow: AppShadows.soft,
         ),
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -152,41 +208,44 @@ class _NoteCard extends StatelessWidget {
                   child: Text(
                     note.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 InkWell(
                   borderRadius: BorderRadius.circular(999),
                   onTap: onDelete,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(4),
-                    child: Icon(Icons.delete_outline_rounded,
-                        color: AppColors.accentRed, size: 20),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.accentRed,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
             ),
             if (tag.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 tag,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
               ),
             ],
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               note.body,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -262,11 +321,9 @@ class _NoteEditorState extends State<_NoteEditor> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(
-          content: Text(e.message),
-          backgroundColor: AppColors.error,
-        ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.error),
+      );
     }
   }
 
@@ -286,64 +343,86 @@ class _NoteEditorState extends State<_NoteEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              _isEdit ? 'Notu düzenle' : 'Not ekle',
+              _isEdit
+                  ? AppLocalizations.of(context).p19list_editNote
+                  : AppLocalizations.of(context).p19list_addNote,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             TextFormField(
               controller: _title,
-              decoration: const InputDecoration(labelText: 'Başlık'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Başlık zorunlu.' : null,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context).p19list_title,
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? AppLocalizations.of(context).p19list_titleRequired
+                  : null,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               children: <Widget>[
                 Expanded(
                   child: TextFormField(
                     controller: _subject,
-                    decoration: const InputDecoration(labelText: 'Ders (opsiyonel)'),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(
+                        context,
+                      ).p19list_subjectOptional,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _topic,
-                    decoration: const InputDecoration(labelText: 'Konu (opsiyonel)'),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(
+                        context,
+                      ).p19list_topicOptional,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             TextFormField(
               controller: _body,
               maxLines: 6,
-              decoration: const InputDecoration(
-                labelText: 'İçerik',
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context).p19list_content,
                 alignLabelWithHint: true,
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'İçerik zorunlu.' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? AppLocalizations.of(context).p19list_contentRequired
+                  : null,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                ),
                 onPressed: _saving ? null : _save,
                 child: _saving
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
-                    : Text(_isEdit ? 'Kaydet' : 'Not ekle'),
+                    : Text(
+                        _isEdit
+                            ? AppLocalizations.of(context).p19list_save
+                            : AppLocalizations.of(context).p19list_addNote,
+                      ),
               ),
             ),
           ],

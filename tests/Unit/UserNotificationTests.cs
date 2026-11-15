@@ -207,7 +207,7 @@ public sealed class UserNotificationTests
             bool onlyUnread,
             int skip,
             int take,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken, EgitimUssu.Shared.Kernel.KeysetPage? page = null)
         {
             var matching = _items
                 .Where(n => n.UserId == userId && (!onlyUnread || !n.IsRead))

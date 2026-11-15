@@ -121,6 +121,9 @@ internal sealed class UserNotificationConfiguration : IEntityTypeConfiguration<U
             .HasDatabaseName("IX_user_notifications_push_due").HasFilter("\"PushStatus\" = 'Pending'");
         builder.Ignore(entity => entity.IsRead);
         builder.HasIndex(entity => new { entity.UserId, entity.ReadOnUtc });
+        builder.HasIndex(entity => new { entity.UserId, entity.CreatedOnUtc, entity.Id });
+        builder.HasIndex(entity => new { entity.UserId, entity.CreatedOnUtc, entity.Id }, "IX_user_notifications_unread_keyset")
+            .HasFilter("\"ReadOnUtc\" IS NULL");
         builder.HasIndex(entity => entity.PushedOnUtc);
     }
 }

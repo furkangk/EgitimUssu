@@ -253,6 +253,11 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                         .HasDatabaseName("IX_user_notifications_push_due")
                         .HasFilter("\"PushStatus\" = 'Pending'");
 
+                    b.HasIndex("UserId", "CreatedOnUtc", "Id");
+
+                    b.HasIndex(new[] { "UserId", "CreatedOnUtc", "Id" }, "IX_user_notifications_unread_keyset")
+                        .HasFilter("\"ReadOnUtc\" IS NULL");
+
                     b.ToTable("user_notifications", "notifications");
                 });
 

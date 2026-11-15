@@ -242,7 +242,7 @@
 
 ---
 
-### Task 7: Sayfalama ve indeksler (N-54, N-72 bildirim sayfalaması)
+### Task 7: Sayfalama ve indeksler (N-54, N-72 bildirim sayfalaması) ✅
 
 **Files:**
 - Modify: `src/Modules/Assignments/Infrastructure/AssignmentRepository.cs` + uçlar (keyset `?after=&limit=`)
@@ -254,11 +254,33 @@
 **Interfaces:**
 - Yanıt: `PagedResult<T> { items, nextCursor }` (mevcut `Shared/Kernel/PagedResult.cs` kullanılır). Sayfa parametresi verilmezse **geriye uyumlu** ilk sayfa (varsayılan 50).
 
-- [ ] **Step 1–4: Kırmızı gör → uygula → yeşil gör** (`dotnet test`, `flutter test`).
-- [ ] **Step 5: Doküman + commit** — ilgili `mNN` uç envanterleri, `doc/pages/notifications.md`; rapor N-54 ✅.
+**Koddan doğrulanan ek Files / Interfaces (2026-11-15):**
+- Modify: `src/Shared/Kernel/PagedResult.cs`; Create: `src/Shared/Kernel/KeysetPage.cs`, `src/Shared/Infrastructure/Persistence/KeysetQuery.cs`.
+- Modify: `src/Modules/Assignments/Application/AssignmentFeatures.cs`, `API/AssignmentsModule.cs`, `Infrastructure/AssignmentsDbContext.cs` (bu ve sonraki kısa yollar ilgili modül kökünden).
+- Modify (Study): `Application/StudyContracts.cs`, `StudySessionFeatures.cs`, `StudyTestFeatures.cs`, `StudyNoteFeatures.cs`, `API/StudyModule.cs`, `Infrastructure/StudyDbContext.cs`.
+- Modify (Notifications): `Application/NotificationFeatures.cs`, `Infrastructure/UserNotificationRepository.cs`, `NotificationsDbContext.cs`, `API/NotificationsModule.cs`.
+- Modify: `src/API.Host/TeacherDashboardEndpoints.cs`, `src/API.Host/Seeding/DemoDataSeeder.cs` (liste tüketicileri: panel tüm sayfaları okur, seeder Items kullanır).
+- Modify: Assignments/Study `Infrastructure/DependencyInjection.cs` (liste sorgularının PagedResult kayıtları).
+- Modify (test sahteleri): `tests/Unit/AssignmentSubmissionStorageTests.cs`, `AssignmentTeacherAuthorizerTests.cs`, `MembershipGateHandlerTests.cs`, `StudySessionRecoveryHandlerTests.cs`, `TestResultScoringIntegrityTests.cs`, `UserNotificationTests.cs`.
+- Create: `tests/Integration/RealKeysetPaginationTests.cs`; migration: Assignments/Study/Notifications `*_ListKeysetIndexes.cs`, Designer ve ilgili DbContextModelSnapshot dosyaları.
+- Create (mobil): `mobile/lib/core/network/cursor_page.dart`, `mobile/lib/shared/widgets/paged_list_boundary.dart`; Modify: üç modülün domain sözleşmeleri/gerçek repository'leri; `assignments_list_cubit.dart`, `assignments_list_state.dart`, `notification_center_cubit.dart`, `notification_center_state.dart`.
+- Modify (mobil ekranlar): `assignments_page.dart`, `student_assignments_page.dart`, `study_history_page.dart`, `study_notes_page.dart`, `notifications_page.dart`; K-26 gereği tr/en ARB. Diğer analiz tüketicilerinin tam liste gereksinimi repository adaptöründe tüm sayfaları okuyarak korunur.
+- Modify (mobil sahteler): `mobile/test/helpers/fake_notification_repository.dart`, `mobile/test/features/notifications/notifications_page_test.dart` (ARB sonrası test MaterialApp yerelleştirmesi), `mobile/test/features/notifications/notification_center_cubit_test.dart`, `mobile/test/features/assignments/lesson_resources_cubit_test.dart`, `mobile/test/features/lesson_sessions/presentation/lesson_note_form_page_test.dart`. Create: `mobile/test/features/pagination/cursor_pagination_test.dart`.
+- Docs: `doc/modules/m06_assignments.md`, `m08_study.md`, `m10_progress_tracking.md`, `m11_notifications.md`, `00_genel_bakis.md`, `veri_modeli.md`; `doc/pages/assignments.md` (iki mevcut ödev ekranının belgesi), `doc/pages/00_pages_index.md`, `doc/INDEX.md`, mevcut çalışma/bildirim sayfa belgeleri, `doc/architecture/widgets.md`, `ux_rules.md`, N-54/N-72 denetim satırları.
+
+**Karar:** Mevcut listeler parametresiz çağrıda ilk50 için eski JSON dizi biçimini korur; `after` veya `limit` verilince PagedResult `items/nextCursor` döner. Bildirim eski skip/take sözleşmesi aynen korunur, keyset yalnız after/limit ile açılır. PostgreSQL cursor filtresi doğrudan row-value karşılaştırmasıdır; InMemory için eşdeğer OR filtresi kullanılır. Cursor sırası azalan `(zaman,Id)`; ödev/not CreatedOnUtc, seans StartedAtUtc, test TakenOnUtc, bildirim CreatedOnUtc. Not düzenlemesi sayfa anahtarını değiştirmez. Varsayılan50, üst100; bozuk cursor/sınır400. Keyset toplam sayımı yapmaz (TotalCount/TotalPages null); offset metadata korunur. Depo listelerine isteğe bağlı KeysetPage eklenir, iç istatistik/seri çağrıları tam kaynak okumayı korur. Snapshot 200 öğrenci keyset partisi, SQL grup toplama ve parti başına kalıcılık/detach. #272 okuyucunun tam geçmişi gerçek PG'de ölçülür; dar kaynak ve kesin yeniden hesap anlamı korunur, veri kesilmez. Kullanıcının teknik karar yetkisiyle geriye uyumlu ve geri alınabilir seçimler.
+
+- [x] **Step 1–4: Kırmızı gör → uygula → yeşil gör** (`dotnet test`, `flutter test`).
+- [x] **Step 5: Doküman + commit** — ilgili `mNN` uç envanterleri, `doc/pages/notifications.md`; rapor N-54 ✅.
   ```bash
   git commit -m "perf: odev, calisma ve bildirim listelerinde keyset sayfalama (N-54)"
   ```
+
+---
+
+**Kanıt (2026-11-15):** İmza Release0uyarı/0hata; cursor birim gerçekRED6başarısız/4başarılı→10/10; ilgili39birimyeşil. GerçekPG ilk liste testi105satır/limit51 ileRED→beşliste/üçsayfaGREEN; snapshot205öğrenci410satır trackerRED→parti/detachGREEN. Row-value SQL beklentisi ayrıcaRED→GREEN. Son dörtPG vaka: eşitzaman/filtre/izlemesizokuma, 205öğrenci/410snapshot/tekrar0, HTTPeskiilk50/yeni20/400sınırlar/Free30gün/üçyabancırol403/öğretmenpaneli105tam, ayrıDB’deüçmodülindeksUpDownUp ve5000seans+5000test2SELECT/28ms/4450664bayttahsis. Kaynakokuyucutamgeçmişi kesin yenidenhesap için korur; maliyetdoğrusaldır, P26aday. İlkHTTP yabancıöğretmenyalnızstudentIdfiltresi boş200: mevcut sahiplikdaraltmasıydı; test herikirakipfiltresini403ileölçer, üretimyetkisipolitikasıdeğişmedi.
+
+Mobil imzadan sonra gerçekRED4başarısız/1başarılı→5/5; eküçvaka tamgeçmişadaptörü/dispose/kısailksayfa+hataotomatikdöngüyok. İlk tamFlutter338yeşil/4kırmızı yalnız yeniARBanahtarbiçimi ve eski3widgetfixture'ın localeeksikliğiydi; düzeltildi, **son342Flutteryeşil/fatal-infos temiz**. Analyze_options geri alındı. **Son varsayılan `bash scripts/test-with-docker.sh`:19mimari/1312birim/205integration,0başarısız/0atlanan,exit0**; bu tur#194görülmedi. Release `-warnaserror --no-incremental`0/0,toolrestore/drift0/171Down başarılı. Doc health RED0/mevcut1YELLOW+1BLUE, diff-check temiz. Task8başlamadı; merge/pushyok. Loglar `/tmp/egitimussu-p19t7-{baseline,signature,red,green,real-red,real-green,batch-red,batch-green,extended-red,extended-green,mobile-signature,mobile-red,mobile-green,mobile-full,mobile-final,analyze-final,release,drift,down,docker,doc-health}.log`.
 
 ---
 
@@ -275,4 +297,4 @@
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 — P19 Task 6 tamamlandı (6/8); sırada yalnız Task 7 (sayfalama/indeksler + #272 kaynak okuyucu ölçeği), başlamadı.*
+*Güncelleme: 2026-11-15 — P19 Task 7 tamamlandı (7/8); sırada yalnız Task 8 (öğrenci haftası senaryosu ve #189 birleşme ölçümü), başlamadı.*
