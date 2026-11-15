@@ -1,6 +1,10 @@
+import 'package:egitim_ussu_mobile/core/di/injector.dart';
+import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/scheduled_session_completion.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_detail_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
@@ -8,11 +12,13 @@ import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/schedu
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class LessonSessionsPage extends StatefulWidget {
   const LessonSessionsPage({super.key, this.openCreateOnStart = false});
@@ -24,7 +30,13 @@ class LessonSessionsPage extends StatefulWidget {
 }
 
 class _LessonSessionsPageState extends State<LessonSessionsPage> {
-  static const _tabs = <String>['Yaklasan', 'Geçmiş', 'İptal Edilen'];
+  List<String> get _tabs => [
+    AppLocalizations.of(context).lessonSessions_upcoming,
+    AppLocalizations.of(context).lessonSessions_past,
+    AppLocalizations.of(context).lessonSessions_cancelled,
+  ];
+  bool _completionBusy = false;
+  final _completedOccurrences = <(String, DateTime)>{};
 
   int _selectedTab = 0;
   bool _didOpenInitialCreate = false;
@@ -35,7 +47,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
     final teacherUserId = session?.userId ?? '';
     final teacherName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Demo öğretmen';
+        : AppLocalizations.of(context).lessonSessions_teacher;
 
     if (widget.openCreateOnStart && !_didOpenInitialCreate) {
       _didOpenInitialCreate = true;
@@ -65,9 +77,12 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Column(
                 children: <Widget>[
-                  AppPageHeader(title: teacherName, subtitle: 'Dersler'),
+                  AppPageHeader(
+                    title: teacherName,
+                    subtitle: AppLocalizations.of(context).lessonSessions_title,
+                  ),
                   const SizedBox(height: 12),
-                  _EgittimUssuTabBar(
+                  _EgitimUssuTabBar(
                     tabs: _tabs,
                     selectedIndex: _selectedTab,
                     onChanged: (index) => setState(() => _selectedTab = index),
@@ -127,7 +142,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
               teacherUserId: teacherUserId,
             ),
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Ders Ekle'),
+            label: Text(AppLocalizations.of(context).lessonSessions_add),
           ),
           bottomNavigationBar: const AppBottomNav(current: AppNavTab.lessons),
         ),
@@ -145,12 +160,12 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
     }
 
     void onComplete(_LessonCardData data) {
-      final lessonId = data.lesson?.id;
-      if (lessonId == null) return;
-      context.read<SchedulingCubit>().completeLesson(lessonId: lessonId);
+      final lesson = data.lesson;
+      if (lesson == null) return;
+      _completeOccurrence(context, lesson);
     }
 
-    final isBusy = schedulingState.isSaving;
+    final isBusy = schedulingState.isSaving || _completionBusy;
 
     final now = DateTime.now().toUtc();
     final namesById = <String, String>{
@@ -188,9 +203,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
         );
       case 2:
         return _LessonListView(
-          lessons: cancelled
-              .map((l) => _toCardData(l, namesById))
-              .toList(),
+          lessons: cancelled.map((l) => _toCardData(l, namesById)).toList(),
         );
       default:
         return const SizedBox.shrink();
@@ -198,13 +211,17 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
   }
 
   _LessonCardData _toCardData(LessonSchedule l, Map<String, String> namesById) {
-    final studentName = namesById[l.studentId] ?? 'Öğrenci';
+    final studentName =
+        namesById[l.studentId] ??
+        AppLocalizations.of(context).lessonSessions_student;
     final isOnline = l.lessonFormat.toLowerCase().contains('online');
     final start = l.startAtUtc.toLocal();
     final end = l.endAtUtc.toLocal();
     String fmt(DateTime dt) =>
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    final modeStr = isOnline ? 'Online' : 'Yuz yuze';
+    final modeStr = isOnline
+        ? AppLocalizations.of(context).lessonDetail_online
+        : AppLocalizations.of(context).lessonSessions_inPerson;
     final levelAndMode = (l.locationLabel != null && l.locationLabel != modeStr)
         ? '$modeStr · ${l.locationLabel}'
         : modeStr;
@@ -218,6 +235,7 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
       isOnline: isOnline,
       meetingUrl: l.meetingUrl,
       lesson: l,
+      completed: _completedOccurrences.contains((l.id, l.occurrenceKeyUtc)),
     );
   }
 
@@ -230,6 +248,38 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
       AppColors.accentRed,
     ];
     return colors[studentId.hashCode.abs() % colors.length];
+  }
+
+  Future<void> _completeOccurrence(
+    BuildContext context,
+    LessonSchedule lesson,
+  ) async {
+    if (_completionBusy) return;
+    setState(() => _completionBusy = true);
+    try {
+      await completeScheduledSession(
+        injector<LessonSessionRepository>(),
+        lesson,
+      );
+      if (!mounted || !context.mounted) return;
+      setState(
+        () => _completedOccurrences.add((lesson.id, lesson.occurrenceKeyUtc)),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).lessonSessions_completedMessage,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted || !context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _completionBusy = false);
+    }
   }
 
   Future<void> _showCreateLessonSheet({
@@ -262,8 +312,8 @@ class _LessonSessionsPageState extends State<LessonSessionsPage> {
   }
 }
 
-class _EgittimUssuTabBar extends StatelessWidget {
-  const _EgittimUssuTabBar({
+class _EgitimUssuTabBar extends StatelessWidget {
+  const _EgitimUssuTabBar({
     required this.tabs,
     required this.selectedIndex,
     required this.onChanged,
@@ -350,7 +400,7 @@ class _DateGroupedLessonsView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                date.formattedLabel,
+                date.formattedLabel(context),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w800,
@@ -386,13 +436,15 @@ class _DateGroupedLessonsView extends StatelessWidget {
       extra: LessonDetailPayload(
         studentName: lesson.student,
         subject: lesson.subject,
-        dateLabel: lesson.date.formattedLabel,
+        dateLabel: lesson.date.formattedLabel(context),
         timeLabel: lesson.timeRange,
-        modeLabel: lesson.isOnline ? 'Online' : 'Yuz yuze',
+        modeLabel: lesson.isOnline
+            ? AppLocalizations.of(context).lessonDetail_online
+            : AppLocalizations.of(context).lessonSessions_inPerson,
         accent: lesson.accent,
         meetingUrl: lesson.meetingUrl,
         lessonId: lesson.lesson?.id,
-        lessonStatus: lesson.lesson?.status,
+        lessonStatus: lesson.completed ? 'Completed' : lesson.lesson?.status,
         lesson: lesson.lesson,
       ),
     );
@@ -440,13 +492,15 @@ class _LessonListView extends StatelessWidget {
       extra: LessonDetailPayload(
         studentName: lesson.student,
         subject: lesson.subject,
-        dateLabel: lesson.date.formattedLabel,
+        dateLabel: lesson.date.formattedLabel(context),
         timeLabel: lesson.timeRange,
-        modeLabel: lesson.isOnline ? 'Online' : 'Yuz yuze',
+        modeLabel: lesson.isOnline
+            ? AppLocalizations.of(context).lessonDetail_online
+            : AppLocalizations.of(context).lessonSessions_inPerson,
         accent: lesson.accent,
         meetingUrl: lesson.meetingUrl,
         lessonId: lesson.lesson?.id,
-        lessonStatus: lesson.lesson?.status,
+        lessonStatus: lesson.completed ? 'Completed' : lesson.lesson?.status,
         lesson: lesson.lesson,
       ),
     );
@@ -480,7 +534,11 @@ class _LessonTimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = _LessonStatusView.of(data.lesson?.status, data.lesson);
+    final status = _LessonStatusView.of(
+      context,
+      data.completed ? 'Completed' : data.lesson?.status,
+      data.lesson,
+    );
     final canComplete = status.isCompletable && onComplete != null;
 
     return InkWell(
@@ -527,7 +585,7 @@ class _LessonTimelineCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         showDate
-                            ? '${data.date.formattedLabel} - ${data.timeRange}'
+                            ? '${data.date.formattedLabel(context)} - ${data.timeRange}'
                             : data.timeRange,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,
@@ -570,8 +628,13 @@ class _LessonTimelineCard extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.check_circle_outline_rounded, size: 18),
-                  label: const Text('Dersi Tamamla'),
+                      : const Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 18,
+                        ),
+                  label: Text(
+                    AppLocalizations.of(context).lessonDetail_complete,
+                  ),
                 ),
               ),
             ],
@@ -598,25 +661,29 @@ class _LessonStatusView {
 
   /// [status] ham backend durumu ('Planned'/'Completed'/'Cancelled'/'Draft').
   /// Planli ve baslama saati gecmis dersler "tamamlanabilir" sayilir.
-  factory _LessonStatusView.of(String? status, LessonSchedule? lesson) {
+  factory _LessonStatusView.of(
+    BuildContext context,
+    String? status,
+    LessonSchedule? lesson,
+  ) {
     switch (status) {
       case 'Completed':
-        return const _LessonStatusView(
-          label: 'Tamamlandı',
+        return _LessonStatusView(
+          label: AppLocalizations.of(context).lessonSessions_completed,
           color: AppColors.accentGreen,
           icon: Icons.check_circle_rounded,
           isCompletable: false,
         );
       case 'Cancelled':
-        return const _LessonStatusView(
-          label: 'İptal edildi',
+        return _LessonStatusView(
+          label: AppLocalizations.of(context).lessonSessions_cancelledStatus,
           color: AppColors.accentRed,
           icon: Icons.cancel_rounded,
           isCompletable: false,
         );
       case 'Draft':
-        return const _LessonStatusView(
-          label: 'Taslak',
+        return _LessonStatusView(
+          label: AppLocalizations.of(context).lessonSessions_draft,
           color: AppColors.textMuted,
           icon: Icons.edit_note_rounded,
           isCompletable: false,
@@ -626,15 +693,15 @@ class _LessonStatusView {
             lesson != null &&
             !lesson.startAtUtc.isAfter(DateTime.now().toUtc());
         if (started) {
-          return const _LessonStatusView(
-            label: 'Bekliyor',
+          return _LessonStatusView(
+            label: AppLocalizations.of(context).lessonSessions_pending,
             color: AppColors.amber,
             icon: Icons.hourglass_bottom_rounded,
             isCompletable: true,
           );
         }
-        return const _LessonStatusView(
-          label: 'Planlandı',
+        return _LessonStatusView(
+          label: AppLocalizations.of(context).lessonSessions_planned,
           color: AppColors.secondary,
           icon: Icons.event_available_rounded,
           isCompletable: false,
@@ -723,6 +790,7 @@ class _LessonCardData {
     this.isOnline = false,
     this.meetingUrl,
     this.lesson,
+    this.completed = false,
   });
 
   final String student;
@@ -734,6 +802,7 @@ class _LessonCardData {
   final bool isOnline;
   final String? meetingUrl;
   final LessonSchedule? lesson;
+  final bool completed;
 }
 
 class _LessonDate {
@@ -743,40 +812,11 @@ class _LessonDate {
   final int month;
   final int day;
 
-  static const _months = <String>[
-    '',
-    'Ocak',
-    'Subat',
-    'Mart',
-    'Nisan',
-    'Mayis',
-    'Haziran',
-    'Temmuz',
-    'Agustos',
-    'Eylul',
-    'Ekim',
-    'Kasim',
-    'Aralik',
-  ];
-
-  static const _weekdays = <String>[
-    'Pazartesi',
-    'Sali',
-    'Carsamba',
-    'Persembe',
-    'Cuma',
-    'Cumartesi',
-    'Pazar',
-  ];
-
   DateTime get asDateTime => DateTime(year, month, day);
 
-  String get formattedLabel {
-    final date = asDateTime;
-    final weekday = _weekdays[date.weekday - 1];
-    final monthName = _months[month];
-    return '$day $monthName $year $weekday';
-  }
+  String formattedLabel(BuildContext context) => DateFormat.yMMMMEEEEd(
+    Localizations.localeOf(context).toString(),
+  ).format(asDateTime);
 
   @override
   bool operator ==(Object other) {

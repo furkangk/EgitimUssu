@@ -102,9 +102,13 @@ class LessonScheduleModel extends LessonSchedule {
   static Map<String, dynamic> cancelPayload({
     required LessonSchedule lesson,
     required OccurrenceScope scope,
+    LessonCancellationReason reason = LessonCancellationReason.teacherCancelled,
+    bool isChargeable = true,
     String? cancellationNote,
   }) {
     return <String, dynamic>{
+      'reason': reason.apiValue,
+      'isChargeable': isChargeable,
       'cancellationNote': cancellationNote,
       if (lesson.isRecurring) ...<String, dynamic>{
         'scope': scope.apiValue,

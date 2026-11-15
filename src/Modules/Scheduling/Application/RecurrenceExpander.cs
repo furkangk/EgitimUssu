@@ -13,7 +13,8 @@ public readonly record struct ScheduleOccurrence(
     DateTime StartAtUtc,
     DateTime EndAtUtc,
     bool IsCancelled = false,
-    DateTime? OriginalStartAtUtc = null)
+    DateTime? OriginalStartAtUtc = null,
+    bool IsCompleted = false)
 {
     /// <summary>iCal RECURRENCE-ID: bu oluşumu hedefleyen istisna kaydının anahtarı.</summary>
     public DateTime RecurrenceIdUtc => OriginalStartAtUtc ?? StartAtUtc;
@@ -288,12 +289,13 @@ public static class RecurrenceExpander
                 case OccurrenceExceptionAction.Cancelled:
                     yield return occurrence with { IsCancelled = true };
                     break;
+                case OccurrenceExceptionAction.Completed:
                 case OccurrenceExceptionAction.Rescheduled:
                     var start = ex.OverrideStartAtUtc ?? occurrence.StartAtUtc;
                     var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
                     if (start <= rangeEndUtc && end >= rangeStartUtc)
                     {
-                        yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc);
+                        yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc, ex.Action == OccurrenceExceptionAction.Completed);
                     }
 
                     break;
@@ -303,7 +305,7 @@ public static class RecurrenceExpander
         // N-14: orijinali pencere dışında kalan, pencereye ertelenmiş oluşumlar.
         foreach (var ex in byOriginal.Values)
         {
-            if (ex.Action != OccurrenceExceptionAction.Rescheduled
+            if (ex.Action is not (OccurrenceExceptionAction.Rescheduled or OccurrenceExceptionAction.Completed)
                 || ex.OverrideStartAtUtc is not { } start
                 || start > rangeEndUtc
                 || (ex.OverrideEndAtUtc.HasValue && ex.OverrideEndAtUtc.Value < rangeStartUtc)
@@ -332,7 +334,7 @@ public static class RecurrenceExpander
             var end = ex.OverrideEndAtUtc ?? occurrence.EndAtUtc;
             if (end >= rangeStartUtc)
             {
-                yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc);
+                yield return new ScheduleOccurrence(start, end, false, occurrence.StartAtUtc, ex.Action == OccurrenceExceptionAction.Completed);
             }
         }
     }
@@ -393,6 +395,33 @@ public static class RecurrenceExpander
         }
 
         return new ParsedRule(frequency, byDay, until, count);
+    }
+
+    /// <summary>Seri bölmede gün desenini yerel gün farkıyla, bitiş sınırını UTC taşıma farkıyla taşır.</summary>
+    internal static string ShiftRule(string rule, DateTime originalStartUtc, DateTime newStartUtc, TimeZoneInfo zone)
+    {
+        var oldLocal = ToWallClock(originalStartUtc, zone);
+        var newLocal = ToWallClock(newStartUtc, zone);
+        var dayShift = ((int)newLocal.DayOfWeek - (int)oldLocal.DayOfWeek + 7) % 7;
+        string[] days = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+        return string.Join(';', rule.Split(';').Select(part =>
+        {
+            var pair = part.Split('=', 2);
+            if (pair.Length != 2) return part;
+            if (pair[0].Trim().Equals("BYDAY", StringComparison.OrdinalIgnoreCase))
+            {
+                var shifted = pair[1].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(token => MapDay(token) is { } day ? days[((int)day + dayShift) % 7] : token);
+                return $"BYDAY={string.Join(',', shifted)}";
+            }
+            if (pair[0].Trim().Equals("UNTIL", StringComparison.OrdinalIgnoreCase) && ParseUntil(pair[1].Trim()) is { } until)
+            {
+                var shifted = until.ToUtc(zone) + (newStartUtc - originalStartUtc);
+                // ISO UTC biçimi mevcut parser'da desteklenir; saniye altı hassasiyet kesilmez.
+                return $"UNTIL={shifted.ToString("O", CultureInfo.InvariantCulture)}";
+            }
+            return part;
+        }));
     }
 
     private static DayOfWeek? MapDay(string token) => token.ToUpperInvariant() switch

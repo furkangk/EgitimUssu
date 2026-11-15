@@ -75,7 +75,7 @@ void main() {
       );
 
       expect(apiClient.lastPath, '/api/lesson-sessions/session-1/complete');
-      expect(apiClient.lastData?['attendanceStatus'], 1);
+      expect(apiClient.lastData?['attendanceStatus'], 2);
       expect(session.status, 'Completed');
     },
   );
@@ -120,10 +120,28 @@ void main() {
 
     final session = await repository.createSessionFromSchedule('lesson-1');
 
-    expect(apiClient.lastPath, '/api/lesson-sessions/from-schedule/lesson-1');
+    expect(apiClient.lastPath, '/api/lesson-sessions/from-schedule');
+    expect(apiClient.lastData?['lessonScheduleId'], 'lesson-1');
     expect(session.id, 'session-1');
     expect(session.status, 'Planned');
     expect(session.meetingUrl, 'https://meet.example.com/abc');
+  });
+
+  test('derivation sends original occurrence in UTC', () async {
+    final apiClient = _FakeApiClient();
+    final repository = LessonSessionRepositoryImpl(
+      apiClient: apiClient,
+      config: _config,
+    );
+    final occurrence = DateTime.utc(2026, 11, 16, 14);
+    await repository.createSessionFromSchedule(
+      'lesson-1',
+      occurrenceStartAtUtc: occurrence,
+    );
+    expect(
+      apiClient.lastData?['occurrenceStartAtUtc'],
+      occurrence.toIso8601String(),
+    );
   });
 
   test('session model reads meeting and recording urls', () async {

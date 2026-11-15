@@ -24,10 +24,12 @@ public sealed class LessonSession : AggregateRoot<Guid>
         string? coveredContent,
         string? teacherNotes,
         DateTime createdOnUtc,
-        DateTime? completedOnUtc)
+        DateTime? completedOnUtc,
+        DateTime? occurrenceStartUtc = null)
     {
         Id = id;
         LessonScheduleId = lessonScheduleId;
+        OccurrenceStartUtc = lessonScheduleId.HasValue ? occurrenceStartUtc ?? plannedStartAtUtc : null;
         TeacherUserId = teacherUserId;
         StudentId = studentId;
         Subject = subject;
@@ -47,6 +49,8 @@ public sealed class LessonSession : AggregateRoot<Guid>
     }
 
     public Guid? LessonScheduleId { get; private set; }
+
+    public DateTime? OccurrenceStartUtc { get; private set; }
 
     public Guid TeacherUserId { get; private set; }
 
@@ -187,11 +191,15 @@ public sealed class LessonSession : AggregateRoot<Guid>
             return Result.Failure(InvalidTransition);
         }
 
+        if (Status != LessonSessionStatus.Completed && PlannedStartAtUtc > completedOnUtc)
+            return Result.Failure(new Error("lesson_sessions.future_occurrence", "Gelecekteki ders henüz tamamlanamaz."));
+
         if (actualEndAtUtc <= actualStartAtUtc)
         {
             return Result.Failure(InvalidTimeRange);
         }
 
+        var firstCompletion = Status != LessonSessionStatus.Completed;
         ActualStartAtUtc = actualStartAtUtc;
         ActualEndAtUtc = actualEndAtUtc;
         DurationMinutes = (int)Math.Ceiling((actualEndAtUtc - actualStartAtUtc).TotalMinutes);
@@ -201,9 +209,11 @@ public sealed class LessonSession : AggregateRoot<Guid>
         CoveredContent = coveredContent;
         TeacherNotes = teacherNotes;
         IsChargeable = isChargeable;
-        CompletedOnUtc = completedOnUtc;
-
-        Raise(new LessonSessionCompletedDomainEvent(Id, LessonScheduleId, TeacherUserId, StudentId, completedOnUtc));
+        if (firstCompletion)
+        {
+            CompletedOnUtc = completedOnUtc;
+            Raise(new LessonSessionCompletedDomainEvent(Id, LessonScheduleId, TeacherUserId, StudentId, completedOnUtc));
+        }
         return Result.Success();
     }
 

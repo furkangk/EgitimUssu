@@ -21,7 +21,7 @@ internal sealed class LessonReminderRepository : ILessonReminderRepository
     public async Task<IReadOnlyCollection<LessonReminder>> ListByTeacherUserIdAsync(Guid teacherUserId, CancellationToken cancellationToken)
     {
         return await _dbContext.LessonReminders
-            .Where(reminder => reminder.TeacherUserId == teacherUserId)
+            .Where(reminder => reminder.TeacherUserId == teacherUserId && reminder.RecipientUserId == teacherUserId)
             .OrderBy(reminder => reminder.RemindAtUtc)
             .ThenBy(reminder => reminder.CreatedOnUtc)
             .ToArrayAsync(cancellationToken);

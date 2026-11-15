@@ -67,6 +67,9 @@ namespace EgitimUssu.Modules.LessonSessions.Infrastructure.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
+                    b.Property<DateTime?>("OccurrenceStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("PlannedStartAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -101,7 +104,9 @@ namespace EgitimUssu.Modules.LessonSessions.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LessonScheduleId");
+                    b.HasIndex("LessonScheduleId", "OccurrenceStartUtc")
+                        .IsUnique()
+                        .HasFilter("\"LessonScheduleId\" IS NOT NULL");
 
                     b.HasIndex("StudentId", "PlannedStartAtUtc");
 

@@ -31,12 +31,12 @@ public sealed class GetTeacherDashboardQueryHandler
         "Bu öğretmen için panel verisi henüz oluşmadı.");
 
     private readonly ITeacherDashboardProjectionReader _reader;
-    private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public GetTeacherDashboardQueryHandler(ITeacherDashboardProjectionReader reader, IClock clock)
+    public GetTeacherDashboardQueryHandler(ITeacherDashboardProjectionReader reader, ILocalCalendar calendar)
     {
         _reader = reader;
-        _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<TeacherDashboardResponse>> Handle(
@@ -49,11 +49,11 @@ public sealed class GetTeacherDashboardQueryHandler
             return Result<TeacherDashboardResponse>.Failure(NotReady);
         }
 
-        var todayUtc = DateTime.SpecifyKind(_clock.UtcNow.Date, DateTimeKind.Utc);
+        var (startUtc, endUtc) = _calendar.DayRangeUtc(_calendar.Today());
 
         return Result<TeacherDashboardResponse>.Success(new TeacherDashboardResponse(
             projection.TeacherUserId,
-            projection.CountLessonsOn(todayUtc),
+            projection.CountLessonsBetween(startUtc, endUtc),
             projection.PendingAssignmentCount,
             projection.OverduePaymentCount,
             projection.OverdueAmountTotal,

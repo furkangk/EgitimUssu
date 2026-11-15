@@ -102,7 +102,7 @@ public sealed class LessonScheduleTests
             "FREQ=WEEKLY;BYDAY=MO", LessonScheduleStatus.Planned, 60, null, null, null, Start);
 
         var repo = new RecordingRepository(series);
-        var handler = new CancelLessonScheduleCommandHandler(repo, new PassThroughScheduleLock(), new LocalCalendar("Europe/Istanbul", new FakeClock()), new FakeClock(), new FakeIdGenerator());
+        var handler = new CancelLessonScheduleCommandHandler(repo, new PassThroughScheduleLock(), new LocalCalendar("Europe/Istanbul", new FakeClock()), new FakeClock(), new FakeIdGenerator(), new EgitimUssu.Tests.Unit.TestDoubles.FakeCancellationPolicyDirectory(), new EgitimUssu.Tests.Unit.TestDoubles.FakeStudentDirectory());
 
         var occurrence = Start.AddDays(7);
         var result = await handler.Handle(
@@ -159,7 +159,7 @@ public sealed class LessonScheduleTests
         public void Remove(LessonSchedule lessonSchedule) => throw new NotImplementedException();
 
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForSeriesAsync(Guid seriesLessonScheduleId, CancellationToken cancellationToken)
-            => throw new NotImplementedException();
+            => Task.FromResult<IReadOnlyCollection<LessonOccurrenceException>>(AddedExceptions);
 
         public Task<IReadOnlyCollection<LessonOccurrenceException>> ListExceptionsForTeacherAsync(Guid teacherUserId, CancellationToken cancellationToken)
             => throw new NotImplementedException();

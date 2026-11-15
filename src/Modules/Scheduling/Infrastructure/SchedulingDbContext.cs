@@ -89,6 +89,9 @@ internal sealed class LessonChangeRequestConfiguration : IEntityTypeConfiguratio
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status });
         builder.HasIndex(entity => entity.StudentId);
+        builder.HasIndex(entity => new { entity.LessonScheduleId, entity.OccurrenceStartAtUtc }).IsUnique()
+            .HasDatabaseName("ix_change_requests_pending_occurrence")
+            .HasFilter("\"Status\" = 'Pending' AND \"OccurrenceStartAtUtc\" IS NOT NULL");
     }
 }
 

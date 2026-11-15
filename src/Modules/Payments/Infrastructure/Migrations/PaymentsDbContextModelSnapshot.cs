@@ -110,9 +110,15 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<Guid?>("LessonScheduleId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("OccurrenceStartUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("OverdueMarkedOnUtc")
                         .HasColumnType("timestamp with time zone");
@@ -132,6 +138,10 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LessonScheduleId", "OccurrenceStartUtc")
+                        .IsUnique()
+                        .HasFilter("\"LessonScheduleId\" IS NOT NULL AND \"ItemType\" = 'LateCancellation'");
 
                     b.HasIndex("TeacherUserId", "DueDateUtc");
 

@@ -51,7 +51,8 @@ internal sealed class LessonReminderConfiguration : IEntityTypeConfiguration<Les
         // P03 Task 3: push teslimat izleme (başarısız denemeler + son hata).
         builder.Property(entity => entity.AttemptCount).IsRequired();
         builder.Property(entity => entity.LastError).HasMaxLength(1000);
-        builder.HasIndex(entity => entity.LessonScheduleId).IsUnique();
+        builder.HasIndex(entity => new { entity.LessonScheduleId, entity.OccurrenceStartUtc, entity.RecipientUserId }).IsUnique();
+        builder.HasIndex(entity => new { entity.Status, entity.RemindAtUtc }).HasFilter("\"Status\" = 'Pending'");
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status, entity.RemindAtUtc });
     }
 }

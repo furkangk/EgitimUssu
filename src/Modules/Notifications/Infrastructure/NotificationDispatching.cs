@@ -36,6 +36,9 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
     private readonly IUserNotificationRepository _userNotifications;
     private readonly IPushSender _pushSender;
     private readonly IUserNotificationPreferences _preferences;
+    private readonly IStudentDirectory _students;
+    private readonly IParentNotificationDirectory _parents;
+    private readonly ILessonScheduleReader _schedules;
     private readonly EgitimUssu.Shared.Kernel.IClock _clock;
 
     public NotificationDispatchProcessor(
@@ -44,7 +47,10 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
         IUserNotificationRepository userNotifications,
         IPushSender pushSender,
         IUserNotificationPreferences preferences,
-        EgitimUssu.Shared.Kernel.IClock clock)
+        EgitimUssu.Shared.Kernel.IClock clock,
+        IStudentDirectory students,
+        IParentNotificationDirectory parents,
+        ILessonScheduleReader schedules)
     {
         _repository = repository;
         _deviceTokens = deviceTokens;
@@ -52,6 +58,9 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
         _pushSender = pushSender;
         _preferences = preferences;
         _clock = clock;
+        _students = students;
+        _parents = parents;
+        _schedules = schedules;
     }
 
     public async Task<int> DispatchDueRemindersAsync(CancellationToken cancellationToken = default)
@@ -68,9 +77,34 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
 
         foreach (var reminder in dueReminders)
         {
+            if (reminder.RemindAtUtc.AddMinutes(30) < now || reminder.ScheduledLessonStartAtUtc <= now)
+            {
+                reminder.Expire(now);
+                continue;
+            }
+            var current = await _schedules.ListReminderOccurrencesAsync(now, now.AddDays(7), reminder.LessonScheduleId, cancellationToken);
+            if (!current.Any(o => o.OccurrenceStartUtc == reminder.OccurrenceStartUtc && o.StartAtUtc == reminder.ScheduledLessonStartAtUtc
+                && o.ReminderOffsetMinutes > 0 && o.StartAtUtc.AddMinutes(-o.ReminderOffsetMinutes) == reminder.RemindAtUtc))
+            {
+                reminder.Cancel(now);
+                continue;
+            }
+            if (reminder.RecipientUserId != reminder.TeacherUserId)
+            {
+                var owner = await _students.GetOwnerUserIdAsync(reminder.StudentId, cancellationToken);
+                if (owner != reminder.RecipientUserId)
+                {
+                    var parents = await _parents.GetApprovedParentsForStudentAsync(reminder.StudentId, cancellationToken);
+                    if (!parents.Any(p => p.ParentUserId == reminder.RecipientUserId && p.Prefs.LessonReminders))
+                    {
+                        reminder.Cancel(now);
+                        continue;
+                    }
+                }
+            }
             // M11-5 tercih kapısı: kullanıcı ders hatırlatmasını ya da tüm push'u kapattıysa gönderme.
             // Kuyruğu tıkamaması için gönderilmiş sayılır (tekrar denenmez).
-            var preferences = await _preferences.GetAsync(reminder.TeacherUserId, cancellationToken);
+            var preferences = await _preferences.GetAsync(reminder.RecipientUserId, cancellationToken);
             if (!preferences.PushEnabled || !preferences.LessonReminderEnabled)
             {
                 reminder.MarkSent(now);
@@ -78,9 +112,8 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
                 continue;
             }
 
-            // Alıcı: hatırlatmanın sahibi olan öğretmen kullanıcısı. Kendi-ders (Ç-06) kayıtlarında
-            // TeacherUserId boştur; öğrenciye teslim StudentId → UserId eşlemesi gerektirir (P07 read-model).
-            var tokens = await _deviceTokens.ListActiveByUserAsync(reminder.TeacherUserId, cancellationToken);
+            // Üçlü anahtardaki alıcının aktif cihazları; öğretmen/öğrenci/veli ayrı satırlardır.
+            var tokens = await _deviceTokens.ListActiveByUserAsync(reminder.RecipientUserId, cancellationToken);
             if (tokens.Count == 0)
             {
                 // Teslim edilecek cihaz yok; kuyruğu tıkamasın diye gönderilmiş sayılır.
@@ -102,7 +135,8 @@ public sealed class NotificationDispatchProcessor : INotificationDispatchProcess
                         new Dictionary<string, string>
                         {
                             ["route"] = "/scheduling",
-                            ["lessonId"] = reminder.LessonScheduleId.ToString()
+                            ["lessonId"] = reminder.LessonScheduleId.ToString(),
+                            ["occurrenceStartAtUtc"] = reminder.OccurrenceStartUtc.ToString("O")
                         }),
                     cancellationToken);
 

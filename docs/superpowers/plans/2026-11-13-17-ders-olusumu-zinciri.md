@@ -52,27 +52,28 @@
 
 ---
 
-### Task 2: "Bu ve sonrakiler" seriyi doğru böler
+### Task 2: "Bu ve sonrakiler" seriyi doğru böler ✅
 
 **Files:**
-- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`SplitSeriesAt(DateTime cutoffUtc, ...)` → yeni seri)
-- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (reschedule/cancel `ThisAndFuture`)
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs` (`SplitSeriesAt(DateTime cutoffUtc, ...)` → yeni seri; `LessonOccurrenceException.MoveToSeries(...)`; `LessonSeriesSplitDomainEvent`)
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs` (reschedule/cancel `ThisAndFuture`; `COUNT` kuralında yeni seriye yalnız kalan oluşum sayısını aktar; yeni seri çakışmasında eski serinin yalnız cutoff ve sonraki oluşumlarını hariç tut)
 - Test: `tests/Unit/SeriesSplitTests.cs`
+- Test: `tests/Integration/RealSeriesSplitTests.cs` (Global Constraints'teki görev başına Testcontainers kanıtı: iki seri + taşınan istisna + outbox olayı aynı gerçek transaction'da)
 
 **Interfaces:**
-- `ThisAndFuture` erteleme: eski seri `UNTIL = cutoff - 1 oluşum` ile biter; cutoff'tan itibaren **yeni** `LessonSchedule` (yeni saat, aynı öğrenci/konu/kural) oluşur; cutoff sonrası istisnalar yeni seriye **taşınır** (zaman farkı uygulanarak) veya açıkça düşürülür — karar: taşınır, `Cancelled` istisnalar korunur. Olay: `LessonSeriesSplitDomainEvent(OldId, NewId, CutoffUtc)`.
+- `ThisAndFuture` erteleme: eski seri `UNTIL = cutoff - 1 oluşum` ile biter; cutoff'tan itibaren **yeni** `LessonSchedule` (yeni saat, aynı öğrenci/konu/kural) oluşur; `COUNT` varsa yeni serinin sayısı toplamdan cutoff öncesi oluşumlar düşülerek yazılır (10 haftalık serinin 4. haftadan bölünmesi 3 + 7 kalır). Cutoff sonrası istisnalar yeni seriye **taşınır** (orijinal anahtar ve varsa override saatlerine zaman farkı uygulanır); `Cancelled` eylemi korunur. Başarılı yanıt yeni seriyi döndürür. Olay: `LessonSeriesSplitDomainEvent(OldId, NewId, CutoffUtc)`.
 - `ThisAndFuture` iptal: mevcut `EndSeriesBefore` (davranış korunur).
 
-- [ ] **Step 1: Kırmızı testler** — 10 haftalık serinin 4. haftasından itibaren saat değişimi → ilk 3 hafta eski saatte, 4–10 yeni saatte; geçmiş oluşumların oturum/ödeme kayıtları eski seride kalır; 6. haftadaki iptal istisnası yeni seride korunur.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m04`.
+- [x] **Step 1: Kırmızı testler** — 10 haftalık serinin 4. haftasından itibaren saat değişimi → ilk 3 hafta eski saatte, 4–10 yeni saatte; geçmiş oluşumların oturum/ödeme kayıtları eski seride kalır; 6. haftadaki iptal istisnası yeni seride korunur. *(Ek: başka dersle çakışmada iki seri de değişmez; gerçek PostgreSQL'de eski+yeni seri, taşınan iptal istisnası ve split outbox olayı tek transaction'da.)*
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.** *(İmza iskeleti 0 uyarı/0 hata derlendi; mevcut davranış yeni seri üretmediği için 1/2 kırmızı; uygulama sonrası 2/2 birim + 1/1 gerçek PostgreSQL yeşil. Tam paket: 19 mimari / 1137 birim / 130 integration, başarısız 0, atlanan 0.)*
+- [x] **Step 5: Doküman + commit** — `m04`; rapor N-01 backend seri bölme ayağı güncellendi.
   ```bash
   git commit -m "feat(scheduling): 'bu ve sonrakiler' seriyi boler, gecmis olusumlar korunur"
   ```
 
 ---
 
-### Task 3: Oluşum anahtarlı ders oturumu (N-02, N-12, N-13)
+### Task 3: Oluşum anahtarlı ders oturumu (N-02, N-12, N-13) ✅
 
 **Files:**
 - Modify: `src/Modules/LessonSessions/Domain/LessonSessionsDomainModel.cs` (`OccurrenceStartUtc`; yeniden tamamlama olay **yaymaz**)
@@ -84,24 +85,37 @@
 - Migration: `OccurrenceKeyedSessions` (LessonSessions)
 - Test: `tests/Unit/OccurrenceKeyedSessionTests.cs`, `tests/Integration/RealWeeklyLessonSessionTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #230):** Mevcut uç `/from-schedule/{id}` ve gövdesiz; kanonik gövdeli `/from-schedule` eklenir, eski uç tekil dersler için uyumluluk köprüsü kalır (tekrarlıda anahtarsız 400). Ek dosyalar:
+- Modify: `src/Modules/LessonSessions/API/LessonSessionsModule.cs`, `Infrastructure/LessonSessionRepository.cs`, `Infrastructure/LessonSessionAccessService.cs`
+- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs`, `LessonSessionReadContract.cs`; `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs` (gerçek orijinal oluşumu doğrulayıp istisnadan görünen saati okur; olay şeması değişmez)
+- Modify: `src/Modules/ProgressTracking/Infrastructure/ProgressTrackingDbContext.cs`, `LessonSessionCompletedProgressHandler.cs`; Migration `LessonAttendanceReceipts` (oturum kimliğiyle kalıcı sayım koruması)
+- Modify (sahteler/imzalar): `tests/Unit/CreateSessionFromScheduleTests.cs`, `LessonSessionTests.cs`, `WriteEndpointLinkAuthorizationTests.cs`, `ProgressAccessTests.cs`, `TestDoubles/FakeLessonScheduleDirectory.cs`, `TestDoubles/FakeStudentDirectory.cs`; `tests/Integration/LessonSessionListAuthorizationTests.cs`
+- Modify (mobil tam yollar): `mobile/lib/features/lesson_sessions/domain/lesson_session_contracts.dart`, `data/repositories/lesson_session_repository_impl.dart`, `presentation/pages/lesson_detail_page.dart`; `mobile/lib/l10n/app_tr.arb`, `app_en.arb` (K-26: detay ekranının metinleri); `mobile/test/features/lesson_sessions/data/lesson_session_repository_impl_test.dart`; `mobile/test/features/lesson_sessions/presentation/lesson_occurrence_start_test.dart`
+- Doc: `doc/modules/m05_lesson_sessions.md`, `m10_progress_tracking.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/pages/lesson_detail.md`, `doc/roles/ogrenci.md`, `doc/roles/veli.md`, `doc/roles/ogretmen.md`, `doc/modules/m04_scheduling.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`
+- Eşzamanlı aynı oluşum türetmede benzersiz indeksin kaybedeni kazanan oturumu döndürür; tekrar completion notları günceller, ilk tamamlanma damgasını korur ve yeni tamamlanma olayı yaymaz. Katılım yalnız `Attended`/`Late`; farklı olay kimliğiyle aynı oturum ikinci kez sayılmaz.
+
+**İkinci kapsam bulgusu (N-13, 2026-11-15):** `mobile/lib/features/lesson_sessions/data/models/lesson_session_model.dart` yanlış yoklama değerleri gönderiyordu (`Present=1`, `Absent=2`; backend `Unknown=1`, `Attended=2`, `Late=3`, `Absent=4`). `Absent` backend’de katıldı sayılacağı için bu dosya ve `mobile/test/features/lesson_sessions/data/lesson_session_model_test.dart` aynı göreve eklendi. Mevcut repository testindeki `Present` beklentisi de 2 olmalı.
+
 **Interfaces:**
 - `POST /api/lesson-sessions/from-schedule` gövdesi `{ lessonScheduleId, occurrenceStartAtUtc }`; tekrarlı derste `occurrenceStartAtUtc` zorunlu (`400 lesson_sessions.occurrence_required`), tekil derste opsiyonel.
 - `PlannedStartAtUtc = occurrence` (ertelenmişse override'daki yeni zaman).
 
-- [ ] **Step 1: Kırmızı testler** — haftalık derste 1. hafta oturum aç+tamamla, 2. hafta "başlat" → **yeni** oturum, `PlannedStartAtUtc` = 2. hafta; aynı oluşuma ikinci çağrı → aynı oturum (idempotent); öğrenci kullanıcısı kendi oturumlarını listeler (**boş değil**); veli onaylı çocuğunun oturumlarını görür, onaysız göremez; yeniden tamamlama `AttendedLessonCount`'u artırmaz; `Absent` oturum katılım sayılmaz.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Migration (S-3)** — `Up` sırası: (1) kolon nullable ekle, (2) `UPDATE ... SET "OccurrenceStartUtc" = "PlannedStartAtUtc" WHERE "LessonScheduleId" IS NOT NULL`, (3) aynı `(LessonScheduleId, OccurrenceStartUtc)` tekrarlarında **en erken oluşturulan hariç** satırları `Cancelled` + `OccurrenceStartUtc = NULL` yap ve sayısını `RAISE NOTICE` ile yaz, (4) filtreli benzersiz indeks. `Down` tersini yapar.
+- [x] **Step 1: Kırmızı testler** — haftalık derste 1. hafta oturum aç+tamamla, 2. hafta "başlat" → **yeni** oturum, `PlannedStartAtUtc` = 2. hafta; aynı oluşuma ikinci çağrı → aynı oturum (idempotent); öğrenci kullanıcısı kendi oturumlarını listeler (**boş değil**); veli onaylı çocuğunun oturumlarını görür, onaysız göremez; yeniden tamamlama `AttendedLessonCount`'u artırmaz; `Absent` oturum katılım sayılmaz.
+- [x] **Step 2: Kırmızı gör.**
+- [x] **Step 3: Migration (S-3)** — `Up` sırası: (1) kolon nullable ekle, (2) `UPDATE ... SET "OccurrenceStartUtc" = "PlannedStartAtUtc" WHERE "LessonScheduleId" IS NOT NULL`, (3) aynı `(LessonScheduleId, OccurrenceStartUtc)` tekrarlarında **en erken oluşturulan hariç** satırları `Cancelled` + `OccurrenceStartUtc = NULL` yap ve sayısını `RAISE NOTICE` ile yaz, (4) filtreli benzersiz indeks. `Down` tersini yapar.
   `dotnet ef migrations add OccurrenceKeyedSessions --project src/Modules/LessonSessions/Infrastructure --startup-project src/API.Host --context LessonSessionsDbContext` → `./scripts/check-migration-down.sh`
-- [ ] **Step 4: Göç tatbikatı** — `scripts/seed-demo-data.sh` ile staging profili doldurulmuş DB'de migration uygula; tekrar sayısı ve örnek satırlar ILERLEME'ye.
-- [ ] **Step 5: Uygula (backend + mobil).** **Step 6: Yeşil gör** — `./scripts/test-with-docker.sh`, `flutter test`
-- [ ] **Step 7: Doküman + commit** — `m05`, `m10`, `veri_modeli.md`; rapor N-02/N-12/N-13 ✅.
+- [x] **Step 4: Göç tatbikatı** — `scripts/seed-demo-data.sh` ile staging profili doldurulmuş DB'de migration uygula; tekrar sayısı ve örnek satırlar ILERLEME'ye.
+- [x] **Step 5: Uygula (backend + mobil).** **Step 6: Yeşil gör** — `./scripts/test-with-docker.sh`, `flutter test`
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` ile derlendi. Kırmızı: 7 yeni birim testin 6’sı, HTTP öğrenci listesi, veri göçünde NULL anahtar, mobil yük/ekran anahtarı ve 5 yoklama eşlemesinin 4’ü iddia hatası verdi. Sonuç: **19 mimari / 1144 birim / 134 integration**, başarısız 0, atlanan 0 (`bash scripts/test-with-docker.sh`); Release `-warnaserror --no-incremental` 0 uyarı/0 hata; drift 0; **149 migration Down kontrolü** geçti; **286 Flutter testi** + `flutter analyze --fatal-infos` temiz. Staging seed: 2 öğretmen / 5 öğrenci / 2 veli / 15 ders / 15 oturum; eski şemaya dönülüp 2 tekrar eklendi (17 satır, 1 yinelenen grup). Up: en erken kayıt anahtarla kaldı, 2 tekrar `Cancelled` + NULL, NOTICE 2; Down satırları korudu, yeniden Up aynı sonucu verdi.
+
+- [x] **Step 7: Doküman + commit** — `m05`, `m10`, `veri_modeli.md`; rapor N-02/N-12/N-13 ✅.
   ```bash
   git commit -m "fix(lesson-sessions): oturum olusum anahtarli, ogrenci/veli kendi oturumunu gorur, cift sayim yok (N-02, N-12, N-13)"
   ```
 
 ---
 
-### Task 4: Tek tamamlama yolu (N-03, K-21)
+### Task 4: Tek tamamlama yolu (N-03, K-21) ✅
 
 **Files:**
 - Modify: `src/Modules/Scheduling/API/SchedulingModule.cs` (`/complete` ucu kaldırılır)
@@ -111,16 +125,29 @@
 - Modify: `src/Modules/Payments/Infrastructure/LessonSessionCompletedPaymentHandler.cs` ve diğer tüketicilerin `SourceModule` filtresi (yalnız LessonSessions kaynağı kalır — artık tek kaynak)
 - Test: `tests/Unit/SingleCompletionPathTests.cs`, `tests/Integration/RealCompletionSyncTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — oturum tamamlanınca planın o oluşumu `Completed`; tamamlanmış oluşum iptal → 409; rapor aynı dersi hem tamamlanmış hem iptal saymaz; mobil: ders kartında "Tamamla" `from-schedule` + oturum `complete` çağırır, `SchedulingCubit.completeLesson` artık yok (`grep -rn completeLesson mobile/lib` boş).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m04`, `m05`, `00_genel_bakis.md` (uç envanteri: `/complete` kaldırıldı); rapor N-03 ✅.
+**Kapsam doğrulaması (2026-11-15, #232):**
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs`, `LessonSchedulePolicies.cs`, `RecurrenceExpander.cs`, `StudentCalendarQuery.cs`; `Infrastructure/DependencyInjection.cs`, `LessonScheduleRepository.cs` (tamamlanan ertelenmiş oluşum pencere sorgularında da görünür). Eski komut/handler/authorizer ve Scheduling tamamlanma olayı kaldırılır; oluşum durumu genişletme ve yanıta taşınır. Tamamlanmış oluşumu kapsayan Single/ThisAndFuture/All iptal/erteleme 409 verir. Tüm seri düzenlemesi de tamamlanmış geçmişi değiştiremez.
+- Modify: `src/Shared/Contracts/LessonSessionReadContract.cs`, `src/Modules/LessonSessions/Infrastructure/LessonSessionAccessService.cs` (orijinal oluşum ve planlı saat salt-okunur sözleşmede; eski olay şeması değişmez). Tüketici aynı öğretmen takvim kilidinde ve inbox transaction'ında yazar; yeniden teslim ek olay üretmez.
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Scheduling Infrastructure referansı — gerçek EF InMemory tüketici testi), `tests/Unit/SchedulingMutationIntegrityTests.cs`, `tests/Unit/LessonScheduleTests.cs` (kaldırılan Scheduling komutu testleri yerini kanonik yol testlerine bırakır). İsteğe bağlı ek sözleşme alanlarıyla mevcut sahtelerin imzaları korunur; `ILessonSessionAccessService` uygulayan tüm sahteler tarandı.
+- Modify (mobil): `mobile/test/helpers/fake_scheduling_repository.dart`; Create: `mobile/lib/features/lesson_sessions/domain/scheduled_session_completion.dart`, `mobile/test/features/lesson_sessions/presentation/single_completion_path_test.dart`. İki ekran aynı oturum tamamlama yardımcısını kullanır; liste K-26 gereği tr/en ARB'ye taşınır (`mobile/lib/l10n/app_tr.arb`, `app_en.arb`). Tamamlama sonrası yalnız hedef oluşum yerelde güncellenir (olay senkronunun kısa gecikmesi kullanıcıyı ikinci tamamlamaya yöneltmez).
+- Doc: `doc/modules/m04_scheduling.md`, `m05_lesson_sessions.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/pages/lesson_detail.md`, `lesson_sessions_list.md`, `doc/roles/ogretmen.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`.
+- Payments / Assignments / ProgressTracking / Reporting / Notifications / Parents tüketicilerinin tamamı zaten `SourceModule == LessonSessions` filtresine sahip; davranış değişmediğinden bu dosyalara dokunulmaz.
+
+**Interfaces:** `OccurrenceExceptionAction.Completed = 4`; `ScheduleOccurrence.IsCompleted`; `LessonSessionDetails` sonuna opsiyonel `OccurrenceStartUtc` ve `PlannedStartAtUtc`. Tamamlama olayından oturum okunur, tekil ders `Completed`, tekrarlıda yalnız orijinal anahtarlı istisna `Completed`; varsa erteleme saatleri korunur. `409 scheduling.occurrence_completed` tamamlanmış oluşumu değiştiren kapsamı reddeder. Göç gerekmez (enum mevcut string kolonuna `Completed` olarak yazılır, sözleşme salt-okunur).
+
+
+- [x] **Step 1: Kırmızı testler** — oturum tamamlanınca planın o oluşumu `Completed`; tamamlanmış oluşum iptal → 409; rapor aynı dersi hem tamamlanmış hem iptal saymaz; mobil: ders kartında "Tamamla" `from-schedule` + oturum `complete` çağırır, `SchedulingCubit.completeLesson` artık yok (`grep -rn completeLesson mobile/lib` boş).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imza iskeleti Release `-warnaserror` ile 0 uyarı / 0 hata derlendi. Önce **5/8** yeni birim testi ve gerçek PostgreSQL **2/2** senaryo iddia hatasıyla kırmızı; mobil iki ekran eski Scheduling çağrısında kırmızı; seri PUT ile tamamlanmış geçmişi değiştirme testi ayrıca kırmızı görüldü. Sonra **19 mimari / 1151 birim / 136 integration**, başarısız 0, atlanan 0 (`bash scripts/test-with-docker.sh`); Release `-warnaserror --no-incremental` **0/0**; **289 Flutter testi** geçti, `flutter analyze --fatal-infos` temiz. Son yerel kart→detay durumu düzeltmesinden sonra 3/3 hedefli Flutter testi ve fatal-infos analiz yeniden geçti. Migration yok. Tüm tüketicilerin kaynak filtresi koddan doğrulandı; yeni Scheduling tüketicisi inbox ile tekrar teslimde ek olay üretmez.
+
+- [x] **Step 5: Doküman + commit** — `m04`, `m05`, `00_genel_bakis.md` (uç envanteri: `/complete` kaldırıldı); rapor N-03 ✅.
   ```bash
   git commit -m "refactor(scheduling): tamamlama yalniz LessonSessions'ta, plan olayla senkron (N-03, K-21)"
   ```
 
 ---
 
-### Task 5: İptal politikası ve iptal sonrası temizlik (N-15, N-16)
+### Task 5: İptal politikası ve iptal sonrası temizlik (N-15, N-16) ✅
 
 **Files:**
 - Modify: `src/Modules/Teachers/Domain/TeachersDomainModel.cs` (`CancellationPolicy { NoticeHours, ChargePercent }`, varsayılan 0/0 = kapalı) + profil uçları
@@ -132,19 +159,34 @@
 - Modify (mobil) — *2026-11-15 eklendi (P17 T1 devri):* takvim dersi **iptal girişi** — T1 veri katmanını (`SchedulingCubit.cancelLesson(lesson, scope)`) ve `showOccurrenceScopeSheet`'i hazırladı ama hiçbir ekran çağırmıyor. Giriş `lesson_detail_page.dart`'ta olur (K-26 ARB maliyeti T4'te zaten ödeniyor) ve takvim iptali artık kanonik yol olduğundan oturum iptali (`LessonCancelledSessionHandler`) onu izler. **İki tuzak:** (1) `scheduling_cubit.dart` iptal yanıtını satırlara **`id` ile** birleştiriyor (`item.id == cancelled.id`) — serinin bütün oluşumları aynı `id`'yi taşıdığı için `Single` iptal yanıtı (serinin çapa satırı, `Planned`) listedeki her haftanın üzerine yazılır → birleştirme kapsam/oluşum anahtarına göre yapılmalı ya da liste yeniden yüklenmeli; (2) `LessonScheduleModel.cancelPayload` `reason`/`isChargeable` göndermiyor — bu görevin iptal nedeni doğrulaması bu yükü 400'e çevirir, yük nedeni ve ücret kararını taşımalı. Test: `mobile/test/features/scheduling/...` (birleştirme + yük)
 - Test: `tests/Unit/CancellationPolicyTests.cs`, `tests/Integration/RealLateCancellationChargeTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #234):** T5 ilk listesi profil API/DI/EF, modüller arası politika okuması, ödeme oluşum anahtarı, silme/iptal tüketicileri ve transaction kilidini atlıyordu. Ek kapsam:
+- Teachers: `Application/CancellationPolicyFeatures.cs` (yeni komut/yetki), `Application/TeacherProfileFeatures.cs` (yanıtta politika), `API/TeachersModule.cs`, `Infrastructure/TeachersDbContext.cs`, `TeacherDirectory.cs`, `DependencyInjection.cs`, migration `TeacherCancellationPolicy` + snapshot.
+- Shared: `Contracts/CancellationPolicyContract.cs` (yeni salt-okunur arayüz; mevcut öğretmen arayüzü/sahteleri değişmez), `Contracts/LessonCancellationContract.cs` (yeni olay yükleri; mevcut outbox olaylarına alan eklenmez).
+- Scheduling: `Domain/SchedulingDomainModel.cs` (yeni olaylar), `Infrastructure/DependencyInjection.cs`, `SchedulingDbContext.cs`, `LessonScheduleRepository.cs`, `LessonChangeRequestRepository.cs` (kilit alındıktan sonra güncel satırı yeniden okuma), migration `PendingOccurrenceChangeRequest` + snapshot. `Create` ve `Accept` öğretmen kilidinde; iç Reschedule aynı transaction'a katılır. İndeks öncesi eski Pending tekrarlar reddedilerek korunur.
+- Payments: `Domain/PaymentsDomainModel.cs`, `Infrastructure/PaymentsDbContext.cs`, `DependencyInjection.cs`, migration `CancellationOccurrenceCharges` + snapshot; geç iptal ücreti ayrı `LateCancellation` türü ve benzersiz oluşum anahtarı. Tahsil edilmiş/kısmen tahsil edilmiş kayıtlar otomatik değiştirilmez.
+- LessonSessions: `Domain/LessonSessionsDomainModel.cs` (gelecek planlı başlangıçta tamamlama reddi), `Application/LessonSessionFeatures.cs` ve `Infrastructure/DependencyInjection.cs`; Notifications: `Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs` (yalnız iptal/silme temizliği; oluşum planlayıcısı T6).
+- Mobil ek bulgu: `mobile/lib/features/payments/data/models/payment_model.dart` ve `mobile/test/features/payments/data/payment_model_test.dart`: yeni LateCancellation=4 tahsilat güncellemesinde LessonFee=1'e düşmemeli.
+- Mobil tam yollar: `mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart`; `mobile/lib/features/scheduling/{domain/scheduling_contracts.dart,data/models/lesson_schedule_model.dart,data/repositories/scheduling_repository_impl.dart,presentation/cubit/scheduling_cubit.dart}`; `mobile/test/helpers/fake_scheduling_repository.dart`, `mobile/test/features/scheduling/data/lesson_schedule_model_test.dart`, yeni `mobile/test/features/scheduling/cancellation_flow_test.dart`, ARB tr/en.
+- İmza/kuralların etkilediği mevcut testler: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (LessonSessions Infrastructure referansı), `tests/Unit/TestDoubles/FakeCancellationPolicyDirectory.cs`; `tests/Integration/{RealWeeklyLessonSessionTests,RealCrossTenantAccessTests,TeacherWorkflowIntegrationTests}.cs` (gelecek tamamlama ve eksik iptal nedeni eski beklentileri); `tests/Unit/{LessonScheduleTests,SchedulingMutationIntegrityTests,LessonConflictRecurrenceTests,OccurrenceScopeRequiredTests,LessonChangeRequestTests,LessonSessionTests,SingleCompletionPathTests}.cs`; integration mevcut tamamlama senaryoları gerekiyorsa geçmiş tarihe taşınır.
+- Doküman ekleri: `doc/modules/{00_genel_bakis,veri_modeli,m11_notifications}.md`, `doc/pages/{lesson_detail,scheduling}.md`, `doc/architecture/ux_rules.md`.
+
+**Teknik kararlar:** politika varsayılan 0/0; NoticeHours 0–720, ChargePercent 0–100. Ücret yalnız öğrenci kaynaklı iptalde, gerçek görünen başlangıç gelecekte ve kalan süre NoticeHours'tan küçükse anlaşılmış ders ücreti üzerinden hesaplanır (2 hane, AwayFromZero); istemci `isChargeable=false` ile muaf tutabilir, true politikayı yükseltemez. Tüm seri/gelecek kapsamında yalnız bildirim penceresindeki aktif oluşumlar ücretlenir; sınırsız seri genişletilmez. Yeni kapsam olayı bütün mevcut bekleyen oturum/normal ücret/hatırlatmaları temizler; ayrı oluşum olayı geç iptal borcunu taşır. Silme ücretsiz temizliktir. T6 öncesi hatırlatma temizliği mevcut planlı başlangıç anahtarıyla yapılır; kalıcı oluşum anahtarı T6'dadır.
+
 **Interfaces:**
 - `LessonOccurrenceCancelledIntegrationEvent(LessonScheduleId, OccurrenceStartUtc, TeacherUserId, StudentId, IsChargeable, ChargeAmount?, Currency?)`.
 
-- [ ] **Step 1: Kırmızı testler** — politika 24 saat / %100; dersten 3 saat önce iptal → ücret kaydı oluşur; 48 saat önce → bekleyen ücret kaydı iptal; öğretmen "ücretsiz iptal" seçerse ücret yok; geçersiz iptal nedeni → 400; aynı oluşuma ikinci erteleme talebi → 409; geçmiş/iptal edilmiş oluşuma talep → 400; silinen ders için hatırlatma/oturum kalmaz.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör** (`./scripts/test-with-docker.sh`).
-- [ ] **Step 5: Doküman + commit** — `m02`, `m04`, `m05`, `m07`, `roles/ogretmen.md`; rapor N-15/N-16 ✅.
+- [x] **Step 1: Kırmızı testler** — politika 24 saat / %100; dersten 3 saat önce iptal → ücret kaydı oluşur; 48 saat önce → bekleyen ücret kaydı iptal; öğretmen "ücretsiz iptal" seçerse ücret yok; geçersiz iptal nedeni → 400; aynı oluşuma ikinci erteleme talebi → 409; geçmiş/iptal edilmiş oluşuma talep → 400; silinen ders için hatırlatma/oturum kalmaz.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör** (`./scripts/test-with-docker.sh`).
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` ile 0/0 derlendi. 20 yeni birim testinin 13’ü iddia hatasıyla kırmızı; davranışsız ödeme/hatırlatma tüketicilerinde 4 gerçek PostgreSQL senaryosu kırmızı; seri kısaltıldıktan sonra talepten kabul sınırı ayrıca kırmızı → yeşil. Mobil yük/kapsam birleştirmesi 4/4, geç iptal tahsilat enum eşlemesi 1/1 kırmızı → yeşil. Sonuç: **19 mimari / 1173 birim / 142 integration**, başarısız 0, atlanan 0 (`bash scripts/test-with-docker.sh`); Release `-warnaserror --no-incremental` **0 uyarı/0 hata**; **295 Flutter**, fatal-infos analiz temiz. Üç migration: drift 0, **152 Down kontrolü**. Ayrı PostgreSQL DB’de Pending tekrar göçü en erken talebi bıraktı, tekrarı silmeden Rejected yaptı; Down/yeniden Up iki satırı korudu. Kabul SaveChanges’ine enjekte edilen hatada oluşum ertelemesi ve kabul birlikte geri alındı; eşzamanlı iki talebin yalnız biri 200, diğeri 409.
+
+- [x] **Step 5: Doküman + commit** — `m02`, `m04`, `m05`, `m07`, `roles/ogretmen.md`; rapor N-15 ✅; N-16 Scheduling/silme/gelecek tamamlama ✅, veli beyanı tekliği P18 T3’te açık.
   ```bash
   git commit -m "feat(scheduling): iptal politikasi + gec iptal ucreti + iptal sonrasi temizlik (N-15, N-16)"
   ```
 
 ---
 
-### Task 6: Oluşum bazlı hatırlatma (N-06)
+### Task 6: Oluşum bazlı hatırlatma (N-06) ✅
 
 **Files:**
 - Modify: `src/Modules/Notifications/Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs` (Rescheduled / OccurrenceCancelled / Deleted / SeriesSplit tüketimi)
@@ -154,20 +196,37 @@
 - Migration: `OccurrenceReminders` (Notifications) — mevcut bekleyen hatırlatmalar `OccurrenceStartUtc = ders StartAtUtc` ile geri doldurulur
 - Test: `tests/Unit/LessonReminderPlannerTests.cs`, `tests/Integration/RealOccurrenceReminderTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #236):** İlk liste domain/alıcı, gönderim, DI ve veri silme kapsamını atlıyordu. `ILessonScheduleReader` kodda yok; mevcut `ILessonScheduleDirectory` ve sahtelerini değiştirmeden aynı sözleşme dosyasına ayrı pencere okuyucusu eklenir.
+- Modify: `src/Modules/Notifications/Domain/NotificationsDomainModel.cs` (orijinal oluşum + alıcı, Expired, yeniden planlama metni/deneme sıfırlama), `Infrastructure/NotificationDispatching.cs` (alıcıya teslim, 30 dk zaman aşımı, güncel veli/öğrenci erişimi), `DependencyInjection.cs`, `NotificationsPersonalDataAnonymizer.cs` (alıcı verisini de sil).
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs`, `DependencyInjection.cs` (ayrı `ILessonScheduleReader`; tüm istisnalar ve görünen pencere, tamamlananlar hariç).
+- Modify: `src/Modules/Notifications/Application/NotificationFeatures.cs` (yanıtta orijinal anahtar/alıcı), `Infrastructure/LessonReminderRepository.cs` (öğretmen listesi yalnız öğretmen alıcısı).
+- Modify tests: `tests/Unit/NotificationDispatchProcessorTests.cs`, `NotificationPreferenceGateTests.cs` (güncel alıcı kapısı imzaları); `tests/Integration/TeacherWorkflowIntegrationTests.cs` (geçmiş hatırlatma beklentileri yeni zaman aşımına göre).
+- Doc: `doc/modules/m04_scheduling.md`, `m11_notifications.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/roles/{ogretmen,ogrenci,veli}.md`, denetim N-06.
+
+**Ek kapsam bulgusu:** `Single` ertelemesi yalnız istisna upsert ediyordu, hiçbir olay yayımlamıyordu (gerçek PostgreSQL testi eski 14:45 tetik anında kaldı). `src/Modules/Scheduling/{Domain/SchedulingDomainModel.cs,Application/LessonScheduleFeatures.cs}` yeni `LessonOccurrenceRescheduledDomainEvent` üretimi için kapsama eklendi; eski olay şeması değişmez. Downgrade eski plan başına tek satır kısıtına dönerken öğretmenin en son oluşum satırını koruyup diğer türetilebilir hatırlatmaları kaldırır.
+
+**Teknik kararlar:** Offset `0` kapalı; self ders öğrenci hesabına çözülür. Gönderimde güncel kaynak anahtar/saat kontrol edilir. 7 günlük kayan pencere her dakika ve ilgili olayda kaynaktan uzlaştırılır; eski olay sırası kaynak durumunu ezmez. Üçlü anahtar kalıcıdır, ertelenen aynı satır yeni metin/saatle yeniden bekler (denemeler sıfırlanır); eski tetik anı iptal edilmiş olur. Gönderilmiş aynı saat ikinci kez gönderilmez. Tüm alıcılar standart ders/push tercihini, veli ayrıca onaylı bağ ve LessonReminders tercihini geçer (ders hatırlatması üyelikle sınırlanmaz). Geciken gönderim `RemindAt + 30 dk < now` veya ders başladıysa Expired; geçmişe üretim yok. Eski satırlar Notifications içindeki `ScheduledLessonStartAtUtc` ile geri doldurulur: modüller arası SQL okunmaz; self dersin alıcısı çözülemeyen eski boş öğretmen satırı iptal edilir ve okuyucu öğrenci alıcısıyla yeniden üretir. Planlayıcı/olay uzlaştırması ortak PostgreSQL transaction kilidiyle serileşir; eski outbox olay şemaları korunur.
+
 **Interfaces:**
 - Alıcılar: öğretmen + öğrenci kullanıcısı + (tercihi açık) onaylı veli. Tercih kapısı (M11-5) aynen.
 - Başlangıcı geçmiş oluşum için hatırlatma **üretilmez**; geciken gönderimde `RemindAt + 30 dk` geçmişse `Expired`.
 
-- [ ] **Step 1: Kırmızı testler** — 15:00 → 18:00 erteleme: 14:45 hatırlatması iptal, 17:45 üretilir; silinen ders → bekleyen hatırlatma iptal; haftalık seride 3 hafta boyunca her oluşum için hatırlatma; geçmiş tarihli ders oluşturma → hatırlatma yok; metin TR saatiyle (P16 T5).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m11`; rapor N-06 ✅.
+- [x] **Step 1: Kırmızı testler** — 15:00 → 18:00 erteleme: 14:45 hatırlatması iptal, 17:45 üretilir; silinen ders → bekleyen hatırlatma iptal; haftalık seride 3 hafta boyunca her oluşum için hatırlatma; geçmiş tarihli ders oluşturma → hatırlatma yok; metin TR saatiyle (P16 T5).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `m11`; rapor N-06 ✅.
   ```bash
   git commit -m "fix(notifications): ders hatirlatmasi olusum bazli, erteleme/silme izlenir, ogrenci ve veliye de gider (N-06)"
   ```
 
 ---
 
-### Task 7: Oluşum bazlı öğretmen panosu projeksiyonu (N-49, N-48 iptal sırası)
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` ile 0 uyarı/0 hata derlendi. İlk 6 planlayıcı testinden 5’i kırmızı; alıcı/zaman aşımı gönderim testlerinde 3 kırmızı; offset kapalı/self testi ve son iki bayat offset gönderim testi ayrıca kırmızı → yeşil. Gerçek PostgreSQL testi tek oluşum ertelemesinde olay yokluğunu kırmızı yakaladı; yeni olayla yeşil. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1186 birim / 146 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental`: **0 uyarı/0 hata**; drift **0**, **153 migration Down** kontrolü. Dört yeni gerçek PostgreSQL senaryosu: erteleme/iptal/silme/geç Scheduled, paralel planlayıcı + seri bölme, üç rol teslimi + veli iptali/tercihi, ayrı DB’de eski şemadan geri doldurma + çoklu alıcıdan Down/Up. Mobil değişmedi; Flutter koşulmadı.
+
+---
+
+### Task 7: Oluşum bazlı öğretmen panosu projeksiyonu (N-49, N-48 iptal sırası) ✅
+
+**P17 T5 devri:** `Single`/`ThisAndFuture` iptallerinde yeni `LessonCancellationAppliedDomainEvent`, silmede `LessonScheduleDeletedDomainEvent` yayımlanır. Reporting bu kapsam olaylarını ve silmeyi de tüketmelidir; eski `LessonScheduleCancelledDomainEvent` yalnız bütün seri/tekil iptal yolunda kalır. Geç iptal borcu ayrıca `LessonOccurrenceCancelledIntegrationEvent` taşır.
 
 **Files:**
 - Modify: `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs`, `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionHandlers.cs`
@@ -175,27 +234,56 @@
 - Modify: `tests/Architecture/LocalTimeRuleTests.cs` — *2026-11-15 eklendi (P16 T6):* izinli listedeki iki N-49 girişini (`ReportingFeatures.cs` `_clock.UtcNow.Date`, `TeacherDashboardProjection.cs` `dayUtc.Date`) **sil**; yerel "bugün" yazılınca bayat kalırlar ve test zaten kırılır
 - Test: `tests/Unit/TeacherDashboardOccurrenceTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #238):** İlk liste EF anahtarı, veri göçü, kayan pencereyi yeni olay olmadan ilerleten işçi ve kaynak sözleşmesini atlıyordu. Ek dosyalar:
+- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs` (ayrı `ITeacherDashboardLessonSource`; mevcut directory/hatırlatma sahteleri değişmez); `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs`, `DependencyInjection.cs` (iptal/tamamlanmış dahil görünür pencereyi genişletir).
+- Modify: `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs`, `DependencyInjection.cs`, `TeacherDashboardProjectionReader.cs`; Create: `TeacherDashboardOccurrencePlanner.cs` (kiralı günlük yenileme/budama, olayla ortak transaction kilidi).
+- Migration: Reporting `OccurrenceDashboard` + designer + snapshot; mevcut ders satırlarının orijinal anahtarı görünen başlangıçtan geri doldurulur; diğer item türleri UTC epoch anahtarı kullanır. Down her seri için bir satıra indirir (türetilebilir read-model); ödev/ödeme/öğrenci korunur.
+- Modify tests: `tests/Unit/TeacherDashboardProjectionTests.cs` (kaynak okuyuculu ders testleri yeni dosyaya, query takvim imzası), `tests/Integration/RealProjectionRebuildTests.cs` gerekirse; Create: `tests/Integration/RealTeacherDashboardOccurrenceTests.cs` (gerçek PostgreSQL + kaynak, olay sırası, kayan pencere, göç).
+- Doc: `doc/modules/{m14_reporting,m04_scheduling,00_genel_bakis,veri_modeli}.md`, `doc/roles/ogretmen.md`, `doc/pages/dashboard.md`, denetim N-49 ve N-48 iptal ayağı.
+
+**Teknik karar:** Olay yükünden RRULE/saat tahmini yapılmaz; ayrı sözleşmeyle güncel kaynak uzlaştırılır. Pencere yerel dün 00:00 dahil → bugün+15 gün 00:00 hariçtir (bugün+14 tam gün dahil). İptal satırı tombstone kalır, bayat Scheduled/Rescheduled kaynağı geri çeviremez. Tamamlanmış ders bugünkü toplamın parçasıdır; iptal edilmiş ders değildir. Pencere dışı ders satırları günlük budanır; ödev/ödeme/öğrenci satırlarına dokunulmaz.
+
 **Interfaces:**
 - Satır anahtarı `(TeacherUserId, LessonScheduleId, OccurrenceStartUtc)`; kayan pencere (dün → +14 gün); `Cancelled` **tombstone** (sonradan gelen `Scheduled` olayı tombstone'u ezmez); günlük budama.
 
-- [ ] **Step 1: Kırmızı testler** — haftalık ders her hafta "bugünkü dersler"de; `Cancelled` önce, `Scheduled` sonra işlenirse ders panoya **dönmez**; 30 gün önceki satırlar budanır.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör** + `RealProjectionRebuildTests` yeşil.
-- [ ] **Step 5: Doküman + commit** — `m14`; rapor N-49, N-48 (iptal kısmı) ✅.
+- [x] **Step 1: Kırmızı testler** — haftalık ders her hafta "bugünkü dersler"de; `Cancelled` önce, `Scheduled` sonra işlenirse ders panoya **dönmez**; 30 gün önceki satırlar budanır.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör** + `RealProjectionRebuildTests` yeşil.
+- [x] **Step 5: Doküman + commit** — `m14`; rapor N-49, N-48 (iptal kısmı) ✅.
   ```bash
   git commit -m "fix(reporting): ogretmen panosu olusum bazli + iptal tombstone (N-49, N-48)"
   ```
 
 ---
 
-### Task 8: Kapanış — haftalık ders senaryosu
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` 0/0 derlendi; ilk beş birim testinin dördü kırmızıydı. Budama ve yerel gün testleri ayrı mutasyonla, olay kimliği testi gerçek boş `LastAppliedEventId` ile ayrıca kırmızı → yeşil doğrulandı. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1189 birim / 149 integration**, başarısız **0**, atlanan **0**; Release `-warnaserror --no-incremental` **0 uyarı/0 hata**. Drift **0**, **154 Down kontrolü**. Gerçek PostgreSQL senaryoları: haftalık/yerel gece yarısı, iptal → geç Scheduled ve kaynakla yeniden kurma, tek oluşum erteleme, seri bölme/silme, paralel planlayıcı + yeni olay olmadan gün ilerleme; ayrı DB’de geri doldurma ve çoklu oluşumdan Down/Up. `RealProjectionRebuildTests` tam pakette yeşil. Mobil değişmedi; Flutter koşulmadı. N-49 ✅, N-48 yalnız iptal ayağı ✅; trend P19’da açık.
+
+---
+
+### Task 8: Kapanış — haftalık ders senaryosu ✅
 
 **Files:**
 - Create: `tests/Integration/RealWeeklyLessonLifecycleScenarioTests.cs`
 - Create: `mobile/test/features/scheduling/lesson_occurrence_flow_test.dart`
+- Modify: `tests/Integration/RealOccurrenceReminderTests.cs` (bayat olayı gerçek IntegrationEvent zarfından çöz ve handler/inbox kanıtı al).
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs`, `tests/Unit/SeriesSplitTests.cs` (#237: cutoff öncesindeki son saniye; günlük/haftalık mikro-saniyeli oluşumlar korunur).
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs`, `src/Modules/Scheduling/Application/RecurrenceExpander.cs`, `tests/Integration/RealSeriesSplitTests.cs` (bağımsız son inceleme: ThisAndFuture yeni gününde BYDAY ve taşıma farkında UNTIL; tek çağıranlı iç yardımcı imzası, dış arayüz/sahteler değişmez).
+- Modify: `src/Modules/Reporting/{Domain/ReportingProjections.cs,Infrastructure/ReportingProjectionHandlers.cs,Infrastructure/ReportingDbContext.cs,Infrastructure/DependencyInjection.cs}`; Reporting `MonthlyCancellationOccurrences` migration + designer + snapshot (Single iptal aylık raporda oluşum anahtarlı sayılır; eski bütün-seri olayının mevcut anlamı korunur).
+- Create: `tests/Unit/MonthlyOccurrenceCancellationTests.cs` (oluşum tekilliği); migration veri tatbikatı kapanış integration dosyasında.
+- Doc: `doc/roles/ogretmen.md`, `doc/modules/{m04_scheduling,m14_reporting,00_genel_bakis,veri_modeli}.md` ve `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`.
 
-- [ ] **Step 1: Senaryo** (gerçek Postgres + outbox çalışır): öğretmen 24 saat/%100 iptal politikasıyla haftalık ders açar → 1. hafta oturum + tamamla → ücret kaydı 1 → 2. hafta **yalnız bu** iptal (3 saat kala) → geç iptal ücreti → 3. hafta 18:00'e ertele → hatırlatma 17:45 → 3. hafta oturum + tamamla → ücret kaydı 2 → panoda ve aylık raporda doğru sayılar; öğrenci ve veli 2 tamamlanmış oturum görür.
-- [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test` → başarısız 0, atlanan 0.
-- [ ] **Step 3: Doküman kapanışı** (`roles/ogretmen.md` akış diyagramı) + ILERLEME.
+**Kapsam/karar doğrulaması (2026-11-15):** T8 ilk listesi öğretmen akış dokümanını, #237/#239 regresyonlarını ve Single iptal aylık sayaç açığını atlıyordu. Otomasyon karar yetkisiyle bu kapanış regresyonları aynı göreve alındı. Yeni arayüz yok; mevcut sahteler değişmez. Zamanı ilerletirken sistem `IClock` gerçek kalır (JWT/kira/outbox); yalnız iptal/tamamlama handler'ları, hatırlatma planlayıcısı ve `ILocalCalendar` testin iş saatiyle kurulur. Eski outbox şemaları değişmez. Aylık raporun eski toplu-seri iptal semantiğinin oluşumlara genişletilmesi ayrı ürün kapsamıdır; bu görev Single iptal ve iki tamamlama zincirini doğrular.
+
+**Interfaces:** Yeni aylık `TrackCancelledOccurrence(scheduleId, occurrenceStartUtc)` aynı `(seri, orijinal oluşum)` için tek item üretir; aynı olay farklı EventId ile tekrar teslim edilse de sayaç artmaz. Eski item'lar UTC epoch ile korunur; Down seri başına bir iptal satırı bırakır. HTTP arayüzleri değişmez.
+
+- [x] **Step 1: Senaryo** (gerçek Postgres + outbox çalışır): öğretmen 24 saat/%100 iptal politikasıyla haftalık ders açar → 1. hafta oturum + tamamla → ücret kaydı 1 → 2. hafta **yalnız bu** iptal (3 saat kala) → geç iptal ücreti → 3. hafta 18:00'e ertele → hatırlatma 17:45 → 3. hafta oturum + tamamla → ücret kaydı 2 → panoda ve aylık raporda doğru sayılar; öğrenci ve veli 2 tamamlanmış oturum görür.
+- [x] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test` → başarısız 0, atlanan 0.
+- [x] **Step 3: Doküman kapanışı** (`roles/ogretmen.md` akış diyagramı) + ILERLEME.
   ```bash
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
+
+*Güncelleme: 2026-11-15 (P17 Task 7: oluşum bazlı pano, tombstone, günlük pencere ve PostgreSQL göç kanıtı) · 2026-11-15 (P17 Task 6: oluşum/alıcı hatırlatmaları, 7 günlük planlayıcı, yeni oluşum erteleme olayı, migration ve Docker doğrulaması).*
+
+**Doğrulama kanıtı (2026-11-15):** Davranışsız aylık imzalar Release 0 uyarı/0 hata; ilk iki kırmızı unit (aylık 0/2 ve mikro-saniyeli günlük seri 1/2), gerçek haftalık senaryo aylık iptal 0/1 kırmızı. Göç Down çoklu oluşumdan eski PK’ya dönerken 23505 kırmızı → yeşil. Bağımsız son incelemenin BYDAY/UNTIL bulguları: imza Release 0/0; 4/4 unit + 3/4 PostgreSQL kırmızı → 8/8 seri unit + 10/10 hedefli PostgreSQL yeşil. Son tam `bash scripts/test-with-docker.sh`: **19 mimari / 1196 birim / 154 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0 uyarı/0 hata**; migration drift **0**, **155 Down kontrolü**. **296 Flutter testi**, `flutter analyze --fatal-infos` temiz; analysis_options geri alındı. Doc health RED 0, önceki 4 YELLOW korundu. Haftalık senaryo üç haftayı iş saatini ilerleterek gerçek HTTP/outbox üzerinden bağlar; sistem IClock gerçek kalır. Öğrenci/veli 2 tamamlanmış oturum, 2 ders ücreti + 1 geç iptal ücreti, aylık 2 tamamlandı/1 Single iptal/300 TRY ve görünen 18:00 için 17:45 hatırlatma kanıtlandı. Migration ayrı DB’de eski satır geri doldurma + çoklu oluşum Down/Up ile doğrulandı. P17 **8/8**; N-01 mobil erteleme girişi P21 T4, N-16 veli beyanı P18 T3, N-48 trend P19’da kalır.
+
+*Güncelleme: 2026-11-15 — P17 T8 kapanışı ve bağımsız inceleme düzeltmeleri.*

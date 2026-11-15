@@ -50,6 +50,8 @@ internal sealed class TeacherProfileConfiguration : IEntityTypeConfiguration<Tea
         builder.Property(entity => entity.Headline).HasMaxLength(180);
         builder.Property(entity => entity.LessonFormat).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.EducationLevel).HasMaxLength(120).IsRequired();
+        builder.Property(entity => entity.CancellationNoticeHours).HasDefaultValue(0);
+        builder.Property(entity => entity.CancellationChargePercent).HasPrecision(5, 2).HasDefaultValue(0m);
         builder.Property(entity => entity.HourlyRateAmount).HasPrecision(18, 2);
         builder.Property(entity => entity.Currency).HasMaxLength(8).IsRequired();
         // P04: artik URL degil, IFileStorage anahtari saklanir.

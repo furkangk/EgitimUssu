@@ -93,6 +93,12 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<DateTime>("OccurrenceStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("RemindAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -120,7 +126,10 @@ namespace EgitimUssu.Modules.Notifications.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LessonScheduleId")
+                    b.HasIndex("Status", "RemindAtUtc")
+                        .HasFilter("\"Status\" = 'Pending'");
+
+                    b.HasIndex("LessonScheduleId", "OccurrenceStartUtc", "RecipientUserId")
                         .IsUnique();
 
                     b.HasIndex("TeacherUserId", "Status", "RemindAtUtc");

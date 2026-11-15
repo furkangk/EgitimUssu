@@ -122,6 +122,8 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
   Future<LessonSchedule> cancelLesson({
     required LessonSchedule lesson,
     required OccurrenceScope scope,
+    LessonCancellationReason reason = LessonCancellationReason.teacherCancelled,
+    bool isChargeable = true,
     String? cancellationNote,
   }) async {
     final lessonId = lesson.id;
@@ -131,6 +133,8 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
         data: LessonScheduleModel.cancelPayload(
           lesson: lesson,
           scope: scope,
+          reason: reason,
+          isChargeable: isChargeable,
           cancellationNote: cancellationNote,
         ),
       );
@@ -149,33 +153,6 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
           timeZone: 'Europe/Istanbul',
           status: 'Cancelled',
           notes: cancellationNote,
-        );
-      }
-      rethrow;
-    }
-  }
-
-  @override
-  Future<LessonSchedule> completeLesson({required String lessonId}) async {
-    try {
-      final response = await _apiClient.post(
-        '/api/scheduling/lessons/$lessonId/complete',
-        data: <String, dynamic>{},
-      );
-      return LessonScheduleModel.fromJson(response);
-    } on ApiException {
-      if (_config.isMockFallbackEnabled('scheduling')) {
-        final now = DateTime.now().toUtc();
-        return LessonScheduleModel(
-          id: lessonId,
-          teacherUserId: 'mock-teacher-user',
-          studentId: 'student-1',
-          subject: 'Tamamlanan ders',
-          lessonFormat: 'Online',
-          startAtUtc: now,
-          endAtUtc: now.add(const Duration(hours: 1)),
-          timeZone: 'Europe/Istanbul',
-          status: 'Completed',
         );
       }
       rethrow;

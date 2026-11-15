@@ -48,14 +48,6 @@ public sealed class LocalTimeRuleTests
             "var completedSet = completions.Select(c => (c.LessonId, c.Date)).ToHashSet();",
             "PlanCompletion.Date bir DateOnly özelliği (yerel gün), DateTime.Date değil."),
 
-        // --- Sahibi belli, bilinçli olarak sonraya bırakılanlar ---
-        ("src/Modules/Reporting/Application/ReportingFeatures.cs",
-            "var todayUtc = DateTime.SpecifyKind(_clock.UtcNow.Date, DateTimeKind.Utc);",
-            "N-49: projeksiyonlu panelin 'bugün'ü — oluşum bazlı yeniden yazım P17 T7; o görev bu girişi siler."),
-        ("src/Modules/Reporting/Domain/TeacherDashboardProjection.cs",
-            "var start = DateTime.SpecifyKind(dayUtc.Date, DateTimeKind.Utc);",
-            "N-49: aynı (P17 T7 bu girişi siler)."),
-
         // --- Tohum verisi: göreli zaman damgası üretir, gün/hafta kararı vermez ---
         ("src/API.Host/Seeding/DemoDataSeeder.cs",
             "var dueDateUtc = clock.UtcNow.Date.AddDays(isOverdue ? -5 : 10);",

@@ -7,13 +7,16 @@ authority: code
 code_refs:
   - mobile/lib/features/dashboard/presentation/pages/dashboard_page.dart
   - mobile/lib/core/routing/app_router.dart
-updated: 2026-06-28
+updated: 2026-11-15
 ---
 
 # Öğretmen Paneli / Dashboard (`/dashboard`)
 
 > **Feature:** `dashboard` · **Dosya:** `mobile/lib/features/dashboard/presentation/pages/dashboard_page.dart`
-> **State:** `DashboardCubit` / `DashboardState` · **Veri:** Cubit (`load(teacherUserId)`) — gerçek (Students/Scheduling/Payments) · **Güncelleme:** 2026-06-28
+> **State:** `DashboardCubit` / `DashboardState` · **Veri:** Cubit (`load(teacherUserId)`) — gerçek (Students/Scheduling/Payments) · **Güncelleme:** 2026-11-15
+
+**P17 T7 / backend pano sayacı:** `GET /api/reporting/teachers/{id}/dashboard` yerel günün oluşumlarını sayar; iptal/silme tombstone'ları sayılmaz, tamamlanmış dersler toplamda kalır. Yerel dün → +14 gün penceresi olay ve günlük işçiyle güncel kaynaktan yenilenir. Bu uç mobil `DashboardCubit` veri yolundan ayrıdır; ekran kodu bu görevde değişmedi.
+
 
 ## Amaç
 Öğretmenin günlük operasyon ana ekranı: karşılama + günlük özet (streak, bugünün dersi, bekleyen ödev, geciken ödeme), yaklaşan dersler, son aktiviteler, hızlı işlemler.
@@ -37,3 +40,5 @@ updated: 2026-06-28
 ## İlgili
 - Tasarım: [`../architecture/mobile_flutter.md`](../architecture/mobile_flutter.md) §13.3
 - Önizleme varyantı: [`dashboard_preview.md`](dashboard_preview.md)
+
+*Güncelleme: 2026-11-15 — P17 T7 pano oluşum sözleşmesi.*

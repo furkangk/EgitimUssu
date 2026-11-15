@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Payments/**
-updated: 2026-11-13
+updated: 2026-11-15
 ---
 
 # 💰 Ödeme Takibi (M07) — Detaylı Tasarım Dokümanı
@@ -23,6 +23,13 @@ updated: 2026-11-13
 > [`../roles/veli.md`](../roles/veli.md) · [`00_genel_bakis.md`](00_genel_bakis.md)
 
 ---
+
+### Geç iptal ücreti ve bekleyen ücret temizliği (P17 T5 / N-15)
+
+`LessonCancelledPaymentHandler` yeni Scheduling oluşum olayından pozitif `ChargeAmount` ile `LateCancellation=4` kaydı üretir; tutar/para birimi iptal anında dondurulmuştur, vade tüketim anından +7 gün. `PaymentRecord.LessonScheduleId uuid?` + `OccurrenceStartUtc timestamptz?` kalıcı anahtardır; `CancellationOccurrenceCharges` migration’ı LateCancellation türü için filtreli benzersiz indeks kurar. Eski kayıtlar NULL kalır; yeni tip olduğundan geriye doldurulacak eski geç iptal borcu yoktur. Inbox ve oluşum benzersizliği tekrar borcu engeller.
+
+Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionAccessService` üzerinden okunur; yalnız hedef oluşumun tahsilatsız Pending/Overdue kaydı `CancelOutstanding` ile Cancelled olur ve güncelleme olayı üretir. Paid/PartiallyPaid veya tahsil tutarı pozitif kayıt otomatik değiştirilmez; tahsilat/iade kararı öğretmendedir. Geç iptal borcu normal ücret temizliğinden etkilenmez. Mobil tahsilat yükü LateCancellation=4 türünü korur.
+
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
@@ -58,7 +65,7 @@ updated: 2026-11-13
 | `TeacherUserId` | `Guid` | Kaydı tutan öğretmen |
 | `StudentId` | `Guid` | İlgili öğrenci |
 | `RelatedLessonSessionId` | `Guid?` | İlişkili ders oturumu (opsiyonel) |
-| `ItemType` | enum `BillingItemType` | `LessonFee=1`, `MonthlyPackage=2`, `ManualAdjustment=3` |
+| `ItemType` | enum `BillingItemType` | `LessonFee=1`, `MonthlyPackage=2`, `ManualAdjustment=3`, `LateCancellation=4` |
 | `Description` | `string` | Açıklama |
 | `Currency` | `string` | Para birimi (varsayılan `"TRY"`; oluştur/güncellemede **büyük harfe** çevrilir) |
 | `ExpectedAmount` | `decimal` | Beklenen tutar |
@@ -99,7 +106,7 @@ döner: `true` = durum değişti. Zaten `Overdue`/`Paid`/`Cancelled` olan ya da 
 
 **Enum'lar (koddan birebir):**
 ```
-BillingItemType : LessonFee = 1, MonthlyPackage = 2, ManualAdjustment = 3
+BillingItemType : LessonFee = 1, MonthlyPackage = 2, ManualAdjustment = 3, LateCancellation = 4
 PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancelled = 5
 ```
 

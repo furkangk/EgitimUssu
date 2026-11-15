@@ -31,6 +31,7 @@ public abstract class TeacherDashboardProjectionHandler<TEvent> : ProjectionHand
             return null;
         }
 
+        await TeacherDashboardOccurrenceProcessor.AcquireLockAsync(ReportingDb, cancellationToken);
         var projection = await ReportingDb.TeacherDashboardProjections
             .Include(item => item.Items)
             .FirstOrDefaultAsync(item => item.TeacherUserId == teacherUserId, cancellationToken);
@@ -53,67 +54,55 @@ public abstract class TeacherDashboardProjectionHandler<TEvent> : ProjectionHand
             return null;
         }
 
+        await TeacherDashboardOccurrenceProcessor.AcquireLockAsync(ReportingDb, cancellationToken);
         return await ReportingDb.TeacherDashboardProjections
             .Include(item => item.Items)
             .FirstOrDefaultAsync(item => item.TeacherUserId == teacherUserId, cancellationToken);
     }
 }
 
-/// <summary>M04 → M14: Ders planlandı / yeniden planlandı. Aynı ders satırı upsert edilir.</summary>
-public sealed class LessonScheduleUpsertProjectionHandler : TeacherDashboardProjectionHandler<LessonSchedulePayload>
+/// <summary>M04 → M14: güncel oluşumları uzlaştırır; olayın eski saati uygulanmaz.</summary>
+public sealed class LessonScheduleUpsertProjectionHandler(
+    ReportingDbContext dbContext, IClock clock, TeacherDashboardOccurrenceProcessor processor)
+    : EgitimUssu.Shared.Infrastructure.Messaging.IdempotentIntegrationEventHandler(dbContext, clock)
 {
-    public LessonScheduleUpsertProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
-    {
-    }
-
     public override bool CanHandle(IIntegrationEvent integrationEvent)
-        => integrationEvent.SourceModule == "Scheduling"
-            && integrationEvent.Name is "LessonScheduledDomainEvent" or "LessonScheduleRescheduledDomainEvent";
+        => integrationEvent.SourceModule == "Scheduling" && integrationEvent.Name is
+            "LessonScheduledDomainEvent" or "LessonScheduleRescheduledDomainEvent" or
+            "LessonOccurrenceRescheduledDomainEvent" or "LessonSeriesSplitDomainEvent";
 
-    protected override async Task<bool> ProjectAsync(
-        LessonSchedulePayload payload,
-        IntegrationEvent envelope,
-        CancellationToken cancellationToken)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var projection = await GetOrCreateAsync(payload.TeacherUserId, cancellationToken);
-        if (projection is null)
+        using var json = System.Text.Json.JsonDocument.Parse(envelope.Payload);
+        // Bölme iki seriyi birden değiştirir; tek kilitte ikisi de uzlaştırılır.
+        if (envelope.Name == "LessonSeriesSplitDomainEvent") await processor.ReconcileAsync(null, cancellationToken, envelope.EventId);
+        else
         {
-            // Öğrencinin öğretmensiz bireysel planı — öğretmen panelini ilgilendirmez.
-            return false;
+            var property = json.RootElement.EnumerateObject().FirstOrDefault(p =>
+                p.Name.Equals("lessonScheduleId", StringComparison.OrdinalIgnoreCase)).Value;
+            if (property.ValueKind != System.Text.Json.JsonValueKind.String || !property.TryGetGuid(out var id)) return false;
+            await processor.ReconcileAsync(id, cancellationToken, envelope.EventId);
         }
-
-        projection.TrackLesson(payload.LessonScheduleId, payload.StartAtUtc);
-        projection.MarkApplied(envelope.EventId, Clock.UtcNow);
         return true;
     }
 }
 
-/// <summary>M04 → M14: Ders iptal edildi; satır düşer.</summary>
-public sealed class LessonScheduleCancelledProjectionHandler : TeacherDashboardProjectionHandler<LessonScheduleCancelledPayload>
+/// <summary>M04 → M14: iptal/silme sonrası tombstone ve kalan aktif oluşumlar güncel kaynaktan.</summary>
+public sealed class LessonScheduleCancelledProjectionHandler(
+    ReportingDbContext dbContext, IClock clock, TeacherDashboardOccurrenceProcessor processor)
+    : EgitimUssu.Shared.Infrastructure.Messaging.IdempotentIntegrationEventHandler(dbContext, clock)
 {
-    public LessonScheduleCancelledProjectionHandler(ReportingDbContext dbContext, IClock clock)
-        : base(dbContext, clock)
-    {
-    }
-
     public override bool CanHandle(IIntegrationEvent integrationEvent)
-        => integrationEvent.SourceModule == "Scheduling"
-            && integrationEvent.Name == "LessonScheduleCancelledDomainEvent";
+        => integrationEvent.SourceModule == "Scheduling" && integrationEvent.Name is
+            "LessonScheduleCancelledDomainEvent" or "LessonCancellationAppliedDomainEvent" or
+            "LessonOccurrenceCancelledIntegrationEvent" or "LessonScheduleDeletedDomainEvent";
 
-    protected override async Task<bool> ProjectAsync(
-        LessonScheduleCancelledPayload payload,
-        IntegrationEvent envelope,
-        CancellationToken cancellationToken)
+    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var projection = await FindAsync(payload.TeacherUserId, cancellationToken);
-        if (projection is null)
-        {
-            return false;
-        }
-
-        projection.UntrackLesson(payload.LessonScheduleId);
-        projection.MarkApplied(envelope.EventId, Clock.UtcNow);
+        var payload = System.Text.Json.JsonSerializer.Deserialize<LessonScheduleCancelledPayload>(
+            envelope.Payload, IntegrationEventSerialization.Options);
+        if (payload is null) return false;
+        await processor.ReconcileAsync(payload.LessonScheduleId, cancellationToken, envelope.EventId);
         return true;
     }
 }

@@ -23,6 +23,19 @@ namespace EgitimUssu.Modules.ProgressTracking.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EgitimUssu.Modules.ProgressTracking.Domain.LessonAttendanceReceipt", b =>
+                {
+                    b.Property<Guid>("LessonSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AppliedOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("LessonSessionId");
+
+                    b.ToTable("lesson_attendance_receipts", "progress_tracking");
+                });
+
             modelBuilder.Entity("EgitimUssu.Modules.ProgressTracking.Domain.ProgressSnapshot", b =>
                 {
                     b.Property<Guid>("Id")

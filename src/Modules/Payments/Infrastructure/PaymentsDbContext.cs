@@ -47,6 +47,8 @@ internal sealed class PaymentRecordConfiguration : IEntityTypeConfiguration<Paym
         builder.Property(entity => entity.Notes).HasMaxLength(1000);
         builder.HasIndex(entity => new { entity.StudentId, entity.Status, entity.DueDateUtc });
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.DueDateUtc });
+        builder.HasIndex(entity => new { entity.LessonScheduleId, entity.OccurrenceStartUtc }).IsUnique()
+            .HasFilter("\"LessonScheduleId\" IS NOT NULL AND \"ItemType\" = 'LateCancellation'");
     }
 }
 

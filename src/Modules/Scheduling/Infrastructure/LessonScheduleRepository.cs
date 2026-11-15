@@ -13,9 +13,13 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         _dbContext = dbContext;
     }
 
-    public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
+    public async Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
     {
-        return _dbContext.LessonSchedules.FindAsync(new object?[] { lessonId }, cancellationToken).AsTask();
+        var entity = await _dbContext.LessonSchedules.FindAsync(new object?[] { lessonId }, cancellationToken);
+        if (entity is not null && _dbContext.Database.CurrentTransaction is not null &&
+            _dbContext.Entry(entity).State == EntityState.Unchanged)
+            await _dbContext.Entry(entity).ReloadAsync(cancellationToken);
+        return entity is not null && _dbContext.Entry(entity).State != EntityState.Detached ? entity : null;
     }
 
     public async Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)
@@ -38,7 +42,7 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
                     // P16 T3 / N-14: seri pencereden sonra başlasa da bir oluşumu pencereye öne alınmış olabilir
                     // (ilk ders bir önceki haftaya) — seri yüklenir, pencereye düşüp düşmediğine genişletici karar verir.
                     || _dbContext.LessonOccurrenceExceptions.Any(x => x.SeriesLessonScheduleId == lesson.Id
-                        && x.Action == OccurrenceExceptionAction.Rescheduled
+                        && (x.Action == OccurrenceExceptionAction.Rescheduled || x.Action == OccurrenceExceptionAction.Completed)
                         && x.OverrideStartAtUtc <= untilUtc)))
             .ToArrayAsync(cancellationToken);
     }
@@ -53,7 +57,7 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
                 && (lesson.StartAtUtc <= untilUtc
                     // P16 T3 / N-14: pencereye öne alınmış oluşumu olan seri (öğrenci sorgusundaki kural).
                     || _dbContext.LessonOccurrenceExceptions.Any(x => x.SeriesLessonScheduleId == lesson.Id
-                        && x.Action == OccurrenceExceptionAction.Rescheduled
+                        && (x.Action == OccurrenceExceptionAction.Rescheduled || x.Action == OccurrenceExceptionAction.Completed)
                         && x.OverrideStartAtUtc <= untilUtc)))
             .ToArrayAsync(cancellationToken);
     }

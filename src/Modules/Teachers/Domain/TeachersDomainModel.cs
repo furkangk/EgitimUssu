@@ -47,6 +47,19 @@ public sealed class TeacherProfile : AggregateRoot<Guid>
         Raise(new TeacherProfileCreatedDomainEvent(Id, UserId, Subject, City, District, createdOnUtc));
     }
 
+    public int CancellationNoticeHours { get; private set; }
+    public decimal CancellationChargePercent { get; private set; }
+
+    public Result SetCancellationPolicy(CancellationPolicy policy, DateTime nowUtc)
+    {
+        if (policy.NoticeHours is < 0 or > 720 || policy.ChargePercent is < 0m or > 100m)
+            return Result.Failure(new Error("teachers.invalid_cancellation_policy", "İptal süresi 0–720 saat, ücret oranı %0–100 olmalıdır."));
+        CancellationNoticeHours = policy.NoticeHours;
+        CancellationChargePercent = policy.ChargePercent;
+        UpdatedOnUtc = nowUtc;
+        return Result.Success();
+    }
+
     public Guid UserId { get; private set; }
 
     public string FullName { get; private set; } = string.Empty;
@@ -412,3 +425,5 @@ public sealed record TeacherVerifiedDomainEvent(
     Guid UserId,
     bool IsVerified,
     DateTime VerifiedOnUtc) : DomainEvent;
+
+public sealed record CancellationPolicy(int NoticeHours, decimal ChargePercent);

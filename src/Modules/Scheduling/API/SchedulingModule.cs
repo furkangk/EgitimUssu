@@ -41,9 +41,6 @@ public sealed class SchedulingModule : ModuleDefinition
         group.MapPost("/lessons/{lessonId:guid}/reschedule", RescheduleLessonScheduleAsync)
         .WithSummary("Dersi yeni tarih/saate erteler");
 
-        group.MapPost("/lessons/{lessonId:guid}/complete", CompleteLessonScheduleAsync)
-        .WithSummary("Ders planını tamamlandı olarak işaretler");
-
         group.MapDelete("/lessons/{lessonId:guid}", DeleteLessonScheduleAsync)
         .WithSummary("Yanlış eklenen dersi siler (24s + gelecek kuralı)");
 
@@ -148,19 +145,6 @@ public sealed class SchedulingModule : ModuleDefinition
         var result = await dispatcher.Dispatch(
             new RescheduleLessonScheduleCommand(lessonId, request.NewStartAtUtc, request.NewEndAtUtc, request.Note, request.Scope, request.OccurrenceStartAtUtc, request.AllowTimeOffOverride),
             cancellationToken);
-        return ToHttpResult(context, result);
-    }
-
-    /// <summary>
-    /// Planlı dersi tamamlandı olarak işaretler.
-    /// </summary>
-    private static async Task<IResult> CompleteLessonScheduleAsync(
-        HttpContext context,
-        Guid lessonId,
-        ICommandDispatcher dispatcher,
-        CancellationToken cancellationToken)
-    {
-        var result = await dispatcher.Dispatch(new CompleteLessonScheduleCommand(lessonId), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -412,9 +396,10 @@ public sealed class SchedulingModule : ModuleDefinition
             "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
-            "scheduling.request_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "scheduling.request_already_pending" or "scheduling.request_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             // P17 T1: anahtarı göçte kurtarılamamış eski tekrarlı ders talebi — seri kaydırılmaz.
             "scheduling.request_occurrence_unknown" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "scheduling.occurrence_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.not_editable" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)

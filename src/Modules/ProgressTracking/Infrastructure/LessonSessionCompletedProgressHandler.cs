@@ -1,5 +1,7 @@
 using System.Text.Json;
 using EgitimUssu.Modules.ProgressTracking.Application;
+using EgitimUssu.Modules.ProgressTracking.Domain;
+using Microsoft.EntityFrameworkCore;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
@@ -65,7 +67,12 @@ internal sealed class LessonSessionCompletedProgressHandler : IdempotentIntegrat
 
         // Konu başlığı oturumda tutulur; boşsa MasteryService "(Genel)" konusuna düşer.
         var session = await _sessions.GetByIdAsync(payload.LessonSessionId, cancellationToken);
-        var topic = string.IsNullOrWhiteSpace(session?.TopicTitle) ? null : session!.TopicTitle;
+        var db = (ProgressTrackingDbContext)DbContext;
+        if (session is null) return false; // sözleşme geçici olarak hazır değilse tekrar dene
+        if (!session.IsCompleted || session.AttendanceStatus is not ("Attended" or "Late")) return true;
+        if (await db.LessonAttendanceReceipts.AnyAsync(item => item.LessonSessionId == payload.LessonSessionId, cancellationToken)) return true;
+        db.LessonAttendanceReceipts.Add(new LessonAttendanceReceipt(payload.LessonSessionId, Clock.UtcNow));
+        var topic = string.IsNullOrWhiteSpace(session.TopicTitle) ? null : session!.TopicTitle;
 
         var lessonMinutes = (int)Math.Round((schedule.EndAtUtc - schedule.StartAtUtc).TotalMinutes);
         await _masteryService.ApplyLessonAttendanceAsync(

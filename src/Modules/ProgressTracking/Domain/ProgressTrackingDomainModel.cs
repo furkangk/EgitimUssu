@@ -347,3 +347,16 @@ public static class ProgressTrendCalculator
             : ProgressTrend.Stable;
     }
 }
+
+/// <summary>Bir ders oturumunun katılım katkısı bir kez uygulanır; olay kimliği değişse de korunur.</summary>
+public sealed class LessonAttendanceReceipt
+{
+    private LessonAttendanceReceipt() { }
+    public LessonAttendanceReceipt(Guid lessonSessionId, DateTime appliedOnUtc)
+    {
+        LessonSessionId = lessonSessionId;
+        AppliedOnUtc = appliedOnUtc;
+    }
+    public Guid LessonSessionId { get; private set; }
+    public DateTime AppliedOnUtc { get; private set; }
+}

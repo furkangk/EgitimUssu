@@ -39,7 +39,7 @@ public sealed class NotificationsPersonalDataAnonymizer : IPersonalDataAnonymize
             .ToArrayAsync(cancellationToken);
 
         var reminders = await _dbContext.LessonReminders
-            .Where(reminder => reminder.TeacherUserId == subject.UserId
+            .Where(reminder => reminder.TeacherUserId == subject.UserId || reminder.RecipientUserId == subject.UserId
                 || studentIds.Contains(reminder.StudentId))
             .ToArrayAsync(cancellationToken);
 

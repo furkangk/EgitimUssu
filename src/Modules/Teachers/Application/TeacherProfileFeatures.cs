@@ -115,7 +115,9 @@ public sealed record TeacherProfileResponse(
     IReadOnlyCollection<string> Subjects,
     IReadOnlyCollection<TeacherCertificateResponse> Certificates,
     DateTime CreatedOnUtc,
-    DateTime UpdatedOnUtc);
+    DateTime UpdatedOnUtc,
+    int CancellationNoticeHours = 0,
+    decimal CancellationChargePercent = 0m);
 
 public interface ITeacherProfileRepository
 {
@@ -357,7 +359,7 @@ internal static class TeacherProfileMappings
                     c.FileUrl))
                 .ToArray(),
             profile.CreatedOnUtc,
-            profile.UpdatedOnUtc);
+            profile.UpdatedOnUtc, profile.CancellationNoticeHours, profile.CancellationChargePercent);
     }
 }
 

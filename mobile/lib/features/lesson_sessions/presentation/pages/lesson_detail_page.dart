@@ -6,16 +6,20 @@ import 'package:egitim_ussu_mobile/features/assignments/presentation/pages/assig
 import 'package:egitim_ussu_mobile/features/assignments/presentation/widgets/lesson_resources_section.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
+import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/scheduled_session_completion.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/presentation/pages/lesson_note_view_page.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_state.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/occurrence_scope_sheet.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class LessonDetailPayload {
   const LessonDetailPayload({
@@ -60,25 +64,28 @@ class LessonDetailPage extends StatefulWidget {
 class _LessonDetailPageState extends State<LessonDetailPage> {
   int _selectedTab = 0;
   late final List<_NoteFileItem> _lessonNotes = <_NoteFileItem>[
-    const _NoteFileItem(
-      title: 'Polinomlar Konu Anlatim.pdf',
-      meta: '1.2 MB  20 Mayis',
+    _NoteFileItem(
+      title: AppLocalizations.of(context).lessonDetail_demoNoteOne,
+      meta: AppLocalizations.of(context).lessonDetail_demoNoteOneMeta,
       accent: AppColors.accentBlue,
-      noteText:
-          'Polinomlarda temel kavramlar, toplama-cikarma ve carpma islemleri anlatildi. Ders sonunda yeni nesil soru ornekleri cozuldu.',
+      noteText: AppLocalizations.of(context).lessonDetail_demoNoteOneText,
       sourceFilePath: null,
     ),
-    const _NoteFileItem(
-      title: 'Fonksiyonlar Özet Notu.pdf',
-      meta: '860 KB  18 Mayis',
+    _NoteFileItem(
+      title: AppLocalizations.of(context).lessonDetail_demoNoteTwo,
+      meta: AppLocalizations.of(context).lessonDetail_demoNoteTwoMeta,
       accent: AppColors.accentGreen,
-      noteText:
-          'Fonksiyon cesitleri, tanim kumesi ve deger kumesi uzerinden kisa bir tekrar yapildi. Eksik kalan noktalar ayrica not edildi.',
+      noteText: AppLocalizations.of(context).lessonDetail_demoNoteTwoText,
       sourceFilePath: null,
     ),
   ];
 
-  static const _tabs = <String>['Ders notu', 'Ödevler', 'Kaynaklar', 'Ödeme'];
+  List<String> get _tabs => <String>[
+    AppLocalizations.of(context).lessonDetail_note,
+    AppLocalizations.of(context).lessonDetail_homework,
+    AppLocalizations.of(context).lessonDetail_resources,
+    AppLocalizations.of(context).lessonDetail_payment,
+  ];
 
   LessonDetailPayload? _editedPayload;
   SchedulingCubit? _schedulingCubit;
@@ -97,21 +104,23 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   LessonDetailPayload get _payload =>
       _editedPayload ??
       widget.payload ??
-      const LessonDetailPayload(
+      LessonDetailPayload(
         studentName: 'Zeynep Demir',
-        subject: 'Matematik',
-        dateLabel: '20 Mayis 2025 Sali',
+        subject: AppLocalizations.of(context).lessonDetail_math,
+        dateLabel: AppLocalizations.of(context).lessonDetail_demoDate,
         timeLabel: '10:00 - 11:00',
-        modeLabel: 'Online',
+        modeLabel: AppLocalizations.of(context).lessonDetail_online,
         accent: AppColors.accentBlue,
       );
 
   bool get _canComplete =>
-      _payload.lessonId != null && _lessonStatus == 'Planned';
+      _payload.lesson != null && _lessonStatus == 'Planned';
 
   /// M05-1: Ders henuz baslamadiysa "baslat" gosterilir.
   bool get _canStartSession =>
-      _canComplete && _sessionStatus != 'InProgress' && _sessionStatus != 'Cancelled';
+      _canComplete &&
+      _sessionStatus != 'InProgress' &&
+      _sessionStatus != 'Cancelled';
 
   /// M05-1: Planli veya devam eden ders iptal edilebilir.
   bool get _canCancelSession => _canComplete && _sessionStatus != 'Cancelled';
@@ -144,7 +153,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
         backgroundColor: AppColors.background,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: const Text('Ders Detayi'),
+        title: Text(AppLocalizations.of(context).lessonDetail_title),
       ),
       body: SafeArea(
         child: Padding(
@@ -162,7 +171,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.edit_calendar_rounded,
-                      label: 'Dersi Düzenle',
+                      label: AppLocalizations.of(context).lessonDetail_edit,
                       onTap: _showEditLessonSheet,
                     ),
                   ),
@@ -170,7 +179,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.note_add_rounded,
-                      label: 'Ders Notu Ekle',
+                      label: AppLocalizations.of(context).lessonDetail_addNote,
                       onTap: _showAddLessonNoteSheet,
                     ),
                   ),
@@ -178,7 +187,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   Expanded(
                     child: _ActionCard(
                       icon: Icons.post_add_rounded,
-                      label: 'Ödev Ekle',
+                      label: AppLocalizations.of(
+                        context,
+                      ).lessonDetail_addHomework,
                       onTap: () => context.push(
                         '/assignments/demo-lesson-session',
                         extra: AssignmentFormContext(
@@ -195,36 +206,29 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
-                  child: BlocBuilder<SchedulingCubit, SchedulingState>(
-                    bloc: _schedulingCubit,
-                    builder: (context, state) {
-                      return FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.accentGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: state.isSaving
-                            ? null
-                            : () => _schedulingCubit!.completeLesson(
-                                lessonId: _payload.lessonId!,
-                              ),
-                        icon: state.isSaving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.check_circle_outline_rounded),
-                        label: const Text('Dersi Tamamla'),
-                      );
-                    },
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accentGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: _sessionBusy ? null : _completeSession,
+                    icon: _sessionBusy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_circle_outline_rounded),
+                    label: Text(
+                      AppLocalizations.of(context).lessonDetail_complete,
+                    ),
                   ),
                 ),
               ],
@@ -238,7 +242,13 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                           onPressed: _sessionBusy ? null : _startSession,
                           icon: const Icon(Icons.play_arrow_rounded, size: 18),
                           label: Text(
-                            _sessionBusy ? 'Isleniyor...' : 'Dersi Baslat',
+                            _sessionBusy
+                                ? AppLocalizations.of(
+                                    context,
+                                  ).lessonDetail_processing
+                                : AppLocalizations.of(
+                                    context,
+                                  ).lessonDetail_start,
                           ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.accentGreen,
@@ -256,7 +266,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         child: OutlinedButton.icon(
                           onPressed: _sessionBusy ? null : _cancelSession,
                           icon: const Icon(Icons.cancel_outlined, size: 18),
-                          label: const Text('Dersi İptal Et'),
+                          label: Text(
+                            AppLocalizations.of(context).lessonDetail_cancel,
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.accentRed,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -279,7 +291,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Ders devam ediyor',
+                        AppLocalizations.of(context).lessonDetail_inProgress,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.accentGreen,
                         ),
@@ -288,7 +300,8 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                   ),
                 ],
               ],
-              if (payload.modeLabel == 'Online' &&
+              if (payload.modeLabel ==
+                      AppLocalizations.of(context).lessonDetail_online &&
                   (payload.meetingUrl?.trim().isNotEmpty ?? false)) ...<Widget>[
                 const SizedBox(height: 10),
                 _JoinMeetingCard(url: payload.meetingUrl!.trim()),
@@ -322,12 +335,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
             bloc: cubit,
             listener: (context, state) {
               if (state.successMessage != null) {
-                if (state.successMessage!.contains('tamamland')) {
-                  setState(() {
-                    _lessonStatus = 'Completed';
-                    _didChange = true;
-                  });
-                }
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(SnackBar(content: Text(state.successMessage!)));
@@ -356,60 +363,147 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     );
   }
 
+  Future<void> _completeSession() async {
+    final lesson = _payload.lesson;
+    if (lesson == null || _sessionBusy) return;
+    setState(() => _sessionBusy = true);
+    try {
+      final completed = await completeScheduledSession(
+        injector<LessonSessionRepository>(),
+        lesson,
+      );
+      if (!mounted) return;
+      setState(() {
+        _sessionStatus = completed.status;
+        _lessonStatus = completed.status;
+        _didChange = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).lessonSessions_completedMessage,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _sessionBusy = false);
+    }
+  }
+
   /// M05-1 + M05-2: Plandan oturum turetir (idempotent) ve dersi baslatir.
   Future<void> _startSession() => _runSessionAction(
     (repository, sessionId) => repository.startSession(sessionId),
-    'Ders baslatildi.',
+    AppLocalizations.of(context).lessonDetail_started,
   );
 
-  /// M05-1: Iptal nedeni sorar, sonra oturumu iptal eder.
   Future<void> _cancelSession() async {
-    final reason = await _askCancellationReason();
-    if (reason == null) {
-      return;
-    }
-
-    await _runSessionAction(
-      (repository, sessionId) => repository.cancelSession(
-        sessionId,
-        reason: reason.isEmpty ? null : reason,
-      ),
-      'Ders iptal edildi.',
+    final lesson = _payload.lesson;
+    if (lesson == null || _sessionBusy || _schedulingCubit == null) return;
+    final scope = lesson.isRecurring
+        ? await showOccurrenceScopeSheet(context)
+        : OccurrenceScope.single;
+    if (scope == null || !mounted) return;
+    final choice = await _askCancellationReason();
+    if (choice == null || !mounted) return;
+    setState(() => _sessionBusy = true);
+    await _schedulingCubit!.cancelLesson(
+      lesson: lesson,
+      scope: scope,
+      reason: choice.$1,
+      isChargeable: choice.$2,
+      cancellationNote: choice.$3,
     );
+    if (!mounted) return;
+    setState(() {
+      _sessionBusy = false;
+      if (_schedulingCubit!.state.errorMessage == null) {
+        _sessionStatus = 'Cancelled';
+        _lessonStatus = 'Cancelled';
+        _didChange = true;
+      }
+    });
   }
 
-  /// Iptal nedenini sorar. `null` = vazgecildi, bos metin = neden girilmedi.
-  Future<String?> _askCancellationReason() async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
+  Future<(LessonCancellationReason, bool, String)?>
+  _askCancellationReason() async {
+    var note = '';
+    var reason = LessonCancellationReason.teacherCancelled;
+    var free = false;
+    final l10n = AppLocalizations.of(context);
+    final result = await showDialog<(LessonCancellationReason, bool, String)>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Dersi iptal et'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'İptal nedeni (isteğe bağlı)',
-            hintText: 'Örnek: Öğrenci hastalandı',
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Vazgec'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.accentRed,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(l10n.lessonDetail_cancelDialog),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<LessonCancellationReason>(
+                  initialValue: reason,
+                  decoration: InputDecoration(
+                    labelText: l10n.lessonDetail_cancelReason,
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.teacherCancelled,
+                      child: Text(l10n.cancellation_teacher),
+                    ),
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.studentCancelled,
+                      child: Text(l10n.cancellation_student),
+                    ),
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.holiday,
+                      child: Text(l10n.cancellation_holiday),
+                    ),
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.other,
+                      child: Text(l10n.cancellation_other),
+                    ),
+                  ],
+                  onChanged: (value) => setDialogState(() => reason = value!),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l10n.cancellation_free),
+                  value: free,
+                  onChanged: (value) =>
+                      setDialogState(() => free = value ?? false),
+                ),
+                TextField(
+                  onChanged: (value) => note = value,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    labelText: l10n.cancellation_note,
+                    hintText: l10n.lessonDetail_cancelHint,
+                  ),
+                ),
+              ],
             ),
-            child: const Text('Dersi iptal et'),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.lessonDetail_dismiss),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop((reason, !free, note.trim())),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accentRed,
+              ),
+              child: Text(l10n.lessonDetail_cancelDialog),
+            ),
+          ],
+        ),
       ),
     );
-    controller.dispose();
     return result;
   }
 
@@ -428,7 +522,10 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     setState(() => _sessionBusy = true);
     try {
       final repository = injector<LessonSessionRepository>();
-      final session = await repository.createSessionFromSchedule(scheduleId);
+      final session = await repository.createSessionFromSchedule(
+        scheduleId,
+        occurrenceStartAtUtc: _payload.lesson?.occurrenceKeyUtc,
+      );
       final updated = await action(repository, session.id);
       if (!mounted) return;
       setState(() {
@@ -442,12 +539,15 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       if (!mounted) return;
       // 409: gecersiz durum gecisi (lesson_sessions.invalid_transition).
       final message = error.isConflict
-          ? 'Bu ders zaten baslamis veya iptal edilmis.'
+          ? AppLocalizations.of(context).lessonDetail_transitionError
           : error.message;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: AppColors.accentRed),
+          SnackBar(
+            content: Text(message),
+            backgroundColor: AppColors.accentRed,
+          ),
         );
     } finally {
       if (mounted) {
@@ -487,7 +587,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                 iconColor: item.accent,
                 title: item.title,
                 subtitle: item.meta,
-                trailingLabel: 'Goruntule',
+                trailingLabel: AppLocalizations.of(context).lessonDetail_view,
                 onTap: () => _openLessonNote(context, item),
               ),
             );
@@ -496,19 +596,23 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       case 1:
         return ListView(
           padding: const EdgeInsets.only(bottom: 24),
-          children: const <Widget>[
+          children: <Widget>[
             _HomeworkCard(
-              title: 'Polinomlar Test Cozumleri',
-              subtitle: 'Teslim 22 Mayis 2025',
-              statusLabel: 'Teslim edildi',
-              actionLabel: 'Kontrol et',
+              title: AppLocalizations.of(context).lessonDetail_demoHomeworkOne,
+              subtitle: AppLocalizations.of(
+                context,
+              ).lessonDetail_demoHomeworkOneDue,
+              statusLabel: AppLocalizations.of(context).lessonDetail_submitted,
+              actionLabel: AppLocalizations.of(context).lessonDetail_review,
             ),
             SizedBox(height: 12),
             _HomeworkCard(
-              title: 'Carpanlara Ayirma Alistirmalari',
-              subtitle: 'Teslim 25 Mayis 2025',
-              statusLabel: 'Devam ediyor',
-              actionLabel: 'Kontrol et',
+              title: AppLocalizations.of(context).lessonDetail_demoHomeworkTwo,
+              subtitle: AppLocalizations.of(
+                context,
+              ).lessonDetail_demoHomeworkTwoDue,
+              statusLabel: AppLocalizations.of(context).lessonDetail_ongoing,
+              actionLabel: AppLocalizations.of(context).lessonDetail_review,
               statusColor: AppColors.amber,
             ),
           ],
@@ -516,19 +620,27 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       default:
         return ListView(
           padding: const EdgeInsets.only(bottom: 24),
-          children: const <Widget>[
+          children: <Widget>[
             _PaymentCard(
-              title: 'Mayıs Dersi Ödeme Kaydı',
-              subtitle: '2 Saat  20 Mayis 2025',
-              amountLabel: '2.000 TL',
-              statusLabel: 'Odendi',
+              title: AppLocalizations.of(context).lessonDetail_demoPaymentOne,
+              subtitle: AppLocalizations.of(
+                context,
+              ).lessonDetail_demoPaymentOneMeta,
+              amountLabel: AppLocalizations.of(
+                context,
+              ).lessonDetail_demoPaymentOneAmount,
+              statusLabel: AppLocalizations.of(context).lessonDetail_paid,
             ),
             SizedBox(height: 12),
             _PaymentCard(
-              title: 'Ek Etüt Ödeme Kaydı',
-              subtitle: '1 Saat  23 Mayis 2025',
-              amountLabel: '1.000 TL',
-              statusLabel: 'Beklemede',
+              title: AppLocalizations.of(context).lessonDetail_demoPaymentTwo,
+              subtitle: AppLocalizations.of(
+                context,
+              ).lessonDetail_demoPaymentTwoMeta,
+              amountLabel: AppLocalizations.of(
+                context,
+              ).lessonDetail_demoPaymentTwoAmount,
+              statusLabel: AppLocalizations.of(context).lessonDetail_pending,
               statusColor: AppColors.amber,
             ),
           ],
@@ -582,7 +694,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                'Ders Notu Ekle',
+                                AppLocalizations.of(
+                                  context,
+                                ).lessonDetail_addNote,
                                 style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(
                                       color: AppColors.textPrimary,
@@ -598,19 +712,25 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Dosya ve not bilgisini girerek bu derse yeni not ekle.',
+                          AppLocalizations.of(context).lessonDetail_noteHelp,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 18),
                         _SheetField(
                           controller: titleController,
-                          label: 'Not basligi',
-                          hint: 'Polinomlar Konu Anlatimi',
+                          label: AppLocalizations.of(
+                            context,
+                          ).lessonDetail_noteTitle,
+                          hint: AppLocalizations.of(
+                            context,
+                          ).lessonDetail_noteHint,
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Dosya seçimi',
+                          AppLocalizations.of(
+                            context,
+                          ).lessonDetail_fileSelection,
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 color: AppColors.textPrimary,
@@ -661,7 +781,10 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                                         CrossAxisAlignment.start,
                                     children: <Widget>[
                                       Text(
-                                        selectedFile?.name ?? 'Dosya sec',
+                                        selectedFile?.name ??
+                                            AppLocalizations.of(
+                                              context,
+                                            ).lessonDetail_chooseFile,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: Theme.of(context)
@@ -677,7 +800,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                                       const SizedBox(height: 4),
                                       Text(
                                         selectedFile == null
-                                            ? 'Dosya secildiginde boyutu burada gorunur'
+                                            ? AppLocalizations.of(
+                                                context,
+                                              ).lessonDetail_fileSizeHelp
                                             : _formatFileSize(
                                                 selectedFile!.size,
                                               ),
@@ -702,8 +827,10 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         const SizedBox(height: 12),
                         _SheetField(
                           controller: descriptionController,
-                          label: 'Ders notu',
-                          hint: 'Bu derste hangi konularin islendigini yaz.',
+                          label: AppLocalizations.of(context).lessonDetail_note,
+                          hint: AppLocalizations.of(
+                            context,
+                          ).lessonDetail_noteContentHint,
                           maxLines: 4,
                         ),
                         const SizedBox(height: 18),
@@ -725,8 +852,12 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                               }
                               if (selectedFile == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Lutfen bir dosya sec.'),
+                                  SnackBar(
+                                    content: Text(
+                                      AppLocalizations.of(
+                                        context,
+                                      ).lessonDetail_fileRequired,
+                                    ),
                                   ),
                                 );
                                 return;
@@ -752,7 +883,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                               });
                               Navigator.of(context).pop();
                             },
-                            child: const Text('Ders Notunu Kaydet'),
+                            child: Text(
+                              AppLocalizations.of(
+                                context,
+                              ).lessonDetail_saveNote,
+                            ),
                           ),
                         ),
                       ],
@@ -817,9 +952,14 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     return LessonDetailPayload(
       studentName: base.studentName,
       subject: lesson.subject,
-      dateLabel: _formatTrDate(start),
+      dateLabel: _formatTrDate(
+        start,
+        Localizations.localeOf(context).toString(),
+      ),
       timeLabel: '${hm(start)} - ${hm(end)}',
-      modeLabel: isOnline ? 'Online' : 'Yuz yuze',
+      modeLabel: isOnline
+          ? AppLocalizations.of(context).lessonDetail_online
+          : AppLocalizations.of(context).lessonDetail_faceToFace,
       accent: base.accent,
       lessonId: lesson.id,
       lessonStatus: lesson.status,
@@ -836,7 +976,12 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       text: payload.meetingUrl ?? '',
     );
     var modeLabel = payload.modeLabel;
-    var selectedDate = _parseTrDate(payload.dateLabel) ?? DateTime.now();
+    var selectedDate =
+        _parseTrDate(
+          payload.dateLabel,
+          Localizations.localeOf(context).toString(),
+        ) ??
+        DateTime.now();
     final parsed = _parseTimeRange(payload.timeLabel);
     var startTime = parsed.$1 ?? const TimeOfDay(hour: 10, minute: 0);
     var endTime = parsed.$2 ?? const TimeOfDay(hour: 11, minute: 0);
@@ -911,7 +1056,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                'Dersi Düzenle',
+                                AppLocalizations.of(context).lessonDetail_edit,
                                 style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(
                                       color: AppColors.textPrimary,
@@ -927,21 +1072,28 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Ders bilgilerini guncelle. Kaydedince detay karti aninda yenilenir.',
+                          AppLocalizations.of(context).lessonDetail_editHelp,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 18),
                         _SheetField(
                           controller: subjectController,
-                          label: 'Ders adi',
-                          hint: 'Matematik',
+                          label: AppLocalizations.of(
+                            context,
+                          ).lessonDetail_subject,
+                          hint: AppLocalizations.of(context).lessonDetail_math,
                         ),
                         const SizedBox(height: 14),
-                        const _EditFieldLabel(text: 'Tarih'),
+                        _EditFieldLabel(
+                          text: AppLocalizations.of(context).lessonDetail_date,
+                        ),
                         const SizedBox(height: 8),
                         _PickerBox(
-                          value: _formatTrDate(selectedDate),
+                          value: _formatTrDate(
+                            selectedDate,
+                            Localizations.localeOf(context).toString(),
+                          ),
                           icon: Icons.event_rounded,
                           onTap: pickDate,
                         ),
@@ -952,7 +1104,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  const _EditFieldLabel(text: 'Baslangic'),
+                                  _EditFieldLabel(
+                                    text: AppLocalizations.of(
+                                      context,
+                                    ).lessonDetail_startTime,
+                                  ),
                                   const SizedBox(height: 8),
                                   _PickerBox(
                                     value: _hm(startTime),
@@ -967,7 +1123,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  const _EditFieldLabel(text: 'Bitis'),
+                                  _EditFieldLabel(
+                                    text: AppLocalizations.of(
+                                      context,
+                                    ).lessonDetail_endTime,
+                                  ),
                                   const SizedBox(height: 8),
                                   _PickerBox(
                                     value: _hm(endTime),
@@ -980,18 +1140,30 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                           ],
                         ),
                         const SizedBox(height: 14),
-                        const _EditFieldLabel(text: 'Ders sekli'),
+                        _EditFieldLabel(
+                          text: AppLocalizations.of(
+                            context,
+                          ).lessonDetail_format,
+                        ),
                         const SizedBox(height: 8),
                         Row(
                           children: <Widget>[
-                            for (final option in const <String>[
-                              'Yuz yuze',
-                              'Online',
+                            for (final option in <String>[
+                              AppLocalizations.of(
+                                context,
+                              ).lessonDetail_faceToFace,
+                              AppLocalizations.of(context).lessonDetail_online,
                             ])
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.only(
-                                    right: option == 'Yuz yuze' ? 8 : 0,
+                                    right:
+                                        option ==
+                                            AppLocalizations.of(
+                                              context,
+                                            ).lessonDetail_faceToFace
+                                        ? 8
+                                        : 0,
                                   ),
                                   child: GestureDetector(
                                     behavior: HitTestBehavior.opaque,
@@ -1028,11 +1200,16 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                               ),
                           ],
                         ),
-                        if (modeLabel == 'Online') ...<Widget>[
+                        if (modeLabel ==
+                            AppLocalizations.of(
+                              context,
+                            ).lessonDetail_online) ...<Widget>[
                           const SizedBox(height: 12),
                           _SheetField(
                             controller: meetingController,
-                            label: 'Toplanti linki',
+                            label: AppLocalizations.of(
+                              context,
+                            ).lessonDetail_meetingUrl,
                             hint: 'https://zoom.us/...',
                           ),
                         ],
@@ -1055,9 +1232,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                               }
                               if (!_isAfter(endTime, startTime)) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                     content: Text(
-                                      'Bitis saati baslangictan sonra olmali.',
+                                      AppLocalizations.of(
+                                        context,
+                                      ).lessonDetail_invalidTime,
                                     ),
                                   ),
                                 );
@@ -1068,7 +1247,10 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                                 LessonDetailPayload(
                                   studentName: payload.studentName,
                                   subject: subjectController.text.trim(),
-                                  dateLabel: _formatTrDate(selectedDate),
+                                  dateLabel: _formatTrDate(
+                                    selectedDate,
+                                    Localizations.localeOf(context).toString(),
+                                  ),
                                   timeLabel:
                                       '${_hm(startTime)} - ${_hm(endTime)}',
                                   modeLabel: modeLabel,
@@ -1076,13 +1258,21 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                                   lessonId: payload.lessonId,
                                   lessonStatus: payload.lessonStatus,
                                   meetingUrl:
-                                      modeLabel == 'Online' && link.isNotEmpty
+                                      modeLabel ==
+                                              AppLocalizations.of(
+                                                context,
+                                              ).lessonDetail_online &&
+                                          link.isNotEmpty
                                       ? link
                                       : null,
                                 ),
                               );
                             },
-                            child: const Text('Degisiklikleri Kaydet'),
+                            child: Text(
+                              AppLocalizations.of(
+                                context,
+                              ).lessonDetail_saveChanges,
+                            ),
                           ),
                         ),
                       ],
@@ -1107,7 +1297,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ders bilgileri guncellendi.')),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).lessonDetail_updated),
+      ),
     );
   }
 
@@ -1148,7 +1340,9 @@ class _JoinMeetingCard extends StatelessWidget {
         await Clipboard.setData(ClipboardData(text: url));
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Toplanti linki panoya kopyalandi.')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).lessonDetail_linkCopied),
+          ),
         );
       },
       child: Container(
@@ -1180,7 +1374,7 @@ class _JoinMeetingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Toplantiya Katil',
+                    AppLocalizations.of(context).lessonDetail_joinMeeting,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
@@ -1228,17 +1422,29 @@ class _HeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (statusLabel, statusColor, statusIcon) = switch (status) {
       'Completed' => (
-        'Tamamlandı',
+        AppLocalizations.of(context).lessonDetail_completed,
         AppColors.accentGreen,
         Icons.check_circle_rounded,
       ),
-      'Cancelled' => ('İptal edildi', AppColors.accentRed, Icons.cancel_rounded),
-      'Draft' => ('Taslak', AppColors.textMuted, Icons.edit_note_rounded),
+      'Cancelled' => (
+        AppLocalizations.of(context).lessonDetail_cancelled,
+        AppColors.accentRed,
+        Icons.cancel_rounded,
+      ),
+      'Draft' => (
+        AppLocalizations.of(context).lessonDetail_draft,
+        AppColors.textMuted,
+        Icons.edit_note_rounded,
+      ),
       'Planned' =>
         started
-            ? ('Bekliyor', AppColors.amber, Icons.hourglass_bottom_rounded)
+            ? (
+                AppLocalizations.of(context).lessonDetail_waiting,
+                AppColors.amber,
+                Icons.hourglass_bottom_rounded,
+              )
             : (
-                'Planlandı',
+                AppLocalizations.of(context).lessonDetail_planned,
                 AppColors.secondary,
                 Icons.event_available_rounded,
               ),
@@ -1325,7 +1531,9 @@ class _HeroCard extends StatelessWidget {
                       label: payload.timeLabel,
                     ),
                     _MetaChip(
-                      icon: payload.modeLabel == 'Online'
+                      icon:
+                          payload.modeLabel ==
+                              AppLocalizations.of(context).lessonDetail_online
                           ? Icons.videocam_rounded
                           : Icons.groups_rounded,
                       label: payload.modeLabel,
@@ -1402,20 +1610,15 @@ const List<String> _trMonths = <String>[
   'Aralik',
 ];
 
-const List<String> _trWeekdays = <String>[
-  'Pazartesi',
-  'Sali',
-  'Carsamba',
-  'Persembe',
-  'Cuma',
-  'Cumartesi',
-  'Pazar',
-];
+String _formatTrDate(DateTime d, String locale) =>
+    DateFormat('d MMMM y EEEE', locale).format(d);
 
-String _formatTrDate(DateTime d) =>
-    '${d.day} ${_trMonths[d.month]} ${d.year} ${_trWeekdays[d.weekday - 1]}';
-
-DateTime? _parseTrDate(String label) {
+DateTime? _parseTrDate(String label, String locale) {
+  // Yeni yerelleştirilmiş etiketler önce kendi dilinde çözülür; eski ASCII etiketler aşağıda desteklenir.
+  for (final pattern in ['d MMMM y EEEE', 'd MMMM y']) {
+    final parsed = DateFormat(pattern, locale).tryParseStrict(label);
+    if (parsed != null) return parsed;
+  }
   final parts = label.trim().split(RegExp(r'\s+'));
   if (parts.length < 3) return null;
   final day = int.tryParse(parts[0]);
@@ -1527,11 +1730,11 @@ class _SheetField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       validator: (value) {
-        if (label == 'Ders notu') {
+        if (label == AppLocalizations.of(context).lessonDetail_note) {
           return null;
         }
         if (value == null || value.trim().isEmpty) {
-          return 'Bu alan zorunlu.';
+          return AppLocalizations.of(context).lessonDetail_required;
         }
         return null;
       },
@@ -1562,7 +1765,7 @@ class _SheetField extends StatelessWidget {
 }
 
 class _NoteFileItem {
-  const _NoteFileItem({
+  _NoteFileItem({
     required this.title,
     required this.meta,
     required this.accent,

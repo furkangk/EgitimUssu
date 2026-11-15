@@ -109,7 +109,7 @@ public sealed class GetStudentCalendarQueryHandler : IQueryHandler<GetStudentCal
                     lesson.RecurrenceRule,
                     lesson.Notes,
                     IsEditable: isSelf,
-                    Completed: completedSet.Contains((lesson.Id, _calendar.ToLocalDate(occurrence.StartAtUtc))),
+                    Completed: occurrence.IsCompleted || lesson.Status == LessonScheduleStatus.Completed || completedSet.Contains((lesson.Id, _calendar.ToLocalDate(occurrence.StartAtUtc))),
                     ConflictsWithLesson: false));
             }
         }

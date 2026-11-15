@@ -41,8 +41,13 @@ public sealed class LessonSessionsModule : ModuleDefinition
         group.MapPost("/{lessonSessionId:guid}/cancel", CancelLessonSessionAsync)
         .WithSummary("Planlı veya devam eden dersi iptal eder (M05-1)");
 
+        group.MapPost("/from-schedule", async (HttpContext context, CreateSessionFromScheduleRequest request,
+            ICommandDispatcher dispatcher, CancellationToken ct) =>
+            ToHttpResult(context, await dispatcher.Dispatch(new CreateSessionFromScheduleCommand(
+                request.LessonScheduleId, request.OccurrenceStartAtUtc), ct)));
+
         group.MapPost("/from-schedule/{lessonScheduleId:guid}", CreateSessionFromScheduleAsync)
-        .WithSummary("Planlı dersten oturum türetir — aynı plan için idempotent (M05-2)");
+        .WithSummary("Planlı dersten oturum türetir — aynı oluşum için idempotent (M05-2)");
 
         group.MapGet("/{lessonSessionId:guid}", GetLessonSessionByIdAsync)
         .WithSummary("Ders oturumu detayını getirir");
@@ -118,7 +123,7 @@ public sealed class LessonSessionsModule : ModuleDefinition
     }
 
     /// <summary>
-    /// M05-2: Planlı dersten (M04) oturum türetir. Aynı plan için ikinci çağrı mevcut oturumu döner.
+    /// M05-2: Planlı dersten (M04) oturum türetir. Tekil derste mevcut oturumu döndürür; tekrarlı derste gövdeli uçtan oluşum anahtarı gönderilmelidir.
     /// </summary>
     private static async Task<IResult> CreateSessionFromScheduleAsync(
         HttpContext context,
@@ -225,3 +230,5 @@ public sealed record CompleteLessonSessionRequest(
     string? CoveredContent,
     string? TeacherNotes,
     bool IsChargeable);
+
+public sealed record CreateSessionFromScheduleRequest(Guid LessonScheduleId, DateTime? OccurrenceStartAtUtc);

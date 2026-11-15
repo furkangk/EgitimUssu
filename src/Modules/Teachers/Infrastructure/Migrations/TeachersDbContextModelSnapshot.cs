@@ -96,6 +96,17 @@ namespace EgitimUssu.Modules.Teachers.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<decimal>("CancellationChargePercent")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<int>("CancellationNoticeHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("City")
                         .IsRequired()
                         .HasMaxLength(120)

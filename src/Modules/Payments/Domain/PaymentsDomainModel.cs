@@ -53,6 +53,22 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
             createdOnUtc));
     }
 
+    public Guid? LessonScheduleId { get; private set; }
+    public DateTime? OccurrenceStartUtc { get; private set; }
+    public void LinkCancellationOccurrence(Guid scheduleId, DateTime key)
+    {
+        LessonScheduleId = scheduleId;
+        OccurrenceStartUtc = key;
+    }
+    public bool CancelOutstanding(DateTime nowUtc)
+    {
+        if (CollectedAmount != 0m || Status is not (PaymentStatus.Pending or PaymentStatus.Overdue)) return false;
+        var previous = Status;
+        Status = PaymentStatus.Cancelled;
+        Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previous, Status, 0m, 0m, nowUtc));
+        return true;
+    }
+
     public Guid TeacherUserId { get; private set; }
 
     public Guid StudentId { get; private set; }
@@ -226,7 +242,8 @@ public enum BillingItemType
 {
     LessonFee = 1,
     MonthlyPackage = 2,
-    ManualAdjustment = 3
+    ManualAdjustment = 3,
+    LateCancellation = 4
 }
 
 public enum PaymentStatus

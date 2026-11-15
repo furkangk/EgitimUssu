@@ -202,12 +202,80 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
             return;
         }
 
-        var until = cutoffUtc.AddDays(-1).ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        var until = cutoffUtc.AddTicks(-1).ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
         RecurrenceRule = RecurrenceRule.Contains("UNTIL=", StringComparison.OrdinalIgnoreCase)
             ? System.Text.RegularExpressions.Regex.Replace(RecurrenceRule, "UNTIL=[^;]*", $"UNTIL={until}")
             : $"{RecurrenceRule};UNTIL={until}";
         UpdatedOnUtc = updatedOnUtc;
     }
+
+    /// <summary>
+    /// Tekrar serisini <paramref name="cutoffUtc"/> anından böler ve yeni zamanla devam edecek seriyi üretir.
+    /// Eski seri geçmiş kayıtların kimliğini korur; yeni seri kendi kimliğiyle cutoff ve sonrasını temsil eder.
+    /// </summary>
+    public LessonSchedule SplitSeriesAt(
+        Guid newSeriesId,
+        DateTime cutoffUtc,
+        DateTime newStartAtUtc,
+        DateTime newEndAtUtc,
+        string? newRecurrenceRule,
+        string? note,
+        DateTime updatedOnUtc)
+    {
+        if (string.IsNullOrWhiteSpace(RecurrenceRule))
+        {
+            throw new InvalidOperationException("Yalnızca tekrarlı ders serisi bölünebilir.");
+        }
+
+        if (TeacherUserId is not { } teacherUserId || LessonFormat is not { } lessonFormat)
+        {
+            throw new InvalidOperationException("Öğretmensiz ders bu akışla bölünemez.");
+        }
+
+        if (newEndAtUtc <= newStartAtUtc)
+        {
+            throw new ArgumentOutOfRangeException(nameof(newEndAtUtc), "Yeni ders bitişi başlangıçtan sonra olmalı.");
+        }
+
+        EndSeriesBefore(cutoffUtc, updatedOnUtc);
+
+        var newSeries = new LessonSchedule(
+            newSeriesId,
+            teacherUserId,
+            StudentId,
+            Subject,
+            lessonFormat,
+            newStartAtUtc,
+            newEndAtUtc,
+            TimeZone,
+            newRecurrenceRule,
+            Status,
+            ReminderOffsetMinutes,
+            LocationLabel,
+            MeetingUrl,
+            Notes,
+            updatedOnUtc)
+        {
+            Topic = Topic,
+            ColorHex = ColorHex,
+            OriginalStartAtUtc = cutoffUtc,
+            RescheduleNote = note,
+            IsChargeable = IsChargeable,
+        };
+
+        Raise(new LessonSeriesSplitDomainEvent(Id, newSeries.Id, cutoffUtc));
+        return newSeries;
+    }
+
+    public void RecordCancellation(string scope, DateTime? key, DateTime? effectiveStart, DateTime nowUtc)
+        => Raise(new LessonCancellationAppliedDomainEvent(Id, TeacherUserId, StudentId, scope, key, effectiveStart, nowUtc));
+    public void RecordOccurrenceRescheduled(DateTime key, DateTime updatedOnUtc)
+        => Raise(new LessonOccurrenceRescheduledDomainEvent(Id, key, updatedOnUtc));
+
+    public void RecordOccurrenceCharge(DateTime key, decimal amount, string currency)
+        => Raise(new LessonOccurrenceCancelledIntegrationEvent(Id, key, TeacherUserId!.Value, StudentId, true, amount, currency));
+    public void RecordDeleted(DateTime nowUtc)
+        => Raise(new LessonScheduleDeletedDomainEvent(Id, TeacherUserId, StudentId, nowUtc));
 
     public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
@@ -226,13 +294,12 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         Raise(new LessonScheduleCancelledDomainEvent(Id, TeacherUserId, StudentId, updatedOnUtc));
     }
 
-    public void Complete(DateTime updatedOnUtc)
+    /// <summary>LessonSessions tamamlanmasını yansıtır; yeni tamamlanma olayı üretmez.</summary>
+    public void MarkCompleted(DateTime completedOnUtc)
     {
+        if (Status == LessonScheduleStatus.Completed) return;
         Status = LessonScheduleStatus.Completed;
-        UpdatedOnUtc = updatedOnUtc;
-
-        // Self derste öğretmen yoktur; tamamlanma olayı öğretmen kimliği taşır, boş Guid ile geçilir.
-        Raise(new LessonSessionCompletedDomainEvent(Id, TeacherUserId ?? Guid.Empty, StudentId, updatedOnUtc));
+        UpdatedOnUtc = completedOnUtc;
     }
 
     /// <summary>
@@ -312,11 +379,10 @@ public sealed record LessonScheduleCancelledDomainEvent(
     Guid StudentId,
     DateTime CancelledOnUtc) : DomainEvent;
 
-public sealed record LessonSessionCompletedDomainEvent(
-    Guid LessonScheduleId,
-    Guid TeacherUserId,
-    Guid StudentId,
-    DateTime CompletedOnUtc) : DomainEvent;
+public sealed record LessonSeriesSplitDomainEvent(
+    Guid OldId,
+    Guid NewId,
+    DateTime CutoffUtc) : DomainEvent;
 
 public sealed class TimeOffBlock : AggregateRoot<Guid>
 {
@@ -408,13 +474,27 @@ public sealed class LessonOccurrenceException : Entity<Guid>
         OverrideEndAtUtc = overrideEndAtUtc;
         Note = note;
     }
+
+    /// <summary>
+    /// Seri bölündüğünde cutoff ve sonrasındaki istisnayı yeni seriye taşır. Yeni serinin çapası ne kadar kaydıysa
+    /// istisnanın iCal anahtarı ve varsa görünen override saatleri de aynı miktarda kayar; eylem (özellikle iptal)
+    /// değişmez.
+    /// </summary>
+    public void MoveToSeries(Guid newSeriesId, TimeSpan shift)
+    {
+        SeriesLessonScheduleId = newSeriesId;
+        OriginalStartAtUtc = OriginalStartAtUtc.Add(shift);
+        OverrideStartAtUtc = OverrideStartAtUtc?.Add(shift);
+        OverrideEndAtUtc = OverrideEndAtUtc?.Add(shift);
+    }
 }
 
 public enum OccurrenceExceptionAction
 {
     Skipped = 1,
     Cancelled = 2,
-    Rescheduled = 3
+    Rescheduled = 3,
+    Completed = 4
 }
 
 /// <summary>
@@ -509,3 +589,12 @@ public sealed record LessonChangeRequestResolvedDomainEvent(
     Guid TeacherUserId,
     LessonChangeRequestStatus Status,
     DateTime ResolvedOnUtc) : DomainEvent;
+
+public sealed record LessonCancellationAppliedDomainEvent(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
+    string Scope, DateTime? OccurrenceStartUtc, DateTime? EffectiveStartUtc, DateTime CancelledOnUtc) : DomainEvent;
+public sealed record LessonOccurrenceCancelledIntegrationEvent(Guid LessonScheduleId, DateTime OccurrenceStartUtc,
+    Guid TeacherUserId, Guid StudentId, bool IsChargeable, decimal? ChargeAmount, string? Currency) : DomainEvent;
+public sealed record LessonScheduleDeletedDomainEvent(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
+    DateTime DeletedOnUtc) : DomainEvent;
+
+public sealed record LessonOccurrenceRescheduledDomainEvent(Guid LessonScheduleId, DateTime OccurrenceStartUtc, DateTime UpdatedOnUtc) : DomainEvent;

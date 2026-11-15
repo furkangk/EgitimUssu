@@ -153,12 +153,13 @@ public sealed class OccurrenceScopeRequiredTests
     public async Task Change_request_on_a_single_lesson_records_the_lesson_start()
     {
         var lesson = AddSeries(rule: null);
+        lesson.Reschedule(November17, November17.AddHours(1), null, Clock.UtcNow);
         var requests = new RequestStore();
 
         var created = await CreateRequest(requests, lesson, occurrence: null);
 
         Assert.True(created.IsSuccess, created.Error.Code);
-        Assert.Equal(Anchor, created.Value!.OccurrenceStartAtUtc);
+        Assert.Equal(November17, created.Value!.OccurrenceStartAtUtc);
     }
 
     [Fact]
@@ -169,7 +170,7 @@ public sealed class OccurrenceScopeRequiredTests
             Guid.NewGuid(), series.Id, series.StudentId, series.TeacherUserId!.Value, "Hastayım",
             November17.AddDays(2), November17.AddDays(2).AddHours(1), November17, Clock.UtcNow);
         var dispatcher = new RecordingDispatcher();
-        var handler = new AcceptLessonChangeRequestCommandHandler(new RequestStore(request), _store, dispatcher, Clock);
+        var handler = new AcceptLessonChangeRequestCommandHandler(new RequestStore(request), _store, dispatcher, Clock, new PassThroughScheduleLock(), Calendar);
 
         var result = await handler.Handle(new AcceptLessonChangeRequestCommand(request.Id), CancellationToken.None);
 
@@ -189,7 +190,7 @@ public sealed class OccurrenceScopeRequiredTests
             Guid.NewGuid(), series.Id, series.StudentId, series.TeacherUserId!.Value, "Eski talep",
             November17.AddDays(2), November17.AddDays(2).AddHours(1), null, Clock.UtcNow);
         var dispatcher = new RecordingDispatcher();
-        var handler = new AcceptLessonChangeRequestCommandHandler(new RequestStore(request), _store, dispatcher, Clock);
+        var handler = new AcceptLessonChangeRequestCommandHandler(new RequestStore(request), _store, dispatcher, Clock, new PassThroughScheduleLock(), Calendar);
 
         var result = await handler.Handle(new AcceptLessonChangeRequestCommand(request.Id), CancellationToken.None);
 
@@ -211,7 +212,7 @@ public sealed class OccurrenceScopeRequiredTests
     }
 
     private Task<Result<LessonScheduleResponse>> Cancel(LessonSchedule lesson, OccurrenceScope? scope, DateTime? occurrence)
-        => new CancelLessonScheduleCommandHandler(_store, new PassThroughScheduleLock(), Calendar, Clock, new Ids())
+        => new CancelLessonScheduleCommandHandler(_store, new PassThroughScheduleLock(), Calendar, Clock, new Ids(), new EgitimUssu.Tests.Unit.TestDoubles.FakeCancellationPolicyDirectory(), new EgitimUssu.Tests.Unit.TestDoubles.FakeStudentDirectory())
             .Handle(new CancelLessonScheduleCommand(lesson.Id, CancellationReason.Other, false, null, scope, occurrence), CancellationToken.None);
 
     private Task<Result<LessonScheduleResponse>> Reschedule(LessonSchedule lesson, OccurrenceScope? scope, DateTime? occurrence, DateTime newStart)
@@ -220,7 +221,7 @@ public sealed class OccurrenceScopeRequiredTests
             .Handle(new RescheduleLessonScheduleCommand(lesson.Id, newStart, newStart.AddHours(1), null, scope, occurrence), CancellationToken.None);
 
     private Task<Result<LessonChangeRequestResponse>> CreateRequest(RequestStore requests, LessonSchedule lesson, DateTime? occurrence)
-        => new CreateLessonChangeRequestCommandHandler(requests, _store, Calendar, new Ids(), Clock)
+        => new CreateLessonChangeRequestCommandHandler(requests, _store, Calendar, new Ids(), Clock, new PassThroughScheduleLock())
             .Handle(new CreateLessonChangeRequestCommand(
                 lesson.StudentId, lesson.Id, "Hastayım", November17.AddDays(2), November17.AddDays(2).AddHours(1), occurrence),
                 CancellationToken.None);

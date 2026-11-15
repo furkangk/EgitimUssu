@@ -144,6 +144,26 @@ public sealed class TeacherMonthlyLessonCancelledProjectionHandler
     }
 }
 
+/// <summary>Single iptal, serinin diğer haftalarından ayrı aylık sayaçtır.</summary>
+public sealed class TeacherMonthlyOccurrenceCancelledProjectionHandler(
+    ReportingDbContext db, IClock clock, ILocalCalendar calendar)
+    : ReportingProjectionHandler<LessonCancellationApplied>(db, clock, calendar)
+{
+    public override bool CanHandle(IIntegrationEvent integrationEvent)
+        => integrationEvent.SourceModule == "Scheduling" && integrationEvent.Name == "LessonCancellationAppliedDomainEvent";
+
+    protected override async Task<bool> ProjectAsync(LessonCancellationApplied payload, IntegrationEvent envelope, CancellationToken cancellationToken)
+    {
+        // All eski seri olayıyla sayılır; iki ayrı olayı aynı iptal olarak sayma.
+        if (payload.Scope != "Single" || payload.TeacherUserId is not { } teacher || teacher == Guid.Empty
+            || payload.OccurrenceStartUtc is not { } key) return false;
+        var projection = await GetOrCreateMonthlyAsync(teacher, payload.CancelledOnUtc, cancellationToken);
+        projection.TrackCancelledOccurrence(payload.LessonScheduleId, key);
+        projection.MarkApplied(envelope.EventId, Clock.UtcNow);
+        return true;
+    }
+}
+
 /// <summary>M07 → M14: Ödeme kaydı açıldı; beklenen tutar açılış ayına yazılır.</summary>
 public sealed class TeacherMonthlyPaymentExpectedProjectionHandler
     : ReportingProjectionHandler<MonthlyPaymentCreatedPayload>
