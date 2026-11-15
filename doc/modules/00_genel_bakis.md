@@ -472,3 +472,10 @@ M01 çıkış mevcut sunucu logout ucunu kullanır; yerel token/profil/cache ve 
 M11 ön plan push akışı mobil rozet/listeyi gerçek API’den tazeler; M16 açık sohbet K-07 uyarınca görünür ön planda10sn poll+push kullanır. Hesap değişiminde eski sonuçlar atılır; token izin/kayıt yarışları korunur. Backend endpoint/envanter ve modül durumları değişmedi; gerçek FCM teslimi Q8/P25 bağımlılığıdır.
 
 Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+P20 T5 / N-72: M01, M06, M10, M11, M14, M15 ve M16 mobil Cubit’leri kapanıştan sonra state göndermez. Auth beklenmeyen hataları loading durumundan çıkarır; rapor ekranı kapandıktan sonra PDF açılmaz. Ortak multipart gönderim süresi deneme başına 120 saniyedir; backend uç/sözleşme değişikliği yoktur.
+
+Güncelleme: 2026-11-15

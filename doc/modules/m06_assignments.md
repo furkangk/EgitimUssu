@@ -388,3 +388,10 @@ Mobil öğretmen ve öğrenci listeleri 50'lik sayfalarda sonsuz kaydırır; kı
 `IStudentAssignmentStatusReader` verilen öğrenci profil kimliklerinin güncel ödev durumlarını tek SQL grup sorgusuyla okur. Cancelled toplamdan dışlanır; Pending/ReturnedForRevision açık, InProgress (dosyalı teslim)/Completed/Approved tamamlanmış sayılır. Parents beş durum olayında bu kaynağı kullanır; olay yükü değişmez. Öğrenci haftası senaryosu iki dosya sürümü, revizyon geri bildirimi, onay ve 92 puanı gerçek HTTP/depolama/outbox ile doğrular.
 
 *Güncelleme: 2026-11-15 — P19 Task 8.*
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+LessonResourcesCubit kapanıştan sonra yükleme/kayıt/arşiv sonuçlarını state’e göndermez; ekleme tamamlanırken ekran kapanmışsa yeni liste tazelemesi başlamaz. ApiClient dosya ve multipart gönderimleri, idempotent tekrar dahil, deneme başına 120 saniye gönderim süresi kullanır; JSON isteklerinin 15 saniyelik varsayılanı değişmez.
+
+Güncelleme: 2026-11-15

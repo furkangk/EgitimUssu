@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/auth/domain/repositories/auth_repository.dart';
@@ -25,7 +26,7 @@ class EmailVerificationState extends Equatable {
 }
 
 /// D-02: E-posta doğrulama ekranının durum yönetimi.
-class EmailVerificationCubit extends Cubit<EmailVerificationState> {
+class EmailVerificationCubit extends Cubit<EmailVerificationState> with SafeEmit<EmailVerificationState> {
   EmailVerificationCubit(this._repository)
     : super(const EmailVerificationState());
 
@@ -35,12 +36,12 @@ class EmailVerificationCubit extends Cubit<EmailVerificationState> {
       EmailVerificationCubit(injector<AuthRepository>());
 
   Future<void> resendCode(String email) async {
-    emit(state.copyWith(status: EmailVerificationStatus.resending));
+    safeEmit(state.copyWith(status: EmailVerificationStatus.resending));
     try {
       await _repository.requestEmailVerification(email: email);
-      emit(state.copyWith(status: EmailVerificationStatus.resent));
+      safeEmit(state.copyWith(status: EmailVerificationStatus.resent));
     } on ApiException catch (error) {
-      emit(
+      safeEmit(
         state.copyWith(
           status: EmailVerificationStatus.failure,
           message: error.message,
@@ -50,12 +51,12 @@ class EmailVerificationCubit extends Cubit<EmailVerificationState> {
   }
 
   Future<void> verify({required String email, required String token}) async {
-    emit(state.copyWith(status: EmailVerificationStatus.verifying));
+    safeEmit(state.copyWith(status: EmailVerificationStatus.verifying));
     try {
       await _repository.confirmEmailVerification(email: email, token: token);
-      emit(state.copyWith(status: EmailVerificationStatus.verified));
+      safeEmit(state.copyWith(status: EmailVerificationStatus.verified));
     } on ApiException catch (error) {
-      emit(
+      safeEmit(
         state.copyWith(
           status: EmailVerificationStatus.failure,
           message: error.message,

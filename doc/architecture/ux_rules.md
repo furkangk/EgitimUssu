@@ -179,3 +179,10 @@ Bağlantı kurulamadığında son kaydedilen veri kullanılıyorsa uygulama kök
 Ön plan push yalnız ilgili veriyi tazeler, kullanıcıyı başka ekrana götürmez. Görünür sohbet 10sn aralıkla ve push geldiğinde güncellenir; mevcut geçmiş/taslaklar korunur, tazeleme ekranı yükleme görünümüne döndürmez. Ekran üstüne başka rota açılması veya uygulamanın arka plana geçmesi poll’u durdurur. Dönüşte anında tazelenir; çıkışta önceki oturum verisi yeniden gösterilmez.
 
 Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+Ekran kapandıktan sonra tamamlanan işlemler o ekranın durumunu güncellemez. PDF indirmesi sürerken rapordan çıkıldıysa uygulama sonradan dosya görüntüleyiciyi açmaz. Oturum geri yükleme bir istisnayla sonuçlandığında yükleniyor ekranında kalınmaz; giriş durumuna geçilir. Dosya/form gönderiminde her deneme en fazla 120 saniye gönderim süresi kullanır; bu toplam işlem süresi değildir (bağlantı, yanıt ve izinli tekrarlar ayrıdır).
+
+Güncelleme: 2026-11-15

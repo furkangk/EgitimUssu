@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
@@ -8,7 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// M11-3/M11-4 (D-11): Rolden bağımsız bildirim merkezi.
 /// `markRead` **iyimser** günceller; sunucu reddederse değişiklik geri alınır.
-class NotificationCenterCubit extends Cubit<NotificationCenterState> {
+class NotificationCenterCubit extends Cubit<NotificationCenterState> with SafeEmit<NotificationCenterState> {
   NotificationCenterCubit(this._repository, {PushEventBus? eventBus})
     : _eventBus = eventBus,
       super(const NotificationCenterState()) {
@@ -39,7 +41,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     _pendingReads = 0;
     _refreshAfterRead = false;
     _generation++;
-    if (!isClosed) emit(const NotificationCenterState());
+    if (!isClosed) safeEmit(const NotificationCenterState());
   }
 
   Future<void> _onPush() async {
@@ -88,7 +90,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       return;
     }
     final generation = _generation;
-    emit(state.copyWith(isLoadingMore: true, clearError: true));
+    safeEmit(state.copyWith(isLoadingMore: true, clearError: true));
     try {
       final page = await _repository.listUserNotifications(
         userId: userId,
@@ -98,7 +100,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       );
       if (isClosed || generation != _generation) return;
       final ids = state.items.map((x) => x.id).toSet();
-      emit(
+      safeEmit(
         state.copyWith(
           items: [
             ...state.items,
@@ -111,7 +113,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       );
     } catch (error) {
       if (isClosed || generation != _generation) return;
-      emit(
+      safeEmit(
         state.copyWith(
           isLoadingMore: false,
           errorMessage: error is ApiException
@@ -131,7 +133,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     final readRevision = _readRevision;
     final generation = ++_generation;
     _userId = userId;
-    emit(
+    safeEmit(
       state.copyWith(
         status: silent ? state.status : NotificationCenterStatus.loading,
         isLoadingMore: false,
@@ -158,7 +160,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         return;
       }
 
-      emit(
+      safeEmit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: page.items,
@@ -170,7 +172,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       );
     } on ApiException catch (error) {
       if (isClosed || generation != _generation) return;
-      emit(
+      safeEmit(
         state.copyWith(
           status: silent ? state.status : NotificationCenterStatus.failure,
           errorMessage: error.message,
@@ -178,7 +180,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       );
     } catch (_) {
       if (isClosed || generation != _generation) return;
-      emit(
+      safeEmit(
         state.copyWith(
           status: silent ? state.status : NotificationCenterStatus.failure,
           errorMessage: 'Bildirimler yüklenemedi.',
@@ -200,7 +202,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       return;
     }
 
-    emit(state.copyWith(onlyUnread: onlyUnread));
+    safeEmit(state.copyWith(onlyUnread: onlyUnread));
     await refresh();
   }
 
@@ -227,7 +229,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       readOnUtc: DateTime.now().toUtc(),
     );
 
-    emit(
+    safeEmit(
       state.copyWith(
         items: state.onlyUnread
             ? updated.where((item) => !item.isRead).toList()
@@ -249,7 +251,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         final time = b.createdOnUtc.compareTo(a.createdOnUtc);
         return time != 0 ? time : b.id.compareTo(a.id);
       });
-      emit(state.copyWith(items: items, unreadCount: state.unreadCount + 1));
+      safeEmit(state.copyWith(items: items, unreadCount: state.unreadCount + 1));
     } finally {
       if (!isClosed && user == _userId && session == _eventBus?.generation) {
         _pendingReads--;

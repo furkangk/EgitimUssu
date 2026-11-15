@@ -423,3 +423,10 @@ Yeni şema/migration/uç yoktur. Kaynak ile projeksiyonlar farklı modüllerde o
 `ReportingStudentMergedHandler` dashboard aktif öğrenci kümesini, aylık ders StudentId alanlarını, haftalık çalışma ve aylık performans katkılarını, StudentReport metadata kimliğini kanoniğe taşır. Bileşik anahtarlı çocuklar yeni parent altında kopyalanır; aynı katkı anahtarında kanonik kazanır, çakışmayan katkılar korunur; toplamlar domain kurallarıyla türetilir. Mevcut öğrenci/dashboard kilitleri ve inbox aynı transaction içindedir. Geçmiş PDF dosyası yeniden üretilmez. Birleşim sonrası kaynak uzlaştırması ve Payments tüketicisi hata verirken Reporting’in ilerlemesi gerçek PostgreSQL/outbox testleriyle korunur.
 
 *Güncelleme: 2026-11-15 — P19 Task 8.*
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+StudentReportCubit ve TeacherReportsCubit `SafeEmit` kullanır. Ekran kapanınca geç sonuçlar state’e gönderilmez; sonraki performans/boş zaman okuması ve rapor indirme/açma adımları başlatılmaz. İndirme sürerken rapor ekranından çıkıldıysa dosya görüntüleyici açılmaz. Başlamış ağ işlemi iptal edilmiş sayılmaz; sunucuda üretilmiş rapor korunur.
+
+Güncelleme: 2026-11-15

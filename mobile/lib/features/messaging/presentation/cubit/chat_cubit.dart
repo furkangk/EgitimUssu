@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
@@ -71,7 +73,7 @@ class ChatState {
 }
 
 /// M16-1 (D-08): Tek sohbetin mesajlarını yönetir — keyset sayfalama + iyimser gönderim.
-class ChatCubit extends Cubit<ChatState> {
+class ChatCubit extends Cubit<ChatState> with SafeEmit<ChatState> {
   ChatCubit({
     required MessagingRepository repository,
     required String currentUserId,
@@ -170,7 +172,7 @@ class ChatCubit extends Cubit<ChatState> {
       }
       final rows = merged.values.toList()
         ..sort((a, b) => b.sentOnUtc.compareTo(a.sentOnUtc));
-      emit(state.copyWith(status: ChatStatus.loaded, messages: rows));
+      safeEmit(state.copyWith(status: ChatStatus.loaded, messages: rows));
       await markRead();
     } catch (error) {
       // A transient background refresh must not discard the visible conversation.
@@ -211,7 +213,7 @@ class ChatCubit extends Cubit<ChatState> {
     if (!_currentSession) return;
     final generation = ++_generation;
     _pageSize = take;
-    emit(
+    safeEmit(
       state.copyWith(
         status: ChatStatus.loading,
         conversationId: conversationId,
@@ -227,7 +229,7 @@ class ChatCubit extends Cubit<ChatState> {
         take: take,
       );
       if (!_current(generation)) return;
-      emit(
+      safeEmit(
         state.copyWith(
           status: ChatStatus.loaded,
           messages: rows,
@@ -236,7 +238,7 @@ class ChatCubit extends Cubit<ChatState> {
       );
     } on ApiException catch (error) {
       if (!_current(generation)) return;
-      emit(
+      safeEmit(
         state.copyWith(status: ChatStatus.failure, errorMessage: error.message),
       );
       return;
@@ -259,7 +261,7 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
-    emit(state.copyWith(isLoadingMore: true, clearError: true));
+    safeEmit(state.copyWith(isLoadingMore: true, clearError: true));
 
     // Bekleyen (henüz sunucuda olmayan) mesajlar imleç olamaz: sunucu onları bilmiyor.
     final oldestSent = state.messages.lastWhere(
@@ -278,7 +280,7 @@ class ChatCubit extends Cubit<ChatState> {
       final known = state.messages.map((row) => row.id).toSet();
       final fresh = rows.where((row) => !known.contains(row.id)).toList();
 
-      emit(
+      safeEmit(
         state.copyWith(
           messages: <ChatMessage>[...state.messages, ...fresh],
           hasMore: rows.length >= _pageSize,
@@ -287,7 +289,7 @@ class ChatCubit extends Cubit<ChatState> {
       );
     } on ApiException catch (error) {
       if (!_current(generation)) return;
-      emit(state.copyWith(isLoadingMore: false, errorMessage: error.message));
+      safeEmit(state.copyWith(isLoadingMore: false, errorMessage: error.message));
     }
   }
 
@@ -315,7 +317,7 @@ class ChatCubit extends Cubit<ChatState> {
       status: ChatMessageStatus.sending,
     );
 
-    emit(
+    safeEmit(
       state.copyWith(
         messages: <ChatMessage>[draft, ...state.messages],
         clearError: true,
@@ -332,7 +334,7 @@ class ChatCubit extends Cubit<ChatState> {
       return;
     }
 
-    emit(
+    safeEmit(
       state.copyWith(
         messages: _replace(
           messageId,
@@ -378,15 +380,15 @@ class ChatCubit extends Cubit<ChatState> {
           ? await _repository.block(state.conversationId)
           : await _repository.unblock(state.conversationId);
       if (!_current(generation)) return;
-      emit(state.copyWith(conversation: detail, clearError: true));
+      safeEmit(state.copyWith(conversation: detail, clearError: true));
     } on ApiException catch (error) {
       if (!_current(generation)) return;
-      emit(state.copyWith(errorMessage: error.message));
+      safeEmit(state.copyWith(errorMessage: error.message));
     }
   }
 
   /// Snackbar gösterildikten sonra hatayı temizler.
-  void clearError() => emit(state.copyWith(clearError: true));
+  void clearError() => safeEmit(state.copyWith(clearError: true));
 
   Future<void> _deliver(String draftId, String body) async {
     final generation = _generation;
@@ -398,7 +400,7 @@ class ChatCubit extends Cubit<ChatState> {
       );
       if (!_current(generation)) return;
       _pendingBodies.remove(draftId);
-      emit(
+      safeEmit(
         state.copyWith(
           messages: _replace(draftId, (_) => sent).fold<List<ChatMessage>>([], (
             rows,
@@ -411,7 +413,7 @@ class ChatCubit extends Cubit<ChatState> {
       );
     } on ApiException catch (error) {
       if (!_current(generation)) return;
-      emit(
+      safeEmit(
         state.copyWith(
           messages: _replace(
             draftId,

@@ -179,7 +179,13 @@ class ApiClient {
     String? retryIdentity,
   }) async {
     if (!idempotent && idempotencyKey == null) {
-      return _dio.post<Map<String, dynamic>>(path, data: data);
+      return _dio.post<Map<String, dynamic>>(
+        path,
+        data: data,
+        options: data is FormData
+            ? Options(sendTimeout: const Duration(seconds: 120))
+            : null,
+      );
     }
     final generation = _sessionGeneration;
     final subject = _subject(await _tokenStorage.readAccessToken());
@@ -193,7 +199,10 @@ class ApiClient {
     // A manual retry uses the original body too (e.g. collection timestamp).
     final original =
         pending?.$2 ?? (data is FormData ? data : jsonDecode(jsonEncode(data)));
-    final options = Options(headers: {'Idempotency-Key': key});
+    final options = Options(
+      headers: {'Idempotency-Key': key},
+      sendTimeout: original is FormData ? const Duration(seconds: 120) : null,
+    );
     Future<Response<Map<String, dynamic>>> send() {
       if (generation != _sessionGeneration) {
         throw const ApiException(

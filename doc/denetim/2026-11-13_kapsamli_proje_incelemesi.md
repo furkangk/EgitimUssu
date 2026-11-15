@@ -126,7 +126,7 @@ Hemen arkasından: **N-41** arka plan işleri kendi kirasını yenileyemediği i
 | N-69 | 🟡 Orta | Takvim önbellek anahtarı `DateTime.now()` içeriyor | `scheduling_repository_impl.dart:197-203,233-239` | Her çağrı yeni SharedPreferences anahtarı yazar → çevrimdışı yedek hiç isabet etmez, depolama sınırsız büyür | Anahtarı güne yuvarla | ✅ (P20 T3) |
 | N-70 | 🟡 Orta | Çıkış eksik temizliyor | `auth_repository_impl.dart:60-63` · `app.dart:105-113` | Öğrenci adı/telefon/tutar düz SharedPreferences'ta kalıyor (KVKK); `/api/identity/logout` çağrılmıyor → refresh token sunucuda geçerli; kök Notifications/Membership cubit'leri sıfırlanmıyor | Sunucu logout + tüm önbellek + kök cubit sıfırlama | ✅ (P20 T3) |
 | N-71 ✅ (P20 T4; rotalar P20 T2) | 🟡 Orta | Push rotaları uygulamada yok; ön planda push yok | Backend `/parent/assignments`, `/parent/payments` gönderiyor (`ParentEventNotificationHandler.cs:114-116`); router'da yok, `errorBuilder` yok · `firebase_push_binding.dart:73-90` (`onMessage` yok) · `chat_cubit.dart` (polling/soket yok) | Push'a dokunan veli hata ekranı görür; uygulama açıkken gelen bildirim kaybolur; sohbette karşı tarafın yanıtı görünmez | Rotalar + yerelleştirilmiş `errorBuilder` ✅ (P20 T2); `onMessage` ile gerçek rozet/liste ve sohbet tazeleme + görünür sohbette10sn poll ✅ (P20 T4); gerçek cihaz FCM Q8/P25 | ✅ |
-| N-72 | ⚪ Düşük | Toplu | çeşitli | 10 cubit'te dispose sonrası `emit` (`isClosed` yok) · bildirim merkezinde sayfalama yok (ilk 20) · gönderim zaman aşımı 15 sn (dosya yükleme kesilir) · `api_exception.dart:34,51-52`'de ASCII Türkçe ("hatasi olustu") — D-20 ✅ ama en sık görülen hata metni bozuk | — | ◐ bildirim sayfalaması ✅ (P19 T7); ASCII istemci hata/öğrenci başarı metinleri ✅ (P20 T1); yaşam döngüsü ve zaman aşımı P20 T5 |
+| N-72 | ⚪ Düşük | Toplu | çeşitli | 10 cubit'te dispose sonrası `emit` (`isClosed` yok) · bildirim merkezinde sayfalama yok (ilk 20) · gönderim zaman aşımı 15 sn (dosya yükleme kesilir) · `api_exception.dart:34,51-52`'de ASCII Türkçe ("hatasi olustu") — D-20 ✅ ama en sık görülen hata metni bozuk | — | ✅ (P20 T5) yaşam döngüsü/SafeEmit, Auth hata çıkışı ve multipart120sn; bildirim sayfalaması ✅ (P19 T7), ASCII/ARB metinler ✅ (P20 T1) |
 
 ### 1.5 Çapraz kesit: eşzamanlılık ✅ (P18 T1)
 
@@ -145,7 +145,7 @@ Hemen arkasından: **N-41** arka plan işleri kendi kirasını yenileyemediği i
 | M03-1 (veli bağ onayı) | ✅ | Davetle bağlanan öğrencide fiilen yalnız Admin onaylayabiliyor → N-27 (✅ backend P15 T4); mobilde onay ekranı hiç yok (P21 T2) |
 | D-08 (mesajlaşma, üç rol) | ✅ | ✅ (P20 T2): veli ortak ekran izinleri ve mesaj/push rotaları düzeltildi (N-62) |
 | D-14 (hesap bilgileri) | ✅ | `account_info_page` sahte veri → N-66 |
-| D-20 (Türkçe yazım 188→0) | ✅ | İstemci API fallback ve öğrenci detay mesajları ARB; tarama lib/core dahil korur ✅ (P20 T1); diğer N-72 ayakları açık |
+| D-20 (Türkçe yazım 188→0) | ✅ | İstemci API fallback ve öğrenci detay mesajları ARB; tarama lib/core dahil korur ✅ (P20 T1); diğer N-72 ayakları ✅ (P20 T5) |
 | E-07 (KVKK hesap silme) | ✅ | Backend var, mobilde arayüz yok → N-66 |
 | B-06 (öğretmen davet) `roles/ogretmen.md` | ✅ | Mobil form sahte → N-61 |
 | K2 filtresi (oturum listesi) | ✅ | Öğrenci/veli için yanlış kimlik → N-12 |
@@ -288,3 +288,5 @@ Güncelleme: 2026-11-15 — P17 T6: N-06 kapandı; oluşum/alıcı bazlı 7 gün
 *Güncelleme: 2026-11-15 — P19 Task 4: N-45 tarama açlığı ve teslimli revizyona yanlış uyarı kapandı.*
 
 *Güncelleme: 2026-11-15 — P20 Task 3: N-68/69/70 kapandı; kullanıcı kapsamlı transport yedeği, kalıcı eski veri uyarısı, gün dilimli takvim anahtarı, sunucu logout ve yerel oturum/cache/cubit temizliği; geç yanıt ve 401 tekrar izolasyonu.*
+
+Güncelleme: 2026-11-15 — P20 Task 5 / N-72.

@@ -81,27 +81,15 @@ Bağımlılık yönü içe doğrudur: `presentation → domain ← data`. Cubit,
 Her feature için bir `Cubit<XState>`. State sınıfı immutable + `copyWith`. UI `BlocBuilder`/`BlocListener` ile dinler.
 
 ```dart
-class AuthCubit extends Cubit<AuthState> {
-  AuthCubit(this._repository, {Stream<void>? unauthorizedEvents}) : super(const AuthState()) {
-    _unauthorizedSubscription = unauthorizedEvents?.listen((_) => expireSession());
+mixin SafeEmit<S> on Cubit<S> {
+  void safeEmit(S state) {
+    if (!isClosed) emit(state);
   }
-  factory AuthCubit.create() => AuthCubit(
-        injector<AuthRepository>(),
-        unauthorizedEvents: injector<ApiClient>().unauthorizedEvents, // 401 → oturum düşür
-      );
-
-  Future<void> login({required String email, required String password}) async {
-    emit(state.copyWith(status: AuthStatus.loading, clearError: true));
-    try {
-      final session = await _repository.login(email: email, password: password);
-      emit(state.copyWith(status: AuthStatus.authenticated, session: session));
-    } on ApiException catch (e) {
-      emit(state.copyWith(status: AuthStatus.unauthenticated, errorMessage: e.message));
-    }
-  }
-  // logout / register / restoreSession / expireSession …
 }
 ```
+
+Asenkron sonuç yayınlayan Cubit bu mixin’i kullanır. Oturum veya yükleme kuşağı kontrolü
+`safeEmit` çağrısından önce yapılır; kapanış koruması eski isteğin yeni oturuma yazmasını tek başına engellemez.
 
 `AuthCubit` uygulama kökünde `BlocProvider.value` ile sağlanır; oturum durumu router redirect'ini besler (§6).
 
@@ -656,5 +644,12 @@ P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını 
 ## P20 Task 4 — Ön plan tazeleme
 
 PushEventBus DI’da tek örnektir; PushService giriş/çıkışta oturum kimliğini etkinleştirir/temizler. Oturum kuşağı gecikmiş okuma sonuçlarını eler; en son 128 FCM messageId tekrarları tekilleştirilir. Firebase onMessage yetkili bildirim/mesaj API okumalarını tetikler; bildirim dokunması ayrı güvenli rota akışında kalır. Açık sohbet yalnız rota en üstte ve uygulama resumed iken 10 sn poll yapar; dönüşte anında tazeler, kapanınca timer/abonelikleri iptal eder. Token yazmaları sıralıdır: çıkış öncesi bekleyen izin/token sonucu atılır, geç başarılı kayıt bir sonraki kullanıcı kaydından önce kaldırılır. Ağda token kaldırma başarısızlığı loglanır; sunucuda iptal garantisi yoktur. Platformdan bağımsız akış testlidir; gerçek cihaz FCM Q8/P25 kapısıdır.
+
+Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+P20 T5: `core/bloc/safe_emit.dart` içindeki `SafeEmit<S>` kapanmış Cubit’e geç state gönderimini eler. Auth, chat, conversations, student_report, lesson_resources, progress, teacher_reports, settings, notification_center, password_reset ve email_verification Cubit’leri kullanır. Bu koruma istek iptali değildir; mevcut oturum/okuma kuşakları, push aboneliklerinin ve poll zamanlayıcısının kapatılması sürer. Rapor indirilirken ekran kapanırsa dosya açılmaz; çok adımlı rapor/gelişim okumaları kapanışta devam etmez. Auth login/register/restore beklenmeyen hatada genel ARB mesajıyla `unauthenticated` olur, yalnız hata türü loglanır; push kaydı hatası başarılı oturumu düşürmez. `ApiClient.postFile/postMultipart` tüm FormData gönderimlerinde (idempotent tekrar dahil) **120 saniye sendTimeout** kullanır. JSON isteklerinin varsayılan 15 saniyesi ve bağlantı/yanıt süreleri korunur.
 
 Güncelleme: 2026-11-15

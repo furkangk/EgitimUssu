@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:egitim_ussu_mobile/core/bloc/safe_emit.dart';
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/push/push_event_bus.dart';
@@ -45,7 +47,7 @@ class ConversationsState {
 }
 
 /// M16-1 (D-08): Gelen kutusunu okur.
-class ConversationsCubit extends Cubit<ConversationsState> {
+class ConversationsCubit extends Cubit<ConversationsState> with SafeEmit<ConversationsState> {
   ConversationsCubit(this._repository, {PushEventBus? eventBus})
     : _eventBus = eventBus,
       super(const ConversationsState()) {
@@ -74,7 +76,7 @@ class ConversationsCubit extends Cubit<ConversationsState> {
     _refreshing = false;
     _again = false;
     _generation++;
-    if (!isClosed) emit(const ConversationsState());
+    if (!isClosed) safeEmit(const ConversationsState());
   }
 
   Future<void> _onPush() async {
@@ -111,7 +113,7 @@ class ConversationsCubit extends Cubit<ConversationsState> {
   Future<void> load({bool silent = false}) async {
     if (isClosed) return;
     final generation = ++_generation;
-    emit(
+    safeEmit(
       state.copyWith(
         status: silent ? state.status : ConversationsStatus.loading,
         clearError: true,
@@ -120,12 +122,12 @@ class ConversationsCubit extends Cubit<ConversationsState> {
     try {
       final rows = await _repository.conversations(skip: 0, take: 50);
       if (isClosed || generation != _generation) return;
-      emit(
+      safeEmit(
         state.copyWith(status: ConversationsStatus.loaded, conversations: rows),
       );
     } catch (error) {
       if (isClosed || generation != _generation) return;
-      emit(
+      safeEmit(
         state.copyWith(
           status: silent ? state.status : ConversationsStatus.failure,
           errorMessage: error is ApiException

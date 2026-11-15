@@ -166,7 +166,7 @@ Güncelleme: 2026-11-15
 
 ---
 
-### Task 5: Cubit yaşam döngüsü, hata yakalama, yükleme zaman aşımı (N-72)
+### Task 5: Cubit yaşam döngüsü, hata yakalama, yükleme zaman aşımı (N-72) ✅
 
 **Files:**
 - Create: `mobile/lib/core/bloc/safe_emit.dart` (`mixin SafeEmit<S> on Cubit<S> { void safeEmit(S s) { if (!isClosed) emit(s); } }`)
@@ -176,11 +176,21 @@ Güncelleme: 2026-11-15
 - Create: `mobile/test/core/bloc/no_raw_emit_after_await_test.dart` (kaynak taraması: listedeki cubit'lerde `await` sonrası çıplak `emit(` yok)
 - Test: `mobile/test/features/auth/auth_cubit_restore_test.dart`
 
-- [ ] **Step 1–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Commit** — rapor N-72 ✅.
+**2026-11-15 T5 kapsam doğrulaması:** Listedeki on Cubit gerçek dosyalarda doğrulandı; T4 üç mesaj/bildirim Cubit’ine zaten kuşak koruması eklemiş, bunlar korunur. AuthCubit’in logout/expire/register yolları da aynı yaşam döngüsünü paylaşır. Repository arayüzleri değişmez; sahtelere zorunlu imza taşıması yok. ApiClient `_post` hem dosya hem multipart ve idempotent tekrarlarını tek noktadan gönderir; 120 sn yalnız FormData isteklerine uygulanır, JSON ve bağlantı/yanıt süreleri değişmez. DI değişikliği gerekmez.
+
+**Ek Files:**
+- Test: `mobile/test/core/bloc/cubit_lifecycle_test.dart`, `mobile/test/core/network/multipart_timeout_test.dart`; plandaki auth restore ve kaynak tarama testleri.
+- Docs: `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/modules/00_genel_bakis.md`, `m01_identity.md`, `m06_assignments.md`, `m10_progress_tracking.md`, `m11_notifications.md`, `m14_reporting.md`, `m15_settings.md`, `m16_messaging.md` ve denetim kaydı.
+
+**Interfaces:** `SafeEmit<S>.safeEmit(S)` kapalı Cubit’e state göndermez. İmza aşaması davranışsız metot, ardından gerçek gecikmeli başarı/hata testleri RED→GREEN. Çok adımlı rapor/dosya yolları kapanıştan sonra yeni okuma/dosya açma başlatmaz. Auth login/register/restore beklenmeyen repository hatasını yakalar, mevcut genel ARB hata metniyle unauthenticated olur; log yalnız işlem ve hata türü içerir. Restore hatası loading’de kalmaz; alttaki işi iptal etmeden yalnız Future.timeout ile yeni oturum yarışı yaratılmaz. Mevcut ağ zaman aşımı sözleşmesi korunur. T2/T3/T4 kuşakları ve timer iptalleri aynen korunur. Ekran dosyası değişmediği için yeni ekran ARB taşıması yok. Tek görev/tek ILERLEME kuralı skill çoklu görev/ayrı ledger önerisinden üstündür.
+
+- [x] **Step 1–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Commit** — rapor N-72 ✅.
   ```bash
   git commit -m "fix(mobile): cubit kapandiktan sonra emit yok, oturum geri yuklemede sonsuz bekleme yok, yukleme zaman asimi (N-72)"
   ```
+
+**2026-11-15 kapanış kanıtı:** Davranışsız SafeEmit imzası analyze ile derlendi; yeni47 test ilk koşumda **7 geçti/40 kırmızı** (gecikmiş başarı/hata, Auth genel hata, kaynak koruması ve multipart15→120sn). Uygulama sonrası **47/47**, tam Flutter **531/531**; `flutter analyze --fatal-infos` temiz. Biçim/import düzeltmesi sonrası timeout6/6 tekrar yeşil. Başlangıç ve kapanış backend ayrı ayrı **19 mimari/1312 birim/214 gerçek Docker integration,0başarısız/0atlanan**; kapanış `test-with-docker.sh` exit0. Toolrestore başarılı; Release -warnaserror0uyarı0hata; NuGet76proje/0advisory. Migration yok. Doc health RED0/mevcut1YELLOW+1BLUE; bağımsız salt-okunur inceleme bulgusuz. İnceleme sınırları: iptalsiz secure-storage Future timeout’u, mevcut diğer form yarışları/genel catch eksikleri ve storage logout hatası T5 davranış yeniden tasarımı değildir; bu alanlar değişmedi. Gerçek cihaz/FCM kapanışı T6/Q8/P25, bu görevden cihaz/ağ teslim garantisi çıkarılmaz. T6 başlamadı; merge/push yok.
 
 ---
 

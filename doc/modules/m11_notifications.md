@@ -448,3 +448,10 @@ Mobil merkez50kayıtla başlar, cursor sonuna kadar kaydırır. Filtre/yenileme 
 Mobil Firebase onMessage → PushService → oturum kapsamlı PushEventBus bağlantısı hazırdır. Kök zil unread-count ucundan, açık bildirim merkezi mevcut filtreyle ilk sayfadan yeniden okunur. Aynı FCM messageId sınırlı bellekte tekilleştirilir; push payload’ı kullanıcıya veri diye sunulmaz. Token izin/getToken/yazma aşamaları kuşak kontrolü taşır; kayıt/silme sıralıdır. Kapanış aboneliği iptal eder. Gerçek FCM cihaz teslimi Q8/P25 nedeniyle henüz kanıtlanmadı; sunucu şeması/olay/uç değişmedi.
 
 Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+NotificationCenterCubit bütün state yayınlarını SafeEmit üzerinden yapar. T4 oturum/okuma kuşakları, cursor koruması ve abonelik iptali sürer; kapanıştan sonra gelen yanıtlar görünür durumu değiştirmez.
+
+Güncelleme: 2026-11-15

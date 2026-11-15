@@ -421,3 +421,10 @@ ChatCubit yüklediği en yeni sunucu mesajının kimliğini gönderir; boş veya
 K-07 REST+poll uygulandı: görünür, resumed sohbet10sn aralıkla; ilgili ön plan push’ında anında tazelenir. Yeni aralık bilinen mesaja kadar keyset sayfalarıyla kapanır; yüklü geçmiş, taslaklar ve benzersiz sunucu kimlikleri korunur. Gelen kutusu push ile yenilenir. Okundu makbuzu görüntülenen en yeni kalıcı mesajla sınırlıdır. Rota kapanışı/arka plan/oturum değişimi poll ve geç yanıtları sınırlar. SignalR, mesaj silme UI’sı, ad çözümleme ve ilişki durumu UI borçları bu görev kapsamında değildir.
 
 Güncelleme: 2026-11-15
+
+
+### P20 Task 5 — Yaşam döngüsü ve gönderim süresi
+
+ChatCubit ve ConversationsCubit tüm state yayınlarında SafeEmit kullanır. T4 oturum kuşakları, görünürlük kapısı, 10 saniyelik poll iptali ve push abonelik temizliği korunur; SafeEmit ağ isteğini iptal etmez.
+
+Güncelleme: 2026-11-15
