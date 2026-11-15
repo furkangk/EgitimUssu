@@ -207,7 +207,7 @@ public sealed class ReportingProjectionTests
     }
 
     [Fact]
-    public async Task Payment_Collected_Event_Should_Accumulate_Delta_Only()
+    public async Task Payment_Collected_Event_Should_Track_Individual_Movements()
     {
         await using var dbContext = NewDbContext();
         var handler = new TeacherMonthlyPaymentCollectedProjectionHandler(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
@@ -398,9 +398,13 @@ public sealed class ReportingProjectionTests
     // --- Yardımcılar ---------------------------------------------------------------------------
 
     private static IntegrationEvent PaymentUpdated(Guid paymentRecordId, decimal previous, decimal current)
-        => Envelope("Payments", "PaymentRecordUpdatedDomainEvent", new
+        => Envelope("Payments", "PaymentTransactionRecordedIntegrationEvent", new
         {
             paymentRecordId,
+            transactionId = Guid.NewGuid(),
+            kind = 1,
+            amount = current - previous,
+            occurredOnUtc = Now,
             teacherUserId = TeacherUserId,
             studentId = StudentId,
             previousCollectedAmount = previous,

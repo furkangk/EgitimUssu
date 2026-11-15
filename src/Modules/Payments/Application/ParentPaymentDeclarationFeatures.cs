@@ -161,7 +161,7 @@ public sealed class ConfirmPaymentDeclarationCommandHandler : ICommandHandler<Co
         }
 
         var now = _clock.UtcNow;
-        var collection = payment.MarkCollectedByParentConfirmation(declaration.DeclaredAmount, now);
+        var collection = payment.MarkCollectedByParentConfirmation(declaration.DeclaredAmount, now, declaration.Id);
         if (collection.IsFailure)
         {
             return Result<ParentPaymentDeclarationResponse>.Failure(collection.Error);

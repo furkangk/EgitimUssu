@@ -15,9 +15,16 @@ public static class DependencyInjection
     {
         services.AddModuleDbContext<PaymentsDbContext>(configuration, "Payments", PaymentsDbContext.SchemaName);
         services.AddScoped<IPaymentRecordRepository, PaymentRecordRepository>();
+        services.AddScoped<IPaymentTransactionDirectory, PaymentTransactionDirectory>();
         services.AddScoped<EgitimUssu.Shared.Contracts.IStudentPaymentDigestDirectory, StudentPaymentDigestDirectory>();
         services.AddScoped<ICommandHandler<CreatePaymentRecordCommand, Result<PaymentRecordResponse>>, CreatePaymentRecordCommandHandler>();
         services.AddScoped<ICommandHandler<UpdatePaymentRecordCommand, Result<PaymentRecordResponse>>, UpdatePaymentRecordCommandHandler>();
+        services.AddScoped<ICommandHandler<AddCollectionCommand, Result<PaymentRecordResponse>>, PaymentTransactionCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<AddCollectionCommand>, PaymentRecordAuthorizer>();
+        services.AddScoped<ICommandHandler<RefundPaymentCommand, Result<PaymentRecordResponse>>, PaymentTransactionCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<RefundPaymentCommand>, PaymentRecordAuthorizer>();
+        services.AddScoped<ICommandHandler<CancelPaymentCommand, Result<PaymentRecordResponse>>, PaymentTransactionCommandHandler>();
+        services.AddScoped<ICommandAuthorizer<CancelPaymentCommand>, PaymentRecordAuthorizer>();
         services.AddScoped<IQueryHandler<GetPaymentRecordByIdQuery, Result<PaymentRecordResponse>>, GetPaymentRecordByIdQueryHandler>();
         services.AddScoped<IQueryHandler<ListPaymentRecordsForTeacherQuery, Result<IReadOnlyCollection<PaymentRecordResponse>>>, ListPaymentRecordsForTeacherQueryHandler>();
         services.AddScoped<IQueryHandler<ListFilteredPaymentRecordsForTeacherQuery, Result<IReadOnlyCollection<PaymentRecordResponse>>>, ListFilteredPaymentRecordsForTeacherQueryHandler>();

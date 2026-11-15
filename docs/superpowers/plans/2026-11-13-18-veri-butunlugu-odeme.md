@@ -56,7 +56,7 @@
 
 **Doğrulama (2026-11-15):** İmza Release 0/0. 11/12 unit ve 3/3 gerçek PostgreSQL kırmızı → 12/12 unit ve 3/3 gerçek PostgreSQL yeşil. İlk tam pakette yeni göçün ortaya çıkardığı positional eski migration testi kırmızı → adla hedeflenen sınırla yeşil; bağımsız incelemedeki yeni testin aynı varsayımı da düzeltildi. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1208 birim / 157 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental`: **0 uyarı / 0 hata**. Mobil değişmedi, Flutter koşulmadı. Sekiz göçün ileri/geri SQL’i DDL içermez; gerçek PostgreSQL başlangıç göçleri uygulandı. Migration drift **0**; **163 Down** kontrolü (9 no-op) yeşil. Doc health RED **0**, kapsam dışı 2 YELLOW korundu.
 
-### Task 2: Tahsilat hareketleri ve niyete dayalı ödeme komutları (N-09, N-10)
+### Task 2: Tahsilat hareketleri ve niyete dayalı ödeme komutları (N-09, N-10) ✅
 
 **Files:**
 - Modify: `src/Modules/Payments/Domain/PaymentsDomainModel.cs` (`PaymentTransaction` çocuk entity; `AddCollection`, `Refund`, `Cancel`, `UpdateDetails`; `CollectedAmount` ve `Status` türetilir; `UpdateManualTracking` kaldırılır)
@@ -66,25 +66,37 @@
 - Modify: `src/Modules/Payments/API/PaymentsModule.cs` (uçlar)
 - Modify: `src/Modules/Payments/Infrastructure/PaymentsDbContext.cs`, `PaymentRecordRepository.cs`
 - Modify: `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs` (fark yerine hareket olayı)
-- Migration: `PaymentTransactions` — mevcut `CollectedAmount > 0` kayıtları için tek sentetik `Collection` hareketi (`Method = Migrated`, `OccurredOnUtc = UpdatedOnUtc`)
+- Migration: `PaymentTransactions` — mevcut `CollectedAmount > 0` kayıtları için tek sentetik `Collection` hareketi (`Method = Migrated`, `OccurredOnUtc = COALESCE(CollectedOnUtc, DueDateUtc)` — kaynak tabloda UpdatedOnUtc yok; gerçek tahsil zamanı öncelikli, yoksa vade geri alınabilir tarihsel yedektir)
+- Modify: `src/Modules/Payments/Infrastructure/DependencyInjection.cs`, `PaymentOverdueScanner.cs`, `PaymentsPersonalDataAnonymizer.cs` (DI, yerel vade, hareket notlarının temizliği)
+- Create: `src/Shared/Contracts/PaymentTransactionContract.cs`, `src/Modules/Payments/Infrastructure/PaymentTransactionDirectory.cs` (yeniden kurulum için salt okunur kaynak)
+- Modify: `src/Modules/Reporting/Domain/ReportingProjections.cs`, `src/Modules/Reporting/Infrastructure/DependencyInjection.cs` (hareket kimliğiyle upsert + tahsil/iade toplamı)
+- Create: `src/Modules/Reporting/Infrastructure/PaymentCollectionProjectionRebuilder.cs` (`IProjectionRebuilder`, yalnız tahsilat boyutunu kaynaktan kurar; hosted initializer eski raporu ilk isteği kabul etmeden bir kez geçirir)
+- Modify: `tests/Unit/PaymentRequestCacheTests.cs`, `WriteEndpointLinkAuthorizationTests.cs`, `PaymentSearchTests.cs`, `PaymentSummaryOutstandingTests.cs`, `PaymentOverdueScannerTests.cs`, `ParentPaymentDeclarationTests.cs`, `ParentPaymentSettlementIntegrityTests.cs`, `ReportingProjectionTests.cs`, `tests/Integration/RealConcurrencyTokenTests.cs`, `RealProjectionRebuildTests.cs`, `TeacherWorkflowIntegrationTests.cs` (değişen komut/kurucu ve eski tahsilat beklentileri)
+- Docs: `doc/modules/m07_payments.md`, `m14_reporting.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/roles/ogretmen.md`, `doc/roles/veli.md`, `doc/architecture/backend.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`, bu plan; ayrı ilerleme: `docs/superpowers/ILERLEME.md`
+- Modify: `src/API.Host/Seeding/DemoDataSeeder.cs` (demo tam tahsilatın tarihi gelecekteydi; gerçek geçmiş tarih), `tests/Integration/RealJobLeaseRenewalTests.cs` (tek seferlik senkron başlangıç kapısını periyodik BackgroundService sınıflarından ayırır), `doc/architecture/environments.md`
 - Test: `tests/Unit/PaymentTransactionTests.cs`, `tests/Integration/RealPaymentCollectionConcurrencyTests.cs`
 
 **Interfaces:**
 - `enum PaymentTransactionKind { Collection = 1, Refund = 2 }`, `enum PaymentMethod { Cash = 1, BankTransfer = 2, Card = 3, ParentDeclaration = 4, Other = 5, Migrated = 99 }`
 - Uçlar: `POST /api/payments/records/{id}/collections` `{ amount, method, occurredOnUtc, note }`, `POST /api/payments/records/{id}/refunds`, `POST /api/payments/records/{id}/cancel`, `PUT /api/payments/records/{id}` (yalnız ayrıntılar).
 - Türetilmiş durum: `Cancelled` (iptal) · `Paid` (tahsil ≥ beklenen) · `PartiallyPaid` (0 < tahsil < beklenen) · `Overdue` (tahsil < beklenen ve vade geçmiş, yerel gün) · `Pending`.
-- Olay: `PaymentTransactionRecordedIntegrationEvent(PaymentRecordId, TransactionId, Kind, Amount, Currency, OccurredOnUtc)`.
+- Olay: `PaymentTransactionRecordedIntegrationEvent(PaymentRecordId, TransactionId, TeacherUserId, Kind, Amount, Currency, OccurredOnUtc)`.
 
-- [ ] **Step 1: Kırmızı testler** — veli beyanı onayı (500) sonrası öğretmen not düzeltmesi → tahsilat **500 kalır**, durum `Paid`; iki paralel 250 tahsilat (Testcontainers) → toplam 500 **veya** biri 409 — sessiz kayıp **yok**; iade → tahsil düşer, durum yeniden hesaplanır; iptal edilmiş kayıt özette beklenen toplama girmez; aylık rapor tahsilatı hareket toplamına eşit.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Domain + komutlar + uçlar + migration + projeksiyon.** Projeksiyonu yeniden kur (`IProjectionRebuilder`).
-- [ ] **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 5: Doküman + commit** — `m07_payments.md` (uç envanteri, durum türetme tablosu), `00_genel_bakis.md`, `veri_modeli.md`; rapor N-09/N-10 ✅.
+**T2 kapsam/karar (2026-11-15):** Mevcut depo arayüzü değişmez (altı sahte tarandı); hareketler aggregate ile Include/AutoInclude yüklenir. PUT yalnız açıklama/beklenen tutar/vade/not düzenler; eski JSON'un tahsilat/durum alanları yok sayılır. Para birimi ve ilişki kimliği PUT ile değişmez. Yeni olay öğretmen kimliğini de taşır (eski outbox kayıtlarına alan eklenmez). Eski Updated olayı diğer tüketiciler için korunur; aylık tahsilat yalnız hareket olayından, TransactionId upsert'iyle beslenir. Kaynak hareketlerden `IProjectionRebuilder` göç edilmiş tahsilatları da kurar; eski delta olayları yeniden tahsilat sayılmaz. İptal tahsilat sıfırsa serbest, aksi önce iade istenir. İade net tahsilatı aşamaz, iptal kayda hareket eklenmez; pozitif/iki haneli tutar ve geçerli yöntem doğrulanır. Durum sırası Paid → PartiallyPaid → (sıfır tahsilatta yerel vade geçtiyse) Overdue → Pending; gecikme bayrağı kısmi bakiyede ayrıca görünür. Mobil geçiş T4'tedir.
+
+- [x] **Step 0: İmza** — davranışsız hareket metotları/tipleri, komutlar ve kaynak/rebuilder imzaları; Release derle.
+- [x] **Step 1: Kırmızı testler** — veli beyanı onayı (500) sonrası öğretmen not düzeltmesi → tahsilat **500 kalır**, durum `Paid`; iki paralel 250 tahsilat (Testcontainers) → toplam 500 **veya** biri 409 — sessiz kayıp **yok**; iade → tahsil düşer, durum yeniden hesaplanır; iptal edilmiş kayıt özette beklenen toplama girmez; aylık rapor tahsilatı hareket toplamına eşit.
+- [x] **Step 2: Kırmızı gör.**
+- [x] **Step 3: Domain + komutlar + uçlar + migration + projeksiyon.** Projeksiyonu yeniden kur (`IProjectionRebuilder`).
+- [x] **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 5: Doküman + commit** — `m07_payments.md` (uç envanteri, durum türetme tablosu), `00_genel_bakis.md`, `veri_modeli.md`; rapor N-09 backend ✅ (mobil T4 açık), N-10 ✅.
   ```bash
   git commit -m "feat(payments): tahsilat hareketleri + niyete dayali komutlar, durum turetilir (N-09, N-10)"
   ```
 
 ---
+
+**Doğrulama (2026-11-15):** Davranışsız domain imzaları Release 0 uyarı/0 hata; 8/8 ilk unit, hareket kimliği aylık rapor ve yerel vade testleri kırmızı → yeşil. İlk PostgreSQL göçte hareket yokluğu, farklı EventId ile eski delta çift sayımı kırmızı → yeşil; yetki testindeki yanlış arşiv URL/204 beklentisi test kurulumu hatası olarak düzeltildi (özellik kırmızısı sayılmadı). Bağımsız inceleme sonrası 1 unit + 4 PG kırmızı: eski500+yeni100 raporu100, notta ikinci gecikme olayı, eski Paid+0, ilk 1.001/gelecek tarih200 → düzeltildi. Son tam **bash scripts/test-with-docker.sh: 19 mimari / 1219 birim / 164 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental`: **0 uyarı/0 hata**, tool restore başarılı, drift **0**, **164 Down** (9 no-op). Yedi yeni gerçek PG testi: paralel tahsilat rollback; veli onayı/eski PUT/iade/yeniden oynatma/kaynak rebuild; yabancı ve arşivli öğretmen; ayrı DB’de eski veri Down/Up; startup eski rapor geçişi; iki ilk tahsilat doğrulaması. Tam paketin yakaladığı eski PUT workflow beklentisi yeni collections adımıyla, seed gelecekte tahsil tarihi ve periyodik-job envanteri kapsamı da düzeltildi; hedefli 7 workflow ve 12 seed/kira testi yeşil. Mobil değişmedi, Flutter koşulmadı. Doc health RED 0, mevcut 2 YELLOW + 1 BLUE kapsam dışında. Sonraki görev yalnız T3; merge/push yok.
 
 ### Task 3: Para birimi bazlı özetler ve veli beyanı tekliği (N-11 para birimi, N-16 beyan maddesi)
 
@@ -152,3 +164,5 @@
   ```
 
 *Güncelleme: 2026-11-15 — P18 T1 kapsam doğrulaması: sekiz domain dosyası, boş migration/snapshot kapsamı, mevcut outbox retry kanıtı ve imza adımı.*
+
+*Güncelleme: 2026-11-15 — P18 T2 tamamlandı; niyet komutları, veri/rapor geçişi ve regresyon kanıtları.*

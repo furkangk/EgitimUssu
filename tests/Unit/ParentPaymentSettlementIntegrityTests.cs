@@ -32,7 +32,7 @@ public sealed class ParentPaymentSettlementIntegrityTests
     [InlineData(PaymentStatus.Cancelled)]
     public async Task Closed_payment_rejects_new_declaration(PaymentStatus status)
     {
-        var payment = NewPayment(status);
+        var payment = NewPayment(status, status == PaymentStatus.Paid ? 500m : 0m);
         var declarations = new DeclarationRepository();
         var handler = new DeclarePaymentPaidCommandHandler(new PaymentRepository(payment), declarations, new IdGenerator(), new Clock());
 

@@ -152,6 +152,7 @@ erDiagram
     LessonSession ||--o{ Assignment : "LessonSessionId"
     LessonSession ||--o| LessonNote : "LessonSessionId"
     LessonSession ||--o{ PaymentRecord : "RelatedLessonSessionId"
+    PaymentRecord ||--o{ PaymentTransaction : "PaymentRecordId"
     Assignment ||--o{ AssignmentSubmission : "öğrenci yükleme (önerilen)"
 
     Conversation ||--o{ ConversationParticipant : "önerilen"
@@ -189,6 +190,7 @@ erDiagram
 | | `LessonNote` (+`Visibility` — B-05 2026-07-18) | `Id` | `LessonSessionId` · `TeacherUserId` · `StudentId` | |
 | | `LessonResource` (ders kaynağı — dosya/bağlantı, M06-1 2026-09-03; `(TeacherUserId,IsActive)` + `(StudentId,IsActive)` indeksli, yumuşak silme) | `Id` | `TeacherUserId` · `StudentId?` (null = tüm öğrencilere açık) · `LessonSessionId?` | `Kind`, `StorageKey`, `FileName`, `ContentType`, `SizeBytes`, `Url`, `IsActive`, `ArchivedOnUtc?` |
 | Payments (`payments`) | `PaymentRecord` (M07-1: `OverdueMarkedOnUtc` `timestamptz?` — tarama turunun `Overdue` işaretlediği an) | `Id` | `TeacherUserId` · `StudentId` · `RelatedLessonSessionId?` | [m07](m07_payments.md) |
+| | `PaymentTransaction` (`payment_transactions`; Kind Collection/Refund, Amount numeric(18,2), Method, OccurredOnUtc, Note; `(PaymentRecordId, OccurredOnUtc)` indeks) | `Id` | `PaymentRecordId` → PaymentRecord (cascade); istemci kimliği ValueGeneratedNever | P18 T2: eski net tahsilat tek Migrated harekete göçer |
 | | `ParentPaymentDeclaration` (veli "ödedim" beyanı, Veli V-G; `Status` Declared/Confirmed/Rejected) | `Id` | `PaymentRecordId` → PaymentRecord · `ParentUserId`/`TeacherUserId` → UserAccount · `StudentId` → StudentProfile | |
 | Notifications (`notifications`) | `LessonReminder` | `Id` | `(LessonScheduleId, OccurrenceStartUtc, RecipientUserId)` UNIQUE · `TeacherUserId` · `StudentId` | [m11](m11_notifications.md) |
 | | `ParentNotification` (veli bildirimi, Veli V-E; `Type` WeeklySummary/NewAssignment/LessonCompleted/PaymentUpdate/LinkConnected/PaymentDeclared) | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile | |
@@ -267,3 +269,5 @@ erDiagram
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin model metadatası.*
+
+*Güncelleme: 2026-11-15 — P18 T2: PaymentTransaction çocuk tablosu ve tahsilat/iade aylık item türleri (4/5).*

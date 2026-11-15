@@ -51,7 +51,7 @@ public sealed class RealConcurrencyTokenTests(ContainerFixture fixture)
         Assert.NotEqual(b.Version, stored.Version);
         Assert.Equal("winner", stored.Description);
         Assert.Equal(250m, stored.CollectedAmount);
-        Assert.Equal(1, await verify.OutboxMessages.CountAsync(x => x.Type == nameof(PaymentRecordUpdatedDomainEvent)
+        Assert.Equal(2, await verify.OutboxMessages.CountAsync(x => x.Type == nameof(PaymentRecordUpdatedDomainEvent)
             && x.Payload.Contains(payment.Id.ToString())));
     }
 
@@ -199,7 +199,7 @@ public sealed class RealConcurrencyTokenTests(ContainerFixture fixture)
                 Update(latest, "competing collection", 100m);
                 await competing.SaveChangesAsync(cancellationToken);
             }
-            Update(payment, "outbox adjustment", payment.CollectedAmount + 250m);
+            Update(payment, "outbox adjustment", 250m);
             return true;
         }
     }
@@ -226,9 +226,11 @@ public sealed class RealConcurrencyTokenTests(ContainerFixture fixture)
         Guid.NewGuid(), teacherId ?? Guid.NewGuid(), studentId ?? Guid.NewGuid(), null, BillingItemType.LessonFee,
         "concurrency seed", "TRY", 500m, 0m, DateTime.UtcNow.AddDays(1), null, PaymentStatus.Pending, null, null, null, DateTime.UtcNow);
 
-    private static void Update(PaymentRecord payment, string description, decimal amount) => payment.UpdateManualTracking(
-        null, BillingItemType.LessonFee, description, "TRY", 500m, amount, payment.DueDateUtc, DateTime.UtcNow,
-        PaymentStatus.PartiallyPaid, null, null, null, DateTime.UtcNow);
+    private static void Update(PaymentRecord payment, string description, decimal amount)
+    {
+        payment.UpdateDetails(description, 500m, payment.DueDateUtc, null, DateTime.UtcNow);
+        payment.AddCollection(Guid.NewGuid(), amount, PaymentMethod.Cash, DateTime.UtcNow, null, DateTime.UtcNow);
+    }
 
     private static object Payload(string description, decimal amount) => new
     {

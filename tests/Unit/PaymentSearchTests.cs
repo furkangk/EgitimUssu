@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Payments.Application;
 using EgitimUssu.Modules.Payments.Domain;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Shared.Infrastructure;
 
 namespace EgitimUssu.Tests.Unit;
 
@@ -69,7 +70,7 @@ public sealed class PaymentSearchTests
     }
 
     private static SearchPaymentRecordsForTeacherQueryHandler NewHandler(IReadOnlyCollection<PaymentRecord> records)
-        => new(new FakeRepo(records), new FixedClock(Now));
+        => new(new FakeRepo(records), new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
     private static PaymentRecord Record(string description, PaymentStatus status, int dueDaysFromNow)
         => new(

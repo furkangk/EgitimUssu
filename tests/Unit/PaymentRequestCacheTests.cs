@@ -1,6 +1,7 @@
 using EgitimUssu.Modules.Payments.Application;
 using EgitimUssu.Modules.Payments.Domain;
 using EgitimUssu.Shared.Application;
+using EgitimUssu.Shared.Infrastructure;
 using EgitimUssu.Shared.Kernel;
 using EgitimUssu.Tests.Unit.TestDoubles;
 
@@ -24,7 +25,7 @@ public sealed class PaymentRequestCacheTests
 
         var authorization = await new PaymentRecordAuthorizer(Teacher(), repository, cache, new FakeTeacherStudentAccess())
             .Authorize(query, CancellationToken.None);
-        var result = await new GetPaymentRecordByIdQueryHandler(repository, new FixedClock(Now), cache)
+        var result = await new GetPaymentRecordByIdQueryHandler(repository, new FixedClock(Now), cache, new LocalCalendar("Europe/Istanbul", new FixedClock(Now)))
             .Handle(query, CancellationToken.None);
 
         Assert.True(authorization.IsSuccess);
@@ -39,12 +40,11 @@ public sealed class PaymentRequestCacheTests
         var repository = new CountingPaymentRepository(record);
         var cache = new FakeRequestEntityCache();
         var command = new UpdatePaymentRecordCommand(
-            record.Id, null, BillingItemType.LessonFee, "Ders", "TRY", 150m, 0m,
-            Now.AddDays(7), null, PaymentStatus.Pending, null, null, null);
+            record.Id, "Ders", 150m, Now.AddDays(7), null);
 
         var authorization = await new PaymentRecordAuthorizer(Teacher(), repository, cache, new FakeTeacherStudentAccess())
             .Authorize(command, CancellationToken.None);
-        var result = await new UpdatePaymentRecordCommandHandler(repository, new FixedClock(Now), cache)
+        var result = await new UpdatePaymentRecordCommandHandler(repository, new FixedClock(Now), cache, new LocalCalendar("Europe/Istanbul", new FixedClock(Now)))
             .Handle(command, CancellationToken.None);
 
         Assert.True(authorization.IsSuccess);
@@ -59,7 +59,7 @@ public sealed class PaymentRequestCacheTests
         var record = Record();
         var repository = new CountingPaymentRepository(record);
 
-        var result = await new GetPaymentRecordByIdQueryHandler(repository, new FixedClock(Now), new FakeRequestEntityCache())
+        var result = await new GetPaymentRecordByIdQueryHandler(repository, new FixedClock(Now), new FakeRequestEntityCache(), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)))
             .Handle(new GetPaymentRecordByIdQuery(record.Id), CancellationToken.None);
 
         Assert.True(result.IsSuccess);

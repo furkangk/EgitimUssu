@@ -49,6 +49,9 @@ Single iptal aylık raporda oluşum bazında sayılır. Pano tamamlanmış dersi
 **P17 T7 — pano ders sayısı:** Reporting `teachers/{id}/dashboard` sayacı serinin her oluşumunu kendi yerel gününde sayar. Ertelenen ders görünen güne taşınır; iptal/silme ve seri bölme güncel kaynaktan uzlaştırılır, geç gelen olay iptali açmaz. Dün → +14 gün penceresi günlük ilerler ve eski ders satırları budanır. Mobil ana sayfa kendi BFF/liste veri yolunu kullanır; bu görev mobil akışı değiştirmedi.
 
 
+**P18 T2 (2026-11-15, backend):** Öğretmen tahsilat veya iade hareketi ekler, açıklama/beklenen tutar/vade/notu ayrı düzenler. Eski ekrandan not düzeltmesi alınan parayı değiştirmez. İptal için önce net tahsilat iade edilir. Para birimi ve öğrenci kimliği sonradan değişmez; arşivli bağda finans yazmaları 403’tür. Mobil tahsilat ekranının yeni komuta geçişi P18 T4’tedir.
+
+
 ## 1. Tasarım İlkesi
 
 Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, iletişimi **telefon/WhatsApp'ta**, ödevi **sözlü/PDF** ile, ödemeyi **elden** yönetir; konu/ödev/gelişim takibi sistematik değildir. Bu rol, tüm bu dağınık işi **tek uygulamada** toplar.
@@ -248,3 +251,5 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık ders akış diyagramı ve aylık Single iptal sayımı.*
+
+*Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*

@@ -300,6 +300,11 @@ public sealed class TeacherWorkflowIntegrationTests
         Assert.Equal("PartiallyPaid", paymentPayload.GetProperty("status").GetString());
         Assert.Equal(750, paymentPayload.GetProperty("outstandingAmount").GetDecimal());
 
+        // Tahsilat artık toplam PUT'u değil niyet komutudur: ilk 500'e 750 ekle.
+        using var collectionResponse = await client.PostAsJsonAsync($"/api/payments/records/{paymentRecordId}/collections", new
+        { amount = 750m, method = 1, occurredOnUtc = DateTime.UtcNow, note = "Kalan taksit" });
+        collectionResponse.EnsureSuccessStatusCode();
+
         var paymentUpdateResponse = await client.PutAsJsonAsync($"/api/payments/records/{paymentRecordId}", new
         {
             teacherUserId,

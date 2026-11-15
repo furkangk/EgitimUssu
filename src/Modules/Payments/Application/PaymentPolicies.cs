@@ -5,13 +5,14 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Payments.Application;
 
-public sealed class CreatePaymentRecordCommandValidator : ICommandValidator<CreatePaymentRecordCommand>
+public sealed class CreatePaymentRecordCommandValidator(IClock clock) : ICommandValidator<CreatePaymentRecordCommand>
 {
     private static readonly Error InvalidRequest = new("payments.invalid_request", "Odeme kaydi bilgileri eksik veya hatali.");
 
     public Task<Result> Validate(CreatePaymentRecordCommand command, CancellationToken cancellationToken)
     {
         return Task.FromResult(IsValid(command.TeacherUserId, command.StudentId, command.Description, command.Currency, command.ExpectedAmount, command.CollectedAmount, command.DueDateUtc)
+            && (!command.CollectedOnUtc.HasValue || command.CollectedOnUtc <= clock.UtcNow)
             ? Result.Success()
             : Result.Failure(InvalidRequest));
     }
@@ -21,9 +22,10 @@ public sealed class CreatePaymentRecordCommandValidator : ICommandValidator<Crea
         return teacherUserId != Guid.Empty
             && studentId != Guid.Empty
             && !string.IsNullOrWhiteSpace(description)
-            && !string.IsNullOrWhiteSpace(currency)
-            && expectedAmount >= 0
-            && collectedAmount >= 0
+            && currency is not null && currency.Trim().Length == 3 && currency.Trim().All(char.IsAsciiLetter)
+            && description.Length <= 200
+            && PaymentRecord.IsValidAmount(expectedAmount)
+            && PaymentRecord.IsValidAmount(collectedAmount)
             && collectedAmount <= expectedAmount
             && dueDateUtc != default;
     }
@@ -37,10 +39,7 @@ public sealed class UpdatePaymentRecordCommandValidator : ICommandValidator<Upda
     {
         var isValid = command.PaymentRecordId != Guid.Empty
             && !string.IsNullOrWhiteSpace(command.Description)
-            && !string.IsNullOrWhiteSpace(command.Currency)
             && command.ExpectedAmount >= 0
-            && command.CollectedAmount >= 0
-            && command.CollectedAmount <= command.ExpectedAmount
             && command.DueDateUtc != default;
 
         return Task.FromResult(isValid ? Result.Success() : Result.Failure(InvalidRequest));
@@ -89,6 +88,9 @@ public sealed class PaymentQueryValidator :
 public sealed class PaymentRecordAuthorizer :
     ICommandAuthorizer<CreatePaymentRecordCommand>,
     ICommandAuthorizer<UpdatePaymentRecordCommand>,
+    ICommandAuthorizer<AddCollectionCommand>,
+    ICommandAuthorizer<RefundPaymentCommand>,
+    ICommandAuthorizer<CancelPaymentCommand>,
     IQueryAuthorizer<GetPaymentRecordByIdQuery>,
     IQueryAuthorizer<ListPaymentRecordsForTeacherQuery>,
     IQueryAuthorizer<ListFilteredPaymentRecordsForTeacherQuery>,
@@ -117,9 +119,18 @@ public sealed class PaymentRecordAuthorizer :
 
     // P15 T2 / N-08: velinin paneline düşen borç kaydı yalnız yaşayan özel ders bağıyla yazılır/değiştirilir.
     // Bilinçli sonuç: bağı arşivlenmiş öğrencinin eski borcu, arşivden çıkarılmadan tahsil edildi işaretlenemez
-    // (tahsilat hareketleri P18 T2'de ayrı niyet komutu olur). Okumalar yalnız sahipliğe bakar.
+    // Tahsilat/iade/iptal de aynı yaşayan bağ kuralına tabidir. Okumalar yalnız sahipliğe bakar.
     public Task<Result> Authorize(CreatePaymentRecordCommand command, CancellationToken cancellationToken)
         => AuthorizeStudentWrite(command.TeacherUserId, command.StudentId, cancellationToken);
+
+    public Task<Result> Authorize(AddCollectionCommand command, CancellationToken ct) => AuthorizeRecordWrite(command.PaymentRecordId, ct);
+    public Task<Result> Authorize(RefundPaymentCommand command, CancellationToken ct) => AuthorizeRecordWrite(command.PaymentRecordId, ct);
+    public Task<Result> Authorize(CancelPaymentCommand command, CancellationToken ct) => AuthorizeRecordWrite(command.PaymentRecordId, ct);
+    private async Task<Result> AuthorizeRecordWrite(Guid id, CancellationToken ct)
+    {
+        var record = await _entityCache.LoadPaymentRecordAsync(_repository, id, ct);
+        return record is null ? Result.Failure(NotFound) : await AuthorizeStudentWrite(record.TeacherUserId, record.StudentId, ct);
+    }
 
     public async Task<Result> Authorize(UpdatePaymentRecordCommand command, CancellationToken cancellationToken)
     {

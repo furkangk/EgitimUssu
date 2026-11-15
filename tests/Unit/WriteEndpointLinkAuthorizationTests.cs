@@ -304,8 +304,7 @@ public sealed class WriteEndpointLinkAuthorizationTests
             Now.AddDays(7), null, PaymentStatus.Pending, null, null, null);
 
     private static UpdatePaymentRecordCommand UpdatePayment(Guid paymentRecordId) =>
-        new(paymentRecordId, null, BillingItemType.LessonFee, "Ders ücreti", "TRY", 150m, 0m,
-            Now.AddDays(7), null, PaymentStatus.Pending, null, null, null);
+        new(paymentRecordId, "Ders ücreti", 150m, Now.AddDays(7), null);
 
     private static PaymentRecord Payment(Guid teacherUserId, Guid studentId) =>
         new(Guid.NewGuid(), teacherUserId, studentId, null, BillingItemType.LessonFee, "Ders ücreti", "TRY",

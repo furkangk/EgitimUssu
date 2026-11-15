@@ -33,6 +33,9 @@ updated: 2026-11-15
 
 **P18 T1 / K-22:** M03, M04, M06, M07, M08, M09, M10 ve M17’de toplam 10 kritik tip `IVersioned`/PostgreSQL `xmin` taşır; ortak middleware çakışmayı `409 shared.concurrency_conflict` döner. Sekiz `AddVersionToken` migration’ı yalnız model metadatasıdır. Ödeme niyet komutları T2’de; yeni endpoint yoktur.
 
+**P18 T2 (2026-11-15):** M07’ye `POST /records/{id}/collections`, `/refunds`, `/cancel` eklendi (14 uç); PUT yalnız ayrıntıları günceller. Net tahsilat/durum hareketlerden türetilir, eski istemci toplam göndererek tahsilatı ezemez. `PaymentTransactions` göçü eski tahsilatı tek `Migrated` harekete taşır; `IPaymentTransactionDirectory` ve `reporting.payment-collections` yeniden kurucusu aylık raporu besler. Mobil geçiş T4’tedir.
+
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -224,6 +227,8 @@ GET /lesson-resources/{resourceId}/file   DELETE /lesson-resources/{resourceId} 
 [expose] IStudentNotesDirectory (Shared.Contracts) — Parents veliye görünür öğretmen notları
 ```
 ### Payments — `/api/payments`
+
+`POST /records/{id}/collections`, `POST /records/{id}/refunds`, `POST /records/{id}/cancel`; `PUT /records/{id}` yalnız description/expectedAmount/dueDateUtc/notes.
 ```
 POST /records   PUT /records/{paymentRecordId}   GET /records/{paymentRecordId}
 GET /teachers/{teacherUserId}/records   /summary   /records/filter   /records/search   (search: metin+durum+öğrenci+tarih, sayfalı)
@@ -319,7 +324,7 @@ GET /status
           Payments BecameOverdue/RecordUpdated · Students TeacherStudentLinkAccepted
           → teacher_dashboard_projections (read-model, idempotent — ortak inbox_messages)
 [consume] LessonSessions LessonSessionCompleted · Scheduling LessonScheduleCancelled ·
-          Payments PaymentRecordCreated/PaymentRecordUpdated  → teacher_monthly_projections (M14-1)
+          Payments PaymentRecordCreated/PaymentTransactionRecordedIntegrationEvent  → teacher_monthly_projections (M14-1)
 [consume] Study StudySessionCompleted/TestResultRecorded      → student_study_projections (M14-2)
 [consume] Study TestResultRecorded · ProgressTracking TopicMasteryChanged
                                                               → student_performance_projections (M14-3)
@@ -390,3 +395,5 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
 
 *Güncelleme: 2026-11-15 — P18 Task 1 eşzamanlılık altyapısı.*
+
+*Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*

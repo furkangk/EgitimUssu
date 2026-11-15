@@ -17,6 +17,8 @@ public sealed class PaymentsDbContext : ModuleDbContext
     {
     }
 
+    public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+
     public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
 
     public DbSet<ParentPaymentDeclaration> ParentPaymentDeclarations => Set<ParentPaymentDeclaration>();
@@ -37,6 +39,8 @@ internal sealed class PaymentRecordConfiguration : IEntityTypeConfiguration<Paym
     public void Configure(EntityTypeBuilder<PaymentRecord> builder)
     {
         builder.ToTable("payment_records");
+        builder.HasMany(x => x.Transactions).WithOne().HasForeignKey(x => x.PaymentRecordId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(x => x.Transactions).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
         builder.HasKey(entity => entity.Id);
         builder.Property(entity => entity.ItemType).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(entity => entity.Description).HasMaxLength(200).IsRequired();
@@ -64,5 +68,20 @@ internal sealed class ParentPaymentDeclarationConfiguration : IEntityTypeConfigu
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status });
         builder.HasIndex(entity => entity.PaymentRecordId);
+    }
+}
+
+internal sealed class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentTransaction>
+{
+    public void Configure(EntityTypeBuilder<PaymentTransaction> builder)
+    {
+        builder.ToTable("payment_transactions");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Kind).HasConversion<string>().HasMaxLength(16);
+        builder.Property(x => x.Method).HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.Amount).HasPrecision(18, 2);
+        builder.Property(x => x.Note).HasMaxLength(1000);
+        builder.HasIndex(x => new { x.PaymentRecordId, x.OccurredOnUtc });
     }
 }

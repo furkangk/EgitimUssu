@@ -37,7 +37,7 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 |--------|-------|-------|
 | Domain (`PaymentRecord`) | ✅ Mevcut | `src/Modules/Payments/Domain/PaymentsDomainModel.cs` |
 | Application (CQRS + handler) | ✅ Mevcut | `src/Modules/Payments/Application/PaymentFeatures.cs` |
-| API (oluştur/güncelle/getir/listele/özet/filtre/**arama+sayfalama** + veli beyan 4 endpoint) | ✅ Mevcut (**11 endpoint**) | `src/Modules/Payments/API/PaymentsModule.cs` |
+| API (oluştur/güncelle/getir/listele/özet/filtre/**arama+sayfalama** + veli beyan 4 endpoint) | ✅ Mevcut (**14 endpoint**) | `src/Modules/Payments/API/PaymentsModule.cs` |
 | Hesaplanan alanlar (kalan/gecikme/gösterim durumu) | ✅ Mevcut | `PaymentRecordMappings` (`GetOutstandingAmount`, `IsOverdue`, `GetDisplayStatus`) |
 | Para birimi bazında özet | ✅ Mevcut | `GetTeacherPaymentSummaryQuery` |
 | Veli ile paylaşım (`IsSharedWithParent`) | 🔴 **Yok** | Önerilen — bkz. §2.2 |
@@ -47,7 +47,7 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 | Mobil ödeme ekranları | ✅ Mevcut | `mobile/lib/features/payments` |
 
 > **Güncelleme (2026-09-04, P06 Task 5):** Kalıcı statü değişimi artık var. Okuma anındaki
-> `GetDisplayStatus(now)` hesabı **korunur** (tarama turu arasındaki kayıtlar da gecikmiş görünür);
+> `GetDisplayStatus(calendar)` hesabı **korunur** (tarama turu arasındaki kayıtlar da gecikmiş görünür);
 > `PaymentOverdueScanProcessor` bunun üstüne DB'deki `Status`'ü de `Overdue`'a çeker ve bildirim
 > zincirini başlatır. İkisi çelişmez: tarama yalnız zaten gecikmiş olanı kalıcı hâle getirir.
 
@@ -57,7 +57,7 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 
 **P18 T1 — eşzamanlılık (K-22):** `PaymentRecord` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
 
-Bu token eşzamanlı veritabanı yazmalarını korur. Sıralı olarak gelen eski ekranın tam PUT’unun tahsilatı ezmesini engelleyen niyete dayalı ödeme komutları **P18 T2**’dedir; N-09 bu adımla tamamen kapanmaz.
+**P18 T2 (2026-11-15):** Tahsilat/iade `PaymentTransaction` çocuk satırlarıdır; net toplam bu hareketlerden hesaplanıp kayıtta saklanır. PUT yalnız `Description`, `ExpectedAmount`, `DueDateUtc`, `Notes` alır. Eski ekranın `collectedAmount`, `status`, `currency` alanları yok sayılır; tahsilat ancak ayrı komutla değişir. Mobil tahsilat çağrısının geçişi **P18 T4**'tedir; eski mobil PUT'u yeni tahsilat kaydetmez.
 
 
 ### 2.1 🟢 Mevcut (koddan) — `PaymentRecord` (AggregateRoot<Guid>)
@@ -72,7 +72,7 @@ Bu token eşzamanlı veritabanı yazmalarını korur. Sıralı olarak gelen eski
 | `RelatedLessonSessionId` | `Guid?` | İlişkili ders oturumu (opsiyonel) |
 | `ItemType` | enum `BillingItemType` | `LessonFee=1`, `MonthlyPackage=2`, `ManualAdjustment=3`, `LateCancellation=4` |
 | `Description` | `string` | Açıklama |
-| `Currency` | `string` | Para birimi (varsayılan `"TRY"`; oluştur/güncellemede **büyük harfe** çevrilir) |
+| `Currency` | `string` | Para birimi (varsayılan `"TRY"`; oluşturmada **büyük harfe** çevrilir; sonradan değişmez) |
 | `ExpectedAmount` | `decimal` | Beklenen tutar |
 | `CollectedAmount` | `decimal` | Tahsil edilen tutar |
 | `DueDateUtc` | `DateTime` | Vade |
@@ -85,10 +85,23 @@ Bu token eşzamanlı veritabanı yazmalarını korur. Sıralı olarak gelen eski
 > **Not (kodda):** `CreatedOnUtc` constructor'a parametre olarak alınır ancak ayrı bir property olarak
 > set edilmez; oluşturma zamanı `PaymentRecordCreatedDomainEvent`'e taşınır.
 
-**Davranış:** `UpdateManualTracking(...)` → tüm izlenen alanları günceller ve
-`PaymentRecordUpdatedDomainEvent` yayar; olay **eski/yeni durum** ve **eski/yeni tahsil tutarını** taşır.
+**Davranış:** `AddCollection` / `Refund` pozitif iki ondalıklı hareket ekler, net toplamı ve durumu yeniden hesaplar. `UpdateDetails` tahsilata dokunmaz. `Cancel`, net tahsilat sıfırken iptal eder; aksi `409 payments.collection_requires_refund` (önce iade). İade net tahsilatı aşamaz (`409 payments.refund_exceeds_collection`); iptal kayda hareket eklenemez (`409 payments.record_cancelled`). Eski `PaymentRecordUpdatedDomainEvent` diğer tüketiciler için korunur; aylık tahsilat yalnız yeni hareket olayından beslenir.
 
-**`MarkOverdue(nowUtc)` (M07-1, 2026-09-04):** Yalnız `Pending`/`PartiallyPaid` **ve** `DueDateUtc < now`
+**`PaymentTransaction`:** `Id`, `PaymentRecordId` (FK, cascade), `Kind` (`Collection=1`, `Refund=2`), `Amount decimal(18,2)`, `Method` (`Cash=1`, `BankTransfer=2`, `Card=3`, `ParentDeclaration=4`, `Other=5`, `Migrated=99`), `OccurredOnUtc`, `Note?`. Hareket tutarı/yöntemi/tarihi değişmez; düzeltme iade + yeni tahsilattır. Koleksiyon AutoInclude yüklenir, çocuk kimliği `ValueGeneratedNever`; yeni çocuk ve kökün xmin güncellemesi/outbox aynı transaction'dadır. KVKK anonimleştirmesi hareket notlarını da temizler.
+
+| Durum türetme sırası | Sonuç |
+|---|---|
+| İptal edilmiş | `Cancelled` |
+| Net tahsilat ≥ beklenen | `Paid` |
+| 0 < net tahsilat < beklenen | `PartiallyPaid` |
+| Sıfır tahsilat, yerel vade günü geçmiş | `Overdue` |
+| Diğer | `Pending` |
+
+`IsOverdue`, kısmi bakiyede de yerel vade günü geçmişse true olur. Vade günü boyunca açık kalır (`ILocalCalendar`); saatlik tarayıcı bildirim için kalıcı `Overdue` işaretleyebilir, yanıt durumu yine tutarlardan türetilir.
+
+**Göç:** `PaymentTransactions`, mevcut `CollectedAmount > 0` için kayıt kimliğiyle tek `Collection/Migrated` hareketi açar. Kaynakta `UpdatedOnUtc` yoktur; `CollectedOnUtc`, yoksa `DueDateUtc` kullanılır. Göç iptal durumunu korur, diğer eski durumları net/beklenen tutara göre normalize eder (Paid + 0 gibi tutarsızlıklar giderilir). Down hareket tablosunu kaldırır; kökteki net tutar korunur. Down/Up ayrıntılı tarihçeyi tek sentetik net harekete indirger; geri alma ayrıntı kaybı taşır.
+
+**`MarkOverdue(nowUtc, calendar)` (M07-1, 2026-09-04):** Yalnız `Pending`/`PartiallyPaid` **ve** `calendar.ToLocalDate(DueDateUtc) < calendar.Today()`
 olan kaydı `Overdue` yapar, `OverdueMarkedOnUtc` yazar ve `PaymentBecameOverdueDomainEvent` yayar.
 Geçiş yapılmaması hata değildir (tarama turu saatte bir koşar) — bu yüzden metot `Result` değil **`bool`**
 döner: `true` = durum değişti. Zaten `Overdue`/`Paid`/`Cancelled` olan ya da vadesi gelmemiş kayıt için
@@ -99,8 +112,8 @@ döner: `true` = durum değişti. Zaten `Overdue`/`Paid`/`Cancelled` olan ya da 
 |--------|--------|
 | `GetOutstandingAmount()` | `Cancelled` ise **0**; değilse `max(ExpectedAmount - CollectedAmount, 0)` — kalan tutar |
 | `IsOutstanding(now)` | kalan > 0 (iptal edilen kayıt zaten 0 kalan döner) |
-| `IsOverdue(now)` | kalan > 0 **ve** `DueDateUtc < now` |
-| `GetDisplayStatus(now)` | gecikmişse `Overdue`, değilse mevcut `Status` (**görüntüleme** statüsü) |
+| `IsOverdue(calendar)` | kalan > 0 **ve** `calendar.ToLocalDate(DueDateUtc) < calendar.Today()` |
+| `GetDisplayStatus(calendar)` | yukarıdaki tutar/iptal/yerel vade sırasıyla türetilir |
 
 > **Bug düzeltmesi (2026-07-06):** `GetOutstandingAmount()` önce statüye bakmadan `Expected − Collected`
 > döndürüyordu; bu yüzden **iptal edilmiş** ödemelerin tahsil edilmemiş tutarı öğretmen ödeme özetindeki
@@ -118,6 +131,7 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 **Domain Event'ler (koddan birebir):**
 | Event | Alanlar |
 |-------|---------|
+| `PaymentTransactionRecordedIntegrationEvent` | `PaymentRecordId, TransactionId, TeacherUserId, Kind, Amount, Currency, OccurredOnUtc` — m14 hareket kimliğiyle upsert |
 | `PaymentRecordCreatedDomainEvent` | `PaymentRecordId, TeacherUserId, StudentId, RelatedLessonSessionId?, ExpectedAmount, Currency, Status, CreatedOnUtc` |
 | `PaymentRecordUpdatedDomainEvent` | `PaymentRecordId, TeacherUserId, StudentId, PreviousStatus, CurrentStatus, PreviousCollectedAmount, CurrentCollectedAmount, UpdatedOnUtc` |
 | `PaymentBecameOverdueDomainEvent` (M07-1) | `PaymentRecordId, TeacherUserId, StudentId, OutstandingAmount, Currency, DueDateUtc, MarkedOnUtc` — m11 tüketir (öğretmen + Premium veli bildirimi) |
@@ -129,7 +143,7 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 Veli bir ödeme kaydı için **beyan** verir (para transferi değil, mutabakat). Alanlar:
 `Id, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, Note?, Status (Declared→Confirmed/Rejected), CreatedOnUtc, ResolvedOnUtc?`.
 `Confirm(now)`/`Reject(now)` yalnız `Declared`'dan çalışır (aksi `InvalidOperationException`). Öğretmen **teyit** edince
-`PaymentRecord.MarkCollectedByParentConfirmation(declaredAmount, now)` çağrılır → `Status=Paid`, `CollectedAmount=ExpectedAmount`,
+`PaymentRecord.MarkCollectedByParentConfirmation(declaredAmount, now, declarationId)` çağrılır → `AddCollection(method=ParentDeclaration)` hareketi eklenir; durum `Paid`, net tahsilat beklenen tutara eşit olur,
 `CollectedOnUtc=now` ve mevcut `PaymentRecordUpdatedDomainEvent` yayılır (gelir özeti/veli paneli projeksiyonu bozulmaz).
 **2026-10-16 doğruluk kontrolü:** Beyan yalnız `Pending`, `PartiallyPaid` veya `Overdue` durumundaki açık bakiye için verilir. `DeclaredAmount`, `ExpectedAmount - CollectedAmount` değerine tam eşit olmalıdır; akış tam ödeme teyididir. Aynı kurallar teyit anında yeniden kontrol edilir. Ödeme silinmişse `404 payments.record_not_found`; kapanmış/iptal edilmişse `409 payments.record_not_outstanding`; bakiye değişmiş veya beyan tutarı uyuşmuyorsa `409 payments.declaration_amount_mismatch` döner. Başarısız teyitte beyan `Declared` kalır, ödeme ve olaylar değişmez.
 
@@ -141,21 +155,24 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 |-------|-------------|---------|
 | `IsSharedWithParent` | `bool` | **Ödeme bilgisi veliyle paylaşılır** (`promp.txt`: "Dersin ödeme bilgileri veli ile de paylaşılacak"). `true` ise bağlı veli (m09) ödemeyi görür. |
 | `SharedWithParentOnUtc` | `DateTime?` | Paylaşım zamanı (denetim/iz). |
-| Tahsilat kalemi (`PaymentInstallment`) | yeni Entity (öneri) | Kısmi tahsilatların **dökümü** (tek `CollectedAmount` yerine her ödemenin tarihçesi). |
+
 
 ---
 
 ## 3. API Sözleşmesi
 
 > Tüm endpoint'ler `RequireAuthorization("AuthenticatedUser")`; `Result<T>` döner.
-> Route prefix: `/api/payments`. Oluştur ve güncelle **aynı** `UpsertPaymentRecordRequest`'i kullanır.
+> Route prefix: `/api/payments`. Oluşturma `UpsertPaymentRecordRequest`, güncelleme ayrı `UpdatePaymentDetailsRequest` kullanır.
 
 ### 3.1 ✅ Mevcut Endpoint'ler
 
 | Yetenek | Method + Route | İstek / Yanıt | Notlar |
 |---------|----------------|---------------|--------|
 | Ödeme kaydı oluştur | `POST /api/payments/records` | `UpsertPaymentRecordRequest` → `PaymentRecordResponse` | `Currency` büyük harfe çevrilir |
-| Ödeme güncelle | `PUT /api/payments/records/{paymentRecordId}` | `UpsertPaymentRecordRequest` → `PaymentRecordResponse` | `UpdateManualTracking()` → event |
+| Ödeme ayrıntıları | `PUT /api/payments/records/{paymentRecordId}` | `{ description, expectedAmount, dueDateUtc, notes }` → `PaymentRecordResponse` | Tahsilat/durum/para birimi değişmez |
+| Tahsilat ekle | `POST /api/payments/records/{id}/collections` | `{ amount, method, occurredOnUtc, note }` → `PaymentRecordResponse` | Pozitif hareket |
+| İade ekle | `POST /api/payments/records/{id}/refunds` | Aynı hareket gövdesi → `PaymentRecordResponse` | Net tahsilatı aşamaz |
+| Ödemeyi iptal et | `POST /api/payments/records/{id}/cancel` | Gövdesiz → `PaymentRecordResponse` | Önce net tahsilat sıfırlanmalı |
 | Ödeme getir | `GET /api/payments/records/{paymentRecordId}` | → `PaymentRecordResponse` | Yoksa `404 payments.record_not_found` |
 | Öğretmen ödemeleri | `GET /api/payments/teachers/{teacherUserId}/records?outstandingOnly=` | → `PaymentRecordResponse[]` | `outstandingOnly=true` → yalnızca kalanı olanlar; vade artan sıralı |
 | Gelir özeti | `GET /api/payments/teachers/{teacherUserId}/summary` | → `TeacherPaymentSummaryResponse` | **Para birimi bazında** gruplu özet |
@@ -170,8 +187,9 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 `TeacherUserId, StudentId, RelatedLessonSessionId?, ItemType, Description, Currency, ExpectedAmount, CollectedAmount, DueDateUtc, CollectedOnUtc?, Status, BillingPeriodStartUtc?, BillingPeriodEndUtc?, Notes?`
 
 **`PaymentRecordResponse` (koddan):**
-`Id, TeacherUserId, StudentId, RelatedLessonSessionId?, ItemType (string), Description, Currency, ExpectedAmount, CollectedAmount, OutstandingAmount, DueDateUtc, CollectedOnUtc?, Status (string), IsOverdue, BillingPeriodStartUtc?, BillingPeriodEndUtc?, Notes?`
-> `OutstandingAmount`, `IsOverdue` ve `Status` (görüntüleme statüsü) **hesaplanmış** alanlardır; `Status` yanıtta `GetDisplayStatus(now)` sonucudur (gecikmişse `Overdue`).
+`Id, TeacherUserId, StudentId, RelatedLessonSessionId?, ItemType (string), Description, Currency, ExpectedAmount, CollectedAmount, OutstandingAmount, DueDateUtc, CollectedOnUtc?, Status (string), IsOverdue, BillingPeriodStartUtc?, BillingPeriodEndUtc?, Notes?, Transactions[]`
+> `Transactions[]`: `{ id, kind, amount, method, occurredOnUtc, note }`, tarih/kimlik sıralı.
+> `OutstandingAmount`, `IsOverdue` ve `Status` (görüntüleme statüsü) **hesaplanmış** alanlardır; `Status` yanıtta `GetDisplayStatus(calendar)` sonucudur (tutar ve yerel vade tablosu).
 
 **`TeacherPaymentSummaryResponse` (koddan):** `TeacherUserId, TotalRecords, CurrencySummaries[], MonthlyBreakdown[]`
 > `MonthlyBreakdown[]` = son 6 ayın `{ Year, Month, ExpectedAmount, CollectedAmount }` kırılımı (vade ayına göre, iptaller hariç) — mobil grafikleri besler. **P16 T5 / N-11 (2026-11-15):** ay **Türkiye yerel ayıdır** — "bu ay" ve kaydın vade ayı `ILocalCalendar`'dan (1 Aralık 01:00 TR vadeli kayıt Aralık'ta; eskiden UTC'de Kasım). ⚠️ Kırılım hâlâ para birimlerini toplar — para birimi boyutu **P18 T3**. Öğretmen panelinin (`dashboard-summary`, m14) gecikmiş toplamı artık para birimi bazında (`overduePaymentTotals`).
@@ -201,17 +219,17 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 
 ## 4. İş Kuralları
 
-1. **Manuel takip (🟢 kodda):** Ödeme **sistemden alınmaz**; öğretmen `ExpectedAmount`/`CollectedAmount`/`Status` alanlarını elle yönetir.
-2. **Para birimi normalizasyonu (🟢 kodda):** `Currency` oluştur/güncellemede `Trim().ToUpperInvariant()` ile normalize edilir (varsayılan `TRY`).
+1. **Manuel takip (🟢 kodda):** Ödeme **sistemden alınmaz**; öğretmen beklenen tutarı ve tahsilat/iade hareketlerini girer; net toplam/durum türetilir.
+2. **Para birimi normalizasyonu (🟢 kodda):** `Currency` oluşturmada `Trim().ToUpperInvariant()` ile normalize edilir (varsayılan `TRY`).
 3. **Kalan tutar (🟢 kodda):** `OutstandingAmount = max(Expected - Collected, 0)` — negatif olmaz.
-4. **Gecikme (görüntüleme) (🟢 kodda):** Bir kayıt; kalanı varsa, iptal değilse ve vadesi geçmişse `Overdue` **görüntülenir** (`GetDisplayStatus`). Bu, DB'deki `Status` alanını değiştirmez.
+4. **Gecikme (görüntüleme) (🟢 kodda):** Bir kayıt; kalanı varsa, iptal değilse ve yerel vade günü geçmişse `IsOverdue=true` olur; sıfır tahsilatta `Overdue`, kısmi tahsilatta `PartiallyPaid` görüntülenir. Bu, DB'deki `Status` alanını değiştirmez.
 5. **Outstanding filtresi (🟢 kodda):** `outstandingOnly=true` → kalanı olan ve iptal olmayan kayıtlar.
 6. **Özet sayımları (🟢 kodda):** `Pending`/`PartiallyPaid` sayıları **gecikmemiş** kayıtları kapsar; gecikmişler `OverdueCount`'a; `Paid` ve `Cancelled` ayrı sayılır. Tutarlar para birimi başına toplanır.
 7. **Filtre VEYA mantığı (🟢 kodda):** `outstanding`/`overdue`/`paid` bayraklarından herhangi biri eşleşen kayıt döner; tarih aralığı `DueDateUtc`'ye göre uygulanır; hiçbiri seçili değilse tarih aralığındaki tümü.
-8. **Güncellemede event (🟢 kodda):** `UpdateManualTracking()`, durum/tahsilat değişimini `PaymentRecordUpdatedDomainEvent` ile yayar (gelir özeti yeniden hesaplama tetikleyebilir).
+8. **Güncellemede event (🟢 kodda):** `UpdateDetails` / hareket komutları, durum/tahsilat değişimini `PaymentRecordUpdatedDomainEvent` ile yayar (gelir özeti yeniden hesaplama tetikleyebilir).
 9. **⚠️ Veli paylaşımı:** `IsSharedWithParent = true` olduğunda yalnızca o ödeme bilgisi bağlı veliye (m09) açılır; mahremiyet sınırı korunur.
 10. **Kalıcı gecikme + bildirim (🟢 kodda, M07-1):** `PaymentOverdueScanner` saatte bir `PaymentOverdueScanProcessor.ScanAsync()` koşturur; vadesi geçmiş `Pending`/`PartiallyPaid` kayıtları (tur başına en fazla 200) `Overdue`'a çeker. Her geçiş bir `PaymentBecameOverdueDomainEvent` yayar → m11 öğretmene, Premium + "ödemeler" tercihi açık veliye in-app bildirim yazar. Push doğrudan gönderilmez; `NotificationDispatcher` turu gönderir.
-11. **Sahiplik (yetki):** Öğretmen yalnızca kendi kayıtlarını yönetir/görür (`PaymentPolicies.cs`); veli yalnızca paylaşılmış kayıtları görür. **P15 T2 / N-08:** ödeme kaydı **oluşturma ve güncelleme** ayrıca öğretmenin öğrenciyle yaşayan özel ders bağını ister (`ITeacherStudentAccess.GetScopeAsync == Private`; güncellemede öğrenci kimliği kayıttan alınır) → yoksa `403 shared.forbidden` (Admin muaf). Bağı arşivlenmiş eski öğretmen velinin paneline borç kaydı yazamaz. ⚠️ **Bilinçli sonuç:** arşivli öğrencinin eski borcu, öğrenci arşivden çıkarılmadan "tahsil edildi" işaretlenemez — tahsilat ayrı niyet komutu olunca (P18 T2) yeniden değerlendirilecek. Okumalar yalnız sahipliğe bakar. ✅ **N-08 artığı kapandı (P15 T9, #185 a):** otomatik ders ücreti (`LessonSessionCompletedPaymentHandler`) outbox'tan yazdığı için authorizer'a tabi değil; kural artık ücret kaynağında: `IStudentDirectory.GetAgreedLessonRateAsync` ücreti yalnız **yaşayan özel ders bağında** (`ITeacherStudentAccess` = `Private`) döner, aksi halde `null` → kayıt açılmaz. Bağı arşivlenmiş öğretmen eski plandan `from-schedule` → ücretli tamamlama yapabilir (eski kaydı kapatma) ama velinin paneline borç **düşmez**. Arşiv-yalnız filtre bilinçli seçilmedi: reddedilmiş bağın ve P22 `Class` kapsamının girilmiş ücretini de faturalardı (K-18). ⚠️ **Bedeli:** kontrol olayın işlendiği andadır — dersi tamamlayıp olay işlenmeden (bir outbox turu) bağı arşivleyen öğretmenin o dersi için de ücret açılmaz; ücreti arşivden çıkarıp elle girer. Kanıt: `RealCrossTenantAccessTests.Archived_Teacher_Completing_From_An_Old_Schedule_Creates_No_Lesson_Fee` (pozitif kontrol: aynı öğretmen bağlıyken ücret oluşur).
+11. **Sahiplik (yetki):** Öğretmen yalnızca kendi kayıtlarını yönetir/görür (`PaymentPolicies.cs`); veli yalnızca paylaşılmış kayıtları görür. **P15 T2 / N-08:** ödeme kaydı **oluşturma, ayrıntı güncelleme, tahsilat, iade ve iptal** ayrıca öğretmenin öğrenciyle yaşayan özel ders bağını ister (`ITeacherStudentAccess.GetScopeAsync == Private`; güncellemede öğrenci kimliği kayıttan alınır) → yoksa `403 shared.forbidden` (Admin muaf). Bağı arşivlenmiş eski öğretmen velinin paneline borç kaydı yazamaz. **P18 T2 kararı:** tahsilat/iade/iptal komutları da yaşayan özel ders bağı ister; arşivli öğrencinin kaydını değiştirmek için bağ önce arşivden çıkarılır. Okumalar yalnız sahipliğe bakar. ✅ **N-08 artığı kapandı (P15 T9, #185 a):** otomatik ders ücreti (`LessonSessionCompletedPaymentHandler`) outbox'tan yazdığı için authorizer'a tabi değil; kural artık ücret kaynağında: `IStudentDirectory.GetAgreedLessonRateAsync` ücreti yalnız **yaşayan özel ders bağında** (`ITeacherStudentAccess` = `Private`) döner, aksi halde `null` → kayıt açılmaz. Bağı arşivlenmiş öğretmen eski plandan `from-schedule` → ücretli tamamlama yapabilir (eski kaydı kapatma) ama velinin paneline borç **düşmez**. Arşiv-yalnız filtre bilinçli seçilmedi: reddedilmiş bağın ve P22 `Class` kapsamının girilmiş ücretini de faturalardı (K-18). ⚠️ **Bedeli:** kontrol olayın işlendiği andadır — dersi tamamlayıp olay işlenmeden (bir outbox turu) bağı arşivleyen öğretmenin o dersi için de ücret açılmaz; ücreti arşivden çıkarıp elle girer. Kanıt: `RealCrossTenantAccessTests.Archived_Teacher_Completing_From_An_Old_Schedule_Creates_No_Lesson_Fee` (pozitif kontrol: aynı öğretmen bağlıyken ücret oluşur).
 12. **Ders tamamlanınca otomatik ücret kaydı (🟢 kodda, M07-2):** `LessonSessions/LessonSessionCompletedDomainEvent` tüketilir. Kayıt **yalnız** oturum `IsCompleted` **ve** `IsChargeable` iken açılır; tutar `IStudentDirectory.GetAgreedLessonRateAsync(teacher, student)` (B-07, **ders başına** ücret) ile gelir. Ücret tanımlı değilse **ya da bağ yaşayan özel ders bağı değilse** (arşivli/bitmiş — P15 T9, kural 11) kayıt **açılmaz** (`LogInformation`) — sessizce yanlış tutar üretilmez. Vade = tamamlanma anı **+ 7 gün**. Oturum başına **tek** kayıt (`RelatedLessonSessionId` kontrolü) — ders yeniden tamamlanabildiği için ikinci olay kopya üretmez.
 
 ---
@@ -225,8 +243,8 @@ POST /records
        → (öneri) m09 Parents: IsSharedWithParent ise veliye bildirim
 
 PUT /records/{id}
-   → PaymentRecordUpdatedDomainEvent (eski/yeni durum + tahsilat)
-       → (öneri) m14 Reporting: gelir özeti yeniden hesaplanır
+   → PaymentRecordUpdatedDomainEvent (tahsilat değişmez)
+       → diğer mevcut durum tüketicileri; aylık tahsilata yazılmaz
        → (öneri) m09 Parents: tahsilat durumu paylaşılıyorsa veli güncellenir
 
 Vade geçti (PaymentOverdueScanner, saatte bir) — M07-1
@@ -258,9 +276,9 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 > `mobile/lib/features/payments`, `flutter_bloc` (Cubit).
 
 ### ✅ Yeni Eklenen (2026-07-06)
-- **Tahsilat formu** (`CollectPaymentSheet`): "Tahsil Et" tek tıkla tamamı yerine tutar girişli form açar; **tam veya kısmi** tahsilat (`newCollected = min(collected + girilen, expected)` → `Paid`/`PartiallyPaid`). Kalandan fazlaya izin vermez.
+- **Eski mobil tahsilat formu — P18 T4 geçişi bekliyor** (`CollectPaymentSheet`): "Tahsil Et" tek tıkla tamamı yerine tutar girişli form açar; **tam veya kısmi** tahsilat (`newCollected = min(collected + girilen, expected)` → `Paid`/`PartiallyPaid`). Kalandan fazlaya izin vermez. Mevcut toplam PUT’u yeni backend’de tahsilatı değiştirmez; T4’te collections komutuna taşınır.
 - **Kart → düzenleme**: Ödeme kartına dokununca (kartta sağda `chevron` ok) `PaymentFormPage` düzenleme modunda açılır (`PUT`). Düzenlemede **öğrenci ve ders salt-okunur** (kilitli); tutar/vade/açıklama/not değişebilir.
-- **İptal (onaylı)**: Düzenleme formunda iptal ikonu → onay dialogu → ödeme **silinmez**, `Status=Cancelled` olarak işaretlenir (`PaymentsCubit.cancel` → `PUT /records/{id}`). İptal edilen kayıt listede "İptal" görünür, açık bakiye/gecikme doğurmaz (`OutstandingAmount=0`). Kalıcı silme (hard delete) **bilinçli olarak yok**.
+- **Eski mobil iptal — P18 T4 geçişi bekliyor**: Düzenleme formunda iptal ikonu → onay dialogu → ödeme **silinmez**, `Status=Cancelled` olarak işaretlenir (`PaymentsCubit.cancel` → `PUT /records/{id}`). Bu eski PUT yeni backend’de iptal etmez; ayrı `/cancel` komutuna geçiş gerekir. Backend’de iptal edilmiş kayıt listede "İptal" görünür, açık bakiye/gecikme doğurmaz (`OutstandingAmount=0`). Kalıcı silme (hard delete) **bilinçli olarak yok**.
 - **Sunucu tarafı sayfalama + filtre**: Ödemeler sayfası artık listeyi `records/search` ile **sayfa sayfa** çeker (sonsuz kaydırma, `take=20`) + metin arama, durum sekmesi, öğrenci ve tarih-aralığı filtresi. Aggregate'ler (özet paneli + grafikler) `getSummary`'den gelir (sayfalıyken tüm kayıtlar client'ta olmaz).
 - **Finans grafikleri**: **katlanabilir "İstatistikler"** bölümünde (varsayılan kapalı) `MonthlyCollectionCard` (özetteki `MonthlyBreakdown`'dan) + `PaymentDistributionCard` (özet toplamlarından donut + tahsilat oranı %). Not: m14 dönemsel rapor hâlâ ayrı bir gelişim.
 
@@ -281,7 +299,8 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 - [x] Kalan / geciken / ödenen filtreleri + tarih aralığı.
 - [ ] ⚠️ Veli ile paylaşım (`IsSharedWithParent`) + veli görünümü.
 - [x] Kalıcı `Overdue` otomasyonu (`PaymentOverdueScanner`, saatlik) + vade bildirimi (m11) — **M07-1, 2026-09-04**.
-- [x] "Tahsil edildi" işaretleme + **kısmi tahsilat** (mobil `CollectPaymentSheet` → `PUT /records/{id}`).
+- [x] Backend tahsilat/iade hareketleri + ayrıntı PUT koruması (P18 T2).
+- [ ] Mobil `CollectPaymentSheet` yeni `POST .../collections` ucuna geçirilecek (**P18 T4**); eski PUT tahsilatı değiştirmez.
 - [ ] ⚠️ M14 ile dönemsel gelir raporu/grafik.
 - [x] M05 tamamlama → otomatik `LessonFee` kaydı (`LessonSessionCompletedPaymentHandler`) — **M07-2, 2026-09-04**.
 
@@ -293,7 +312,7 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 
 1. **Veli ile paylaşım (`IsSharedWithParent`)** — alan + paylaş endpoint'i + veli görünümü (m09).
 2. ~~**Kalıcı `Overdue` otomasyonu** — zamanlanmış iş + öğretmen/veli bildirimi (m11).~~ ✅ Yapıldı (2026-09-04, M07-1).
-3. ~~**"Tahsil edildi" hızlı işaretleme** + kısmi tahsilat akışı~~ ✅ Yapıldı (2026-07-06, `CollectPaymentSheet`; ayrı `PaymentInstallment` dökümü hâlâ öneri — bkz. §2.2).
+3. ~~**"Tahsil edildi" hızlı işaretleme** + kısmi tahsilat akışı~~ ✅ Yapıldı (2026-07-06, `CollectPaymentSheet`; `PaymentTransaction` dökümü backend’de P18 T2, mobil geçiş P18 T4).
 4. **M14 gelir raporu** — dönemsel özet + aylık trend grafiği.
 5. ~~**M05 köprüsü** — ders tamamlanınca otomatik `LessonFee` ödeme kaydı.~~ ✅ Yapıldı (2026-09-04, M07-2). Kalan: ücret tanımlı olmayan öğrenci için öğretmene "ücret gir" uyarısı (şu an yalnız log).
 6. **(Öneri) Tahsilat dökümü (`PaymentInstallment`)** — kısmi ödemelerin tarihçesi.
@@ -315,3 +334,7 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 *Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P16 Task 5 / N-11: özetin aylık kırılımı Türkiye yerel ayı; para birimi boyutu P18 T3) · 2026-11-14 (P15 Task 9 / #185 a: §4 kural 11 — otomatik ders ücreti yalnız yaşayan özel ders bağında; `GetAgreedLessonRateAsync` kapsam `Private` değilse `null`) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 11 — ödeme oluştur/güncelle `ITeacherStudentAccess` ile yaşayan özel ders bağı ister; arşivli öğrencinin borcu arşivden çıkarmadan güncellenemez) · 2026-10-16 (veli beyanında güncel kalan tutar/kayıt durumu doğrulaması; geçersiz teyit durum veya olay değiştirmez). Önceki: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
+
+*Güncelleme: 2026-11-15 — P18 T2: tahsilat hareketleri, güvenli ayrıntı komutları ve yerel vade günü.*
+
+İlk tahsilat girişi de iki ondalık/range ve gelecek tahsilat tarihi doğrulamasından geçer. Değişmeyen vadede yalnız not düzenlemek yeni gecikme bildirimi üretmez; vade değişirse yeni gecikme dönemi başlayabilir.

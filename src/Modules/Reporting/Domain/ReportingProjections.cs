@@ -38,12 +38,8 @@ public static class ReportingPeriods
 /// beklentisi bir <see cref="TeacherMonthlyItem"/> satırıdır, ekleme upsert'tir. Böylece aynı iş olayı iki
 /// kez yayınlanırsa (ders yeniden tamamlanır) sayaç bozulmaz.
 /// </para>
-/// <para>
-/// Tek istisna <see cref="CollectedAmount"/>: kaynak olay (<c>PaymentRecordUpdated</c>) mutlak tutarı değil,
-/// önceki/şimdiki çiftini taşır. Tahsilatın <b>hangi ayda</b> yapıldığı ancak farkla doğru kovaya düşer
-/// (Ocak'ta açılan kayıt Şubat'ta tahsil edilebilir), bu yüzden fark birikimi kullanılır — aynı event'in
-/// iki kez uygulanmasını inbox zaten engeller.
-/// </para>
+/// <para>Tahsilat/iade satırları hareket kimliğiyle upsert edilir; net tahsilat bu kümeden türetilir.
+/// Farklı EventId ile tekrar teslim de aynı hareketi ikinci kez sayamaz.</para>
 /// </summary>
 public sealed class TeacherMonthlyProjection : ProjectionEntity
 {
@@ -66,7 +62,7 @@ public sealed class TeacherMonthlyProjection : ProjectionEntity
 
     public int Month { get; private set; }
 
-    /// <summary>Bu ayda tahsil edilen toplam (fark birikimi — yukarıdaki nota bakınız).</summary>
+    /// <summary>Bu ayda tahsil edilen net toplam (hareket kümesinden türetilir).</summary>
     public decimal CollectedAmount { get; private set; }
 
     public IReadOnlyCollection<TeacherMonthlyItem> Items => _items;
@@ -100,6 +96,21 @@ public sealed class TeacherMonthlyProjection : ProjectionEntity
         => Upsert(TeacherMonthlyItemKind.ExpectedPayment, paymentRecordId, amount: amount);
 
     public void AddCollected(decimal delta) => CollectedAmount += delta;
+
+    public void TrackPaymentTransaction(Guid transactionId, bool isRefund, decimal amount)
+    {
+        Upsert(isRefund ? TeacherMonthlyItemKind.Refund : TeacherMonthlyItemKind.Collection, transactionId, amount: amount);
+        CollectedAmount = _items.Where(x => x.Kind == TeacherMonthlyItemKind.Collection).Sum(x => x.Amount ?? 0m)
+            - _items.Where(x => x.Kind == TeacherMonthlyItemKind.Refund).Sum(x => x.Amount ?? 0m);
+    }
+
+    public void ClearPaymentTransactions()
+    {
+        _items.RemoveAll(x => x.Kind is TeacherMonthlyItemKind.Collection or TeacherMonthlyItemKind.Refund);
+        CollectedAmount = 0m;
+    }
+
+    public decimal RefundedAmount => _items.Where(x => x.Kind == TeacherMonthlyItemKind.Refund).Sum(x => x.Amount ?? 0m);
 
     private void Upsert(TeacherMonthlyItemKind kind, Guid itemId, Guid? studentId = null, decimal? amount = null, DateTime? occurrenceStartUtc = null)
     {
@@ -177,7 +188,9 @@ public enum TeacherMonthlyItemKind
 {
     CompletedLesson = 1,
     CancelledLesson = 2,
-    ExpectedPayment = 3
+    ExpectedPayment = 3,
+    Collection = 4,
+    Refund = 5
 }
 
 // ---------------------------------------------------------------------------------------------

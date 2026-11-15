@@ -33,6 +33,9 @@ updated: 2026-11-15
 Haftalık yaşam döngüsü kanıtı: 2 tamamlanmış ders, 1 Single iptal, 2 × 100 TRY normal ücret + 100 TRY geç iptal borcu; aylık beklenen 300 TRY, katılım 2. Öğrenci ve onaylı veli aynı iki tamamlanmış oturumu HTTP üzerinden görür.
 
 
+**P18 T2 (2026-11-15):** Aylık tahsilat artık `PaymentTransactionRecordedIntegrationEvent` tüketir. `TeacherMonthlyItemKind.Collection=4 / Refund=5` satırları `TransactionId` ile upsert edilir; `CollectedAmount` tahsilat eksi iade kümesinden hesaplanır, `RefundedAmount` iade kümesidir. Olayın yerel ayı kullanılır; farklı EventId ile tekrar teslim toplamı büyütmez. Eski `PaymentRecordUpdatedDomainEvent` aylık tahsilata yazılmaz (diğer tüketicileri korunur). `PaymentCollectionProjectionRebuilder` (`IProjectionRebuilder`, `reporting.payment-collections`) kaynak `IPaymentTransactionDirectory` üzerinden yalnız tahsilat boyutunu yeniden kurar; ders/beklenen tutar item’larını korur, transaction ve ortak Reporting advisory lock ile olay tüketimiyle serileşir. Hosted initializer migration’lardan sonra HTTP sunucusu başlamadan yeniden kurucuyu bir kez çalıştırır; `reporting.module_states` geçiş işareti aynı kilit/transaction’da yazılır. Eski 500 + yeni 100 tahsilatın 600 kalması gerçek PostgreSQL’de doğrulanır. Genel yönetim ucu P12’dedir.
+
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### 🟡 Var olan (P08 Task 4 sonrası)
@@ -297,7 +300,7 @@ Students:     TeacherStudentLinkAcceptedDomainEvent                             
 **Önerilen (sonraki projeksiyonlar):**
 
 ```
-Payments:        PaymentRecordUpdated / PaymentCollected ──▶ TeacherMonthlyReportProjection güncelle
+Payments:        PaymentTransactionRecordedIntegrationEvent ──▶ TeacherMonthlyProjection hareket upsert
 Study (M08):     StudySessionEnded                        ──▶ StudentStudyProjection güncelle
 ProgressTracking:ProgressRecorded                         ──▶ StudentPerformanceProjection güncelle
 
@@ -368,7 +371,7 @@ Sorgu zamanı:
 7. **Veli özet/grafik raporu** (m09) — bugün öğrenci uçları üzerinden karşılanıyor; ayrı bir veli ucu isteğe bağlı.
 8. ~~**Premium kısıtlama** entegrasyonu (m17).~~ ✅ **(P09 Task 2 — `IEntitlementDirectory`; istek sahibinin `PdfReports` hakkı)**
 9. ~~**İdempotent event tüketimi** (inbox/event-id) + CQRS query'leri~~ ✅; ~~mobil ekranlar~~ ✅ (P08 Task 5).
-10. **Projeksiyon yeniden inşası** (`IProjectionRebuilder`) — geçmiş dönemler ancak bununla dolar (**P12**).
+10. **Projeksiyon yeniden inşası** (`IProjectionRebuilder`) — tahsilat boyutu **P18 T2** ile kaynak hareketlerden kurulur; diğer boyutların host orkestrasyonu **P12**.
     P08 Task 6'da **yeniden kurulabilirlik özelliği** integration testiyle doğrulandı (`RealProjectionRebuildTests`);
     kalan iş yalnız geçmiş olayları besleyen host seviyesi orkestrasyon.
 
@@ -397,3 +400,5 @@ Sorgu zamanı:
 *Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-11-15 (P17 T7: oluşum anahtarlı yerel pano, iptal tombstone, günlük pencere ve göç) · 2026-11-15 (P16 Task 5 / N-11, N-43, N-50: §4 kural 7 — dönem kovaları Türkiye yerel günü (`ReportingPeriods` takvimli/tarih tabanlı, UTC aşırı yüklemesi kaldırıldı), boş zaman şablonu yerel güne kurulur → UTC, `monthly`/`free-slots`/PDF varsayılan dönemleri yerel; BFF `dashboard-summary` bugünü yerel + `overduePaymentTotals` para birimi bazında, eski tekil alanlar ilk satır) · 2026-09-04 (P09 Task 2 / K-09: PDF premium kapısı `IMembershipDirectory` + geçici `ReportEntitlement.EffectiveTier` ikilisinden `IEntitlementDirectory`'ye devredildi — kural artık "istek sahibinin `PdfReports` hakkı", Admin muaf. Önceki not — P08 kapanış / Task 6: durum 🟡 → 🟢; projeksiyon yeniden-kurulabilirliği `RealProjectionRebuildTests` ile gerçek Postgres'te kanıtlandı (boşalt → aynı akışı oynat → aynı sayaçlar → üçüncü teslimde değişmiyor); kalan borçlar P09/P12 olarak etiketlendi. Önceki not — P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
+
+*Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*

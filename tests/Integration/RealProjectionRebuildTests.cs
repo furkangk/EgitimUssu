@@ -116,13 +116,14 @@ public sealed class RealProjectionRebuildTests(ContainerFixture fixture)
                 expectedAmount = 750m,
                 createdOnUtc = September,
             }),
-            Envelope("A0000001-0000-0000-0000-000000000005", "Payments", "PaymentRecordUpdatedDomainEvent", new
+            Envelope("A0000001-0000-0000-0000-000000000005", "Payments", "PaymentTransactionRecordedIntegrationEvent", new
             {
                 paymentRecordId = payment,
                 teacherUserId,
-                previousCollectedAmount = 0m,
-                currentCollectedAmount = 250m,
-                updatedOnUtc = September,
+                transactionId = payment,
+                kind = 1,
+                amount = 250m,
+                occurredOnUtc = September,
             }),
             Envelope("A0000001-0000-0000-0000-000000000006", "Study", "StudySessionCompletedDomainEvent", new
             {
