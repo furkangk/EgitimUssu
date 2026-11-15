@@ -9,23 +9,36 @@ class NotificationsCubit extends Cubit<NotificationsState> {
 
   final NotificationRepository _repository;
 
+  int _generation = 0;
+  void reset() {
+    _generation++;
+    if (!isClosed) emit(const NotificationsState());
+  }
+
+  bool _current(int generation) => !isClosed && generation == _generation;
+
   factory NotificationsCubit.create() =>
       NotificationsCubit(injector<NotificationRepository>());
 
   Future<void> load(String teacherUserId) async {
+    final generation = ++_generation;
     emit(state.copyWith(status: NotificationsStatus.loading, clearError: true));
     try {
       final reminders = await _repository.listReminders(
         teacherUserId: teacherUserId,
       );
+      if (!_current(generation)) return;
+      final unread = await _readUnreadCount(teacherUserId);
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: NotificationsStatus.loaded,
           reminders: reminders,
-          unreadCount: await _readUnreadCount(teacherUserId),
+          unreadCount: unread,
         ),
       );
     } on ApiException catch (e) {
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: NotificationsStatus.error,
@@ -33,6 +46,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
         ),
       );
     } catch (_) {
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: NotificationsStatus.error,

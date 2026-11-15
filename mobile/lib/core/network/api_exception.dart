@@ -56,7 +56,16 @@ class ApiException implements Exception {
         DioExceptionType.connectionError => l10n.api_connectionError,
         _ => l10n.api_unexpectedError,
       },
-      kind: _kindFor(statusCode, const <String, List<String>>{}),
+      kind:
+          statusCode == null &&
+              const {
+                DioExceptionType.connectionError,
+                DioExceptionType.connectionTimeout,
+                DioExceptionType.sendTimeout,
+                DioExceptionType.receiveTimeout,
+              }.contains(exception.type)
+          ? ApiErrorKind.network
+          : _kindFor(statusCode, const <String, List<String>>{}),
       statusCode: statusCode,
     );
   }
@@ -73,9 +82,6 @@ class ApiException implements Exception {
     }
     if (statusCode == 409) {
       return ApiErrorKind.conflict;
-    }
-    if (statusCode == null || statusCode >= 500) {
-      return ApiErrorKind.network;
     }
     return ApiErrorKind.unknown;
   }

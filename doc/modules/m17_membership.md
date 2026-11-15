@@ -164,6 +164,10 @@ taşınması — yani iki ayrı şemanın tek istekte doğru bağlanması.
 
 ---
 
+### Mobil kök üyelik temizliği (P20 T3 / N-70)
+
+Oturum değişince `MembershipCubit.reset()` üyelik/premium kararını Free başlangıcına döndürür; planlar, referans kodu, rol, işlem durumu ve mesajlar temizlenir. Eski oturumun gecikmiş `/me`, plan, referans ya da deneme/iptal yanıtı kuşak kontrolüyle elenir. Yeni kullanıcı için yükleme reset'ten sonra başlar; eski hesabın premium yetkisi yeni hesapta görünmez.
+
 ## 2. Domain Modeli (⚠️ Önerilen)
 
 **P18 T1 — eşzamanlılık (K-22):** `UserSubscription` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
@@ -498,3 +502,5 @@ P09 Task 7 (kısmi kapanış, 2026-09-04) itibarıyla durum. ✅ olanlar koşulm
 ## P20 T1 — mobil sahte veri temizliği
 
 Paywall ve ortak plan kartlarında işlevsiz satın alma düğmesi ile henüz kapısı olmayan Premium vaatlerinin bölümü gizlidir. Gerçek plan kataloğu, ücretsiz deneme, abonelik iptali ve referans akışları korunur. Mobil ödeme P28 kapsamındadır; bu görev ödeme entegrasyonu eklemez.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

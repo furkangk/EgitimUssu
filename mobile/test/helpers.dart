@@ -29,6 +29,8 @@ class InMemoryTokenStorage implements TokenStorage {
 }
 
 class InMemoryLocalCache implements LocalCache {
+  @override
+  Future<Set<String>> keys() async => _values.keys.toSet();
   final Map<String, String> _values = <String, String>{};
 
   @override

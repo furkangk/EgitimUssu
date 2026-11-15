@@ -1195,5 +1195,13 @@
         "type": "int"
       }
     }
+  },
+  "cache_staleWarning": "Connection unavailable. Previously saved data is in use ({time}).",
+  "@cache_staleWarning": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

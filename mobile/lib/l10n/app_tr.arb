@@ -1316,5 +1316,13 @@
         "type": "int"
       }
     }
+  },
+  "cache_staleWarning": "Bağlantı kurulamadı. Son kaydedilen veriler kullanılıyor ({time}).",
+  "@cache_staleWarning": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

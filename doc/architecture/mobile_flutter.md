@@ -53,7 +53,7 @@ mobile/lib/
 │   ├── di/                    # injector.dart (get_it kayıtları)
 │   ├── network/               # api_client.dart (Dio sarmalayıcı), api_exception.dart
 │   ├── routing/               # app_router.dart (go_router + redirect)
-│   ├── storage/               # token_storage.dart (secure), local_cache.dart (shared prefs)
+│   ├── storage/               # token_storage.dart (secure), local_cache.dart (shared prefs), cache_store.dart (oturum kapsamı)
 │   └── theme/                 # app_theme.dart (+ design_system token bağlama)
 ├── shared/
 │   └── widgets/               # app_primary_button, state_views, form_fields … (Atomic)
@@ -176,7 +176,13 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 `isMockFallbackEnabled(feature)` production-benzeri ortamda kapanır **ve 2026-09-02'den itibaren geliştirmede de varsayılan kapalıdır**: bayrak verilmedikçe uygulama daima gerçek API'yi kullanır, API hatası ekranda görünür (A-05 — sahte veri gerçek entegrasyon hatalarını gizliyordu). Bayrak açıkken backend hazır olmayan feature'lar mock veri döndürür. Öğrenci çalışma panosu akışı da mock destekler: `study` feature'ı (tüm `StudyRepository` metotları) ile `students` altında `getByUser`/`createSelfProfile` mock modda gerçek API'ye gitmeden veri üretir — böylece backend kapalıyken de "çalışma panom" açılır.
 
-**Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
+**Depolama:** `SecureTokenStorage` (access/refresh token — Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` ham read/write/remove/keys) ve DI'da tek `CacheStore`.
+
+**P20 T3 / N-68…N-70:** Cache anahtarı `cache.<userId>.<feature>.<key>`; bileşenler encode edilir, kimlik oturumdan alınır. `CachedValue<T>` veri, UTC `savedAt` ve `isStale` taşır. Repository dönüş tipleri korunur; kökte `staleSince` dinlenerek bütün tüketiciler için `StaleDataBanner` gösterilir. Beş yol: ödeme özet/kayıt, öğretmen öğrenci listesi, öğretmen/öğrenci ders listeleri. Yalnız bağlantı/timeout hatası cache'e düşer; HTTP 403/500, iptal, sertifika ve ayrıştırma hataları düşmez. Boş liste geçerli cache'tir; bozuk cache orijinal ağ hatasını gizlemez. Yazma hatası canlı API sonucunu düşürmez, türüyle loglanır. Aynı anahtar tazelenince uyarı kaldırılır; birden çok eski sorguda en eski kayıt zamanı gösterilir.
+
+Takvim istek ve cache anahtarı birlikte UTC gün sınırına normalize edilir (başlangıç 00:00, bitiş gününün 23:59:59.999999'u). Profil/öğretmen kimliği sorguya, oturum kimliği sahibine aittir. `clearUser` yalnız hedef kullanıcının cache'ini, `clearAll` tüm `cache.*` ve eski `payments.*`/`students.*`/`scheduling.*` anahtarlarını siler. Eski anahtarlar açılışta da temizlenir; tema gibi tercihler korunur. Oturum kuşağı ve yazma kuyruğu, geç yanıtın çıkıştan sonra cache'i yeniden yazmasını önler.
+
+Çıkış önce oturum kuşağını geçersiz kılar, sunucuya mevcut bearer + refresh token ile interceptor'sız logout gönderir. Hata yalnız türüyle loglanır; finally token/profil/cache temizliğini yapar. `ApiClient.clearSession` bekleyen idempotent gövdeleri/anahtarları siler; eski otomatik tekrar yeni hesaba taşınmaz. Login/refresh persist kuyruğu geç token yazımını engeller. Kök `NotificationsCubit` ve `MembershipCubit` reset ile başlangıca döner, bekleyen eski yanıtları da kuşakla eler; T2 push bekletmesi korunur. 401 interceptor tekrarı ve unauthorized olayı da isteğin kuşağıyla sınırlıdır; eski isteğin gövdesi yeni hesabın bearer'ıyla gönderilmez. Refresh sırasında iptal/sertifika/parse hatası network'e çevrilmez. Sunucuda rotasyonu bitmiş fakat istemciye geç ulaşmış refresh yanıtı yeni tokenla ayrıca logout gönderir; token yerelde saklanmaz. Bu geç iptal çağrısı da ağ yokken garanti edilemez ve hata türü loglanır. Başarısız tazeleme tüketicinin elindeki eski veriyi kaldırmadığı için eski veri uyarısını da gizlemez.
 
 > **Güvenlik (Y7, 2026-07-02):** Oturum önbelleği (`user_session` → `LocalCache`/SharedPreferences) **token içermez** — yalnız gizli-olmayan profil (userId/email/fullName/roles/expiry). Access/refresh token'lar **yalnız** secure storage'da tutulur; `restoreSession` token'ı oradan okuyup profille birleştirir. `AndroidManifest`'te `allowBackup="false"`. Önceden `toCache()` token'ları düz-metin yazıyordu (denetim Y7).
 
@@ -644,3 +650,5 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 Takvim seed üretmez; öğretmen profili ilk API yanıtından önce/hata sonrasında örnek profil göstermez. Yorum ve aktif öğrenci sayısı gerçek kaynak gelene kadar görünmez. Study yüzeylerinde sabit sayaç/hedef/konu puanı ve işlem yapmayan satırlar kaldırılmıştır. `localization_test` mevcut feature listesine ek olarak P20’nin dokunduğu ekran ve widget dosyalarını tek tek tarar. API’nin sunucudan gelen `message`/validation metni aynen kalır; istemci fallback metni ARB’den alınır (mevcut uygulamanın sabit tr locale’i varsayılan, açık locale seçimi test edilebilir).
 
 P20 T1 inceleme düzeltmesi: `TeacherRepositoryImpl.getProfile` 404 yanıtını normal modda aynen hata olarak iletir; profil yokluğu demo öğretmen üretmez. Demo yalnız `AppConfig.isMockFallbackEnabled("teacher_profile")` açıkken mümkündür; production/beta bu bayrağı engeller. Başarılı gerçek profil yanıtı korunur, yeni profil oluşturma akışı bu göreve eklenmez.
+
+*Güncelleme: 2026-11-15 — P20 Task 3: cache ve oturum sınırı.*

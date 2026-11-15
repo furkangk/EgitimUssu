@@ -123,6 +123,10 @@ Veliye bildirim üretir; **yalnız Premium veliye** (PRD 9.3) ve velinin tercih 
   kapısını orada uygular — `MessageReceived` tür bazında **koşulsuzdur** (§5.1), yalnız `PushEnabled`
   kapalıysa push atlanır, in-app kayıt yine durur.
 
+### Mobil kök durum temizliği (P20 T3 / N-70)
+
+`app.dart` oturum kimliği değiştiğinde `NotificationsCubit.reset()` çağırır: hatırlatmalar, okunmamış rozet ve hata durumu başlangıca döner. Reset önceki isteğin kuşağını geçersiz kılar; geç liste/sayaç yanıtı eski hesaba ait veriyi geri getiremez. P20 T2 soğuk push bekletmesi ve çıkışta bekleyen hedefi silme korunur. Ön plan `onMessage` tazelemesi P20 T4'tür.
+
 ## 2. Domain Modeli
 
 ### 🟢 Mevcut — `LessonReminder` (AggregateRoot)
@@ -436,3 +440,5 @@ Mobil merkez50kayıtla başlar, cursor sonuna kadar kaydırır. Filtre/yenileme 
 `NotificationsStudentMergedHandler`, LessonReminder ve ParentNotification öğrenci referanslarını inbox transaction içinde taşır; teslim durumları/deneme sayıları korunur. Haftalık özetlerde veli+Türkiye ISO haftası başına kanonik kayıt tercih edilir; kanonik v2 dedup işareti de yazılır. Haftalık işlemcinin 200 hedeflik sayfa okuma/yazımı ve birleşim aynı transaction advisory kilidini kullanır; yarış kalıcı çift bildirim oluşturmaz. Diğer bildirim geçmişi korunur.
 
 *Güncelleme: 2026-11-15 — P19 Task 8.*
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

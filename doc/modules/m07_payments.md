@@ -55,6 +55,10 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 
 ---
 
+### Mobil ödeme önbelleği (P20 T3 / N-68, N-70)
+
+Özet ve öğretmen kayıt listesi ortak `CacheStore` ile oturum kullanıcı kimliğinde saklanır. 403/500 eski tutarları başarı gibi döndürmez; yalnız bağlantı/timeout durumunda son kayıt ve ARB eski veri uyarısı kullanılır. Önbellek boş listeyi de korur. Çıkışta tüm tutarlar ile `ApiClient`'ın bekleyen idempotent gövdeleri/anahtarları temizlenir; eski istek yeni hesapla otomatik tekrar gönderilmez. Yeni oturumdaki manuel işlem yeni anahtar kullanır. Sayfalı finans araması (`searchRecords`) cache kullanmaz.
+
 ## 2. Domain Modeli
 
 **P18 T1 — eşzamanlılık (K-22):** `PaymentRecord` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
@@ -364,3 +368,5 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 **Outbox teslimi (P19 T2 / N-42):** Otomatik ücrette zaten faturalanmış/ücretsiz oturum veya anlaşılmış ücret yokluğu başarılı etkisiz sonuçtur ve inbox'a yazılır; okunamayan oturum açık hata ile yeniden denenir. İptalde değişecek kayıt yokluğu başarıdır; bozuk yük poison olur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

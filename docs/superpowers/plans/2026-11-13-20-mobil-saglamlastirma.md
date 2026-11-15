@@ -97,22 +97,38 @@
 
 ---
 
-### Task 3: Çıkış ve önbellek hijyeni (N-68, N-69, N-70)
+### ✅ Task 3: Çıkış ve önbellek hijyeni (N-68, N-69, N-70)
 
 **Files:**
 - Create: `mobile/lib/core/storage/cache_store.dart` (anahtar biçimi `cache.<userId>.<feature>.<key>`; `clearUser(userId)`, `clearAll()`; okuma `CachedValue<T>{ value, savedAt }`)
-- Modify: `mobile/lib/features/payments/data/repositories/payment_repository_impl.dart`, `mobile/lib/features/students/data/repositories/student_repository_impl.dart`, `mobile/lib/features/scheduling/data/repositories/scheduling_repository_impl.dart` (önbelleğe **yalnız ağ hatasında** düş; takvim anahtarı **güne yuvarlanır**)
+- Modify: `mobile/lib/features/payments/data/repositories/payment_repository_impl.dart`, `mobile/lib/features/students/data/repositories/student_repository_impl.dart`, `mobile/lib/features/scheduling/data/repositories/scheduling_repository_impl.dart` (önbelleğe **yalnız ağ hatasında** düş; takvim anahtarı ve istek **güne yuvarlanır**)
 - Create: `mobile/lib/shared/widgets/stale_data_banner.dart`
 - Modify: `mobile/lib/features/auth/data/repositories/auth_repository_impl.dart` (`logout`: sunucu `/api/identity/logout` (hata yutulur ama loglanır) → token sil → `CacheStore.clearAll()`)
 - Modify: `mobile/lib/app/app.dart` (kök `NotificationsCubit`, `MembershipCubit` çıkışta `reset()`)
 - Test: `mobile/test/core/storage/cache_store_test.dart`, `mobile/test/features/auth/logout_cleanup_test.dart`, repository testleri
 
-- [ ] **Step 1: Kırmızı testler** — 403/500'de önbellek **dönmez**, hata gösterilir; ağ hatasında önbellek + `isStale`; aynı gün iki takvim çağrısı aynı anahtar; çıkış sonrası `SharedPreferences`'ta `cache.` önekli anahtar yok, logout ucu çağrıldı, kök cubit'ler başlangıç durumunda.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `mobile_flutter.md` (önbellek kuralı); rapor N-68/69/70 ✅.
+**2026-11-15 T3 kapsam doğrulaması ve karar:** Beş cache okuma yolu var: ödeme özet/kayıt, öğretmen öğrenci listesi, öğretmen/öğrenci ders listeleri. Aynı sonuçlar dashboard, form ve detaylarda da tüketiliyor. Domain repository dönüşlerini değiştirmek yerine tek CacheStore `CachedValue<T>(value, savedAt, isStale)` üretir; repository `.value` döndürür, uygulama kökündeki ortak ARB uyarısı store'un `staleSince` durumunu izler. Böylece tüm tüketicilerde uyarı görünür, onlarca ekranı/sahteyi taşımak gerekmez. Uyarı oturum boyunca herhangi bir eski sonuç kullanıldığında kalır; aynı sorgunun başarılı tazelenmesi veya oturum temizliği kaldırır. HTTP 403/500, iptal, sertifika ve ayrıştırma hataları cache kullanamaz; yalnız bağlantı/timeout ve yanıtsız transport hataları uygundur. Kimlik URL'deki öğretmen/öğrenci değil oturumdaki userId'dir. Takvimde hem istek hem anahtar UTC gün başı/sonuna normalize edilir (aynı cache anahtarı farklı veri dilimlerini temsil etmez); orijinal uçları dahil sunucu sözleşmesi korunur.
+
+**Ek Files (uygulamadan önce koddan doğrulandı):**
+- Modify: `mobile/lib/core/storage/local_cache.dart`, `mobile/test/helpers.dart` (`keys()` envanteri; yalnız SharedPrefsLocalCache ve InMemoryLocalCache uygular).
+- Modify: `mobile/lib/core/di/injector.dart`, `mobile/lib/core/network/api_exception.dart`, `mobile/lib/core/network/api_client.dart` (yalnız ağ sınıflaması ve oturumdaki bekleyen yazma gövdelerini temizleme).
+- Modify: `mobile/lib/features/notifications/presentation/cubit/notifications_cubit.dart`, `mobile/lib/features/membership/presentation/cubit/membership_cubit.dart`, `mobile/lib/features/auth/presentation/cubit/auth_cubit.dart` (reset ve gecikmiş eski oturum yanıtını engelleme).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`, `mobile/test/l10n/localization_test.dart`.
+- Test: `mobile/test/core/storage/cache_repository_test.dart`, `mobile/test/features/auth/root_session_reset_test.dart`, `mobile/test/shared/widgets/stale_data_banner_test.dart`; mevcut `mobile/test/core/network/api_exception_test.dart`, `mobile/test/features/auth/data/auth_repository_impl_test.dart` gerekirse uyum.
+- Docs: `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `widgets.md`; `doc/modules/00_genel_bakis.md`, `m01_identity.md`, `m03_students.md`, `m04_scheduling.md`, `m07_payments.md`, `m11_notifications.md`, `m17_membership.md`; denetim kaydı.
+
+**İnceleme eki (uygulamadan önce):** `mobile/lib/core/network/token_refresh_interceptor.dart` ve yeni `mobile/test/core/network/session_cache_refresh_test.dart` kapsamda. 401 tekrar yolu cache/yazma kuşağını atlıyordu; eski unauthorized yeni kullanıcıyı kapatabiliyordu. Refresh sertifika/iptal/parse hatası network'e dönüşmemeli. Geç başarılı refresh yeni tokenını yerelde yazmadan ayrıca sunucuda revoke eder. Başarısız tazeleme eski uyarıyı gizlemez. Dört bulgu yedi davranış kırmızısıyla doğrulandı; interceptor kuşağı/hata türü, geç refresh revoke ve başarısız tazelemede uyarıyı koruma ile odaklı 29/29 yeşil. Son tam paket aşağıda kaydedilir. PushService izin/token kayıt yarışı değişmeyen yaşam döngüsüdür; P20 T4'te ele alınacak, genel dispose T5, cache dışı aramalar mevcut kapsam dışında.
+
+**Interfaces:** LocalCache.keys → Set<String>; CacheStore.activate(userId), clearUser, clearAll, clearLegacy, read/write/load; read/load CachedValue<T> ve observable staleSince/isStale. Cache işlemleri oturum kuşağını yakalar; çıkış/hesap değişiminden sonra biten istek eski veriyi yazamaz/döndüremez. Eski payments./students./scheduling. anahtarları bir defalık silinir; tema gibi ilgisiz tercihler korunur. CacheStore DI'da tektir; kurucu uyumluluğu için repository testlerine yerel store varsayılanı sağlanır (kimliksiz cache kapalı). Logout refresh token gövdesi + mevcut bearer ile interceptor'sız Dio kullanır (401→refresh→logout döngüsü yok); hata sır içermeden loglanır, yerel temizlik finally'dedir. Refresh/login ve logout yazımları sıralanır, geç refresh oturumu diriltemez. Kök cubit reset yalnız state'i değil bekleyen okumaların/komutların kuşağını geçersiz kılar. T2 soğuk push bekletme korunur; T4 poll/ön plan ve T5 genel safeEmit ayrı görevlerdir. Tek görev/ILERLEME hafızası kuralı skill'in çoklu görev/ayrı ledger önerisine üstün.
+
+- [x] **Step 1: Kırmızı testler** — 403/500'de önbellek **dönmez**, hata gösterilir; ağ hatasında önbellek + `isStale`; aynı gün iki takvim çağrısı aynı anahtar; çıkış sonrası `SharedPreferences`'ta `cache.` önekli anahtar yok, logout ucu çağrıldı, kök cubit'ler başlangıç durumunda.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `mobile_flutter.md` (önbellek kuralı); rapor N-68/69/70 ✅.
   ```bash
   git commit -m "fix(mobile): onbellek kullanici kapsamli ve yalniz ag hatasinda, cikista tam temizlik (N-68..N-70)"
   ```
+
+**Doğrulama (2026-11-15):** Derlenen imzalar → gerçek kırmızı davranış testleri → en az uygulama → yeşil. İnceleme dört önemli bulgu/yedi RED sonrası odaklı29/29; son tam Flutter **468/468**, `flutter analyze --fatal-infos` temiz. Tool restore başarılı; Release `-warnaserror` **0 uyarı/0 hata**; `scripts/test-with-docker.sh` **19 mimari/1312 birim/214 gerçek Docker integration, 0 başarısız/0 atlanan**. NuGet76proje/0advisory; migration yok. Doc health RED0/mevcut1YELLOW+1BLUE. T4 başlamadı, merge/push yok.
 
 ---
 

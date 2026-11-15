@@ -167,3 +167,9 @@ Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün öze
 ## P20 T1 — gerçek veri ve kullanılabilir eylem
 
 Gerçek kaynağı olmayan kullanıcı sayısı, puan, hedef ve konu hâkimiyeti gösterilmez. Başlangıç/yükleme hatası örnek profil üretmez. Öğrenci ana sayfasında ödev okuma hatası gerçek hata ve tekrar deneme sunar; başarılı boş sonuç ayrı boş durumdur. Çalışmayan profil/veli/gizlilik/abonelik yer tutucuları ve satın alma/gelecek Premium vaatleri gizlidir. Test/katalog kayıtlarına ders adı eşleşmesiyle oluşum ilişkisi atfedilmez; genel gerçek erişimler korunur. Statik geliştirme önizlemelerinin rotaları yalnız debug derlemesinde bulunur.
+
+## Önbellekteki veri ve çıkış (P20 T3)
+
+Bağlantı kurulamadığında son kaydedilen veri kullanılıyorsa uygulama kökünde `StaleDataBanner` görünür; kayıt tarihi/saati yerel biçimde, metin tr/en ARB'den gelir. Uyarı liste/detay/form tüketicilerinin tamamını kapsar; en eski kullanılan kaydın zamanı gösterilir. İlgili sorgular başarıyla tazelenince veya çıkışta kapanır; yalnız ekran değiştirmek eski veri bilgisini gizlemez. HTTP 403/500, iptal veya sertifika hatası önbellek başarısı gibi gösterilmez. Çıkış/hesap değişimi bildirim rozetini, üyelik/premium kararını ve kişisel önbelleği temizler.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

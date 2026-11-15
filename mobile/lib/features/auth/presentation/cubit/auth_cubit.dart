@@ -21,6 +21,9 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   final AuthRepository _repository;
+  int _sessionGeneration = 0;
+  bool _current(int generation) =>
+      !isClosed && generation == _sessionGeneration;
 
   /// A-04: oturum açıldığında cihaz push token'ı kaydedilir, kapandığında silinir.
   /// Testlerde `null` verilebilir — push, kimlik akışının önkoşulu değildir.
@@ -39,6 +42,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String password,
     int roleId = 2,
   }) async {
+    final generation = _sessionGeneration;
     emit(state.copyWith(status: AuthStatus.loading, clearError: true));
     try {
       final session = await _repository.login(
@@ -46,6 +50,7 @@ class AuthCubit extends Cubit<AuthState> {
         password: password,
         roleId: roleId,
       );
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: AuthStatus.authenticated,
@@ -55,6 +60,7 @@ class AuthCubit extends Cubit<AuthState> {
       );
       await _registerForPush(session.userId);
     } on ApiException catch (error) {
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: AuthStatus.unauthenticated,
@@ -65,12 +71,14 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<void> logout() async {
+    _sessionGeneration++;
     await _pushService?.unregister();
     await _repository.logout();
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 
   Future<void> expireSession() async {
+    _sessionGeneration++;
     await _pushService?.unregister();
     await _repository.logout();
     if (!isClosed) {
@@ -91,6 +99,7 @@ class AuthCubit extends Cubit<AuthState> {
     String? phoneNumber,
     int roleId = 2,
   }) async {
+    final generation = _sessionGeneration;
     emit(state.copyWith(status: AuthStatus.loading, clearError: true));
     try {
       final session = await _repository.register(
@@ -101,6 +110,7 @@ class AuthCubit extends Cubit<AuthState> {
         phoneNumber: phoneNumber,
         roleId: roleId,
       );
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: AuthStatus.authenticated,
@@ -110,6 +120,7 @@ class AuthCubit extends Cubit<AuthState> {
       );
       await _registerForPush(session.userId);
     } on ApiException catch (error) {
+      if (!_current(generation)) return;
       emit(
         state.copyWith(
           status: AuthStatus.unauthenticated,
@@ -120,8 +131,10 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<void> restoreSession() async {
+    final generation = _sessionGeneration;
     emit(state.copyWith(status: AuthStatus.loading, clearError: true));
     final session = await _repository.restoreSession();
+    if (!_current(generation)) return;
     if (session == null) {
       emit(const AuthState(status: AuthStatus.unauthenticated));
       return;

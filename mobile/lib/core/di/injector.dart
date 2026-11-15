@@ -3,6 +3,7 @@ import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/push/firebase_push_binding.dart';
 import 'package:egitim_ussu_mobile/core/push/push_service.dart';
+import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/core/storage/token_storage.dart';
 import 'package:egitim_ussu_mobile/features/assignments/data/repositories/assignment_repository_impl.dart';
@@ -51,29 +52,30 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
   }
 
   final cache = await SharedPrefsLocalCache.create();
+  final cacheStore = CacheStore(cache);
+  await cacheStore.clearLegacy();
 
   injector
     ..registerLazySingleton<AppConfig>(AppConfig.fromEnvironment)
     ..registerLazySingleton<TokenStorage>(SecureTokenStorage.new)
     ..registerLazySingleton<LocalCache>(() => cache)
-    ..registerLazySingleton<Dio>(
-      () {
-        final config = injector<AppConfig>();
-        // Render free tier uykudan uyanmak için 60 sn gerekebilir
-        final connectTimeout = config.isProductionLike
-            ? const Duration(seconds: 60)
-            : const Duration(seconds: 15);
-        return Dio(
-          BaseOptions(
-            baseUrl: config.apiBaseUrl,
-            connectTimeout: connectTimeout,
-            receiveTimeout: const Duration(seconds: 30),
-            sendTimeout: const Duration(seconds: 15),
-            contentType: 'application/json',
-          ),
-        );
-      },
-    )
+    ..registerSingleton<CacheStore>(cacheStore)
+    ..registerLazySingleton<Dio>(() {
+      final config = injector<AppConfig>();
+      // Render free tier uykudan uyanmak için 60 sn gerekebilir
+      final connectTimeout = config.isProductionLike
+          ? const Duration(seconds: 60)
+          : const Duration(seconds: 15);
+      return Dio(
+        BaseOptions(
+          baseUrl: config.apiBaseUrl,
+          connectTimeout: connectTimeout,
+          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 15),
+          contentType: 'application/json',
+        ),
+      );
+    })
     ..registerLazySingleton<ApiClient>(
       () => ApiClient(
         dio: injector<Dio>(),
@@ -87,27 +89,26 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
         },
       ),
     )
-    ..registerLazySingleton<AuthRepository>(
-      () {
-        final config = injector<AppConfig>();
-        final refreshDio = Dio(
-          BaseOptions(
-            baseUrl: config.apiBaseUrl,
-            connectTimeout: const Duration(seconds: 60),
-            receiveTimeout: const Duration(seconds: 30),
-            sendTimeout: const Duration(seconds: 15),
-            contentType: 'application/json',
-          ),
-        );
-        return AuthRepositoryImpl(
-          apiClient: injector<ApiClient>(),
-          tokenStorage: injector<TokenStorage>(),
-          localCache: injector<LocalCache>(),
-          config: config,
-          refreshDio: refreshDio,
-        );
-      },
-    )
+    ..registerLazySingleton<AuthRepository>(() {
+      final config = injector<AppConfig>();
+      final refreshDio = Dio(
+        BaseOptions(
+          baseUrl: config.apiBaseUrl,
+          connectTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 15),
+          contentType: 'application/json',
+        ),
+      );
+      return AuthRepositoryImpl(
+        apiClient: injector<ApiClient>(),
+        tokenStorage: injector<TokenStorage>(),
+        localCache: injector<LocalCache>(),
+        cacheStore: injector<CacheStore>(),
+        config: config,
+        refreshDio: refreshDio,
+      );
+    })
     ..registerLazySingleton<TeacherRepository>(
       () => TeacherRepositoryImpl(
         apiClient: injector<ApiClient>(),
@@ -119,6 +120,7 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
         localCache: injector<LocalCache>(),
+        cacheStore: injector<CacheStore>(),
       ),
     )
     ..registerLazySingleton<StudyRepository>(
@@ -147,6 +149,7 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
         localCache: injector<LocalCache>(),
+        cacheStore: injector<CacheStore>(),
       ),
     )
     ..registerLazySingleton<LessonSessionRepository>(
@@ -166,6 +169,7 @@ Future<void> configureDependencies({bool firebaseAvailable = false}) async {
         apiClient: injector<ApiClient>(),
         config: injector<AppConfig>(),
         localCache: injector<LocalCache>(),
+        cacheStore: injector<CacheStore>(),
       ),
     )
     ..registerLazySingleton<DashboardRepository>(

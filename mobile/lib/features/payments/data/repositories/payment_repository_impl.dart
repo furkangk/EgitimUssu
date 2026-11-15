@@ -1,8 +1,10 @@
 import 'dart:convert';
+
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/features/payments/data/models/payment_model.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
@@ -43,13 +45,14 @@ class PaymentRepositoryImpl implements PaymentRepository {
     required ApiClient apiClient,
     required AppConfig config,
     required LocalCache localCache,
+    CacheStore? cacheStore,
   }) : _apiClient = apiClient,
        _config = config,
-       _localCache = localCache;
+       _cacheStore = cacheStore ?? CacheStore(localCache);
 
   final ApiClient _apiClient;
   final AppConfig _config;
-  final LocalCache _localCache;
+  final CacheStore _cacheStore;
 
   @override
   Future<PaymentRecord> createRecord(PaymentRecord paymentRecord) async {
@@ -85,18 +88,14 @@ class PaymentRepositoryImpl implements PaymentRepository {
     if (_config.isMockFallbackEnabled('payments')) {
       return PaymentSummaryModel.demo();
     }
-    final cacheKey = 'payments.summary.v2.$teacherUserId';
-    try {
-      final response = await _apiClient.get(
-        '/api/payments/teachers/$teacherUserId/summary',
-      );
-      await _localCache.writeString(cacheKey, jsonEncode(response));
-      return PaymentSummaryModel.fromJson(response);
-    } on ApiException {
-      final cached = await _readCachedSummary(cacheKey);
-      if (cached != null) return cached;
-      rethrow;
-    }
+    return (await _cacheStore.load<PaymentSummary>(
+      feature: 'payments',
+      key: 'summary.v2.$teacherUserId',
+      fetch: () =>
+          _apiClient.get('/api/payments/teachers/$teacherUserId/summary'),
+      decode: (raw) =>
+          PaymentSummaryModel.fromJson(raw as Map<String, dynamic>),
+    )).value;
   }
 
   @override
@@ -104,22 +103,18 @@ class PaymentRepositoryImpl implements PaymentRepository {
     if (_config.isMockFallbackEnabled('payments')) {
       return _mockRecords(teacherUserId);
     }
-    final cacheKey = 'payments.records.$teacherUserId';
-    try {
-      final response = await _apiClient.getList(
+    return (await _cacheStore.load<List<PaymentRecord>>(
+      feature: 'payments',
+      key: 'records.$teacherUserId',
+      fetch: () => _apiClient.getList(
         '/api/payments/teachers/$teacherUserId/records',
-        queryParameters: <String, dynamic>{'outstandingOnly': false},
-      );
-      await _localCache.writeString(cacheKey, jsonEncode(response));
-      return response
-          .whereType<Map<String, dynamic>>()
+        queryParameters: {'outstandingOnly': false},
+      ),
+      decode: (raw) => (raw as List)
+          .cast<Map<String, dynamic>>()
           .map(PaymentRecordModel.fromJson)
-          .toList();
-    } on ApiException {
-      final cached = await _readCachedRecords(cacheKey);
-      if (cached.isNotEmpty) return cached;
-      rethrow;
-    }
+          .toList(),
+    )).value;
   }
 
   @override
@@ -301,32 +296,5 @@ class PaymentRepositoryImpl implements PaymentRepository {
       isOverdue: paymentRecord.isOverdue,
       itemType: paymentRecord.itemType,
     );
-  }
-
-  Future<List<PaymentRecord>> _readCachedRecords(String cacheKey) async {
-    final cached = await _localCache.readString(cacheKey);
-    if (cached == null || cached.isEmpty) {
-      return const <PaymentRecord>[];
-    }
-    final decoded = jsonDecode(cached);
-    if (decoded is! List<dynamic>) {
-      return const <PaymentRecord>[];
-    }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(PaymentRecordModel.fromJson)
-        .toList();
-  }
-
-  Future<PaymentSummary?> _readCachedSummary(String cacheKey) async {
-    final cached = await _localCache.readString(cacheKey);
-    if (cached == null || cached.isEmpty) {
-      return null;
-    }
-    final decoded = jsonDecode(cached);
-    if (decoded is! Map<String, dynamic>) {
-      return null;
-    }
-    return PaymentSummaryModel.fromJson(decoded);
   }
 }

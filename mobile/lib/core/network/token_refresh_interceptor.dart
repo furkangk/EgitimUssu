@@ -20,10 +20,12 @@ class TokenRefreshInterceptor extends Interceptor {
     required Future<String?> Function() onRefresh,
     required Future<String?> Function() readAccessToken,
     required void Function() onUnauthorized,
+    int Function()? sessionGeneration,
   }) : _retryDio = dio.clone(interceptors: Interceptors()),
        _onRefresh = onRefresh,
        _readAccessToken = readAccessToken,
-       _onUnauthorized = onUnauthorized;
+       _onUnauthorized = onUnauthorized,
+       _sessionGeneration = sessionGeneration ?? (() => 0);
 
   // Keep the configured adapter/transformer, but bypass the interceptor chain so
   // a second 401 cannot recurse into another refresh.
@@ -31,6 +33,18 @@ class TokenRefreshInterceptor extends Interceptor {
   final Future<String?> Function() _onRefresh;
   final Future<String?> Function() _readAccessToken;
   final void Function() _onUnauthorized;
+  final int Function() _sessionGeneration;
+  static const sessionGenerationKey = 'sessionGeneration';
+  int? _refreshGeneration;
+
+  bool _current(RequestOptions request) =>
+      request.extra[sessionGenerationKey] == _sessionGeneration();
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.extra.putIfAbsent(sessionGenerationKey, _sessionGeneration);
+    handler.next(options);
+  }
 
   /// Sürmekte olan yenileme; bitince temizlenir.
   Future<String?>? _refreshInFlight;
@@ -40,7 +54,7 @@ class TokenRefreshInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    if (err.response?.statusCode != 401) {
+    if (!_current(err.requestOptions) || err.response?.statusCode != 401) {
       return handler.next(err);
     }
 
@@ -55,12 +69,14 @@ class TokenRefreshInterceptor extends Interceptor {
     try {
       token = await _tokenForRetry(original);
     } catch (error) {
+      if (!_current(original)) return handler.next(err);
       if (_isSessionRejected(error)) {
         _onUnauthorized();
         return handler.next(err);
       }
       return handler.next(_transientFailure(original, error));
     }
+    if (!_current(original)) return handler.next(err);
     if (token == null || token.isEmpty) {
       _onUnauthorized();
       return handler.next(err);
@@ -78,9 +94,10 @@ class TokenRefreshInterceptor extends Interceptor {
 
     try {
       final response = await _retryDio.fetch<dynamic>(retryOptions);
+      if (!_current(original)) return handler.next(err);
       return handler.resolve(response);
     } on DioException catch (retryError) {
-      if (retryError.response?.statusCode == 401) {
+      if (_current(original) && retryError.response?.statusCode == 401) {
         _onUnauthorized();
       }
       // A timeout, 5xx or validation error after a successful refresh is not an
@@ -93,20 +110,28 @@ class TokenRefreshInterceptor extends Interceptor {
   /// yapılmıştır — onu kullan. Aynıysa (ya da depo boşsa) tek uçuş yenile.
   Future<String?> _tokenForRetry(RequestOptions original) async {
     final stored = await _readAccessToken();
+    if (!_current(original)) {
+      throw const ApiException(
+        message: 'Oturum değişti.',
+        kind: ApiErrorKind.auth,
+        statusCode: 401,
+      );
+    }
     final sent = _bearerToken(original.headers['Authorization']);
     if (stored != null && stored.isNotEmpty && stored != sent) {
       return stored;
     }
-    return _refreshOnce();
+    return _refreshOnce(_sessionGeneration());
   }
 
-  Future<String?> _refreshOnce() {
+  Future<String?> _refreshOnce(int generation) {
     final inFlight = _refreshInFlight;
-    if (inFlight != null) {
+    if (inFlight != null && _refreshGeneration == generation) {
       return inFlight;
     }
     final refresh = _onRefresh();
     _refreshInFlight = refresh;
+    _refreshGeneration = generation;
     // Hata bekleyen her çağırana kendi `await`'inde ulaşır; bu dal yalnız temizler.
     unawaited(
       refresh.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
@@ -129,7 +154,7 @@ class TokenRefreshInterceptor extends Interceptor {
   }
 
   /// Yenileme geçici bir nedenle düştü: isteğin hatası olarak yukarı iletilir.
-  /// Yanıtsız hata `ApiErrorKind.network`'e, durum kodlu olan kendi türüne eşlenir.
+  /// Yalnız transport hatası network kalır; iptal/sertifika/parse hatası çevrilmez.
   static DioException _transientFailure(RequestOptions original, Object error) {
     if (error is DioException) {
       return error.copyWith(requestOptions: original);
@@ -139,7 +164,9 @@ class TokenRefreshInterceptor extends Interceptor {
     return DioException(
       requestOptions: original,
       type: status == null
-          ? DioExceptionType.connectionError
+          ? (apiError?.kind == ApiErrorKind.network
+                ? DioExceptionType.connectionError
+                : DioExceptionType.unknown)
           : DioExceptionType.badResponse,
       response: status == null
           ? null

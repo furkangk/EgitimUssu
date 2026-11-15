@@ -5,6 +5,7 @@ import 'package:egitim_ussu_mobile/core/push/push_route_mapping.dart';
 import 'package:egitim_ussu_mobile/core/push/push_service.dart';
 import 'package:egitim_ussu_mobile/core/routing/app_router.dart';
 import 'package:egitim_ussu_mobile/core/routing/route_access.dart';
+import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_theme.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_state.dart';
@@ -12,6 +13,7 @@ import 'package:egitim_ussu_mobile/features/membership/domain/membership_contrac
 import 'package:egitim_ussu_mobile/features/membership/presentation/cubit/membership_cubit.dart';
 import 'package:egitim_ussu_mobile/features/notifications/presentation/cubit/notifications_cubit.dart';
 import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
+import 'package:egitim_ussu_mobile/shared/widgets/stale_data_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -133,6 +135,8 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
         listenWhen: (previous, current) =>
             previous.session?.userId != current.session?.userId,
         listener: (context, state) {
+          _notificationsCubit.reset();
+          _membershipCubit.reset();
           final session = state.session;
           if (session != null) {
             _openPendingPush();
@@ -160,6 +164,18 @@ class _EgitimUssuAppState extends State<EgitimUssuApp> {
             SfGlobalLocalizations.delegate,
             AppLocalizations.delegate,
           ],
+          builder: (context, child) {
+            if (!injector.isRegistered<CacheStore>()) return child!;
+            return ValueListenableBuilder<DateTime?>(
+              valueListenable: injector<CacheStore>().staleSince,
+              builder: (context, savedAt, _) => Column(
+                children: [
+                  if (savedAt != null) StaleDataBanner(savedAt: savedAt),
+                  Expanded(child: child!),
+                ],
+              ),
+            );
+          },
           theme: AppTheme.lightTheme,
           routerConfig: _appRouter.router,
         ),

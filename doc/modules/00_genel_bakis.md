@@ -460,3 +460,9 @@ M14 Reporting ve M11 Notifications, StudentProfilesMerged tüketicilerine katıl
 ## P20 T1 — mobil sahte veri temizliği
 
 M02/M04/M08/M17 mobil yüzeylerinde kaynaksız sayı/hedef/puan ve işlevsiz yer tutucular temizlendi. Takvim ve öğretmen profilinde başlangıç seed’i yoktur. Statik panel/hesap rotaları debug ile sınırlıdır. Üyelik kataloğu/deneme/referans çalışır; satın alma girişi ve gelecek vaatleri gizlidir. Backend uçları/şemaları bu görevde değişmedi.
+
+### P20 T3 — mobil cache ve oturum sınırı
+
+M01 çıkış mevcut sunucu logout ucunu kullanır; yerel token/profil/cache ve bekleyen yazma gövdeleri temizlenir. M03 öğrenci, M04 öğretmen/öğrenci ders ve M07 ödeme özet/kayıt cache'leri giriş yapan kullanıcıya aittir; yalnız bağlantı/timeout durumunda kayıt zamanlı ortak uyarıyla gösterilir. M11 bildirim ve M17 üyelik kök cubit'leri oturum değişiminde reset olur; gecikmiş yanıtlar eski durumu diriltemez. Yeni backend ucu veya migration yoktur.
+
+*Güncelleme: 2026-11-15 — P20 Task 3.*

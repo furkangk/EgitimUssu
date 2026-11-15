@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
+import 'package:egitim_ussu_mobile/core/storage/cache_store.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
 import 'package:egitim_ussu_mobile/features/students/data/models/student_model.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
@@ -12,13 +11,14 @@ class StudentRepositoryImpl implements StudentRepository {
     required ApiClient apiClient,
     required AppConfig config,
     required LocalCache localCache,
+    CacheStore? cacheStore,
   }) : _apiClient = apiClient,
        _config = config,
-       _localCache = localCache;
+       _cacheStore = cacheStore ?? CacheStore(localCache);
 
   final ApiClient _apiClient;
   final AppConfig _config;
-  final LocalCache _localCache;
+  final CacheStore _cacheStore;
 
   @override
   Future<StudentProfile> createStudent(StudentProfile studentProfile) async {
@@ -201,21 +201,17 @@ class StudentRepositoryImpl implements StudentRepository {
     if (_config.isMockFallbackEnabled('students')) {
       return _mockStudents(teacherUserId);
     }
-    final cacheKey = 'students.byTeacher.$teacherUserId';
-    try {
-      final response = await _apiClient.getList(
+    return (await _cacheStore.load<List<StudentProfile>>(
+      feature: 'students',
+      key: 'byTeacher.$teacherUserId',
+      fetch: () => _apiClient.getList(
         '/api/students/profiles/by-teacher/$teacherUserId',
-      );
-      await _localCache.writeString(cacheKey, jsonEncode(response));
-      return response
-          .whereType<Map<String, dynamic>>()
+      ),
+      decode: (raw) => (raw as List)
+          .cast<Map<String, dynamic>>()
           .map(StudentProfileModel.fromSummaryJson)
-          .toList();
-    } on ApiException {
-      final cached = await _readCachedStudents(cacheKey);
-      if (cached.isNotEmpty) return cached;
-      rethrow;
-    }
+          .toList(),
+    )).value;
   }
 
   List<StudentProfile> _mockStudents(String teacherUserId) => [
@@ -250,19 +246,4 @@ class StudentRepositoryImpl implements StudentRepository {
       gradeLevel: '12. Sınıf',
     ),
   ];
-
-  Future<List<StudentProfile>> _readCachedStudents(String cacheKey) async {
-    final cached = await _localCache.readString(cacheKey);
-    if (cached == null || cached.isEmpty) {
-      return const <StudentProfile>[];
-    }
-    final decoded = jsonDecode(cached);
-    if (decoded is! List<dynamic>) {
-      return const <StudentProfile>[];
-    }
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(StudentProfileModel.fromSummaryJson)
-        .toList();
-  }
 }
