@@ -16,7 +16,11 @@ updated: 2026-11-15
 # Bildirim Merkezi (`/notifications`)
 
 > **Feature:** `notifications` · **State:** `NotificationCenterCubit` / `NotificationCenterState` · **Veri:** Gerçek API (mock fallback **yok**)
-> **Güncelleme:** 2026-09-03
+> **Güncelleme:** 2026-11-15
+
+## Rota davranışı (P20 T2)
+
+Veli dahil bütün oturumlu roller bu merkeze erişebilir. Kart önce okundu işaretlenir; hedef varsa OS push ile aynı `mapPushRoute` kullanılır. `/scheduling` rolün ders görünümünü, veli ödev/ödeme hedefleri onaylı çocuk özetini açar. Bilinmeyen veya yetkisiz hedefte kullanıcı bildirim merkezinde kalır. Başlık ve göreli zamanlar tr/en ARB'dedir. Veli ana sayfasındaki zil bu ekranı açar; `/parent/notifications` ayrı tercih ekranıdır.
 
 ## Amaç
 Öğrenci, öğretmen ve velinin **tek** bildirim merkezi. Ders hatırlatması, ödev, ödeme ve sistem

@@ -361,11 +361,11 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 ## 6. Mobil Ekranlar (✅ Uygulandı — Flutter `parent` feature)
 
 > Birincil renk `0xFF082B4F`. `Parent` rolü için **ayrı navigasyon uygulandı**: `app_router.dart` redirect'i
-> `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir (veli öğretmen ekranlarına, öğretmen veli ekranlarına düşerse geri alınır).
+> Ortak ekranlara izin veren `RouteAccess` tablosu üzerinden `session.roles` içinde `'Parent'` varsa `/parent`'e yönlendirir (veli öğretmen ekranlarına, öğretmen veli ekranlarına düşerse geri alınır).
 > Feature klasörü: `mobile/lib/features/parent/`. Cubit: `ParentCubit`. Repository: `ParentRepository` (get_it'e kayıtlı, mock fallback destekli).
 > Alt menü: **`ParentBottomNav`** (Ana Sayfa / Çocuklar / Bildirim / Profil).
 
-- `parent_home_page` — **çocuk seçici** + haftalık KPI kartları + haftalık çalışma çubuk grafiği + ödeme özeti.
+- `parent_home_page` — **onaylı çocuk seçici** + haftalık KPI/çalışma ve ödeme özeti. P20 T2: `ParentHomeSection` ile `/parent/assignments`, `/parent/payments`, `/parent/lessons` ilgili gerçek dashboard özetini açar; ayrı yazma/liste API eklenmedi. Mesaj ve ortak bildirim merkezi girişleri aktiftir. [Ekran sözleşmesi](../pages/parent.md).
 - `parent_children_page` — bağlı çocuklar + durum rozetleri + "çocuk bağla" bottom-sheet formu.
 - `parent_child_detail_page` — seçili çocuğun detaylı gelişimi (çalışma / ders / ödev / ödeme).
 - `parent_notifications_page` — bildirim tercihleri switch'leri + kanal seçimi.

@@ -60,7 +60,7 @@
 
 ---
 
-### Task 2: Rol bazlı rota izin tablosu + bildirim rotaları (N-62, N-71 rotalar)
+### Task 2: Rol bazlı rota izin tablosu + bildirim rotaları (N-62, N-71 rotalar) ✅
 
 **Files:**
 - Create: `mobile/lib/core/routing/route_access.dart` (`Map<String, Set<AppRole>>` + ortak rotalar)
@@ -74,12 +74,26 @@
 - Ortak (tüm roller): `/messages`, `/messages/:id`, `/notifications`, `/settings/*`, `/account/*`, `/membership`, `/membership/paywall`.
 - Veli'ye özel: `/parent/**`. Öğrenci'ye özel: `/student-home/**`, `/study/**`. Öğretmen'e özel: `/dashboard`, `/students/**`, `/scheduling`, `/payments/**`, `/teacher/**`.
 
-- [ ] **Step 1: Kırmızı testler** — veli `/messages` → kalır; veli `/students` → `/parent`; öğrenci `/payments` → `/student-home`; push `/parent/payments` → veli ödeme ekranı; bilinmeyen rota → hata ekranı (çökme yok).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `mobile_flutter.md` (rota tablosu), `ux_rules.md`, `roles/veli.md`; rapor N-62, N-71 (rota) ✅.
+**2026-11-15 T2 kapsam doğrulaması:** Push dokunmasını tüketen dosya `mobile/lib/app/app.dart`; Firebase binding rota seçmez. Sunucu ayrıca `/parent/lessons` üretir. Ayrı veli ödeme/ödev listesi yok; mevcut `ParentHomePage` onaylı çocuk seçicisi ve gerçek dashboard verisiyle `overview/assignments/payments/lessons` bölümleri sunacak. Bunlar özet ekranlarıdır; ödeme beyanı ve yeni rol akışları P21'de kalır. `/student/reports` mevcut sözleşmeye göre ortak, `/student/progress` öğrenciye özel kalır. Öğretmen/admin mevcut öğretmen alanını kullanır; çok rollü hesapta mevcut Parent > Teacher > Student önceliği korunur, bilinmeyen rol yalnız ortak ekranlara erişir. İzin tablosu önek yerine kayıtlı tam rota şablonlarını eşler; bilinmeyen URL hata ekranına, bilinmeyen/yetkisiz bildirim hedefi bildirim merkezine gider.
+
+**Ek Files:**
+- Create: `mobile/lib/core/push/push_route_mapping.dart`, `mobile/lib/core/routing/route_not_found_page.dart`.
+- Modify: `mobile/lib/app/app.dart` (oturum geri yüklenirken gelen bildirimi oturum hazır olunca açar), `mobile/lib/features/notifications/presentation/pages/notifications_page.dart` (aynı güvenli eşleyici; zaten ARB'de).
+- Modify: `mobile/lib/l10n/app_tr.arb`, `mobile/lib/l10n/app_en.arb`, `mobile/test/l10n/localization_test.dart` (veli ana ekranı ve hata ekranı ARB).
+- Create (test helper): `mobile/test/helpers/fake_parent_repository.dart`.
+- Test: `mobile/test/features/parent/parent_home_routes_test.dart`, `mobile/test/core/push/push_navigation_test.dart`; mevcut `mobile/test/core/routing/app_router_test.dart`, `preview_routes_test.dart` regresyonları.
+- Docs: `doc/pages/parent.md`, `doc/pages/notifications.md`, `doc/modules/m09_parents.md`, `doc/modules/m11_notifications.md`, `doc/modules/00_genel_bakis.md` ve Step 5 belgeleri; veli sayfası dokümanı olmadığından `parent.md` oluşturulur, `doc/pages/00_pages_index.md` ve `doc/INDEX.md` eklenir.
+
+**Interfaces eki:** `AppRole`, `RouteAccess.roleFor/homeFor/canAccess/redirectFor`, tam şablon izin tablosu; `mapPushRoute(String?, AppRole)` yalnız uygulama içi kayıtlı hedef döndürür. `ParentHomePage(section: ParentHomeSection)` aynı mevcut repository sözleşmesini kullanır; backend ve repository arayüzleri değişmez, sahte imza değişikliği yok. T2/T3 `app.dart` ortak: bu görev yalnız push navigasyonunu değiştirir; cache/reset T3. T2/T4 push ortak: `onMessage`/poll T4. T2/T6 gerçek FCM/cihaz kanıtı T6/P25; burada platform bağımsız akış sınanır.
+
+- [x] **Step 1: Kırmızı testler** — veli `/messages` → kalır; veli `/students` → `/parent`; öğrenci `/payments` → `/student-home`; push `/parent/payments` → veli ödeme ekranı; bilinmeyen rota → hata ekranı (çökme yok).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `mobile_flutter.md` (rota tablosu), `ux_rules.md`, `roles/veli.md`; rapor N-62, N-71 (rota) ✅.
   ```bash
   git commit -m "fix(mobile): rol bazli rota izin tablosu, veli ortak ekranlara girer, push rotalari eslendi (N-62, N-71)"
   ```
+
+**Doğrulama (2026-11-15):** Derlenen davranışsız imzalar → gerçek rota/eşleme, veli özet ve sıcak/soğuk push kırmızıları → yeşil. Dinamik rota şablonu regresyonu RED→GREEN. Bağımsız incelemenin tek önemli bulgusu: üç özet rotasında Ana Sayfa seçili olduğu için dönüş etkisiz; üç yeni widget testi 6 yeşil/3 kırmızı → `ParentNavTab.none` ile 9/9. Son `flutter test` **417 geçti**, `flutter analyze --fatal-infos` temiz; analysis_options geri alındı. Release `-warnaserror` **0 uyarı/0 hata**, tool restore başarılı; tam Docker **19 mimari/1312 birim/214 integration, 0 başarısız/0 atlanan**, exit0. NuGet 76 proje/0 advisory; migration yok. Doc health RED0, mevcut1YELLOW+1BLUE. Gerçek FCM/cihaz teslimi doğrulanmadı (Q8/P25); ön plan T4, cache/çıkış T3.
 
 ---
 

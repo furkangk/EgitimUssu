@@ -39,7 +39,9 @@ Her rol için öncelik farklıdır — ekran tasarımı bunu yansıtır:
 - **Geri butonu:** Her iç ekranda sol üstte. Başlık metni `h3 (18px, w700)`.
 - **Modal / Bottom Sheet:** Yıkıcı işlemler (silme, iptal) modal'da onaylanır. Sheet üst köşe radius: 24.
 - **Tab geçişi:** Sekme değişiminde scroll pozisyonu sıfırlanmaz.
-- **Deep link:** Her ekranın `go_router` route'u tanımlıdır; direkt erişilebilir.
+- **Deep link:** Kayıtlı rota, rol izin tablosuna göre açılır. Yetkisiz alan rolün ana ekranına döner; bilinmeyen adres “Sayfa bulunamadı” ve ana sayfa düğmesi gösterir.
+- **Ortak ekranlar (P20 T2):** Mesajlar, bildirim merkezi, kayıtlı ayarlar/hesap ve üyelik rotaları veli dahil tüm oturumlu rollere açıktır. Veli ana sayfasında mesaj ve zil girişleri bulunur.
+- **Bildirim hedefi:** OS push ve in-app kart aynı rol eşleyicisini kullanır; bilinmeyen/yetkisiz hedef bildirim merkezine düşer. Veli ödeme/ödev/ders hedefleri mevcut onaylı çocuk seçicili özet ekranlarıdır; yeni işlem yetkisi vermez.
 
 ---
 

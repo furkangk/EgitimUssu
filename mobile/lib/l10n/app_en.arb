@@ -1136,5 +1136,64 @@
         "type": "int"
       }
     }
+  },
+  "route_notFound": "Page not found",
+  "route_backHome": "Back to home",
+  "p20parent_weeklyHint": "Your child's progress this week",
+  "p20parent_loading": "Loading parent dashboard...",
+  "p20parent_error": "Something went wrong.",
+  "p20parent_empty": "No approved child yet",
+  "p20parent_linkChild": "Link a child",
+  "p20parent_loadingProgress": "Loading progress...",
+  "p20parent_weeklyStudy": "Study this week",
+  "p20parent_streak": "Study streak",
+  "p20parent_completedLessons": "Completed lessons",
+  "p20parent_openAssignments": "Open assignments",
+  "p20parent_weekly": "Weekly study",
+  "p20parent_notShared": "Individual study data has not been shared yet.",
+  "p20parent_payments": "Payment summary",
+  "p20parent_expected": "Expected",
+  "p20parent_collected": "Collected",
+  "p20parent_outstanding": "Outstanding",
+  "p20parent_detail": "Detailed progress",
+  "p20parent_assignments": "Assignment summary",
+  "p20parent_lessons": "Lesson summary",
+  "p20parent_totalAssignments": "Total assignments",
+  "p20parent_completed": "Completed",
+  "p20parent_plannedLessons": "Planned lessons",
+  "p20parent_role": "Parent",
+  "p20parent_messages": "Messages",
+  "p20parent_linkHint": "Progress will appear here after you link your child and the link is approved.",
+  "p20parent_greeting": "Hello, {name}",
+  "@p20parent_greeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "p20parent_days": "{count} days",
+  "@p20parent_days": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "p20parent_minutes": "{count} min",
+  "@p20parent_minutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "p20parent_studied": "{count} minutes studied this week.",
+  "@p20parent_studied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -221,6 +221,8 @@ void main() {
 const _migratedFeatures = <String>['dashboard'];
 
 const _migratedFiles = <String>[
+  'features/parent/presentation/pages/parent_home_page.dart',
+  'core/routing/route_not_found_page.dart',
   'features/scheduling/presentation/pages/scheduling_page.dart',
   'features/teacher_profile/presentation/pages/teacher_profile_page.dart',
   'features/more/presentation/pages/more_page.dart',

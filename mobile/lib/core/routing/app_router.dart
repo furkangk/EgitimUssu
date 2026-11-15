@@ -60,6 +60,9 @@ import 'package:egitim_ussu_mobile/features/teacher_profile/presentation/pages/t
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
+import 'route_access.dart';
+import 'route_not_found_page.dart';
+
 class AppRouter {
   AppRouter({
     required AuthCubit authCubit,
@@ -70,6 +73,13 @@ class AppRouter {
     router = GoRouter(
       initialLocation: initialLocation,
       refreshListenable: _refreshListenable,
+      errorBuilder: (context, state) => RouteNotFoundPage(
+        home: authCubit.state.status == AuthStatus.authenticated
+            ? RouteAccess.homeFor(
+                RouteAccess.roleFor(authCubit.state.session?.roles ?? const []),
+              )
+            : '/',
+      ),
       redirect: (context, state) {
         // D-02: Sema-bazli derin baglanti (egitimussu://verify-email?token=...)
         // yol tasimaz; once uygulama-ici bir rotaya cevrilir.
@@ -119,50 +129,15 @@ class AppRouter {
           return null;
         }
 
-        // Rol bazlı yönlendirme: veli kendi paneline, öğrenci çalışma paneline,
-        // diğerleri (öğretmen/admin) öğretmen paneline.
-        final roles = authCubit.state.session?.roles ?? const <String>[];
-        final isParent = roles.contains('Parent');
-        final isStudent =
-            !isParent &&
-            roles.contains('Student') &&
-            !roles.contains('Teacher');
-        final home = isParent
-            ? '/parent'
-            : isStudent
-            ? '/student-home'
-            : '/dashboard';
-
-        if (onAuthScreen || state.matchedLocation == '/') {
-          return home;
-        }
-
-        // Veli, öğretmen-özel ekranlara düşerse kendi paneline geri al (ve tersi).
-        final onParentArea = state.matchedLocation.startsWith('/parent');
-        if (isParent && !onParentArea) {
-          return '/parent';
-        }
-        if (!isParent && onParentArea) {
-          return '/dashboard';
-        }
-
-        // Öğrenci, öğretmene özel ekranlara düşerse kendi paneline geri al.
-        const teacherOnly = <String>[
-          '/dashboard',
-          '/students',
-          '/scheduling',
-          '/lesson-sessions',
-          '/lesson-notes',
-          '/assignments',
-          '/payments',
-          '/teacher-profile',
-        ];
-        if (isStudent &&
-            teacherOnly.any((path) => state.matchedLocation.startsWith(path))) {
-          return '/student-home';
-        }
-
-        return null;
+        if (onPreviewScreen) return null;
+        final role = RouteAccess.roleFor(
+          authCubit.state.session?.roles ?? const [],
+        );
+        if (onAuthScreen) return RouteAccess.homeFor(role);
+        return RouteAccess.redirectFor(
+          state.fullPath ?? state.uri.toString(),
+          role,
+        );
       },
       routes: <RouteBase>[
         GoRoute(path: '/', builder: (context, state) => const WelcomePage()),
@@ -462,6 +437,21 @@ class AppRouter {
         GoRoute(
           path: '/notifications',
           builder: (context, state) => const NotificationsPage(),
+        ),
+        GoRoute(
+          path: '/parent/assignments',
+          builder: (context, state) =>
+              const ParentHomePage(section: ParentHomeSection.assignments),
+        ),
+        GoRoute(
+          path: '/parent/payments',
+          builder: (context, state) =>
+              const ParentHomePage(section: ParentHomeSection.payments),
+        ),
+        GoRoute(
+          path: '/parent/lessons',
+          builder: (context, state) =>
+              const ParentHomePage(section: ParentHomeSection.lessons),
         ),
         // Veli (Parent) paneli
         GoRoute(

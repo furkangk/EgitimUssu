@@ -129,25 +129,19 @@ Future<void> configureDependencies() async {
 
 ## 6. Yönlendirme — `go_router`
 
-`AppRouter`, `AuthCubit.stream`'i `refreshListenable` olarak kullanır ve **redirect** ile oturuma göre yönlendirir:
+`AppRouter`, oturum durumunu `AuthCubit.stream` üzerinden izler. Giriş/kayıt sonrası `RouteAccess.roleFor` ile rol seçilir, `homeFor` ile ana ekran bulunur. İzinlerin tek kaynağı `core/routing/route_access.dart` içindeki tam rota şablonlarıdır; `startsWith` ile rol izni verilmez. Router eşleşmiş `fullPath` üzerinden kontrol eder, dinamik kimlikler rol denetimini değiştirmez. Kaynak sahipliği ve paylaşım yetkisi ayrıca API'de uygulanır.
 
-```dart
-redirect: (context, state) {
-  final status = authCubit.state.status;
-  final onAuthScreen = ['/', '/role-selection', '/login', '/register'].contains(state.matchedLocation);
-  if (status == AuthStatus.initial || status == AuthStatus.loading) return onAuth/preview ? null : '/';
-  if (status == AuthStatus.unauthenticated) return onAuthScreen ? null : '/';
-  if (onAuthScreen || state.matchedLocation == '/') return '/dashboard';  // giriş yapılmış
-  return null;
-}
-```
+| Alan | İzin |
+|------|------|
+| `/messages`, `/messages/:conversationId`, `/notifications`, `/settings/notifications`, `/settings/privacy`, `/account/sessions`, `/membership`, `/membership/paywall` | Tüm oturumlu roller |
+| `/student/reports` | Mevcut ortak analiz ekranı; öğrenci erişimi API tarafından denetlenir |
+| `/parent` ve kayıtlı çocuk/profil/bildirim/özet alt rotaları | Parent |
+| `/student-home`, kayıtlı `/student/*` (reports hariç), `/study/*` | Student |
+| `/dashboard`, `/more`, `/students/*`, `/scheduling`, `/lesson-sessions/*`, `/lesson-notes/new`, `/assignments/*`, `/payments/*`, `/teacher-profile`, `/teacher/reports` | Teacher / Admin |
 
-Başlıca rotalar (koddan): `/` (Welcome), `/role-selection`, `/login?role=`, `/register`, `/dashboard`,
-`/teacher-profile`, `/more`, `/account-info`, `/students`, `/students/:studentId`, `/scheduling`,
-`/lesson-sessions` (+`/detail`, `/detail/note`), `/lesson-notes/new`, `/assignments/:lessonSessionId`,
-`/assignments/new`, `/payments`, `/payments/new`. Önizleme: `/teacher-panel-preview`, `/account-info-preview`.
+Tablodaki `*` gruplama anlatımıdır: yalnız router'da kayıtlı **tam şablonlar** açıktır. Yeni rota eklenince izin tablosuna da eklenmesi envanter testiyle zorlanır. Çok rollü hesapta mevcut Parent > Teacher > Student > Admin önceliği korunur. Bilinmeyen rol öğretmen yetkisi kazanmaz; ortak bildirim merkezi ana ekranıdır. Yetkisiz bilinen rota rolün ana ekranına döner. Bilinmeyen rota ARB tabanlı “Sayfa bulunamadı” ve “Ana sayfaya dön” ekranını açar.
 
-> Not: Yukarıdakiler **öğretmen** rotalarıdır. **Öğrenci** rotaları da mevcut: `/student-home`, `/student/lessons` (+`/student/lessons/:id`), `/student/performance`, `/student/profile`, `/student/teacher`, `/study/timer`, `/study/test`, `/study/goals`, `/study/history`, `/study/achievements`; **veli** için `/parent` alanı. Redirect, oturumdaki role göre öğrenciyi/veliyi kendi paneline yönlendirir ve öğretmene özel ekranlardan geri alır (§9).
+Oturumsuz kullanıcı karşılama akışına yönlendirilir; hesap kurtarma bağlantıları açık kalır. `/account-info`, `/account-info-preview`, `/teacher-panel-preview` yalnız `kDebugMode && enablePreviewRoutes` ile kaydolur (P20 T1). Öğretmen alt menüsünü beşe indiren K-30 uygulaması P21 T4'tedir.
 
 ## 7. Ağ Katmanı, Config & Depolama
 
@@ -196,11 +190,12 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 
 ### 7.1 Push Bildirim (A-04, 2026-09-03)
 
-`core/push/` iki parçadır:
+`core/push/` sorumlulukları:
 
 | Dosya | Sorumluluk |
 |-------|-----------|
 | `push_service.dart` | `PushService` — izin isteği, cihaz token kaydı/silme, token yenileme aboneliği, `taps` akışı. **Firebase'e bağlı değildir**: `tokenProvider` / `permissionRequester` / `tokenRefreshes` / `incomingTaps` dışarıdan verilir → platform kanalı olmadan test edilebilir. |
+| `push_route_mapping.dart` | OS push ve bildirim merkezi için rol bazlı, yalnız kayıtlı uygulama içi hedef eşlemesi. |
 | `firebase_push_binding.dart` | `FirebasePushBinding` — `Firebase.initializeApp()`, arka plan handler'ı ve `FirebaseMessaging` kaynaklarının `PushService`'e bağlanması. |
 
 **Yaşam döngüsü:** `AuthCubit` giriş / kayıt / oturum geri yükleme sonrasında `PushService.registerForUser(userId)`,
@@ -208,8 +203,9 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 (`DeviceTokenRepositoryImpl`), silme `DELETE /api/notifications/device-tokens/{token}`.
 `DevicePlatform` **sayısal** gönderilir (`android=1`, `ios=2`, `web=3`) — backend enum'u JSON'da sayıdır.
 
-**Derin bağlantı:** `app.dart` `PushService.taps` akışını dinler; `tap.route` doluysa `router.push(route)`.
-Backend push gövdesine `data.route` koyar (ders hatırlatması → `/scheduling`, in-app bildirim → kendi rotası).
+**Derin bağlantı (P20 T2):** `app.dart` `PushService.taps` akışını dinler; `mapPushRoute` ile hedefi rol izin tablosundan doğrular. `/scheduling` öğretmende takvim, öğrencide `/student/lessons`, velide `/parent/lessons`; veli ödeme/ödev bildirimleri `/parent/payments` ve `/parent/assignments` özetlerini açar. Sohbet kimliği ve sorgu parametreleri korunur. Boş/bilinmeyen/yetkisiz/dış URL hedefi `/notifications` olur. Bildirim merkezi aynı eşleyiciyi kullanır; hedef yine merkezse yeni kopya açmaz.
+
+Oturum geri yüklenirken son dokunma bekletilir; oturum ve ilk frame hazır olunca bir kez açılır. Çıkışta bekleyen hedef temizlenir. Bu, Firebase'e bağımlı olmayan widget akışıyla doğrulanır; gerçek cihaz FCM Q8/P25, ön plan `onMessage` ve sohbet poll P20 T4 kapsamıdır.
 
 > **Bilinçli fail-open:** `google-services.json` / `GoogleService-Info.plist` yoksa `Firebase.initializeApp()`
 > başarısız olur; uygulama **açılmaya devam eder** ve konsola bir **uyarı** basılır. Push o oturumda çalışmaz.

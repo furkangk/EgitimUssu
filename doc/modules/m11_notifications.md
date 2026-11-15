@@ -322,6 +322,8 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 
 ## 6. Mobil Ekranlar (Flutter)
 
+**P20 T2 — rota teslimi:** `mapPushRoute` OS push ve in-app bildirim kartlarının ortak eşleyicisidir. Veli dahil ortak ekranlar erişilebilir; `/scheduling` alıcı role göre takvim/öğrenci dersleri/veli ders özetine eşlenir. Veli ödev ve ödeme rotaları kayıtlıdır. Bilinmeyen, yetkisiz veya harici URL `/notifications` olur. Soğuk açılışta dokunma oturum hazır olana kadar bekler. Sunucu payload/event sözleşmesi değişmedi; gerçek FCM doğrulaması Q8/P25, `onMessage` P20 T4'te açıktır.
+
 - **Bildirim merkezi (Notification Center):** in-app bildirim listesi (okunmuş/okunmamış ayrımı, rozet sayacı). `GET /users/{userId}` + `unread-count`. Marka rengi `0xFF082B4F` başlık/rozet.
 - **Bildirim ayarları:** [`m15_settings.md`](m15_settings.md) ekranına bağlı; push/e-posta ve tür bazlı anahtarlar.
 - **Cihaz token kaydı:** login/uygulama açılışında push izni istenir, alınan FCM token `POST /devices` ile kaydedilir; logout'ta `DELETE /devices/{token}`.

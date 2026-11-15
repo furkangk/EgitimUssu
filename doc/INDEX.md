@@ -130,6 +130,8 @@ updated: 2026-11-15
 
 > P19 Task 7: [`pages/assignments.md`](pages/assignments.md) öğretmen/öğrenci ödev listelerini belgeler; ödev, çalışma geçmişi/notlar ve bildirim merkezi cursor ile sonsuz kaydırır.
 
+> P20 Task 2: [`pages/parent.md`](pages/parent.md) veli ana sayfasını, ortak mesaj/bildirim girişlerini ve onaylı çocuk ödev/ödeme/ders özet rotalarını belgeler.
+
 ## 5.1 Rol Sayfa Mimarisi Diyagramları (`doc/diagrams/rol_sayfa_mimarisi/`)
 
 > Her rol için **fonksiyonel dokümandan türetilen** (uygulamadan değil) sayfa yapısı (IA), içerik ve ilişki/veri-akışı diyagramları (mermaid). Kaynak fonksiyonel dokümanlar **arşivlendi** (2026-08-19) → `doc/_arsiv/*_rolu_fonksiyonel_dokuman_v1.md`; güncel otorite `doc/roles/`'tedir. İndeks → [`rol_sayfa_mimarisi/README.md`](diagrams/rol_sayfa_mimarisi/README.md).

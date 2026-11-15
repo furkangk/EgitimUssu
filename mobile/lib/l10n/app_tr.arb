@@ -1257,5 +1257,64 @@
         "type": "int"
       }
     }
+  },
+  "route_notFound": "Sayfa bulunamadı",
+  "route_backHome": "Ana sayfaya dön",
+  "p20parent_weeklyHint": "Çocuğunuzun bu haftaki gelişimi",
+  "p20parent_loading": "Veli paneli yükleniyor...",
+  "p20parent_error": "Bir hata oluştu.",
+  "p20parent_empty": "Henüz onaylı çocuk yok",
+  "p20parent_linkChild": "Çocuk bağla",
+  "p20parent_loadingProgress": "Gelişim verisi yükleniyor...",
+  "p20parent_weeklyStudy": "Bu hafta çalışma",
+  "p20parent_streak": "Çalışma serisi",
+  "p20parent_completedLessons": "Tamamlanan ders",
+  "p20parent_openAssignments": "Açık ödev",
+  "p20parent_weekly": "Haftalık çalışma",
+  "p20parent_notShared": "Bireysel çalışma verisi henüz paylaşılmadı.",
+  "p20parent_payments": "Ödeme özeti",
+  "p20parent_expected": "Beklenen",
+  "p20parent_collected": "Tahsil edilen",
+  "p20parent_outstanding": "Kalan",
+  "p20parent_detail": "Detaylı gelişim",
+  "p20parent_assignments": "Ödev özeti",
+  "p20parent_lessons": "Ders özeti",
+  "p20parent_totalAssignments": "Toplam ödev",
+  "p20parent_completed": "Tamamlanan",
+  "p20parent_plannedLessons": "Planlanan ders",
+  "p20parent_role": "Veli",
+  "p20parent_messages": "Mesajlar",
+  "p20parent_linkHint": "Çocuğunuzu bağladıktan ve bağ onaylandıktan sonra gelişimi burada görünecek.",
+  "p20parent_greeting": "Merhaba, {name}",
+  "@p20parent_greeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "p20parent_days": "{count} gün",
+  "@p20parent_days": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "p20parent_minutes": "{count} dk",
+  "@p20parent_minutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "p20parent_studied": "Bu hafta {count} dakika çalışıldı.",
+  "@p20parent_studied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
