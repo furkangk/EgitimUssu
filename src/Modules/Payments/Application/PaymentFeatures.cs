@@ -102,7 +102,8 @@ public sealed record PaymentMonthlyPointResponse(
     int Year,
     int Month,
     decimal ExpectedAmount,
-    decimal CollectedAmount);
+    decimal CollectedAmount,
+    string Currency);
 
 /// <summary>Sayfalı ödeme listesi + toplam eşleşen kayıt sayısı.</summary>
 public sealed record PagedPaymentRecordsResponse(
@@ -299,7 +300,7 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
 
     // Son 6 ayın (eskiden yeniye) beklenen/tahsil toplamı — vade ayına göre; iptaller hariç.
     // P16 T5 / N-11 (K-19): ay Türkiye ayıdır — "bu ay" ve kaydın vade ayı yerel tarihten (ayın 1'i 01:00 TR vadeli
-    // kayıt önceki aya düşmez). Para birimi boyutu P18 T3'te (bu kırılım henüz para birimlerini toplar).
+    // kayıt önceki aya düşmez). Her para birimi ayrı seri olarak döner.
     private static IReadOnlyCollection<PaymentMonthlyPointResponse> BuildMonthlyBreakdown(
         IReadOnlyCollection<PaymentRecord> records,
         ILocalCalendar calendar)
@@ -310,19 +311,22 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
             .ToArray();
         var today = calendar.Today();
         var firstMonth = new DateOnly(today.Year, today.Month, 1);
-        var points = new List<PaymentMonthlyPointResponse>(6);
+        var currencies = records.Select(record => record.Currency).Distinct().OrderBy(currency => currency).ToArray();
+        var points = new List<PaymentMonthlyPointResponse>(6 * currencies.Length);
         for (var offset = 5; offset >= 0; offset--)
         {
             var month = firstMonth.AddMonths(-offset);
-            var inMonth = active
-                .Where(item => item.DueDate.Year == month.Year && item.DueDate.Month == month.Month)
-                .Select(item => item.Record)
-                .ToArray();
-            points.Add(new PaymentMonthlyPointResponse(
-                month.Year,
-                month.Month,
-                inMonth.Sum(record => record.ExpectedAmount),
-                inMonth.Sum(record => record.CollectedAmount)));
+            foreach (var currency in currencies)
+            {
+                var inMonth = active
+                    .Where(item => item.Record.Currency == currency && item.DueDate.Year == month.Year && item.DueDate.Month == month.Month)
+                    .Select(item => item.Record)
+                    .ToArray();
+                points.Add(new PaymentMonthlyPointResponse(
+                    month.Year, month.Month,
+                    inMonth.Sum(record => record.ExpectedAmount),
+                    inMonth.Sum(record => record.CollectedAmount), currency));
+            }
         }
 
         return points;

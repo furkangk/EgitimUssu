@@ -331,8 +331,10 @@ public sealed record PaymentRecordUpdatedDomainEvent(
 /// öğretmene bildirim → öğretmen teyit edince <see cref="PaymentRecord.MarkCollectedByParentConfirmation"/> çağrılır.
 /// Durum: Declared → Confirmed / Rejected.
 /// </summary>
-public sealed class ParentPaymentDeclaration : AggregateRoot<Guid>
+public sealed class ParentPaymentDeclaration : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private ParentPaymentDeclaration() { }
 
     public ParentPaymentDeclaration(Guid id, Guid paymentRecordId, Guid parentUserId, Guid teacherUserId, Guid studentId, decimal declaredAmount, string? note, DateTime createdOnUtc)

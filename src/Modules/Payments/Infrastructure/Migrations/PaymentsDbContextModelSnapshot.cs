@@ -60,9 +60,18 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PaymentRecordId");
+                    b.HasIndex("PaymentRecordId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payment_declaration_pending")
+                        .HasFilter("\"Status\" = 'Declared'");
 
                     b.HasIndex("TeacherUserId", "Status");
 

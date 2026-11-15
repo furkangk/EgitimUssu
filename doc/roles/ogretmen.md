@@ -52,6 +52,8 @@ Single iptal aylık raporda oluşum bazında sayılır. Pano tamamlanmış dersi
 **P18 T2 (2026-11-15, backend):** Öğretmen tahsilat veya iade hareketi ekler, açıklama/beklenen tutar/vade/notu ayrı düzenler. Eski ekrandan not düzeltmesi alınan parayı değiştirmez. İptal için önce net tahsilat iade edilir. Para birimi ve öğrenci kimliği sonradan değişmez; arşivli bağda finans yazmaları 403’tür. Mobil tahsilat ekranının yeni komuta geçişi P18 T4’tedir.
 
 
+**P18 T3 (2026-11-15):** Finans özetleri ve aylık grafik verileri para birimi bazında döner. Aynı ödeme için tek bekleyen veli beyanı tutulur; onay tam kalan bakiyeyi tahsilat hareketi olarak yazar ve varsa eski diğer bekleyenleri reddeder. Beyan sonuçları ilgili velilere bildirilir; eşzamanlı eski ret onayı ezemez. Mobil para birimi ayrımı T4 geçişinde, beyan yönetimi ekranları P21'de açık.
+
 ## 1. Tasarım İlkesi
 
 Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, iletişimi **telefon/WhatsApp'ta**, ödevi **sözlü/PDF** ile, ödemeyi **elden** yönetir; konu/ödev/gelişim takibi sistematik değildir. Bu rol, tüm bu dağınık işi **tek uygulamada** toplar.
@@ -253,3 +255,5 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 *Güncelleme: 2026-11-15 — P17 T8: haftalık ders akış diyagramı ve aylık Single iptal sayımı.*
 
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
+
+*Güncelleme: 2026-11-15 — P18 T3: para birimi özetleri ve beyan tekliği.*

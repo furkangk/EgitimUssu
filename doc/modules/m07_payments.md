@@ -135,17 +135,21 @@ PaymentStatus   : Pending = 1, PartiallyPaid = 2, Paid = 3, Overdue = 4, Cancell
 | `PaymentRecordCreatedDomainEvent` | `PaymentRecordId, TeacherUserId, StudentId, RelatedLessonSessionId?, ExpectedAmount, Currency, Status, CreatedOnUtc` |
 | `PaymentRecordUpdatedDomainEvent` | `PaymentRecordId, TeacherUserId, StudentId, PreviousStatus, CurrentStatus, PreviousCollectedAmount, CurrentCollectedAmount, UpdatedOnUtc` |
 | `PaymentBecameOverdueDomainEvent` (M07-1) | `PaymentRecordId, TeacherUserId, StudentId, OutstandingAmount, Currency, DueDateUtc, MarkedOnUtc` — m11 tüketir (öğretmen + Premium veli bildirimi) |
-| `ParentPaymentDeclaredDomainEvent` (Veli V-G) | `DeclarationId, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, CreatedOnUtc` — öğretmene bildirim (teslim V-E) |
+| `ParentPaymentDeclaredDomainEvent` (Veli V-G) | `DeclarationId, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, CreatedOnUtc` — olay üretilir; öğretmen yeni beyan bildirimi tüketicisi henüz yok (P21 T5), bekleyenler API listesinden okunur |
 | `ParentPaymentDeclarationResolvedDomainEvent` (Veli V-G) | `DeclarationId, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, Status, ResolvedOnUtc` |
 
 ### 2.1.1 🟢 `ParentPaymentDeclaration` (AggregateRoot<Guid>) — veli "ödedim" beyanı (Veli V-G, 2026-07-19)
 
 Veli bir ödeme kaydı için **beyan** verir (para transferi değil, mutabakat). Alanlar:
-`Id, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, Note?, Status (Declared→Confirmed/Rejected), CreatedOnUtc, ResolvedOnUtc?`.
+`Id, PaymentRecordId, ParentUserId, TeacherUserId, StudentId, DeclaredAmount, Note?, Status (Declared→Confirmed/Rejected), CreatedOnUtc, ResolvedOnUtc?, Version (xmin)`.
 `Confirm(now)`/`Reject(now)` yalnız `Declared`'dan çalışır (aksi `InvalidOperationException`). Öğretmen **teyit** edince
 `PaymentRecord.MarkCollectedByParentConfirmation(declaredAmount, now, declarationId)` çağrılır → `AddCollection(method=ParentDeclaration)` hareketi eklenir; durum `Paid`, net tahsilat beklenen tutara eşit olur,
 `CollectedOnUtc=now` ve mevcut `PaymentRecordUpdatedDomainEvent` yayılır (gelir özeti/veli paneli projeksiyonu bozulmaz).
 **2026-10-16 doğruluk kontrolü:** Beyan yalnız `Pending`, `PartiallyPaid` veya `Overdue` durumundaki açık bakiye için verilir. `DeclaredAmount`, `ExpectedAmount - CollectedAmount` değerine tam eşit olmalıdır; akış tam ödeme teyididir. Aynı kurallar teyit anında yeniden kontrol edilir. Ödeme silinmişse `404 payments.record_not_found`; kapanmış/iptal edilmişse `409 payments.record_not_outstanding`; bakiye değişmiş veya beyan tutarı uyuşmuyorsa `409 payments.declaration_amount_mismatch` döner. Başarısız teyitte beyan `Declared` kalır, ödeme ve olaylar değişmez.
+
+**P18 T3 (2026-11-15):** Bir ödeme başına, veli kimliğinden bağımsız olarak **en fazla bir bekleyen beyan** vardır. Ön kontrol ve `ux_payment_declaration_pending` kısmi benzersiz indeksi (`PaymentRecordId WHERE Status = 'Declared'`) birlikte çalışır; ikinci eşzamanlı istek `409 payments.declaration_pending` döner, kaybeden beyan/outbox kalıcılaşmaz. Ret sonrası yeni beyan verilebilir. Onay, aynı ödemedeki varsa diğer eski bekleyenleri aynı `SaveChanges` içinde `Rejected` yapar. Beyanın `xmin` sürümü, bayat bir ret yazımının onayı ezmesini önler (`409 shared.concurrency_conflict`).
+
+`SinglePendingDeclaration` göçü önce en yeni `CreatedOnUtc` / eşitlikte büyük `Id` olan bekleyeni korur, diğerlerini silmeden reddeder; bu retler için mevcut resolution olayını outbox'a aynı transaction'da yazar. Down indeksi geri alır; tarihsel retleri ve bildirim geçmişini geri açmaz. Notifications, onay/ret sonucunu beyanı veren veliye `UserNotification(System)` olarak iletir; inbox aynı olayı tekrar bildirime dönüştürmez. Üyelik kapısı yoktur; bu velinin kendi işlem sonucudur. Rota `/parent`.
 
 Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen teyidine bağlı; PRD "platform para tahsil etmez" kuralı korunur.
 
@@ -178,7 +182,7 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 | Gelir özeti | `GET /api/payments/teachers/{teacherUserId}/summary` | → `TeacherPaymentSummaryResponse` | **Para birimi bazında** gruplu özet |
 | Filtreli liste | `GET /api/payments/teachers/{teacherUserId}/records/filter?outstanding=&overdue=&paid=&dateFromUtc=&dateToUtc=` | → `PaymentRecordResponse[]` | Bayraklar VEYA mantığıyla; hiçbiri seçili değilse tümü |
 | **Arama + sayfalama** | `GET /api/payments/teachers/{teacherUserId}/records/search?q=&status=&studentId=&dateFromUtc=&dateToUtc=&skip=&take=` | → `PagedPaymentRecordsResponse` `{ Items[], TotalCount }` | Metin (açıklama), durum (`Open`/`Paid`/`Pending`/`PartiallyPaid`/`Overdue`/`Cancelled`), öğrenci, tarih; `take` ≤ 100; vade artan sıralı |
-| **Veli "ödedim" beyanı (Veli V-G)** | `POST /api/payments/records/{paymentRecordId}/declare-paid` | `DeclarePaidRequest(DeclaredAmount, Note?)` → `ParentPaymentDeclarationResponse` | Yetki: ödemedeki öğrencinin **onaylı velisi** (`IParentAccessDirectory`) / Admin; `currentUser` = veli; `DeclaredAmount` güncel açık bakiyeye eşit; kapanmış kayıt/tutar uyuşmazlığı `409`, kayıt yoksa `404` |
+| **Veli "ödedim" beyanı (Veli V-G)** | `POST /api/payments/records/{paymentRecordId}/declare-paid` | `DeclarePaidRequest(DeclaredAmount, Note?)` → `ParentPaymentDeclarationResponse` | Yetki: ödemedeki öğrencinin **onaylı velisi** (`IParentAccessDirectory`) / Admin; `currentUser` = veli; `DeclaredAmount` güncel açık bakiyeye eşit; tek bekleyen beyan; ikinci istek `409 payments.declaration_pending`; kapanmış kayıt/tutar uyuşmazlığı `409`, kayıt yoksa `404` |
 | **Öğretmene gelen beyanlar (Veli V-G)** | `GET /api/payments/teachers/{teacherUserId}/payment-declarations?onlyPending=` | → `ParentPaymentDeclarationResponse[]` | Öğretmen/Admin; `onlyPending=true` → yalnız `Declared` |
 | **Beyanı teyit et (Veli V-G)** | `POST /api/payments/payment-declarations/{declarationId}/confirm` | → `ParentPaymentDeclarationResponse` | Öğretmen/Admin; `Declared` değilse `409 payments.declaration_not_pending`; teyit → `PaymentRecord.MarkCollectedByParentConfirmation` (Status=Paid, tam tahsil) |
 | **Beyanı reddet (Veli V-G)** | `POST /api/payments/payment-declarations/{declarationId}/reject` | → `ParentPaymentDeclarationResponse` | Öğretmen/Admin; ödeme kaydına dokunmaz; yoksa `404 payments.declaration_not_found` |
@@ -192,7 +196,7 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 > `OutstandingAmount`, `IsOverdue` ve `Status` (görüntüleme statüsü) **hesaplanmış** alanlardır; `Status` yanıtta `GetDisplayStatus(calendar)` sonucudur (tutar ve yerel vade tablosu).
 
 **`TeacherPaymentSummaryResponse` (koddan):** `TeacherUserId, TotalRecords, CurrencySummaries[], MonthlyBreakdown[]`
-> `MonthlyBreakdown[]` = son 6 ayın `{ Year, Month, ExpectedAmount, CollectedAmount }` kırılımı (vade ayına göre, iptaller hariç) — mobil grafikleri besler. **P16 T5 / N-11 (2026-11-15):** ay **Türkiye yerel ayıdır** — "bu ay" ve kaydın vade ayı `ILocalCalendar`'dan (1 Aralık 01:00 TR vadeli kayıt Aralık'ta; eskiden UTC'de Kasım). ⚠️ Kırılım hâlâ para birimlerini toplar — para birimi boyutu **P18 T3**. Öğretmen panelinin (`dashboard-summary`, m14) gecikmiş toplamı artık para birimi bazında (`overduePaymentTotals`).
+> `MonthlyBreakdown[]` = son 6 ayın `{ Year, Month, Currency, ExpectedAmount, CollectedAmount }` kırılımı (vade ayına göre, iptaller hariç) — mobil grafikleri besler. **P16 T5 / N-11 (2026-11-15):** ay **Türkiye yerel ayıdır** — "bu ay" ve kaydın vade ayı `ILocalCalendar`'dan (1 Aralık 01:00 TR vadeli kayıt Aralık'ta; eskiden UTC'de Kasım). **P18 T3:** Her mevcut para birimi için altı ayrı ay noktası üretilir; tutarlar asla para birimleri arasında toplanmaz. Boş ay o para biriminde sıfırdır; kayıt yoksa noktalar boştur. Tarih, ardından para birimi sırası kullanılır. Genel `CurrencySummaries` sözleşmesi korunmuştur. **Mobil geçiş T4:** Eski model Currency alanını yok sayıyor ve UI toplamları birleştiriyor; bu backend görevi mobil karışık-para gösterimini kapatmaz. Öğretmen panelinin (`dashboard-summary`, m14) gecikmiş toplamı artık para birimi bazında (`overduePaymentTotals`).
 **`PagedPaymentRecordsResponse` (koddan):** `Items[] (PaymentRecordResponse), TotalCount`
 **`PaymentCurrencySummaryResponse` (koddan):** `Currency, PendingCount, PartialCount, PaidCount, OverdueCount, CancelledCount, ExpectedAmountTotal, CollectedAmountTotal, OutstandingAmountTotal, OverdueAmountTotal`
 > `PendingCount`/`PartialCount`, **gecikmemiş** kayıtları sayar; gecikmiş olanlar `OverdueCount`'a düşer.
@@ -201,7 +205,7 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 | Kod | HTTP |
 |-----|------|
 | `payments.record_not_found` / `payments.declaration_not_found` | `404` |
-| `payments.declaration_not_pending` / `payments.record_not_outstanding` / `payments.declaration_amount_mismatch` | `409` |
+| `payments.declaration_pending` / `payments.declaration_not_pending` / `payments.record_not_outstanding` / `payments.declaration_amount_mismatch` | `409` |
 | `shared.forbidden` | `403` |
 | (varsayılan) | `400` |
 
@@ -338,3 +342,5 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 *Güncelleme: 2026-11-15 — P18 T2: tahsilat hareketleri, güvenli ayrıntı komutları ve yerel vade günü.*
 
 İlk tahsilat girişi de iki ondalık/range ve gelecek tahsilat tarihi doğrulamasından geçer. Değişmeyen vadede yalnız not düzenlemek yeni gecikme bildirimi üretmez; vade değişirse yeni gecikme dönemi başlayabilir.
+
+*Güncelleme: 2026-11-15 — P18 T3: para birimi bazlı aylık özet, tek bekleyen beyan, xmin ve veli sonuç bildirimi; mobil para birimi gösterimi T4 açık.*

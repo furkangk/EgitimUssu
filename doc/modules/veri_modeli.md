@@ -35,6 +35,8 @@ updated: 2026-11-15
 `reporting.teacher_monthly_items` PK: `(TeacherUserId, Year, Month, Kind, ItemId, OccurrenceStartUtc)`. `Kind=CancelledLesson` Single iptalde orijinal oluşum UTC anını taşır; diğer item'lar ve eski/toplu satırlar `1970-01-01T00:00:00Z` kullanır. `MonthlyCancellationOccurrences.Up` eski satırları epoch ile doldurur; Down seri başına tek iptal bırakır (epoch öncelikli, aksi halde en son oluşum), diğer item türleri kayıpsızdır. Kaynak modüle FK yoktur; olay + inbox ile beslenir.
 
 
+**P18 T3 (2026-11-15):** `payments.parent_payment_declarations` üzerinde `PaymentRecordId` için `Status = 'Declared'` koşullu unique indeks vardır; ödeme başına tek bekleyen beyan, veli kimliğinden bağımsızdır. `ParentPaymentDeclaration.Version` PostgreSQL `xmin` sistem kolonudur (yeni fiziksel kolon yok). `SinglePendingDeclaration` göçü en yeni `CreatedOnUtc`/büyük `Id` satırını koruyup fazla bekleyenleri Rejected yapar; ret olayları aynı transaction'da outbox'a girer. Down geçmiş retleri açmaz.
+
 ## 1. Modül Sınırı Kuralı (Önemli)
 
 > Her modül **kendi şemasında** ayrı `DbContext` ile yaşar (`identity`, `teachers`, `students`, ...). Aşağıdaki "→" referansları
@@ -271,3 +273,5 @@ erDiagram
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin model metadatası.*
 
 *Güncelleme: 2026-11-15 — P18 T2: PaymentTransaction çocuk tablosu ve tahsilat/iade aylık item türleri (4/5).*
+
+*Güncelleme: 2026-11-15 — P18 T3: beyan kısmi benzersizliği ve xmin.*

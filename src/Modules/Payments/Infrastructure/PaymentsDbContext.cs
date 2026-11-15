@@ -67,7 +67,9 @@ internal sealed class ParentPaymentDeclarationConfiguration : IEntityTypeConfigu
         builder.Property(entity => entity.Status).HasConversion<string>().HasMaxLength(16).IsRequired();
         builder.Property(entity => entity.CreatedOnUtc).IsRequired();
         builder.HasIndex(entity => new { entity.TeacherUserId, entity.Status });
-        builder.HasIndex(entity => entity.PaymentRecordId);
+        builder.HasIndex(entity => entity.PaymentRecordId).IsUnique()
+            .HasDatabaseName("ux_payment_declaration_pending")
+            .HasFilter("\"Status\" = 'Declared'");
     }
 }
 

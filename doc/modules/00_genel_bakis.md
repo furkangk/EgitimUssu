@@ -228,6 +228,9 @@ GET /lesson-resources/{resourceId}/file   DELETE /lesson-resources/{resourceId} 
 ```
 ### Payments — `/api/payments`
 
+**P18 T3:** Özet `CurrencySummaries` ile para birimi bazında kalır; aylık noktalar artık `Currency` taşır (altı ay × para birimi). Tek bekleyen veli beyanı kısmi unique indeksle korunur; ikinci istek `409 payments.declaration_pending`. Beyan onay/ret yarışı xmin ile korunur. Notifications `PaymentDeclarationResolvedNotificationHandler` mevcut resolution olayından veliye sonuç bildirir (aynı transaction'da inbox). Eski tekrarları reddeden göç de outbox üretir. Mobil para birimi gösterimi T4'te açık.
+
+
 `POST /records/{id}/collections`, `POST /records/{id}/refunds`, `POST /records/{id}/cancel`; `PUT /records/{id}` yalnız description/expectedAmount/dueDateUtc/notes.
 ```
 POST /records   PUT /records/{paymentRecordId}   GET /records/{paymentRecordId}
@@ -397,3 +400,5 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P18 Task 1 eşzamanlılık altyapısı.*
 
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
+
+*Güncelleme: 2026-11-15 — P18 T3: aylık Currency boyutu, tek bekleyen beyan ve sonuç bildirimi.*

@@ -98,23 +98,34 @@
 
 **Doğrulama (2026-11-15):** Davranışsız domain imzaları Release 0 uyarı/0 hata; 8/8 ilk unit, hareket kimliği aylık rapor ve yerel vade testleri kırmızı → yeşil. İlk PostgreSQL göçte hareket yokluğu, farklı EventId ile eski delta çift sayımı kırmızı → yeşil; yetki testindeki yanlış arşiv URL/204 beklentisi test kurulumu hatası olarak düzeltildi (özellik kırmızısı sayılmadı). Bağımsız inceleme sonrası 1 unit + 4 PG kırmızı: eski500+yeni100 raporu100, notta ikinci gecikme olayı, eski Paid+0, ilk 1.001/gelecek tarih200 → düzeltildi. Son tam **bash scripts/test-with-docker.sh: 19 mimari / 1219 birim / 164 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental`: **0 uyarı/0 hata**, tool restore başarılı, drift **0**, **164 Down** (9 no-op). Yedi yeni gerçek PG testi: paralel tahsilat rollback; veli onayı/eski PUT/iade/yeniden oynatma/kaynak rebuild; yabancı ve arşivli öğretmen; ayrı DB’de eski veri Down/Up; startup eski rapor geçişi; iki ilk tahsilat doğrulaması. Tam paketin yakaladığı eski PUT workflow beklentisi yeni collections adımıyla, seed gelecekte tahsil tarihi ve periyodik-job envanteri kapsamı da düzeltildi; hedefli 7 workflow ve 12 seed/kira testi yeşil. Mobil değişmedi, Flutter koşulmadı. Doc health RED 0, mevcut 2 YELLOW + 1 BLUE kapsam dışında. Sonraki görev yalnız T3; merge/push yok.
 
-### Task 3: Para birimi bazlı özetler ve veli beyanı tekliği (N-11 para birimi, N-16 beyan maddesi)
+### Task 3: Para birimi bazlı özetler ve veli beyanı tekliği (N-11 para birimi, N-16 beyan maddesi) ✅
 
 **Files:**
-- Modify: `src/Modules/Payments/Application/PaymentFeatures.cs` (özet yanıtı `totals: [{ currency, expected, collected, overdue }]`)
-- Modify: `src/Modules/Payments/Application/ParentPaymentDeclarationFeatures.cs` (kayıt başına tek bekleyen beyan; onayda diğer bekleyenler otomatik `Rejected` + veliye bildirim)
-- Modify: `src/Modules/Payments/Infrastructure/PaymentsDbContext.cs` (kısmi benzersiz indeks `(PaymentRecordId) WHERE Status = Declared`)
-- Migration: `SinglePendingDeclaration` (önce fazla bekleyenleri en yenisi hariç `Rejected`)
-- Test: `tests/Unit/PaymentSummaryCurrencyTests.cs`, `tests/Unit/ParentDeclarationUniquenessTests.cs`
+- Modify: `src/Modules/Payments/Application/PaymentFeatures.cs` (mevcut `CurrencySummaries` korunur; `PaymentMonthlyPointResponse.Currency`, altı ay × para birimi)
+- Modify: `src/Modules/Payments/Application/ParentPaymentDeclarationFeatures.cs` (kayıt başına tek bekleyen; onayda diğer bekleyenler Rejected; repo imzaları)
+- Modify: `src/Modules/Payments/Infrastructure/ParentPaymentDeclarationRepository.cs` (ödeme bazlı okuma ve yalnız ilgili unique ihlalini iş hata koduna çeviren atomik ekle/kaydet)
+- Modify: `src/Modules/Payments/Domain/PaymentsDomainModel.cs` (beyan `IVersioned`, onay/ret yarışı kayıp güncelleme yapmaz)
+- Modify: `src/Modules/Payments/API/PaymentsModule.cs` (`payments.declaration_pending` → 409)
+- Modify: `src/Modules/Payments/Infrastructure/PaymentsDbContext.cs` (kısmi unique `(PaymentRecordId) WHERE Status = 'Declared'`)
+- Migration: Payments `*SinglePendingDeclaration*.cs` + snapshot (önce fazla bekleyenleri en yenisi/Id büyük olan hariç Rejected; çözüm olaylarını aynı göçte outbox'a yaz; xmin sistem kolonuna DDL yok)
+- Create: `src/Modules/Notifications/Infrastructure/PaymentDeclarationResolvedNotificationHandler.cs`; Modify: `src/Modules/Notifications/Infrastructure/DependencyInjection.cs` (mevcut resolution olayını tüketir; onay/ret alan veliye bildirim, eski olay şeması değişmez)
+- Modify: `tests/Unit/ParentPaymentSettlementIntegrityTests.cs` (tek sahte depo yeni imzalar; diğer uygulayanlar rg ile tarandı)
+- Test: `tests/Unit/PaymentSummaryCurrencyTests.cs`, `tests/Unit/ParentDeclarationUniquenessTests.cs`, `tests/Integration/RealPaymentDeclarationUniquenessTests.cs` (HTTP eşzamanlı beyan + onay/ret + gerçek göç/Down/Up + bildirim)
+- Docs: `doc/modules/m07_payments.md`, `m11_notifications.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/roles/veli.md`, `ogretmen.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`, bu plan; ayrı ilerleme `docs/superpowers/ILERLEME.md`
 
-- [ ] **Step 1: Kırmızı testler** — TRY + USD kayıtlar → iki ayrı toplam; aynı kayda ikinci bekleyen beyan → 409 `payments.declaration_pending`.
-- [ ] **Step 2–4: Kırmızı gör → uygula (+ migration) → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m07`; rapor N-11 (para birimi), N-16 (beyan maddesi) ✅.
+**Interfaces / karar (2026-11-15):** Genel özet zaten para birimi bazlıdır; ikinci `totals` şeması kurulmaz. Aylık nokta yeni `Currency` alanıyla altı ay/para birimi taşır (kayıt yoksa boş). Mobilin bu alanı yok sayıp para birimlerini tekrar toplaması mevcut UI borcudur; T4'te para modelleri/ekran geçişiyle kapatılır, N-11 backend tamamlanır/mobil açık kaydedilir. `IParentPaymentDeclarationRepository`: `AddAsync` yerini `Task<Result> TryAddPendingAsync(...)` alır (tek SaveChanges + outbox, unique yarışında `payments.declaration_pending`); `ListPendingForPaymentAsync(Guid, CancellationToken)` eklenir. İmza adımı boş sonuçlarla derlenir, sonra kırmızı görülür. Onay/ret xmin ile korunur; unique indeks de doğrudan yazanlara uygulanır. Migration'ın reddettiği eski tekrarlar için var olan `ParentPaymentDeclarationResolvedDomainEvent` zarfı üretilir; olay tüketicisi bildirim/inbox'ı atomik yazar. Down kısıtı kaldırır, tarihsel retleri geri açmaz (gerçek kullanıcı kararını geri almamak için).
+
+- [x] **Step 0: İmza** — aylık Currency alanı, repo yeni imzalar/derlenen davranışsız iskelet, beyan Version alanı; Release derle.
+- [x] **Step 1: Kırmızı testler** — TRY + USD kayıtlar → iki ayrı toplam; aynı kayda ikinci bekleyen beyan → 409 `payments.declaration_pending`.
+- [x] **Step 2–4: Kırmızı gör → uygula (+ migration) → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `m07`; rapor N-11 (para birimi), N-16 (beyan maddesi) ✅.
   ```bash
   git commit -m "fix(payments): ozetler para birimi bazinda, odeme basina tek bekleyen veli beyani (N-11, N-16)"
   ```
 
 ---
+
+**Doğrulama (2026-11-15):** İmza Release **0 uyarı/0 hata**; 4/4 yeni unit kırmızı → yeşil, ilgili 19 unit yeşil. PG ilk denemesinde davranışsız Version alanının göç drift’i test kurulumunu kesti; bu sonuç özellik kırmızısı sayılmadı. İmza alanı geçici ignore edilerek gerçek kırmızı görüldü: iki HTTP beyanı da200, bayat ret onayı ezdi, migration yok. Kısmi unique + xmin + dedup göçüyle ilk ikisi/göç yeşil; tüketici eksikliği ayrıca kırmızı → sonuç bildirimiyle yeşil. Göç SQL zarfları gerçek Notifications tüketicisine iki kez teslim edildi, yalnız iki doğru alıcı bildirimi; Down/Up retleri açmıyor ve olayları çoğaltmıyor. Son **bash scripts/test-with-docker.sh: 19 mimari / 1223 birim / 167 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0/0**; tool restore başarılı, drift **0**, **165 Down** (9 no-op). Doc health RED0, mevcut2YELLOW+1BLUE. Mobil kodu değişmedi/Flutter koşulmadı; N-11 mobil boyutu T4 açık. P18 **3/6**, merge/push yok.
 
 ### Task 4: Mobil para ve idempotency (N-64, N-65, N-09 mobil)
 
@@ -123,6 +134,7 @@
 - Modify: `mobile/lib/core/network/api_client.dart` (`idempotent: true` → `Idempotency-Key` UUID; yeniden denemede aynı anahtar)
 - Modify: `mobile/lib/features/payments/presentation/pages/payment_form_page.dart`, `.../widgets/collect_payment_sheet.dart`, `.../cubit/payments_cubit.dart` (tahsilat → `POST .../collections`; istemcide toplam hesabı **kaldırılır**)
 - Modify: `mobile/lib/features/payments/data/**` (modeller `int` kuruş; JSON `decimal` ↔ kuruş dönüşümü tek yerde)
+- T3 devri: `mobile/lib/features/payments/domain/payment_contracts.dart`, `presentation/pages/payments_page.dart`, `presentation/widgets/**` ve ilgili model/özet testleri: aylık `Currency` alanını tüket; özet/donut/aylık grafiği seçilen para birimine göre göster, para birimleri arasında fold toplama yapma (N-11 mobil). Tahsilat ve iptali yeni collections/cancel uçlarına geçir.
 - Modify: ödev teslimi, mesaj gönderme, ödeme oluşturma, ders oluşturma repository'leri (`idempotent: true`)
 - Test: `mobile/test/core/money/money_test.dart`, `mobile/test/core/network/idempotency_key_test.dart`, `mobile/test/features/payments/payment_form_parsing_test.dart`
 
@@ -153,10 +165,12 @@
 
 ### Task 6: Kapanış — finans senaryosu
 
+**T3 ön kontrol kararı (2026-11-15):** Beyan hâlen güncel kalan bakiyeyi tam kapatır (mevcut domain/HTTP sözleşmesi). Eski senaryo 500 borca önce 300 beyan istiyordu ve bu sözleşmeyle çelişiyordu. Önce 200 nakit, sonra kalan 300 beyan sırasıyla aynı 500 tahsil/100 iade sonucu korunur; kısmi beyan özelliği sessizce eklenmez.
+
 **Files:**
 - Create: `tests/Integration/RealTeacherFinanceScenarioTests.cs`
 
-- [ ] **Step 1: Senaryo** — öğretmen ders tamamlar → ücret kaydı (P17 sonrası) → veli 300 TL "ödedim" → öğretmen onay → öğretmen 200 TL nakit tahsilat girer (paralel ikinci cihazdan eski ekranla not düzeltmesi → tahsilat korunur) → kayıt `Paid` → 100 TL iade → `PartiallyPaid` → aylık raporda tahsilat 400, iade 100.
+- [ ] **Step 1: Senaryo** — öğretmen ders tamamlar → 500 TL ücret kaydı (P17 sonrası) → öğretmen 200 TL nakit tahsilat girer → veli kalan 300 TL için "ödedim" → öğretmen onay (paralel ikinci cihazdan eski ekranla not düzeltmesi → tahsilat korunur) → kayıt `Paid` → 100 TL iade → `PartiallyPaid` → aylık raporda tahsilat 400, iade 100.
 - [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test`.
 - [ ] **Step 3: Doküman + ILERLEME + commit**
   ```bash
@@ -166,3 +180,5 @@
 *Güncelleme: 2026-11-15 — P18 T1 kapsam doğrulaması: sekiz domain dosyası, boş migration/snapshot kapsamı, mevcut outbox retry kanıtı ve imza adımı.*
 
 *Güncelleme: 2026-11-15 — P18 T2 tamamlandı; niyet komutları, veri/rapor geçişi ve regresyon kanıtları.*
+
+*Güncelleme: 2026-11-15 — P18 T3 tamamlandı; aylık Currency, tek bekleyen beyan, güvenli göç ve sonuç bildirimi. T4 mobil devri ve T6 senaryo sözleşme düzeltmesi kaydedildi.*
