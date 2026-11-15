@@ -87,33 +87,29 @@ internal sealed class ParentLessonProjectionHandler : ParentReadModelProjectionH
 /// <summary>M06 Assignments → açık/tamamlanan ödev sayaçları.</summary>
 internal sealed class ParentAssignmentProjectionHandler : ParentReadModelProjectionHandler
 {
-    public ParentAssignmentProjectionHandler(ParentsDbContext dbContext, IIdGenerator idGenerator, IClock clock)
-        : base(dbContext, idGenerator, clock)
-    {
-    }
+    private readonly IStudentAssignmentStatusReader _source;
+
+    public ParentAssignmentProjectionHandler(ParentsDbContext dbContext, IIdGenerator idGenerator, IClock clock,
+        IStudentAssignmentStatusReader source) : base(dbContext, idGenerator, clock) => _source = source;
 
     public override bool CanHandle(IIntegrationEvent integrationEvent)
         => integrationEvent.SourceModule == "Assignments"
-            && integrationEvent.Name is "AssignmentCreatedDomainEvent" or "AssignmentCompletedDomainEvent";
+            && integrationEvent.Name is "AssignmentCreatedDomainEvent" or "AssignmentCompletedDomainEvent"
+                or "AssignmentSubmittedDomainEvent" or "AssignmentReturnedDomainEvent" or "AssignmentApprovedDomainEvent";
 
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
         var payload = Deserialize<AssignmentPayload>(envelope);
-        if (payload is null)
+        if (payload is null || payload.StudentId == Guid.Empty)
+            throw new PoisonMessageException("Ödev olayının öğrenci kimliği geçersiz.");
+        if (ParentsDb.Database.IsNpgsql())
         {
-            throw new PoisonMessageException("Olay yükü null olamaz.");
+            var key = $"parents:assignments:{payload.StudentId:D}";
+            await ParentsDb.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))", cancellationToken);
         }
-
+        var counts = await _source.ReadAsync([payload.StudentId], cancellationToken);
         var snapshot = await GetOrCreateSnapshotAsync(payload.StudentId, cancellationToken);
-        if (envelope.Name == "AssignmentCreatedDomainEvent")
-        {
-            snapshot.RegisterAssignmentCreated(Clock.UtcNow);
-        }
-        else
-        {
-            snapshot.RegisterAssignmentCompleted(Clock.UtcNow);
-        }
-
+        snapshot.SetAssignmentCounts(counts.Total, counts.Open, counts.Completed, Clock.UtcNow);
         return true;
     }
 

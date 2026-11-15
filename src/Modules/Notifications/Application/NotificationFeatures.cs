@@ -35,6 +35,8 @@ public sealed record ParentNotificationResponse(
 
 public interface IParentNotificationRepository
 {
+    Task<int> RunWeeklySummaryBatchAsync(Func<Task<int>> write, CancellationToken cancellationToken);
+
     Task AddAsync(ParentNotification notification, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<ParentNotification>> ListByParentAsync(Guid parentUserId, CancellationToken cancellationToken);

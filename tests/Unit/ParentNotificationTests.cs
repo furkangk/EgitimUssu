@@ -163,6 +163,8 @@ public sealed class ParentNotificationTests
 
     private sealed class FakeRepo : IParentNotificationRepository
     {
+        public Task<int> RunWeeklySummaryBatchAsync(Func<Task<int>> write, CancellationToken cancellationToken) => write();
+
         public List<ParentNotification> Added { get; } = new();
         private readonly HashSet<Guid> _processed = new();
 

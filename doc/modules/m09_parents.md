@@ -441,3 +441,10 @@ M06 [ödev teslim tarihi geçti] → AssignmentMissed event
 ### P19 Task 6 — Haftalık hedeflerin sayfalı okunması (N-53)
 
 `IParentNotificationDirectory.ListApprovedTargetPageAsync(afterLinkId, take, ct)` onaylı veli–öğrenci bağlarını LinkId keyset ile en fazla 200'lük sayfada okur; üyelik `IEntitlementDirectory.GetManyAsync` ile o sayfa için topludur. Sonraki imleç ham son bağ kimliğidir; filtrelenen Free/tercih kapalı bağlar sayfa ilerlemesini bozmaz. Mevcut tek öğrenci ve tam liste okumaları korunur. M11 haftalık özeti her veli–çocuk–yerel hafta için ayrı üretir (205 çocuk/iki sayfa/tekrar gerçek PostgreSQL kanıtı).
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+Ödev projeksiyonu Created/Completed/Submitted/Returned/Approved olaylarında `IStudentAssignmentStatusReader` ile kaynak sayıları yeniden yazar. Teslim ve onay tamamlanmış, Pending/Returned açık, Cancelled dışarıdadır; yeniden/ters teslim sayaç artırmaz. Profil birleşimi aynı öğrenci kilitlerini kimlik sırasıyla alır ve iki profilin ödev sayısını tek kaynak sorgusuyla hesaplar; kısmi birleşimden sonra ödev olayı gelse bile eski snapshot tekrar eklenmez. Diğer snapshot alanları mevcut Absorb kuralını korur. Haftalık bildirimin metni yalnız “özet hazır”dır; sayısal çalışma/ödev verisi veli paneli ve digest üzerinden okunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

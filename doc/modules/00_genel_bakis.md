@@ -444,3 +444,10 @@ M11 push kuyruğu deneme sayacı/üstel backoff/TTL/Expired ile yeni kayıtları
 M06 ödev, M08 seans/test/not ve M11 bildirim listelerinde `after/limit` keyset desteği var (50/max100, `items/nextCursor`, toplam sayımı yok). M06/M08 parametresiz eski JSON dizisi ilk50 ile korunur; M11 eski skip/take ve toplam metadata'sını korur. [M06](m06_assignments.md), [M08](m08_study.md), [M11](m11_notifications.md) ayrıntıları. Üç modülde `ListKeysetIndexes` migration'ları ve M10'da200öğrencilik snapshot partileri; mobil liste/geçmiş/bildirim sonsuz kaydırma ve tr/en ARB. Endpoint sayısı değişmedi.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+M14 Reporting ve M11 Notifications, StudentProfilesMerged tüketicilerine katıldı; Identity’de StudentId anahtarlı tablo bulunmadığı ölçüldü (#189 kapanışı). M06 `IStudentAssignmentStatusReader` → M09 kaynak ödev sayımı, beş durum olayı ve birleşimde çift sayım koruması eklendi. M08 commit yeniden denemesi/outbox, M10 hedef son tarih yarışı ve M11 haftalık özet/birleşim yarışı düzeltildi. Yeni HTTP uç/şema yok. Eski olayların kanonik kimliğe çözülmesi ayrı sözleşme, ödev profilId/UserId yetkisi P21 kapsamındadır.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

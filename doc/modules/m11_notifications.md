@@ -427,3 +427,10 @@ Bildirim merkezinin `GET /users/{userId}/notifications?onlyUnread=&after=&limit=
 Mobil merkez50kayıtla başlar, cursor sonuna kadar kaydırır. Filtre/yenileme eski isteği geçersiz kılar; tek devam isteği, hata sonrası aynı cursor'la tekrar ve dispose sonrası emit koruması vardır. Okundu geri alımı daha sonra yüklenen sayfaları silmez. Ekran metinleri tr/en ARB'dedir; sunucudan gelen bildirim başlık/gövdeleri korunur.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+`NotificationsStudentMergedHandler`, LessonReminder ve ParentNotification öğrenci referanslarını inbox transaction içinde taşır; teslim durumları/deneme sayıları korunur. Haftalık özetlerde veli+Türkiye ISO haftası başına kanonik kayıt tercih edilir; kanonik v2 dedup işareti de yazılır. Haftalık işlemcinin 200 hedeflik sayfa okuma/yazımı ve birleşim aynı transaction advisory kilidini kullanır; yarış kalıcı çift bildirim oluşturmaz. Diğer bildirim geçmişi korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

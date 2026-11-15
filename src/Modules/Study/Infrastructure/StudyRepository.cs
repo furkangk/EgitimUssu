@@ -251,10 +251,15 @@ internal sealed class StudyRepository : IStudyRepository
 
         // Bileşen yazımı ve deneme toplamı tek transaction; iki farklı bileşenin eşzamanlı
         // düzenlenmesi de son toplamı ezemez. Kilitler kimlik sırasıyla alınır.
+        Guid[] pendingEventIds = [];
         await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
             await using var transaction = _dbContext.Database.IsRelational()
                 ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+            // Commit yanıtı kaybolmuşsa aynı atomik yazımın outbox işaretleri başarıyı doğrular.
+            if (pendingEventIds.Length > 0 && await _dbContext.OutboxMessages.AsNoTracking()
+                .CountAsync(x => pendingEventIds.Contains(x.Id), cancellationToken) == pendingEventIds.Length)
+                return;
             foreach (var examId in examIds)
             {
                 if (_dbContext.Database.IsNpgsql())
@@ -273,8 +278,12 @@ internal sealed class StudyRepository : IStudyRepository
                 }
                 exam.RecalculateTotalNet(nets.Values);
             }
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            // Tracker ve yakalanmış outbox kayıtları commit tamamlanana kadar Added/Modified/Deleted kalır.
+            await _dbContext.SaveChangesAsync(acceptAllChangesOnSuccess: false, cancellationToken);
+            pendingEventIds = _dbContext.ChangeTracker.Entries<EgitimUssu.Shared.Infrastructure.Persistence.OutboxMessage>()
+                .Where(x => x.State == EntityState.Added).Select(x => x.Entity.Id).ToArray();
             if (transaction is not null) await transaction.CommitAsync(cancellationToken);
         });
+        _dbContext.ChangeTracker.AcceptAllChanges();
     }
 }

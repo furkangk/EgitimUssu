@@ -443,7 +443,7 @@ Ekran dokümanı: [`../pages/progress_overview.md`](../pages/progress_overview.m
 
 ### P19 Task 6 — Süresi geçen konu hedefi (N-55)
 
-`TopicGoal.MarkMissed(today)` yalnız Active ve TargetDate < today ise Missed yapar; hedef günü sonuna kadar geçerlidir, tarihsiz/Achieved/Cancelled hedefler değişmez. Gün mevcut `ILocalCalendar` üzerinden belirlenir. Mevcut kiralı günlük `ProgressSnapshotProcessor`, süresi geçenleri 200 kayıtlık partilerde kaydeder; işlenen hedefler tracker'dan çıkarılır. Snapshot dönüş sayısı yalnız üretilen snapshot sayısıdır. Yeni iş/migration/olay eklenmez. Mevcut xmin eşzamanlı değişimde hatayı yayar, sonraki tur güncel durumu okur.
+`TopicGoal.MarkMissed(today)` yalnız Active ve TargetDate < today ise Missed yapar; hedef günü sonuna kadar geçerlidir, tarihsiz/Achieved/Cancelled hedefler değişmez. Gün mevcut `ILocalCalendar` üzerinden belirlenir. Mevcut kiralı günlük `ProgressSnapshotProcessor`, süresi geçenlerin en çok 200 kimliğini okur ve hâlâ Active olanları koşullu SQL güncellemesiyle değiştirir. Snapshot dönüş sayısı yalnız üretilen snapshot sayısıdır. Yeni iş/migration/olay eklenmez. TopicGoal xmin taşımaz; koşullu UPDATE eşzamanlı Cancelled/Achieved durumunu korur (P19 T8).
 
 `MasteryService` takvimi alır ve başarı değerlendirmesinden önce aynı MarkMissed kontrolünü uygular; günlük tarama henüz koşmamışsa bile geç başarı geçmiş hedefi kazanamaz. Kapanmış hedef geri açılmaz ve Missed için sahte başarı bildirimi üretilmez. Gerçek PostgreSQL'de 205 hedef/iki parti ve ikinci turun etkisizliği, birim testinde yerel gece yarısı + geç başarı doğrulandı.
 
@@ -452,3 +452,10 @@ Ekran dokümanı: [`../pages/progress_overview.md`](../pages/progress_overview.m
 `ProgressSnapshotProcessor` her kapalı hafta/ay için TopicMastery öğrenci kimliklerini artan Guid keyset ile **200'lük partilerde** okur. Varolan snapshot anahtarları ve SQL GROUP BY/AVG/SUM yalnız o öğrenci partisine uygulanır; her parti kaydedilir, yeni snapshot nesneleri tracker'dan çıkarılır. Yarım turdan sonra tekrar çalıştırma yazılmış öğrenci/ders/dönemleri atlar. Mevcut günlük kira, kapanmış dönem ve toplam dönen kayıt sayısı sözleşmeleri korunur. Gerçek PostgreSQL'de205öğrenci→410snapshot, sonraki tur0 ve boş snapshot tracker doğrulandı. Şema/olay değişmedi.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+Hedef taraması ile iptal/başarım yarışında tarayıcı yalnız veritabanında hâlâ Active olan, süresi geçmiş hedefi Missed yapar. TopicGoal xmin taşımadığı için koruma koşullu SQL UPDATE ile sağlanır. En çok 200 kimlik okunur; snapshot üretim sayısı sözleşmesi değişmez. İki ayrı DbContext ile Cancelled ve Achieved durumlarının korunması gerçek PostgreSQL üzerinde test edilir.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

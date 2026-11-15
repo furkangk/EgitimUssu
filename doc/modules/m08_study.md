@@ -568,3 +568,10 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 **#272 ölçümü:** Gerçek, ayrı PostgreSQL veritabanında 5.000 tamamlanmış seans +5.000 test için `StudyStatisticsReader` iki dar SELECT ile yaklaşık28–32ms ve4,5MB tahsis kullandı. Değerler yerel test ölçümüdür. Kesin M10/M14 yeniden hesap anlamını korumak için sözleşme ve tam kaynak okuması tutuldu; UI sınırı bu okuyucuya uygulanmaz. Bellek ve maliyet geçmişle doğrusal büyür; ölçek artışında P26'da SQL özet/streaming sözleşmesi ayrıca değerlendirilmelidir.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+Deneme bileşeni değişikliği/silmesi ve TotalNet yazımı, outbox ile aynı transaction içindedir. EF değişiklikleri commit başarılı olana kadar kabul edilmez; geçici commit hatasında kaynak ve outbox yeniden yazılır. Commit yanıtı kaybolduğunda aynı outbox kimliklerinin varlığı atomik başarıyı doğrular. Gerçek öğrenci haftası: TR 01:30 çalışması önceki çalışma gününe aittir; üç günün serisi 3, test ekleme/silme sonrası M10/M14 toplamları başlangıç değerine döner.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

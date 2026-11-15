@@ -72,6 +72,14 @@ public sealed class ChildProgressSnapshot : Entity<Guid>
         UpdatedOnUtc = updatedOnUtc;
     }
 
+    public void SetAssignmentCounts(int total, int open, int completed, DateTime nowUtc)
+    {
+        TotalAssignmentCount = total;
+        OpenAssignmentCount = open;
+        CompletedAssignmentCount = completed;
+        UpdatedOnUtc = nowUtc;
+    }
+
     public void RegisterAssignmentCreated(DateTime updatedOnUtc)
     {
         TotalAssignmentCount++;

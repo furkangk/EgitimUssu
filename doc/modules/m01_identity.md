@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Identity/**
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # 🔐 Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım Dokümanı
@@ -395,3 +395,10 @@ Hesap kapandı (KVKK)       → AccountDeletionProcessor: Anonymize + kullanıc�
 ---
 
 *Kimlik ve Erişim (Identity) Modülü (M01) — Detaylı Tasarım | Güncelleme: 2026-11-14 (P15 Task 8 / A-07, N-41: `AccountDeletionService` kiraya alındı; kayıt/şifre sıfırlama e-postası kuyruğu artık 15 sn'de bir boşalır — önce ~5 dk) · 2026-11-14 (P15 Task 7 / N-29…N-32: iptal nedeni + koşullu rotasyon + `sid`/hesap durumu kontrolü + ms damga + üç hız sınırı politikası + tek bekleyen silme talebi + HSTS) · 2026-11-14 (P15 Task 6 / N-24: `Logging` e-posta sağlayıcısı üretimde reddedilir, gövde/kod log'a yazılmaz, alıcı maskeli) · 2026-10-16 (denetim: pasif hesapta refresh engeli, eski şifre sıfırlama bağlantılarının birlikte tüketilmesi, eksik kayıt rollerinde 500 engeli; `IdentityRecoveryBoundaryTests`) · 2026-09-05 (P13 Task 7 / M01-4+D-03: cihaz oturumları — 3 uç (`/sessions`), erişim jetonuna `sid` talebi, `RefreshTokenSession.LastUsedOnUtc` + rotasyonda başlangıç anının devralınması; mobil `/account/sessions`. **M01-5 ertelendi**) · 2026-09-05 (P13 Task 5 / E-07: KVKK hesap silme — `account_deletion_requests` tablosu + `AccountDeletionRequest` aggregate + 3 uç (`/account/deletion-request`) + `UserAccount.Anonymize`; 30 gün bekleme, `AccountDeletionService` 11 modülü anonimleştiriyor. Teknik: `../architecture/kvkk.md`, hukuki: `../legal/`) · 2026-09-03 (P05/M15-3: girişte `ISessionPolicyDirectory` kapısı + `UserAccount.RevokeOtherSessions`) · 2026-09-02 (P02: gerçek e-posta gönderimi, EF token kalıcılık düzeltmesi, `GET /me`, mobil şifre sıfırlama + e-posta doğrulama) · 2026-07-01*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+Identity EF modeli öğrenci profil kimliğiyle anahtarlanmış tablo içermez. Hesap silme akışı StudentId listesini `IStudentDirectory` üzerinden alır; StudentProfilesMerged tüketicisi gerekmez (#189 ölçümü).
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

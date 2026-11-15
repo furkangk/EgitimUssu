@@ -50,9 +50,7 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
 
         // P16 T6 / K-19: hafta Türkiye haftasıdır — Pazartesi 00:00 TR'de (Pazar 21:00Z) yeni hafta başlar. Eskiden UTC
         // anın ISO haftasıydı; Pazar 21:00–24:00Z turu bir önceki haftanın anahtarıyla özeti atlıyordu.
-        var localMidnight = _calendar.ToLocalDate(nowUtc).ToDateTime(TimeOnly.MinValue);
-        var isoWeek = ISOWeek.GetWeekOfYear(localMidnight);
-        var isoYear = ISOWeek.GetYear(localMidnight);
+        var (isoYear, isoWeek) = WeekOf(nowUtc, _calendar);
         var created = 0;
         Guid? cursor = null;
         do
@@ -60,25 +58,36 @@ public sealed class ParentWeeklySummaryProcessor : IParentWeeklySummaryProcessor
             var page = await _directory.ListApprovedTargetPageAsync(cursor, 200, cancellationToken);
             var eligible = page.Items.Where(x => x.Target.Tier == MembershipTier.Premium && x.Target.Prefs.WeeklyProgressSummary)
                 .DistinctBy(x => (x.Target.ParentUserId, x.StudentId)).ToArray();
-            var keys = eligible.Select(x => WeeklyDedupKey(x.Target.ParentUserId, x.StudentId, isoYear, isoWeek)).ToArray();
-            var processed = await _repository.GetProcessedAsync(keys, cancellationToken);
-            var pageCreated = 0;
-            foreach (var entry in eligible)
+            created += await _repository.RunWeeklySummaryBatchAsync(async () =>
             {
-                var key = WeeklyDedupKey(entry.Target.ParentUserId, entry.StudentId, isoYear, isoWeek);
-                if (processed.Contains(key)) continue;
-                await _repository.AddAsync(new ParentNotification(_idGenerator.New(), entry.Target.ParentUserId,
-                    entry.StudentId, ParentNotificationType.WeeklySummary, "Haftalık özet hazır",
-                    "Çocuğunuzun haftalık gelişim özeti hazır.", nowUtc), cancellationToken);
-                _repository.MarkProcessed(key, $"weekly-v2:{isoYear}-W{isoWeek}", nowUtc);
-                pageCreated++;
-            }
-            if (pageCreated > 0) await _repository.SaveChangesAsync(cancellationToken);
-            created += pageCreated;
+                var keys = eligible.Select(x => WeeklyDedupKey(x.Target.ParentUserId, x.StudentId, isoYear, isoWeek)).ToArray();
+                var processed = await _repository.GetProcessedAsync(keys, cancellationToken);
+                var pageCreated = 0;
+                foreach (var entry in eligible)
+                {
+                    var key = WeeklyDedupKey(entry.Target.ParentUserId, entry.StudentId, isoYear, isoWeek);
+                    if (processed.Contains(key)) continue;
+                    await _repository.AddAsync(new ParentNotification(_idGenerator.New(), entry.Target.ParentUserId,
+                        entry.StudentId, ParentNotificationType.WeeklySummary, "Haftalık özet hazır",
+                        "Çocuğunuzun haftalık gelişim özeti hazır.", nowUtc), cancellationToken);
+                    _repository.MarkProcessed(key, $"weekly-v2:{isoYear}-W{isoWeek}", nowUtc);
+                    pageCreated++;
+                }
+                if (pageCreated > 0) await _repository.SaveChangesAsync(cancellationToken);
+                return pageCreated;
+            }, cancellationToken);
             cursor = page.NextLinkId;
         } while (cursor.HasValue);
 
         return created;
+    }
+
+    internal static (int Year, int Week) WeekOf(DateTime nowUtc, ILocalCalendar calendar)
+    {
+        var localMidnight = calendar.ToLocalDate(nowUtc).ToDateTime(TimeOnly.MinValue);
+        var isoWeek = ISOWeek.GetWeekOfYear(localMidnight);
+        var isoYear = ISOWeek.GetYear(localMidnight);
+        return (isoYear, isoWeek);
     }
 
     // Hafta+veli+öğrenci için deterministik Guid (ProcessedIntegrationEvent dedup anahtarı). Aynı hafta tekrar üretilmez.

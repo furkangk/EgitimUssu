@@ -416,3 +416,10 @@ Sorgu zamanı:
 Yeni şema/migration/uç yoktur. Kaynak ile projeksiyonlar farklı modüllerde olduğundan tutarlılık outbox teslimiyle sağlanır. Tam yeniden kurulumda ilgili projeksiyonlar ve inbox satırları temizlenir; güncel Study kaynağı + Study olayları, ardından M10'un ürettiği güncel mastery olayları uygulanır. Eski M10 mastery olaylarını keyfî sırada tekrar oynatmak bu sözleşmenin parçası değildir. `RealProjectionRebuildTests` aynı kaynak+akışı, `RealStudyEditPropagationTests` silme/dönem taşıma ve ters sıradaki Study olaylarını gerçek PostgreSQL'de doğrular.
 
 *Güncelleme: 2026-11-15 — P19 Task 5: haftalık/aylık Study katkıları güncel kaynaktan uzlaştırılır.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+`ReportingStudentMergedHandler` dashboard aktif öğrenci kümesini, aylık ders StudentId alanlarını, haftalık çalışma ve aylık performans katkılarını, StudentReport metadata kimliğini kanoniğe taşır. Bileşik anahtarlı çocuklar yeni parent altında kopyalanır; aynı katkı anahtarında kanonik kazanır, çakışmayan katkılar korunur; toplamlar domain kurallarıyla türetilir. Mevcut öğrenci/dashboard kilitleri ve inbox aynı transaction içindedir. Geçmiş PDF dosyası yeniden üretilmez. Birleşim sonrası kaynak uzlaştırması ve Payments tüketicisi hata verirken Reporting’in ilerlemesi gerçek PostgreSQL/outbox testleriyle korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*

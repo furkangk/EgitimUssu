@@ -66,13 +66,21 @@ public sealed class ProgressSnapshotProcessor : IProgressSnapshotProcessor
         // Günlük mevcut kira altında; snapshot sayısı sözleşmesi değişmez.
         while (true)
         {
-            var expired = await _dbContext.TopicGoals.Where(g => g.Status == TopicGoalStatus.Active
+            var expired = await _dbContext.TopicGoals.AsNoTracking().Where(g => g.Status == TopicGoalStatus.Active
                 && g.TargetDate != null && g.TargetDate < today).OrderBy(g => g.TargetDate).ThenBy(g => g.Id)
-                .Take(200).ToArrayAsync(cancellationToken);
+                .Select(g => g.Id).Take(200).ToArrayAsync(cancellationToken);
             if (expired.Length == 0) break;
-            foreach (var goal in expired) goal.MarkMissed(today);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            foreach (var goal in expired) _dbContext.Entry(goal).State = EntityState.Detached;
+            var active = _dbContext.TopicGoals.Where(g => expired.Contains(g.Id) && g.Status == TopicGoalStatus.Active
+                && g.TargetDate != null && g.TargetDate < today);
+            if (_dbContext.Database.IsRelational())
+                await active.ExecuteUpdateAsync(s => s.SetProperty(g => g.Status, TopicGoalStatus.Missed), cancellationToken);
+            else
+            {
+                var goals = await active.ToArrayAsync(cancellationToken);
+                foreach (var goal in goals) goal.MarkMissed(today);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                foreach (var goal in goals) _dbContext.Entry(goal).State = EntityState.Detached;
+            }
         }
         var createdCount = 0;
 

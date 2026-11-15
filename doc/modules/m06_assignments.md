@@ -381,3 +381,10 @@ POST /assignments/{id}/complete
 Mobil öğretmen ve öğrenci listeleri 50'lik sayfalarda sonsuz kaydırır; kısa ilk sayfa görünümü doldurur, hata mevcut satırları ve cursor'u korur. Öğretmen özet ve durum filtreleri **yüklenen kayıtlar** içindir; etiket bunu belirtir. İki ekranın bütün görünen sabit metinleri tr/en ARB'dedir. ProfilId/UserId ayrımı (#267) bu görevde çözülmedi; P21'de kalır.
 
 *Güncelleme: 2026-11-15 — P19 Task 7.*
+
+
+### P19 Task 8 — Kapanış sözleşmesi
+
+`IStudentAssignmentStatusReader` verilen öğrenci profil kimliklerinin güncel ödev durumlarını tek SQL grup sorgusuyla okur. Cancelled toplamdan dışlanır; Pending/ReturnedForRevision açık, InProgress (dosyalı teslim)/Completed/Approved tamamlanmış sayılır. Parents beş durum olayında bu kaynağı kullanır; olay yükü değişmez. Öğrenci haftası senaryosu iki dosya sürümü, revizyon geri bildirimi, onay ve 92 puanı gerçek HTTP/depolama/outbox ile doğrular.
+
+*Güncelleme: 2026-11-15 — P19 Task 8.*
