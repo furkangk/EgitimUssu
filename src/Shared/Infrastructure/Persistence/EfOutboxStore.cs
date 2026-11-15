@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using EgitimUssu.Shared.Infrastructure.Configuration;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Observability;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
@@ -188,7 +189,13 @@ public sealed class EfOutboxStore(
     private void RecordFailure(OutboxMessage message, Exception exception, OutboxOptions settings)
     {
         message.RetryCount++;
-        message.Error = Truncate(exception.Message, ErrorMaxLength);
+        var failures = exception is AggregateException aggregate
+            ? aggregate.Flatten().InnerExceptions.OfType<IntegrationEventHandlerException>().ToArray()
+            : [];
+        var error = failures.Length > 0
+            ? string.Join("; ", failures.Select(failure => failure.Message))
+            : exception.Message;
+        message.Error = Truncate(error, ErrorMaxLength);
 
         if (message.RetryCount >= settings.MaxRetryCount)
         {

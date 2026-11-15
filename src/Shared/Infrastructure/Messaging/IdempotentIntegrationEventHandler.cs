@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Persistence;
 using EgitimUssu.Shared.Kernel;
@@ -40,20 +41,35 @@ public abstract class IdempotentIntegrationEventHandler : IIntegrationEventHandl
         var strategy = DbContext.Database.CreateExecutionStrategy();
         var attempt = 0;
 
-        await strategy.ExecuteAsync(
-            async token =>
-            {
-                // Yeniden denemede önceki denemenin STAGE ettiği yazımlar ChangeTracker'da durur
-                // (rollback yalnız veritabanını geri alır, tracker'ı değil). Temizlenmezse
-                // `ApplyAsync` ikinci kez çalışır ve aynı satırlar iki kez eklenir.
-                if (attempt++ > 0)
+        try
+        {
+            await strategy.ExecuteAsync(
+                async token =>
                 {
-                    DbContext.ChangeTracker.Clear();
-                }
+                    // Yeniden denemede önceki denemenin STAGE ettiği yazımlar ChangeTracker'da durur
+                    // (rollback yalnız veritabanını geri alır, tracker'ı değil). Temizlenmezse
+                    // `ApplyAsync` ikinci kez çalışır ve aynı satırlar iki kez eklenir.
+                    if (attempt++ > 0)
+                    {
+                        DbContext.ChangeTracker.Clear();
+                    }
 
-                await ExecuteUnitOfWorkAsync(envelope, token);
-            },
-            cancellationToken);
+                    await ExecuteUnitOfWorkAsync(envelope, token);
+                },
+                cancellationToken);
+        }
+        catch (JsonException)
+        {
+            DbContext.ChangeTracker.Clear();
+            throw new PoisonMessageException("Olay yükü geçerli JSON sözleşmesine uymuyor.");
+        }
+        catch
+        {
+            // Rollback veritabanını geri alır; aynı scope'taki kardeş tüketicinin SaveChanges'i
+            // başarısız işin izlenen değişikliklerini kaydetmemelidir.
+            DbContext.ChangeTracker.Clear();
+            throw;
+        }
     }
 
     /// <summary>Guard → uygula → inbox'ı işaretle → tek transaction'da commit. Bir bütün olarak yeniden denenebilir.</summary>
@@ -79,11 +95,7 @@ public abstract class IdempotentIntegrationEventHandler : IIntegrationEventHandl
         var applied = await ApplyAsync(envelope, cancellationToken);
         if (!applied)
         {
-            // Reddeden handler paylaşılan (scoped) DbContext'e iş-yazımı STAGE etmiş olabilir.
-            // Transaction'ı açmamak/rollback ChangeTracker'ı sıfırlamaz — o yalnız DB etkisidir.
-            // Temizlemezsek kardeş handler'ın SaveChanges'i bu terk edilmiş yazımları sessizce flush eder.
-            DbContext.ChangeTracker.Clear();
-            return;
+            throw new InvalidOperationException("Handler işlemi tamamlamadı; açık istisna veya başarılı etkisiz sonuç kullanın.");
         }
 
         DbContext.Set<InboxMessage>().Add(new InboxMessage(envelope.EventId, handlerName, envelope.Name, Clock.UtcNow));
@@ -96,6 +108,6 @@ public abstract class IdempotentIntegrationEventHandler : IIntegrationEventHandl
     }
 
     /// <summary>İş etkisini <see cref="DbContext"/> üzerinde STAGE eder (SaveChanges YOK). İşlenecek
-    /// bir şey yoksa false döner → inbox'a yazılmaz.</summary>
+    /// bir şey yoksa true döner → başarılı etkisiz sonuç da inbox'a yazılır. Hata istisna ile bildirilir.</summary>
     protected abstract Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken);
 }

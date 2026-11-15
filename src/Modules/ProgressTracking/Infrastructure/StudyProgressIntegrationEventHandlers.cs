@@ -25,7 +25,8 @@ internal sealed class StudySessionCompletedProgressHandler : IdempotentIntegrati
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
         var payload = JsonSerializer.Deserialize<StudySessionCompletedPayload>(envelope.Payload, JsonOptions);
-        if (payload is null || string.IsNullOrWhiteSpace(payload.Subject) || payload.EffectiveMinutes <= 0)
+        if (payload is null) throw new PoisonMessageException("Çalışma olay yükü null olamaz.");
+        if (string.IsNullOrWhiteSpace(payload.Subject) || payload.EffectiveMinutes <= 0)
         {
             return true; // işlenecek bir şey yok ama dedup kaydı yazılsın (eski davranış: MarkProcessed'di)
         }
@@ -62,7 +63,8 @@ internal sealed class TestResultRecordedProgressHandler : IdempotentIntegrationE
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
         var payload = JsonSerializer.Deserialize<TestResultRecordedPayload>(envelope.Payload, JsonOptions);
-        if (payload is null || string.IsNullOrWhiteSpace(payload.Subject) || payload.TotalQuestions <= 0)
+        if (payload is null) throw new PoisonMessageException("Çalışma olay yükü null olamaz.");
+        if (string.IsNullOrWhiteSpace(payload.Subject) || payload.TotalQuestions <= 0)
         {
             return true; // işlenecek bir şey yok ama dedup kaydı yazılsın (eski davranış: MarkProcessed'di)
         }

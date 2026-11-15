@@ -50,7 +50,7 @@ public sealed class PaymentOverdueNotificationHandler : IdempotentIntegrationEve
         var payload = JsonSerializer.Deserialize<PaymentBecameOverduePayload>(envelope.Payload, JsonOptions);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var amount = payload.OutstandingAmount.ToString("N2", CultureInfo.GetCultureInfo("tr-TR"));

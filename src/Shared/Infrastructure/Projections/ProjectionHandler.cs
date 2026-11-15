@@ -27,14 +27,13 @@ public abstract class ProjectionHandler<TEvent> : IdempotentIntegrationEventHand
         var payload = JsonSerializer.Deserialize<TEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            // Okunamayan payload sessizce yutulmaz: inbox'a yazılmaz, mesaj tekrar denenebilir kalır.
-            return false;
+            throw new PoisonMessageException("Projeksiyon olay yükü null olamaz.");
         }
 
         return await ProjectAsync(payload, envelope, cancellationToken);
     }
 
     /// <summary>Projeksiyon satırını <see cref="IdempotentIntegrationEventHandler.DbContext"/> üzerinde
-    /// STAGE eder (SaveChanges YOK). Uygulanacak bir şey yoksa false döner → inbox'a yazılmaz.</summary>
+    /// STAGE eder (SaveChanges YOK). Geçerli etkisiz sonuç true döner ve inbox'a yazılır; hata istisna ile bildirilir.</summary>
     protected abstract Task<bool> ProjectAsync(TEvent payload, IntegrationEvent envelope, CancellationToken cancellationToken);
 }

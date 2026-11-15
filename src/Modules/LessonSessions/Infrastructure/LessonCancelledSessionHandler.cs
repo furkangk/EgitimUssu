@@ -15,13 +15,12 @@ public sealed class LessonCancelledSessionHandler(LessonSessionsDbContext dbCont
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
         var payload = JsonSerializer.Deserialize<LessonCancellationApplied>(envelope.Payload, IntegrationEventSerialization.Options);
-        if (payload is null) return false;
+        if (payload is null) throw new PoisonMessageException("Olay yükü null olamaz.");
         if (envelope.Name == "LessonScheduleDeletedDomainEvent") payload = payload with { Scope = "All" };
         var sessions = await dbContext.LessonSessions.Where(s => s.LessonScheduleId == payload.LessonScheduleId &&
             (s.Status == LessonSessionStatus.Planned || s.Status == LessonSessionStatus.InProgress)).ToArrayAsync(cancellationToken);
-        var changed = false;
         foreach (var session in sessions.Where(s => payload.Includes(s.OccurrenceStartUtc ?? s.PlannedStartAtUtc)))
-            changed |= session.Cancel("Takvim dersi iptal edildi.", Clock.UtcNow).IsSuccess;
-        return changed;
+            session.Cancel("Takvim dersi iptal edildi.", Clock.UtcNow);
+        return true;
     }
 }

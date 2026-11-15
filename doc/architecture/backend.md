@@ -292,6 +292,25 @@ asenkron hop'ta zincirin kopmaması için (§11.5). Bu desen **en az bir kez**
 teslim ve atomik yazma (domain + event tek tx) sağlar. Mevcut `IDomainEventMapper` varsayılanı `NoOpDomainEventMapper`
 (modüller mapper'larını ekledikçe gerçek event yayını devreye girer).
 
+**Teslim ve hata anlamı (P19 T2 / N-42):** `DispatchingEventBus` eşleşen her handler'ı ayrı
+`try/catch` ile dener; biri hata verse de diğerleri o turda çalışır. Sonunda başarısız tüketicileri
+`IntegrationEventHandlerException` ile adlandıran bir `AggregateException` fırlatır. Outbox mesajı
+başarılı sayılmaz; mevcut üstel backoff ve `MaxRetryCount` sonunda dead-letter uygulanır. `Error`,
+başarısız handler'ların tam tip adını ve hata türünü taşır (4000 karakter sınırı); yük kopyalanmaz.
+Bozuk JSON/null yük `PoisonMessageException`, geçici kaynak eksikliği açık istisnadır. Poison da aynı
+retry sınırını izler; kardeş geçici hatanın toparlanma şansı erken kesilmez.
+
+Kayıtlı bütün üretim tüketicileri ortak inbox tabanını kullanır. Başarılı handler sonraki teslimde
+`(EventId, Handler)` guard'ından çıkar; yalnız başarısız olan yeniden uygulanır. İş yazımı ve inbox tek
+transaction'dadır. Rollback sonrası ChangeTracker da temizlenir; aynı scoped DbContext'i kullanan
+kardeş handler başarısız işin staged yazımını kaydedemez. `ApplyAsync/ProjectAsync` imzası `Task<bool>`
+olarak korunur: `true` uygulanan iş **veya geçerli etkisiz sonuçtur** (ücretsiz ders, tanımlanmamış ücret,
+kapalı tercih, zaten var olan kayıt, çıkarılacak projeksiyonun bulunmaması); bunlar da inbox'a yazılır.
+`false` tabanda açık hata verir; artık sessiz başarılı teslim anlamına gelemez. Kaynak oturum henüz
+okunamıyorsa inbox yazılmaz ve yeniden denenir. Sözleşmeler silinmiş/geçici eksik kaynağı ayırt etmediğinde
+hata retry sınırına kadar görünür kalır. İptal edilmiş turun `OperationCanceledException`'ı doğrudan yayılır;
+turun token'ı iptal edilmeden gelen iptal istisnası ise diğer handler hataları gibi yalıtılır.
+
 ## 7.1 Projeksiyon (Read-Model) Deseni
 
 **Ne zaman kullanılır:** Bir modülün ekranı/ucu **başka modüllerin** verisine ihtiyaç duyduğunda. Çapraz-modül
@@ -314,8 +333,8 @@ veri, kaynak modülün yaydığı integration event'lerden beslenen bir **projek
 - **Idempotent:** Aynı event iki kez teslim edilirse projeksiyon **bir kez** uygulanır — dedup `inbox_messages`
   (`EventId`, `Handler`) üzerinden tabandan gelir. Sayaç artıran projeksiyonlar bu yüzden güvenlidir.
 - **Atomik:** `ProjectAsync` **SaveChanges çağırmaz**; iş-yazımı + inbox satırı tek transaction'da commit olur.
-  `ProjectAsync` hata verirse (ya da `false` dönerse) inbox satırı yazılmaz → mesaj yeniden denenebilir kalır.
-- **Okunamayan payload sessizce yutulmaz:** payload `null` çözülürse taban `false` döner, event işlenmiş sayılmaz.
+  `ProjectAsync` hata verirse inbox satırı yazılmaz → mesaj yeniden denenir. `false` da tabanda istisnaya dönüşür.
+- **Okunamayan payload sessizce yutulmaz:** JSON bozuksa veya payload `null` çözülürse `PoisonMessageException` fırlatılır; outbox hata kaydı tüketici adını taşır.
 - **Yeniden kurulabilir:** Her projeksiyon `IProjectionRebuilder` ile sıfırdan inşa edilebilmelidir; projeksiyon
   şeması "türetilmiş veri"dir, kayıp durumunda kaynak modüllerden yeniden üretilir.
   **Yeniden inşanın iki adımı vardır ve ikincisi kolayca atlanır:** projeksiyon satırları *ve* o modülün
@@ -629,3 +648,5 @@ Docker yoksa `dotnet test EgitimUssu.slnx` de çalışır; Testcontainers testle
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
 
 *Güncelleme: 2026-11-15 — P18 T5: ham gövde SHA-256, işleniyor/tamamlandı eşlemesi ve eski Redis kayıtları.*
+
+*Güncelleme: 2026-11-15 — P19 Task 2: handler izolasyonu, açık hata/etkisiz sonuç, tracker temizliği ve dead-letter tüketici adı.*

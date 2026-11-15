@@ -406,3 +406,7 @@ Sorgu zamanı:
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
 
 *Güncelleme: 2026-11-15 — P18 T6: finans zincirinde HTTP net tahsilat ve projeksiyon iade/hareket kanıtı.*
+
+**Outbox teslimi (P19 T2 / N-42):** Projeksiyon hatası diğer modüllerin tüketimini durdurmaz; başarılı projeksiyon inbox ile tekrar uygulanmaz. Bozuk JSON/null veya mevcut zorunlu alan kontrolünün reddettiği yük poison olur. Öğretmensiz ders, ilgili olmayan iptal kapsamı, zaten kapalı durum veya çıkarılacak satır yokluğu başarılı etkisiz sonuçtur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*

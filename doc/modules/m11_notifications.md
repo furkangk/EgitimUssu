@@ -400,3 +400,7 @@ Messaging:   MessageSent                          ──▶ Notification(Type=Ne
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P18 T3: veli ödeme beyanı onay/ret sonucunun inbox korumalı bildirimi.*
+
+**Outbox teslimi (P19 T2 / N-42):** Bozuk/null yük ve geçersiz mesaj alıcısı açık PoisonMessageException üretir. Bir bildirim tüketicisinin hatası diğerlerini durdurmaz; başarılı olanlar inbox sayesinde tekrar bildirim üretmez. Tercih/üyelik/bağlı kullanıcı yokluğu geçerli etkisiz sonuç olarak korunur. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*

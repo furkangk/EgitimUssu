@@ -104,8 +104,8 @@ public sealed class MessageSentNotificationHandlerTests
         await using var dbContext = NewDbContext();
         var handler = NewHandler(dbContext, userNotifications);
 
-        await handler.HandleAsync(new IntegrationEvent(
-            Guid.NewGuid(), Now, "MessageSentDomainEvent", "Messaging", "null"));
+        await Assert.ThrowsAsync<PoisonMessageException>(() => handler.HandleAsync(new IntegrationEvent(
+            Guid.NewGuid(), Now, "MessageSentDomainEvent", "Messaging", "null")));
 
         Assert.Empty(await userNotifications.ListPendingPushAsync(10, default));
         Assert.Empty(dbContext.InboxMessages);

@@ -416,3 +416,7 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P18 T5: modüller arası ortak idempotency gövde sözleşmesi.*
 
 *Güncelleme: 2026-11-15 — P19 Task 1 / N-40: M08 seri davranışı ve onarım işi.*
+
+**P19 T2 / N-42:** Ortak outbox dağıtımı her tüketiciyi dener; başarılı tüketiciler inbox sayesinde tekrar uygulanmaz. Bozuk yük açık poison, geçici eksiklik istisna, geçerli etkisiz sonuç başarılı inbox kaydıdır. Dead-letter Error başarısız handler adlarını/türlerini taşır. Endpoint veya olay şeması değişmedi. [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: outbox tüketici izolasyonu.*

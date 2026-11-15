@@ -538,3 +538,7 @@ POST /lesson-requests/{id}/reject
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
 
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
+
+**Outbox teslimi (P19 T2 / N-42):** Tamamlama tüketicisinde okunamayan kaynak oturum açık hata ile yeniden denenir; plansız veya artık tamamlanmış olmayan oturum geçerli etkisiz sonuçtur. Bozuk yük poison olur; birleşme tüketicisi de bu kurala uyar. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*

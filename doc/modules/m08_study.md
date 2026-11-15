@@ -539,3 +539,7 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 *Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*
 
 *Güncelleme: 2026-11-15 — P19 Task 1 / N-40: kaydedilmemiş seans, 04:00 penceresi, tekil geçmiş gün, kırılmış seri okuması ve tek seferlik onarım.*
+
+**Outbox teslimi (P19 T2 / N-42):** Profil birleşme tüketicisinde null yük açık poison hatasıdır; aynı event'in başarılı birleşme işlemi inbox ile tekrar uygulanmaz. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
+
+*Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*

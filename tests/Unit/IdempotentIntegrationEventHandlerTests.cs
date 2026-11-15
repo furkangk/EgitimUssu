@@ -78,7 +78,7 @@ public sealed class IdempotentIntegrationEventHandlerTests
         await using var db = NewContext();
         var handler = new CountingHandler(db, new FixedClock(), applyResult: false);
 
-        await handler.HandleAsync(Event(Guid.NewGuid()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(Event(Guid.NewGuid())));
 
         Assert.Equal(0, await db.Set<InboxMessage>().CountAsync());
     }
@@ -103,7 +103,7 @@ public sealed class IdempotentIntegrationEventHandlerTests
         var decline = new StageThenDeclineHandler(db, new FixedClock(), "A");
         var accept = new StageAndAcceptHandler(db, new FixedClock(), "B");
 
-        await decline.HandleAsync(e);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => decline.HandleAsync(e));
         await accept.HandleAsync(e);
 
         // A'nın staged widget'ı B'nin SaveChanges'inde sızmamalı.

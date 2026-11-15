@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Persistence;
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Infrastructure.Projections;
 using EgitimUssu.Shared.Kernel;
 using EgitimUssu.Tests.Unit.TestDoubles;
@@ -107,7 +108,7 @@ public sealed class ProjectionHandlerTests
         var envelope = new IntegrationEvent(
             Guid.NewGuid(), DateTime.UnixEpoch, "CounterChangedDomainEvent", "Test", "null");
 
-        await handler.HandleAsync(envelope);
+        await Assert.ThrowsAsync<PoisonMessageException>(() => handler.HandleAsync(envelope));
 
         Assert.Equal(0, handler.ProjectCount);
         Assert.Equal(0, await db.Set<InboxMessage>().CountAsync());

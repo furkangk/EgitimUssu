@@ -60,7 +60,7 @@ internal sealed class ParentLessonProjectionHandler : ParentReadModelProjectionH
             var payload = Deserialize<LessonSessionCreatedPayload>(envelope);
             if (payload is null)
             {
-                return false;
+                throw new PoisonMessageException("Olay yükü null olamaz.");
             }
 
             var snapshot = await GetOrCreateSnapshotAsync(payload.StudentId, cancellationToken);
@@ -71,7 +71,7 @@ internal sealed class ParentLessonProjectionHandler : ParentReadModelProjectionH
         var completed = Deserialize<LessonSessionCompletedPayload>(envelope);
         if (completed is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var target = await GetOrCreateSnapshotAsync(completed.StudentId, cancellationToken);
@@ -101,7 +101,7 @@ internal sealed class ParentAssignmentProjectionHandler : ParentReadModelProject
         var payload = Deserialize<AssignmentPayload>(envelope);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var snapshot = await GetOrCreateSnapshotAsync(payload.StudentId, cancellationToken);
@@ -141,7 +141,7 @@ internal sealed class ParentPaymentProjectionHandler : ParentReadModelProjection
             var created = Deserialize<PaymentCreatedPayload>(envelope);
             if (created is null)
             {
-                return false;
+                throw new PoisonMessageException("Olay yükü null olamaz.");
             }
 
             var snapshot = await GetOrCreateSnapshotAsync(created.StudentId, cancellationToken);
@@ -152,7 +152,7 @@ internal sealed class ParentPaymentProjectionHandler : ParentReadModelProjection
         var updated = Deserialize<PaymentUpdatedPayload>(envelope);
         if (updated is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var target = await GetOrCreateSnapshotAsync(updated.StudentId, cancellationToken);
@@ -205,11 +205,13 @@ internal sealed class ParentStudentDirectoryProjectionHandler : ParentReadModelP
         if (envelope.Name == ProfileLinkedToUser)
         {
             var linked = Deserialize<StudentProfileLinkedToUserIntegrationEvent>(envelope);
-            return linked is not null && await UpsertAsync(linked.StudentId, linked.UserId, cancellationToken);
+            if (linked is null) throw new PoisonMessageException("Öğrenci bağlantı olay yükü null olamaz.");
+            return await UpsertAsync(linked.StudentId, linked.UserId, cancellationToken);
         }
 
         var created = Deserialize<StudentProfileCreatedPayload>(envelope);
-        return created is not null && await UpsertAsync(created.StudentProfileId, created.UserId, cancellationToken);
+        if (created is null) throw new PoisonMessageException("Öğrenci oluşturma olay yükü null olamaz.");
+        return await UpsertAsync(created.StudentProfileId, created.UserId, cancellationToken);
     }
 
     private async Task<bool> UpsertAsync(Guid studentId, Guid? userId, CancellationToken cancellationToken)
@@ -224,7 +226,7 @@ internal sealed class ParentStudentDirectoryProjectionHandler : ParentReadModelP
 
         if (userId is null || existing.UserId == userId)
         {
-            return false;
+            return true;
         }
 
         existing.SetUserId(userId, Clock.UtcNow);

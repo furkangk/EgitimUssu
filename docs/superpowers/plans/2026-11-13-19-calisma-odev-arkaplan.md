@@ -54,7 +54,7 @@
 
 **Kanıt (2026-11-15):** İmza Release derlemesi 0 uyarı/0 hata; EF testleri gerçek RED **7 başarısız/2 başarılı** → GREEN. Son `bash scripts/test-with-docker.sh`: **19 mimari/1238 birim/177 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0/0**, tool restore başarılı. Mobil/migration değişmedi. Ayrı yerel Staging PostgreSQL'de **12 demo seans/2 öğrenci**; kontrollü eski `99/99/99` → iki öğrenci de **0/1/6**. Marker yazımına yapay hata: ara kayıtlar rollback, marker yok; başarılı startup sonrası ikinci çağrı ve restart aynı değerleri/tarihleri korur. İlk tam turdaki global snapshot sayımı **2→4** test izolasyonuydu; yeni HTTP testi kendi bekleyen olaylarını temizler, eski test/üretim değiştirilmedi. Doc health RED0/mevcut2YELLOW+1BLUE. Loglar `/tmp/egitimussu-p19t1-{signature,red,green,real2,staging-proof,docker-final,release,tool-restore,doc-health}.log`.
 
-### Task 2: Outbox handler izolasyonu ve dönüş anlamı (N-42)
+### Task 2: Outbox handler izolasyonu ve dönüş anlamı (N-42) ✅
 
 **Files:**
 - Modify: `src/Shared/Infrastructure/Messaging/DispatchingEventBus.cs` (her handler ayrı `try/catch`; hepsi denenir; en az biri başarısızsa `AggregateException` → mesaj yeniden denenir)
@@ -63,14 +63,52 @@
 - Audit: tüm `IIntegrationEventHandler` implementasyonlarını listele (`grep -rln "IIntegrationEventHandler" src/Modules`) ve **inbox idempotency tabanı kullanmayanları** tabana geçir (yeniden denemede tekrar çalışmaları güvenli olmalı)
 - Test: `tests/Unit/DispatchingEventBusIsolationTests.cs`, `tests/Integration/RealOutboxHandlerIsolationTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — 4 handler'lı olayda 2. handler kalıcı hata verir → 1, 3, 4 **çalışır**; yeniden denemede 1, 3, 4 inbox sayesinde **tekrar işlemez**, 2 tekrar denenir; bozuk yük → dead-letter'da handler adı; `return false` kullanan handler kalmaz (kaynak taraması).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör** (`./scripts/test-with-docker.sh`).
-- [ ] **Step 5: Doküman + commit** — `doc/architecture/backend.md` (outbox teslim semantiği); rapor N-42 ✅.
+**Kapsam doğrulaması / Interfaces (2026-11-15):** Kayıtlı tüm tüketiciler zaten `IdempotentIntegrationEventHandler` / `ProjectionHandler` tabanındadır; dönüşüm gerekmiyor. `ApplyAsync/ProjectAsync: Task<bool>` imzası korunur: `true` hem uygulanan işi hem geçerli etkisiz sonucu inbox'a yazar; `false` artık tabanda açık hata verir. Bozuk JSON/null/kimlik → `PoisonMessageException`, geçici kaynak yokluğu → istisna, ücret/tercih/öğretmensiz ders/zaten uygulanmış durum → `true`. Poison dahil tüm hatalar mevcut retry sınırına tabidir; bir poison kardeş geçici hatanın yeniden denenmesini erken kesmez. `DispatchingEventBus` mevcut scope'u korur, taban her başarısızlıkta tracker'ı temizler (rollback tek başına yeterli değil). Aggregate her başarısız handler adını taşır; dead-letter Error önce handler adlarını/türlerini yazar, yükü hata metnine kopyalamaz. İptal edilmiş tur derhal yayılır; token iptal edilmeden atılan OperationCanceledException handler hatasıdır.
+
+**Files — doğrulamada eklenenler:**
+- Create: `src/Shared/Infrastructure/Messaging/IntegrationEventExceptions.cs` (poison ve handler adı taşıyan hata)
+- Modify: `src/Shared/Infrastructure/Messaging/IdempotentIntegrationEventHandler.cs` (false açık hata, JSON hata sınıflaması, başarısız tracker temizliği)
+- Modify: aşağıdaki mevcut handler dosyaları (false nedenlerinin tek tek sınıflanması):
+  - `src/Modules/Assignments/Infrastructure/AssignmentsStudentMergedHandler.cs`
+  - `src/Modules/Assignments/Infrastructure/LessonSessionCompletedIntegrationEventHandler.cs`
+  - `src/Modules/LessonSessions/Infrastructure/LessonCancelledSessionHandler.cs`
+  - `src/Modules/LessonSessions/Infrastructure/LessonSessionsStudentMergedHandler.cs`
+  - `src/Modules/Messaging/Infrastructure/MessagingStudentMergedHandler.cs`
+  - `src/Modules/Notifications/Infrastructure/AssignmentDueNotificationHandlers.cs`
+  - `src/Modules/Notifications/Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs`
+  - `src/Modules/Notifications/Infrastructure/MessageSentNotificationHandler.cs`
+  - `src/Modules/Notifications/Infrastructure/ParentEventNotificationHandler.cs`
+  - `src/Modules/Notifications/Infrastructure/PaymentDeclarationResolvedNotificationHandler.cs`
+  - `src/Modules/Notifications/Infrastructure/PaymentOverdueNotificationHandler.cs`
+  - `src/Modules/Notifications/Infrastructure/TopicGoalAchievedNotificationHandler.cs`
+  - `src/Modules/Parents/Infrastructure/ParentReadModelProjections.cs`
+  - `src/Modules/Parents/Infrastructure/StudentProfilesMergedParentsHandler.cs`
+  - `src/Modules/Payments/Infrastructure/LessonCancelledPaymentHandler.cs`
+  - `src/Modules/Payments/Infrastructure/LessonSessionCompletedPaymentHandler.cs`
+  - `src/Modules/Payments/Infrastructure/PaymentsStudentMergedHandler.cs`
+  - `src/Modules/ProgressTracking/Infrastructure/LessonSessionCompletedProgressHandler.cs`
+  - `src/Modules/ProgressTracking/Infrastructure/StudentProfilesMergedProgressHandler.cs`
+  - `src/Modules/ProgressTracking/Infrastructure/StudyProgressIntegrationEventHandlers.cs`
+  - `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs`
+  - `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionHandlers.cs`
+  - `src/Modules/Scheduling/Infrastructure/LessonSessionCompletedSchedulingHandler.cs`
+  - `src/Modules/Scheduling/Infrastructure/SchedulingStudentMergedHandler.cs`
+  - `src/Modules/Students/Infrastructure/ParentChildLinkApprovedIntegrationEventHandler.cs`
+  - `src/Modules/Students/Infrastructure/ParentChildLinkEndedIntegrationEventHandler.cs`
+  - `src/Modules/Study/Infrastructure/StudyStudentMergedHandler.cs`
+- Modify: `tests/Unit/ProjectionHandlerTests.cs`, `tests/Unit/IdempotentIntegrationEventHandlerTests.cs`, `tests/Unit/MessageSentNotificationHandlerTests.cs`, `tests/Unit/LessonSessionCompletedPaymentHandlerTests.cs` (artık sessiz başarı beklenmez)
+- Docs: `doc/architecture/backend.md`, `doc/modules/00_genel_bakis.md` ve yukarıdaki dosyaların modül belgeleri (`m03`, `m04`, `m05`, `m06`, `m07`, `m08`, `m09`, `m10`, `m11`, `m14`, `m16`), N-42 denetim satırı.
+
+- [x] **Step 1: Kırmızı testler** — 4 handler'lı olayda 2. handler kalıcı hata verir → 1, 3, 4 **çalışır**; yeniden denemede 1, 3, 4 inbox sayesinde **tekrar işlemez**, 2 tekrar denenir; bozuk yük → dead-letter'da handler adı; `return false` kullanan handler kalmaz (kaynak taraması).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör** (`./scripts/test-with-docker.sh`).
+- [x] **Step 5: Doküman + commit** — `doc/architecture/backend.md` (outbox teslim semantiği); rapor N-42 ✅.
   ```bash
   git commit -m "fix(outbox): handler'lar birbirinden yalitildi, dead-letter handler adini tasir (N-42)"
   ```
 
 ---
+
+**Kanıt (2026-11-15):** İmza Release derlemesi 0 uyarı/0 hata; gerçek birim RED **7 başarısız/11 başarılı** → GREEN. Son `bash scripts/test-with-docker.sh` (exit 0): **19 mimari/1242 birim/183 integration**, başarısız **0**, atlanan **0**. Yeni 4 birim + 6 gerçek PostgreSQL vaka; 4 handler'da ikinci hata, SQL rollback + staged sızıntı yok, diğerleri bir kez; ikinci teslimde yalnız başarısız handler ve hem toparlanma hem dead-letter kanıtlandı. Null/bozuk JSON/boş alıcı gerçek MessageSent tüketicisinde handler adı + PoisonMessageException ile dead-letter, inbox yok, yük hata metnine sızmıyor. Tüm kayıtlı üretim tüketicileri inbox tabanında; kaynak taramasında belirsiz false yok. Ücretsiz veya ücreti tanımlanmamış ders inbox'a başarılı etkisiz kayıt, okunamayan kaynak oturum açık hata. Son Release `-warnaserror --no-incremental` 0/0; tool restore başarılı. Doc health RED0/mevcut2YELLOW+1BLUE (dokunulan M16 tarih uyumsuzluğu da giderildi). Mobil/migration yok; Flutter/drift/Down gerekmedi. Loglar `/tmp/egitimussu-p19t2-{baseline,signature,red,green,real-first,docker,docker-final,release,tool-restore,doc-health-final}.log`.
 
 ### Task 3: Ödev durum makinesi ve teslim sürümleri (N-44)
 
@@ -183,4 +221,4 @@
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 — P19 Task 1 tamamlandı; Task 2 başlamadı.*
+*Güncelleme: 2026-11-15 — P19 Task 2 tamamlandı (2/8); sırada yalnız Task 3 (N-44), başlamadı.*

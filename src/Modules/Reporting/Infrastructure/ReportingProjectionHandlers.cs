@@ -1,3 +1,4 @@
+using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Modules.Reporting.Domain;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Projections;
@@ -107,7 +108,7 @@ public sealed class TeacherMonthlyLessonCompletedProjectionHandler
     {
         if (payload.TeacherUserId == Guid.Empty)
         {
-            return false;
+            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
         var projection = await GetOrCreateMonthlyAsync(payload.TeacherUserId, payload.CompletedOnUtc, cancellationToken);
@@ -135,7 +136,7 @@ public sealed class TeacherMonthlyLessonCancelledProjectionHandler
     {
         if (payload.TeacherUserId is not { } teacherUserId || teacherUserId == Guid.Empty)
         {
-            return false;
+            return true; // öğretmensiz self ders
         }
 
         var projection = await GetOrCreateMonthlyAsync(teacherUserId, payload.CancelledOnUtc, cancellationToken);
@@ -157,7 +158,7 @@ public sealed class TeacherMonthlyOccurrenceCancelledProjectionHandler(
     {
         // All eski seri olayıyla sayılır; iki ayrı olayı aynı iptal olarak sayma.
         if (payload.Scope != "Single" || payload.TeacherUserId is not { } teacher || teacher == Guid.Empty
-            || payload.OccurrenceStartUtc is not { } key) return false;
+            || payload.OccurrenceStartUtc is not { } key) return true; // yalnız Single öğretmen oluşumu sayılır
         var projection = await GetOrCreateMonthlyAsync(teacher, payload.CancelledOnUtc, cancellationToken);
         projection.TrackCancelledOccurrence(payload.LessonScheduleId, key);
         projection.MarkApplied(envelope.EventId, Clock.UtcNow);
@@ -183,7 +184,7 @@ public sealed class TeacherMonthlyPaymentExpectedProjectionHandler
     {
         if (payload.TeacherUserId == Guid.Empty)
         {
-            return false;
+            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
         var projection = await GetOrCreateMonthlyAsync(payload.TeacherUserId, payload.CreatedOnUtc, cancellationToken);
@@ -203,7 +204,7 @@ public sealed class TeacherMonthlyPaymentCollectedProjectionHandler(ReportingDbC
     protected override async Task<bool> ProjectAsync(MonthlyPaymentTransactionPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
     {
         if (payload.TeacherUserId == Guid.Empty || payload.TransactionId == Guid.Empty || payload.Amount <= 0m
-            || payload.Kind is not (1 or 2)) return false;
+            || payload.Kind is not (1 or 2)) throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         var projection = await GetOrCreateMonthlyAsync(payload.TeacherUserId, payload.OccurredOnUtc, cancellationToken);
         projection.TrackPaymentTransaction(payload.TransactionId, payload.Kind == 2, payload.Amount);
         projection.MarkApplied(envelope.EventId, Clock.UtcNow);
@@ -230,7 +231,7 @@ public sealed class StudentStudySessionProjectionHandler : ReportingProjectionHa
     {
         if (payload.StudentId == Guid.Empty)
         {
-            return false;
+            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
         var projection = await GetOrCreateStudyAsync(payload.StudentId, payload.EndedAtUtc, cancellationToken);
@@ -257,7 +258,7 @@ public sealed class StudentStudyTestProjectionHandler : ReportingProjectionHandl
     {
         if (payload.StudentId == Guid.Empty)
         {
-            return false;
+            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
         var projection = await GetOrCreateStudyAsync(payload.StudentId, payload.TakenOnUtc, cancellationToken);
@@ -286,7 +287,7 @@ public sealed class StudentPerformanceTestProjectionHandler : ReportingProjectio
     {
         if (payload.StudentId == Guid.Empty || string.IsNullOrWhiteSpace(payload.Subject) || payload.TotalQuestions <= 0)
         {
-            return false;
+            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
         var projection = await GetOrCreatePerformanceAsync(
@@ -316,7 +317,7 @@ public sealed class StudentPerformanceMasteryProjectionHandler : ReportingProjec
             || string.IsNullOrWhiteSpace(payload.Subject)
             || string.IsNullOrWhiteSpace(payload.Topic))
         {
-            return false;
+            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
         var projection = await GetOrCreatePerformanceAsync(

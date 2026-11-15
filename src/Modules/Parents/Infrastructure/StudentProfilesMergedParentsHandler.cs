@@ -42,7 +42,7 @@ internal sealed class StudentProfilesMergedParentsHandler : IdempotentIntegratio
         var payload = JsonSerializer.Deserialize<StudentProfilesMergedIntegrationEvent>(envelope.Payload, IntegrationEventSerialization.Options);
         if (payload is null)
         {
-            return false;
+            throw new PoisonMessageException("Olay yükü null olamaz.");
         }
 
         var from = payload.FromStudentId;
