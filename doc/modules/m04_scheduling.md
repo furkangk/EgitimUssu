@@ -42,6 +42,11 @@ Mobil iptal girişi ders detayındadır: kapsam → neden/ücretsiz iptal/açık
 
 `ILessonScheduleReader.ListReminderOccurrencesAsync(fromUtc, toUtc, lessonScheduleId?, ct)` planlı öğretmen/self dersleri seri diliminde genişletir; bütün istisnaları uygular, tamamlanan/iptal/geçmiş oluşumları dışlar, orijinal anahtar + görünen başlangıç + offset döndürür. Notifications 7 gün/dakika planlayıcısı bunu kullanır. `Single` ertelemesi `LessonOccurrenceRescheduledDomainEvent(LessonScheduleId, OccurrenceStartUtc, UpdatedOnUtc)` üretir. Seri erteleme/silme/bölme olayları da hatırlatma uzlaştırmasını tetikler; eski outbox şemaları korunur. Offset `0` kapalıdır. Ayrıntı M11'dedir.
 
+### Öğretmen panosu oluşum sözleşmesi (P17 T7)
+
+`ITeacherDashboardLessonSource.ListDashboardOccurrencesAsync(fromUtc, toUtc, lessonScheduleId?, ct)` yalnız öğretmenli dersleri seri diliminde bütün istisnalarla genişletir. Görünen başlangıç `[fromUtc, toUtc)` içindedir; orijinal oluşum anahtarı, görünen başlangıç ve iptal bilgisi döner. Tamamlanmış dersler de dahildir. Reporting yerel dün → +14 gün penceresini bu ayrı sözleşmeyle uzlaştırır; eski outbox şemaları ve hatırlatma okuyucusu değişmedi. Ayrıntı [M14](m14_reporting.md).
+
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 | Katman | Durum | Kanıt |

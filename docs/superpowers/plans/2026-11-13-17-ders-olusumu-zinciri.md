@@ -224,7 +224,7 @@
 
 ---
 
-### Task 7: Oluşum bazlı öğretmen panosu projeksiyonu (N-49, N-48 iptal sırası)
+### Task 7: Oluşum bazlı öğretmen panosu projeksiyonu (N-49, N-48 iptal sırası) ✅
 
 **P17 T5 devri:** `Single`/`ThisAndFuture` iptallerinde yeni `LessonCancellationAppliedDomainEvent`, silmede `LessonScheduleDeletedDomainEvent` yayımlanır. Reporting bu kapsam olaylarını ve silmeyi de tüketmelidir; eski `LessonScheduleCancelledDomainEvent` yalnız bütün seri/tekil iptal yolunda kalır. Geç iptal borcu ayrıca `LessonOccurrenceCancelledIntegrationEvent` taşır.
 
@@ -234,15 +234,28 @@
 - Modify: `tests/Architecture/LocalTimeRuleTests.cs` — *2026-11-15 eklendi (P16 T6):* izinli listedeki iki N-49 girişini (`ReportingFeatures.cs` `_clock.UtcNow.Date`, `TeacherDashboardProjection.cs` `dayUtc.Date`) **sil**; yerel "bugün" yazılınca bayat kalırlar ve test zaten kırılır
 - Test: `tests/Unit/TeacherDashboardOccurrenceTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #238):** İlk liste EF anahtarı, veri göçü, kayan pencereyi yeni olay olmadan ilerleten işçi ve kaynak sözleşmesini atlıyordu. Ek dosyalar:
+- Modify: `src/Shared/Contracts/LessonScheduleReadContract.cs` (ayrı `ITeacherDashboardLessonSource`; mevcut directory/hatırlatma sahteleri değişmez); `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs`, `DependencyInjection.cs` (iptal/tamamlanmış dahil görünür pencereyi genişletir).
+- Modify: `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs`, `DependencyInjection.cs`, `TeacherDashboardProjectionReader.cs`; Create: `TeacherDashboardOccurrencePlanner.cs` (kiralı günlük yenileme/budama, olayla ortak transaction kilidi).
+- Migration: Reporting `OccurrenceDashboard` + designer + snapshot; mevcut ders satırlarının orijinal anahtarı görünen başlangıçtan geri doldurulur; diğer item türleri UTC epoch anahtarı kullanır. Down her seri için bir satıra indirir (türetilebilir read-model); ödev/ödeme/öğrenci korunur.
+- Modify tests: `tests/Unit/TeacherDashboardProjectionTests.cs` (kaynak okuyuculu ders testleri yeni dosyaya, query takvim imzası), `tests/Integration/RealProjectionRebuildTests.cs` gerekirse; Create: `tests/Integration/RealTeacherDashboardOccurrenceTests.cs` (gerçek PostgreSQL + kaynak, olay sırası, kayan pencere, göç).
+- Doc: `doc/modules/{m14_reporting,m04_scheduling,00_genel_bakis,veri_modeli}.md`, `doc/roles/ogretmen.md`, `doc/pages/dashboard.md`, denetim N-49 ve N-48 iptal ayağı.
+
+**Teknik karar:** Olay yükünden RRULE/saat tahmini yapılmaz; ayrı sözleşmeyle güncel kaynak uzlaştırılır. Pencere yerel dün 00:00 dahil → bugün+15 gün 00:00 hariçtir (bugün+14 tam gün dahil). İptal satırı tombstone kalır, bayat Scheduled/Rescheduled kaynağı geri çeviremez. Tamamlanmış ders bugünkü toplamın parçasıdır; iptal edilmiş ders değildir. Pencere dışı ders satırları günlük budanır; ödev/ödeme/öğrenci satırlarına dokunulmaz.
+
 **Interfaces:**
 - Satır anahtarı `(TeacherUserId, LessonScheduleId, OccurrenceStartUtc)`; kayan pencere (dün → +14 gün); `Cancelled` **tombstone** (sonradan gelen `Scheduled` olayı tombstone'u ezmez); günlük budama.
 
-- [ ] **Step 1: Kırmızı testler** — haftalık ders her hafta "bugünkü dersler"de; `Cancelled` önce, `Scheduled` sonra işlenirse ders panoya **dönmez**; 30 gün önceki satırlar budanır.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör** + `RealProjectionRebuildTests` yeşil.
-- [ ] **Step 5: Doküman + commit** — `m14`; rapor N-49, N-48 (iptal kısmı) ✅.
+- [x] **Step 1: Kırmızı testler** — haftalık ders her hafta "bugünkü dersler"de; `Cancelled` önce, `Scheduled` sonra işlenirse ders panoya **dönmez**; 30 gün önceki satırlar budanır.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör** + `RealProjectionRebuildTests` yeşil.
+- [x] **Step 5: Doküman + commit** — `m14`; rapor N-49, N-48 (iptal kısmı) ✅.
   ```bash
   git commit -m "fix(reporting): ogretmen panosu olusum bazli + iptal tombstone (N-49, N-48)"
   ```
+
+---
+
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` 0/0 derlendi; ilk beş birim testinin dördü kırmızıydı. Budama ve yerel gün testleri ayrı mutasyonla, olay kimliği testi gerçek boş `LastAppliedEventId` ile ayrıca kırmızı → yeşil doğrulandı. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1189 birim / 149 integration**, başarısız **0**, atlanan **0**; Release `-warnaserror --no-incremental` **0 uyarı/0 hata**. Drift **0**, **154 Down kontrolü**. Gerçek PostgreSQL senaryoları: haftalık/yerel gece yarısı, iptal → geç Scheduled ve kaynakla yeniden kurma, tek oluşum erteleme, seri bölme/silme, paralel planlayıcı + yeni olay olmadan gün ilerleme; ayrı DB’de geri doldurma ve çoklu oluşumdan Down/Up. `RealProjectionRebuildTests` tam pakette yeşil. Mobil değişmedi; Flutter koşulmadı. N-49 ✅, N-48 yalnız iptal ayağı ✅; trend P19’da açık.
 
 ---
 
@@ -259,4 +272,4 @@
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 (P17 Task 6: oluşum/alıcı hatırlatmaları, 7 günlük planlayıcı, yeni oluşum erteleme olayı, migration ve Docker doğrulaması).*
+*Güncelleme: 2026-11-15 (P17 Task 7: oluşum bazlı pano, tombstone, günlük pencere ve PostgreSQL göç kanıtı) · 2026-11-15 (P17 Task 6: oluşum/alıcı hatırlatmaları, 7 günlük planlayıcı, yeni oluşum erteleme olayı, migration ve Docker doğrulaması).*

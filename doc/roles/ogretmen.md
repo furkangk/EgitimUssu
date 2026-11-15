@@ -29,6 +29,9 @@ updated: 2026-11-15
 Öğretmen ders detayından tekrarlı derste “Yalnız bu ders / Bu ve sonrakiler / Tüm seri” kapsamını seçer; iptal nedeni ve isteğe bağlı açıklama girer, “Ücretsiz iptal et” ile politika ücretinden vazgeçebilir. Politika profil API’sinden NoticeHours/ChargePercent olarak ayarlanır (varsayılan kapalı; mobil ayar formu bu görevde eklenmedi). Öğrencinin geç iptali anlaşılmış ders ücreti üzerinden borç üretir; erken/öğretmen kaynaklı/ücretsiz iptalde üretmez. Bekleyen oturum, normal ücret ve hatırlatma outbox ile kapanır; tahsil edilmiş para korunur. Gelecekteki ders tamamlanamaz.
 
 
+**P17 T7 — pano ders sayısı:** Reporting `teachers/{id}/dashboard` sayacı serinin her oluşumunu kendi yerel gününde sayar. Ertelenen ders görünen güne taşınır; iptal/silme ve seri bölme güncel kaynaktan uzlaştırılır, geç gelen olay iptali açmaz. Dün → +14 gün penceresi günlük ilerler ve eski ders satırları budanır. Mobil ana sayfa kendi BFF/liste veri yolunu kullanır; bu görev mobil akışı değiştirmedi.
+
+
 ## 1. Tasarım İlkesi
 
 Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, iletişimi **telefon/WhatsApp'ta**, ödevi **sözlü/PDF** ile, ödemeyi **elden** yönetir; konu/ödev/gelişim takibi sistematik değildir. Bu rol, tüm bu dağınık işi **tek uygulamada** toplar.

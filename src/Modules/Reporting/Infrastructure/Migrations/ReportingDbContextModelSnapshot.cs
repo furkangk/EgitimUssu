@@ -183,6 +183,9 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("OccurrenceStartUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal?>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -191,10 +194,13 @@ namespace EgitimUssu.Modules.Reporting.Infrastructure.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<bool>("IsCancelled")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("OccursAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.HasKey("TeacherUserId", "Kind", "ItemId");
+                    b.HasKey("TeacherUserId", "Kind", "ItemId", "OccurrenceStartUtc");
 
                     b.HasIndex("TeacherUserId", "Kind", "OccursAtUtc");
 

@@ -22,6 +22,7 @@ public static class DependencyInjection
         // M05-2: LessonSessions planli dersten oturum turetirken bu sozlesmeyi okur.
         services.AddScoped<EgitimUssu.Shared.Contracts.ILessonScheduleDirectory, LessonScheduleDirectory>();
         services.AddScoped<EgitimUssu.Shared.Contracts.ILessonScheduleReader, LessonScheduleDirectory>();
+        services.AddScoped<EgitimUssu.Shared.Contracts.ITeacherDashboardLessonSource, LessonScheduleDirectory>();
         services.AddScoped<ICommandHandler<CreateLessonScheduleCommand, Result<LessonScheduleResponse>>, CreateLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateLessonScheduleCommand, Result<LessonScheduleResponse>>, UpdateLessonScheduleCommandHandler>();
         services.AddScoped<ICommandHandler<CancelLessonScheduleCommand, Result<LessonScheduleResponse>>, CancelLessonScheduleCommandHandler>();

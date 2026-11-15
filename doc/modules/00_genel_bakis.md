@@ -25,6 +25,9 @@ updated: 2026-11-15
 
 ---
 
+**P17 T7 / M14:** Öğretmen pano dersleri `(TeacherUserId, LessonScheduleId, OccurrenceStartUtc)` anahtarlıdır. `ITeacherDashboardLessonSource` güncel Scheduling oluşumlarını, iptal/tamamlanmış dahil, modül sınırını koruyarak sağlar. Yerel dün → +14 gün penceresi olayla ve kiralı günlük işçiyle yenilenir; iptal tombstone tutulur, pencere dışı yalnız ders satırları budanır. `dashboard` yerel gün sayar; API yanıtı değişmedi.
+
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |

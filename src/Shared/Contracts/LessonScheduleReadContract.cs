@@ -73,3 +73,13 @@ public interface ILessonScheduleReader
 
 public sealed record ReminderOccurrence(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
     DateTime OccurrenceStartUtc, DateTime StartAtUtc, int ReminderOffsetMinutes);
+
+/// <summary>Öğretmen panosu için güncel kaynaktan, görünür başlangıç penceresindeki oluşumlar.</summary>
+public interface ITeacherDashboardLessonSource
+{
+    Task<IReadOnlyCollection<DashboardLessonOccurrence>> ListDashboardOccurrencesAsync(
+        DateTime fromUtc, DateTime toUtc, Guid? lessonScheduleId, CancellationToken cancellationToken);
+}
+
+public sealed record DashboardLessonOccurrence(Guid TeacherUserId, Guid LessonScheduleId,
+    DateTime OccurrenceStartUtc, DateTime StartAtUtc, bool IsCancelled);

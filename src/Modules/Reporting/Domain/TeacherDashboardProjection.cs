@@ -3,7 +3,7 @@ using EgitimUssu.Shared.Kernel;
 namespace EgitimUssu.Modules.Reporting.Domain;
 
 /// <summary>
-/// M14 — öğretmen paneli read-model'i (K-04). Yalnız diğer modüllerin integration event'lerinden beslenir;
+/// M14 — öğretmen paneli read-model'i (K-04). Diğer modüllerin integration event'leri ve salt-okunur oluşum sözleşmesinden beslenir;
 /// Reporting hiçbir modülün veritabanını okumaz.
 /// <para>
 /// Sayaçlar <b>saklanmaz, kümeden türetilir</b>: her ders/ödev/gecikmiş ödeme/öğrenci bir <see cref="TeacherDashboardItem"/>
@@ -25,12 +25,41 @@ public sealed class TeacherDashboardProjection : ProjectionEntity
 
     public IReadOnlyCollection<TeacherDashboardItem> Items => _items;
 
-    /// <summary>Planlanan ders (yeniden planlamada aynı satırın saati güncellenir).</summary>
+    /// <summary>Tekil ders için de oluşum anahtarı başlangıçtır.</summary>
     public void TrackLesson(Guid lessonScheduleId, DateTime startAtUtc)
-        => Upsert(TeacherDashboardItemKind.Lesson, lessonScheduleId, occursAtUtc: startAtUtc);
+        => TrackLessonOccurrence(lessonScheduleId, startAtUtc, startAtUtc, false);
 
-    public void UntrackLesson(Guid lessonScheduleId)
-        => Remove(TeacherDashboardItemKind.Lesson, lessonScheduleId);
+    /// <summary>Bayat olay tombstone'u açamaz; yalnız güncel kaynak açıkça yeniden uzlaştırabilir.</summary>
+    public void TrackLessonOccurrence(Guid lessonScheduleId, DateTime occurrenceStartUtc, DateTime startAtUtc,
+        bool isCancelled, bool fromCurrentSource = false)
+    {
+        var item = _items.FirstOrDefault(i => i.Kind == TeacherDashboardItemKind.Lesson &&
+            i.ItemId == lessonScheduleId && i.OccurrenceStartUtc == occurrenceStartUtc);
+        if (item is null)
+        {
+            item = new TeacherDashboardItem(TeacherUserId, TeacherDashboardItemKind.Lesson,
+                lessonScheduleId, startAtUtc, null, null, occurrenceStartUtc);
+            _items.Add(item);
+        }
+        if (item.IsCancelled && !isCancelled && !fromCurrentSource) return;
+        item.UpdateLesson(startAtUtc, isCancelled);
+    }
+
+    public void CancelMissingLessons(Guid? lessonScheduleId, IReadOnlySet<(Guid, DateTime)> desired)
+    {
+        foreach (var item in _items.Where(i => i.Kind == TeacherDashboardItemKind.Lesson &&
+            (!lessonScheduleId.HasValue || i.ItemId == lessonScheduleId) &&
+            !desired.Contains((i.ItemId, i.OccurrenceStartUtc))))
+            item.UpdateLesson(item.OccursAtUtc!.Value, true);
+    }
+
+    public void PruneLessons(DateTime fromUtc, DateTime toUtc)
+        => _items.RemoveAll(i => i.Kind == TeacherDashboardItemKind.Lesson &&
+            (i.OccursAtUtc < fromUtc || i.OccursAtUtc >= toUtc));
+
+    public int CountLessonsBetween(DateTime fromUtc, DateTime toUtc)
+        => _items.Count(i => i.Kind == TeacherDashboardItemKind.Lesson && !i.IsCancelled &&
+            i.OccursAtUtc >= fromUtc && i.OccursAtUtc < toUtc);
 
     public void TrackOpenAssignment(Guid assignmentId)
         => Upsert(TeacherDashboardItemKind.OpenAssignment, assignmentId);
@@ -46,17 +75,6 @@ public sealed class TeacherDashboardProjection : ProjectionEntity
 
     public void TrackStudent(Guid studentId)
         => Upsert(TeacherDashboardItemKind.ActiveStudent, studentId);
-
-    /// <summary>Verilen UTC gününde (00:00–24:00) planlanmış ders sayısı. Gün sınırı çağıranın saatinden gelir.</summary>
-    public int CountLessonsOn(DateTime dayUtc)
-    {
-        var start = DateTime.SpecifyKind(dayUtc.Date, DateTimeKind.Utc);
-        var end = start.AddDays(1);
-        return _items.Count(item =>
-            item.Kind == TeacherDashboardItemKind.Lesson
-            && item.OccursAtUtc >= start
-            && item.OccursAtUtc < end);
-    }
 
     public int PendingAssignmentCount => _items.Count(item => item.Kind == TeacherDashboardItemKind.OpenAssignment);
 
@@ -115,8 +133,10 @@ public sealed class TeacherDashboardItem
         Guid itemId,
         DateTime? occursAtUtc,
         decimal? amount,
-        string? currency)
+        string? currency,
+        DateTime? occurrenceStartUtc = null)
     {
+        OccurrenceStartUtc = occurrenceStartUtc ?? DateTime.UnixEpoch;
         TeacherUserId = teacherUserId;
         Kind = kind;
         ItemId = itemId;
@@ -132,7 +152,18 @@ public sealed class TeacherDashboardItem
     /// <summary>Kaynak modüldeki kaydın kimliği (ders planı / ödev / ödeme kaydı / öğrenci).</summary>
     public Guid ItemId { get; private set; }
 
+    /// <summary>Ders için orijinal oluşum, diğer türlerde UTC epoch.</summary>
+    public DateTime OccurrenceStartUtc { get; private set; }
+
+    public bool IsCancelled { get; private set; }
+
     public DateTime? OccursAtUtc { get; private set; }
+
+    internal void UpdateLesson(DateTime startAtUtc, bool isCancelled)
+    {
+        OccursAtUtc = startAtUtc;
+        IsCancelled = isCancelled;
+    }
 
     public decimal? Amount { get; private set; }
 

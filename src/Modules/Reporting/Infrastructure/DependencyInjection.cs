@@ -16,6 +16,8 @@ public static class DependencyInjection
         // P07: Modül artık gerçek bir modele (öğretmen dashboard projeksiyonu) sahip; DbContext kaydı güvenli.
         services.AddModuleDbContext<ReportingDbContext>(configuration, "Reporting", ReportingDbContext.SchemaName);
         services.AddScoped<ITeacherDashboardProjectionReader, TeacherDashboardProjectionReader>();
+        services.AddScoped<TeacherDashboardOccurrenceProcessor>();
+        services.AddHostedService<TeacherDashboardOccurrencePlanner>();
 
         services.AddScoped<IQueryHandler<GetTeacherDashboardQuery, Result<TeacherDashboardResponse>>, GetTeacherDashboardQueryHandler>();
         services.AddScoped<IQueryAuthorizer<GetTeacherDashboardQuery>, ReportingAuthorizer>();

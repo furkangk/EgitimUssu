@@ -39,151 +39,6 @@ public sealed class TeacherDashboardProjectionTests
             .Include(item => item.Items)
             .FirstOrDefaultAsync(item => item.TeacherUserId == teacherUserId);
 
-    // --- Dersler -------------------------------------------------------------------------------
-
-    [Fact]
-    public async Task LessonScheduled_Should_Be_Counted_For_Today()
-    {
-        await using var db = NewContext();
-        var teacher = Guid.NewGuid();
-        var handler = new LessonScheduleUpsertProjectionHandler(db, new FixedClock());
-
-        await handler.HandleAsync(Event("LessonScheduledDomainEvent", "Scheduling", new
-        {
-            LessonScheduleId = Guid.NewGuid(),
-            TeacherUserId = teacher,
-            StudentId = Guid.NewGuid(),
-            StartAtUtc = TodayUtc.AddHours(14),
-            EndAtUtc = TodayUtc.AddHours(15)
-        }));
-
-        var projection = await LoadAsync(db, teacher);
-        Assert.NotNull(projection);
-        Assert.Equal(1, projection!.CountLessonsOn(TodayUtc));
-    }
-
-    [Fact]
-    public async Task Lesson_Scheduled_For_Another_Day_Should_Not_Count_Today()
-    {
-        await using var db = NewContext();
-        var teacher = Guid.NewGuid();
-        var handler = new LessonScheduleUpsertProjectionHandler(db, new FixedClock());
-
-        await handler.HandleAsync(Event("LessonScheduledDomainEvent", "Scheduling", new
-        {
-            LessonScheduleId = Guid.NewGuid(),
-            TeacherUserId = teacher,
-            StudentId = Guid.NewGuid(),
-            StartAtUtc = TodayUtc.AddDays(1).AddHours(10),
-            EndAtUtc = TodayUtc.AddDays(1).AddHours(11)
-        }));
-
-        var projection = await LoadAsync(db, teacher);
-        Assert.NotNull(projection);
-        Assert.Equal(0, projection!.CountLessonsOn(TodayUtc));
-        Assert.Equal(1, projection.CountLessonsOn(TodayUtc.AddDays(1)));
-    }
-
-    [Fact]
-    public async Task Same_Lesson_Event_Twice_Should_Count_Once()
-    {
-        await using var db = NewContext();
-        var teacher = Guid.NewGuid();
-        var handler = new LessonScheduleUpsertProjectionHandler(db, new FixedClock());
-        var envelope = Event("LessonScheduledDomainEvent", "Scheduling", new
-        {
-            LessonScheduleId = Guid.NewGuid(),
-            TeacherUserId = teacher,
-            StudentId = Guid.NewGuid(),
-            StartAtUtc = TodayUtc.AddHours(14),
-            EndAtUtc = TodayUtc.AddHours(15)
-        });
-
-        await handler.HandleAsync(envelope);
-        await handler.HandleAsync(envelope);
-
-        var projection = await LoadAsync(db, teacher);
-        Assert.Equal(1, projection!.CountLessonsOn(TodayUtc));
-    }
-
-    [Fact]
-    public async Task Rescheduled_Lesson_Should_Move_To_The_New_Day()
-    {
-        await using var db = NewContext();
-        var teacher = Guid.NewGuid();
-        var lessonId = Guid.NewGuid();
-        var handler = new LessonScheduleUpsertProjectionHandler(db, new FixedClock());
-
-        await handler.HandleAsync(Event("LessonScheduledDomainEvent", "Scheduling", new
-        {
-            LessonScheduleId = lessonId,
-            TeacherUserId = teacher,
-            StudentId = Guid.NewGuid(),
-            StartAtUtc = TodayUtc.AddHours(14),
-            EndAtUtc = TodayUtc.AddHours(15)
-        }));
-        await handler.HandleAsync(Event("LessonScheduleRescheduledDomainEvent", "Scheduling", new
-        {
-            LessonScheduleId = lessonId,
-            TeacherUserId = teacher,
-            StudentId = Guid.NewGuid(),
-            StartAtUtc = TodayUtc.AddDays(2).AddHours(9),
-            EndAtUtc = TodayUtc.AddDays(2).AddHours(10)
-        }));
-
-        var projection = await LoadAsync(db, teacher);
-        Assert.Equal(0, projection!.CountLessonsOn(TodayUtc));
-        Assert.Equal(1, projection.CountLessonsOn(TodayUtc.AddDays(2)));
-    }
-
-    [Fact]
-    public async Task Cancelled_Lesson_Should_Be_Removed()
-    {
-        await using var db = NewContext();
-        var teacher = Guid.NewGuid();
-        var lessonId = Guid.NewGuid();
-        await new LessonScheduleUpsertProjectionHandler(db, new FixedClock()).HandleAsync(
-            Event("LessonScheduledDomainEvent", "Scheduling", new
-            {
-                LessonScheduleId = lessonId,
-                TeacherUserId = teacher,
-                StudentId = Guid.NewGuid(),
-                StartAtUtc = TodayUtc.AddHours(14),
-                EndAtUtc = TodayUtc.AddHours(15)
-            }));
-
-        await new LessonScheduleCancelledProjectionHandler(db, new FixedClock()).HandleAsync(
-            Event("LessonScheduleCancelledDomainEvent", "Scheduling", new
-            {
-                LessonScheduleId = lessonId,
-                TeacherUserId = teacher,
-                StudentId = Guid.NewGuid(),
-                CancelledOnUtc = Now
-            }));
-
-        var projection = await LoadAsync(db, teacher);
-        Assert.Equal(0, projection!.CountLessonsOn(TodayUtc));
-    }
-
-    [Fact]
-    public async Task Lesson_Without_Teacher_Should_Not_Create_A_Projection()
-    {
-        await using var db = NewContext();
-        var handler = new LessonScheduleUpsertProjectionHandler(db, new FixedClock());
-
-        await handler.HandleAsync(Event("LessonScheduledDomainEvent", "Scheduling", new
-        {
-            LessonScheduleId = Guid.NewGuid(),
-            TeacherUserId = (Guid?)null,
-            StudentId = Guid.NewGuid(),
-            StartAtUtc = TodayUtc.AddHours(14),
-            EndAtUtc = TodayUtc.AddHours(15)
-        }));
-
-        Assert.Equal(0, await db.TeacherDashboardProjections.CountAsync());
-        Assert.Equal(0, await db.Set<EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage>().CountAsync());
-    }
-
     // --- Ödevler -------------------------------------------------------------------------------
 
     [Fact]
@@ -428,15 +283,10 @@ public sealed class TeacherDashboardProjectionTests
     {
         await using var db = NewContext();
         var teacher = Guid.NewGuid();
-        await new LessonScheduleUpsertProjectionHandler(db, new FixedClock()).HandleAsync(
-            Event("LessonScheduledDomainEvent", "Scheduling", new
-            {
-                LessonScheduleId = Guid.NewGuid(),
-                TeacherUserId = teacher,
-                StudentId = Guid.NewGuid(),
-                StartAtUtc = TodayUtc.AddHours(14),
-                EndAtUtc = TodayUtc.AddHours(15)
-            }));
+        var projection = new TeacherDashboardProjection(teacher);
+        projection.TrackLesson(Guid.NewGuid(), TodayUtc.AddHours(14));
+        db.TeacherDashboardProjections.Add(projection);
+        await db.SaveChangesAsync();
         await new PaymentOverdueProjectionHandler(db, new FixedClock()).HandleAsync(
             Event("PaymentBecameOverdueDomainEvent", "Payments", new
             {
@@ -450,7 +300,7 @@ public sealed class TeacherDashboardProjectionTests
             }));
 
         var handler = new GetTeacherDashboardQueryHandler(
-            new TeacherDashboardProjectionReader(db), new FixedClock());
+            new TeacherDashboardProjectionReader(db), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock()));
 
         var result = await handler.Handle(new GetTeacherDashboardQuery(teacher), CancellationToken.None);
 
@@ -467,7 +317,7 @@ public sealed class TeacherDashboardProjectionTests
     {
         await using var db = NewContext();
         var handler = new GetTeacherDashboardQueryHandler(
-            new TeacherDashboardProjectionReader(db), new FixedClock());
+            new TeacherDashboardProjectionReader(db), new EgitimUssu.Shared.Infrastructure.LocalCalendar("Europe/Istanbul", new FixedClock()));
 
         var result = await handler.Handle(new GetTeacherDashboardQuery(Guid.NewGuid()), CancellationToken.None);
 
