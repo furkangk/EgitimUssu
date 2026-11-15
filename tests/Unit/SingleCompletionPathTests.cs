@@ -137,6 +137,8 @@ public sealed class SingleCompletionPathTests
         services.AddSingleton<ILocalCalendar>(new LocalCalendar("Europe/Istanbul", new FixedClock()));
         services.AddSingleton<IIdGenerator>(new Ids());
         services.AddSingleton<IDomainEventMapper>(new NoOpDomainEventMapper());
+        services.AddSingleton<ICancellationPolicyDirectory>(new TestDoubles.FakeCancellationPolicyDirectory());
+        services.AddSingleton<IStudentDirectory>(new TestDoubles.FakeStudentDirectory());
         services.AddSchedulingModule(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             { ["ConnectionStrings:Postgres"] = $"InMemory:{Guid.NewGuid()}" }).Build());
         return services.BuildServiceProvider();

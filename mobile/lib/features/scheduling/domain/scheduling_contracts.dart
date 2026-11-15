@@ -1,3 +1,13 @@
+enum LessonCancellationReason {
+  teacherCancelled(1),
+  studentCancelled(2),
+  holiday(3),
+  other(4);
+
+  const LessonCancellationReason(this.apiValue);
+  final int apiValue;
+}
+
 /// P17 T1 / N-01 (K-20): tekrarlı derste iptal/erteleme kapsamı. Değerler backend
 /// `OccurrenceScope` enum'uyla aynıdır; tekrarlı derste kapsamsız istek `400
 /// scheduling.scope_required` alır.
@@ -51,6 +61,24 @@ class LessonSchedule {
   /// oluşumda [startAtUtc] yeni saattir, bu alan ilk planlanan saattir — tek oluşum
   /// iptal/erteleme istekleri bununla hedeflenir (master §4).
   final DateTime? occurrenceStartAtUtc;
+
+  LessonSchedule withStatus(String value) => LessonSchedule(
+    id: id,
+    teacherUserId: teacherUserId,
+    studentId: studentId,
+    subject: subject,
+    lessonFormat: lessonFormat,
+    startAtUtc: startAtUtc,
+    endAtUtc: endAtUtc,
+    timeZone: timeZone,
+    status: value,
+    recurrenceRule: recurrenceRule,
+    reminderOffsetMinutes: reminderOffsetMinutes,
+    locationLabel: locationLabel,
+    meetingUrl: meetingUrl,
+    notes: notes,
+    occurrenceStartAtUtc: occurrenceStartAtUtc,
+  );
 
   bool get isRecurring => (recurrenceRule ?? '').trim().isNotEmpty;
 
@@ -152,6 +180,8 @@ abstract interface class SchedulingRepository {
   Future<LessonSchedule> cancelLesson({
     required LessonSchedule lesson,
     required OccurrenceScope scope,
+    LessonCancellationReason reason = LessonCancellationReason.teacherCancelled,
+    bool isChargeable = true,
     String? cancellationNote,
   });
   Future<List<LessonSchedule>> listTeacherLessons({

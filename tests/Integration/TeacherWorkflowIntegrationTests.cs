@@ -541,6 +541,8 @@ public sealed class TeacherWorkflowIntegrationTests
 
             var cancelResponse = await client.PostAsJsonAsync($"/api/scheduling/lessons/{lessonId}/cancel", new
             {
+                reason = 2,
+                isChargeable = false,
                 cancellationNote = "Ogrenci hastalandi"
             });
 

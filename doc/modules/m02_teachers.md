@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Teachers/**
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # 👨‍🏫 Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım Dokümanı
@@ -20,6 +20,13 @@ updated: 2026-09-04
 > İlgili: [`../roles/ogretmen.md`](../roles/ogretmen.md) · [`m01_identity.md`](m01_identity.md) · [`m03_students.md`](m03_students.md) · [`m04_scheduling.md`](m04_scheduling.md) · [`m05_lesson_sessions.md`](m05_lesson_sessions.md) · [`m07_payments.md`](m07_payments.md) · [`m15_settings.md`](m15_settings.md) · [`mimari_inceleme.md`](mimari_inceleme.md) · [`veri_modeli.md`](veri_modeli.md) · [`00_genel_bakis.md`](00_genel_bakis.md) · [`../ozel_ders_platformu_PRD_v2.md`](../ozel_ders_platformu_PRD.md)
 
 ---
+
+### İptal politikası (P17 T5)
+
+`PUT /api/teachers/profiles/{userId}/cancellation-policy` gövdesi `{ noticeHours, chargePercent }`; yalnız profil sahibi Teacher yazabilir (başka öğretmen/bağsız kullanıcı 403). Yanıt `TeacherProfileResponse` içindeki `cancellationNoticeHours` ve `cancellationChargePercent` alanlarıdır; GET profil de bunları döndürür. Geçersiz değer 400 `teachers.invalid_cancellation_policy`, profil yoksa 404.
+
+`CancellationPolicy` değer kaydı NoticeHours 0–720, ChargePercent 0–100 aralığını doğrular. `teacher_profiles.CancellationNoticeHours int` ve `CancellationChargePercent numeric(5,2)` varsayılan 0/0 (kapalı); `TeacherCancellationPolicy` migration’ı mevcut profilleri de bu varsayılanla taşır. Genel profil güncellemesi politikayı sıfırlamaz. Scheduling politikayı `ICancellationPolicyDirectory` salt-okunur sözleşmesinden okur. Mobil politika düzenleyicisi bu görevde eklenmedi; API kullanılabilir.
+
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
@@ -348,5 +355,5 @@ tamamını taşır; §5 madde 8'deki merge semantiği sayesinde tekrar kaydetme 
 
 ---
 
-*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-09-04 (P08 Task 4 / M14-4: `ITeacherDirectory` sözleşmesi eklendi — `TeacherDirectory.GetDisplayNameAsync` öğretmen adını Reporting'in PDF rapor başlığına açar; uygunluk sözleşmesinden ayrı tutuldu) · 2026-09-04 (P08 Task 3 / M14-5: `ITeacherAvailabilityDirectory` sözleşmesi eklendi — haftalık uygunluk şablonu Reporting'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **arama filtresi Türkçe 'I' hatası düzeltildi** — `TeacherSearchFilter.NormalizeForSearch` girdiyi Postgres'in `lower()` davranışıyla hizalar; tr-TR sunucuda "Istanbul" araması boş dönüyordu) · 2026-09-04 (P06/D-04/M02-5: mobil uygunluk düzenleyici — `AvailabilityEditor`, slot bazlı online/yüz yüze + çakışma engeli) · 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
+*Öğretmen Profili (Teachers) Modülü (M02) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P08 Task 4 / M14-4: `ITeacherDirectory` sözleşmesi eklendi — `TeacherDirectory.GetDisplayNameAsync` öğretmen adını Reporting'in PDF rapor başlığına açar; uygunluk sözleşmesinden ayrı tutuldu) · 2026-09-04 (P08 Task 3 / M14-5: `ITeacherAvailabilityDirectory` sözleşmesi eklendi — haftalık uygunluk şablonu Reporting'e açıldı) · 2026-09-04 (P06 Task 10 canlı doğrulama: **arama filtresi Türkçe 'I' hatası düzeltildi** — `TeacherSearchFilter.NormalizeForSearch` girdiyi Postgres'in `lower()` davranışıyla hizalar; tr-TR sunucuda "Istanbul" araması boş dönüyordu) · 2026-09-04 (P06/D-04/M02-5: mobil uygunluk düzenleyici — `AvailabilityEditor`, slot bazlı online/yüz yüze + çakışma engeli) · 2026-09-04 (P06/M02-3 + M02-4: filtreli arama `GET /profiles` + `IsActive` pasifleştirme) · 2026-09-03 (P06/M02-1: admin doğrulama ucu + `TeacherVerifiedDomainEvent`) · 2026-09-03 (P04/M02-2: profil fotoğrafı — `ProfilePhotoKey` + `POST`/`GET /profiles/{userId}/photo`; `profilePhotoUrl` istek gövdesinden kaldırıldı) · 2026-09-02 (A-01: çocuk koleksiyon merge + `ValueGeneratedNever` + açık cascade) · 2026-08-19 (kod-senkron: K3 `TeacherProfileQueryAuthorizer` kodda doğrulandı, GET yetkilendirmesi açık iddiaları düzeltildi) · 2026-07-18 (çoklu branş + sertifika — Dilim D)*
 <!-- Y1 (IsVerified update akışına yazılabiliyor) 2026-06-24'te kapatıldı. -->

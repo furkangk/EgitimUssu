@@ -13,9 +13,13 @@ internal sealed class LessonScheduleRepository : ILessonScheduleRepository
         _dbContext = dbContext;
     }
 
-    public Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
+    public async Task<LessonSchedule?> GetByIdAsync(Guid lessonId, CancellationToken cancellationToken)
     {
-        return _dbContext.LessonSchedules.FindAsync(new object?[] { lessonId }, cancellationToken).AsTask();
+        var entity = await _dbContext.LessonSchedules.FindAsync(new object?[] { lessonId }, cancellationToken);
+        if (entity is not null && _dbContext.Database.CurrentTransaction is not null &&
+            _dbContext.Entry(entity).State == EntityState.Unchanged)
+            await _dbContext.Entry(entity).ReloadAsync(cancellationToken);
+        return entity is not null && _dbContext.Entry(entity).State != EntityState.Detached ? entity : null;
     }
 
     public async Task<IReadOnlyCollection<LessonSchedule>> ListForStudentAsync(Guid studentId, DateTime startAtUtc, DateTime endAtUtc, CancellationToken cancellationToken)

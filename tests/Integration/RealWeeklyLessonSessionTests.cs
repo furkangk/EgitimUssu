@@ -199,7 +199,7 @@ public sealed class RealWeeklyLessonSessionTests(ContainerFixture fixture)
             subjects = Array.Empty<object>()
         }));
         var studentId = profile.GetProperty("id").GetGuid();
-        var anchor = new DateTime(2026, 12, 7, 14, 0, 0, DateTimeKind.Utc);
+        var anchor = new DateTime(2026, 10, 19, 14, 0, 0, DateTimeKind.Utc);
         var lesson = await JsonAsync(await teacher.PostAsJsonAsync("/api/scheduling/lessons", new
         {
             teacherUserId = teacherId, studentId, subject = "Matematik", lessonFormat = 2,

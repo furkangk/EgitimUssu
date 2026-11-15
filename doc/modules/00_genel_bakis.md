@@ -134,10 +134,13 @@ GET /sessions   POST /sessions/{sessionId}/revoke   POST /sessions/revoke-all
 ```
 > Not (K1): `POST /register` yalnız `Teacher/Student/Parent` kabul eder; `Admin` reddedilir. Yükseltilmiş rol yalnız `POST /users/{id}/roles` ile atanır.
 > Not (E-07): Silme talebi anında **hiçbir veri değişmez**; `AccountDeletionService` 6 saatte bir süresi dolanları uygular. Ticari kayıt (ödeme/ders) silinmez, kimliksizleşir. Ayrıntı: [`../architecture/kvkk.md`](../architecture/kvkk.md).
+> **P17 T5:** Teachers iptal politikası + Scheduling kapsam/silme olayları → LessonSessions/Payments/Notifications temizliği; LateCancellation=4 oluşum borcu; tek Pending talep ve atomik kabul; gelecek tamamlama reddi. Ayrıntılar m02/m04/m05/m07/m11.
+
 ### Teachers — `/api/teachers`
 ```
 POST /profiles   PUT /profiles/{userId}   GET /profiles/{userId}
 POST /profiles/{userId}/photo   GET /profiles/{userId}/photo   (profil fotografi; self/Admin yukler, kimlik dogrulanmis herkes okur; M02-2 2026-09-03)
+PUT /profiles/{userId}/cancellation-policy  (yalniz sahibi Teacher; noticeHours/chargePercent; P17 T5)
 PUT /profiles/{userId}/verification   (dogrulama rozeti; YALNIZ Admin, TeacherVerifiedDomainEvent; M02-1 2026-09-03)
 GET /profiles?city=&district=&subject=&lessonFormat=&minRate=&maxRate=&onlyVerified=&skip=&take=   (filtreli arama; auth, yalniz aktif profiller, take<=50; M02-3 2026-09-04)
 POST /profiles/{userId}/deactivate   POST /profiles/{userId}/activate   (arama gorunurlugu; sahibi veya Admin; M02-4 2026-09-04)

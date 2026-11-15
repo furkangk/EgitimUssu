@@ -46,6 +46,16 @@ void main() {
     expect(summary.overdueAmountTotal, 125);
   });
 
+  test('collecting a late cancellation preserves billing item type', () {
+    expect(
+      recordWith(
+        status: 'Paid',
+        itemType: 'LateCancellation',
+      ).toUpsertPayload()['itemType'],
+      4,
+    );
+  });
+
   // Regresyon: mobil status/itemType eşlemesi backend enum'larıyla birebir olmalı.
   // Backend: PaymentStatus { Pending=1, PartiallyPaid=2, Paid=3, Overdue=4, Cancelled=5 },
   //          BillingItemType { LessonFee=1, MonthlyPackage=2, ManualAdjustment=3 }.

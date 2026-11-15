@@ -16,8 +16,14 @@ internal sealed class LessonChangeRequestRepository : ILessonChangeRequestReposi
     public Task AddAsync(LessonChangeRequest request, CancellationToken cancellationToken)
         => _dbContext.LessonChangeRequests.AddAsync(request, cancellationToken).AsTask();
 
-    public Task<LessonChangeRequest?> GetByIdAsync(Guid requestId, CancellationToken cancellationToken)
-        => _dbContext.LessonChangeRequests.FindAsync(new object?[] { requestId }, cancellationToken).AsTask();
+    public async Task<LessonChangeRequest?> GetByIdAsync(Guid requestId, CancellationToken cancellationToken)
+    {
+        var entity = await _dbContext.LessonChangeRequests.FindAsync(new object?[] { requestId }, cancellationToken);
+        if (entity is not null && _dbContext.Database.CurrentTransaction is not null &&
+            _dbContext.Entry(entity).State == EntityState.Unchanged)
+            await _dbContext.Entry(entity).ReloadAsync(cancellationToken);
+        return entity is not null && _dbContext.Entry(entity).State != EntityState.Detached ? entity : null;
+    }
 
     public async Task<IReadOnlyCollection<LessonChangeRequest>> ListForTeacherAsync(Guid teacherUserId, bool onlyPending, CancellationToken cancellationToken)
         => await _dbContext.LessonChangeRequests

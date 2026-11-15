@@ -62,6 +62,8 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<RejectPaymentDeclarationCommand>, PaymentDeclarationResolveAuthorizer>();
         services.AddScoped<IQueryAuthorizer<ListPaymentDeclarationsForTeacherQuery>, PaymentDeclarationResolveAuthorizer>();
 
+        services.AddScoped<IIntegrationEventHandler, LessonCancelledPaymentHandler>();
+
         return services;
     }
 }

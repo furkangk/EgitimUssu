@@ -21,6 +21,11 @@ updated: 2026-11-15
 
 > **P17 Task 3 (2026-11-15):** Haftalık dersin her oluşumunu ayrı başlatabilir; aynı oluşuma çift dokunuş tek oturum üretir. Tamamlanmış oturumun not/konu düzeltmesi yeni tamamlama olayı yaymaz ve ilk tamamlanma damgasını korur. `Absent` gelişim katılımına eklenmez. **P17 T4 / K-21:** Tamamlama yalnız LessonSessions’tan yapılır; ders kartı ve detay ekranı orijinal oluşumun oturumunu türetip tamamlar. Takvim olayı tüketince yalnız o hafta Completed olur. Tamamlanmış oluşumu içeren iptal/erteleme ve tüm seri güncellemesi 409 verir; gelecekten başlayan kapsam geçmişi korur.
 
+### Ders iptali (P17 T5)
+
+Öğretmen ders detayından tekrarlı derste “Yalnız bu ders / Bu ve sonrakiler / Tüm seri” kapsamını seçer; iptal nedeni ve isteğe bağlı açıklama girer, “Ücretsiz iptal et” ile politika ücretinden vazgeçebilir. Politika profil API’sinden NoticeHours/ChargePercent olarak ayarlanır (varsayılan kapalı; mobil ayar formu bu görevde eklenmedi). Öğrencinin geç iptali anlaşılmış ders ücreti üzerinden borç üretir; erken/öğretmen kaynaklı/ücretsiz iptalde üretmez. Bekleyen oturum, normal ücret ve hatırlatma outbox ile kapanır; tahsil edilmiş para korunur. Gelecekteki ders tamamlanamaz.
+
+
 ## 1. Tasarım İlkesi
 
 Türkiye'de özel ders veren öğretmenler bugün dersi **zihinde/Excel'de**, iletişimi **telefon/WhatsApp'ta**, ödevi **sözlü/PDF** ile, ödemeyi **elden** yönetir; konu/ödev/gelişim takibi sistematik değildir. Bu rol, tüm bu dağınık işi **tek uygulamada** toplar.

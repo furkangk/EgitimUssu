@@ -393,5 +393,11 @@
   "lessonSessions_pending": "Bekliyor",
   "lessonSessions_planned": "Planlandı",
   "lessonSessions_completedMessage": "Ders tamamlandı.",
-  "lessonSessions_inPerson": "Yüz yüze"
+  "lessonSessions_inPerson": "Yüz yüze",
+  "cancellation_teacher": "Öğretmen iptal etti",
+  "cancellation_student": "Öğrenci iptal etti",
+  "cancellation_holiday": "Tatil",
+  "cancellation_other": "Diğer",
+  "cancellation_free": "Ücretsiz iptal et",
+  "cancellation_note": "Açıklama (isteğe bağlı)"
 }

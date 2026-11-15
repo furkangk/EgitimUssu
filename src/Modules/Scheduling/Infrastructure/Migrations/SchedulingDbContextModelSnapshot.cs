@@ -67,6 +67,11 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure.Migrations
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("LessonScheduleId", "OccurrenceStartAtUtc")
+                        .IsUnique()
+                        .HasDatabaseName("ix_change_requests_pending_occurrence")
+                        .HasFilter("\"Status\" = 'Pending' AND \"OccurrenceStartAtUtc\" IS NOT NULL");
+
                     b.HasIndex("TeacherUserId", "Status");
 
                     b.ToTable("lesson_change_requests", "scheduling");

@@ -151,25 +151,36 @@ class SchedulingCubit extends Cubit<SchedulingState> {
   Future<void> cancelLesson({
     required LessonSchedule lesson,
     required OccurrenceScope scope,
+    LessonCancellationReason reason = LessonCancellationReason.teacherCancelled,
+    bool isChargeable = true,
     String? cancellationNote,
   }) async {
     if (isClosed) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
-      final cancelled = await _repository.cancelLesson(
+      await _repository.cancelLesson(
         lesson: lesson,
         scope: scope,
+        reason: reason,
+        isChargeable: isChargeable,
         cancellationNote: cancellationNote,
       );
       if (isClosed) return;
+      bool affected(LessonSchedule item) =>
+          item.id == lesson.id &&
+          (!lesson.isRecurring ||
+              scope == OccurrenceScope.all ||
+              (scope == OccurrenceScope.single
+                  ? item.occurrenceKeyUtc == lesson.occurrenceKeyUtc
+                  : !item.occurrenceKeyUtc.isBefore(lesson.occurrenceKeyUtc)));
       final lessons = state.lessons
-          .map((item) => item.id == cancelled.id ? cancelled : item)
+          .map((item) => affected(item) ? item.withStatus('Cancelled') : item)
           .toList();
       emit(
         state.copyWith(
           isSaving: false,
           lessons: lessons,
-          selectedLesson: cancelled,
+          selectedLesson: lesson.withStatus('Cancelled'),
           successMessage: 'Ders iptal edildi.',
           clearMessages: true,
         ),

@@ -28,6 +28,13 @@ updated: 2026-11-15
 
 > **P17 T4 / K-21:** Ders tamamlamanın tek yazma yolu LessonSessions’tır. Scheduling `/complete` kaldırıldı; liste kartı ve detay ekranı ortak `completeScheduledSession` ile orijinal oluşumu türetip `/lesson-sessions/{id}/complete` çağırır. Scheduling tüketicisi inbox ve öğretmen takvim kilidinde durumu yansıtır; ikinci tamamlanma olayı üretmez.
 
+### Takvim iptalinden temizlik ve gelecek tamamlama (P17 T5)
+
+`LessonCancelledSessionHandler`, Scheduling’in yeni kapsam/silme olaylarını inbox transaction’ında tüketir. Eşleşme `(LessonScheduleId, OccurrenceStartUtc)` ve Single/ThisAndFuture/All kapsamıyla yapılır; yalnız Planned/InProgress oturumlar Cancelled olur. Completed geçmiş korunur. Aynı olayın yeniden teslimi ek değişiklik üretmez. Takvimden iptal edilen ders için mobil artık oturum türetip `/cancel` çağırmaz; kanonik yol Scheduling iptalidir.
+
+`LessonSession.Complete` ilk tamamlamada `PlannedStartAtUtc > completedOnUtc` ise 400 `lesson_sessions.future_occurrence` döndürür. İstemcinin gerçek saati geçmiş göndermesi bunu aşamaz. Başlamış/geçmiş ders tamamlanabilir; tamamlanmış notun yeniden düzenlenmesi korunur.
+
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 | Katman | Durum | Kanıt |

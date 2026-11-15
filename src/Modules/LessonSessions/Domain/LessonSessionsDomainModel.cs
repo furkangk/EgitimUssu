@@ -191,6 +191,9 @@ public sealed class LessonSession : AggregateRoot<Guid>
             return Result.Failure(InvalidTransition);
         }
 
+        if (Status != LessonSessionStatus.Completed && PlannedStartAtUtc > completedOnUtc)
+            return Result.Failure(new Error("lesson_sessions.future_occurrence", "Gelecekteki ders henüz tamamlanamaz."));
+
         if (actualEndAtUtc <= actualStartAtUtc)
         {
             return Result.Failure(InvalidTimeRange);

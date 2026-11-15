@@ -35,6 +35,8 @@ class FakeSchedulingRepository implements SchedulingRepository {
   Future<LessonSchedule> cancelLesson({
     required LessonSchedule lesson,
     required OccurrenceScope scope,
+    LessonCancellationReason reason = LessonCancellationReason.teacherCancelled,
+    bool isChargeable = true,
     String? cancellationNote,
   }) {
     throw UnimplementedError();

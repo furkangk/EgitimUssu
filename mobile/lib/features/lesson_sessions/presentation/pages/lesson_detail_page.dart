@@ -12,6 +12,7 @@ import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contrac
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_cubit.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/cubit/scheduling_state.dart';
 import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/lesson_form_sheet.dart';
+import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/occurrence_scope_sheet.dart';
 import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -400,52 +401,109 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     AppLocalizations.of(context).lessonDetail_started,
   );
 
-  /// M05-1: Iptal nedeni sorar, sonra oturumu iptal eder.
   Future<void> _cancelSession() async {
-    final reason = await _askCancellationReason();
-    if (reason == null || !mounted) {
-      return;
-    }
-
-    await _runSessionAction(
-      (repository, sessionId) => repository.cancelSession(
-        sessionId,
-        reason: reason.isEmpty ? null : reason,
-      ),
-      AppLocalizations.of(context).lessonDetail_cancelledMessage,
+    final lesson = _payload.lesson;
+    if (lesson == null || _sessionBusy || _schedulingCubit == null) return;
+    final scope = lesson.isRecurring
+        ? await showOccurrenceScopeSheet(context)
+        : OccurrenceScope.single;
+    if (scope == null || !mounted) return;
+    final choice = await _askCancellationReason();
+    if (choice == null || !mounted) return;
+    setState(() => _sessionBusy = true);
+    await _schedulingCubit!.cancelLesson(
+      lesson: lesson,
+      scope: scope,
+      reason: choice.$1,
+      isChargeable: choice.$2,
+      cancellationNote: choice.$3,
     );
+    if (!mounted) return;
+    setState(() {
+      _sessionBusy = false;
+      if (_schedulingCubit!.state.errorMessage == null) {
+        _sessionStatus = 'Cancelled';
+        _lessonStatus = 'Cancelled';
+        _didChange = true;
+      }
+    });
   }
 
-  /// Iptal nedenini sorar. `null` = vazgecildi, bos metin = neden girilmedi.
-  Future<String?> _askCancellationReason() async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
+  Future<(LessonCancellationReason, bool, String)?>
+  _askCancellationReason() async {
+    var note = '';
+    var reason = LessonCancellationReason.teacherCancelled;
+    var free = false;
+    final l10n = AppLocalizations.of(context);
+    final result = await showDialog<(LessonCancellationReason, bool, String)>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(AppLocalizations.of(context).lessonDetail_cancelDialog),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: AppLocalizations.of(context).lessonDetail_cancelReason,
-            hintText: AppLocalizations.of(context).lessonDetail_cancelHint,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(l10n.lessonDetail_cancelDialog),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<LessonCancellationReason>(
+                  initialValue: reason,
+                  decoration: InputDecoration(
+                    labelText: l10n.lessonDetail_cancelReason,
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.teacherCancelled,
+                      child: Text(l10n.cancellation_teacher),
+                    ),
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.studentCancelled,
+                      child: Text(l10n.cancellation_student),
+                    ),
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.holiday,
+                      child: Text(l10n.cancellation_holiday),
+                    ),
+                    DropdownMenuItem(
+                      value: LessonCancellationReason.other,
+                      child: Text(l10n.cancellation_other),
+                    ),
+                  ],
+                  onChanged: (value) => setDialogState(() => reason = value!),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l10n.cancellation_free),
+                  value: free,
+                  onChanged: (value) =>
+                      setDialogState(() => free = value ?? false),
+                ),
+                TextField(
+                  onChanged: (value) => note = value,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    labelText: l10n.cancellation_note,
+                    hintText: l10n.lessonDetail_cancelHint,
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.lessonDetail_dismiss),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop((reason, !free, note.trim())),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accentRed,
+              ),
+              child: Text(l10n.lessonDetail_cancelDialog),
+            ),
+          ],
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(AppLocalizations.of(context).lessonDetail_dismiss),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.accentRed),
-            child: Text(AppLocalizations.of(context).lessonDetail_cancelDialog),
-          ),
-        ],
       ),
     );
-    controller.dispose();
     return result;
   }
 

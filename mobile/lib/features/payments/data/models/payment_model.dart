@@ -98,12 +98,13 @@ class PaymentRecordModel extends PaymentRecord {
     return value;
   }
 
-  // Backend enum: BillingItemType { LessonFee=1, MonthlyPackage=2, ManualAdjustment=3 }.
+  // Backend enum: BillingItemType { LessonFee=1, MonthlyPackage=2, ManualAdjustment=3, LateCancellation=4 }.
   // API yanıtı enum ADINI string döndürür (`ItemType.ToString()`), bu yüzden aynı adları eşleriz.
   static int _itemTypeToApi(String? value) {
     return switch (value) {
       'MonthlyPackage' => 2,
       'ManualAdjustment' => 3,
+      'LateCancellation' => 4,
       _ => 1, // LessonFee (varsayılan)
     };
   }

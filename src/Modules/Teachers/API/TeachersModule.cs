@@ -30,6 +30,11 @@ public sealed class TeachersModule : ModuleDefinition
         var group = CreateModuleGroup(endpoints);
         group.RequireAuthorization("AuthenticatedUser");
 
+        group.MapPut("/profiles/{userId:guid}/cancellation-policy", async (
+            HttpContext context, Guid userId, SetCancellationPolicyRequest request, ICommandDispatcher dispatcher, CancellationToken ct) =>
+            ToHttpResult(context, await dispatcher.Dispatch(new SetCancellationPolicyCommand(userId, request.NoticeHours, request.ChargePercent), ct)))
+            .WithSummary("Öğretmenin kendi iptal politikasını kaydeder");
+
         group.MapPost("/profiles", CreateTeacherProfileAsync)
         .WithSummary("Öğretmen profili oluşturur");
 
@@ -353,3 +358,5 @@ public sealed record UpsertTeacherProfileRequest(
                 .ToArray());
     }
 }
+
+public sealed record SetCancellationPolicyRequest(int NoticeHours, decimal ChargePercent);

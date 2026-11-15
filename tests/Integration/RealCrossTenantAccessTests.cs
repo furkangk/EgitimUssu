@@ -224,8 +224,8 @@ public sealed class RealCrossTenantAccessTests(ContainerFixture fixture)
         try
         {
             Assert.Equal(HttpStatusCode.NoContent, (await SetRateAsync(teacher, teacherUserId, studentId, 750m)).StatusCode);
-            var linkedLessonId = await ReadIdAsync(await CreateLessonAsync(teacher, teacherUserId, studentId, dayOffset: 1));
-            var archivedLessonId = await ReadIdAsync(await CreateLessonAsync(teacher, teacherUserId, studentId, dayOffset: 2));
+            var linkedLessonId = await ReadIdAsync(await CreateLessonAsync(teacher, teacherUserId, studentId, dayOffset: -2));
+            var archivedLessonId = await ReadIdAsync(await CreateLessonAsync(teacher, teacherUserId, studentId, dayOffset: -1));
 
             // Bağlıyken: ücretli tamamlama → otomatik ders ücreti (M07-2).
             var linkedSessionId = await ReadIdAsync(await teacher.PostAsync($"/api/lesson-sessions/from-schedule/{linkedLessonId}", null));
@@ -393,7 +393,7 @@ public sealed class RealCrossTenantAccessTests(ContainerFixture fixture)
             teacherUserId,
             studentId,
             subject = "Matematik",
-            plannedStartAtUtc = DateTime.UtcNow.Date.AddDays(1).AddHours(15),
+            plannedStartAtUtc = DateTime.UtcNow.Date.AddDays(-1).AddHours(15),
             topicTitle = "Problemler",
         });
 

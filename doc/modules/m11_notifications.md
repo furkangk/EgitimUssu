@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Notifications/**
-updated: 2026-09-04
+updated: 2026-11-15
 ---
 
 # 🔔 Bildirim Modülü (M11) — Detaylı Tasarım Dokümanı
@@ -21,6 +21,11 @@ updated: 2026-09-04
 > ⚠️ **Kritik bağımlılık:** [`mimari_inceleme.md`](mimari_inceleme.md) **K1** — Outbox dispatch varsayılan **kapalı**. Açılmadıkça Scheduling event'leri yayımlanmaz ve **hiçbir hatırlatma kaydı oluşmaz**.
 
 ---
+
+### İptal/silme temizliği (P17 T5)
+
+`LessonScheduleNotificationIntegrationEventHandler` yeni `LessonCancellationAppliedDomainEvent` ve `LessonScheduleDeletedDomainEvent` olaylarını da tüketir. Pending hatırlatma Single’da görünen başlangıç, ThisAndFuture’da cutoff, All/silmede bütün plan üzerinden iptal edilir; eski `LessonScheduleCancelledDomainEvent` tüketimi korunur. Ücret/oturum temizliğiyle aynı outbox zincirindedir. Kalıcı orijinal oluşum anahtarı, kayan pencere planlayıcısı, erteleme ve çoklu alıcılar **P17 T6** kapsamındadır; bu görev yalnız mevcut hatırlatma modelinin temizliğini ekler.
+
 
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 

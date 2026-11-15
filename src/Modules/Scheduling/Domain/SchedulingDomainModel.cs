@@ -267,6 +267,13 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
         return newSeries;
     }
 
+    public void RecordCancellation(string scope, DateTime? key, DateTime? effectiveStart, DateTime nowUtc)
+        => Raise(new LessonCancellationAppliedDomainEvent(Id, TeacherUserId, StudentId, scope, key, effectiveStart, nowUtc));
+    public void RecordOccurrenceCharge(DateTime key, decimal amount, string currency)
+        => Raise(new LessonOccurrenceCancelledIntegrationEvent(Id, key, TeacherUserId!.Value, StudentId, true, amount, currency));
+    public void RecordDeleted(DateTime nowUtc)
+        => Raise(new LessonScheduleDeletedDomainEvent(Id, TeacherUserId, StudentId, nowUtc));
+
     public void Cancel(CancellationReason reason, bool isChargeable, string? cancellationNote, DateTime updatedOnUtc)
     {
         Status = LessonScheduleStatus.Cancelled;
@@ -579,3 +586,10 @@ public sealed record LessonChangeRequestResolvedDomainEvent(
     Guid TeacherUserId,
     LessonChangeRequestStatus Status,
     DateTime ResolvedOnUtc) : DomainEvent;
+
+public sealed record LessonCancellationAppliedDomainEvent(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
+    string Scope, DateTime? OccurrenceStartUtc, DateTime? EffectiveStartUtc, DateTime CancelledOnUtc) : DomainEvent;
+public sealed record LessonOccurrenceCancelledIntegrationEvent(Guid LessonScheduleId, DateTime OccurrenceStartUtc,
+    Guid TeacherUserId, Guid StudentId, bool IsChargeable, decimal? ChargeAmount, string? Currency) : DomainEvent;
+public sealed record LessonScheduleDeletedDomainEvent(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
+    DateTime DeletedOnUtc) : DomainEvent;

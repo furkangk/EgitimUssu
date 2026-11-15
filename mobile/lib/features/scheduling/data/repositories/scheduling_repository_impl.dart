@@ -122,6 +122,8 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
   Future<LessonSchedule> cancelLesson({
     required LessonSchedule lesson,
     required OccurrenceScope scope,
+    LessonCancellationReason reason = LessonCancellationReason.teacherCancelled,
+    bool isChargeable = true,
     String? cancellationNote,
   }) async {
     final lessonId = lesson.id;
@@ -131,6 +133,8 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
         data: LessonScheduleModel.cancelPayload(
           lesson: lesson,
           scope: scope,
+          reason: reason,
+          isChargeable: isChargeable,
           cancellationNote: cancellationNote,
         ),
       );

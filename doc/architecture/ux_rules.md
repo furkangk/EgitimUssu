@@ -3,7 +3,7 @@ title: "UX Kuralları"
 summary: "Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları; rol bazlı öncelikler"
 tags: [mimari, ux, navigasyon]
 authority: derived
-updated: 2026-10-16
+updated: 2026-11-15
 ---
 
 # 📐 UX Kuralları — EğitimÜssü
@@ -14,6 +14,11 @@ updated: 2026-10-16
 > **Güncelleme:** 2026-10-16
 
 ---
+
+### Oluşum iptali (P17 T5)
+
+Tekrarlı derste iptal önce kapsam seçimi (varsayılan yalnız bu ders), ardından neden ve ücretsiz iptal seçimiyle onaylanır. Başarılı Scheduling yanıtı yalnız kapsam içindeki satırların durumuna uygulanır; serinin çapa zamanı diğer haftalara kopyalanmaz. Hata başarıya çevrilmez. Ders detayı geri dönüşte değişiklik sonucu verir ve kaynak liste yenilenir. Yeni iptal metinleri tr/en ARB’dedir.
+
 
 ## 1. Rol Bazlı UX İlkeleri
 
@@ -143,4 +148,4 @@ Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün öze
 
 ---
 
-*UX Kuralları | Güncelleme: 2026-10-16 (hata sonrası kayıt tekrarında form verisini koruma) · 2026-09-05 (P13 Task 6 / D-19+D-20: §8 metin dili ve yazım kuralı — eksiksiz Türkçe, ARB'den metin, otomatik denetim) · 2026-06-27*
+*UX Kuralları | Güncelleme: 2026-11-15 (hata sonrası kayıt tekrarında form verisini koruma) · 2026-09-05 (P13 Task 6 / D-19+D-20: §8 metin dili ve yazım kuralı — eksiksiz Türkçe, ARB'den metin, otomatik denetim) · 2026-06-27*

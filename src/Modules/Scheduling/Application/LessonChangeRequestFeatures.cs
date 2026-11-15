@@ -78,14 +78,17 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
     private readonly ILocalCalendar _calendar;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
+    private readonly ITeacherScheduleLock _scheduleLock;
 
     public CreateLessonChangeRequestCommandHandler(
         ILessonChangeRequestRepository repository,
         ILessonScheduleRepository lessonRepository,
         ILocalCalendar calendar,
         IIdGenerator idGenerator,
-        IClock clock)
+        IClock clock,
+        ITeacherScheduleLock scheduleLock)
     {
+        _scheduleLock = scheduleLock;
         _repository = repository;
         _lessonRepository = lessonRepository;
         _calendar = calendar;
@@ -94,6 +97,13 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
     }
 
     public async Task<Result<LessonChangeRequestResponse>> Handle(CreateLessonChangeRequestCommand command, CancellationToken cancellationToken)
+    {
+        var initial = await _lessonRepository.GetByIdAsync(command.LessonScheduleId, cancellationToken);
+        if (initial?.TeacherUserId is not { } teacher) return Result<LessonChangeRequestResponse>.Failure(LessonNotFound);
+        return await _scheduleLock.RunExclusiveAsync(teacher, token => HandleLocked(command, token), cancellationToken);
+    }
+
+    private async Task<Result<LessonChangeRequestResponse>> HandleLocked(CreateLessonChangeRequestCommand command, CancellationToken cancellationToken)
     {
         var lesson = await _lessonRepository.GetByIdAsync(command.LessonScheduleId, cancellationToken);
         // Ders bulunamazsa veya öğrenciye ait değilse: IDOR sızıntısını önlemek için ayrım yapmadan bulunamadı döneriz.
@@ -131,6 +141,13 @@ public sealed class CreateLessonChangeRequestCommandHandler : ICommandHandler<Cr
             occurrenceStartAtUtc = key;
         }
 
+        var activeError = await ChangeRequestOccurrenceRules.ValidateAsync(_lessonRepository, lesson, occurrenceStartAtUtc, _calendar, _clock.UtcNow, cancellationToken);
+        if (activeError is not null) return Result<LessonChangeRequestResponse>.Failure(activeError);
+        if (command.ProposedStartAtUtc <= _clock.UtcNow) return Result<LessonChangeRequestResponse>.Failure(InvalidRange);
+        var pending = await _repository.ListForTeacherAsync(lesson.TeacherUserId.Value, true, cancellationToken);
+        if (pending.Any(r => r.LessonScheduleId == lesson.Id && r.OccurrenceStartAtUtc == occurrenceStartAtUtc))
+            return Result<LessonChangeRequestResponse>.Failure(new("scheduling.request_already_pending", "Bu oluşum için zaten bekleyen bir talep var."));
+
         var request = new LessonChangeRequest(
             _idGenerator.New(),
             lesson.Id,
@@ -161,13 +178,19 @@ public sealed class AcceptLessonChangeRequestCommandHandler : ICommandHandler<Ac
     private readonly ILessonScheduleRepository _lessonRepository;
     private readonly ICommandDispatcher _dispatcher;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
+    private readonly ITeacherScheduleLock _scheduleLock;
 
     public AcceptLessonChangeRequestCommandHandler(
         ILessonChangeRequestRepository repository,
         ILessonScheduleRepository lessonRepository,
         ICommandDispatcher dispatcher,
-        IClock clock)
+        IClock clock,
+        ITeacherScheduleLock scheduleLock,
+        ILocalCalendar calendar)
     {
+        _calendar = calendar;
+        _scheduleLock = scheduleLock;
         _repository = repository;
         _lessonRepository = lessonRepository;
         _dispatcher = dispatcher;
@@ -175,6 +198,14 @@ public sealed class AcceptLessonChangeRequestCommandHandler : ICommandHandler<Ac
     }
 
     public async Task<Result<LessonChangeRequestResponse>> Handle(AcceptLessonChangeRequestCommand command, CancellationToken cancellationToken)
+    {
+        var initial = await _repository.GetByIdAsync(command.RequestId, cancellationToken);
+        if (initial is null) return Result<LessonChangeRequestResponse>.Failure(NotFound);
+        var teacher = initial.TeacherUserId;
+        return await _scheduleLock.RunExclusiveAsync(teacher, token => HandleLocked(command, token), cancellationToken);
+    }
+
+    private async Task<Result<LessonChangeRequestResponse>> HandleLocked(AcceptLessonChangeRequestCommand command, CancellationToken cancellationToken)
     {
         var request = await _repository.GetByIdAsync(command.RequestId, cancellationToken);
         if (request is null)
@@ -186,6 +217,14 @@ public sealed class AcceptLessonChangeRequestCommandHandler : ICommandHandler<Ac
         {
             return Result<LessonChangeRequestResponse>.Failure(NotPending);
         }
+
+        var source = await _lessonRepository.GetByIdAsync(request.LessonScheduleId, cancellationToken);
+        if (source is null) return Result<LessonChangeRequestResponse>.Failure(new("scheduling.lesson_not_found", "Ders planı bulunamadı."));
+        if (request.OccurrenceStartAtUtc is not { } key) return Result<LessonChangeRequestResponse>.Failure(OccurrenceUnknown);
+        var activeError = await ChangeRequestOccurrenceRules.ValidateAsync(_lessonRepository, source, key, _calendar, _clock.UtcNow, cancellationToken);
+        if (activeError is not null) return Result<LessonChangeRequestResponse>.Failure(activeError);
+        if (request.ProposedStartAtUtc <= _clock.UtcNow)
+            return Result<LessonChangeRequestResponse>.Failure(new("scheduling.invalid_range", "Önerilen başlangıç gelecekte olmalıdır."));
 
         // Alternatif tarih önerildiyse: dersi taşımak için MEVCUT Reschedule akışını yeniden kullan (DRY, çakışma/edit kontrolü dahil).
         // Erteleme başarısızsa talep kabul edilmez; hata olduğu gibi döndürülür.
@@ -289,5 +328,20 @@ internal static class LessonChangeRequestMappings
             request.Status.ToString(),
             request.CreatedOnUtc,
             request.ResolvedOnUtc);
+    }
+}
+
+internal static class ChangeRequestOccurrenceRules
+{
+    public static async Task<Error?> ValidateAsync(ILessonScheduleRepository repository, LessonSchedule lesson, DateTime key, ILocalCalendar calendar, DateTime now, CancellationToken ct)
+    {
+        if (!OccurrenceScopeRules.IsOccurrence(lesson, key, calendar)) return OccurrenceScopeRules.OccurrenceNotFound;
+        if (!lesson.IsEditable) return new("scheduling.occurrence_not_active", "Yalnızca gelecek ve aktif bir ders için talep açılabilir.");
+        var exceptions = await repository.ListExceptionsForSeriesAsync(lesson.Id, ct);
+        var occurrence = exceptions.SingleOrDefault(x => x.OriginalStartAtUtc == key);
+        if (occurrence?.Action is OccurrenceExceptionAction.Cancelled or OccurrenceExceptionAction.Skipped or OccurrenceExceptionAction.Completed
+            || (occurrence?.OverrideStartAtUtc ?? key) <= now)
+            return new("scheduling.occurrence_not_active", "Yalnızca gelecek ve aktif bir ders için talep açılabilir.");
+        return null;
     }
 }

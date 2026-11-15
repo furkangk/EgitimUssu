@@ -272,5 +272,11 @@
   "lessonSessions_pending": "Pending",
   "lessonSessions_planned": "Planned",
   "lessonSessions_completedMessage": "Lesson completed.",
-  "lessonSessions_inPerson": "In person"
+  "lessonSessions_inPerson": "In person",
+  "cancellation_teacher": "Cancelled by teacher",
+  "cancellation_student": "Cancelled by student",
+  "cancellation_holiday": "Holiday",
+  "cancellation_other": "Other",
+  "cancellation_free": "Waive cancellation fee",
+  "cancellation_note": "Note (optional)"
 }

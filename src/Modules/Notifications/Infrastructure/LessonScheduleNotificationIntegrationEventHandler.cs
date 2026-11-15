@@ -37,11 +37,15 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : Idempo
     {
         return integrationEvent.SourceModule == "Scheduling"
             && (integrationEvent.Name == "LessonScheduledDomainEvent"
-                || integrationEvent.Name == "LessonScheduleCancelledDomainEvent");
+                || integrationEvent.Name == "LessonScheduleCancelledDomainEvent"
+                || integrationEvent.Name == "LessonCancellationAppliedDomainEvent"
+                || integrationEvent.Name == "LessonScheduleDeletedDomainEvent");
     }
 
     protected override Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
+        if (envelope.Name is "LessonCancellationAppliedDomainEvent" or "LessonScheduleDeletedDomainEvent")
+            return ApplyScopeCancelledAsync(envelope, cancellationToken);
         return envelope.Name == "LessonScheduledDomainEvent"
             ? ApplyScheduledAsync(envelope, cancellationToken)
             : ApplyCancelledAsync(envelope, cancellationToken);
@@ -97,6 +101,23 @@ internal sealed class LessonScheduleNotificationIntegrationEventHandler : Idempo
 
         reminder.Cancel(Clock.UtcNow);
         return true;
+    }
+
+    private async Task<bool> ApplyScopeCancelledAsync(IntegrationEvent envelope, CancellationToken ct)
+    {
+        var payload = JsonSerializer.Deserialize<LessonCancellationApplied>(envelope.Payload, JsonOptions);
+        if (payload is null) return false;
+        var reminders = await NotificationsDb.LessonReminders.Where(r => r.LessonScheduleId == payload.LessonScheduleId && r.Status == ReminderStatus.Pending).ToArrayAsync(ct);
+        var changed = false;
+        foreach (var reminder in reminders)
+        {
+            var matches = envelope.Name == "LessonScheduleDeletedDomainEvent" || payload.Scope == "All" ||
+                (payload.Scope == "Single" ? reminder.ScheduledLessonStartAtUtc == payload.EffectiveStartUtc : reminder.ScheduledLessonStartAtUtc >= payload.EffectiveStartUtc);
+            if (!matches) continue;
+            reminder.Cancel(Clock.UtcNow);
+            changed = true;
+        }
+        return changed;
     }
 
     private sealed record LessonScheduledEventPayload(

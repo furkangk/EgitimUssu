@@ -147,7 +147,7 @@
 
 ---
 
-### Task 5: İptal politikası ve iptal sonrası temizlik (N-15, N-16)
+### Task 5: İptal politikası ve iptal sonrası temizlik (N-15, N-16) ✅
 
 **Files:**
 - Modify: `src/Modules/Teachers/Domain/TeachersDomainModel.cs` (`CancellationPolicy { NoticeHours, ChargePercent }`, varsayılan 0/0 = kapalı) + profil uçları
@@ -159,12 +159,27 @@
 - Modify (mobil) — *2026-11-15 eklendi (P17 T1 devri):* takvim dersi **iptal girişi** — T1 veri katmanını (`SchedulingCubit.cancelLesson(lesson, scope)`) ve `showOccurrenceScopeSheet`'i hazırladı ama hiçbir ekran çağırmıyor. Giriş `lesson_detail_page.dart`'ta olur (K-26 ARB maliyeti T4'te zaten ödeniyor) ve takvim iptali artık kanonik yol olduğundan oturum iptali (`LessonCancelledSessionHandler`) onu izler. **İki tuzak:** (1) `scheduling_cubit.dart` iptal yanıtını satırlara **`id` ile** birleştiriyor (`item.id == cancelled.id`) — serinin bütün oluşumları aynı `id`'yi taşıdığı için `Single` iptal yanıtı (serinin çapa satırı, `Planned`) listedeki her haftanın üzerine yazılır → birleştirme kapsam/oluşum anahtarına göre yapılmalı ya da liste yeniden yüklenmeli; (2) `LessonScheduleModel.cancelPayload` `reason`/`isChargeable` göndermiyor — bu görevin iptal nedeni doğrulaması bu yükü 400'e çevirir, yük nedeni ve ücret kararını taşımalı. Test: `mobile/test/features/scheduling/...` (birleştirme + yük)
 - Test: `tests/Unit/CancellationPolicyTests.cs`, `tests/Integration/RealLateCancellationChargeTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #234):** T5 ilk listesi profil API/DI/EF, modüller arası politika okuması, ödeme oluşum anahtarı, silme/iptal tüketicileri ve transaction kilidini atlıyordu. Ek kapsam:
+- Teachers: `Application/CancellationPolicyFeatures.cs` (yeni komut/yetki), `Application/TeacherProfileFeatures.cs` (yanıtta politika), `API/TeachersModule.cs`, `Infrastructure/TeachersDbContext.cs`, `TeacherDirectory.cs`, `DependencyInjection.cs`, migration `TeacherCancellationPolicy` + snapshot.
+- Shared: `Contracts/CancellationPolicyContract.cs` (yeni salt-okunur arayüz; mevcut öğretmen arayüzü/sahteleri değişmez), `Contracts/LessonCancellationContract.cs` (yeni olay yükleri; mevcut outbox olaylarına alan eklenmez).
+- Scheduling: `Domain/SchedulingDomainModel.cs` (yeni olaylar), `Infrastructure/DependencyInjection.cs`, `SchedulingDbContext.cs`, `LessonScheduleRepository.cs`, `LessonChangeRequestRepository.cs` (kilit alındıktan sonra güncel satırı yeniden okuma), migration `PendingOccurrenceChangeRequest` + snapshot. `Create` ve `Accept` öğretmen kilidinde; iç Reschedule aynı transaction'a katılır. İndeks öncesi eski Pending tekrarlar reddedilerek korunur.
+- Payments: `Domain/PaymentsDomainModel.cs`, `Infrastructure/PaymentsDbContext.cs`, `DependencyInjection.cs`, migration `CancellationOccurrenceCharges` + snapshot; geç iptal ücreti ayrı `LateCancellation` türü ve benzersiz oluşum anahtarı. Tahsil edilmiş/kısmen tahsil edilmiş kayıtlar otomatik değiştirilmez.
+- LessonSessions: `Domain/LessonSessionsDomainModel.cs` (gelecek planlı başlangıçta tamamlama reddi), `Application/LessonSessionFeatures.cs` ve `Infrastructure/DependencyInjection.cs`; Notifications: `Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs` (yalnız iptal/silme temizliği; oluşum planlayıcısı T6).
+- Mobil ek bulgu: `mobile/lib/features/payments/data/models/payment_model.dart` ve `mobile/test/features/payments/data/payment_model_test.dart`: yeni LateCancellation=4 tahsilat güncellemesinde LessonFee=1'e düşmemeli.
+- Mobil tam yollar: `mobile/lib/features/lesson_sessions/presentation/pages/lesson_detail_page.dart`; `mobile/lib/features/scheduling/{domain/scheduling_contracts.dart,data/models/lesson_schedule_model.dart,data/repositories/scheduling_repository_impl.dart,presentation/cubit/scheduling_cubit.dart}`; `mobile/test/helpers/fake_scheduling_repository.dart`, `mobile/test/features/scheduling/data/lesson_schedule_model_test.dart`, yeni `mobile/test/features/scheduling/cancellation_flow_test.dart`, ARB tr/en.
+- İmza/kuralların etkilediği mevcut testler: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (LessonSessions Infrastructure referansı), `tests/Unit/TestDoubles/FakeCancellationPolicyDirectory.cs`; `tests/Integration/{RealWeeklyLessonSessionTests,RealCrossTenantAccessTests,TeacherWorkflowIntegrationTests}.cs` (gelecek tamamlama ve eksik iptal nedeni eski beklentileri); `tests/Unit/{LessonScheduleTests,SchedulingMutationIntegrityTests,LessonConflictRecurrenceTests,OccurrenceScopeRequiredTests,LessonChangeRequestTests,LessonSessionTests,SingleCompletionPathTests}.cs`; integration mevcut tamamlama senaryoları gerekiyorsa geçmiş tarihe taşınır.
+- Doküman ekleri: `doc/modules/{00_genel_bakis,veri_modeli,m11_notifications}.md`, `doc/pages/{lesson_detail,scheduling}.md`, `doc/architecture/ux_rules.md`.
+
+**Teknik kararlar:** politika varsayılan 0/0; NoticeHours 0–720, ChargePercent 0–100. Ücret yalnız öğrenci kaynaklı iptalde, gerçek görünen başlangıç gelecekte ve kalan süre NoticeHours'tan küçükse anlaşılmış ders ücreti üzerinden hesaplanır (2 hane, AwayFromZero); istemci `isChargeable=false` ile muaf tutabilir, true politikayı yükseltemez. Tüm seri/gelecek kapsamında yalnız bildirim penceresindeki aktif oluşumlar ücretlenir; sınırsız seri genişletilmez. Yeni kapsam olayı bütün mevcut bekleyen oturum/normal ücret/hatırlatmaları temizler; ayrı oluşum olayı geç iptal borcunu taşır. Silme ücretsiz temizliktir. T6 öncesi hatırlatma temizliği mevcut planlı başlangıç anahtarıyla yapılır; kalıcı oluşum anahtarı T6'dadır.
+
 **Interfaces:**
 - `LessonOccurrenceCancelledIntegrationEvent(LessonScheduleId, OccurrenceStartUtc, TeacherUserId, StudentId, IsChargeable, ChargeAmount?, Currency?)`.
 
-- [ ] **Step 1: Kırmızı testler** — politika 24 saat / %100; dersten 3 saat önce iptal → ücret kaydı oluşur; 48 saat önce → bekleyen ücret kaydı iptal; öğretmen "ücretsiz iptal" seçerse ücret yok; geçersiz iptal nedeni → 400; aynı oluşuma ikinci erteleme talebi → 409; geçmiş/iptal edilmiş oluşuma talep → 400; silinen ders için hatırlatma/oturum kalmaz.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör** (`./scripts/test-with-docker.sh`).
-- [ ] **Step 5: Doküman + commit** — `m02`, `m04`, `m05`, `m07`, `roles/ogretmen.md`; rapor N-15/N-16 ✅.
+- [x] **Step 1: Kırmızı testler** — politika 24 saat / %100; dersten 3 saat önce iptal → ücret kaydı oluşur; 48 saat önce → bekleyen ücret kaydı iptal; öğretmen "ücretsiz iptal" seçerse ücret yok; geçersiz iptal nedeni → 400; aynı oluşuma ikinci erteleme talebi → 409; geçmiş/iptal edilmiş oluşuma talep → 400; silinen ders için hatırlatma/oturum kalmaz.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör** (`./scripts/test-with-docker.sh`).
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` ile 0/0 derlendi. 20 yeni birim testinin 13’ü iddia hatasıyla kırmızı; davranışsız ödeme/hatırlatma tüketicilerinde 4 gerçek PostgreSQL senaryosu kırmızı; seri kısaltıldıktan sonra talepten kabul sınırı ayrıca kırmızı → yeşil. Mobil yük/kapsam birleştirmesi 4/4, geç iptal tahsilat enum eşlemesi 1/1 kırmızı → yeşil. Sonuç: **19 mimari / 1173 birim / 142 integration**, başarısız 0, atlanan 0 (`bash scripts/test-with-docker.sh`); Release `-warnaserror --no-incremental` **0 uyarı/0 hata**; **295 Flutter**, fatal-infos analiz temiz. Üç migration: drift 0, **152 Down kontrolü**. Ayrı PostgreSQL DB’de Pending tekrar göçü en erken talebi bıraktı, tekrarı silmeden Rejected yaptı; Down/yeniden Up iki satırı korudu. Kabul SaveChanges’ine enjekte edilen hatada oluşum ertelemesi ve kabul birlikte geri alındı; eşzamanlı iki talebin yalnız biri 200, diğeri 409.
+
+- [x] **Step 5: Doküman + commit** — `m02`, `m04`, `m05`, `m07`, `roles/ogretmen.md`; rapor N-15 ✅; N-16 Scheduling/silme/gelecek tamamlama ✅, veli beyanı tekliği P18 T3’te açık.
   ```bash
   git commit -m "feat(scheduling): iptal politikasi + gec iptal ucreti + iptal sonrasi temizlik (N-15, N-16)"
   ```
@@ -195,6 +210,8 @@
 ---
 
 ### Task 7: Oluşum bazlı öğretmen panosu projeksiyonu (N-49, N-48 iptal sırası)
+
+**P17 T5 devri:** `Single`/`ThisAndFuture` iptallerinde yeni `LessonCancellationAppliedDomainEvent`, silmede `LessonScheduleDeletedDomainEvent` yayımlanır. Reporting bu kapsam olaylarını ve silmeyi de tüketmelidir; eski `LessonScheduleCancelledDomainEvent` yalnız bütün seri/tekil iptal yolunda kalır. Geç iptal borcu ayrıca `LessonOccurrenceCancelledIntegrationEvent` taşır.
 
 **Files:**
 - Modify: `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs`, `src/Modules/Reporting/Infrastructure/TeacherDashboardProjectionHandlers.cs`
@@ -227,4 +244,4 @@
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 (P17 Task 4: tek tamamlama yolu, kapsam doğrulaması + TDD + Docker/backend/mobil doğrulama).*
+*Güncelleme: 2026-11-15 (P17 Task 5: iptal politikası, ücret/oturum/hatırlatma temizliği, atomik talep, üç migration ve Docker/backend/mobil doğrulama).*

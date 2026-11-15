@@ -39,6 +39,8 @@ public static class DependencyInjection
         // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
         services.AddScoped<IPersonalDataAnonymizer, LessonSessionsPersonalDataAnonymizer>();
 
+        services.AddScoped<IIntegrationEventHandler, LessonCancelledSessionHandler>();
+
         return services;
     }
 }

@@ -396,7 +396,7 @@ public sealed class SchedulingModule : ModuleDefinition
             "scheduling.timeoff_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.request_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
             "scheduling.already_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
-            "scheduling.request_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
+            "scheduling.request_already_pending" or "scheduling.request_not_pending" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             // P17 T1: anahtarı göçte kurtarılamamış eski tekrarlı ders talebi — seri kaydırılmaz.
             "scheduling.request_occurrence_unknown" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "scheduling.occurrence_completed" => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
