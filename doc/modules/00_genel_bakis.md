@@ -28,6 +28,9 @@ updated: 2026-11-15
 **P17 T7 / M14:** Öğretmen pano dersleri `(TeacherUserId, LessonScheduleId, OccurrenceStartUtc)` anahtarlıdır. `ITeacherDashboardLessonSource` güncel Scheduling oluşumlarını, iptal/tamamlanmış dahil, modül sınırını koruyarak sağlar. Yerel dün → +14 gün penceresi olayla ve kiralı günlük işçiyle yenilenir; iptal tombstone tutulur, pencere dışı yalnız ders satırları budanır. `dashboard` yerel gün sayar; API yanıtı değişmedi.
 
 
+**P17 T8 (2026-11-15):** Haftalık ders yaşam döngüsü gerçek PostgreSQL + outbox ile zincirlenir. Single iptal aylık raporda oluşum anahtarıyla sayılır (`MonthlyCancellationOccurrences`); iki tamamlama + bir geç iptal toplam 300 TRY borç üretir. Mikro-saniyeli seri sonlandırma önceki oluşumu korur. Yeni HTTP ucu yoktur; mobil üç haftanın orijinal anahtarlarını ve iptal kapsamını korur.
+
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -381,3 +384,5 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P17 Task 4 / N-03, K-21: tek oturum tamamlama yolu ve oluşum durum senkronizasyonu.*
 
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
+
+*Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*

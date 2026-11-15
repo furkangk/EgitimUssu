@@ -16,8 +16,12 @@ namespace EgitimUssu.Tests.Integration;
 [Collection("containers")]
 public sealed class RealSeriesSplitTests(ContainerFixture fixture)
 {
-    [SkippableFact]
-    public async Task This_and_future_split_persists_two_series_moved_exception_and_outbox_event_atomically()
+    [SkippableTheory]
+    [InlineData(false, 0)]
+    [InlineData(false, 1)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    public async Task This_and_future_split_persists_two_series_moved_exception_and_outbox_event_atomically(bool useUntil, int dayShift)
     {
         Skip.IfNot(fixture.Available, "Docker gerekli (Testcontainers).");
 
@@ -28,11 +32,12 @@ public sealed class RealSeriesSplitTests(ContainerFixture fixture)
 
         var anchor = NextMondayAt14Utc();
         var cutoff = anchor.AddDays(21);
-        var newStart = cutoff.AddHours(2);
+        var newStart = cutoff.AddDays(dayShift).AddHours(2);
+        var rule = useUntil ? $"FREQ=WEEKLY;BYDAY=MO;UNTIL={anchor.AddDays(63):yyyyMMddTHHmmssZ}" : "FREQ=WEEKLY;BYDAY=MO;COUNT=10";
         var oldId = Guid.NewGuid();
         var series = new LessonSchedule(
             oldId, Guid.NewGuid(), Guid.NewGuid(), "Matematik", ScheduledLessonFormat.Online,
-            anchor, anchor.AddHours(1), "Europe/Istanbul", "FREQ=WEEKLY;BYDAY=MO;COUNT=10",
+            anchor, anchor.AddHours(1), "Europe/Istanbul", rule,
             LessonScheduleStatus.Planned, 60, "Zoom", null, "Gerçek seri", DateTime.UtcNow);
         series.ClearDomainEvents();
         var cancelled = new LessonOccurrenceException(
@@ -62,11 +67,14 @@ public sealed class RealSeriesSplitTests(ContainerFixture fixture)
         Assert.Equal(anchor, rows[0].StartAtUtc);
         Assert.Contains("UNTIL=", rows[0].RecurrenceRule);
         Assert.Equal(newStart, rows[1].StartAtUtc);
-        Assert.Contains("COUNT=7", rows[1].RecurrenceRule);
+        if (!useUntil) Assert.Contains("COUNT=7", rows[1].RecurrenceRule);
+        var future = RecurrenceExpander.Expand(rows[1].StartAtUtc, rows[1].EndAtUtc, rows[1].RecurrenceRule,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul"), anchor, anchor.AddDays(90));
+        Assert.Equal(Enumerable.Range(0, 7).Select(n => newStart.AddDays(n * 7)), future.Select(o => o.StartAtUtc));
 
         var moved = await db.LessonOccurrenceExceptions.AsNoTracking().SingleAsync(item => item.Id == cancelled.Id);
         Assert.Equal(newId, moved.SeriesLessonScheduleId);
-        Assert.Equal(anchor.AddDays(35).AddHours(2), moved.OriginalStartAtUtc);
+        Assert.Equal(anchor.AddDays(35 + dayShift).AddHours(2), moved.OriginalStartAtUtc);
         Assert.Equal(OccurrenceExceptionAction.Cancelled, moved.Action);
 
         var splitOutbox = await db.OutboxMessages.AsNoTracking()

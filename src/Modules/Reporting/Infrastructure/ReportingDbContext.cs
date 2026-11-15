@@ -79,7 +79,8 @@ public sealed class ReportingDbContext : ModuleDbContext
         modelBuilder.Entity<TeacherMonthlyItem>(builder =>
         {
             builder.ToTable("teacher_monthly_items");
-            builder.HasKey(item => new { item.TeacherUserId, item.Year, item.Month, item.Kind, item.ItemId });
+            builder.HasKey(item => new { item.TeacherUserId, item.Year, item.Month, item.Kind, item.ItemId, item.OccurrenceStartUtc });
+            builder.Property(item => item.OccurrenceStartUtc).HasDefaultValue(DateTime.UnixEpoch).ValueGeneratedNever();
             builder.Property(item => item.Kind).HasConversion<int>();
             builder.Property(item => item.Amount).HasPrecision(18, 2);
         });

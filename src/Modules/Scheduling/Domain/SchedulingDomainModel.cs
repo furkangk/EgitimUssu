@@ -202,7 +202,7 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
             return;
         }
 
-        var until = cutoffUtc.AddDays(-1).ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        var until = cutoffUtc.AddTicks(-1).ToString("yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture);
         RecurrenceRule = RecurrenceRule.Contains("UNTIL=", StringComparison.OrdinalIgnoreCase)
             ? System.Text.RegularExpressions.Regex.Replace(RecurrenceRule, "UNTIL=[^;]*", $"UNTIL={until}")
             : $"{RecurrenceRule};UNTIL={until}";

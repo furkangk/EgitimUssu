@@ -259,17 +259,31 @@
 
 ---
 
-### Task 8: Kapanış — haftalık ders senaryosu
+### Task 8: Kapanış — haftalık ders senaryosu ✅
 
 **Files:**
 - Create: `tests/Integration/RealWeeklyLessonLifecycleScenarioTests.cs`
 - Create: `mobile/test/features/scheduling/lesson_occurrence_flow_test.dart`
+- Modify: `tests/Integration/RealOccurrenceReminderTests.cs` (bayat olayı gerçek IntegrationEvent zarfından çöz ve handler/inbox kanıtı al).
+- Modify: `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs`, `tests/Unit/SeriesSplitTests.cs` (#237: cutoff öncesindeki son saniye; günlük/haftalık mikro-saniyeli oluşumlar korunur).
+- Modify: `src/Modules/Scheduling/Application/LessonScheduleFeatures.cs`, `src/Modules/Scheduling/Application/RecurrenceExpander.cs`, `tests/Integration/RealSeriesSplitTests.cs` (bağımsız son inceleme: ThisAndFuture yeni gününde BYDAY ve taşıma farkında UNTIL; tek çağıranlı iç yardımcı imzası, dış arayüz/sahteler değişmez).
+- Modify: `src/Modules/Reporting/{Domain/ReportingProjections.cs,Infrastructure/ReportingProjectionHandlers.cs,Infrastructure/ReportingDbContext.cs,Infrastructure/DependencyInjection.cs}`; Reporting `MonthlyCancellationOccurrences` migration + designer + snapshot (Single iptal aylık raporda oluşum anahtarlı sayılır; eski bütün-seri olayının mevcut anlamı korunur).
+- Create: `tests/Unit/MonthlyOccurrenceCancellationTests.cs` (oluşum tekilliği); migration veri tatbikatı kapanış integration dosyasında.
+- Doc: `doc/roles/ogretmen.md`, `doc/modules/{m04_scheduling,m14_reporting,00_genel_bakis,veri_modeli}.md` ve `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`.
 
-- [ ] **Step 1: Senaryo** (gerçek Postgres + outbox çalışır): öğretmen 24 saat/%100 iptal politikasıyla haftalık ders açar → 1. hafta oturum + tamamla → ücret kaydı 1 → 2. hafta **yalnız bu** iptal (3 saat kala) → geç iptal ücreti → 3. hafta 18:00'e ertele → hatırlatma 17:45 → 3. hafta oturum + tamamla → ücret kaydı 2 → panoda ve aylık raporda doğru sayılar; öğrenci ve veli 2 tamamlanmış oturum görür.
-- [ ] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test` → başarısız 0, atlanan 0.
-- [ ] **Step 3: Doküman kapanışı** (`roles/ogretmen.md` akış diyagramı) + ILERLEME.
+**Kapsam/karar doğrulaması (2026-11-15):** T8 ilk listesi öğretmen akış dokümanını, #237/#239 regresyonlarını ve Single iptal aylık sayaç açığını atlıyordu. Otomasyon karar yetkisiyle bu kapanış regresyonları aynı göreve alındı. Yeni arayüz yok; mevcut sahteler değişmez. Zamanı ilerletirken sistem `IClock` gerçek kalır (JWT/kira/outbox); yalnız iptal/tamamlama handler'ları, hatırlatma planlayıcısı ve `ILocalCalendar` testin iş saatiyle kurulur. Eski outbox şemaları değişmez. Aylık raporun eski toplu-seri iptal semantiğinin oluşumlara genişletilmesi ayrı ürün kapsamıdır; bu görev Single iptal ve iki tamamlama zincirini doğrular.
+
+**Interfaces:** Yeni aylık `TrackCancelledOccurrence(scheduleId, occurrenceStartUtc)` aynı `(seri, orijinal oluşum)` için tek item üretir; aynı olay farklı EventId ile tekrar teslim edilse de sayaç artmaz. Eski item'lar UTC epoch ile korunur; Down seri başına bir iptal satırı bırakır. HTTP arayüzleri değişmez.
+
+- [x] **Step 1: Senaryo** (gerçek Postgres + outbox çalışır): öğretmen 24 saat/%100 iptal politikasıyla haftalık ders açar → 1. hafta oturum + tamamla → ücret kaydı 1 → 2. hafta **yalnız bu** iptal (3 saat kala) → geç iptal ücreti → 3. hafta 18:00'e ertele → hatırlatma 17:45 → 3. hafta oturum + tamamla → ücret kaydı 2 → panoda ve aylık raporda doğru sayılar; öğrenci ve veli 2 tamamlanmış oturum görür.
+- [x] **Step 2: Koş** — `./scripts/test-with-docker.sh`, `flutter test` → başarısız 0, atlanan 0.
+- [x] **Step 3: Doküman kapanışı** (`roles/ogretmen.md` akış diyagramı) + ILERLEME.
   ```bash
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
 
 *Güncelleme: 2026-11-15 (P17 Task 7: oluşum bazlı pano, tombstone, günlük pencere ve PostgreSQL göç kanıtı) · 2026-11-15 (P17 Task 6: oluşum/alıcı hatırlatmaları, 7 günlük planlayıcı, yeni oluşum erteleme olayı, migration ve Docker doğrulaması).*
+
+**Doğrulama kanıtı (2026-11-15):** Davranışsız aylık imzalar Release 0 uyarı/0 hata; ilk iki kırmızı unit (aylık 0/2 ve mikro-saniyeli günlük seri 1/2), gerçek haftalık senaryo aylık iptal 0/1 kırmızı. Göç Down çoklu oluşumdan eski PK’ya dönerken 23505 kırmızı → yeşil. Bağımsız son incelemenin BYDAY/UNTIL bulguları: imza Release 0/0; 4/4 unit + 3/4 PostgreSQL kırmızı → 8/8 seri unit + 10/10 hedefli PostgreSQL yeşil. Son tam `bash scripts/test-with-docker.sh`: **19 mimari / 1196 birim / 154 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0 uyarı/0 hata**; migration drift **0**, **155 Down kontrolü**. **296 Flutter testi**, `flutter analyze --fatal-infos` temiz; analysis_options geri alındı. Doc health RED 0, önceki 4 YELLOW korundu. Haftalık senaryo üç haftayı iş saatini ilerleterek gerçek HTTP/outbox üzerinden bağlar; sistem IClock gerçek kalır. Öğrenci/veli 2 tamamlanmış oturum, 2 ders ücreti + 1 geç iptal ücreti, aylık 2 tamamlandı/1 Single iptal/300 TRY ve görünen 18:00 için 17:45 hatırlatma kanıtlandı. Migration ayrı DB’de eski satır geri doldurma + çoklu oluşum Down/Up ile doğrulandı. P17 **8/8**; N-01 mobil erteleme girişi P21 T4, N-16 veli beyanı P18 T3, N-48 trend P19’da kalır.
+
+*Güncelleme: 2026-11-15 — P17 T8 kapanışı ve bağımsız inceleme düzeltmeleri.*

@@ -99,6 +99,59 @@ public sealed class SeriesSplitTests
         Assert.Equal(0, store.SaveCount);
     }
 
+    [Theory]
+    [InlineData("FREQ=DAILY;COUNT=5", 1)]
+    [InlineData("FREQ=WEEKLY;COUNT=5", 7)]
+    public void End_series_preserves_every_occurrence_before_microsecond_cutoff(string rule, int days)
+    {
+        var start = Anchor.AddTicks(1234560);
+        var series = new LessonSchedule(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Matematik",
+            ScheduledLessonFormat.Online, start, start.AddHours(1), "Europe/Istanbul", rule,
+            LessonScheduleStatus.Planned, 15, null, null, null, Clock.UtcNow);
+        var cutoff = start.AddDays(2 * days);
+        series.EndSeriesBefore(cutoff, Clock.UtcNow);
+        var actual = RecurrenceExpander.Expand(series.StartAtUtc, series.EndAtUtc, series.RecurrenceRule,
+            Calendar.Zone, start.AddDays(-1), cutoff.AddDays(30));
+        Assert.Equal(new[] { start, start.AddDays(days) }, actual.Select(o => o.RecurrenceIdUtc));
+    }
+
+    [Fact]
+    public async Task Moving_split_to_tuesday_keeps_selected_lesson_and_shifted_cancellation()
+    {
+        var series = NewSeries();
+        var store = new Store(series);
+        var cancellation = new LessonOccurrenceException(Guid.NewGuid(), series.Id, Anchor.AddDays(35),
+            OccurrenceExceptionAction.Cancelled, null, null, "İptal", Clock.UtcNow);
+        store.Exceptions.Add(cancellation);
+        var movedStart = Cutoff.AddDays(1).AddHours(2);
+        var result = await Handler(store).Handle(new RescheduleLessonScheduleCommand(series.Id,
+            movedStart, movedStart.AddHours(1), null, OccurrenceScope.ThisAndFuture, Cutoff), CancellationToken.None);
+        Assert.True(result.IsSuccess, result.Error.Code);
+        var future = Assert.Single(store.Lessons, item => item.Id != series.Id);
+        var occurrences = Expand(future, store.Exceptions).ToArray();
+        Assert.Equal(Enumerable.Range(0, 7).Select(n => movedStart.AddDays(7 * n)), occurrences.Select(o => o.RecurrenceIdUtc));
+        Assert.True(Assert.Single(occurrences, o => o.RecurrenceIdUtc == movedStart.AddDays(14)).IsCancelled);
+    }
+
+    [Theory]
+    [InlineData("20261123T140000Z")]
+    [InlineData("20261123T170000")]
+    [InlineData("20261123")]
+    public async Task Moving_last_until_occurrence_to_next_day_does_not_lose_it(string until)
+    {
+        var series = new LessonSchedule(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Matematik",
+            ScheduledLessonFormat.Online, Anchor, Anchor.AddHours(1), "Europe/Istanbul",
+            $"FREQ=WEEKLY;UNTIL={until}", LessonScheduleStatus.Planned, 15, null, null, null, Clock.UtcNow);
+        var store = new Store(series);
+        var movedStart = Cutoff.AddDays(1).AddHours(2);
+        var result = await Handler(store).Handle(new RescheduleLessonScheduleCommand(series.Id,
+            movedStart, movedStart.AddHours(1), null, OccurrenceScope.ThisAndFuture, Cutoff), CancellationToken.None);
+        Assert.True(result.IsSuccess, result.Error.Code);
+        var future = Assert.Single(store.Lessons, item => item.Id != series.Id);
+        Assert.Equal(movedStart, Assert.Single(Expand(future, store.Exceptions)).StartAtUtc);
+        Assert.Equal(3, Expand(series, store.Exceptions).Count());
+    }
+
     private static LessonSchedule NewSeries()
         => new(
             Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Matematik", ScheduledLessonFormat.Online,

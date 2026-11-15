@@ -7,6 +7,7 @@ using EgitimUssu.Modules.Notifications.Infrastructure;
 using EgitimUssu.Modules.Scheduling.Infrastructure;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
+using EgitimUssu.Shared.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -59,8 +60,15 @@ public sealed class RealOccurrenceReminderTests(ContainerFixture fixture)
         {
             var db = scope.ServiceProvider.GetRequiredService<SchedulingDbContext>();
             var message = await db.OutboxMessages.FirstAsync(m => m.Type == "LessonScheduledDomainEvent" && m.Payload.Contains(scheduleId.ToString()));
-            var envelope = new IntegrationEvent(Guid.NewGuid(), DateTime.UtcNow, message.Type, "Scheduling", message.Payload);
-            foreach (var handler in scope.ServiceProvider.GetServices<IIntegrationEventHandler>().Where(h => h.CanHandle(envelope))) await handler.HandleAsync(envelope);
+            var original = JsonSerializer.Deserialize<IntegrationEvent>(message.Payload, IntegrationEventSerialization.Options)!;
+            var envelope = original with { EventId = Guid.NewGuid() };
+            using var payload = JsonDocument.Parse(envelope.Payload);
+            Assert.Equal(scheduleId, payload.RootElement.GetProperty("lessonScheduleId").GetGuid());
+            var handlers = scope.ServiceProvider.GetServices<IIntegrationEventHandler>().Where(h => h.CanHandle(envelope)).ToArray();
+            Assert.Contains(handlers, h => h.GetType().Name == "LessonScheduleNotificationIntegrationEventHandler");
+            foreach (var handler in handlers) await handler.HandleAsync(envelope);
+            Assert.True(await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().Set<InboxMessage>()
+                .AnyAsync(m => m.EventId == envelope.EventId && m.Handler == "LessonScheduleNotificationIntegrationEventHandler"));
         }
         Assert.Equal(ReminderStatus.Cancelled, Assert.Single(await Reminders(factory, scheduleId)).Status);
         Assert.Equal(HttpStatusCode.NoContent, (await teacher.DeleteAsync($"/api/scheduling/lessons/{scheduleId}")).StatusCode);
@@ -82,7 +90,7 @@ public sealed class RealOccurrenceReminderTests(ContainerFixture fixture)
         var teacherId = await Register(teacher, 2);
         var studentId = (await Json(await teacher.PostAsJsonAsync("/api/students/profiles", new
         { createdByTeacherUserId = teacherId, fullName = "Seri Öğrencisi", gradeLevel = "8", origin = 1, subjects = Array.Empty<object>() }))).GetProperty("id").GetGuid();
-        var start = new DateTime(DateTime.UtcNow.AddDays(2).Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var start = new DateTime(DateTime.UtcNow.AddDays(2).AddSeconds(-1).Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, DateTimeKind.Utc).AddTicks(1234560);
         var schedule = await Schedule(teacher, teacherId, studentId, start, "FREQ=DAILY;COUNT=10");
         await Task.WhenAll(Plan(factory), Plan(factory));
         var reminders = await Reminders(factory, schedule);

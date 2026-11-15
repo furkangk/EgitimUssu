@@ -59,6 +59,7 @@ public static class DependencyInjection
         // M14-1/2/3 analitik projeksiyon handler'ları
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyLessonCompletedProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyLessonCancelledProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, TeacherMonthlyOccurrenceCancelledProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyPaymentExpectedProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyPaymentCollectedProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, StudentStudySessionProjectionHandler>();

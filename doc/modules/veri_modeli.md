@@ -26,6 +26,11 @@ updated: 2026-11-15
 `teachers.teacher_profiles`: `CancellationNoticeHours int NOT NULL DEFAULT 0`, `CancellationChargePercent numeric(5,2) NOT NULL DEFAULT 0` (`TeacherCancellationPolicy`). `payments.payment_records`: nullable `LessonScheduleId uuid`, `OccurrenceStartUtc timestamptz`; yalnız `ItemType='LateCancellation' AND LessonScheduleId IS NOT NULL` için `(LessonScheduleId, OccurrenceStartUtc)` UNIQUE (`CancellationOccurrenceCharges`). Çapraz modül FK yoktur. `scheduling.lesson_change_requests`: `(LessonScheduleId, OccurrenceStartAtUtc)` UNIQUE WHERE Status='Pending' AND anahtar IS NOT NULL; eski tekrarlar silinmeden Rejected yapılır (`PendingOccurrenceChangeRequest`). Üç migration’ın Down metotları kolon/indeks eklerini geri alır; talep geçmişindeki retleri geri çevirmek tekrar üretmemek için bilinçli olarak yapılmaz.
 
 
+### P17 T8 — aylık iptal item anahtarı (2026-11-15)
+
+`reporting.teacher_monthly_items` PK: `(TeacherUserId, Year, Month, Kind, ItemId, OccurrenceStartUtc)`. `Kind=CancelledLesson` Single iptalde orijinal oluşum UTC anını taşır; diğer item'lar ve eski/toplu satırlar `1970-01-01T00:00:00Z` kullanır. `MonthlyCancellationOccurrences.Up` eski satırları epoch ile doldurur; Down seri başına tek iptal bırakır (epoch öncelikli, aksi halde en son oluşum), diğer item türleri kayıpsızdır. Kaynak modüle FK yoktur; olay + inbox ile beslenir.
+
+
 ## 1. Modül Sınırı Kuralı (Önemli)
 
 > Her modül **kendi şemasında** ayrı `DbContext` ile yaşar (`identity`, `teachers`, `students`, ...). Aşağıdaki "→" referansları
@@ -254,3 +259,5 @@ erDiagram
 *Güncelleme: 2026-11-15 — P17 Task 4 / N-03, K-21: tek oturum tamamlama yolu ve oluşum durum senkronizasyonu.*
 
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
+
+*Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*

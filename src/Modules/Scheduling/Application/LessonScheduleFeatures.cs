@@ -401,7 +401,7 @@ internal static class SeriesSplitRules
         @"\bCOUNT=(\d+)",
         System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
-    public static string? RuleForNewSeries(LessonSchedule lesson, DateTime cutoffUtc, ILocalCalendar calendar)
+    public static string? RuleForNewSeries(LessonSchedule lesson, DateTime cutoffUtc, DateTime newStartAtUtc, ILocalCalendar calendar)
     {
         var rule = lesson.RecurrenceRule;
         if (string.IsNullOrWhiteSpace(rule))
@@ -410,28 +410,16 @@ internal static class SeriesSplitRules
         }
 
         var match = CountPattern.Match(rule);
-        if (!match.Success
-            || !int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.None,
-                System.Globalization.CultureInfo.InvariantCulture, out var totalCount))
+        if (match.Success && int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out var totalCount))
         {
-            return rule;
+            var beforeCutoff = RecurrenceExpander.Expand(lesson.StartAtUtc, lesson.EndAtUtc, rule,
+                calendar.SeriesZone(lesson.TimeZone), lesson.StartAtUtc, cutoffUtc.AddTicks(-1)).Count();
+            var remaining = totalCount - beforeCutoff;
+            if (remaining < 1) throw new InvalidOperationException("Bölme noktasından sonra seride oluşum kalmadı.");
+            rule = CountPattern.Replace(rule, $"COUNT={remaining}", 1);
         }
-
-        var beforeCutoff = RecurrenceExpander.Expand(
-                lesson.StartAtUtc,
-                lesson.EndAtUtc,
-                rule,
-                calendar.SeriesZone(lesson.TimeZone),
-                lesson.StartAtUtc,
-                cutoffUtc.AddTicks(-1))
-            .Count();
-        var remaining = totalCount - beforeCutoff;
-        if (remaining < 1)
-        {
-            throw new InvalidOperationException("Bölme noktasından sonra seride oluşum kalmadı.");
-        }
-
-        return CountPattern.Replace(rule, $"COUNT={remaining}", 1);
+        return RecurrenceExpander.ShiftRule(rule, cutoffUtc, newStartAtUtc, calendar.SeriesZone(lesson.TimeZone));
     }
 }
 
@@ -787,7 +775,7 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
                             item.OverrideStartAtUtc?.Add(shift),
                             item.OverrideEndAtUtc?.Add(shift)))
                         .ToArray();
-                    splitRule = SeriesSplitRules.RuleForNewSeries(lesson, cutoff, _calendar);
+                    splitRule = SeriesSplitRules.RuleForNewSeries(lesson, cutoff, command.NewStartAtUtc, _calendar);
                 }
 
                 candidates = TeacherScheduleConflicts.CandidateOccurrences(

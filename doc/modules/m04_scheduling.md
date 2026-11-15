@@ -47,6 +47,13 @@ Mobil iptal girişi ders detayındadır: kapsam → neden/ücretsiz iptal/açık
 `ITeacherDashboardLessonSource.ListDashboardOccurrencesAsync(fromUtc, toUtc, lessonScheduleId?, ct)` yalnız öğretmenli dersleri seri diliminde bütün istisnalarla genişletir. Görünen başlangıç `[fromUtc, toUtc)` içindedir; orijinal oluşum anahtarı, görünen başlangıç ve iptal bilgisi döner. Tamamlanmış dersler de dahildir. Reporting yerel dün → +14 gün penceresini bu ayrı sözleşmeyle uzlaştırır; eski outbox şemaları ve hatırlatma okuyucusu değişmedi. Ayrıntı [M14](m14_reporting.md).
 
 
+### P17 T8 — kapanış sınırları
+
+Bağımsız kapanış incelemesinde BYDAY ve UNTIL taşıma açıkları kapandı. `ThisAndFuture` yeni serinin haftalık gün desenini seri dilimindeki yerel gün farkıyla döndürür (Pazartesi → Salı; birden fazla BYDAY varsa hepsi aynı farkla). COUNT kaynak seri üzerinden kalan sayıya düşer; UTC, floating ve yalnız-tarih UNTIL sınırları kaynak diliminde çözüldükten sonra UTC taşıma farkıyla kayar. Yeni sınır mevcut parser’ın desteklediği ISO UTC biçiminde yazılır, saniye altı hassasiyet korunur. Böylece taşınan ilk/son ders ve iptal istisnaları yeni seriye ait kalır.
+
+`EndSeriesBefore` artık `UNTIL` değerini cutoff'tan bir tick önceki anın tam saniyesine yazar. Böylece mikro-saniyeli günlük serinin önceki günü korunur, cutoff ve sonrası dışarıda kalır; haftalık seri de aynı sınırı kullanır. Gerçek PostgreSQL bölme testi mikro-saniyeli anahtarla çalışır. Kapanış senaryosu birinci ve üçüncü haftayı ayrı oturum/ücretle tamamlar, ikinci haftayı Single iptal eder ve üçüncü haftayı orijinal anahtarını koruyarak 15:00 → 18:00 taşır.
+
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 | Katman | Durum | Kanıt |
@@ -524,3 +531,5 @@ POST /lesson-requests/{id}/reject
 *Güncelleme: 2026-11-15 — P17 Task 4 / N-03, K-21: tek oturum tamamlama yolu ve oluşum durum senkronizasyonu.*
 
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
+
+*Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*

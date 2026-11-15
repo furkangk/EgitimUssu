@@ -24,6 +24,15 @@ updated: 2026-11-15
 
 ---
 
+### P17 T8 — tek oluşum iptalinin aylık sayımı
+
+`TeacherMonthlyOccurrenceCancelledProjectionHandler`, `LessonCancellationAppliedDomainEvent` olayının `Single` kapsamını iptal anının **yerel ayına** işler. `TeacherMonthlyItem` anahtarı `(TeacherUserId, Year, Month, Kind, ItemId, OccurrenceStartUtc)` olur: iki farklı hafta ayrı sayılır, aynı oluşum farklı EventId ile tekrar geldiğinde çoğalmaz. Tamamlama ve ödeme item'ları ile eski/toplu iptal item'ları UTC epoch kullanır.
+
+`MonthlyCancellationOccurrences` göçü eski satırları epoch ile korur. Down yalnız aynı serinin çoklu iptal item'larını teke indirir (varsa eski epoch, yoksa son oluşum); ödeme ve tamamlama item'larını korur. Eski `All` olayı seri başına tek iptal saymayı sürdürür; `ThisAndFuture` toplu iptal analitiği bu kapanışın kapsamına alınmadı (P19 T5 değerlendirmesi).
+
+Haftalık yaşam döngüsü kanıtı: 2 tamamlanmış ders, 1 Single iptal, 2 × 100 TRY normal ücret + 100 TRY geç iptal borcu; aylık beklenen 300 TRY, katılım 2. Öğrenci ve onaylı veli aynı iki tamamlanmış oturumu HTTP üzerinden görür.
+
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 ### 🟡 Var olan (P08 Task 4 sonrası)
@@ -32,10 +41,10 @@ updated: 2026-11-15
 |---------|-------|-------|
 | Module tanımı | `src/Modules/Reporting/API/ReportingModule.cs` | `GET /status` (placeholder) + `dashboard` + `monthly`, `free-slots`, `study-analysis`, `performance` + **`POST students/{id}/report`**, **`GET reports/{id}/file`** |
 | Domain (panel) | `src/Modules/Reporting/Domain/TeacherDashboardProjection.cs` | `TeacherDashboardProjection` + `TeacherDashboardItem` + `TeacherDashboardItemKind` |
-| Domain (analitik) | `src/Modules/Reporting/Domain/ReportingProjections.cs` **(P08 Task 3)** | `TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection` (+ item tipleri) · `ReportingPeriods` (UTC ay / ISO hafta) · `ReportingDelta` |
+| Domain (analitik) | `src/Modules/Reporting/Domain/ReportingProjections.cs` **(P08 Task 3)** | `TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection` (+ item tipleri) · `ReportingPeriods` (yerel ay / ISO hafta) · `ReportingDelta` |
 | Domain (rapor kaydı) | **`src/Modules/Reporting/Domain/StudentReport.cs`** (P08 Task 4) | `StudentReport` aggregate — üretilmiş PDF'in `IFileStorage` anahtarı + dönem + üreten kullanıcı |
 | DbContext | `src/Modules/Reporting/Infrastructure/ReportingDbContext.cs` | 9 tablo: panel 2 + analitik 6 + **`student_reports`** (`reporting` şeması) |
-| Projeksiyon handler'ları | `.../TeacherDashboardProjectionHandlers.cs` + **`.../ReportingProjectionHandlers.cs`** | 7 panel + **8 analitik** handler (Scheduling/Assignments/Payments/Students/LessonSessions/Study/ProgressTracking) |
+| Projeksiyon handler'ları | `.../TeacherDashboardProjectionHandlers.cs` + **`.../ReportingProjectionHandlers.cs`** | 7 panel + **9 analitik** handler (Scheduling/Assignments/Payments/Students/LessonSessions/Study/ProgressTracking) |
 | Sorgu | `.../Application/ReportingFeatures.cs` + `ReportingAnalyticsFeatures.cs` | `GetTeacherDashboardQuery` + 4 analitik sorgu/handler |
 | PDF raporu | **`.../Application/StudentReportFeatures.cs`** (P08 Task 4) | `GenerateStudentReportCommand` + `GetStudentReportFileQuery` · `StudentReportComposer` (saf metin) · `StudentReportAssembler` · `ReportEntitlementResolver` (premium kapısı — `IEntitlementDirectory`, P09 Task 2) |
 | PDF üretici | **`.../Infrastructure/StudentReportPdfGenerator.cs`** | QuestPDF (Community lisansı statik kurucuda ayarlanır) |
@@ -386,3 +395,5 @@ Sorgu zamanı:
 ---
 
 *Raporlama ve Analiz Modülü (M14) — EğitimÜssü Detaylı Tasarım | Güncelleme: 2026-11-15 (P17 T7: oluşum anahtarlı yerel pano, iptal tombstone, günlük pencere ve göç) · 2026-11-15 (P16 Task 5 / N-11, N-43, N-50: §4 kural 7 — dönem kovaları Türkiye yerel günü (`ReportingPeriods` takvimli/tarih tabanlı, UTC aşırı yüklemesi kaldırıldı), boş zaman şablonu yerel güne kurulur → UTC, `monthly`/`free-slots`/PDF varsayılan dönemleri yerel; BFF `dashboard-summary` bugünü yerel + `overduePaymentTotals` para birimi bazında, eski tekil alanlar ilk satır) · 2026-09-04 (P09 Task 2 / K-09: PDF premium kapısı `IMembershipDirectory` + geçici `ReportEntitlement.EffectiveTier` ikilisinden `IEntitlementDirectory`'ye devredildi — kural artık "istek sahibinin `PdfReports` hakkı", Admin muaf. Önceki not — P08 kapanış / Task 6: durum 🟡 → 🟢; projeksiyon yeniden-kurulabilirliği `RealProjectionRebuildTests` ile gerçek Postgres'te kanıtlandı (boşalt → aynı akışı oynat → aynı sayaçlar → üçüncü teslimde değişmiyor); kalan borçlar P09/P12 olarak etiketlendi. Önceki not — P08 Task 5: mobil rapor ekranları — `TeacherReportsPage` (`/teacher/reports`), `StudentAnalysisPage` (`/student/reports`), veli çocuk detayına gelişim grafikleri; `402/403` → `premiumRequired` kilidi; PDF `open_filex` ile cihazda açılıyor. Önceki not — P08 Task 4 / M14-4: QuestPDF ile PDF öğrenci raporu — `StudentReport` aggregate + `student_reports` tablosu (`AddStudentReports`), `POST students/{id}/report` (premium kapılı, 402) + `GET reports/{id}/file` (yetkili indirme), saf `StudentReportComposer`, geçici `ReportEntitlement` kapısı ve üç yeni okuma sözleşmesi kullanımı (`IStudentDirectory.GetDisplayNameAsync`, `ITeacherDirectory`, `IStudentAssignmentDigestDirectory`). Önceki not — P08 Task 3 / M14-1+M14-2+M14-3+M14-5: üç analitik projeksiyon (`TeacherMonthlyProjection`, `StudentStudyProjection`, `StudentPerformanceProjection`) + 8 besleme handler'ı + 6 tablo (`AddReportingProjections`) + 4 uç (`monthly`, `free-slots`, `study-analysis`, `performance`) + `StudentReportPrivacyGate` gizlilik kapısı + saf `FreeSlotCalculator`; iki yeni modüller-arası sözleşme: `ITeacherAvailabilityDirectory` (Teachers) ve `ILessonScheduleDirectory.ListTeacherBusyIntervalsAsync` (Scheduling). `delta` bilinçli olarak **saklanmıyor**. Önceki not — P07: öğretmen dashboard projeksiyonu — ilk gerçek read-model, 🔴 → 🟡)*
+
+*Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*

@@ -93,17 +93,21 @@ public sealed class TeacherMonthlyProjection : ProjectionEntity
     public void TrackCancelledLesson(Guid lessonScheduleId)
         => Upsert(TeacherMonthlyItemKind.CancelledLesson, lessonScheduleId);
 
+    public void TrackCancelledOccurrence(Guid lessonScheduleId, DateTime occurrenceStartUtc)
+        => Upsert(TeacherMonthlyItemKind.CancelledLesson, lessonScheduleId, occurrenceStartUtc: occurrenceStartUtc);
+
     public void TrackExpectedPayment(Guid paymentRecordId, decimal amount)
         => Upsert(TeacherMonthlyItemKind.ExpectedPayment, paymentRecordId, amount: amount);
 
     public void AddCollected(decimal delta) => CollectedAmount += delta;
 
-    private void Upsert(TeacherMonthlyItemKind kind, Guid itemId, Guid? studentId = null, decimal? amount = null)
+    private void Upsert(TeacherMonthlyItemKind kind, Guid itemId, Guid? studentId = null, decimal? amount = null, DateTime? occurrenceStartUtc = null)
     {
-        var existing = _items.FirstOrDefault(item => item.Kind == kind && item.ItemId == itemId);
+        var key = occurrenceStartUtc ?? DateTime.UnixEpoch;
+        var existing = _items.FirstOrDefault(item => item.Kind == kind && item.ItemId == itemId && item.OccurrenceStartUtc == key);
         if (existing is null)
         {
-            _items.Add(new TeacherMonthlyItem(TeacherUserId, Year, Month, kind, itemId, studentId, amount));
+            _items.Add(new TeacherMonthlyItem(TeacherUserId, Year, Month, kind, itemId, studentId, amount, key));
             return;
         }
 
@@ -124,8 +128,10 @@ public sealed class TeacherMonthlyItem
         TeacherMonthlyItemKind kind,
         Guid itemId,
         Guid? studentId,
-        decimal? amount)
+        decimal? amount,
+        DateTime? occurrenceStartUtc = null)
     {
+        OccurrenceStartUtc = occurrenceStartUtc ?? DateTime.UnixEpoch;
         TeacherUserId = teacherUserId;
         Year = year;
         Month = month;
@@ -145,6 +151,9 @@ public sealed class TeacherMonthlyItem
 
     /// <summary>Kaynak modüldeki kaydın kimliği (ders oturumu / ders planı / ödeme kaydı).</summary>
     public Guid ItemId { get; private set; }
+
+    /// <summary>Single iptalin orijinal oluşumu; eski/toplu satırlar ve diğer item türleri UTC epoch.</summary>
+    public DateTime OccurrenceStartUtc { get; private set; } = DateTime.UnixEpoch;
 
     public Guid? StudentId { get; private set; }
 

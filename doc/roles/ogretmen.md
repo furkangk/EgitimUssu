@@ -24,6 +24,23 @@ updated: 2026-11-15
 
 > **P17 Task 3 (2026-11-15):** Haftalık dersin her oluşumunu ayrı başlatabilir; aynı oluşuma çift dokunuş tek oturum üretir. Tamamlanmış oturumun not/konu düzeltmesi yeni tamamlama olayı yaymaz ve ilk tamamlanma damgasını korur. `Absent` gelişim katılımına eklenmez. **P17 T4 / K-21:** Tamamlama yalnız LessonSessions’tan yapılır; ders kartı ve detay ekranı orijinal oluşumun oturumunu türetip tamamlar. Takvim olayı tüketince yalnız o hafta Completed olur. Tamamlanmış oluşumu içeren iptal/erteleme ve tüm seri güncellemesi 409 verir; gelecekten başlayan kapsam geçmişi korur.
 
+### Haftalık ders yaşam döngüsü (P17 T8)
+
+```mermaid
+flowchart TD
+    A[Haftalık ders: 3 oluşum, 100 TRY] --> B[1. hafta: oturum tamamla]
+    B --> C[Normal ders ücreti: 100 TRY]
+    C --> D[2. hafta: 3 saat kala yalnız bu dersi iptal et]
+    D --> E[24 saat ve yüzde 100 politika: 100 TRY geç iptal]
+    E --> F[3. hafta: 15:00 dersini 18:00 saatine ertele]
+    F --> G[Hatırlatma 17:45, orijinal oluşum anahtarı korunur]
+    G --> H[3. hafta: ayrı oturumu tamamla, 100 TRY ücret]
+    H --> I[Aylık: 2 tamamlandı, 1 iptal, 300 TRY beklenen]
+    I --> J[Öğrenci ve onaylı veli: 2 tamamlanmış oturum]
+```
+
+Single iptal aylık raporda oluşum bazında sayılır. Pano tamamlanmış dersi günlük toplamda tutar, iptal edilmiş olanı dışlar. Bu zincir gerçek PostgreSQL/outbox senaryosu ve mobil orijinal anahtar/kapsam testiyle doğrulanır; FCM cihaz teslimi Q8/P25 T5'tedir.
+
 ### Ders iptali (P17 T5)
 
 Öğretmen ders detayından tekrarlı derste “Yalnız bu ders / Bu ve sonrakiler / Tüm seri” kapsamını seçer; iptal nedeni ve isteğe bağlı açıklama girer, “Ücretsiz iptal et” ile politika ücretinden vazgeçebilir. Politika profil API’sinden NoticeHours/ChargePercent olarak ayarlanır (varsayılan kapalı; mobil ayar formu bu görevde eklenmedi). Öğrencinin geç iptali anlaşılmış ders ücreti üzerinden borç üretir; erken/öğretmen kaynaklı/ücretsiz iptalde üretmez. Bekleyen oturum, normal ücret ve hatırlatma outbox ile kapanır; tahsil edilmiş para korunur. Gelecekteki ders tamamlanamaz.
@@ -93,7 +110,7 @@ Kayıt (Teacher) → Profil doldur (branş, şehir, ücret, uygunluk saatleri)
 1. **Öğrenci ekleme — iki yol** (promp): (a) öğrenci uygulamayı kullanıyorsa **gerçek hesaba bağlanır**; (b) öğrenci reddederse öğretmen **manuel öğrenci** ekler (`Origin=TeacherManaged`, `CreatedByTeacherUserId` set). Manuel öğrenci sonradan gerçek hesaba bağlanabilir (davet/eşleşme — ⚠️ planlanan).
 2. **Veli gerçek kişi:** Öğrenci manuel olabilir, ama velisi yalnızca **gerçek kayıtlı kullanıcı** olabilir (M09).
 3. **Online ders linki:** Ders online ise öğretmen bir **bağlantı (MeetingUrl)** girer; öğrenciler bu linkle derse katılır (✅ ayrı `MeetingUrl` alanı — Dilim A, 2026-07-18).
-4. **Tekrarlı ders:** Ders tek seferlik veya tekrarlı planlanabilir (`RecurrenceRule`); takvim her haftayı ayrı oluşum olarak gösterir (M04-1). **P17 T1 (2026-11-15):** tekrarlı derste iptal/erteleme **kapsam ister** — "Yalnız bu ders / Bu ve sonrakiler / Tüm seri" (kapsamsız istek `400 scheduling.scope_required`; eskiden "bu haftanın iptali" bütün seriyi iptal ediyordu). Öğrencinin erteleme talebini kabul etmek yalnız o haftayı taşır. Mobilde seçim sayfası hazır, ekran girişi henüz yok (iptal P17 T5, erteleme P21 T4).
+4. **Tekrarlı ders:** Ders tek seferlik veya tekrarlı planlanabilir (`RecurrenceRule`); takvim her haftayı ayrı oluşum olarak gösterir (M04-1). **P17 T1 (2026-11-15):** tekrarlı derste iptal/erteleme **kapsam ister** — "Yalnız bu ders / Bu ve sonrakiler / Tüm seri" (kapsamsız istek `400 scheduling.scope_required`; eskiden "bu haftanın iptali" bütün seriyi iptal ediyordu). Öğrencinin erteleme talebini kabul etmek yalnız o haftayı taşır. Mobil iptal girişi ders detayında kapsam seçim sayfasını açar (P17 T5); erteleme girişi P21 T4’tedir.
 5. **Çakışma kontrolü:** Aynı öğretmende zaman çakışan ders **engellenir** (`scheduling.teacher_conflict` — koddan doğrulandı 🟢). **P16 T4 (2026-11-14):** kontrol tekrarlı derslerin **her oluşumuna** bakar (Eylül'de başlamış haftalık Salı dersi Kasım'ın Salı'sını da korur; tekrarlı yeni ders 12 hafta ileriye kadar denetlenir), iptal edilen oluşum saati boşaltır, ertelenen oluşum yeni saatini tutar; aynı saate aynı anda gelen iki istekten yalnız biri geçer. **Tatil günü:** ders öğretmenin tatil / müsait değil bloğuna düşerse `409 scheduling.time_off_conflict` — öğretmen bilerek isterse `allowTimeOffOverride` ile yine ekler/erteler (mobil bu seçeneği henüz sunmuyor, P21). Tatil oluştururken o aralıkta kalan dersler (tekrarlı dersin oluşumları ve tatilden önce başlayıp içine taşan dersler dahil) listelenir.
 6. **Ders tamamlama:** Süre, gerçek başlangıç/bitişten **otomatik** hesaplanır; manuel girilmez.
 7. **Ödeme manuel:** Para sistem üzerinden **alınmaz**; öğretmen "X dersinin ödemesini aldım" şeklinde elle işaretler. Ödeme bilgisi veliyle **paylaşılabilir** (`IsSharedWithParent` ⚠️).
@@ -229,3 +246,5 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 *Güncelleme: 2026-11-15 — P17 Task 4 / N-03, K-21: tek oturum tamamlama yolu ve oluşum durum senkronizasyonu.*
 
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
+
+*Güncelleme: 2026-11-15 — P17 T8: haftalık ders akış diyagramı ve aylık Single iptal sayımı.*
