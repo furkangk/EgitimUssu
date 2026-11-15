@@ -79,7 +79,11 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddSessionAsync(StudySession session, CancellationToken cancellationToken) =>
         _dbContext.StudySessions.AddAsync(session, cancellationToken).AsTask();
 
-    public void RemoveSession(StudySession session) => _dbContext.StudySessions.Remove(session);
+    public void RemoveSession(StudySession session)
+    {
+        session.NotifyDeleted();
+        _dbContext.StudySessions.Remove(session);
+    }
 
     public async Task<IReadOnlyList<StudySession>> ListCompletedSessionsByTopicAsync(
         Guid studentId, string subject, string topic, CancellationToken cancellationToken) =>
@@ -127,7 +131,11 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddTestAsync(TestResult testResult, CancellationToken cancellationToken) =>
         _dbContext.TestResults.AddAsync(testResult, cancellationToken).AsTask();
 
-    public void RemoveTest(TestResult testResult) => _dbContext.TestResults.Remove(testResult);
+    public void RemoveTest(TestResult testResult)
+    {
+        testResult.NotifyDeleted();
+        _dbContext.TestResults.Remove(testResult);
+    }
 
     public Task AddMockExamAsync(MockExam mockExam, CancellationToken cancellationToken) =>
         _dbContext.MockExams.AddAsync(mockExam, cancellationToken).AsTask();
@@ -225,6 +233,44 @@ internal sealed class StudyRepository : IStudyRepository
     public Task AddEarnedAsync(StudentAchievement earned, CancellationToken cancellationToken) =>
         _dbContext.StudentAchievements.AddAsync(earned, cancellationToken).AsTask();
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
-        _dbContext.SaveChangesAsync(cancellationToken);
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        var changed = _dbContext.ChangeTracker.Entries<TestResult>()
+            .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(x => x.Entity.MockExamId != null).ToArray();
+        var examIds = changed.Select(x => x.Entity.MockExamId!.Value).Distinct().Order().ToArray();
+        if (examIds.Length == 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        // Bileşen yazımı ve deneme toplamı tek transaction; iki farklı bileşenin eşzamanlı
+        // düzenlenmesi de son toplamı ezemez. Kilitler kimlik sırasıyla alınır.
+        await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = _dbContext.Database.IsRelational()
+                ? await _dbContext.Database.BeginTransactionAsync(cancellationToken) : null;
+            foreach (var examId in examIds)
+            {
+                if (_dbContext.Database.IsNpgsql())
+                {
+                    var key = $"study:mock-exam:{examId:D}";
+                    await _dbContext.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))", cancellationToken);
+                }
+                var exam = await _dbContext.MockExams.FindAsync(new object?[] { examId }, cancellationToken);
+                if (exam is null) continue;
+                var nets = await _dbContext.TestResults.AsNoTracking().Where(x => x.MockExamId == examId)
+                    .ToDictionaryAsync(x => x.Id, x => x.Net, cancellationToken);
+                foreach (var entry in changed.Where(x => x.Entity.MockExamId == examId))
+                {
+                    if (entry.State == EntityState.Deleted) nets.Remove(entry.Entity.Id);
+                    else nets[entry.Entity.Id] = entry.Entity.Net;
+                }
+                exam.RecalculateTotalNet(nets.Values);
+            }
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+        });
+    }
 }

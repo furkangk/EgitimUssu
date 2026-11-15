@@ -65,9 +65,7 @@ public static class DependencyInjection
         services.AddScoped<PaymentCollectionProjectionRebuilder>();
         services.AddScoped<EgitimUssu.Shared.Infrastructure.Projections.IProjectionRebuilder>(sp => sp.GetRequiredService<PaymentCollectionProjectionRebuilder>());
         services.AddHostedService<PaymentCollectionProjectionInitializer>();
-        services.AddScoped<IIntegrationEventHandler, StudentStudySessionProjectionHandler>();
-        services.AddScoped<IIntegrationEventHandler, StudentStudyTestProjectionHandler>();
-        services.AddScoped<IIntegrationEventHandler, StudentPerformanceTestProjectionHandler>();
+        services.AddScoped<IIntegrationEventHandler, StudyStatisticsProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, StudentPerformanceMasteryProjectionHandler>();
         // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.
         services.AddScoped<IPersonalDataAnonymizer, ReportingPersonalDataAnonymizer>();

@@ -199,7 +199,7 @@ public enum TeacherMonthlyItemKind
 
 /// <summary>
 /// M14-2: Bir öğrencinin bir ISO haftasındaki çalışma özeti. Seans ve test satır olarak tutulur; süre
-/// düzeltilirse (seans kurtarma / düzenleme) satır güncellenir, sayaç çoğalmaz.
+/// düzeltilirse satır güncellenir; silme ve dönem değişimi güncel Study kaynağıyla uzlaştırılır.
 /// </summary>
 public sealed class StudentStudyProjection : ProjectionEntity
 {
@@ -236,6 +236,9 @@ public sealed class StudentStudyProjection : ProjectionEntity
         => Upsert(StudentStudyItemKind.Session, sessionId, Math.Max(0, minutes));
 
     public void TrackTest(Guid testResultId) => Upsert(StudentStudyItemKind.Test, testResultId, 0);
+
+    public void RemoveMissing(IReadOnlySet<Guid> sessions, IReadOnlySet<Guid> tests)
+        => _items.RemoveAll(x => x.Kind == StudentStudyItemKind.Session ? !sessions.Contains(x.ItemId) : !tests.Contains(x.ItemId));
 
     private void Upsert(StudentStudyItemKind kind, Guid itemId, int minutes)
     {
@@ -357,6 +360,9 @@ public sealed class StudentPerformanceProjection : ProjectionEntity
 
     public void TrackTestNet(Guid testResultId, decimal netRatio)
         => Upsert(StudentPerformanceItemKind.Test, testResultId.ToString("N"), Math.Clamp(netRatio, 0m, 1m));
+
+    public void RemoveMissingTests(IReadOnlySet<string> testIds)
+        => _items.RemoveAll(x => x.Kind == StudentPerformanceItemKind.Test && !testIds.Contains(x.ItemKey));
 
     private void Upsert(StudentPerformanceItemKind kind, string itemKey, decimal score)
     {

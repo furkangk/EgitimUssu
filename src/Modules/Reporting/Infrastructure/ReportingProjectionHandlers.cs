@@ -45,25 +45,6 @@ public abstract class ReportingProjectionHandler<TEvent> : ProjectionHandler<TEv
         return projection;
     }
 
-    protected async Task<StudentStudyProjection> GetOrCreateStudyAsync(
-        Guid studentId, DateTime occurredOnUtc, CancellationToken cancellationToken)
-    {
-        var (year, week) = ReportingPeriods.WeekOf(occurredOnUtc, Calendar);
-        var projection = await ReportingDb.StudentStudyProjections
-            .Include(item => item.Items)
-            .FirstOrDefaultAsync(
-                item => item.StudentId == studentId && item.Year == year && item.WeekOfYear == week,
-                cancellationToken);
-
-        if (projection is null)
-        {
-            projection = new StudentStudyProjection(studentId, year, week);
-            ReportingDb.StudentStudyProjections.Add(projection);
-        }
-
-        return projection;
-    }
-
     protected async Task<StudentPerformanceProjection> GetOrCreatePerformanceAsync(
         Guid studentId, string subject, DateTime occurredOnUtc, CancellationToken cancellationToken)
     {
@@ -212,92 +193,6 @@ public sealed class TeacherMonthlyPaymentCollectedProjectionHandler(ReportingDbC
     }
 }
 
-// --- M14-2: öğrenci haftalık çalışma ------------------------------------------------------------
-
-/// <summary>M08 → M14: Çalışma seansı tamamlandı; süresi bittiği ISO haftasına yazılır.</summary>
-public sealed class StudentStudySessionProjectionHandler : ReportingProjectionHandler<StudySessionPayload>
-{
-    public StudentStudySessionProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
-        : base(dbContext, clock, calendar)
-    {
-    }
-
-    public override bool CanHandle(IIntegrationEvent integrationEvent)
-        => integrationEvent.SourceModule == "Study"
-            && integrationEvent.Name == "StudySessionCompletedDomainEvent";
-
-    protected override async Task<bool> ProjectAsync(
-        StudySessionPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
-    {
-        if (payload.StudentId == Guid.Empty)
-        {
-            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
-        }
-
-        var projection = await GetOrCreateStudyAsync(payload.StudentId, payload.EndedAtUtc, cancellationToken);
-        projection.TrackSession(payload.SessionId, payload.EffectiveMinutes);
-        projection.MarkApplied(envelope.EventId, Clock.UtcNow);
-        return true;
-    }
-}
-
-/// <summary>M08 → M14: Test çözüldü; çözüldüğü ISO haftasının test sayacına girer.</summary>
-public sealed class StudentStudyTestProjectionHandler : ReportingProjectionHandler<TestResultPayload>
-{
-    public StudentStudyTestProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
-        : base(dbContext, clock, calendar)
-    {
-    }
-
-    public override bool CanHandle(IIntegrationEvent integrationEvent)
-        => integrationEvent.SourceModule == "Study"
-            && integrationEvent.Name == "TestResultRecordedDomainEvent";
-
-    protected override async Task<bool> ProjectAsync(
-        TestResultPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
-    {
-        if (payload.StudentId == Guid.Empty)
-        {
-            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
-        }
-
-        var projection = await GetOrCreateStudyAsync(payload.StudentId, payload.TakenOnUtc, cancellationToken);
-        projection.TrackTest(payload.TestResultId);
-        projection.MarkApplied(envelope.EventId, Clock.UtcNow);
-        return true;
-    }
-}
-
-// --- M14-3: öğrenci aylık performans ------------------------------------------------------------
-
-/// <summary>M08 → M14: Test neti, dersin o ayki performans satırına net oranı olarak girer.</summary>
-public sealed class StudentPerformanceTestProjectionHandler : ReportingProjectionHandler<TestResultPayload>
-{
-    public StudentPerformanceTestProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
-        : base(dbContext, clock, calendar)
-    {
-    }
-
-    public override bool CanHandle(IIntegrationEvent integrationEvent)
-        => integrationEvent.SourceModule == "Study"
-            && integrationEvent.Name == "TestResultRecordedDomainEvent";
-
-    protected override async Task<bool> ProjectAsync(
-        TestResultPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
-    {
-        if (payload.StudentId == Guid.Empty || string.IsNullOrWhiteSpace(payload.Subject) || payload.TotalQuestions <= 0)
-        {
-            throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
-        }
-
-        var projection = await GetOrCreatePerformanceAsync(
-            payload.StudentId, payload.Subject, payload.TakenOnUtc, cancellationToken);
-        projection.TrackTestNet(payload.TestResultId, payload.Net / payload.TotalQuestions);
-        projection.MarkApplied(envelope.EventId, Clock.UtcNow);
-        return true;
-    }
-}
-
 /// <summary>M10 → M14: Konu hâkimiyeti değişti; dersin o ayki ortalamasına katılır.</summary>
 public sealed class StudentPerformanceMasteryProjectionHandler : ReportingProjectionHandler<TopicMasteryPayload>
 {
@@ -320,6 +215,7 @@ public sealed class StudentPerformanceMasteryProjectionHandler : ReportingProjec
             throw new PoisonMessageException("Raporlama olay alanları geçersiz.");
         }
 
+        await StudyStatisticsProjectionHandler.AcquireStudentLockAsync(ReportingDb, payload.StudentId, cancellationToken);
         var projection = await GetOrCreatePerformanceAsync(
             payload.StudentId, payload.Subject, payload.EvaluatedOnUtc, cancellationToken);
         projection.TrackTopicMastery(payload.Topic, payload.MasteryScore);
@@ -350,23 +246,70 @@ public sealed record MonthlyPaymentCreatedPayload(
 
 public sealed record MonthlyPaymentTransactionPayload(Guid TransactionId, Guid TeacherUserId, int Kind, decimal Amount, DateTime OccurredOnUtc);
 
-public sealed record StudySessionPayload(
-    Guid SessionId,
-    Guid StudentId,
-    int EffectiveMinutes,
-    DateTime EndedAtUtc);
-
-public sealed record TestResultPayload(
-    Guid TestResultId,
-    Guid StudentId,
-    string Subject,
-    int TotalQuestions,
-    decimal Net,
-    DateTime TakenOnUtc);
-
 public sealed record TopicMasteryPayload(
     Guid StudentId,
     string Subject,
     string Topic,
     decimal MasteryScore,
     DateTime EvaluatedOnUtc);
+
+/// <summary>Study'nin güncel seans/test kümesini eski ve yeni yerel dönemlerle uzlaştırır.</summary>
+public sealed class StudyStatisticsProjectionHandler(ReportingDbContext db, IStudyStatisticsReader source,
+    IClock clock, ILocalCalendar calendar) : ReportingProjectionHandler<StudyStatisticsStudentPayload>(db, clock, calendar)
+{
+    public override bool CanHandle(IIntegrationEvent message) => StudyStatisticsEvents.Matches(message);
+    protected override async Task<bool> ProjectAsync(StudyStatisticsStudentPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
+    {
+        if (payload.StudentId == Guid.Empty) throw new PoisonMessageException("Raporlama öğrenci kimliği geçersiz.");
+        await AcquireStudentLockAsync(ReportingDb, payload.StudentId, cancellationToken);
+        var data = await source.ReadAsync(payload.StudentId, cancellationToken);
+        var weeks = await ReportingDb.StudentStudyProjections.Include(x => x.Items)
+            .Where(x => x.StudentId == payload.StudentId).ToListAsync(cancellationToken);
+        var months = await ReportingDb.StudentPerformanceProjections.Include(x => x.Items)
+            .Where(x => x.StudentId == payload.StudentId).ToListAsync(cancellationToken);
+        var sessions = data.Sessions.GroupBy(x => ReportingPeriods.WeekOf(x.EndedAtUtc, Calendar))
+            .ToDictionary(g => g.Key, g => g.ToArray());
+        var weeklyTests = data.Tests.GroupBy(x => ReportingPeriods.WeekOf(x.TakenOnUtc, Calendar))
+            .ToDictionary(g => g.Key, g => g.ToArray());
+        foreach (var (year, week) in sessions.Keys.Concat(weeklyTests.Keys).Distinct())
+        {
+            if (weeks.Any(x => x.Year == year && x.WeekOfYear == week)) continue;
+            var projection = new StudentStudyProjection(payload.StudentId, year, week);
+            ReportingDb.StudentStudyProjections.Add(projection); weeks.Add(projection);
+        }
+        foreach (var projection in weeks)
+        {
+            var key = (projection.Year, projection.WeekOfYear);
+            var weekSessions = sessions.GetValueOrDefault(key) ?? [];
+            var weekTests = weeklyTests.GetValueOrDefault(key) ?? [];
+            projection.RemoveMissing(weekSessions.Select(x => x.Id).ToHashSet(), weekTests.Select(x => x.Id).ToHashSet());
+            foreach (var session in weekSessions) projection.TrackSession(session.Id, session.EffectiveMinutes);
+            foreach (var test in weekTests) projection.TrackTest(test.Id);
+            projection.MarkApplied(envelope.EventId, Clock.UtcNow);
+        }
+        var monthlyTests = data.Tests.GroupBy(x => (Subject: x.Subject.Trim(), Period: ReportingPeriods.MonthOf(x.TakenOnUtc, Calendar)))
+            .ToDictionary(g => g.Key, g => g.ToArray());
+        foreach (var key in monthlyTests.Keys)
+        {
+            if (months.Any(x => x.Subject == key.Subject && x.Year == key.Period.Year && x.Month == key.Period.Month)) continue;
+            var projection = new StudentPerformanceProjection(payload.StudentId, key.Subject, key.Period.Year, key.Period.Month);
+            ReportingDb.StudentPerformanceProjections.Add(projection); months.Add(projection);
+        }
+        foreach (var projection in months)
+        {
+            var tests = monthlyTests.GetValueOrDefault((projection.Subject, (projection.Year, projection.Month))) ?? [];
+            projection.RemoveMissingTests(tests.Select(x => x.Id.ToString("N")).ToHashSet());
+            foreach (var test in tests)
+                projection.TrackTestNet(test.Id, test.TotalQuestions > 0 ? test.Net / test.TotalQuestions : 0m);
+            projection.MarkApplied(envelope.EventId, Clock.UtcNow);
+        }
+        return true;
+    }
+    internal static async Task AcquireStudentLockAsync(ReportingDbContext db, Guid studentId, CancellationToken ct)
+    {
+        if (!db.Database.IsNpgsql()) return;
+        var key = $"reporting:study:{studentId:D}";
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))", ct);
+    }
+}
+public sealed record StudyStatisticsStudentPayload(Guid StudentId);

@@ -71,6 +71,7 @@ internal sealed class LessonSessionCompletedProgressHandler : IdempotentIntegrat
         var db = (ProgressTrackingDbContext)DbContext;
         if (session is null) throw new InvalidOperationException("Ders oturumu henüz okunamıyor.");
         if (!session.IsCompleted || session.AttendanceStatus is not ("Attended" or "Late")) return true;
+        await StudyStatisticsProgressHandler.AcquireStudentLockAsync(db, payload.StudentId, cancellationToken);
         if (await db.LessonAttendanceReceipts.AnyAsync(item => item.LessonSessionId == payload.LessonSessionId, cancellationToken)) return true;
         db.LessonAttendanceReceipts.Add(new LessonAttendanceReceipt(payload.LessonSessionId, Clock.UtcNow));
         var topic = string.IsNullOrWhiteSpace(session.TopicTitle) ? null : session!.TopicTitle;

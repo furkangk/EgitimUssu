@@ -98,6 +98,27 @@ public sealed class TopicMastery : AggregateRoot<Guid>, IVersioned
         Recalculate(nowUtc);
     }
 
+    /// <summary>Güncel Study kaynağını tarih sırasıyla yeniden kurar; ders katılımını korur.</summary>
+    public void RebuildStudy(int studyMinutes, IEnumerable<(Guid Id, DateTime TakenOnUtc, int TotalQuestions, decimal Net)> tests, DateTime nowUtc)
+    {
+        var ratios = tests.OrderBy(x => x.TakenOnUtc).ThenBy(x => x.Id)
+            .Select(x => x.TotalQuestions <= 0 ? 0m : Math.Clamp(x.Net / x.TotalQuestions, 0m, 1m)).ToArray();
+        var sum = ratios.Sum();
+        var minutes = Math.Max(0, studyMinutes);
+        decimal? recent = ratios.Length > 0 ? ratios[^1] : null;
+        decimal? prior = ratios.Length > 1 ? ratios[^2] : null;
+        if (TotalStudyMinutes == minutes && TestAttemptCount == ratios.Length && NetRatioSum == sum
+            && RecentNetRatio == recent && PriorNetRatio == prior) return;
+        TotalStudyMinutes = minutes;
+        TestAttemptCount = ratios.Length;
+        NetRatioSum = sum;
+        AverageNetRatio = ratios.Length == 0 ? null : Math.Round(sum / ratios.Length, 4);
+        RecentNetRatio = recent;
+        PriorNetRatio = prior;
+        UpdateSource();
+        Recalculate(nowUtc);
+    }
+
     // Kaynak, hangi beslemelerin katkı verdiğini gösterir (M08 çalışma/test + M05 ders katılımı).
     private void UpdateSource()
     {

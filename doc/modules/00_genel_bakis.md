@@ -309,7 +309,7 @@ GET  /teachers/{teacherUserId}/students/{studentId}/overview   → öğretmen ge
 GET  /parents/{parentUserId}/children/{studentId}/overview     → veli gelişim görünümü (gizlilik filtreli, M10-2)
 GET  /students/{studentId}/topic-goals?status=   POST /students/{studentId}/topic-goals
 POST /topic-goals/{goalId}/cancel
-[consume] Study.StudySessionCompletedDomainEvent / Study.TestResultRecordedDomainEvent (idempotent (ortak inbox_messages))
+[consume] Study Completed/Recorded + StudySessionEdited/Deleted + TestResultEdited/Deleted → IStudyStatisticsReader güncel kaynak → TopicMastery yeniden hesabı (ortak inbox_messages, öğrenci transaction kilidi)
 [consume] LessonSessions.LessonSessionCompletedDomainEvent → konuya ders katılımı katkısı (yalnız Attended/Late; LessonSessionId makbuzu + inbox ile idempotent, P17 T3)
 [consume] Students.StudentProfilesMerged → hedefler taşınır; hâkimiyet/fotoğraf çakışmayan satır taşınır, çakışanda kanonik kazanır (P15 T3 / N-28, idempotent)
 [scheduler] ProgressSnapshotService — günde bir tur, kapanmış son hafta/ay için ProgressSnapshot yazar (idempotent + unique index)
@@ -339,7 +339,7 @@ GET /status
           → teacher_dashboard_projections (read-model, idempotent — ortak inbox_messages)
 [consume] LessonSessions LessonSessionCompleted · Scheduling LessonScheduleCancelled ·
           Payments PaymentRecordCreated/PaymentTransactionRecordedIntegrationEvent  → teacher_monthly_projections (M14-1)
-[consume] Study StudySessionCompleted/TestResultRecorded      → student_study_projections (M14-2)
+[consume] Study Completed/Recorded + Edited/Deleted → IStudyStatisticsReader güncel kaynak → student_study_projections + test performans item'ları (M14-2/3)
 [consume] Study TestResultRecorded · ProgressTracking TopicMasteryChanged
                                                               → student_performance_projections (M14-3)
 [use] IStudentDirectory.GetDisplayNameAsync · ITeacherDirectory · IStudentAssignmentDigestDirectory ·
@@ -429,3 +429,7 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P19 Task 3: Assignments teslim sürümleri ve geçiş sözleşmesi.*
 
 *Güncelleme: 2026-11-15 — P19 Task 4: açlık yaşamayan ödev son tarih taraması.*
+
+**P19 T5 (N-47/N-48 trend, 2026-11-15):** M08 edit/delete yeni olayları aynı kaynak yazımıyla outbox'a alır; `IStudyStatisticsReader` M10/M14'ün güncel seans/test kaynağıdır. Öğrenci kilidi altında eski konu/hafta/ay katkıları temizlenir, geç gelen eski olay kayıt diriltmez. Trend `TakenOnUtc`, eşitlikte `Id` sırası; ders katılımı korunur. Deneme `TotalNet` bileşenleriyle tek transaction ve deneme kilidinde yeniden hesaplanır. HTTP/şema değişmedi; tarihî snapshot/rozet/kapanmış hedef geri alınmaz.
+
+*Güncelleme: 2026-11-15 — P19 Task 5: Study düzeltmelerinin istatistiklere yayılımı ve tarih sıralı trend.*

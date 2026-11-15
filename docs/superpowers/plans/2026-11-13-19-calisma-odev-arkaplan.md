@@ -169,21 +169,36 @@
 
 ---
 
-### Task 5: Düzenleme/silme olayları ve tarih sıralı trend (N-47, N-48 trend)
+### Task 5: Düzenleme/silme olayları ve tarih sıralı trend (N-47, N-48 trend) ✅
 
 **Files:**
 - Modify: `src/Modules/Study/Domain/StudyDomainModel.cs` (`StudySessionEdited/Deleted`, `TestResultEdited/Deleted` domain olayları)
-- Modify: `src/Modules/Study/Application/StudyTestFeatures.cs`, `StudySessionFeatures.cs` (olay yayımı; `MockExam.TotalNet` yeniden hesap)
+- Audit: `src/Modules/Study/Application/StudyTestFeatures.cs`, `StudySessionFeatures.cs` (mevcut komutlar korunur; olay domain'de ve silme repository'de, deneme toplamı gerçek repository SaveChanges sınırında hesaplanır, bu iki dosyada değişiklik gerekmedi)
 - Modify: `src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs` (+ tüketici: `TopicMastery` yeniden hesap; trend `TakenOnUtc` sırasına göre)
 - Modify: `src/Modules/Reporting/Infrastructure/ReportingProjectionHandlers.cs`, `src/Modules/Reporting/Domain/ReportingProjections.cs` (düzenleme/silme yansır; yanlış yorum düzeltilir)
 - Test: `tests/Unit/StudyEditDeletePropagationTests.cs`, `tests/Integration/RealStudyEditPropagationTests.cs`
 
-- [ ] **Step 1: Kırmızı testler** — yanlış girilen test silinince `TopicMastery`, Reporting haftalık toplamı ve deneme `TotalNet` düşer; düzenleme yeni değeri yansıtır; geriye dönük girilen eski test trendi tersine **çevirmez**.
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör** + projeksiyon yeniden kurulumu testi yeşil.
-- [ ] **Step 5: Doküman + commit** — `m08`, `m10`, `m14`; rapor N-47/N-48 (trend) ✅.
+**Koddan doğrulanan Files / Interfaces (2026-11-15):**
+- Create: `src/Shared/Contracts/StudyStatisticsContract.cs`, `src/Modules/Study/Infrastructure/StudyStatisticsReader.cs` (öğrencinin güncel tamamlanmış seans/test kayıtları; diğer modüller Study DbContext'ine erişmez).
+- Modify: `src/Modules/Study/Infrastructure/StudyRepository.cs` (silme olayları aynı SaveChanges/outbox; değişen/silinen deneme bileşenlerinin TotalNet'i aynı transaction'da kaynak+tracker'dan hesaplanır).
+- Modify: `src/Modules/Study/Infrastructure/DependencyInjection.cs`, `src/Modules/ProgressTracking/Infrastructure/DependencyInjection.cs`, `src/Modules/Reporting/Infrastructure/DependencyInjection.cs` (okuyucu/tüketici kayıtları).
+- Modify: `src/Modules/ProgressTracking/Infrastructure/StudyProgressIntegrationEventHandlers.cs`, `src/Modules/ProgressTracking/Application/ProgressTrackingFeatures.cs` (ekleme/düzenleme/silmede kaynak yeniden hesabı; eski konular sıfırlanır, ders katılımı korunur, aktif hedefler değerlendirilir).
+- Modify: `src/Modules/ProgressTracking/Infrastructure/LessonSessionCompletedProgressHandler.cs` (aynı öğrenci kilidiyle ders katkısını korur).
+- Modify: `tests/Unit/ReportingProjectionTests.cs`, `tests/Unit/LocalBucketTests.cs`, `tests/Integration/RealProjectionRebuildTests.cs` (mevcut olay testleri yeni kaynak okuyucusuna gerçek EF verisi sağlar).
+- Docs: `doc/modules/m08_study.md`, `doc/modules/m10_progress_tracking.md`, `doc/modules/m14_reporting.md`, `doc/modules/00_genel_bakis.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`.
+
+**Karar:** Mevcut olay şekilleri değişmez; dört yeni Edited/Deleted olay türü yalnız kaynak kimliğini/öğrenciyi bildirir. Yeni okuyucu tek uygulamalıdır; IStudyRepository/IProgressRepository değişmez, mevcut sahteleri etkilenmez. Kaynak yeniden hesap tüm mevcut + eski konu/hafta/ay kovalarını uzlaştırır; TakenOnUtc, eşitlikte Id sırası deterministiktir. Tüketiciler inbox tabanında, öğrenci bazlı transaction advisory lock içinde okur/yazar; geciken eski ekleme olayı da silinen kaydı diriltemez. Reporting test satırları güncel kaynaktan, mastery satırları mevcut M10 olayından beslenir. Şema/migration değişmez. Kapanmış ProgressSnapshot tarihî fotoğrafı ve kazanılmış rozet/hedefler geri alınmaz; seri onarımı T1'in mevcut ayrı mekanizmasıdır. Tam rebuild kanıtı bu görevde kaynak + olay akışını tekrar uygular; yeni admin ucu/startup göç işi eklenmez.
+
+- [x] **Step 1: Kırmızı testler** — yanlış girilen test silinince `TopicMastery`, Reporting haftalık toplamı ve deneme `TotalNet` düşer; düzenleme yeni değeri yansıtır; geriye dönük girilen eski test trendi tersine **çevirmez**.
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör** + projeksiyon yeniden kurulumu testi yeşil.
+- [x] **Step 5: Doküman + commit** — `m08`, `m10`, `m14`; rapor N-47/N-48 (trend) ✅.
   ```bash
   git commit -m "fix(study): duzenleme/silme olaylari istatistiklere yansir, trend tarih sirali (N-47, N-48)"
   ```
+
+---
+
+**Kanıt (2026-11-15):** İmza Release0uyarı/0hata; 7 yeni gerçek birim RED7/0→GREEN7/7; mevcut raporlama/yerel kova testleriyle31/31. Beş yeni PG vaka + mevcut yeniden kurulum6/6: HTTP→outbox→M10/M14, edit ders/konu/ay taşıması, silme ve 26→14→10→0 deneme toplamı, ters/tekrar/farklıEventId Study teslimi, kaynak+inbox temizliği sonrası aynı sayısal değerler, tarih sıralı geriye dönük test ve iki bileşenin eşzamanlı düzenlemesi12net, yabancıTeacher/Student/Parent edit/delete403. İlk PG derleme Array.Reverse void hatası ve testte yanlış Admin rolü (1 yerine Parent4) düzeltildi; bunlar özellik RED'i sayılmadı. İlk tam tur bilinen #194 Query_invoker aralıklı hatası (beklenen2/gerçek3); tekbaşına7/7, ardından son **bash scripts/test-with-docker.sh:19mimari/1290birim/195integration**, **0başarısız/0atlanan**,exit0. Son Release `-warnaserror --no-incremental`0/0, toolrestore başarılı. Şema/migration ve mobil değişmedi; drift/Down/Flutter gerekmedi. Doc health RED0/mevcut2YELLOW+1BLUE; diff-check temiz. Loglar `/tmp/egitimussu-p19t5-{baseline,signature,red,green,real,real2,flake-retry,docker,docker-final,release-final,tools,doc-health-final}.log`.
 
 ---
 
@@ -241,4 +256,4 @@
   git commit -m "test(study): ogrenci haftasi senaryosu, P19 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 — P19 Task 4 tamamlandı (4/8); sırada yalnız Task 5 (N-47, N-48 trend), başlamadı.*
+*Güncelleme: 2026-11-15 — P19 Task 5 tamamlandı (5/8); sırada yalnız Task 6 (N-51, N-52, N-53, N-55), başlamadı.*

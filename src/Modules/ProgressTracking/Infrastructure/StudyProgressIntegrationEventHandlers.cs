@@ -3,85 +3,28 @@ using EgitimUssu.Modules.ProgressTracking.Application;
 using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
+using Microsoft.EntityFrameworkCore;
 
 namespace EgitimUssu.Modules.ProgressTracking.Infrastructure;
 
-/// <summary>
-/// M08 <c>StudySessionCompletedDomainEvent</c> → ilgili ders+konu hâkimiyetine çalışma süresi ekler.
-/// Idempotent: aynı olay iki kez işlenmez (ortak inbox, bkz. <see cref="IdempotentIntegrationEventHandler"/>).
-/// </summary>
-internal sealed class StudySessionCompletedProgressHandler : IdempotentIntegrationEventHandler
+/// <summary>Altı Study olayı aynı güncel kaynağı uzlaştırır; teslim sırası sayaç/trend üretmez.</summary>
+public sealed class StudyStatisticsProgressHandler(ProgressTrackingDbContext db, MasteryService mastery,
+    IStudyStatisticsReader source, IClock clock) : IdempotentIntegrationEventHandler(db, clock)
 {
-    private static readonly JsonSerializerOptions JsonOptions = IntegrationEventSerialization.Options;
-    private readonly MasteryService _masteryService;
-
-    public StudySessionCompletedProgressHandler(ProgressTrackingDbContext dbContext, MasteryService masteryService, IClock clock)
-        : base(dbContext, clock)
-        => _masteryService = masteryService;
-
-    public override bool CanHandle(IIntegrationEvent integrationEvent) =>
-        integrationEvent.SourceModule == "Study" && integrationEvent.Name == "StudySessionCompletedDomainEvent";
-
+    public override bool CanHandle(IIntegrationEvent message) => StudyStatisticsEvents.Matches(message);
     protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var payload = JsonSerializer.Deserialize<StudySessionCompletedPayload>(envelope.Payload, JsonOptions);
-        if (payload is null) throw new PoisonMessageException("Çalışma olay yükü null olamaz.");
-        if (string.IsNullOrWhiteSpace(payload.Subject) || payload.EffectiveMinutes <= 0)
-        {
-            return true; // işlenecek bir şey yok ama dedup kaydı yazılsın (eski davranış: MarkProcessed'di)
-        }
-
-        await _masteryService.ApplyStudyAsync(payload.StudentId, payload.Subject, payload.Topic, payload.EffectiveMinutes, cancellationToken);
+        var payload = JsonSerializer.Deserialize<StudentPayload>(envelope.Payload, IntegrationEventSerialization.Options);
+        if (payload is null || payload.StudentId == Guid.Empty) throw new PoisonMessageException("Çalışma öğrenci kimliği geçersiz.");
+        await AcquireStudentLockAsync(db, payload.StudentId, cancellationToken);
+        await mastery.RebuildStudyAsync(payload.StudentId, await source.ReadAsync(payload.StudentId, cancellationToken), cancellationToken);
         return true;
     }
-
-    private sealed record StudySessionCompletedPayload(
-        Guid SessionId,
-        Guid StudentId,
-        string Subject,
-        string? Topic,
-        int EffectiveMinutes,
-        int BreakMinutes,
-        DateTime EndedAtUtc);
-}
-
-/// <summary>
-/// M08 <c>TestResultRecordedDomainEvent</c> → ilgili ders+konu hâkimiyetine net oranını işler. Idempotent.
-/// </summary>
-internal sealed class TestResultRecordedProgressHandler : IdempotentIntegrationEventHandler
-{
-    private static readonly JsonSerializerOptions JsonOptions = IntegrationEventSerialization.Options;
-    private readonly MasteryService _masteryService;
-
-    public TestResultRecordedProgressHandler(ProgressTrackingDbContext dbContext, MasteryService masteryService, IClock clock)
-        : base(dbContext, clock)
-        => _masteryService = masteryService;
-
-    public override bool CanHandle(IIntegrationEvent integrationEvent) =>
-        integrationEvent.SourceModule == "Study" && integrationEvent.Name == "TestResultRecordedDomainEvent";
-
-    protected override async Task<bool> ApplyAsync(IntegrationEvent envelope, CancellationToken cancellationToken)
+    internal static async Task AcquireStudentLockAsync(ProgressTrackingDbContext db, Guid studentId, CancellationToken ct)
     {
-        var payload = JsonSerializer.Deserialize<TestResultRecordedPayload>(envelope.Payload, JsonOptions);
-        if (payload is null) throw new PoisonMessageException("Çalışma olay yükü null olamaz.");
-        if (string.IsNullOrWhiteSpace(payload.Subject) || payload.TotalQuestions <= 0)
-        {
-            return true; // işlenecek bir şey yok ama dedup kaydı yazılsın (eski davranış: MarkProcessed'di)
-        }
-
-        await _masteryService.ApplyTestAsync(payload.StudentId, payload.Subject, payload.Topic, payload.TotalQuestions, payload.Net, cancellationToken);
-        return true;
+        if (!db.Database.IsNpgsql()) return;
+        var key = $"progress:study:{studentId:D}";
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({key}))", ct);
     }
-
-    private sealed record TestResultRecordedPayload(
-        Guid TestResultId,
-        Guid StudentId,
-        string Subject,
-        string? Topic,
-        int TotalQuestions,
-        int Correct,
-        int Wrong,
-        int Blank,
-        decimal Net,
-        DateTime TakenOnUtc);
+    private sealed record StudentPayload(Guid StudentId);
 }

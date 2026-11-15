@@ -37,12 +37,19 @@ public sealed class LocalBucketTests
     public async Task Study_session_projection_puts_a_monday_0130_session_into_this_week()
     {
         await using var dbContext = NewDbContext();
-        var handler = new StudentStudySessionProjectionHandler(dbContext, new FixedClock(MondayNightUtc), Istanbul);
+        await using var study = new EgitimUssu.Modules.Study.Infrastructure.StudyDbContext(
+            new DbContextOptionsBuilder<EgitimUssu.Modules.Study.Infrastructure.StudyDbContext>().UseInMemoryDatabase($"bucket-source-{Guid.NewGuid()}").Options,
+            new NoOpDomainEventMapper());
+        var student = Guid.NewGuid();
+        study.StudySessions.Add(EgitimUssu.Modules.Study.Domain.StudySession.CreateManual(
+            Guid.NewGuid(), student, "Matematik", null, 40, MondayNightUtc, null, false, false, MondayNightUtc));
+        await study.SaveChangesAsync();
+        var handler = new StudyStatisticsProjectionHandler(dbContext, new EgitimUssu.Modules.Study.Infrastructure.StudyStatisticsReader(study), new FixedClock(MondayNightUtc), Istanbul);
 
         await handler.HandleAsync(Envelope("Study", "StudySessionCompletedDomainEvent", new
         {
             sessionId = Guid.NewGuid(),
-            studentId = Guid.NewGuid(),
+            studentId = student,
             subject = "Matematik",
             topic = (string?)null,
             effectiveMinutes = 40,

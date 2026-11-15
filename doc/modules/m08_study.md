@@ -543,3 +543,11 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 **Outbox teslimi (P19 T2 / N-42):** Profil birleşme tüketicisinde null yük açık poison hatasıdır; aynı event'in başarılı birleşme işlemi inbox ile tekrar uygulanmaz. Ortak teslim, retry ve hata yalıtımı sözleşmesi: [Backend §7](../architecture/backend.md#7-outbox--event-akışı).
 
 *Güncelleme: 2026-11-15 — P19 Task 2: açık olay tüketim sonuçları ve inbox güvenliği.*
+
+**P19 T5 — düzenleme/silme yayılımı (N-47, 2026-11-15):** `StudySession.EditCompleted` ve `TestResult.Edit` yeni `StudySessionEditedDomainEvent` / `TestResultEditedDomainEvent` üretir. Gerçek repository silmeden önce `NotifyDeleted` çağırır; `StudySessionDeletedDomainEvent` / `TestResultDeletedDomainEvent` silinen aggregate izlenirken aynı SaveChanges ile outbox'a alınır. Eski tamamlanma/kayıt olaylarının şeması korunur; yeni olaylar kaynak kayıt ve öğrenci kimliğini taşır. Mevcut edit/delete HTTP ve yanıt sözleşmesi değişmedi.
+
+`IStudyStatisticsReader.ReadAsync(studentId, ct)` yalnız öğrencinin güncel tamamlanmış seanslarını ve testlerini döndürür (kişisel not/dosya/paylaşım alanı taşımaz). M10 hâkimiyeti ve M14 hafta/ay test satırları altı olayda bu kaynağa göre uzlaştırılır; silinen veya eski döneme taşınan katkı temizlenir. Gecikmiş eski kayıt olayı da güncel kaynağı okur, silineni diriltmez. Kaynak öğrenci bazındadır; büyük geçmişlerin sayfalama/partileme çalışması P19 T7 kapsamındadır.
+
+`MockExam.TotalNet`, gerçek repository'de değişen/eklenen/silinen bileşenlerin DB netleri + izlenen değişikliklerinden yeniden hesaplanır. Deneme bazlı PostgreSQL transaction advisory kilidi, bileşen yazımı/toplam/outbox ile aynı transaction'dadır; farklı iki bileşenin eşzamanlı değişimi toplamı ezmez. Son bileşen silinince toplam sıfırdır, deneme kaydı korunur. Yeni kolon/migration yoktur. Bu görev tarihî snapshot/rozet/kapanmış hedefleri geri almaz; mevcut yerel konu rollup'ı ve seri onarım mekanizması korunur.
+
+*Güncelleme: 2026-11-15 — P19 Task 5: düzenleme/silme olayları ve deneme toplamının atomik yeniden hesabı.*

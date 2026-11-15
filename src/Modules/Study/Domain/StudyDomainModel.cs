@@ -262,7 +262,10 @@ public sealed class StudySession : AggregateRoot<Guid>
         EffectiveMinutes = effectiveMinutes;
         PersonalNote = string.IsNullOrWhiteSpace(personalNote) ? PersonalNote : personalNote.Trim();
         UpdatedOnUtc = nowUtc;
+        Raise(new StudySessionEditedDomainEvent(Id, StudentId));
     }
+
+    public void NotifyDeleted() => Raise(new StudySessionDeletedDomainEvent(Id, StudentId));
 
     /// <summary>Yanlış başlatılan seansı iptal eder; hiçbir istatistiğe dahil edilmez.</summary>
     public void Discard(DateTime nowUtc)
@@ -419,7 +422,10 @@ public sealed class TestResult : AggregateRoot<Guid>
         Net = Math.Round(correct - ((decimal)wrong / penaltyDivisor), 2, MidpointRounding.AwayFromZero);
         DurationMinutes = durationMinutes;
         TakenOnUtc = takenOnUtc;
+        Raise(new TestResultEditedDomainEvent(Id, StudentId));
     }
+
+    public void NotifyDeleted() => Raise(new TestResultDeletedDomainEvent(Id, StudentId));
 
     /// <summary>Bu sonuç bir çok dersli denemenin (MockExam) parçasıysa o denemenin kimliği; tekil test ise null.</summary>
     public void AttachToMockExam(Guid mockExamId) => MockExamId = mockExamId;
@@ -502,6 +508,8 @@ public sealed class MockExam : AggregateRoot<Guid>
         subjectResult.AttachToMockExam(Id);
         TotalNet += subjectResult.Net;
     }
+
+    public void RecalculateTotalNet(IEnumerable<decimal> nets) => TotalNet = nets.Sum();
 
     /// <summary>Deneme için tahmini sıralamayı ayarlar (dış hesaplama/istemci girdisi).</summary>
     public void SetEstimatedRank(int? estimatedRank) => EstimatedRank = estimatedRank;
@@ -929,3 +937,8 @@ public sealed record AchievementEarnedDomainEvent(
     Guid StudentId,
     string AchievementCode,
     DateTime EarnedOnUtc) : DomainEvent;
+
+public sealed record StudySessionEditedDomainEvent(Guid SessionId, Guid StudentId) : DomainEvent;
+public sealed record StudySessionDeletedDomainEvent(Guid SessionId, Guid StudentId) : DomainEvent;
+public sealed record TestResultEditedDomainEvent(Guid TestResultId, Guid StudentId) : DomainEvent;
+public sealed record TestResultDeletedDomainEvent(Guid TestResultId, Guid StudentId) : DomainEvent;
