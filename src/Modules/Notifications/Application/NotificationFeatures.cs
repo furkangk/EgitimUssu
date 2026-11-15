@@ -20,7 +20,9 @@ public sealed record LessonReminderResponse(
     string Channel,
     string Status,
     DateTime CreatedOnUtc,
-    DateTime UpdatedOnUtc);
+    DateTime UpdatedOnUtc,
+    DateTime OccurrenceStartUtc,
+    Guid RecipientUserId);
 
 public sealed record ParentNotificationResponse(
     Guid Id,
@@ -115,7 +117,9 @@ internal static class LessonReminderMappings
             reminder.Channel.ToString(),
             reminder.Status.ToString(),
             reminder.CreatedOnUtc,
-            reminder.UpdatedOnUtc);
+            reminder.UpdatedOnUtc,
+            reminder.OccurrenceStartUtc,
+            reminder.RecipientUserId);
     }
 }
 

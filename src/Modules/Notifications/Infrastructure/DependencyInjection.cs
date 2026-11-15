@@ -34,8 +34,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandAuthorizer<MarkNotificationReadCommand>, UserNotificationAuthorizer>();
         services.AddScoped<IQueryHandler<ListParentNotificationsQuery, Result<IReadOnlyCollection<ParentNotificationResponse>>>, ListParentNotificationsQueryHandler>();
         services.AddScoped<IQueryAuthorizer<ListParentNotificationsQuery>, LessonReminderQueryAuthorizer>();
-        // Ç-06: Kendi ders hatırlatmaları da LessonScheduledDomainEvent (teacher null) üzerinden üretilir;
-        // ayrı StudyScheduleEntry hatırlatma handler'ı kaldırıldı.
+        // Ç-06 self dersler de pencere okuyucusundan öğrenci alıcısına planlanır.
         services.AddScoped<IIntegrationEventHandler, LessonScheduleNotificationIntegrationEventHandler>();
         services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();
         // M07-1: vadesi geçen ödeme → öğretmene (ve Premium veliye) in-app bildirim.
@@ -48,6 +47,8 @@ public static class DependencyInjection
         // M16-1: yeni mesajda alıcıya in-app bildirim (push turunu dispatcher üstlenir).
         services.AddScoped<IIntegrationEventHandler, MessageSentNotificationHandler>();
         services.AddScoped<IParentWeeklySummaryProcessor, ParentWeeklySummaryProcessor>();
+        services.AddScoped<LessonReminderPlanningProcessor>();
+        services.AddHostedService<LessonReminderPlanner>();
         services.AddHostedService<NotificationDispatcher>();
         services.AddHostedService<ParentWeeklySummaryService>();
         // E-07: KVKK hesap silme — bu modüldeki kişisel veriyi anonimleştirir/siler.

@@ -269,6 +269,9 @@ public sealed class LessonSchedule : AggregateRoot<Guid>
 
     public void RecordCancellation(string scope, DateTime? key, DateTime? effectiveStart, DateTime nowUtc)
         => Raise(new LessonCancellationAppliedDomainEvent(Id, TeacherUserId, StudentId, scope, key, effectiveStart, nowUtc));
+    public void RecordOccurrenceRescheduled(DateTime key, DateTime updatedOnUtc)
+        => Raise(new LessonOccurrenceRescheduledDomainEvent(Id, key, updatedOnUtc));
+
     public void RecordOccurrenceCharge(DateTime key, decimal amount, string currency)
         => Raise(new LessonOccurrenceCancelledIntegrationEvent(Id, key, TeacherUserId!.Value, StudentId, true, amount, currency));
     public void RecordDeleted(DateTime nowUtc)
@@ -593,3 +596,5 @@ public sealed record LessonOccurrenceCancelledIntegrationEvent(Guid LessonSchedu
     Guid TeacherUserId, Guid StudentId, bool IsChargeable, decimal? ChargeAmount, string? Currency) : DomainEvent;
 public sealed record LessonScheduleDeletedDomainEvent(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
     DateTime DeletedOnUtc) : DomainEvent;
+
+public sealed record LessonOccurrenceRescheduledDomainEvent(Guid LessonScheduleId, DateTime OccurrenceStartUtc, DateTime UpdatedOnUtc) : DomainEvent;

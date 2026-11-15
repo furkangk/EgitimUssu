@@ -38,6 +38,10 @@ Talep yalnız gelecekteki aktif oluşuma açılabilir; geçmiş/iptal/tamamlanm�
 Mobil iptal girişi ders detayındadır: kapsam → neden/ücretsiz iptal/açıklama → Scheduling `/cancel`. `SchedulingCubit` serinin çapa yanıtını bütün haftalara kopyalamaz; kapsam ve orijinal anahtar üzerinden yalnız hedeflerin durumunu değiştirir, saatleri korur. Erteleme ekran girişi P21 T4’tedir.
 
 
+### Oluşum hatırlatma sözleşmesi (P17 T6)
+
+`ILessonScheduleReader.ListReminderOccurrencesAsync(fromUtc, toUtc, lessonScheduleId?, ct)` planlı öğretmen/self dersleri seri diliminde genişletir; bütün istisnaları uygular, tamamlanan/iptal/geçmiş oluşumları dışlar, orijinal anahtar + görünen başlangıç + offset döndürür. Notifications 7 gün/dakika planlayıcısı bunu kullanır. `Single` ertelemesi `LessonOccurrenceRescheduledDomainEvent(LessonScheduleId, OccurrenceStartUtc, UpdatedOnUtc)` üretir. Seri erteleme/silme/bölme olayları da hatırlatma uzlaştırmasını tetikler; eski outbox şemaları korunur. Offset `0` kapalıdır. Ayrıntı M11'dedir.
+
 ## 1. Mevcut Durum (Koddan Doğrulanmış)
 
 | Katman | Durum | Kanıt |
@@ -393,7 +397,7 @@ POST /lessons/{id}/cancel
 POST /lessons/{id}/reschedule (Scope=ThisAndFuture)
    → eski seri cutoff öncesinde biter + yeni seri oluşur + gelecek istisnalar taşınır (tek transaction)
    → LessonSeriesSplitDomainEvent(OldId, NewId, CutoffUtc)
-       → outbox → P17 T6'da Notifications yeni seri hatırlatmalarını planlayacak
+       → outbox → Notifications eski/yeni seri oluşumlarını kaynak durumundan uzlaştırır
 
 Planlı ders → ders günü (P17 T4, K-21)
    → M05 LessonSession türetilir (LessonScheduleId ile bağ) — bkz. m05_lesson_sessions.md §5
@@ -403,13 +407,12 @@ Planlı ders → ders günü (P17 T4, K-21)
    → Senkronizasyon outbox tesliminde gerçekleşir; Scheduling yeni tamamlanma olayı üretmez
 
 POST /students/{id}/study-entries  (öğrenci kendi dersi)
-   → StudyScheduleEntryScheduledDomainEvent (Subject + StartAtUtc + ReminderOffsetMinutes taşır)
-       → outbox → m11 Notifications StudyScheduleReminderIntegrationEventHandler:
-           ReminderOffsetMinutes > 0 ise ilk oluşuma göre LessonReminder (StudentId'ye, TeacherUserId boş) planlar
+   → birleşik LessonSchedule (TeacherUserId null) → LessonScheduledDomainEvent
+       → m11 kaynak pencere okuyucusu → her oluşum için öğrenci alıcısına LessonReminder
 PUT /study-entries/{id}
-   → StudyScheduleEntryRescheduledDomainEvent → mevcut hatırlatma yeni saate taşınır (offset 0 ise iptal)
+   → LessonScheduleRescheduledDomainEvent → yeni saat/offset uzlaştırılır (0 kapalı)
 DELETE /study-entries/{id}
-   → StudyScheduleEntryCancelledDomainEvent → hatırlatma iptal edilir
+   → LessonScheduleCancelledDomainEvent → bekleyen hatırlatmalar iptal edilir
 
 POST /students/{id}/lesson-requests  (öğrenci erteleme talebi — Ö-F)
    → LessonChangeRequestedDomainEvent
@@ -421,10 +424,7 @@ POST /lesson-requests/{id}/reject
    → LessonChangeRequestResolvedDomainEvent (Status=Rejected) → öğrenciye "talebiniz reddedildi"
 ```
 
-> **Not:** Öğrenci kişisel programı hatırlatması, öğretmen dersleriyle **aynı** `LessonReminder` aggregate'ında
-> tutulur (girdinin kimliği `LessonScheduleId` alanına yazılır, tekildir). Tekrarlı girdilerde hatırlatma **ilk
-> oluşuma** göre planlanır — öğretmen dersleriyle aynı MVP davranışı. Notifications, Scheduling'e referans vermez;
-> handler olay adı + JSON payload üzerinden çalışır.
+> **Not:** Öğrencinin kendi dersi de birleşik `LessonSchedule` ve aynı üçlü anahtarlı `LessonReminder` kullanır. Tekrarlı oluşumlar kayan 7 günde öğrenci kullanıcısına ayrı planlanır. Modül sınırını `Shared.Contracts.ILessonScheduleReader` korur.
 
 > Olaylar **Outbox** ile güvenilir yayılır (`Shared/Infrastructure/Messaging`).
 
@@ -483,7 +483,7 @@ POST /lesson-requests/{id}/reject
 - [x] **Öğrenci ders erteleme talebi** (`LessonChangeRequest`) — öğrenci talep açar, öğretmen kabul (mevcut Reschedule)/red eder; öğrenci dersi kendisi değiştirmez (Ö-F, 2026-07-18).
 - [x] **Öğretmen `LessonSchedule` listesinde tekrar açılımı** — `GET /teachers/{id}/lessons` occurrence döner; `OccurrenceStartAtUtc` istisna hedefleme anahtarı (M04-1, 2026-09-04).
 - [x] **Bireysel plan ↔ özel ders çakışma uyarısı** — birleşik takvimde `ConflictsWithLesson`; mobilde uyarı rengi + "Bu saatte özel dersin var" etiketi (M04-2/M08-1, 2026-09-04).
-- [x] **Öğrenci kişisel programına hatırlatma** — oluştur/güncelle/sil → outbox → Notifications; `0 dk` kapalı, tekrarlıda ilk oluşum (2026-07-08).
+- [x] **Öğrenci kişisel programına hatırlatma** — oluştur/güncelle/sil → outbox → Notifications; `0 dk` kapalı, her oluşum kayan 7 gün içinde (2026-07-08).
 - [x] **Tek tamamlama yolu (P17 T4)** — `POST /api/lesson-sessions/{id}/complete`; Scheduling olayı tüketip yalnız ilgili oluşumu günceller. Eski Scheduling `/complete` ucu kaldırıldı.
 
 ---
@@ -517,3 +517,5 @@ POST /lesson-requests/{id}/reject
 *Takvim & Planlama (M04) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P17 T3: oluşum anahtarlı ders oturumu, öğrenci/veli okuması ve çift katılım koruması) · 2026-11-15 (P17 Task 2: `ThisAndFuture` ertelemesi seriyi böler; geçmiş eski kimlikte, yeni seri cutoff'tan yeni saatte; `COUNT` kalan sayıya bölünür, gelecek istisnaların anahtar/override saatleri fark kadar taşınır, `Cancelled` korunur; `LessonSeriesSplitDomainEvent`; gerçek PostgreSQL transaction/outbox kanıtı) · 2026-11-15 (P17 Task 1 / N-01: §4 kural 12 — tekrarlı derste iptal/erteleme kapsamı zorunlu (`scope_required`), anahtar orijinal oluşum (`occurrence_not_found`); `LessonChangeRequest.OccurrenceStartAtUtc` + migration `AddChangeRequestOccurrence`, kabul yalnız o oluşumu taşır (`request_occurrence_unknown`); mobil veri katmanı + kapsam sayfası, ekran girişi T5/P21 T4) · 2026-11-15 (P16 Task 5 / N-11: birleşik takvimin `completed` eşleşmesi Türkiye yerel günü — `IStudyPlanCompletionReader` tarihleri yerel) · 2026-11-14 (P16 Task 4 / N-07: §1 + §3.1 + §4 kural 2/8/9 — çakışma kontrolü oluşum genişletmeli (12 hafta, `Scheduling:ConflictHorizonWeeks`; tekrarlı aday oluşturmada çapadan, güncellemede `max(çapa, şimdi)`'den; mevcut oluşumlar ders süresi kadar geriden), tatil bloğu `409 scheduling.time_off_conflict` + `allowTimeOffOverride`, oluştur/güncelle/ertele/tek oluşum iptali/tatil oluşturma öğretmen başına `pg_advisory_xact_lock` altında tek transaction; tatil oluştururken çakışan dersler oluşum olarak listelenir; `HasTeacherConflictAsync` + `ListForTeacherAsync` kaldırıldı) · 2026-11-14 (P16 Task 3 / N-05, N-14: §2.1.2 — oluşum istisnası `(SeriesLessonScheduleId, OriginalStartAtUtc)` benzersiz + `UpsertExceptionAsync` (`AddExceptionAsync` kaldırıldı), migration `UniqueOccurrenceExceptions` tekrarları en son `CreatedOnUtc` hariç siler; genişletici tekrar satırlara dayanıklı ve pencereye taşınan ertelemeyi döner, bayat istisnayı diriltmez; `ListActive…UntilAsync` pencereye öne alınmış oluşumu olan seriyi de yükler) · 2026-11-14 (P16 Task 2 / N-04: tekrar kuralı serinin yerel diliminde genişletilir — `BYDAY` yerel gün, aylık ay günü çapadan sabit, floating/tarih `UNTIL` yerel; `SeriesTimeZone` geçersiz kimlikte platform dilimine düşer) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 10 — ders oluştur/güncelle/ertele `ITeacherStudentAccess` ile yaşayan özel ders bağı ister; iptal/silme/tamamlama/okuma yalnız sahiplik) · 2026-10-16 (kapalı ders durum geçişleri ve eksik tekrar kapsamı bilgisi için veri bütünlüğü kontrolleri). Önceki: 2026-09-04 (P08 Task 3 / M14-5: `ILessonScheduleDirectory` `ListTeacherBusyIntervalsAsync` ile genişledi — ders oluşumları + izin blokları tek listede, Reporting boş zaman analizi tüketiyor) · 2026-09-04 (P06/M04-1: öğretmen ders listesi artık occurrence döner (`OccurrenceStartAtUtc` = RECURRENCE-ID) · P06/M04-2: birleşik takvimde `ConflictsWithLesson` · `RecurrenceExpander` COUNT desteği) · 2026-09-04 (P06/M05-2: `ILessonScheduleDirectory` — Scheduling'in LessonSessions'a açtığı salt-okunur plan sözleşmesi; self dersler hariç) · 2026-09-02 (F-04: `POST /lessons/{id}/complete` kodda — Planned→Completed işaretlendi) · 2026-08-19 (kod-senkron: `LessonSchedule.TeacherUserId`/`LessonFormat` nullable + `Topic`/`ColorHex` alanları eklendi; §2.3 `StudyScheduleEntry` aggregate + `StudyScheduleModel.cs` kodda YOK — kaldırıldı olarak işaretlendi; `MeetingUrl` "önerilen" iddiaları temizlendi) · 2026-07-19 (Ç-06: `StudyScheduleEntry` → birleşik `LessonSchedule` (nullable `TeacherUserId` + `Topic`/`ColorHex`); self-lesson komut yolu + `/study-entries` köprüleme; takvim tek kaynak + occurrence `completed` (`IStudyPlanCompletionReader`); `LessonScheduled/Cancelled` event'leri nullable teacher; `UnifyLessonSchedule` migration; `StudyScheduleReminderIntegrationEventHandler` kaldırıldı · Veli V-F: `IStudentUpcomingLessonsDirectory` — veli paneli için öğrencinin yaklaşan Planned dersleri; Shared.Contracts) · 2026-07-18*
 
 *Güncelleme: 2026-11-15 — P17 Task 4 / N-03, K-21: tek oturum tamamlama yolu ve oluşum durum senkronizasyonu.*
+
+*Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*

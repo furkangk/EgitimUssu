@@ -167,7 +167,11 @@ public sealed class NotificationPreferenceGateTests
             userNotifications ?? new UserNotificationTests.FakeUserNotificationRepository(),
             sender,
             new FakeUserNotificationPreferences(preferences ?? UserNotificationPreferences.AllEnabled),
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new LessonReminderPlannerTests.Students { Owner = reminder.RecipientUserId },
+            new LessonReminderPlannerTests.Parents(),
+            new LessonReminderPlannerTests.Reader { Items = { new(reminder.LessonScheduleId, reminder.TeacherUserId,
+                reminder.StudentId, reminder.OccurrenceStartUtc, reminder.ScheduledLessonStartAtUtc, (int)(reminder.ScheduledLessonStartAtUtc - reminder.RemindAtUtc).TotalMinutes) } });
 
     private static UserNotification CreateUserNotification(Guid userId, UserNotificationKind kind)
         => new(Guid.NewGuid(), userId, kind, "Baslik", "Govde", "/route", Now.AddMinutes(-5));

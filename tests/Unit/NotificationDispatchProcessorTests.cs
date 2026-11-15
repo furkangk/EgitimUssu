@@ -163,6 +163,44 @@ public sealed class NotificationDispatchProcessorTests
         Assert.Equal(Now, notification.PushedOnUtc);
     }
 
+    [Fact]
+    public async Task Dispatch_uses_recipient_instead_of_teacher()
+    {
+        var recipient = Guid.NewGuid();
+        var reminder = CreateReminder(out var teacher, recipient);
+        var sender = new FakePushSender(PushDeliveryStatus.Delivered);
+        await CreateProcessor(reminder, new FakeDeviceTokenRepository(CreateToken(teacher, "teacher"), CreateToken(recipient, "student")), sender).DispatchDueRemindersAsync();
+        Assert.Equal(new[] { "student" }, sender.SentTokens);
+    }
+
+    [Theory]
+    [InlineData(31, 60, true)]
+    [InlineData(30, 60, false)]
+    [InlineData(1, -1, true)]
+    public async Task Stale_or_started_reminder_expires_without_push(int minutesLate, int minutesUntilStart, bool expired)
+    {
+        var user = Guid.NewGuid();
+        var reminder = new LessonReminder(Guid.NewGuid(), Guid.NewGuid(), user, Guid.NewGuid(), "Ders", "Saat", Now.AddMinutes(minutesUntilStart), Now.AddMinutes(-minutesLate), NotificationChannel.Push, ReminderStatus.Pending, Now);
+        var sender = new FakePushSender(PushDeliveryStatus.Delivered);
+        await CreateProcessor(reminder, new FakeDeviceTokenRepository(CreateToken(user, "token")), sender).DispatchDueRemindersAsync();
+        Assert.Equal(expired ? ReminderStatus.Expired : ReminderStatus.Sent, reminder.Status);
+        Assert.Equal(expired ? 0 : 1, sender.SentTokens.Count);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(60)]
+    public async Task Current_disabled_or_changed_offset_blocks_stale_trigger_before_outbox_delivery(int offset)
+    {
+        var reminder = CreateReminder(out var teacher);
+        var sender = new FakePushSender(PushDeliveryStatus.Delivered);
+        var reader = new LessonReminderPlannerTests.Reader { Items = { new(reminder.LessonScheduleId, teacher,
+            reminder.StudentId, reminder.OccurrenceStartUtc, reminder.ScheduledLessonStartAtUtc, offset) } };
+        await CreateProcessor(reminder, new FakeDeviceTokenRepository(CreateToken(teacher, "token")), sender, schedules: reader).DispatchDueRemindersAsync();
+        Assert.Empty(sender.SentTokens);
+        Assert.Equal(ReminderStatus.Cancelled, reminder.Status);
+    }
+
     private static UserNotification CreateUserNotification(Guid userId)
         => new(
             Guid.NewGuid(),
@@ -177,16 +215,21 @@ public sealed class NotificationDispatchProcessorTests
         LessonReminder reminder,
         FakeDeviceTokenRepository deviceTokens,
         FakePushSender sender,
-        UserNotificationTests.FakeUserNotificationRepository? userNotifications = null)
+        UserNotificationTests.FakeUserNotificationRepository? userNotifications = null,
+        LessonReminderPlannerTests.Reader? schedules = null)
         => new(
             new FakeLessonReminderRepository(reminder),
             deviceTokens,
             userNotifications ?? new UserNotificationTests.FakeUserNotificationRepository(),
             sender,
             new AllEnabledPreferences(),
-            new FixedClock(Now));
+            new FixedClock(Now),
+            new LessonReminderPlannerTests.Students { Owner = reminder.RecipientUserId },
+            new LessonReminderPlannerTests.Parents(),
+            schedules ?? new LessonReminderPlannerTests.Reader { Items = { new(reminder.LessonScheduleId, reminder.TeacherUserId,
+                reminder.StudentId, reminder.OccurrenceStartUtc, reminder.ScheduledLessonStartAtUtc, (int)(reminder.ScheduledLessonStartAtUtc - reminder.RemindAtUtc).TotalMinutes) } });
 
-    private static LessonReminder CreateReminder(out Guid teacherUserId)
+    private static LessonReminder CreateReminder(out Guid teacherUserId, Guid? recipient = null)
     {
         teacherUserId = Guid.NewGuid();
         return new LessonReminder(
@@ -200,7 +243,7 @@ public sealed class NotificationDispatchProcessorTests
             Now.AddMinutes(-1),
             NotificationChannel.Push,
             ReminderStatus.Pending,
-            Now.AddDays(-1));
+            Now.AddDays(-1), recipientUserId: recipient);
     }
 
     private static DeviceToken CreateToken(Guid userId, string token)

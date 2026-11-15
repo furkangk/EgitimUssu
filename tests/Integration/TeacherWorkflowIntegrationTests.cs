@@ -135,13 +135,16 @@ public sealed class TeacherWorkflowIntegrationTests
         var lessonPayload = await ReadJsonAsync(lessonResponse);
         var lessonId = lessonPayload.GetProperty("id").GetGuid();
 
-        var reminderReady = await WaitForReminderAsync(factory, lessonId);
-        Assert.True(reminderReady);
-
+        // Geçmişte bitmiş seriye hatırlatma üretilmez (P17 T6).
+        for (var round = 0; round < 5; round++)
+        {
+            await using var dispatch = factory.Services.CreateAsyncScope();
+            await dispatch.ServiceProvider.GetRequiredService<IOutboxProcessor>().DispatchPendingAsync();
+        }
         var reminderResponse = await client.GetAsync($"/api/notifications/teachers/{teacherUserId}/lesson-reminders?activeOnly=false");
         reminderResponse.EnsureSuccessStatusCode();
         var reminderPayload = await ReadJsonAsync(reminderResponse);
-        Assert.Contains(reminderPayload.EnumerateArray(), item => item.GetProperty("lessonScheduleId").GetGuid() == lessonId);
+        Assert.DoesNotContain(reminderPayload.EnumerateArray(), item => item.GetProperty("lessonScheduleId").GetGuid() == lessonId);
 
         var teacherLessonsResponse = await client.GetAsync($"/api/scheduling/teachers/{teacherUserId}/lessons?startAtUtc={Uri.EscapeDataString(startAtUtc.AddDays(-1).ToString("O"))}&endAtUtc={Uri.EscapeDataString(endAtUtc.AddDays(7).ToString("O"))}");
         teacherLessonsResponse.EnsureSuccessStatusCode();
@@ -356,12 +359,12 @@ public sealed class TeacherWorkflowIntegrationTests
             Assert.True(await lessonSessionsDb.OutboxMessages.AnyAsync(message => message.Type == "LessonSessionCompletedDomainEvent"));
             Assert.True(await assignmentsDb.OutboxMessages.AnyAsync(message => message.Type == "LessonNoteCreatedDomainEvent"));
             Assert.True(await assignmentsDb.OutboxMessages.AnyAsync(message => message.Type == "AssignmentCreatedDomainEvent"));
-            Assert.True(await notificationsDb.OutboxMessages.AnyAsync(message => message.Type == "LessonReminderCreatedDomainEvent"));
+            Assert.False(await notificationsDb.OutboxMessages.AnyAsync(message => message.Type == "LessonReminderCreatedDomainEvent"));
             Assert.True(await paymentsDb.OutboxMessages.AnyAsync(message => message.Type == "PaymentRecordCreatedDomainEvent"));
             Assert.True(await paymentsDb.OutboxMessages.AnyAsync(message => message.Type == "PaymentRecordUpdatedDomainEvent"));
             Assert.Equal(1, await assignmentsDb.LessonNotes.CountAsync());
             Assert.Equal(2, await assignmentsDb.Assignments.CountAsync());
-            Assert.Equal(1, await notificationsDb.LessonReminders.CountAsync());
+            Assert.Equal(0, await notificationsDb.LessonReminders.CountAsync());
             Assert.Equal(1, await paymentsDb.PaymentRecords.CountAsync());
         }
         finally
@@ -516,7 +519,7 @@ public sealed class TeacherWorkflowIntegrationTests
             studentResponse.EnsureSuccessStatusCode();
             var studentId = (await ReadJsonAsync(studentResponse)).GetProperty("id").GetGuid();
 
-            var startAtUtc = new DateTime(2026, 06, 01, 14, 0, 0, DateTimeKind.Utc);
+            var startAtUtc = DateTime.UtcNow.AddDays(2);
             var endAtUtc = startAtUtc.AddHours(1);
             var lessonResponse = await client.PostAsJsonAsync("/api/scheduling/lessons", new
             {
@@ -647,7 +650,7 @@ public sealed class TeacherWorkflowIntegrationTests
             studentResponse.EnsureSuccessStatusCode();
             var studentId = (await ReadJsonAsync(studentResponse)).GetProperty("id").GetGuid();
 
-            var startAtUtc = DateTime.UtcNow.AddMinutes(30);
+            var startAtUtc = DateTime.UtcNow.AddMinutes(45);
             var endAtUtc = startAtUtc.AddHours(1);
             var lessonResponse = await client.PostAsJsonAsync("/api/scheduling/lessons", new
             {

@@ -63,3 +63,13 @@ public interface ILessonScheduleDirectory
 public sealed record TeacherBusyInterval(DateTime StartAtUtc, DateTime EndAtUtc, string Kind);
 
 public sealed record LessonScheduleOccurrence(DateTime OccurrenceStartUtc, DateTime StartAtUtc, DateTime EndAtUtc, bool IsCancelled);
+
+/// <summary>Bildirim planlayıcısı için görünen pencereye genişletilmiş, aktif oluşumlar.</summary>
+public interface ILessonScheduleReader
+{
+    Task<IReadOnlyCollection<ReminderOccurrence>> ListReminderOccurrencesAsync(
+        DateTime fromUtc, DateTime toUtc, Guid? lessonScheduleId, CancellationToken cancellationToken);
+}
+
+public sealed record ReminderOccurrence(Guid LessonScheduleId, Guid? TeacherUserId, Guid StudentId,
+    DateTime OccurrenceStartUtc, DateTime StartAtUtc, int ReminderOffsetMinutes);

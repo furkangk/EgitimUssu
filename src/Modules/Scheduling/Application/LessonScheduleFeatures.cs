@@ -823,6 +823,11 @@ public sealed class RescheduleLessonScheduleCommandHandler : ICommandHandler<Res
             {
                 // Upsert yeniden denemede aynı satırı (ya da izlenen eklemeyi) günceller; tekrar satırı doğmaz.
                 await _repository.UpsertExceptionAsync(occurrenceException, token);
+                if (!applied)
+                {
+                    lesson.RecordOccurrenceRescheduled(occurrenceException.OriginalStartAtUtc, _clock.UtcNow);
+                    applied = true;
+                }
             }
             else if (splitOccurrence && !applied)
             {

@@ -10,7 +10,7 @@ namespace EgitimUssu.Modules.Scheduling.Infrastructure;
 /// M05-2: LessonSessions'ın planlı dersten oturum türetebilmesi için salt-okunur erişim.
 /// Öğretmensiz (self, Ç-06) dersler dönmez — onlardan oturum türetilemez.
 /// </summary>
-internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory
+internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory, ILessonScheduleReader
 {
     private readonly SchedulingDbContext _dbContext;
     private readonly ILessonScheduleRepository _lessons;
@@ -27,6 +27,35 @@ internal sealed class LessonScheduleDirectory : ILessonScheduleDirectory
         _lessons = lessons;
         _timeOff = timeOff;
         _calendar = calendar;
+    }
+
+    public async Task<IReadOnlyCollection<ReminderOccurrence>> ListReminderOccurrencesAsync(
+        DateTime fromUtc, DateTime toUtc, Guid? lessonScheduleId, CancellationToken cancellationToken)
+    {
+        var query = _dbContext.LessonSchedules.AsNoTracking().Where(l => l.Status == LessonScheduleStatus.Planned);
+        if (lessonScheduleId.HasValue) query = query.Where(l => l.Id == lessonScheduleId.Value);
+        var lessons = await query.Where(l => l.StartAtUtc <= toUtc ||
+            _dbContext.LessonOccurrenceExceptions.Any(e => e.SeriesLessonScheduleId == l.Id &&
+                e.Action == OccurrenceExceptionAction.Rescheduled && e.OverrideStartAtUtc <= toUtc))
+            .ToArrayAsync(cancellationToken);
+        var ids = lessons.Select(l => l.Id).ToArray();
+        var exceptions = await _dbContext.LessonOccurrenceExceptions.AsNoTracking()
+            .Where(e => ids.Contains(e.SeriesLessonScheduleId)).ToArrayAsync(cancellationToken);
+        var byLesson = exceptions.ToLookup(e => e.SeriesLessonScheduleId);
+        var result = new List<ReminderOccurrence>();
+        foreach (var lesson in lessons)
+        {
+            var overrides = byLesson[lesson.Id].Select(e => new OccurrenceOverride(e.OriginalStartAtUtc,
+                e.Action, e.OverrideStartAtUtc, e.OverrideEndAtUtc)).ToArray();
+            foreach (var occurrence in RecurrenceExpander.Expand(lesson.StartAtUtc, lesson.EndAtUtc,
+                lesson.RecurrenceRule, _calendar.SeriesZone(lesson.TimeZone), fromUtc, toUtc, overrides))
+            {
+                if (occurrence.IsCancelled || occurrence.IsCompleted || occurrence.StartAtUtc <= fromUtc || occurrence.StartAtUtc > toUtc) continue;
+                result.Add(new(lesson.Id, lesson.TeacherUserId, lesson.StudentId,
+                    occurrence.RecurrenceIdUtc, occurrence.StartAtUtc, lesson.ReminderOffsetMinutes));
+            }
+        }
+        return result;
     }
 
     public async Task<LessonScheduleOccurrence?> GetOccurrenceAsync(Guid lessonScheduleId, DateTime occurrenceStartUtc, CancellationToken cancellationToken)

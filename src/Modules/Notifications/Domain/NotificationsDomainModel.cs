@@ -22,10 +22,14 @@ public sealed class LessonReminder : AggregateRoot<Guid>
         DateTime remindAtUtc,
         NotificationChannel channel,
         ReminderStatus status,
-        DateTime createdOnUtc)
+        DateTime createdOnUtc,
+        DateTime? occurrenceStartUtc = null,
+        Guid? recipientUserId = null)
     {
         Id = id;
         LessonScheduleId = lessonScheduleId;
+        OccurrenceStartUtc = occurrenceStartUtc ?? scheduledLessonStartAtUtc;
+        RecipientUserId = recipientUserId ?? teacherUserId;
         TeacherUserId = teacherUserId;
         StudentId = studentId;
         Title = title;
@@ -41,6 +45,10 @@ public sealed class LessonReminder : AggregateRoot<Guid>
     }
 
     public Guid LessonScheduleId { get; private set; }
+
+    public DateTime OccurrenceStartUtc { get; private set; }
+
+    public Guid RecipientUserId { get; private set; }
 
     public Guid TeacherUserId { get; private set; }
 
@@ -91,6 +99,21 @@ public sealed class LessonReminder : AggregateRoot<Guid>
         RemindAtUtc = remindAtUtc;
         Status = ReminderStatus.Pending;
         UpdatedOnUtc = updatedOnUtc;
+    }
+
+    public void Expire(DateTime nowUtc)
+    {
+        if (Status != ReminderStatus.Pending) return;
+        Status = ReminderStatus.Expired;
+        UpdatedOnUtc = nowUtc;
+    }
+
+    public void Replan(DateTime startUtc, DateTime remindUtc, string message, DateTime nowUtc)
+    {
+        Reschedule(startUtc, remindUtc, nowUtc);
+        Message = message;
+        AttemptCount = 0;
+        LastError = null;
     }
 
     public void MarkSent(DateTime updatedOnUtc)
@@ -208,7 +231,8 @@ public enum ReminderStatus
     Cancelled = 3,
 
     /// <summary>Maksimum deneme sayısına ulaşıldı; artık denenmez (P03 Task 3).</summary>
-    Failed = 4
+    Failed = 4,
+    Expired = 5
 }
 
 public sealed record LessonReminderCreatedDomainEvent(

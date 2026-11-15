@@ -186,7 +186,7 @@
 
 ---
 
-### Task 6: Oluşum bazlı hatırlatma (N-06)
+### Task 6: Oluşum bazlı hatırlatma (N-06) ✅
 
 **Files:**
 - Modify: `src/Modules/Notifications/Infrastructure/LessonScheduleNotificationIntegrationEventHandler.cs` (Rescheduled / OccurrenceCancelled / Deleted / SeriesSplit tüketimi)
@@ -196,16 +196,31 @@
 - Migration: `OccurrenceReminders` (Notifications) — mevcut bekleyen hatırlatmalar `OccurrenceStartUtc = ders StartAtUtc` ile geri doldurulur
 - Test: `tests/Unit/LessonReminderPlannerTests.cs`, `tests/Integration/RealOccurrenceReminderTests.cs`
 
+**Kapsam doğrulaması (2026-11-15, #236):** İlk liste domain/alıcı, gönderim, DI ve veri silme kapsamını atlıyordu. `ILessonScheduleReader` kodda yok; mevcut `ILessonScheduleDirectory` ve sahtelerini değiştirmeden aynı sözleşme dosyasına ayrı pencere okuyucusu eklenir.
+- Modify: `src/Modules/Notifications/Domain/NotificationsDomainModel.cs` (orijinal oluşum + alıcı, Expired, yeniden planlama metni/deneme sıfırlama), `Infrastructure/NotificationDispatching.cs` (alıcıya teslim, 30 dk zaman aşımı, güncel veli/öğrenci erişimi), `DependencyInjection.cs`, `NotificationsPersonalDataAnonymizer.cs` (alıcı verisini de sil).
+- Modify: `src/Modules/Scheduling/Infrastructure/LessonScheduleDirectory.cs`, `DependencyInjection.cs` (ayrı `ILessonScheduleReader`; tüm istisnalar ve görünen pencere, tamamlananlar hariç).
+- Modify: `src/Modules/Notifications/Application/NotificationFeatures.cs` (yanıtta orijinal anahtar/alıcı), `Infrastructure/LessonReminderRepository.cs` (öğretmen listesi yalnız öğretmen alıcısı).
+- Modify tests: `tests/Unit/NotificationDispatchProcessorTests.cs`, `NotificationPreferenceGateTests.cs` (güncel alıcı kapısı imzaları); `tests/Integration/TeacherWorkflowIntegrationTests.cs` (geçmiş hatırlatma beklentileri yeni zaman aşımına göre).
+- Doc: `doc/modules/m04_scheduling.md`, `m11_notifications.md`, `00_genel_bakis.md`, `veri_modeli.md`, `doc/roles/{ogretmen,ogrenci,veli}.md`, denetim N-06.
+
+**Ek kapsam bulgusu:** `Single` ertelemesi yalnız istisna upsert ediyordu, hiçbir olay yayımlamıyordu (gerçek PostgreSQL testi eski 14:45 tetik anında kaldı). `src/Modules/Scheduling/{Domain/SchedulingDomainModel.cs,Application/LessonScheduleFeatures.cs}` yeni `LessonOccurrenceRescheduledDomainEvent` üretimi için kapsama eklendi; eski olay şeması değişmez. Downgrade eski plan başına tek satır kısıtına dönerken öğretmenin en son oluşum satırını koruyup diğer türetilebilir hatırlatmaları kaldırır.
+
+**Teknik kararlar:** Offset `0` kapalı; self ders öğrenci hesabına çözülür. Gönderimde güncel kaynak anahtar/saat kontrol edilir. 7 günlük kayan pencere her dakika ve ilgili olayda kaynaktan uzlaştırılır; eski olay sırası kaynak durumunu ezmez. Üçlü anahtar kalıcıdır, ertelenen aynı satır yeni metin/saatle yeniden bekler (denemeler sıfırlanır); eski tetik anı iptal edilmiş olur. Gönderilmiş aynı saat ikinci kez gönderilmez. Tüm alıcılar standart ders/push tercihini, veli ayrıca onaylı bağ ve LessonReminders tercihini geçer (ders hatırlatması üyelikle sınırlanmaz). Geciken gönderim `RemindAt + 30 dk < now` veya ders başladıysa Expired; geçmişe üretim yok. Eski satırlar Notifications içindeki `ScheduledLessonStartAtUtc` ile geri doldurulur: modüller arası SQL okunmaz; self dersin alıcısı çözülemeyen eski boş öğretmen satırı iptal edilir ve okuyucu öğrenci alıcısıyla yeniden üretir. Planlayıcı/olay uzlaştırması ortak PostgreSQL transaction kilidiyle serileşir; eski outbox olay şemaları korunur.
+
 **Interfaces:**
 - Alıcılar: öğretmen + öğrenci kullanıcısı + (tercihi açık) onaylı veli. Tercih kapısı (M11-5) aynen.
 - Başlangıcı geçmiş oluşum için hatırlatma **üretilmez**; geciken gönderimde `RemindAt + 30 dk` geçmişse `Expired`.
 
-- [ ] **Step 1: Kırmızı testler** — 15:00 → 18:00 erteleme: 14:45 hatırlatması iptal, 17:45 üretilir; silinen ders → bekleyen hatırlatma iptal; haftalık seride 3 hafta boyunca her oluşum için hatırlatma; geçmiş tarihli ders oluşturma → hatırlatma yok; metin TR saatiyle (P16 T5).
-- [ ] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
-- [ ] **Step 5: Doküman + commit** — `m11`; rapor N-06 ✅.
+- [x] **Step 1: Kırmızı testler** — 15:00 → 18:00 erteleme: 14:45 hatırlatması iptal, 17:45 üretilir; silinen ders → bekleyen hatırlatma iptal; haftalık seride 3 hafta boyunca her oluşum için hatırlatma; geçmiş tarihli ders oluşturma → hatırlatma yok; metin TR saatiyle (P16 T5).
+- [x] **Step 2–4: Kırmızı gör → uygula → yeşil gör.**
+- [x] **Step 5: Doküman + commit** — `m11`; rapor N-06 ✅.
   ```bash
   git commit -m "fix(notifications): ders hatirlatmasi olusum bazli, erteleme/silme izlenir, ogrenci ve veliye de gider (N-06)"
   ```
+
+---
+
+**Doğrulama kanıtı (2026-11-15):** Davranışsız imzalar Release `-warnaserror` ile 0 uyarı/0 hata derlendi. İlk 6 planlayıcı testinden 5’i kırmızı; alıcı/zaman aşımı gönderim testlerinde 3 kırmızı; offset kapalı/self testi ve son iki bayat offset gönderim testi ayrıca kırmızı → yeşil. Gerçek PostgreSQL testi tek oluşum ertelemesinde olay yokluğunu kırmızı yakaladı; yeni olayla yeşil. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1186 birim / 146 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental`: **0 uyarı/0 hata**; drift **0**, **153 migration Down** kontrolü. Dört yeni gerçek PostgreSQL senaryosu: erteleme/iptal/silme/geç Scheduled, paralel planlayıcı + seri bölme, üç rol teslimi + veli iptali/tercihi, ayrı DB’de eski şemadan geri doldurma + çoklu alıcıdan Down/Up. Mobil değişmedi; Flutter koşulmadı.
 
 ---
 
@@ -244,4 +259,4 @@
   git commit -m "test(lessons): haftalik ders yasam dongusu senaryosu, P17 kapanisi"
   ```
 
-*Güncelleme: 2026-11-15 (P17 Task 5: iptal politikası, ücret/oturum/hatırlatma temizliği, atomik talep, üç migration ve Docker/backend/mobil doğrulama).*
+*Güncelleme: 2026-11-15 (P17 Task 6: oluşum/alıcı hatırlatmaları, 7 günlük planlayıcı, yeni oluşum erteleme olayı, migration ve Docker doğrulaması).*
