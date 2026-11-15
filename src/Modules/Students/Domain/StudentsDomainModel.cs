@@ -3,8 +3,10 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Students.Domain;
 
-public sealed class StudentProfile : AggregateRoot<Guid>
+public sealed class StudentProfile : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private StudentProfile()
     {
     }
@@ -386,8 +388,10 @@ public sealed record StudentProfilesMergedDomainEvent(
     Guid ToStudentId,
     DateTime OnUtc) : DomainEvent;
 
-public sealed class TeacherStudentLink : AggregateRoot<Guid>
+public sealed class TeacherStudentLink : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private TeacherStudentLink()
     {
     }

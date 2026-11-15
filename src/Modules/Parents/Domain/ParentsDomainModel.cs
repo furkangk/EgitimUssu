@@ -131,8 +131,10 @@ public sealed class ParentProfile : AggregateRoot<Guid>
 /// Veli–öğrenci bağı. Onaya dayalı, çoklu çocuk destekli (İş Kuralları 4.2). Bağ <c>Pending</c> doğar,
 /// öğrenci ya da öğrencinin öğretmeni (ya da Admin) onaylar. Bir veli birden çok çocuğa bağlanabilir.
 /// </summary>
-public sealed class ParentChildLink : AggregateRoot<Guid>
+public sealed class ParentChildLink : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private static readonly Error InvalidTransition = new(
         "parents.invalid_link_transition",
         "Bu bağ artık onaylanamaz; yalnız onay bekleyen bir bağ onaylanabilir.");

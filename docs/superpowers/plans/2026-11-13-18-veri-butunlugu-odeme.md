@@ -16,37 +16,45 @@
 
 - **Commit kapsamı:** her commit bloğundan önce `git add <görevin Files: listesi> <değişen doc dosyaları>`; **`git add -A` / `git add .` yasak** (platforma özgü dosyalar, `pubspec.lock` ve ilgisiz değişiklikler sızmasın).
 - Önceki tüm sözleşmeler.
+- **T1 revizyonu (2026-11-15):** Npgsql 9.0.4 scaffold C# dosyasına sistem kolonu AddColumn/DropColumn yazabilir; açık xmin yedeği de aynıdır. Sağlayıcı SQL üreticisinde sistem kolonları atılır. Önce her modül için ileri/geri SQL’de DDL olmadığını kanıtla; sonra yalnız bu etkisiz sistem-kolonu işlemlerini boş Up/Down + açıklama yorumuna indir, Designer/Snapshot korunsun. Convention API’de `IsConcurrencyToken(true)` + `ValueGenerated(OnAddOrUpdate)` `IsRowVersion()` karşılığıdır; EF1001 üreten mutable builder kurucusu kullanılmaz.
 - **xmin eşlemesi:** `public uint Version { get; private set; }` + `builder.Property(x => x.Version).IsRowVersion()`. Npgsql 9 bunu `xmin` sistem kolonuna eşler; migration **kolon eklememeli**. Ekliyorsa dur, ILERLEME'ye yaz, `HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsConcurrencyToken()` biçimini dene.
 - Para alanları `decimal(18,2)`; para birimi ISO 4217 3 harf.
 - Mobil değişen ekranlar ARB'ye taşınır.
 
 ---
 
-### Task 1: Concurrency token altyapısı (§1.5)
+### Task 1: Concurrency token altyapısı (§1.5) ✅
 
 **Files:**
 - Create: `src/Shared/Kernel/IVersioned.cs`
 - Modify: `src/Shared/Infrastructure/Persistence/ModuleDbContext.cs` (`IVersioned` uygulayan entity'lere `IsRowVersion()` konvansiyonu)
 - Modify: `src/Shared/Infrastructure/Middleware/ProblemDetailsExceptionMiddleware.cs` (`DbUpdateConcurrencyException` → 409)
-- Modify: `src/Shared/Infrastructure/Persistence/EfOutboxStore.cs` / `DispatchingEventBus.cs` (handler'da concurrency hatası → yeniden denenebilir)
-- Modify (aggregate'lara `IVersioned`): `PaymentRecord` (Payments), `UserSubscription` (Membership), `StudyStreak`, `StudyTopic` (Study), `TopicMastery` (ProgressTracking), `Assignment` (Assignments), `LessonSchedule` (Scheduling), `TeacherStudentLink`, `StudentProfile` (Students), `ParentChildLink` (Parents)
+- Verify: `src/Shared/Infrastructure/Persistence/EfOutboxStore.cs`, `src/Shared/Infrastructure/Messaging/DispatchingEventBus.cs`, `src/Shared/Infrastructure/Messaging/IdempotentIntegrationEventHandler.cs` (mevcut retry/backoff + yeni publish scope davranışı gerçek çakışma, rollback ve tekrar teslimle kanıtlanır; yalnız test açığı çıkarsa değiştirilir)
+- Modify: `src/Modules/Payments/Domain/PaymentsDomainModel.cs`, `src/Modules/Membership/Domain/MembershipDomainModel.cs`, `src/Modules/Study/Domain/StudyDomainModel.cs`, `src/Modules/ProgressTracking/Domain/ProgressTrackingDomainModel.cs`, `src/Modules/Assignments/Domain/AssignmentsDomainModel.cs`, `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs`, `src/Modules/Students/Domain/StudentsDomainModel.cs`, `src/Modules/Parents/Domain/ParentsDomainModel.cs` (yalnız listelenen 10 tipe `IVersioned` + `Version`)
+- Migration: yalnız bu sekiz modülün `Infrastructure/Migrations/*AddVersionToken*.cs` + `*DbContextModelSnapshot.cs` (Up/Down boş; xmin sistem kolonudur)
+- Docs: `doc/architecture/backend.md`, `doc/modules/mimari_inceleme.md`, `doc/modules/00_genel_bakis.md`, `doc/modules/veri_modeli.md`, `doc/modules/m03_students.md`, `m04_scheduling.md`, `m06_assignments.md`, `m07_payments.md`, `m09_parents.md`, `m10_progress_tracking.md`, `m17_membership.md`, `m08_study.md` (modül dosya adları koddan/INDEX'ten doğrulanır), `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`, bu plan; ayrı ilerleme commit'i: `docs/superpowers/ILERLEME.md`
 - Test: `tests/Unit/ConcurrencyConventionTests.cs`, `tests/Integration/RealConcurrencyTokenTests.cs`
+- Modify: `tests/Integration/RealLateCancellationChargeTests.cs` (mevcut göç kanıtı sondan ikinci yerine PendingOccurrenceChangeRequest göçünden önceki kimliği seçer; yeni migration eklenince yanlış şemaya düşmemeli)
+- Modify: `tests/Unit/EgitimUssu.Tests.Unit.csproj` (Parents/Study Infrastructure model testleri için eksik başvurular)
 
 **Interfaces:**
 - `public interface IVersioned { uint Version { get; } }`
 - Hata gövdesi: `{ code: "shared.concurrency_conflict", message: "Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin." }`
 
-- [ ] **Step 1: Kırmızı testler** — konvansiyon testi: listedeki her entity için model metadatasında `Version` `IsConcurrencyToken == true`; Testcontainers: aynı `PaymentRecord`'u iki context'te okuyup ikisini de kaydet → ikincisi `DbUpdateConcurrencyException`; uçtan: 409 + kod.
-- [ ] **Step 2: Kırmızı gör.**
-- [ ] **Step 3: Uygula** + her modülde migration üret ve **boş olduğunu doğrula** (`git diff --stat` yalnız Designer/Snapshot). Boş değilse Global Constraints'teki yedek biçim.
-  `./scripts/add-migration-all.sh AddVersionToken` (yalnız etkilenen modüller) → `./scripts/check-migration-down.sh`
-- [ ] **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
-- [ ] **Step 5: Doküman + commit** — `doc/architecture/backend.md` (eşzamanlılık), `mimari_inceleme.md`; rapor §1.5 ✅.
+- [x] **Step 0: İmza** — `IVersioned` ve 10 tipte davranışsız `uint Version { get; private set; }`; konvansiyon/409 eklemeden derle.
+- [x] **Step 1: Kırmızı testler** — konvansiyon testi: listedeki her entity için model metadatasında `Version` `IsConcurrencyToken == true`; Testcontainers: aynı `PaymentRecord`'u iki context'te okuyup ikisini de kaydet → ikincisi `DbUpdateConcurrencyException`; uçtan: 409 + kod.
+- [x] **Step 2: Kırmızı gör.**
+- [x] **Step 3: Uygula** + her modülde migration üret ve **boş olduğunu doğrula** (`git diff --stat` yalnız Designer/Snapshot). Boş değilse Global Constraints'teki yedek biçim.
+  `dotnet ef migrations add AddVersionToken --project <sekiz etkilenen modül> --startup-project src/API.Host/EgitimUssu.API.Host.csproj --no-build` (tüm modülleri gezen betik yerine yalnız etkilenenler) → `./scripts/check-migration-down.sh`
+- [x] **Step 4: Yeşil gör** — `./scripts/test-with-docker.sh`
+- [x] **Step 5: Doküman + commit** — `doc/architecture/backend.md` (eşzamanlılık), `mimari_inceleme.md`; rapor §1.5 ✅.
   ```bash
   git commit -m "feat(persistence): kritik aggregate'larda xmin concurrency token + 409 eslemesi (K-22)"
   ```
 
 ---
+
+**Doğrulama (2026-11-15):** İmza Release 0/0. 11/12 unit ve 3/3 gerçek PostgreSQL kırmızı → 12/12 unit ve 3/3 gerçek PostgreSQL yeşil. İlk tam pakette yeni göçün ortaya çıkardığı positional eski migration testi kırmızı → adla hedeflenen sınırla yeşil; bağımsız incelemedeki yeni testin aynı varsayımı da düzeltildi. Son `bash scripts/test-with-docker.sh`: **19 mimari / 1208 birim / 157 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental`: **0 uyarı / 0 hata**. Mobil değişmedi, Flutter koşulmadı. Sekiz göçün ileri/geri SQL’i DDL içermez; gerçek PostgreSQL başlangıç göçleri uygulandı. Migration drift **0**; **163 Down** kontrolü (9 no-op) yeşil. Doc health RED **0**, kapsam dışı 2 YELLOW korundu.
 
 ### Task 2: Tahsilat hareketleri ve niyete dayalı ödeme komutları (N-09, N-10)
 
@@ -142,3 +150,5 @@
   ```bash
   git commit -m "test(payments): ogretmen finans senaryosu, P18 kapanisi"
   ```
+
+*Güncelleme: 2026-11-15 — P18 T1 kapsam doğrulaması: sekiz domain dosyası, boş migration/snapshot kapsamı, mevcut outbox retry kanıtı ve imza adımı.*

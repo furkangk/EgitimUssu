@@ -21,6 +21,10 @@ updated: 2026-11-15
 
 > **P17 T4 (K-21):** `LessonOccurrenceException.Action=Completed` mevcut string kolonda tutulur; yeni tablo veya kolon yoktur. `OriginalStartAtUtc` oluşum anahtarıdır; `OverrideStartAtUtc/OverrideEndAtUtc` ertelenmiş saati tamamlamadan sonra da korur. Oturumun `OccurrenceStartUtc/PlannedStartAtUtc` alanları `LessonSessionDetails` okuma sözleşmesine eklendi; olay şeması değişmez.
 
+### P18 T1 — sistem sürümü
+
+`payments.payment_records`, `membership.user_subscriptions`, `study.study_streaks`, `study.study_topics`, `progress_tracking.topic_masteries`, `assignments.assignments`, `scheduling.lesson_schedules`, `students.teacher_student_links`, `students.student_profiles`, `parents.parent_child_links` kayıtlarında CLR `Version uint` → PostgreSQL sistem kolonu `xmin xid` eşlenir (`IVersioned`, concurrency token, OnAddOrUpdate). Bu adlar modül EF konfigürasyonuyla doğrulanır; yeni fiziksel kolon ve geriye doldurulacak veri yoktur. Sekiz `AddVersionToken` göçü Up/Down boş, snapshot güncel. Çakışmada iş/outbox/inbox yazmaları atomik geri alınır.
+
 ### P17 T5 şema ekleri
 
 `teachers.teacher_profiles`: `CancellationNoticeHours int NOT NULL DEFAULT 0`, `CancellationChargePercent numeric(5,2) NOT NULL DEFAULT 0` (`TeacherCancellationPolicy`). `payments.payment_records`: nullable `LessonScheduleId uuid`, `OccurrenceStartUtc timestamptz`; yalnız `ItemType='LateCancellation' AND LessonScheduleId IS NOT NULL` için `(LessonScheduleId, OccurrenceStartUtc)` UNIQUE (`CancellationOccurrenceCharges`). Çapraz modül FK yoktur. `scheduling.lesson_change_requests`: `(LessonScheduleId, OccurrenceStartAtUtc)` UNIQUE WHERE Status='Pending' AND anahtar IS NOT NULL; eski tekrarlar silinmeden Rejected yapılır (`PendingOccurrenceChangeRequest`). Üç migration’ın Down metotları kolon/indeks eklerini geri alır; talep geçmişindeki retleri geri çevirmek tekrar üretmemek için bilinçli olarak yapılmaz.
@@ -261,3 +265,5 @@ erDiagram
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
+
+*Güncelleme: 2026-11-15 — P18 Task 1: xmin model metadatası.*

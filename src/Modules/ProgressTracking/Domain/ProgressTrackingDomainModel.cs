@@ -6,8 +6,10 @@ namespace EgitimUssu.Modules.ProgressTracking.Domain;
 /// Öğrencinin belirli bir ders+konu için güncel hâkimiyet seviyesi. Türetilmiş veridir:
 /// M08 çalışma süresi + test netlerinden beslenir (kendi ölçümünü üretmez).
 /// </summary>
-public sealed class TopicMastery : AggregateRoot<Guid>
+public sealed class TopicMastery : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private TopicMastery()
     {
     }

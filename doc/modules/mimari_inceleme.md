@@ -3,12 +3,12 @@ title: "Mimari İnceleme — Hatalar ve Eksikler"
 summary: "Backend + mobil mimarisinin kritik açık/footgun envanteri (K/Y kodları); 2026-06-30 denetiminin Aşama 0-1 bulguları büyük ölçüde kapatıldı"
 tags: [modul, mimari-inceleme, denetim, guvenlik]
 authority: derived
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # 🔬 Mimari İnceleme — Hatalar ve Eksikler
 
-> **İlk inceleme:** 2026-06-21 · **Güncelleme:** 2026-07-01 · **Kapsam:** Backend (.NET 9 modüler monolit) + Flutter mobil
+> **İlk inceleme:** 2026-06-21 · **Güncelleme:** 2026-11-15 · **Kapsam:** Backend (.NET 9 modüler monolit) + Flutter mobil
 > **Yöntem:** Çekirdek altyapı (CQRS, Outbox, DI, Auth) + tüm modüllerin domain/feature/API katmanları + mobil çekirdek incelendi.
 
 > **Genel değerlendirme:** Mimari **sağlam temellere** oturuyor (temiz katman ayrımı, modül başına DbContext,
@@ -270,4 +270,11 @@ Tüketiciler: (1) ödev teslimi `IAssignmentFileStorage`'dan ortak soyutlamaya t
 
 ---
 
-*Mimari İnceleme | Güncelleme: 2026-11-14 (P15 T9: `AuthorizationCoverageTests` yüklenemeyen/taranmayan assembly'de başarısız olur; sahiplik çapraz-kiracı paketinde) · 2026-11-14 (P15 T8: A-07 düzeltildi — kira sahibince yenilenir (N-41), hesap silme ve saklama servisleri kiraya alındı) · 2026-11-14 (P15 T7: A-06 genişletildi — `sid` iptal kümesi + hesap durumu + ms damga; A-15 daraltıldı — iptal nedeni + 30 sn pencere + koşullu rotasyon; Y3 sertleştirildi — mobil tek uçuş + yalnız 400/401'de çıkış) · 2026-09-05 (**A serisi**: bağımsız açıklık denetiminin 18 maddesi kapatıldı — Redis fail-open guard/health, XFF sahteciliği, PII log sızıntısı, e-posta outbox deseni, davet tüketimi, token iptali, arka plan işi kirası, kimlik eager-loading, outbox indeks+retention, metrik etiketi, entitlement alarmı, idempotency kilidi, varsayılan-deny uç grupları, OpenAPI, refresh yeniden-kullanım tespiti, iki boyutlu giriş kilidi, güvenlik başlıkları/CORS, DB retry; **A-19 açık** — ürün kararı) · 2026-09-04 (P07 kapanışı: **O5** read-model deseni + M14 ilk projeksiyon, **O2** authorizer/handler çift sorgusu, **O4** dispatcher delegate önbelleği — üçü de kapatıldı) · 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+*Mimari İnceleme | Güncelleme: 2026-11-15 (P15 T9: `AuthorizationCoverageTests` yüklenemeyen/taranmayan assembly'de başarısız olur; sahiplik çapraz-kiracı paketinde) · 2026-11-14 (P15 T8: A-07 düzeltildi — kira sahibince yenilenir (N-41), hesap silme ve saklama servisleri kiraya alındı) · 2026-11-14 (P15 T7: A-06 genişletildi — `sid` iptal kümesi + hesap durumu + ms damga; A-15 daraltıldı — iptal nedeni + 30 sn pencere + koşullu rotasyon; Y3 sertleştirildi — mobil tek uçuş + yalnız 400/401'de çıkış) · 2026-09-05 (**A serisi**: bağımsız açıklık denetiminin 18 maddesi kapatıldı — Redis fail-open guard/health, XFF sahteciliği, PII log sızıntısı, e-posta outbox deseni, davet tüketimi, token iptali, arka plan işi kirası, kimlik eager-loading, outbox indeks+retention, metrik etiketi, entitlement alarmı, idempotency kilidi, varsayılan-deny uç grupları, OpenAPI, refresh yeniden-kullanım tespiti, iki boyutlu giriş kilidi, güvenlik başlıkları/CORS, DB retry; **A-19 açık** — ürün kararı) · 2026-09-04 (P07 kapanışı: **O5** read-model deseni + M14 ilk projeksiyon, **O2** authorizer/handler çift sorgusu, **O4** dispatcher delegate önbelleği — üçü de kapatıldı) · 2026-09-04 (O8 kapatıldı: ortak `IFileStorage` + Local/S3 sağlayıcıları, MinIO'ya karşı canlı doğrulandı — P04) · 2026-09-03 (Y5 kapatıldı: gerçek FCM push + cihaz token + teslimat izleme — P03 Task 1-3) · 2026-09-02 (Y2 tamamen kapatıldı: `ConnectionStringGuard` ile DB sırrı repodan çıktı; hijyen D7 — CI `-warnaserror` derlemesi yeşile alındı, D8 — tasarım-zamanı varsayılan parola notu) · 2026-08-26 (Y4 kapatıldı: ortak `inbox_messages` + `IdempotentIntegrationEventHandler` ile tüketici idempotency'si) · 2026-08-25 (K1 kapatıldı — Outbox dispatcher açıldı + startup uyarı log'u; artık tüm 🔴 KRİTİK maddeler ✅). Önceki: 2026-07-18 (Dilim A takvim çekirdeği: O6 takvim boşlukları büyük ölçüde kapatıldı) — Düzeltmeler yapıldıkça güncellenmeli.*
+
+
+### P18 T1 — kritik kayıtların eşzamanlılığı ✅ (K-22, 2026-11-15)
+
+İlk denetimdeki concurrency token yokluğu on kritik tipte kapatıldı: `IVersioned`, Npgsql `xmin/xid`, ortak 409 gövdesi ve metadata-only sekiz migration. Gerçek PostgreSQL testleri iki context’in kaybeden yazmasını ve HTTP 200/409 yarışını; outbox tüketicisinde iş/inbox rollback + yeni scope’la tek retry etkisini sınar. Genel eski ekran PUT kaybının ödeme ayağı P18 T2’de niyet komutlarıyla kapatılacaktır; bu altyapı adımı N-09’u tek başına tamamlamaz.
+
+*Güncelleme: 2026-11-15 — P18 Task 1 eşzamanlılık altyapısı.*

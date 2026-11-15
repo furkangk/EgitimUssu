@@ -2,8 +2,10 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Payments.Domain;
 
-public sealed class PaymentRecord : AggregateRoot<Guid>
+public sealed class PaymentRecord : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private PaymentRecord()
     {
     }

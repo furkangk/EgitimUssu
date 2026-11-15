@@ -87,6 +87,9 @@ Bağımsız kapanış incelemesinde BYDAY ve UNTIL taşıma açıkları kapandı
 
 ## 2. Domain Modeli
 
+**P18 T1 — eşzamanlılık (K-22):** `LessonSchedule` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
+
+
 ### 2.1 🟢 Mevcut (koddan) — `LessonSchedule` (AggregateRoot<Guid>)
 
 `src/Modules/Scheduling/Domain/SchedulingDomainModel.cs`
@@ -533,3 +536,5 @@ POST /lesson-requests/{id}/reject
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
+
+*Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*

@@ -1,5 +1,6 @@
 using EgitimUssu.Shared.Infrastructure.Http;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EgitimUssu.Shared.Infrastructure.Middleware;
@@ -13,6 +14,15 @@ public sealed class ProblemDetailsExceptionMiddleware(
         try
         {
             await next(context);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            logger.LogWarning(exception, "Concurrency conflict for {Path}", context.Request.Path);
+            var result = ApiErrorHttpResults.FromError(
+                context,
+                StatusCodes.Status409Conflict,
+                new("shared.concurrency_conflict", "Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin."));
+            await result.ExecuteAsync(context);
         }
         catch (Exception exception)
         {

@@ -138,8 +138,10 @@ public sealed class SubscriptionPlan : AggregateRoot<Guid>
 /// <see cref="ExpireIfDue"/>'dur ve olayı orada yayılır.
 /// </para>
 /// </summary>
-public sealed class UserSubscription : AggregateRoot<Guid>
+public sealed class UserSubscription : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private UserSubscription()
     {
     }

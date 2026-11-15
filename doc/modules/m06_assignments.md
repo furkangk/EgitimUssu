@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Assignments/**
-updated: 2026-10-16
+updated: 2026-11-15
 ---
 
 # 📝 Ödev, Not & Kaynak (M06) — Detaylı Tasarım Dokümanı
@@ -47,6 +47,9 @@ updated: 2026-10-16
 ---
 
 ## 2. Domain Modeli
+
+**P18 T1 — eşzamanlılık (K-22):** `Assignment` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
+
 
 ### 2.1 🟢 Mevcut (koddan) — `Assignment` (AggregateRoot<Guid>)
 
@@ -354,4 +357,6 @@ POST /assignments/{id}/complete
 
 ---
 
-*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-10-16 (mobil ders notu formu mevcut API’ye bağlandı; gerçek oturum seçimi, kayıt hataları, metadata/ödev koruması) · 2026-09-04 (P08 Task 4 / M14-4: `IStudentAssignmentDigestDirectory` sözleşmesi eklendi — bir dönemdeki toplam/tamamlanan ödev sayısı Reporting'in PDF raporuna açıldı; dönem ölçütü teslim tarihi, yoksa oluşturulma tarihi, tamamlanmış = `Completed`+`Approved`) · 2026-09-04 (P06/M06-3: `AssignmentDueScanner` — 24 saat kala "teslime az kaldı", vade geçince "teslim edilmedi", ödev başına bir kez; iki M11 tüketicisi (öğrenci + Premium veli). P06/M06-4: `Assignment.Grade` 0–100 + `POST /{id}/grade` + `Score`/`GradedOnUtc`; mobilde öğretmen değerlendirme alt sayfası ve öğrenci puan rozeti) · 2026-09-03 (P04/M06-1: `LessonResource` aggregate + 4 uç + mobil `LessonResourcesSection`; P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+*Ödev, Not & Kaynak (M06) — Detaylı Tasarım | Güncelleme: 2026-11-15 (mobil ders notu formu mevcut API’ye bağlandı; gerçek oturum seçimi, kayıt hataları, metadata/ödev koruması) · 2026-09-04 (P08 Task 4 / M14-4: `IStudentAssignmentDigestDirectory` sözleşmesi eklendi — bir dönemdeki toplam/tamamlanan ödev sayısı Reporting'in PDF raporuna açıldı; dönem ölçütü teslim tarihi, yoksa oluşturulma tarihi, tamamlanmış = `Completed`+`Approved`) · 2026-09-04 (P06/M06-3: `AssignmentDueScanner` — 24 saat kala "teslime az kaldı", vade geçince "teslim edilmedi", ödev başına bir kez; iki M11 tüketicisi (öğrenci + Premium veli). P06/M06-4: `Assignment.Grade` 0–100 + `POST /{id}/grade` + `Score`/`GradedOnUtc`; mobilde öğretmen değerlendirme alt sayfası ve öğrenci puan rozeti) · 2026-09-03 (P04/M06-1: `LessonResource` aggregate + 4 uç + mobil `LessonResourcesSection`; P04/C-02: ödev teslimi ortak `IFileStorage`'a taşındı — `AttachSubmission` + `Attachment*` alanları + `GetAssignmentAttachmentQuery`; `IAssignmentFileStorage`/`LocalAssignmentFileStorage` silindi; göç: `scripts/migrate-assignment-files.sh`) · 2026-09-02 (F-03: öğrenci teslimi + öğrenci görünümü uçları kodda; dosya depolama P04'e etiketlendi) · 2026-08-19 (kod-senkron: API endpoint sayısı 3→8 düzeltildi — complete/submission/attachment/approve/return kodda; "tamamla endpoint'i eksik" iddiaları kapatıldı) · 2026-07-19 (Veli V-F: `IStudentNotesDirectory` — veliye görünür öğretmen notları yalnız `LessonNoteVisibility ∈ {Student, StudentAndParent}`; `Private` asla; Shared.Contracts) · 2026-07-18 (Dilim B: not görünürlüğü B-05 + ödev onay/geri gönder + geri bildirim T-06.7/8)*
+
+*Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*

@@ -55,6 +55,11 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 
 ## 2. Domain Modeli
 
+**P18 T1 — eşzamanlılık (K-22):** `PaymentRecord` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
+
+Bu token eşzamanlı veritabanı yazmalarını korur. Sıralı olarak gelen eski ekranın tam PUT’unun tahsilatı ezmesini engelleyen niyete dayalı ödeme komutları **P18 T2**’dedir; N-09 bu adımla tamamen kapanmaz.
+
+
 ### 2.1 🟢 Mevcut (koddan) — `PaymentRecord` (AggregateRoot<Guid>)
 
 `src/Modules/Payments/Domain/PaymentsDomainModel.cs`
@@ -308,3 +313,5 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 ---
 
 *Ödeme Takibi (M07) — Detaylı Tasarım | Güncelleme: 2026-11-15 (P16 Task 5 / N-11: özetin aylık kırılımı Türkiye yerel ayı; para birimi boyutu P18 T3) · 2026-11-14 (P15 Task 9 / #185 a: §4 kural 11 — otomatik ders ücreti yalnız yaşayan özel ders bağında; `GetAgreedLessonRateAsync` kapsam `Private` değilse `null`) · 2026-11-13 (P15 Task 2 / N-08: §4 kural 11 — ödeme oluştur/güncelle `ITeacherStudentAccess` ile yaşayan özel ders bağı ister; arşivli öğrencinin borcu arşivden çıkarmadan güncellenemez) · 2026-10-16 (veli beyanında güncel kalan tutar/kayıt durumu doğrulaması; geçersiz teyit durum veya olay değiştirmez). Önceki: 2026-09-04 (P06 Task 5 — **M07-1**: `PaymentRecord.MarkOverdue` + `OverdueMarkedOnUtc` alanı + `PaymentBecameOverdueDomainEvent` + saatlik `PaymentOverdueScanner`; **M07-2**: `LessonSessionCompletedPaymentHandler` — tamamlanan ücretli dersten otomatik `LessonFee` kaydı; migration `AddOverdueTracking`) · 2026-08-19 (kod-senkron: API 11 endpoint doğrulandı — 7 manuel takip + 4 veli beyan). Önceki not — Veli V-F: `IStudentPaymentDigestDirectory` — veli paneli için öğrenci ödeme kalem listesi canlı okuması; Veli V-G: `ParentPaymentDeclaration` veli "ödedim" beyanı — öğretmen teyitli → `MarkCollectedByParentConfirmation`; `declare-paid`/`confirm`/`reject`/liste endpoint'leri + `IParentAccessDirectory` + `parent_payment_declarations` migration)*
+
+*Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*

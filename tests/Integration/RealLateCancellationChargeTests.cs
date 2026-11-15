@@ -154,7 +154,10 @@ public sealed class RealLateCancellationChargeTests(ContainerFixture fixture)
             await using var db = new SchedulingDbContext(new DbContextOptionsBuilder<SchedulingDbContext>().UseNpgsql(connection.ConnectionString).Options, new NoOpDomainEventMapper());
             var migrator = db.GetService<IMigrator>();
             var migrations = db.Database.GetMigrations().ToArray();
-            await migrator.MigrateAsync(migrations[^2]);
+            var targetIndex = Array.FindIndex(migrations, name => name.EndsWith("_PendingOccurrenceChangeRequest", StringComparison.Ordinal));
+            Assert.True(targetIndex > 0, "PendingOccurrenceChangeRequest ve önceki migration bulunmalı.");
+            var beforePendingRequestUniqueness = migrations[targetIndex - 1];
+            await migrator.MigrateAsync(beforePendingRequestUniqueness);
             var schedule = Guid.NewGuid(); var student = Guid.NewGuid(); var teacher = Guid.NewGuid();
             var first = new LessonChangeRequest(Guid.NewGuid(), schedule, student, teacher, "İlk", null, null, Now.AddDays(3), Now.AddHours(-2));
             var duplicate = new LessonChangeRequest(Guid.NewGuid(), schedule, student, teacher, "İkinci", null, null, Now.AddDays(3), Now.AddHours(-1));
@@ -165,7 +168,7 @@ public sealed class RealLateCancellationChargeTests(ContainerFixture fixture)
             Assert.Equal(2, await db.LessonChangeRequests.CountAsync());
             Assert.Equal(first.Id, (await db.LessonChangeRequests.SingleAsync(r => r.Status == LessonChangeRequestStatus.Pending)).Id);
             Assert.Equal(LessonChangeRequestStatus.Rejected, (await db.LessonChangeRequests.SingleAsync(r => r.Id == duplicate.Id)).Status);
-            await migrator.MigrateAsync(migrations[^2]);
+            await migrator.MigrateAsync(beforePendingRequestUniqueness);
             Assert.Equal(2, await db.LessonChangeRequests.CountAsync());
             await migrator.MigrateAsync();
             Assert.Equal(1, await db.LessonChangeRequests.CountAsync(r => r.Status == LessonChangeRequestStatus.Pending));

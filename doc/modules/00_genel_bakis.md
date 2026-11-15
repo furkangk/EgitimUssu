@@ -31,6 +31,8 @@ updated: 2026-11-15
 **P17 T8 (2026-11-15):** Haftalık ders yaşam döngüsü gerçek PostgreSQL + outbox ile zincirlenir. Single iptal aylık raporda oluşum anahtarıyla sayılır (`MonthlyCancellationOccurrences`); iki tamamlama + bir geç iptal toplam 300 TRY borç üretir. Mikro-saniyeli seri sonlandırma önceki oluşumu korur. Yeni HTTP ucu yoktur; mobil üç haftanın orijinal anahtarlarını ve iptal kapsamını korur.
 
 
+**P18 T1 / K-22:** M03, M04, M06, M07, M08, M09, M10 ve M17’de toplam 10 kritik tip `IVersioned`/PostgreSQL `xmin` taşır; ortak middleware çakışmayı `409 shared.concurrency_conflict` döner. Sekiz `AddVersionToken` migration’ı yalnız model metadatasıdır. Ödeme niyet komutları T2’de; yeni endpoint yoktur.
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -386,3 +388,5 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
+
+*Güncelleme: 2026-11-15 — P18 Task 1 eşzamanlılık altyapısı.*

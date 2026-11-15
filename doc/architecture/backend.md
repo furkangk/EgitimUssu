@@ -5,7 +5,7 @@ tags: [mimari, backend, dotnet, cqrs, outbox]
 authority: code
 code_refs:
   - src/**
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # 🧱 Backend Mimari — .NET 9 Modüler Monolit
@@ -258,6 +258,18 @@ gösterilen her saat ise **yerel takvimdir** ve tek kaynaktan gelir: `Shared/Ker
   (InMemory) no-op. Testte kanıt: aynı anahtar test bağlantısında tutulunca yazımın beklediği görülür
   (`RealConcurrentLessonCreateTests`). Yeni kullanıcı farklı önek seçer; tek argümanlı 32 bit uzayda çakışan özet
   yalnız gereksiz serileştirme yapar, doğruluğu bozmaz.
+
+### 6.1 İyimser eşzamanlılık (K-22, P18 T1)
+
+`Shared/Kernel/IVersioned` yalnız `uint Version { get; }` sözleşmesini taşır. `ModuleDbContext.ConfigureConventions` tipin modele eklenmesinde `IsConcurrencyToken(true)` + `ValueGenerated(OnAddOrUpdate)` uygular (`IsRowVersion()` karşılığı); açık `xmin`/`xid` eşlemesi Npgsql 9’un sistem kolonunu kullanır. Kural DbSet ve sonradan konfigürasyonla eklenen tipleri kapsar. Sona eklenen model-finalizing kuralı Npgsql’nin finalizer’ından sonra kaldığı için kullanılmaz.
+
+Kapsam: `PaymentRecord`, `UserSubscription`, `StudyStreak`, `StudyTopic`, `TopicMastery`, `Assignment`, `LessonSchedule`, `TeacherStudentLink`, `StudentProfile`, `ParentChildLink`. `Version` uygulamada artırılmaz; PostgreSQL her satır değişikliğinde üretir. Yeni kullanıcı kolonu yoktur. Sekiz `AddVersionToken` migration’ının Up/Down’ı boş; Designer/Snapshot sürüm metadatasını saklar. Npgsql scaffold’un etkisiz xmin AddColumn/DropColumn işlemleri, ileri/geri SQL’de DDL olmadığı doğrulandıktan sonra açıklama yorumuna indirildi.
+
+`ProblemDetailsExceptionMiddleware` `DbUpdateConcurrencyException` için **409**, `code=shared.concurrency_conflict`, `message=Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.` döner. Hata gövdesi mevcut status/errors/traceId alanlarını korur; diğer hatalar 500’dür. Outbox’ın mevcut backoff/yeni publish scope mekanizması değişmez: çakışmada iş+yeni outbox+inbox rollback olur, sonraki teslim güncel sürümden çalışır. HTTP yazma otomatik tekrar edilmez.
+
+`ConcurrencyConventionTests` on tipin modelini, ileri/geri SQL’i ve hata gövdesini; `RealConcurrencyTokenTests` iki context/iki HTTP isteği yarışını, kaybeden outbox’ın geri alınmasını ve tüketici retry’sinin tek etkisini gerçek PostgreSQL’de doğrular. Bu sürüm sunucu içindeki yarışları kapsar; eski mobil ekranın sonraki tam PUT’unu engelleyen niyete dayalı tahsilat komutları P18 T2’dir.
+
+Kaynak: [Npgsql concurrency tokens](https://www.npgsql.org/efcore/modeling/concurrency.html?tabs=fluent-api).
 
 ## 7. Outbox & Event Akışı
 

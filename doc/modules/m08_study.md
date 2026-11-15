@@ -6,7 +6,7 @@ status: "🟢"
 authority: code
 code_refs:
   - src/Modules/Study/**
-updated: 2026-10-16
+updated: 2026-11-15
 ---
 
 # 📚 M08 — Bireysel Çalışma (Study) Modülü — Detaylı Tasarım Dokümanı
@@ -45,6 +45,9 @@ updated: 2026-10-16
 ---
 
 ## 2. Domain Modeli (✅ Kodda — `Domain/StudyDomainModel.cs`)
+
+**P18 T1 — eşzamanlılık (K-22):** `StudyStreak`, `StudyTopic` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
+
 
 > Tüm aggregate'ler `EgitimUssu.Shared.Kernel` içindeki `AggregateRoot<Guid>` / `Entity<Guid>` desenini izler:
 > private parametresiz ctor (EF için), `private set` property'ler, enum değerleri `1`'den başlar,
@@ -530,3 +533,5 @@ PRD §Faz 2: "Öğrenci kendi çalışmalarını öğretmen olmadan takip eder."
 <!-- Ö-B: MockExam (çok dersli deneme) + ExamPenalty (sınav tipine göre net böleni) eklendi; hedef sınav M03 TargetExam'de. -->
 <!-- Ö-D: Free/Premium kapıları (§4.7) — MembershipTier + MembershipGate; tier kaynağı P09 Task 2'den beri IEntitlementDirectory; Free geçmiş 30 gün, hedef net/puan Premium (study.premium_required → 402). -->
 
+
+*Güncelleme: 2026-11-15 — P18 Task 1: xmin iyimser eşzamanlılık koruması ve 409 sözleşmesi.*

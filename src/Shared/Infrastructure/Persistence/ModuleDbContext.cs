@@ -4,6 +4,9 @@ using EgitimUssu.Shared.Contracts;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
 namespace EgitimUssu.Shared.Infrastructure.Persistence;
 
@@ -32,6 +35,32 @@ public abstract class ModuleDbContext : DbContext
 
     /// <summary>A-04: Gönderilmeyi bekleyen e-postalar (iş yazımıyla aynı transaction'da kuyruğa girer).</summary>
     public DbSet<OutgoingEmail> OutgoingEmails => Set<OutgoingEmail>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+        configurationBuilder.Conventions.Add(_ => new VersionedConvention());
+    }
+
+    // DbSet veya modül konfigürasyonu tipi modele eklediği anda uygulanır. Npgsql'nin
+    // model-finalizing konvansiyonu daha sonra uint row-version alanını xmin'e eşler.
+    private sealed class VersionedConvention : IEntityTypeAddedConvention
+    {
+        public void ProcessEntityTypeAdded(
+            IConventionEntityTypeBuilder entityTypeBuilder,
+            IConventionContext<IConventionEntityTypeBuilder> context)
+        {
+            var entityType = entityTypeBuilder.Metadata;
+            if (typeof(IVersioned).IsAssignableFrom(entityType.ClrType))
+            {
+                var property = entityTypeBuilder.Property(typeof(uint), nameof(IVersioned.Version))!;
+                property.IsConcurrencyToken(true);
+                property.ValueGenerated(ValueGenerated.OnAddOrUpdate);
+                property.HasColumnName("xmin");
+                property.HasColumnType("xid");
+            }
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

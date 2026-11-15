@@ -137,6 +137,12 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LessonScheduleId", "OccurrenceStartUtc")

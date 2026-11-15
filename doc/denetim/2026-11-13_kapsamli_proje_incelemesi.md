@@ -128,9 +128,11 @@ Hemen arkasından: **N-41** arka plan işleri kendi kirasını yenileyemediği i
 | N-71 | 🟡 Orta | Push rotaları uygulamada yok; ön planda push yok | Backend `/parent/assignments`, `/parent/payments` gönderiyor (`ParentEventNotificationHandler.cs:114-116`); router'da yok, `errorBuilder` yok · `firebase_push_binding.dart:73-90` (`onMessage` yok) · `chat_cubit.dart` (polling/soket yok) | Push'a dokunan veli hata ekranı görür; uygulama açıkken gelen bildirim kaybolur; sohbette karşı tarafın yanıtı görünmez | Rotalar + `errorBuilder` + `onMessage` ile cubit tazeleme | ◐ |
 | N-72 | ⚪ Düşük | Toplu | çeşitli | 10 cubit'te dispose sonrası `emit` (`isClosed` yok) · bildirim merkezinde sayfalama yok (ilk 20) · gönderim zaman aşımı 15 sn (dosya yükleme kesilir) · `api_exception.dart:34,51-52`'de ASCII Türkçe ("hatasi olustu") — D-20 ✅ ama en sık görülen hata metni bozuk | — | ◐ |
 
-### 1.5 Çapraz kesit: eşzamanlılık
+### 1.5 Çapraz kesit: eşzamanlılık ✅ (P18 T1)
 
-`src/` içinde `IsRowVersion` / `IsConcurrencyToken` / `UseXminAsConcurrencyToken` / `[Timestamp]` / `[ConcurrencyCheck]` **sıfır** ✔. Tüm aggregate'lar "son yazan kazanır". N-09 (ödeme), N-30 (refresh), N-25 (referans) somut sonuçlarıdır. Npgsql'de en ucuz çözüm: kritik aggregate'lara `xmin` concurrency token + mobilde `If-Match`/sürüm alanı.
+**İlk denetim kanıtı (2026-11-13):** `src/` içinde `IsRowVersion` / `IsConcurrencyToken` / `UseXminAsConcurrencyToken` / `[Timestamp]` / `[ConcurrencyCheck]` **sıfırdı** ✔; son yazan kazanıyordu. N-09 (ödeme), N-30 (refresh), N-25 (referans) somut sonuçlarıydı.
+
+**✅ (P18 T1, 2026-11-15):** `PaymentRecord`, `UserSubscription`, `StudyStreak`, `StudyTopic`, `TopicMastery`, `Assignment`, `LessonSchedule`, `TeacherStudentLink`, `StudentProfile`, `ParentChildLink` `IVersioned` uygular. Ortak konvansiyon `uint Version` → `xmin/xid` + concurrency/OnAddOrUpdate eşler; sekiz migration yalnız metadata, Up/Down boş. Kaybeden sunucu yazması `409 shared.concurrency_conflict` döner. Gerçek PostgreSQL iki context/iki HTTP isteği yarışını, kaybeden outbox rollback’ini ve tüketicinin güncel scope ile tek etkili retry’sini kanıtladı. **N-09 tamamen kapanmadı:** sonradan gelen eski ekran tam PUT’u niyete dayalı komutlarla P18 T2’de çözülür; mobil If-Match bu adımda eklenmedi. N-30 zaten P15 T7’de koşullu rotasyonla kapandı; N-25 P28 kapsamıdır.
 
 ### 1.6 ✅ işaretli ama kodda hâlâ eksik/bozuk
 
@@ -264,3 +266,5 @@ Güncelleme: 2026-11-15 (P17 T2: N-01 backend seri bölme ayağı ✅ — `ThisA
 Güncelleme: 2026-11-15 — P17 T6: N-06 kapandı; oluşum/alıcı bazlı 7 gün, erteleme/silme/seri bölme, TR metin ve zaman aşımı.
 
 *Güncelleme: 2026-11-15 — P17 T8 kapanış zinciri doğrulaması; N-01 mobil erteleme P21 T4, N-16 veli beyanı P18 T3 ve N-48 trend P19 açık kalır.*
+
+*Güncelleme: 2026-11-15 — P18 T1: §1.5 kritik kayıtlarda xmin/409 altyapısı; N-09 niyet komutları T2’de açık.*
