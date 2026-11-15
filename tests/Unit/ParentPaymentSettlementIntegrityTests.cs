@@ -32,7 +32,7 @@ public sealed class ParentPaymentSettlementIntegrityTests
     [InlineData(PaymentStatus.Cancelled)]
     public async Task Closed_payment_rejects_new_declaration(PaymentStatus status)
     {
-        var payment = NewPayment(status);
+        var payment = NewPayment(status, status == PaymentStatus.Paid ? 500m : 0m);
         var declarations = new DeclarationRepository();
         var handler = new DeclarePaymentPaidCommandHandler(new PaymentRepository(payment), declarations, new IdGenerator(), new Clock());
 
@@ -121,11 +121,14 @@ public sealed class ParentPaymentSettlementIntegrityTests
     {
         public ParentPaymentDeclaration? Item { get; private set; } = item;
         public int SaveCount { get; private set; }
-        public Task AddAsync(ParentPaymentDeclaration declaration, CancellationToken cancellationToken)
+        public Task<Result> TryAddPendingAsync(ParentPaymentDeclaration declaration, CancellationToken cancellationToken)
         {
             Item = declaration;
-            return Task.CompletedTask;
+            SaveCount++;
+            return Task.FromResult(Result.Success());
         }
+        public Task<IReadOnlyCollection<ParentPaymentDeclaration>> ListPendingForPaymentAsync(Guid payment, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyCollection<ParentPaymentDeclaration>>(Item is not null && Item.PaymentRecordId == payment && Item.Status == ParentPaymentDeclarationStatus.Declared ? [Item] : []);
         public Task<ParentPaymentDeclaration?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(Item);
         public Task<IReadOnlyCollection<ParentPaymentDeclaration>> ListForTeacherAsync(Guid teacher, bool onlyPending, CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyCollection<ParentPaymentDeclaration>>(Item is null ? [] : [Item]);

@@ -43,7 +43,7 @@ void main() {
     });
 
     expect(summary.partialCount, 2);
-    expect(summary.overdueAmountTotal, 125);
+    expect(summary.overdueAmountTotal, 12500);
   });
 
   test('collecting a late cancellation preserves billing item type', () {
@@ -71,18 +71,24 @@ void main() {
 
   test('itemType maps to backend BillingItemType values', () {
     expect(
-      recordWith(status: 'Pending', itemType: 'LessonFee')
-          .toUpsertPayload()['itemType'],
+      recordWith(
+        status: 'Pending',
+        itemType: 'LessonFee',
+      ).toUpsertPayload()['itemType'],
       1,
     );
     expect(
-      recordWith(status: 'Pending', itemType: 'MonthlyPackage')
-          .toUpsertPayload()['itemType'],
+      recordWith(
+        status: 'Pending',
+        itemType: 'MonthlyPackage',
+      ).toUpsertPayload()['itemType'],
       2,
     );
     expect(
-      recordWith(status: 'Pending', itemType: 'ManualAdjustment')
-          .toUpsertPayload()['itemType'],
+      recordWith(
+        status: 'Pending',
+        itemType: 'ManualAdjustment',
+      ).toUpsertPayload()['itemType'],
       3,
     );
   });

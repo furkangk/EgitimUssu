@@ -589,8 +589,10 @@ public sealed class StudyGoal : AggregateRoot<Guid>
 /// <summary>
 /// Çalışma serisi (streak) ve kişisel rekor. Öğrenci başına tekildir.
 /// </summary>
-public sealed class StudyStreak : AggregateRoot<Guid>
+public sealed class StudyStreak : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private StudyStreak()
     {
     }
@@ -743,8 +745,10 @@ public sealed class StudentAchievement : AggregateRoot<Guid>
 /// <summary>
 /// Öğrencinin çalıştığı konuları normalize eden hafif rollup kaydı.
 /// </summary>
-public sealed class StudyTopic : Entity<Guid>
+public sealed class StudyTopic : Entity<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private StudyTopic()
     {
     }

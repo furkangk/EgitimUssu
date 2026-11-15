@@ -35,6 +35,13 @@ public sealed class PaymentsModule : ModuleDefinition
         group.MapPut("/records/{paymentRecordId:guid}", UpdatePaymentRecordAsync)
         .WithSummary("Ödeme kaydını günceller");
 
+        group.MapPost("/records/{id:guid}/collections", async (HttpContext context, Guid id, PaymentMovementRequest request, ICommandDispatcher dispatcher, CancellationToken ct)
+            => ToHttpResult(context, await dispatcher.Dispatch(new AddCollectionCommand(id, request.Amount, request.Method, request.OccurredOnUtc, request.Note), ct)));
+        group.MapPost("/records/{id:guid}/refunds", async (HttpContext context, Guid id, PaymentMovementRequest request, ICommandDispatcher dispatcher, CancellationToken ct)
+            => ToHttpResult(context, await dispatcher.Dispatch(new RefundPaymentCommand(id, request.Amount, request.Method, request.OccurredOnUtc, request.Note), ct)));
+        group.MapPost("/records/{id:guid}/cancel", async (HttpContext context, Guid id, ICommandDispatcher dispatcher, CancellationToken ct)
+            => ToHttpResult(context, await dispatcher.Dispatch(new CancelPaymentCommand(id), ct)));
+
         group.MapGet("/records/{paymentRecordId:guid}", GetPaymentRecordByIdAsync)
         .WithSummary("Ödeme kaydı detayını getirir");
 
@@ -140,16 +147,16 @@ public sealed class PaymentsModule : ModuleDefinition
     }
 
     /// <summary>
-    /// Var olan ödeme kaydının tutar, durum, tahsilat tarihi ve dönem bilgilerini günceller.
+    /// Var olan ödeme kaydının açıklama, beklenen tutar, vade ve notunu günceller; tahsilat değişmez.
     /// </summary>
     private static async Task<IResult> UpdatePaymentRecordAsync(
         HttpContext context,
         Guid paymentRecordId,
-        UpsertPaymentRecordRequest request,
+        UpdatePaymentDetailsRequest request,
         ICommandDispatcher dispatcher,
         CancellationToken cancellationToken)
     {
-        var result = await dispatcher.Dispatch(request.ToUpdateCommand(paymentRecordId), cancellationToken);
+        var result = await dispatcher.Dispatch(new UpdatePaymentRecordCommand(paymentRecordId, request.Description, request.ExpectedAmount, request.DueDateUtc, request.Notes), cancellationToken);
         return ToHttpResult(context, result);
     }
 
@@ -259,7 +266,7 @@ public sealed class PaymentsModule : ModuleDefinition
         return result.Error.Code switch
         {
             "payments.record_not_found" or "payments.declaration_not_found" => ApiErrorHttpResults.FromError(context, StatusCodes.Status404NotFound, result.Error),
-            "payments.declaration_not_pending" or "payments.record_not_outstanding" or "payments.declaration_amount_mismatch"
+            "payments.record_cancelled" or "payments.refund_exceeds_collection" or "payments.collection_requires_refund" or "payments.transaction_exists" or "payments.declaration_pending" or "payments.declaration_not_pending" or "payments.record_not_outstanding" or "payments.declaration_amount_mismatch"
                 => ApiErrorHttpResults.FromError(context, StatusCodes.Status409Conflict, result.Error),
             "shared.forbidden" => ApiErrorHttpResults.Forbidden(context, result.Error.Message),
             _ => ApiErrorHttpResults.FromError(context, StatusCodes.Status400BadRequest, result.Error)
@@ -271,7 +278,7 @@ public sealed class PaymentsModule : ModuleDefinition
 public sealed record DeclarePaidRequest(decimal DeclaredAmount, string? Note);
 
 /// <summary>
-/// Ödeme kaydı oluşturma ve güncelleme işlemlerinde kullanılan tutar, vade, durum ve dönem bilgilerini taşır.
+/// Ödeme kaydı oluşturma isteği; durum tutarlardan türetilir, ilk tahsilat varsa bir hareket açılır.
 /// </summary>
 public sealed record UpsertPaymentRecordRequest(
     Guid TeacherUserId,
@@ -308,21 +315,7 @@ public sealed record UpsertPaymentRecordRequest(
             Notes);
     }
 
-    public UpdatePaymentRecordCommand ToUpdateCommand(Guid paymentRecordId)
-    {
-        return new UpdatePaymentRecordCommand(
-            paymentRecordId,
-            RelatedLessonSessionId,
-            ItemType,
-            Description,
-            Currency,
-            ExpectedAmount,
-            CollectedAmount,
-            DueDateUtc,
-            CollectedOnUtc,
-            Status,
-            BillingPeriodStartUtc,
-            BillingPeriodEndUtc,
-            Notes);
-    }
 }
+
+public sealed record UpdatePaymentDetailsRequest(string Description, decimal ExpectedAmount, DateTime DueDateUtc, string? Notes);
+public sealed record PaymentMovementRequest(decimal Amount, PaymentMethod Method, DateTime OccurredOnUtc, string? Note);

@@ -4,7 +4,6 @@ import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.da
 import 'package:egitim_ussu_mobile/features/scheduling/domain/scheduling_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import '../../../../helpers/fake_scheduling_repository.dart';
 
 void main() {
@@ -77,6 +76,7 @@ class _FakeStudentRepository implements StudentRepository {
   }) {
     throw UnimplementedError();
   }
+
   @override
   Future<StudentSubjectTarget> addSubject({
     required String studentId,
@@ -132,6 +132,19 @@ class _FakeDashboardRepository implements DashboardRepository {
 
 class _FakePaymentRepository implements PaymentRepository {
   @override
+  Future<PaymentRecord> addCollection(
+    String id,
+    int amount, {
+    int method = 1,
+    required DateTime occurredOnUtc,
+    String? note,
+    String? idempotencyKey,
+  }) async => throw UnimplementedError();
+  @override
+  Future<PaymentRecord> cancelRecord(String id) async =>
+      throw UnimplementedError();
+
+  @override
   Future<PaymentRecord> createRecord(PaymentRecord paymentRecord) {
     throw UnimplementedError();
   }
@@ -148,10 +161,10 @@ class _FakePaymentRepository implements PaymentRepository {
           paidCount: 1,
           overdueCount: 1,
           cancelledCount: 0,
-          expectedAmountTotal: 2000,
-          collectedAmountTotal: 750,
-          outstandingAmountTotal: 1250,
-          overdueAmountTotal: 500,
+          expectedAmountTotal: 200000,
+          collectedAmountTotal: 75000,
+          outstandingAmountTotal: 125000,
+          overdueAmountTotal: 50000,
         ),
       ],
     );

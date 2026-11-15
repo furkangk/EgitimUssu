@@ -34,11 +34,13 @@ public sealed class PaymentOverdueScanProcessor : IPaymentOverdueScanProcessor
 
     private readonly PaymentsDbContext _dbContext;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public PaymentOverdueScanProcessor(PaymentsDbContext dbContext, IClock clock)
+    public PaymentOverdueScanProcessor(PaymentsDbContext dbContext, IClock clock, ILocalCalendar calendar)
     {
         _dbContext = dbContext;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<int> ScanAsync(CancellationToken cancellationToken = default)
@@ -51,14 +53,15 @@ public sealed class PaymentOverdueScanProcessor : IPaymentOverdueScanProcessor
 
         var now = _clock.UtcNow;
 
+        var dayStart = _calendar.DayRangeUtc(_calendar.Today()).StartUtc;
         var candidates = await _dbContext.PaymentRecords
-            .Where(record => record.DueDateUtc < now
+            .Where(record => record.DueDateUtc < dayStart
                 && (record.Status == PaymentStatus.Pending || record.Status == PaymentStatus.PartiallyPaid))
             .OrderBy(record => record.DueDateUtc)
             .Take(BatchSize)
             .ToArrayAsync(cancellationToken);
 
-        var markedCount = candidates.Count(record => record.MarkOverdue(now));
+        var markedCount = candidates.Count(record => record.MarkOverdue(now, _calendar));
         if (markedCount > 0)
         {
             await _dbContext.SaveChangesAsync(cancellationToken);

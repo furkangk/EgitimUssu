@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, ParentEventNotificationHandler>();
         // M07-1: vadesi geçen ödeme → öğretmene (ve Premium veliye) in-app bildirim.
         services.AddScoped<IIntegrationEventHandler, PaymentOverdueNotificationHandler>();
+        services.AddScoped<IIntegrationEventHandler, PaymentDeclarationResolvedNotificationHandler>();
         // M06-3: son teslim uyarilari → ogrenciye (kacirilan odev ayrica Premium veliye).
         services.AddScoped<IIntegrationEventHandler, AssignmentDueSoonNotificationHandler>();
         services.AddScoped<IIntegrationEventHandler, AssignmentMissedNotificationHandler>();

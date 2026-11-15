@@ -2,8 +2,10 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Scheduling.Domain;
 
-public sealed class LessonSchedule : AggregateRoot<Guid>
+public sealed class LessonSchedule : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private LessonSchedule()
     {
     }

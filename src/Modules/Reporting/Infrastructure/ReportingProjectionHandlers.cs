@@ -27,6 +27,7 @@ public abstract class ReportingProjectionHandler<TEvent> : ProjectionHandler<TEv
     protected async Task<TeacherMonthlyProjection> GetOrCreateMonthlyAsync(
         Guid teacherUserId, DateTime occurredOnUtc, CancellationToken cancellationToken)
     {
+        await TeacherDashboardOccurrenceProcessor.AcquireLockAsync(ReportingDb, cancellationToken);
         var (year, month) = ReportingPeriods.MonthOf(occurredOnUtc, Calendar);
         var projection = await ReportingDb.TeacherMonthlyProjections
             .Include(item => item.Items)
@@ -192,33 +193,19 @@ public sealed class TeacherMonthlyPaymentExpectedProjectionHandler
     }
 }
 
-/// <summary>
-/// M07 → M14: Tahsilat değişti; <b>fark</b> güncelleme ayına eklenir. Mutlak tutar yazılsaydı Ocak'ta
-/// açılıp Şubat'ta tahsil edilen bir kayıt her iki aya da tam tutarla düşerdi.
-/// </summary>
-public sealed class TeacherMonthlyPaymentCollectedProjectionHandler
-    : ReportingProjectionHandler<MonthlyPaymentUpdatedPayload>
+/// <summary>M07 → M14: Hareketin yerel ayına tek TransactionId ile tahsilat/iade yazar.</summary>
+public sealed class TeacherMonthlyPaymentCollectedProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
+    : ReportingProjectionHandler<MonthlyPaymentTransactionPayload>(dbContext, clock, calendar)
 {
-    public TeacherMonthlyPaymentCollectedProjectionHandler(ReportingDbContext dbContext, IClock clock, ILocalCalendar calendar)
-        : base(dbContext, clock, calendar)
-    {
-    }
-
     public override bool CanHandle(IIntegrationEvent integrationEvent)
-        => integrationEvent.SourceModule == "Payments"
-            && integrationEvent.Name == "PaymentRecordUpdatedDomainEvent";
+        => integrationEvent.SourceModule == "Payments" && integrationEvent.Name == "PaymentTransactionRecordedIntegrationEvent";
 
-    protected override async Task<bool> ProjectAsync(
-        MonthlyPaymentUpdatedPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
+    protected override async Task<bool> ProjectAsync(MonthlyPaymentTransactionPayload payload, IntegrationEvent envelope, CancellationToken cancellationToken)
     {
-        var delta = payload.CurrentCollectedAmount - payload.PreviousCollectedAmount;
-        if (payload.TeacherUserId == Guid.Empty || delta == 0m)
-        {
-            return false;
-        }
-
-        var projection = await GetOrCreateMonthlyAsync(payload.TeacherUserId, payload.UpdatedOnUtc, cancellationToken);
-        projection.AddCollected(delta);
+        if (payload.TeacherUserId == Guid.Empty || payload.TransactionId == Guid.Empty || payload.Amount <= 0m
+            || payload.Kind is not (1 or 2)) return false;
+        var projection = await GetOrCreateMonthlyAsync(payload.TeacherUserId, payload.OccurredOnUtc, cancellationToken);
+        projection.TrackPaymentTransaction(payload.TransactionId, payload.Kind == 2, payload.Amount);
         projection.MarkApplied(envelope.EventId, Clock.UtcNow);
         return true;
     }
@@ -360,12 +347,7 @@ public sealed record MonthlyPaymentCreatedPayload(
     decimal ExpectedAmount,
     DateTime CreatedOnUtc);
 
-public sealed record MonthlyPaymentUpdatedPayload(
-    Guid PaymentRecordId,
-    Guid TeacherUserId,
-    decimal PreviousCollectedAmount,
-    decimal CurrentCollectedAmount,
-    DateTime UpdatedOnUtc);
+public sealed record MonthlyPaymentTransactionPayload(Guid TransactionId, Guid TeacherUserId, int Kind, decimal Amount, DateTime OccurredOnUtc);
 
 public sealed record StudySessionPayload(
     Guid SessionId,

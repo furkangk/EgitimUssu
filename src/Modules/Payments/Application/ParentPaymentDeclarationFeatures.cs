@@ -37,7 +37,9 @@ public sealed record ParentPaymentDeclarationResponse(
 
 public interface IParentPaymentDeclarationRepository
 {
-    Task AddAsync(ParentPaymentDeclaration declaration, CancellationToken cancellationToken);
+    Task<Result> TryAddPendingAsync(ParentPaymentDeclaration declaration, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<ParentPaymentDeclaration>> ListPendingForPaymentAsync(Guid paymentRecordId, CancellationToken cancellationToken);
 
     Task<ParentPaymentDeclaration?> GetByIdAsync(Guid declarationId, CancellationToken cancellationToken);
 
@@ -54,6 +56,7 @@ public static class ParentPaymentDeclarationErrors
 {
     public static readonly Error RecordNotFound = new("payments.record_not_found", "Ödeme kaydı bulunamadı.");
     public static readonly Error DeclarationNotFound = new("payments.declaration_not_found", "Ödeme beyanı bulunamadı.");
+    public static readonly Error DeclarationPending = new("payments.declaration_pending", "Bu ödeme için bekleyen bir beyan var.");
     public static readonly Error DeclarationNotPending = new("payments.declaration_not_pending", "Bu ödeme beyanı zaten sonuçlandırılmış.");
     public static readonly Error InvalidRequest = new("payments.invalid_request", "Ödeme beyanı bilgileri eksik veya hatalı.");
 }
@@ -102,6 +105,9 @@ public sealed class DeclarePaymentPaidCommandHandler : ICommandHandler<DeclarePa
             return Result<ParentPaymentDeclarationResponse>.Failure(ParentPaymentDeclarationErrors.RecordNotFound);
         }
 
+        if ((await _repository.ListPendingForPaymentAsync(payment.Id, cancellationToken)).Count > 0)
+            return Result<ParentPaymentDeclarationResponse>.Failure(ParentPaymentDeclarationErrors.DeclarationPending);
+
         var validation = payment.ValidateParentConfirmation(command.DeclaredAmount);
         if (validation.IsFailure)
         {
@@ -118,8 +124,9 @@ public sealed class DeclarePaymentPaidCommandHandler : ICommandHandler<DeclarePa
             command.Note,
             _clock.UtcNow);
 
-        await _repository.AddAsync(declaration, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        var added = await _repository.TryAddPendingAsync(declaration, cancellationToken);
+        if (added.IsFailure)
+            return Result<ParentPaymentDeclarationResponse>.Failure(added.Error);
 
         return Result<ParentPaymentDeclarationResponse>.Success(declaration.ToResponse());
     }
@@ -161,12 +168,16 @@ public sealed class ConfirmPaymentDeclarationCommandHandler : ICommandHandler<Co
         }
 
         var now = _clock.UtcNow;
-        var collection = payment.MarkCollectedByParentConfirmation(declaration.DeclaredAmount, now);
+        var collection = payment.MarkCollectedByParentConfirmation(declaration.DeclaredAmount, now, declaration.Id);
         if (collection.IsFailure)
         {
             return Result<ParentPaymentDeclarationResponse>.Failure(collection.Error);
         }
 
+        foreach (var other in await _repository.ListPendingForPaymentAsync(payment.Id, cancellationToken))
+        {
+            if (other.Id != declaration.Id) other.Reject(now);
+        }
         declaration.Confirm(now);
 
         await _repository.SaveChangesAsync(cancellationToken);

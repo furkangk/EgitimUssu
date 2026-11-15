@@ -2,8 +2,83 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Payments.Domain;
 
-public sealed class PaymentRecord : AggregateRoot<Guid>
+public sealed class PaymentRecord : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
+    public const decimal MaximumAmount = 9999999999999999.99m;
+    public static bool IsValidAmount(decimal amount) => amount >= 0m && amount <= MaximumAmount && decimal.Round(amount, 2) == amount;
+    private readonly List<PaymentTransaction> _transactions = [];
+    public IReadOnlyCollection<PaymentTransaction> Transactions => _transactions;
+
+    public Result AddCollection(Guid transactionId, decimal amount, PaymentMethod method, DateTime occurredOnUtc, string? note, DateTime nowUtc)
+        => RecordTransaction(transactionId, PaymentTransactionKind.Collection, amount, method, occurredOnUtc, note, nowUtc);
+
+    public Result Refund(Guid transactionId, decimal amount, PaymentMethod method, DateTime occurredOnUtc, string? note, DateTime nowUtc)
+        => RecordTransaction(transactionId, PaymentTransactionKind.Refund, amount, method, occurredOnUtc, note, nowUtc);
+
+    private Result RecordTransaction(Guid transactionId, PaymentTransactionKind kind, decimal amount, PaymentMethod method, DateTime occurredOnUtc, string? note, DateTime nowUtc)
+    {
+        if (Status == PaymentStatus.Cancelled)
+            return Result.Failure(new Error("payments.record_cancelled", "İptal edilmiş ödeme kaydına hareket eklenemez."));
+        if (transactionId == Guid.Empty || amount <= 0m || !IsValidAmount(amount)
+            || !Enum.IsDefined(method) || occurredOnUtc == default || occurredOnUtc > nowUtc || note?.Length > 1000)
+            return Result.Failure(new Error("payments.invalid_request", "Tahsilat bilgileri eksik veya hatalı."));
+        if (kind == PaymentTransactionKind.Refund && amount > CollectedAmount)
+            return Result.Failure(new Error("payments.refund_exceeds_collection", "İade net tahsilattan fazla olamaz."));
+        if (kind == PaymentTransactionKind.Collection && CollectedAmount > MaximumAmount - amount)
+            return Result.Failure(new Error("payments.invalid_request", "Net tahsilat üst sınırı aşamaz."));
+        if (_transactions.Any(x => x.Id == transactionId))
+            return Result.Failure(new Error("payments.transaction_exists", "Bu hareket zaten kaydedilmiş."));
+        var previousStatus = Status;
+        var previousCollected = CollectedAmount;
+        _transactions.Add(new PaymentTransaction(transactionId, Id, kind, amount, method, occurredOnUtc, note?.Trim()));
+        CollectedAmount = _transactions.Sum(x => x.Kind == PaymentTransactionKind.Collection ? x.Amount : -x.Amount);
+        CollectedOnUtc = _transactions.Where(x => x.Kind == PaymentTransactionKind.Collection).Max(x => (DateTime?)x.OccurredOnUtc);
+        RecalculateStatus();
+        Raise(new PaymentTransactionRecordedIntegrationEvent(Id, transactionId, TeacherUserId, kind, amount, Currency, occurredOnUtc));
+        Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previousStatus, Status, previousCollected, CollectedAmount, nowUtc));
+        return Result.Success();
+    }
+
+    public Result Cancel(DateTime nowUtc)
+    {
+        if (CollectedAmount != 0m)
+            return Result.Failure(new Error("payments.collection_requires_refund", "İptal etmeden önce tahsilatı iade edin."));
+        if (Status == PaymentStatus.Cancelled) return Result.Success();
+        var previous = Status;
+        Status = PaymentStatus.Cancelled;
+        Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previous, Status, 0m, 0m, nowUtc));
+        return Result.Success();
+    }
+
+    public Result UpdateDetails(string description, decimal expectedAmount, DateTime dueDateUtc, string? notes, DateTime nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(description) || description.Length > 200 || expectedAmount < 0m
+            || !IsValidAmount(expectedAmount) || dueDateUtc == default || notes?.Length > 1000)
+            return Result.Failure(new Error("payments.invalid_request", "Ödeme ayrıntıları eksik veya hatalı."));
+        var previous = Status;
+        Description = description.Trim();
+        ExpectedAmount = expectedAmount;
+        if (DueDateUtc != dueDateUtc)
+        {
+            OverdueMarkedOnUtc = null;
+            if (Status == PaymentStatus.Overdue) Status = PaymentStatus.Pending;
+        }
+        DueDateUtc = dueDateUtc;
+        Notes = notes?.Trim();
+        if (Status != PaymentStatus.Cancelled) RecalculateStatus();
+        Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previous, Status, CollectedAmount, CollectedAmount, nowUtc));
+        return Result.Success();
+    }
+
+    private void RecalculateStatus()
+    {
+        Status = CollectedAmount >= ExpectedAmount ? PaymentStatus.Paid
+            : Status == PaymentStatus.Overdue ? PaymentStatus.Overdue
+            : CollectedAmount > 0m ? PaymentStatus.PartiallyPaid : PaymentStatus.Pending;
+    }
+
     private PaymentRecord()
     {
     }
@@ -26,6 +101,8 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
         string? notes,
         DateTime createdOnUtc)
     {
+        if (!IsValidAmount(expectedAmount) || !IsValidAmount(collectedAmount))
+            throw new ArgumentException("Ödeme tutarı geçerli ve iki ondalıklı olmalıdır.");
         Id = id;
         TeacherUserId = teacherUserId;
         StudentId = studentId;
@@ -37,7 +114,16 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
         CollectedAmount = collectedAmount;
         DueDateUtc = dueDateUtc;
         CollectedOnUtc = collectedOnUtc;
-        Status = status;
+        Status = status == PaymentStatus.Cancelled ? PaymentStatus.Cancelled
+            : collectedAmount >= expectedAmount ? PaymentStatus.Paid
+            : collectedAmount > 0m ? PaymentStatus.PartiallyPaid : PaymentStatus.Pending;
+        if (collectedAmount > 0m)
+        {
+            _transactions.Add(new PaymentTransaction(id, id, PaymentTransactionKind.Collection, collectedAmount,
+                PaymentMethod.Other, collectedOnUtc ?? createdOnUtc, null));
+            Raise(new PaymentTransactionRecordedIntegrationEvent(id, id, teacherUserId, PaymentTransactionKind.Collection,
+                collectedAmount, currency, collectedOnUtc ?? createdOnUtc));
+        }
         BillingPeriodStartUtc = billingPeriodStartUtc;
         BillingPeriodEndUtc = billingPeriodEndUtc;
         Notes = notes;
@@ -119,53 +205,12 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
             changed = true;
         }
 
+        foreach (var transaction in _transactions) changed |= transaction.AnonymizePersonalData();
         return changed;
     }
 
     /// <summary>M07-1: Kaydın <see cref="PaymentStatus.Overdue"/> işaretlendiği an; hiç işaretlenmediyse <c>null</c>.</summary>
     public DateTime? OverdueMarkedOnUtc { get; private set; }
-
-    public void UpdateManualTracking(
-        Guid? relatedLessonSessionId,
-        BillingItemType itemType,
-        string description,
-        string currency,
-        decimal expectedAmount,
-        decimal collectedAmount,
-        DateTime dueDateUtc,
-        DateTime? collectedOnUtc,
-        PaymentStatus status,
-        DateTime? billingPeriodStartUtc,
-        DateTime? billingPeriodEndUtc,
-        string? notes,
-        DateTime updatedOnUtc)
-    {
-        var previousStatus = Status;
-        var previousCollectedAmount = CollectedAmount;
-
-        RelatedLessonSessionId = relatedLessonSessionId;
-        ItemType = itemType;
-        Description = description;
-        Currency = currency;
-        ExpectedAmount = expectedAmount;
-        CollectedAmount = collectedAmount;
-        DueDateUtc = dueDateUtc;
-        CollectedOnUtc = collectedOnUtc;
-        Status = status;
-        BillingPeriodStartUtc = billingPeriodStartUtc;
-        BillingPeriodEndUtc = billingPeriodEndUtc;
-        Notes = notes;
-
-        Raise(new PaymentRecordUpdatedDomainEvent(
-            Id,
-            TeacherUserId,
-            StudentId,
-            previousStatus,
-            Status,
-            previousCollectedAmount,
-            CollectedAmount,
-            updatedOnUtc));
-    }
 
     /// <summary>
     /// M07-1: Vadesi geçmiş ve hâlâ açık (<see cref="PaymentStatus.Pending"/> / <see cref="PaymentStatus.PartiallyPaid"/>)
@@ -175,15 +220,16 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
     /// bu yüzden <c>Result</c> değil <c>bool</c> döner.
     /// </summary>
     /// <param name="nowUtc">Tarama anı (UTC).</param>
+    /// <param name="calendar">Yerel vade gününün takvimi.</param>
     /// <returns>Durum değiştiyse <c>true</c>.</returns>
-    public bool MarkOverdue(DateTime nowUtc)
+    public bool MarkOverdue(DateTime nowUtc, ILocalCalendar calendar)
     {
-        if (Status is not (PaymentStatus.Pending or PaymentStatus.PartiallyPaid))
+        if (OverdueMarkedOnUtc.HasValue || Status is not (PaymentStatus.Pending or PaymentStatus.PartiallyPaid))
         {
             return false;
         }
 
-        if (DueDateUtc >= nowUtc)
+        if (calendar.ToLocalDate(DueDateUtc) >= calendar.Today())
         {
             return false;
         }
@@ -218,7 +264,7 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
     }
 
     /// <summary>Geçerli veli beyanı öğretmence teyit edilince kaydı tam tahsil edilmiş işaretler (Veli V-G).</summary>
-    public Result MarkCollectedByParentConfirmation(decimal declaredAmount, DateTime nowUtc)
+    public Result MarkCollectedByParentConfirmation(decimal declaredAmount, DateTime nowUtc, Guid? transactionId = null)
     {
         var validation = ValidateParentConfirmation(declaredAmount);
         if (validation.IsFailure)
@@ -226,15 +272,7 @@ public sealed class PaymentRecord : AggregateRoot<Guid>
             return validation;
         }
 
-        var previousStatus = Status;
-        var previousCollected = CollectedAmount;
-
-        Status = PaymentStatus.Paid;
-        CollectedAmount = ExpectedAmount;
-        CollectedOnUtc = nowUtc;
-
-        Raise(new PaymentRecordUpdatedDomainEvent(Id, TeacherUserId, StudentId, previousStatus, Status, previousCollected, CollectedAmount, nowUtc));
-        return Result.Success();
+        return AddCollection(transactionId ?? Id, declaredAmount, PaymentMethod.ParentDeclaration, nowUtc, null, nowUtc);
     }
 }
 
@@ -293,8 +331,10 @@ public sealed record PaymentRecordUpdatedDomainEvent(
 /// öğretmene bildirim → öğretmen teyit edince <see cref="PaymentRecord.MarkCollectedByParentConfirmation"/> çağrılır.
 /// Durum: Declared → Confirmed / Rejected.
 /// </summary>
-public sealed class ParentPaymentDeclaration : AggregateRoot<Guid>
+public sealed class ParentPaymentDeclaration : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private ParentPaymentDeclaration() { }
 
     public ParentPaymentDeclaration(Guid id, Guid paymentRecordId, Guid parentUserId, Guid teacherUserId, Guid studentId, decimal declaredAmount, string? note, DateTime createdOnUtc)
@@ -355,3 +395,49 @@ public enum ParentPaymentDeclarationStatus { Declared = 1, Confirmed = 2, Reject
 
 public sealed record ParentPaymentDeclaredDomainEvent(Guid DeclarationId, Guid PaymentRecordId, Guid ParentUserId, Guid TeacherUserId, Guid StudentId, decimal DeclaredAmount, DateTime CreatedOnUtc) : DomainEvent;
 public sealed record ParentPaymentDeclarationResolvedDomainEvent(Guid DeclarationId, Guid PaymentRecordId, Guid ParentUserId, Guid TeacherUserId, Guid StudentId, ParentPaymentDeclarationStatus Status, DateTime ResolvedOnUtc) : DomainEvent;
+
+public enum PaymentTransactionKind { Collection = 1, Refund = 2 }
+public enum PaymentMethod { Cash = 1, BankTransfer = 2, Card = 3, ParentDeclaration = 4, Other = 5, Migrated = 99 }
+
+public sealed class PaymentTransaction : Entity<Guid>
+{
+    private PaymentTransaction() { }
+    public PaymentTransaction(Guid id, Guid paymentRecordId, PaymentTransactionKind kind, decimal amount, PaymentMethod method, DateTime occurredOnUtc, string? note)
+    {
+        Id = id; PaymentRecordId = paymentRecordId; Kind = kind; Amount = amount;
+        Method = method; OccurredOnUtc = occurredOnUtc; Note = note;
+    }
+    public bool AnonymizePersonalData()
+    {
+        if (Note is null) return false;
+        Note = null;
+        return true;
+    }
+    public Guid PaymentRecordId { get; private set; }
+    public PaymentTransactionKind Kind { get; private set; }
+    public decimal Amount { get; private set; }
+    public PaymentMethod Method { get; private set; }
+    public DateTime OccurredOnUtc { get; private set; }
+    public string? Note { get; private set; }
+}
+
+public sealed record PaymentTransactionRecordedIntegrationEvent : DomainEvent
+{
+    public PaymentTransactionRecordedIntegrationEvent(Guid paymentRecordId, Guid transactionId, Guid teacherUserId,
+        PaymentTransactionKind kind, decimal amount, string currency, DateTime occurredOnUtc)
+    {
+        PaymentRecordId = paymentRecordId;
+        TransactionId = transactionId;
+        TeacherUserId = teacherUserId;
+        Kind = kind;
+        Amount = amount;
+        Currency = currency;
+        OccurredOnUtc = occurredOnUtc;
+    }
+    public Guid PaymentRecordId { get; init; }
+    public Guid TransactionId { get; init; }
+    public Guid TeacherUserId { get; init; }
+    public PaymentTransactionKind Kind { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; }
+}

@@ -29,39 +29,56 @@ public sealed class RedisIdempotencyStore(ResilientRedisExecutor redis) : IIdemp
 
     public async Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(
         string key,
+        string requestBodyHash,
         CancellationToken cancellationToken = default)
     {
         var redisKey = Key(key);
-
-        // Atomik sahiplenme: yalnız anahtar yoksa "işleniyor" işaretini koy.
-        var (ok, created) = await redis.TryExecuteAsync(
-            Protection,
-            database => database.StringSetAsync(redisKey, ProcessingMarker, ProcessingTtl, When.NotExists),
-            cancellationToken);
-
-        if (!ok || created)
+        var processingPayload = ProcessingMarker + ":" + requestBodyHash;
+        while (true)
         {
-            return (IdempotencyOutcome.Proceed, null); // fail-open (Redis yok) veya ilk istek
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            // Hash is part of the atomic reservation, so concurrent mismatches are rejected too.
+            var (ok, created) = await redis.TryExecuteAsync(
+                Protection,
+                database => database.StringSetAsync(redisKey, processingPayload, ProcessingTtl, When.NotExists),
+                cancellationToken);
 
-        var (okGet, value) = await redis.TryExecuteAsync(
-            Protection,
-            database => database.StringGetAsync(redisKey), cancellationToken);
-        if (!okGet || value.IsNullOrEmpty)
-        {
-            return (IdempotencyOutcome.Proceed, null); // yarış/expire → işle
-        }
+            if (!ok || created)
+            {
+                return (IdempotencyOutcome.Proceed, null); // Redis fail-open or first request.
+            }
 
-        var payload = value.ToString();
-        if (payload == ProcessingMarker)
-        {
-            return (IdempotencyOutcome.InProgress, null);
-        }
+            var (okGet, value) = await redis.TryExecuteAsync(
+                Protection,
+                database => database.StringGetAsync(redisKey), cancellationToken);
+            if (!okGet)
+            {
+                return (IdempotencyOutcome.Proceed, null);
+            }
 
-        var stored = JsonSerializer.Deserialize<IdempotentResponse>(payload, JsonOptions);
-        return stored is null
-            ? (IdempotencyOutcome.Proceed, null)
-            : (IdempotencyOutcome.Duplicate, stored);
+            if (value.IsNullOrEmpty)
+            {
+                // Expired/released between SET NX and GET: acquire again before executing.
+                continue;
+            }
+
+            var payload = value.ToString();
+            if (payload == ProcessingMarker)
+            {
+                return (IdempotencyOutcome.InProgress, null); // Legacy reservation, hash unknown.
+            }
+
+            if (payload.StartsWith(ProcessingMarker + ":", StringComparison.Ordinal))
+            {
+                return (payload == processingPayload ? IdempotencyOutcome.InProgress : IdempotencyOutcome.BodyMismatch, null);
+            }
+
+            var stored = JsonSerializer.Deserialize<IdempotentResponse>(payload, JsonOptions);
+            // Legacy completed entries have no hash. Never replay or reexecute an unknown body.
+            return stored?.RequestBodyHash == requestBodyHash
+                ? (IdempotencyOutcome.Duplicate, stored)
+                : (IdempotencyOutcome.BodyMismatch, null);
+        }
     }
 
     public Task CompleteAsync(string key, IdempotentResponse response, CancellationToken cancellationToken = default)

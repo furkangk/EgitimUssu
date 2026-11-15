@@ -1,5 +1,5 @@
 {
-  "@@locale": "tr",
+  "@locale": "tr",
   "app_title": "EğitimÜssü",
   "@app_title": {
     "description": "Uygulama adı — görünen metinde her zaman Türkçe karakterlerle"
@@ -399,5 +399,266 @@
   "cancellation_holiday": "Tatil",
   "cancellation_other": "Diğer",
   "cancellation_free": "Ücretsiz iptal et",
-  "cancellation_note": "Açıklama (isteğe bağlı)"
+  "cancellation_note": "Açıklama (isteğe bağlı)",
+  "finance_odemeyiDuzenle": "Ödemeyi Düzenle",
+  "finance_odemeEkle": "Ödeme Ekle",
+  "finance_aciklama": "Açıklama",
+  "finance_odemeAciklamasi": "Ödeme açıklaması",
+  "finance_tutar": "Tutar",
+  "finance_beklenenTutar": "Beklenen tutar",
+  "finance_tahsilEdildi": "Tahsil edildi",
+  "finance_alinanTutar": "Alınan tutar",
+  "finance_sonOdemeTarihi": "Son ödeme tarihi",
+  "finance_tarihSec": "Tarih seç",
+  "finance_not": "Not",
+  "finance_odemeNotuIstegeBagli": "Ödeme notu (isteğe bağlı)",
+  "finance_degisiklikleriKaydet": "Değişiklikleri Kaydet",
+  "finance_odemeyiKaydet": "Ödemeyi Kaydet",
+  "finance_lutfenBirOgrenciSecin": "Lütfen bir öğrenci seçin.",
+  "finance_tahsilEdilenTutarBeklenenTutardanFazlaOlamaz": "Tahsil edilen tutar beklenen tutardan fazla olamaz.",
+  "finance_odemeyiIptalEt": "Ödemeyi iptal et",
+  "finance_vazgec": "Vazgeç",
+  "finance_evetIptalEt": "Evet, iptal et",
+  "finance_buAlanZorunlu": "Bu alan zorunlu.",
+  "finance_gecerliBirTutarGirin": "Geçerli bir tutar girin.",
+  "finance_ogrenci": "Öğrenci",
+  "finance_ogrenciSecin": "Öğrenci seçin",
+  "finance_ogrenciSecimiZorunlu": "Öğrenci seçimi zorunlu.",
+  "finance_ders": "Ders",
+  "finance_dersSecin": "Ders seçin",
+  "finance_ogrenciDers": "Öğrenci / Ders",
+  "finance_ogrenciVeDersDuzenlenemez": "Öğrenci ve ders düzenlenemez.",
+  "finance_kayitliOgrenciBulunamadiOnceOgrenciEkleyin": "Kayıtlı öğrenci bulunamadı. Önce öğrenci ekleyin.",
+  "finance_paraBirimi": "Para birimi",
+  "finance_odemeYontemi": "Ödeme yöntemi",
+  "finance_odemeYontemiSecin": "Ödeme yöntemi seçin",
+  "finance_nakit": "Nakit",
+  "finance_bankaTransferi": "Banka transferi",
+  "finance_krediKarti": "Kredi kartı",
+  "finance_tumu": "Tümü",
+  "finance_odenen": "Ödenen",
+  "finance_bekleyen": "Bekleyen",
+  "finance_geciken": "Geciken",
+  "finance_ogretmen": "Öğretmen",
+  "finance_sonucBulunamadi": "Sonuç bulunamadı",
+  "finance_aramaVeyaFiltreleriDegistirmeyiDeneyin": "Arama veya filtreleri değiştirmeyi deneyin.",
+  "finance_odemeKaydiYok": "Ödeme kaydı yok",
+  "finance_sagAlttakiOdemeEkleIleIlkKaydiOlusturun": "Sağ alttaki \"Ödeme Ekle\" ile ilk kaydı oluşturun.",
+  "finance_odemeAra": "Ödeme ara…",
+  "finance_odemelerYuklenemedi": "Ödemeler yüklenemedi",
+  "finance_tekrarDene": "Tekrar Dene",
+  "finance_finansOzeti": "Finans Özeti",
+  "finance_tahsilEdilen": "Tahsil edilen",
+  "finance_istatistikler": "İstatistikler",
+  "finance_gizle": "Gizle",
+  "finance_goster": "Göster",
+  "finance_odendi": "Ödendi",
+  "finance_iptal": "İptal",
+  "finance_kismi": "Kısmi",
+  "finance_kalan": "Kalan",
+  "finance_isleniyor": "İşleniyor…",
+  "finance_tahsilEt": "Tahsil Et",
+  "finance_tahsilatKaydi": "Tahsilat Kaydı",
+  "finance_beklenen": "Beklenen",
+  "finance_veyaKismiTutarGir": "veya kısmi tutar gir",
+  "finance_tahsilatiKaydet": "Tahsilatı Kaydet",
+  "finance_tutarGirin": "Tutar girin.",
+  "finance_kalanTutardanFazlaOlamaz": "Kalan tutardan fazla olamaz.",
+  "finance_tamaminiAl": "Tamamını al",
+  "finance_kalaninTamaminiTahsilEt": "Kalanın tamamını tahsil et",
+  "finance_aylikTahsilat": "Aylık Tahsilat",
+  "finance_tahsil": "Tahsil",
+  "finance_durumDagilimi": "Durum Dağılımı",
+  "finance_tutarBazinda": "Tutar bazında",
+  "finance_tahsilat": "tahsilat",
+  "finance_genel": "Genel",
+  "finance_dersler": "Dersler",
+  "finance_performans": "Performans",
+  "finance_odemeler": "Ödemeler",
+  "finance_ogrenciBulunamadi": "Öğrenci bulunamadı",
+  "finance_lutfenYenidenDeneyin": "Lütfen yeniden deneyin.",
+  "finance_bransEkle": "Branş ekle",
+  "finance_hedefSeviye": "Hedef seviye",
+  "finance_ekle": "Ekle",
+  "finance_veliBagla": "Veli bağla",
+  "finance_veliKayitliBirKullaniciOlmalidirBaglantiOnayBekler": "Veli kayıtlı bir kullanıcı olmalıdır. Bağlantı onay bekler.",
+  "finance_veliKullaniciKimligi": "Veli kullanıcı kimliği",
+  "finance_duzenle": "Düzenle",
+  "finance_pasiflestir": "Pasifleştir",
+  "finance_aktiflestir": "Aktifleştir",
+  "finance_ogrenciyiPasiflestir": "Öğrenciyi Pasifleştir",
+  "finance_ogrenciyiAktiflestir": "Öğrenciyi Aktifleştir",
+  "finance_ogrenciDetayi": "Öğrenci Detayı",
+  "finance_toplamKayit": "Toplam kayıt",
+  "finance_odeme": "Ödeme",
+  "finance_hedef": "Hedef",
+  "finance_dersHedefi": "Ders hedefi",
+  "finance_durum": "Durum",
+  "finance_takip": "Takip",
+  "finance_temiz": "Temiz",
+  "finance_odemeVar": "Ödeme var",
+  "finance_borcsuz": "Borcsuz",
+  "finance_ogrenciNotlari": "Öğrenci notları",
+  "finance_seviyeNotu": "Seviye notu",
+  "finance_yeniDers": "Yeni Ders",
+  "finance_mesajGonder": "Mesaj Gönder",
+  "finance_yeniDers102": "Yeni ders",
+  "finance_dersKaydiYok": "Ders kaydı yok",
+  "finance_buOgrenciIcinPlanliDersBulunamadi": "Bu öğrenci için planlı ders bulunamadı.",
+  "finance_performansOzeti": "Performans özeti",
+  "finance_dersTamamlama": "Ders tamamlama",
+  "finance_takipBasladi": "Takip başladı",
+  "finance_hedefNetligi": "Hedef netliği",
+  "finance_dersCesitliligi": "Ders çeşitliliği",
+  "finance_dersHedefleri": "Ders hedefleri",
+  "finance_hedefDersEklenincePerformansTakibiBuradaZenginlesir": "Hedef ders eklenince performans takibi burada zenginleşir.",
+  "finance_toplam": "Toplam",
+  "finance_odemeGecmisi": "Ödeme geçmişi",
+  "finance_odemeEkle114": "Ödeme ekle",
+  "finance_buOgrenciIcinTahsilatKaydiBulunamadi": "Bu öğrenci için tahsilat kaydı bulunamadı.",
+  "finance_hedefDersler": "Hedef dersler",
+  "finance_ogrenciHedefleriEklendigindeBuradaGorunur": "Öğrenci hedefleri eklendiğinde burada görünür.",
+  "finance_hedefYok": "Hedef yok",
+  "finance_bransiSil": "Branşı sil",
+  "finance_kayitliBirVeliKullanicisiniBuOgrenciyeBaglayabilirsi": "Kayıtlı bir veli kullanıcısını bu öğrenciye bağlayabilirsin. ",
+  "finance_baglantiOnayBeklerOnaylandiktanSonraVeliOgrencininG": "Bağlantı onay bekler; onaylandıktan sonra veli öğrencinin gelişimini görür.",
+  "finance_tarihYok": "Tarih yok",
+  "finance_aktif": "Aktif",
+  "finance_ogrenciGuncelle": "Öğrenci Güncelle",
+  "finance_adSoyad": "Ad Soyad",
+  "finance_adSoyadGiriniz": "Ad soyad giriniz",
+  "finance_sinifSeviye": "Sınıf / Seviye",
+  "finance_sinifGiriniz": "Sınıf giriniz",
+  "finance_hedefSeviye129": "Hedef Seviye",
+  "finance_hedefAmac": "Hedef / Amaç",
+  "finance_seviyeNotu131": "Seviye Notu",
+  "finance_aktifOgrenci": "Aktif Öğrenci",
+  "finance_kaydet": "Kaydet",
+  "finance_odemelerYuklenemediLutfenTekrarDeneyin": "Ödemeler yüklenemedi. Lütfen tekrar deneyin.",
+  "finance_dahaFazlaKayitYuklenemedi": "Daha fazla kayıt yüklenemedi.",
+  "finance_odemeKaydiOlusturuldu": "Ödeme kaydı oluşturuldu.",
+  "finance_odemeKaydiOlusturulamadiLutfenTekrarDeneyin": "Ödeme kaydı oluşturulamadı. Lütfen tekrar deneyin.",
+  "finance_odemeKaydiGuncellendi": "Ödeme kaydı güncellendi.",
+  "finance_odemeKaydiGuncellenemediLutfenTekrarDeneyin": "Ödeme kaydı güncellenemedi. Lütfen tekrar deneyin.",
+  "finance_odemeIptalEdildi": "Ödeme iptal edildi.",
+  "finance_odemeIptalEdilemediLutfenTekrarDeneyin": "Ödeme iptal edilemedi. Lütfen tekrar deneyin.",
+  "finance_tahsilatKaydedildi": "Tahsilat kaydedildi.",
+  "finance_odemeGuncellenemediLutfenTekrarDeneyin": "Ödeme güncellenemedi. Lütfen tekrar deneyin.",
+  "finance_lessonForStudent": "{subject} dersi — {name}",
+  "@finance_lessonForStudent": {
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_studentLesson": "{name} dersi",
+  "@finance_studentLesson": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_cancelConfirmation": "\"{description}\" ödemesi iptal edilecek. Kayıt silinmez ve açık bakiye doğurmaz. Emin misiniz?",
+  "@finance_cancelConfirmation": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_paymentCount": "{count} ödeme kaydı",
+  "@finance_paymentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finance_recordCount": "{count} kayıt",
+  "@finance_recordCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finance_collectionCurrency": "Bu tahsilat ({currency})",
+  "@finance_collectionCurrency": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_monthlyTotal": "Son {count} ay · toplam {amount}",
+  "@finance_monthlyTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_deactivateStudent": "{name} pasif olarak işaretlenecek.",
+  "@finance_deactivateStudent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_activateStudent": "{name} tekrar aktif hale getirilecek.",
+  "@finance_activateStudent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_goalCount": "{count} hedef",
+  "@finance_goalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finance_dueDate": "Vade: {date}",
+  "@finance_dueDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_amountPending": "{amount} bekleyen",
+  "@finance_amountPending": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_methodNote": "Ödeme yöntemi: {method}",
+  "@finance_methodNote": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_link": "Bağla",
+  "finance_email": "E-posta",
+  "finance_phone": "Telefon",
+  "finance_notAdded": "Eklenmemiş",
+  "finance_clearGoal": "Net",
+  "finance_missingGoal": "Eksik",
+  "finance_parent": "Veli"
 }

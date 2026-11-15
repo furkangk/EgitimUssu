@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
@@ -6,11 +7,13 @@ import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 class PaymentFormPage extends StatefulWidget {
@@ -39,7 +42,7 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
   StudentProfile? _selectedProfile;
   String? _selectedSubject;
   String _currency = 'TRY';
-  String _paymentMethod = 'Nakit';
+  int _paymentMethod = 1;
 
   bool get _isEdit => widget.record != null;
 
@@ -67,6 +70,7 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _paymentsCubit.setLocalizations(AppLocalizations.of(context));
     final userId = context.read<AuthCubit>().state.session?.userId;
     if (userId != null &&
         _studentsCubit.state.students.isEmpty &&
@@ -144,7 +148,9 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                 return Column(
                   children: <Widget>[
                     _TopBar(
-                      title: _isEdit ? 'Ödemeyi Düzenle' : 'Ödeme Ekle',
+                      title: _isEdit
+                          ? AppLocalizations.of(context).finance_odemeyiDuzenle
+                          : AppLocalizations.of(context).finance_odemeEkle,
                       onBack: () => context.canPop()
                           ? context.pop()
                           : context.go('/payments'),
@@ -182,8 +188,12 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                     const SizedBox(height: 14),
                                     AppTextField(
                                       controller: _descriptionController,
-                                      labelText: 'Açıklama',
-                                      hintText: 'Ödeme açıklaması',
+                                      labelText: AppLocalizations.of(
+                                        context,
+                                      ).finance_aciklama,
+                                      hintText: AppLocalizations.of(
+                                        context,
+                                      ).finance_odemeAciklamasi,
                                       textCapitalization:
                                           TextCapitalization.sentences,
                                       validator: _required,
@@ -194,9 +204,16 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                         Expanded(
                                           child: AppTextField(
                                             controller: _amountController,
-                                            labelText: 'Tutar',
-                                            hintText: 'Beklenen tutar',
-                                            keyboardType: TextInputType.number,
+                                            labelText: AppLocalizations.of(
+                                              context,
+                                            ).finance_tutar,
+                                            hintText: AppLocalizations.of(
+                                              context,
+                                            ).finance_beklenenTutar,
+                                            keyboardType:
+                                                const TextInputType.numberWithOptions(
+                                                  decimal: true,
+                                                ),
                                             validator: _validateAmount,
                                           ),
                                         ),
@@ -204,9 +221,17 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                         Expanded(
                                           child: AppTextField(
                                             controller: _collectedController,
-                                            labelText: 'Tahsil edildi',
-                                            hintText: 'Alınan tutar',
-                                            keyboardType: TextInputType.number,
+                                            readOnly: _isEdit,
+                                            labelText: AppLocalizations.of(
+                                              context,
+                                            ).finance_tahsilEdildi,
+                                            hintText: AppLocalizations.of(
+                                              context,
+                                            ).finance_alinanTutar,
+                                            keyboardType:
+                                                const TextInputType.numberWithOptions(
+                                                  decimal: true,
+                                                ),
                                             validator: _validateAmount,
                                           ),
                                         ),
@@ -218,8 +243,12 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                         Expanded(
                                           child: AppTextField(
                                             controller: _dueDateController,
-                                            labelText: 'Son ödeme tarihi',
-                                            hintText: 'Tarih seç',
+                                            labelText: AppLocalizations.of(
+                                              context,
+                                            ).finance_sonOdemeTarihi,
+                                            hintText: AppLocalizations.of(
+                                              context,
+                                            ).finance_tarihSec,
                                             readOnly: true,
                                             onTap: _pickDueDate,
                                             suffixIcon: const Icon(
@@ -232,11 +261,15 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                         Expanded(
                                           child: _CurrencyField(
                                             value: _currency,
-                                            onChanged: (v) {
-                                              if (v != null) {
-                                                setState(() => _currency = v);
-                                              }
-                                            },
+                                            onChanged: _isEdit
+                                                ? null
+                                                : (v) {
+                                                    if (v != null) {
+                                                      setState(
+                                                        () => _currency = v,
+                                                      );
+                                                    }
+                                                  },
                                           ),
                                         ),
                                       ],
@@ -257,8 +290,12 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                                     const SizedBox(height: 14),
                                     AppTextField(
                                       controller: _notesController,
-                                      labelText: 'Not',
-                                      hintText: 'Ödeme notu (isteğe bağlı)',
+                                      labelText: AppLocalizations.of(
+                                        context,
+                                      ).finance_not,
+                                      hintText: AppLocalizations.of(
+                                        context,
+                                      ).finance_odemeNotuIstegeBagli,
                                       minLines: 3,
                                       maxLines: 5,
                                       maxLength: 160,
@@ -291,8 +328,10 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
                 ),
                 child: AppPrimaryButton(
                   label: _isEdit
-                      ? 'Değişiklikleri Kaydet'
-                      : 'Ödemeyi Kaydet',
+                      ? AppLocalizations.of(
+                          context,
+                        ).finance_degisiklikleriKaydet
+                      : AppLocalizations.of(context).finance_odemeyiKaydet,
                   isLoading: state.isSaving,
                   onPressed: _save,
                 ),
@@ -327,8 +366,8 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
         _selectedSubject ?? _selectedProfile!.subjects.firstOrNull?.subject;
     final name = _selectedProfile!.fullName;
     _descriptionController.text = subject != null
-        ? '$subject dersi — $name'
-        : '$name dersi';
+        ? AppLocalizations.of(context).finance_lessonForStudent(subject, name)
+        : AppLocalizations.of(context).finance_studentLesson(name);
   }
 
   Future<void> _pickDueDate() async {
@@ -350,28 +389,32 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
     // Öğrenci yalnız yeni kayıtta seçilir; düzenlemede kaydın öğrencisi korunur.
     if (!_isEdit && _selectedProfile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen bir öğrenci seçin.'),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).finance_lutfenBirOgrenciSecin,
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
     final teacherUserId = context.read<AuthCubit>().state.session?.userId ?? '';
-    final expected = double.parse(_amountController.text.trim());
-    final collected = double.parse(_collectedController.text.trim());
+    final expected = Money.parseTr(_amountController.text).minor;
+    final collected = Money.parseTr(_collectedController.text).minor;
     if (collected > expected) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tahsil edilen tutar beklenen tutardan fazla olamaz.'),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(
+              context,
+            ).finance_tahsilEdilenTutarBeklenenTutardanFazlaOlamaz,
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
-    final outstanding = (expected - collected)
-        .clamp(0, double.infinity)
-        .toDouble();
+    final outstanding = (expected - collected).clamp(0, expected);
     final status = collected >= expected
         ? 'Paid'
         : collected > 0
@@ -422,11 +465,8 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
     );
   }
 
-  static String _asAmount(double amount) {
-    return amount == amount.roundToDouble()
-        ? amount.toStringAsFixed(0)
-        : amount.toStringAsFixed(2);
-  }
+  static String _asAmount(int amount) =>
+      Money(amount).formatTr(withCurrency: false);
 
   Future<void> _confirmCancel() async {
     final record = widget.record;
@@ -434,20 +474,21 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Ödemeyi iptal et'),
+        title: Text(AppLocalizations.of(context).finance_odemeyiIptalEt),
         content: Text(
-          '"${record.description}" ödemesi iptal edilecek ("İptal" olarak '
-          'işaretlenir; kayıt silinmez, açık bakiye doğurmaz). Emin misiniz?',
+          AppLocalizations.of(
+            context,
+          ).finance_cancelConfirmation(record.description),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Vazgeç'),
+            child: Text(AppLocalizations.of(context).finance_vazgec),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
-            child: const Text('Evet, iptal et'),
+            child: Text(AppLocalizations.of(context).finance_evetIptalEt),
           ),
         ],
       ),
@@ -459,40 +500,36 @@ class _PaymentFormPageState extends State<PaymentFormPage> {
 
   String _buildNotes() {
     final note = _notesController.text.trim();
-    final method = 'Ödeme yöntemi: $_paymentMethod';
+    final l10n = AppLocalizations.of(context);
+    final methodName = _paymentMethod == 1
+        ? l10n.finance_nakit
+        : _paymentMethod == 2
+        ? l10n.finance_bankaTransferi
+        : l10n.finance_krediKarti;
+    final method = AppLocalizations.of(context).finance_methodNote(methodName);
     return note.isEmpty ? method : '$method\n$note';
   }
 
-  static String? _required(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Bu alan zorunlu.';
+  String? _required(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return AppLocalizations.of(context).finance_buAlanZorunlu;
+    }
     return null;
   }
 
-  static String? _validateAmount(String? value) {
+  String? _validateAmount(String? value) {
     final req = _required(value);
     if (req != null) return req;
-    final amount = double.tryParse(value!.trim());
-    if (amount == null || amount < 0) return 'Geçerli bir tutar girin.';
+    try {
+      Money.parseTr(value!);
+    } on FormatException {
+      return AppLocalizations.of(context).finance_gecerliBirTutarGirin;
+    }
     return null;
   }
 
-  static String _formatDate(DateTime date) {
-    const months = <String>[
-      'Ocak',
-      'Şubat',
-      'Mart',
-      'Nisan',
-      'Mayıs',
-      'Haziran',
-      'Temmuz',
-      'Ağustos',
-      'Eylül',
-      'Ekim',
-      'Kasım',
-      'Aralık',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
+  static String _formatDate(DateTime date) =>
+      DateFormat('dd.MM.yyyy').format(date);
 }
 
 // ── Öğrenci + ders seçimi ────────────────────────────────────────────────────
@@ -519,7 +556,7 @@ class _StudentSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const AppFieldLabel(text: 'Öğrenci'),
+        AppFieldLabel(text: AppLocalizations.of(context).finance_ogrenci),
         const SizedBox(height: 8),
         if (isLoading)
           _StudentShimmer()
@@ -529,7 +566,9 @@ class _StudentSection extends StatelessWidget {
           DropdownButtonFormField<StudentProfile>(
             key: ValueKey<String?>('student-${selectedProfile?.id}'),
             initialValue: selectedProfile,
-            decoration: appInputDecoration('Öğrenci seçin'),
+            decoration: appInputDecoration(
+              AppLocalizations.of(context).finance_ogrenciSecin,
+            ),
             items: students
                 .map(
                   (s) => DropdownMenuItem<StudentProfile>(
@@ -539,16 +578,20 @@ class _StudentSection extends StatelessWidget {
                 )
                 .toList(),
             onChanged: onStudentChanged,
-            validator: (v) => v == null ? 'Öğrenci seçimi zorunlu.' : null,
+            validator: (v) => v == null
+                ? AppLocalizations.of(context).finance_ogrenciSecimiZorunlu
+                : null,
           ),
         if (selectedProfile?.subjects.isNotEmpty == true) ...<Widget>[
           const SizedBox(height: 14),
-          const AppFieldLabel(text: 'Ders'),
+          AppFieldLabel(text: AppLocalizations.of(context).finance_ders),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             key: ValueKey<String>('subj-${selectedProfile!.id}'),
             initialValue: selectedSubject,
-            decoration: appInputDecoration('Ders seçin'),
+            decoration: appInputDecoration(
+              AppLocalizations.of(context).finance_dersSecin,
+            ),
             items: selectedProfile!.subjects
                 .map(
                   (s) => DropdownMenuItem<String>(
@@ -574,14 +617,16 @@ class _StudentReadonly extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final display = (name == null || name!.trim().isEmpty) ? 'Öğrenci' : name!;
+    final display = (name == null || name!.trim().isEmpty)
+        ? AppLocalizations.of(context).finance_ogrenci
+        : name!;
     final text = (subject != null && subject!.isNotEmpty)
         ? '$display · $subject'
         : display;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const AppFieldLabel(text: 'Öğrenci / Ders'),
+        AppFieldLabel(text: AppLocalizations.of(context).finance_ogrenciDers),
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
@@ -619,7 +664,7 @@ class _StudentReadonly extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Öğrenci ve ders düzenlenemez.',
+          AppLocalizations.of(context).finance_ogrenciVeDersDuzenlenemez,
           style: Theme.of(
             context,
           ).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
@@ -666,7 +711,9 @@ class _NoStudentsHint extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Kayıtlı öğrenci bulunamadı. Önce öğrenci ekleyin.',
+              AppLocalizations.of(
+                context,
+              ).finance_kayitliOgrenciBulunamadiOnceOgrenciEkleyin,
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
@@ -716,7 +763,7 @@ class _TopBar extends StatelessWidget {
               onPressed: onCancelPayment,
               icon: const Icon(Icons.cancel_outlined),
               color: AppColors.accentRed,
-              tooltip: 'Ödemeyi iptal et',
+              tooltip: AppLocalizations.of(context).finance_odemeyiIptalEt,
             ),
         ],
       ),
@@ -728,19 +775,23 @@ class _CurrencyField extends StatelessWidget {
   const _CurrencyField({required this.value, required this.onChanged});
 
   final String value;
-  final ValueChanged<String?> onChanged;
+  final ValueChanged<String?>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const AppFieldLabel(text: 'Para birimi'),
+        AppFieldLabel(text: AppLocalizations.of(context).finance_paraBirimi),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           initialValue: value,
-          decoration: appInputDecoration('Para birimi'),
-          items: const <DropdownMenuItem<String>>[
+          decoration: appInputDecoration(
+            AppLocalizations.of(context).finance_paraBirimi,
+          ),
+          items: <DropdownMenuItem<String>>[
+            if (!['TRY', 'USD', 'EUR'].contains(value))
+              DropdownMenuItem<String>(value: value, child: Text(value)),
             DropdownMenuItem<String>(value: 'TRY', child: Text('TRY')),
             DropdownMenuItem<String>(value: 'USD', child: Text('USD')),
             DropdownMenuItem<String>(value: 'EUR', child: Text('EUR')),
@@ -755,28 +806,33 @@ class _CurrencyField extends StatelessWidget {
 class _PaymentMethodField extends StatelessWidget {
   const _PaymentMethodField({required this.value, required this.onChanged});
 
-  final String value;
-  final ValueChanged<String?> onChanged;
+  final int value;
+  final ValueChanged<int?> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const AppFieldLabel(text: 'Ödeme yöntemi'),
+        AppFieldLabel(text: AppLocalizations.of(context).finance_odemeYontemi),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
+        DropdownButtonFormField<int>(
           initialValue: value,
-          decoration: appInputDecoration('Ödeme yöntemi seçin'),
-          items: const <DropdownMenuItem<String>>[
-            DropdownMenuItem<String>(value: 'Nakit', child: Text('Nakit')),
-            DropdownMenuItem<String>(
-              value: 'Banka transferi',
-              child: Text('Banka transferi'),
+          decoration: appInputDecoration(
+            AppLocalizations.of(context).finance_odemeYontemiSecin,
+          ),
+          items: <DropdownMenuItem<int>>[
+            DropdownMenuItem<int>(
+              value: 1,
+              child: Text(AppLocalizations.of(context).finance_nakit),
             ),
-            DropdownMenuItem<String>(
-              value: 'Kredi kartı',
-              child: Text('Kredi kartı'),
+            DropdownMenuItem<int>(
+              value: 2,
+              child: Text(AppLocalizations.of(context).finance_bankaTransferi),
+            ),
+            DropdownMenuItem<int>(
+              value: 3,
+              child: Text(AppLocalizations.of(context).finance_krediKarti),
             ),
           ],
           onChanged: onChanged,

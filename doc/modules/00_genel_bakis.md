@@ -31,6 +31,15 @@ updated: 2026-11-15
 **P17 T8 (2026-11-15):** Haftalık ders yaşam döngüsü gerçek PostgreSQL + outbox ile zincirlenir. Single iptal aylık raporda oluşum anahtarıyla sayılır (`MonthlyCancellationOccurrences`); iki tamamlama + bir geç iptal toplam 300 TRY borç üretir. Mikro-saniyeli seri sonlandırma önceki oluşumu korur. Yeni HTTP ucu yoktur; mobil üç haftanın orijinal anahtarlarını ve iptal kapsamını korur.
 
 
+**P18 T1 / K-22:** M03, M04, M06, M07, M08, M09, M10 ve M17’de toplam 10 kritik tip `IVersioned`/PostgreSQL `xmin` taşır; ortak middleware çakışmayı `409 shared.concurrency_conflict` döner. Sekiz `AddVersionToken` migration’ı yalnız model metadatasıdır. Ödeme niyet komutları T2’de; yeni endpoint yoktur.
+
+**P18 T2 (2026-11-15):** M07’ye `POST /records/{id}/collections`, `/refunds`, `/cancel` eklendi (14 uç); PUT yalnız ayrıntıları günceller. Net tahsilat/durum hareketlerden türetilir, eski istemci toplam göndererek tahsilatı ezemez. `PaymentTransactions` göçü eski tahsilatı tek `Migrated` harekete taşır; `IPaymentTransactionDirectory` ve `reporting.payment-collections` yeniden kurucusu aylık raporu besler. Mobil geçiş T4’tedir.
+
+
+**P18 T5 (2026-11-15):** Ortak HTTP tekrar koruması `Idempotency-Key` ile ham gövde SHA-256 özetini eşler. Aynı kullanıcı/metot/yol/anahtarda farklı gövde (işlenirken de) `422 shared.idempotency_key_reused`; aynı gövde tamamlandıysa saklı yanıt, sürüyorsa409. M07 gerçek HTTP tahsilat tekrarı tek hareket üretir. Yeni endpoint/migration yok; anonim ve Identity istekleri koruma dışında kalır.
+
+**P18 T6 (2026-11-15):** Gerçek HTTP/PostgreSQL/outbox finans senaryosu M04→M05→M07→M14 zincirini kapsar: ücretli ders→500 TRY borç→200 nakit→300 veli beyanı/onayı→100 iade→400 net/100 açık. İkinci cihazın eşzamanlı bayat not yazımı409, aynı eski gövdeyle tekrar200; tahsilat korunur. Aylık HTTP500 beklenen/400 net, projeksiyon100 iade ve aynı üç hareket kimliği doğrulanır. Yeni endpoint/üretim davranışı/migration yoktur.
+
 ## 1. Modül İndeksi (M01–M18)
 
 | M | Modül | Dosya | Backend (`src/Modules`) | Route | Durum |
@@ -222,6 +231,11 @@ GET /lesson-resources/{resourceId}/file   DELETE /lesson-resources/{resourceId} 
 [expose] IStudentNotesDirectory (Shared.Contracts) — Parents veliye görünür öğretmen notları
 ```
 ### Payments — `/api/payments`
+
+**P18 T3:** Özet `CurrencySummaries` ile para birimi bazında kalır; aylık noktalar artık `Currency` taşır (altı ay × para birimi). Tek bekleyen veli beyanı kısmi unique indeksle korunur; ikinci istek `409 payments.declaration_pending`. Beyan onay/ret yarışı xmin ile korunur. Notifications `PaymentDeclarationResolvedNotificationHandler` mevcut resolution olayından veliye sonuç bildirir (aynı transaction'da inbox). Eski tekrarları reddeden göç de outbox üretir. Mobil para birimi gösterimi T4'te açık.
+
+
+`POST /records/{id}/collections`, `POST /records/{id}/refunds`, `POST /records/{id}/cancel`; `PUT /records/{id}` yalnız description/expectedAmount/dueDateUtc/notes.
 ```
 POST /records   PUT /records/{paymentRecordId}   GET /records/{paymentRecordId}
 GET /teachers/{teacherUserId}/records   /summary   /records/filter   /records/search   (search: metin+durum+öğrenci+tarih, sayfalı)
@@ -317,7 +331,7 @@ GET /status
           Payments BecameOverdue/RecordUpdated · Students TeacherStudentLinkAccepted
           → teacher_dashboard_projections (read-model, idempotent — ortak inbox_messages)
 [consume] LessonSessions LessonSessionCompleted · Scheduling LessonScheduleCancelled ·
-          Payments PaymentRecordCreated/PaymentRecordUpdated  → teacher_monthly_projections (M14-1)
+          Payments PaymentRecordCreated/PaymentTransactionRecordedIntegrationEvent  → teacher_monthly_projections (M14-1)
 [consume] Study StudySessionCompleted/TestResultRecorded      → student_study_projections (M14-2)
 [consume] Study TestResultRecorded · ProgressTracking TopicMasteryChanged
                                                               → student_performance_projections (M14-3)
@@ -386,3 +400,15 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
+
+*Güncelleme: 2026-11-15 — P18 Task 1 eşzamanlılık altyapısı.*
+
+*Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
+
+*Güncelleme: 2026-11-15 — P18 T3: aylık Currency boyutu, tek bekleyen beyan ve sonuç bildirimi.*
+
+**P18 T4 (mobil):** Yeni backend ucu eklenmedi. Mobil ödeme oluşturma/tahsilat/iptal idempotency anahtarı taşır; mevcut `/collections` ve `/cancel` POST'ları tüketilir, PUT yalnız ayrıntı gönderir. Ödeme modelleri int kuruş, para birimi seçimi özet ve iki grafiğe uygulanır. Öğrenci detay metrikleri de para birimi başınadır.
+
+*Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*
+
+*Güncelleme: 2026-11-15 — P18 T5: modüller arası ortak idempotency gövde sözleşmesi.*

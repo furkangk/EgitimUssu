@@ -2,8 +2,10 @@ using EgitimUssu.Shared.Kernel;
 
 namespace EgitimUssu.Modules.Assignments.Domain;
 
-public sealed class Assignment : AggregateRoot<Guid>
+public sealed class Assignment : AggregateRoot<Guid>, IVersioned
 {
+    public uint Version { get; private set; }
+
     private Assignment()
     {
     }

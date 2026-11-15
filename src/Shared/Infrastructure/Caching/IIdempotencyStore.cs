@@ -9,11 +9,14 @@ public enum IdempotencyOutcome
     Duplicate,
 
     /// <summary>Aynı anahtarla eşzamanlı bir istek hâlâ işleniyor — 409 dönülmeli.</summary>
-    InProgress
+    InProgress,
+
+    /// <summary>Anahtar farklı bir istek gövdesine ait — 422 dönülmeli.</summary>
+    BodyMismatch
 }
 
 /// <summary>Idempotency için saklanan HTTP yanıtı.</summary>
-public sealed record IdempotentResponse(int StatusCode, string? ContentType, byte[] Body);
+public sealed record IdempotentResponse(int StatusCode, string? ContentType, byte[] Body, string? RequestBodyHash = null);
 
 /// <summary>
 /// Y4: Mutasyon uçlarında <c>Idempotency-Key</c> ile tekrarlı isteklerin güvenli tekrarını sağlar.
@@ -21,7 +24,7 @@ public sealed record IdempotentResponse(int StatusCode, string? ContentType, byt
 /// </summary>
 public interface IIdempotencyStore
 {
-    Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(string key, CancellationToken cancellationToken = default);
+    Task<(IdempotencyOutcome Outcome, IdempotentResponse? StoredResponse)> TryBeginAsync(string key, string requestBodyHash, CancellationToken cancellationToken = default);
 
     Task CompleteAsync(string key, IdempotentResponse response, CancellationToken cancellationToken = default);
 

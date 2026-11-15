@@ -62,6 +62,9 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyOccurrenceCancelledProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyPaymentExpectedProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, TeacherMonthlyPaymentCollectedProjectionHandler>();
+        services.AddScoped<PaymentCollectionProjectionRebuilder>();
+        services.AddScoped<EgitimUssu.Shared.Infrastructure.Projections.IProjectionRebuilder>(sp => sp.GetRequiredService<PaymentCollectionProjectionRebuilder>());
+        services.AddHostedService<PaymentCollectionProjectionInitializer>();
         services.AddScoped<IIntegrationEventHandler, StudentStudySessionProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, StudentStudyTestProjectionHandler>();
         services.AddScoped<IIntegrationEventHandler, StudentPerformanceTestProjectionHandler>();

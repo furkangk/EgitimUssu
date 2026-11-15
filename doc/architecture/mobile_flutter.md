@@ -5,7 +5,7 @@ tags: [mimari, mobile, flutter]
 authority: code
 code_refs:
   - mobile/lib/**
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # 📱 Mobil Mimari & UI — Flutter
@@ -18,7 +18,7 @@ updated: 2026-11-14
 > [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md). Kanonik değerler → [`../INDEX.md`](../INDEX.md) §0.
 > App **üç rolü de** kapsar: öğretmen (`/dashboard`), **öğrenci** (`features/study` → `/student-home` + çalışma zamanlayıcı/test/hedef/geçmiş/başarımlar) ve **veli** (`features/parent` → `/parent`). Rol bazlı yönlendirme `app_router` redirect'inde (2026-07: öğrenci/veli deneyimleri uygulandı; eski "planlanan" notu geçersiz).
 >
-> **Güncelleme:** 2026-11-14 (P15 T7 / N-63, N-67: `TokenRefreshInterceptor` tek uçuş + token değiştiyse yenilemeden tekrar + çıkış yalnız refresh 400/401'de; `AuthRepositoryImpl.refreshSession` tekilleştirme, `restoreSession` ağ hatasında oturumu korur) · 2026-10-16 (token yenileme sonrası tekrar isteği: yapılandırılmış taşıma katmanı korunur, multipart gövdesi klonlanır, 401 dışındaki tekrar hataları oturumu düşürmez).
+> **Güncelleme:** 2026-11-15 (P15 T7 / N-63, N-67: `TokenRefreshInterceptor` tek uçuş + token değiştiyse yenilemeden tekrar + çıkış yalnız refresh 400/401'de; `AuthRepositoryImpl.refreshSession` tekilleştirme, `restoreSession` ağ hatasında oturumu korur) · 2026-10-16 (token yenileme sonrası tekrar isteği: yapılandırılmış taşıma katmanı korunur, multipart gövdesi klonlanır, 401 dışındaki tekrar hataları oturumu düşürmez).
 
 ---
 
@@ -185,6 +185,14 @@ ApiClient ──onRefreshToken──> AuthRepository.refreshSession() ──refr
 **Depolama:** `SecureTokenStorage` (access token + refresh token — secure storage; Android'de `EncryptedSharedPreferences`), `SharedPrefsLocalCache` (`LocalCache` — basit önbellek/offline).
 
 > **Güvenlik (Y7, 2026-07-02):** Oturum önbelleği (`user_session` → `LocalCache`/SharedPreferences) **token içermez** — yalnız gizli-olmayan profil (userId/email/fullName/roles/expiry). Access/refresh token'lar **yalnız** secure storage'da tutulur; `restoreSession` token'ı oradan okuyup profille birleştirir. `AndroidManifest`'te `allowBackup="false"`. Önceden `toCache()` token'ları düz-metin yazıyordu (denetim Y7).
+
+### 7.0a Para ve idempotent yazma (P18 T4 / K-23)
+
+Ödeme domain/model Amount alanları **int kuruş** taşır. `Money.parseTr` sıkı TR biçimini kabul eder (`1.500`=150000, `750,50`=75050); `Money.fromJson/toJsonAmount` yalnız API sınırında decimal dönüşümü yapar, `formatTr` kuruşu tam iki ondalık ve ISO koduyla gösterir. Üst sınır 999.999.999.999,99, bozuk giriş/taşma reddedilir. Eski dashboard modelinin ana birim köprüsü Cubit'tedir; ödeme toplamlarını başka yerde double'a dönüştürme.
+
+`ApiClient.post/postFile/postMultipart(idempotent: true)` her yeni işlemde güvenli UUID v4 üretir. Token refresh ve tek otomatik ağ tekrarı aynı başlığı/gövdeyi kullanır; multipart gövde klonlanır. Ağ/5xx/işlem sürüyor hatasından sonra aynı kullanıcı/uç/kanonik içerikle manuel tekrar anahtarı ve orijinal gövdeyi kullanır; başarı girişi temizler. `retryIdentity` yalnız değişken gönderim zamanını dışlayan kararlı işlem kimliğidir (ödeme create/collection); tutar/not değişirse yeni işlem olur. Multipart kimliği form alanları + dosya yol/boyut/değişiklik zamanıdır. Başlıklar ve sonuçsuz işlem belleği kullanıcı JWT `sub` değeriyle ayrılır; açık `idempotencyKey` de verilebilir. Uygulama yeniden başlatıldığında sonuçsuz işlem kurtarma yoktur; sunucu cache ömrü 24 saattir. Gövde özeti doğrulaması T5'tir.
+
+İşaretli repository yolları: ödeme oluşturma/tahsilat/iptal, ödev follow-up/complete/submit/approve/return, sohbet aç/gönder, ders oluştur/iptal ve çalışma planı oluştur. GET'ler anahtar taşımaz. Finans özet/donut/aylık grafik seçili para birimini kullanır; öğrenci detayındaki metrikler para birimi başına ayrı tutulur. Ödeme formu/listesi/sheet/grafikleri ve öğrenci detay sayfası tr/en ARB'dedir; ödeme filtre sheet'i ve diğer öğrenci sayfaları bu görevde taşınmadı.
 
 ### 7.1 Push Bildirim (A-04, 2026-09-03)
 
@@ -575,7 +583,7 @@ enum AssignmentStatus { active, submitted, completed, late }   enum PaymentStatu
 class Student { final String id, fullName, grade; final String? avatarUrl; final int averageScore, attendanceRate; final DateTime? lastLessonDate; }
 class Lesson  { final String id, studentId, studentName, subject, topic; final DateTime startTime, endTime; final LessonType type; final LessonStatus status; final String? note; }
 class Assignment { final String id, title, studentId, studentName; final DateTime assignedAt, dueDate; final AssignmentStatus status; final int submittedCount, totalCount; }
-class Payment { final String id, studentId, studentName; final double amount; final String period; final PaymentStatus status; final DateTime? paidAt; }
+class Payment { final String id, studentId, studentName; final int amountMinor; final String period; final PaymentStatus status; final DateTime? paidAt; }
 class StudySession { final String id, studentId, subject, topic; final DateTime startedAt; final DateTime? endedAt; final Duration duration; }
 ```
 
@@ -629,4 +637,6 @@ class SectionHeader extends StatelessWidget {        // örnek reusable widget
 > sayfalar → [`../pages/00_pages_index.md`](../pages/00_pages_index.md) · tab widget → [`../tab_widget.md`](../tab_widget.md) ·
 > backend (API gerçeği) → [`../modules/00_genel_bakis.md`](../modules/00_genel_bakis.md)
 
-*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-11-14 (P15 T7: §7 token yenileme akışı — tek uçuş, yalnız 400/401'de çıkış) · 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+*Mobil Mimari & UI (Flutter) | Güncelleme: 2026-11-15 (P15 T7: §7 token yenileme akışı — tek uçuş, yalnız 400/401'de çıkış) · 2026-09-06 (P13 Task 6b / D-19: §10.1 taşıma durumu yeniden yazıldı — `dashboard` ARB'ye taşındı (48 anahtar) ve `localization_test.dart`'taki feature taraması ile kilitlendi; `auth`/`more` "tam taşındı" sanılıyordu, tarama 91 kalıntı buldu ve durumları 🟡 Kısmi'ye çekildi; görünen metin üretiminin presentation katmanında kalması, `DateFormat` ile gün/ay kısaltmaları, sözleşme değerleri ve `l10n-ignore` blokları kurala bağlandı) · 2026-09-05 (P13 Task 6 / D-18…D-22: **§10 paket listesi gerçeğe göre yeniden yazıldı** (11 kullanılmayan paket kaldırıldı — `flutter_local_notifications` dahil, plan onu "kullanılıyor" sanıyordu), **yeni §10.1 Yerelleştirme (l10n)** — ARB altyapısı, anahtar konvansiyonu, test kurulumu ve taşıma durumu; tüm Türkçe karakter kusurları kapatıldı ve `localization_test.dart` ile kilitlendi) · 2026-09-04 (P10 Task 4: §9 feature listesine `messaging` eklendi, §13.19c mesajlaşma ekranları + keyset/iyimser gönderim kuralları, §10 `flutter_chat_ui` **kaldırıldı** (D-18), §17.1 `FakeMessagingRepository`) · 2026-09-04 (P09 Task 6: §13.19b üyelik/paywall + kök `MembershipCubit` kuralı, §17.1 `FakeMembershipRepository`) · 2026-09-04 (P08 Task 5: §10 `open_filex` gerekçesi, §13.13 gelişim/rapor grafikleri uygulandı) · 2026-09-03 (P03/A-04: §7.1 push bildirim — `PushService` + `FirebasePushBinding` + `DeviceTokenRepository`, oturum yaşam döngüsü ve `data.route` derin bağlantısı) · 2026-09-02 (`USE_MOCK_FALLBACK` varsayılanı `false` — A-05; §17.1 test sahteleri tek-nokta kuralı — A-02) · 2026-08-20 (kod-drift düzeltmesi: study/progress "Planlanan"dan mevcut'a; feature listesi tamamlandı) · 2026-08-19 (Öğrenci alt navigasyonu 4-sekme IA'ya güncellendi: Keşfet sekmesi kaldırıldı, Kronometre/Ders Detayı sekme-dışı push sayfa olarak dokümante edildi)*
+
+*Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*

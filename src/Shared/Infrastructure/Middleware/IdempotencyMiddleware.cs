@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using EgitimUssu.Shared.Infrastructure.Caching;
 using EgitimUssu.Shared.Infrastructure.Http;
 using EgitimUssu.Shared.Kernel;
@@ -9,13 +10,16 @@ namespace EgitimUssu.Shared.Infrastructure.Middleware;
 /// <summary>
 /// Y4: <c>Idempotency-Key</c> header'ı taşıyan mutasyon (POST/PUT/PATCH/DELETE) isteklerinde
 /// kimliği doğrulanmış kullanıcıya göre tekrarlı gönderimlerin güvenli tekrarını sağlar:
-/// aynı anahtarla tamamlanmış istek saklı yanıtı döndürür; hâlâ işlenen istek 409 alır.
+/// aynı anahtar ve gövdeyle tamamlanmış istek saklı yanıtı döndürür; hâlâ işlenen istek 409 alır.
+/// Farklı gövdeyle aynı anahtarın kullanılması 422 döndürür.
 /// Anonim istekler ve Identity uçları önbelleklenmez. Redis erişilemezse fail-open (normal işlenir).
 /// </summary>
 public sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencyStore store)
 {
     private const string HeaderName = "Idempotency-Key";
     private static readonly Error InProgress = new("shared.idempotency_in_progress", "A request with this idempotency key is already being processed.");
+
+    private static readonly Error KeyReused = new("shared.idempotency_key_reused", "Bu işlem anahtarı farklı bir istek gövdesiyle kullanılmış. Yeni işlem için yeni anahtar kullanın.");
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -31,8 +35,15 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencyStor
             return;
         }
 
+        var requestBodyHash = await HashBodyAsync(context.Request, context.RequestAborted);
         var storeKey = BuildStoreKey(context, subject, idempotencyKey);
-        var (outcome, storedResponse) = await store.TryBeginAsync(storeKey, context.RequestAborted);
+        var (outcome, storedResponse) = await store.TryBeginAsync(storeKey, requestBodyHash, context.RequestAborted);
+
+        if (outcome == IdempotencyOutcome.BodyMismatch)
+        {
+            await ApiErrorHttpResults.FromError(context, StatusCodes.Status422UnprocessableEntity, KeyReused).ExecuteAsync(context);
+            return;
+        }
 
         if (outcome == IdempotencyOutcome.Duplicate && storedResponse is not null)
         {
@@ -47,10 +58,10 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencyStor
             return;
         }
 
-        await ExecuteAndCaptureAsync(context, storeKey);
+        await ExecuteAndCaptureAsync(context, storeKey, requestBodyHash);
     }
 
-    private async Task ExecuteAndCaptureAsync(HttpContext context, string storeKey)
+    private async Task ExecuteAndCaptureAsync(HttpContext context, string storeKey, string requestBodyHash)
     {
         var originalBody = context.Response.Body;
         using var buffer = new MemoryStream();
@@ -66,7 +77,7 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencyStor
             // Yalnız başarılı (2xx) yanıtlar önbelleklenir; geçici hatalar tekrar denenebilir kalır.
             if (context.Response.StatusCode is >= 200 and < 300)
             {
-                var captured = new IdempotentResponse(context.Response.StatusCode, context.Response.ContentType, bytes);
+                var captured = new IdempotentResponse(context.Response.StatusCode, context.Response.ContentType, bytes, requestBodyHash);
                 await store.CompleteAsync(storeKey, captured, context.RequestAborted);
                 completed = true;
             }
@@ -86,6 +97,21 @@ public sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencyStor
             {
                 await store.ReleaseAsync(storeKey, CancellationToken.None);
             }
+        }
+    }
+
+    private static async Task<string> HashBodyAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        // Buffering spills large bodies to disk instead of keeping uploads entirely in memory.
+        request.EnableBuffering();
+        try
+        {
+            var hash = await SHA256.HashDataAsync(request.Body, cancellationToken);
+            return Convert.ToHexString(hash);
+        }
+        finally
+        {
+            request.Body.Position = 0;
         }
     }
 

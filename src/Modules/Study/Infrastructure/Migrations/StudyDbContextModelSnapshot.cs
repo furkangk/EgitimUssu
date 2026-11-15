@@ -495,6 +495,12 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StudentId")
@@ -566,6 +572,12 @@ namespace EgitimUssu.Modules.Study.Infrastructure.Migrations
 
                     b.Property<int>("TotalEffectiveMinutes")
                         .HasColumnType("integer");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.HasKey("Id");
 

@@ -514,7 +514,7 @@ internal sealed class DemoDataSeedRun(SeedSession session, IClock clock)
                 expected,
                 isOverdue ? 0m : expected,
                 dueDateUtc,
-                isOverdue ? null : dueDateUtc.AddDays(-3),
+                isOverdue ? null : clock.UtcNow.AddDays(-3),
                 isOverdue ? PaymentStatus.Overdue : PaymentStatus.Paid,
                 dueDateUtc.AddDays(-30),
                 dueDateUtc,

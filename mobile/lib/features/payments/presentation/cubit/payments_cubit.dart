@@ -2,12 +2,19 @@ import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/cubit/payments_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class PaymentsCubit extends Cubit<PaymentsState> {
   PaymentsCubit(this._repository) : super(const PaymentsState());
 
   final PaymentRepository _repository;
+  AppLocalizations _l10n = lookupAppLocalizations(const Locale('tr'));
+  void setLocalizations(AppLocalizations l10n) {
+    _l10n = l10n;
+  }
+
   static const int _pageSize = 20;
   String? _teacherUserId;
 
@@ -47,7 +54,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       emit(
         state.copyWith(
           isLoading: false,
-          errorMessage: 'Ödemeler yüklenemedi. Lütfen tekrar deneyin.',
+          errorMessage: _l10n.finance_odemelerYuklenemediLutfenTekrarDeneyin,
         ),
       );
     }
@@ -88,7 +95,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       emit(
         state.copyWith(
           isLoading: false,
-          errorMessage: 'Ödemeler yüklenemedi. Lütfen tekrar deneyin.',
+          errorMessage: _l10n.finance_odemelerYuklenemediLutfenTekrarDeneyin,
         ),
       );
     }
@@ -123,14 +130,14 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       emit(
         state.copyWith(
           isLoadingMore: false,
-          errorMessage: 'Daha fazla kayıt yüklenemedi.',
+          errorMessage: _l10n.finance_dahaFazlaKayitYuklenemedi,
         ),
       );
     }
   }
 
   Future<void> create(PaymentRecord record) async {
-    if (isClosed) return;
+    if (isClosed || state.isSaving) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
       final created = await _repository.createRecord(record);
@@ -139,7 +146,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         state.copyWith(
           isSaving: false,
           records: <PaymentRecord>[created, ...state.records],
-          successMessage: 'Ödeme kaydı oluşturuldu.',
+          successMessage: _l10n.finance_odemeKaydiOlusturuldu,
           clearMessages: true,
         ),
       );
@@ -151,7 +158,8 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       emit(
         state.copyWith(
           isSaving: false,
-          errorMessage: 'Ödeme kaydı oluşturulamadı. Lütfen tekrar deneyin.',
+          errorMessage:
+              _l10n.finance_odemeKaydiOlusturulamadiLutfenTekrarDeneyin,
         ),
       );
     }
@@ -159,7 +167,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
 
   /// Var olan bir ödeme kaydını günceller.
   Future<void> update(PaymentRecord record) async {
-    if (isClosed) return;
+    if (isClosed || state.isSaving) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
       final updated = await _repository.updateRecord(record);
@@ -170,7 +178,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
           records: state.records
               .map((item) => item.id == updated.id ? updated : item)
               .toList(),
-          successMessage: 'Ödeme kaydı güncellendi.',
+          successMessage: _l10n.finance_odemeKaydiGuncellendi,
           clearMessages: true,
         ),
       );
@@ -182,7 +190,8 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       emit(
         state.copyWith(
           isSaving: false,
-          errorMessage: 'Ödeme kaydı güncellenemedi. Lütfen tekrar deneyin.',
+          errorMessage:
+              _l10n.finance_odemeKaydiGuncellenemediLutfenTekrarDeneyin,
         ),
       );
     }
@@ -190,12 +199,10 @@ class PaymentsCubit extends Cubit<PaymentsState> {
 
   /// Bir ödeme kaydını **iptal** eder (silmez): `Status=Cancelled`.
   Future<void> cancel(PaymentRecord record) async {
-    if (isClosed) return;
+    if (isClosed || state.isSaving) return;
     emit(state.copyWith(isSaving: true, clearMessages: true));
     try {
-      final updated = await _repository.updateRecord(
-        _copyWith(record, status: 'Cancelled', collected: record.collectedAmount, outstanding: 0),
-      );
+      final updated = await _repository.cancelRecord(record.id);
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -203,7 +210,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
           records: state.records
               .map((item) => item.id == updated.id ? updated : item)
               .toList(),
-          successMessage: 'Ödeme iptal edildi.',
+          successMessage: _l10n.finance_odemeIptalEdildi,
           clearMessages: true,
         ),
       );
@@ -216,29 +223,15 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       emit(
         state.copyWith(
           isSaving: false,
-          errorMessage: 'Ödeme iptal edilemedi. Lütfen tekrar deneyin.',
+          errorMessage: _l10n.finance_odemeIptalEdilemediLutfenTekrarDeneyin,
         ),
       );
     }
   }
 
   /// Bir kayda [amountNow] kadar tahsilat işler (tam/kısmi).
-  Future<void> collect(PaymentRecord record, double amountNow) async {
-    if (isClosed) return;
-    final expected = record.expectedAmount;
-    final newCollected = (record.collectedAmount + amountNow)
-        .clamp(0, expected)
-        .toDouble();
-    final outstanding = (expected - newCollected)
-        .clamp(0, double.infinity)
-        .toDouble();
-    final isFullyPaid = newCollected >= expected;
-    final status = isFullyPaid
-        ? 'Paid'
-        : newCollected > 0
-        ? 'PartiallyPaid'
-        : 'Pending';
-
+  Future<void> collect(PaymentRecord record, int amountNow) async {
+    if (isClosed || state.isSaving) return;
     emit(
       state.copyWith(
         isSaving: true,
@@ -247,14 +240,10 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       ),
     );
     try {
-      final updated = await _repository.updateRecord(
-        _copyWith(
-          record,
-          status: status,
-          collected: newCollected,
-          outstanding: outstanding,
-          collectedOnUtc: DateTime.now().toUtc(),
-        ),
+      final updated = await _repository.addCollection(
+        record.id,
+        amountNow,
+        occurredOnUtc: DateTime.now().toUtc(),
       );
       if (isClosed) return;
       final records = state.records
@@ -265,9 +254,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
           isSaving: false,
           clearSavingRecordId: true,
           records: records,
-          successMessage: isFullyPaid
-              ? 'Ödeme tahsil edildi olarak işaretlendi.'
-              : 'Kısmi tahsilat kaydedildi. Kalan: ${_formatMoney(outstanding)} ${record.currency}',
+          successMessage: _l10n.finance_tahsilatKaydedildi,
           clearMessages: true,
         ),
       );
@@ -287,7 +274,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         state.copyWith(
           isSaving: false,
           clearSavingRecordId: true,
-          errorMessage: 'Ödeme güncellenemedi. Lütfen tekrar deneyin.',
+          errorMessage: _l10n.finance_odemeGuncellenemediLutfenTekrarDeneyin,
         ),
       );
     }
@@ -304,37 +291,5 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     } catch (_) {
       // Özet güncellenemezse sessizce geç (liste ana içerik).
     }
-  }
-
-  static PaymentRecord _copyWith(
-    PaymentRecord record, {
-    required String status,
-    required double collected,
-    required double outstanding,
-    DateTime? collectedOnUtc,
-  }) {
-    return PaymentRecord(
-      id: record.id,
-      teacherUserId: record.teacherUserId,
-      studentId: record.studentId,
-      description: record.description,
-      currency: record.currency,
-      expectedAmount: record.expectedAmount,
-      collectedAmount: collected,
-      outstandingAmount: outstanding,
-      status: status,
-      relatedLessonSessionId: record.relatedLessonSessionId,
-      dueDateUtc: record.dueDateUtc,
-      collectedOnUtc: collectedOnUtc ?? record.collectedOnUtc,
-      notes: record.notes,
-      isOverdue: false,
-      itemType: record.itemType,
-    );
-  }
-
-  static String _formatMoney(double amount) {
-    return amount == amount.roundToDouble()
-        ? amount.toStringAsFixed(0)
-        : amount.toStringAsFixed(2);
   }
 }

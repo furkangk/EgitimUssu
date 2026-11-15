@@ -2,6 +2,7 @@ import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.da
 import 'package:egitim_ussu_mobile/features/payments/presentation/widgets/collect_payment_sheet.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/widgets/payment_filter_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -13,9 +14,9 @@ const _record = PaymentRecord(
   studentId: 'student',
   description: 'Matematik ders ücreti',
   currency: 'TRY',
-  expectedAmount: 1234567.89,
+  expectedAmount: 123456789,
   collectedAmount: 0,
-  outstandingAmount: 1234567.89,
+  outstandingAmount: 123456789,
   status: 'Pending',
 );
 
@@ -35,6 +36,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('tr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaler: TextScaler.linear(textScale),
@@ -163,12 +167,24 @@ void main() {
       await tester.tap(find.text('Başlangıç'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('10').last);
-      await tester.tap(find.text('OK'));
+      await tester.tap(
+        find.text(
+          MaterialLocalizations.of(
+            tester.element(find.byType(DatePickerDialog)),
+          ).okButtonLabel,
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Bitiş'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('12').last);
-      await tester.tap(find.text('OK'));
+      await tester.tap(
+        find.text(
+          MaterialLocalizations.of(
+            tester.element(find.byType(DatePickerDialog)),
+          ).okButtonLabel,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(

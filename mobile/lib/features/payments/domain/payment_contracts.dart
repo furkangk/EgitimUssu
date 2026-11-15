@@ -1,5 +1,6 @@
 const Object _unset = Object();
 
+/// Tüm Amount alanları int kuruştur; JSON ana birim dönüşümü yalnız Money ile yapılır.
 class PaymentRecord {
   const PaymentRecord({
     required this.id,
@@ -24,9 +25,9 @@ class PaymentRecord {
   final String studentId;
   final String description;
   final String currency;
-  final double expectedAmount;
-  final double collectedAmount;
-  final double outstandingAmount;
+  final int expectedAmount;
+  final int collectedAmount;
+  final int outstandingAmount;
   final String status;
   final String? relatedLessonSessionId;
   final DateTime? dueDateUtc;
@@ -95,6 +96,7 @@ class PaymentPage {
   final int totalCount;
 }
 
+/// Tutarlar belirtilen para biriminin kuruş birimindedir.
 class PaymentCurrencySummary {
   const PaymentCurrencySummary({
     required this.currency,
@@ -115,10 +117,12 @@ class PaymentCurrencySummary {
   final int paidCount;
   final int overdueCount;
   final int cancelledCount;
-  final double expectedAmountTotal;
-  final double collectedAmountTotal;
-  final double outstandingAmountTotal;
-  final double overdueAmountTotal;
+  final int expectedAmountTotal;
+  final int collectedAmountTotal;
+  final int outstandingAmountTotal;
+  final int overdueAmountTotal;
+  int get pendingAmountTotal => (outstandingAmountTotal - overdueAmountTotal)
+      .clamp(0, outstandingAmountTotal);
 }
 
 /// Grafiklerde kullanılan aylık nokta (beklenen/tahsil edilen).
@@ -126,14 +130,16 @@ class PaymentMonthlyPoint {
   const PaymentMonthlyPoint({
     required this.year,
     required this.month,
+    this.currency = 'TRY',
     required this.expectedAmount,
     required this.collectedAmount,
   });
 
+  final String currency;
   final int year;
   final int month;
-  final double expectedAmount;
-  final double collectedAmount;
+  final int expectedAmount;
+  final int collectedAmount;
 }
 
 class PaymentSummary {
@@ -147,22 +153,24 @@ class PaymentSummary {
   final List<PaymentCurrencySummary> currencySummaries;
   final List<PaymentMonthlyPoint> monthlyBreakdown;
 
-  // Para birimleri-arası toplamlar (TRY-öncelikli); özet paneli + donut için.
-  double get collectedTotal =>
-      currencySummaries.fold(0, (t, c) => t + c.collectedAmountTotal);
-  double get outstandingTotal =>
-      currencySummaries.fold(0, (t, c) => t + c.outstandingAmountTotal);
-  double get overdueTotal =>
-      currencySummaries.fold(0, (t, c) => t + c.overdueAmountTotal);
-
-  /// Gecikmemiş açık bakiye = toplam açık − gecikmiş.
-  double get pendingTotal => (outstandingTotal - overdueTotal).clamp(
-    0,
-    double.infinity,
-  );
+  /// Özet ve grafikler yalnız seçilen ISO para biriminin tutarlarını kullanır.
+  PaymentCurrencySummary? forCurrency(String currency) =>
+      currencySummaries.where((s) => s.currency == currency).firstOrNull;
+  List<PaymentMonthlyPoint> monthsForCurrency(String currency) =>
+      monthlyBreakdown.where((p) => p.currency == currency).toList();
 }
 
 abstract interface class PaymentRepository {
+  Future<PaymentRecord> addCollection(
+    String id,
+    int amount, {
+    int method = 1,
+    required DateTime occurredOnUtc,
+    String? note,
+    String? idempotencyKey,
+  });
+  Future<PaymentRecord> cancelRecord(String id);
+
   Future<PaymentRecord> createRecord(PaymentRecord paymentRecord);
   Future<PaymentRecord> updateRecord(PaymentRecord paymentRecord);
   Future<List<PaymentRecord>> listTeacherRecords(String teacherUserId);

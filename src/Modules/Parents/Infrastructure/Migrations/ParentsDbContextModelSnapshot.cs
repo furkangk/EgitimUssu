@@ -154,6 +154,12 @@ namespace EgitimUssu.Modules.Parents.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedOnUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("StudentId");

@@ -1,6 +1,6 @@
 import 'dart:convert';
-
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/storage/local_cache.dart';
@@ -8,6 +8,37 @@ import 'package:egitim_ussu_mobile/features/payments/data/models/payment_model.d
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 
 class PaymentRepositoryImpl implements PaymentRepository {
+  @override
+  Future<PaymentRecord> addCollection(
+    String id,
+    int amount, {
+    int method = 1,
+    required DateTime occurredOnUtc,
+    String? note,
+    String? idempotencyKey,
+  }) async => PaymentRecordModel.fromJson(
+    await _apiClient.post(
+      '/api/payments/records/$id/collections',
+      idempotent: true,
+      idempotencyKey: idempotencyKey,
+      retryIdentity: jsonEncode([id, amount, method, note]),
+      data: {
+        'amount': Money(amount).toJsonAmount(),
+        'method': method,
+        'occurredOnUtc': occurredOnUtc.toUtc().toIso8601String(),
+        'note': note,
+      },
+    ),
+  );
+  @override
+  Future<PaymentRecord> cancelRecord(String id) async =>
+      PaymentRecordModel.fromJson(
+        await _apiClient.post(
+          '/api/payments/records/$id/cancel',
+          idempotent: true,
+        ),
+      );
+
   PaymentRepositoryImpl({
     required ApiClient apiClient,
     required AppConfig config,
@@ -26,6 +57,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
     try {
       final response = await _apiClient.post(
         '/api/payments/records',
+        idempotent: true,
+        retryIdentity: jsonEncode(
+          model.toUpsertPayload()..remove('collectedOnUtc'),
+        ),
         data: model.toUpsertPayload(),
       );
       return PaymentRecordModel.fromJson(response);
@@ -50,7 +85,7 @@ class PaymentRepositoryImpl implements PaymentRepository {
     if (_config.isMockFallbackEnabled('payments')) {
       return PaymentSummaryModel.demo();
     }
-    final cacheKey = 'payments.summary.$teacherUserId';
+    final cacheKey = 'payments.summary.v2.$teacherUserId';
     try {
       final response = await _apiClient.get(
         '/api/payments/teachers/$teacherUserId/summary',
@@ -148,7 +183,9 @@ class PaymentRepositoryImpl implements PaymentRepository {
       }
       if (f.studentId != null && r.studentId != f.studentId) return false;
       final due = r.dueDateUtc;
-      if (f.dateFromUtc != null && due != null && due.isBefore(f.dateFromUtc!)) {
+      if (f.dateFromUtc != null &&
+          due != null &&
+          due.isBefore(f.dateFromUtc!)) {
         return false;
       }
       if (f.dateToUtc != null && due != null && due.isAfter(f.dateToUtc!)) {
@@ -186,8 +223,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-1',
         description: 'Haziran — Matematik (4 ders)',
-        expectedAmount: 1200,
-        collectedAmount: 1200,
+        expectedAmount: 120000,
+        collectedAmount: 120000,
         dueDateUtc: now.subtract(const Duration(days: 3)),
       ),
       PaymentRecordModel.demo(
@@ -195,7 +232,7 @@ class PaymentRepositoryImpl implements PaymentRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-2',
         description: 'Haziran — Fizik (3 ders)',
-        expectedAmount: 900,
+        expectedAmount: 90000,
         collectedAmount: 0,
         dueDateUtc: now.subtract(const Duration(days: 5)),
       ),
@@ -204,7 +241,7 @@ class PaymentRepositoryImpl implements PaymentRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-3',
         description: 'Mayıs + Haziran — Biyoloji',
-        expectedAmount: 700,
+        expectedAmount: 70000,
         collectedAmount: 0,
         dueDateUtc: now.subtract(const Duration(days: 12)),
       ),
@@ -213,7 +250,7 @@ class PaymentRepositoryImpl implements PaymentRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-4',
         description: 'Temmuz — Matematik (4 ders)',
-        expectedAmount: 800,
+        expectedAmount: 80000,
         collectedAmount: 0,
         dueDateUtc: now.add(const Duration(days: 5)),
       ),
@@ -222,8 +259,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
         teacherUserId: teacherUserId,
         studentId: 'student-5',
         description: 'Temmuz — TYT Paketi',
-        expectedAmount: 1500,
-        collectedAmount: 750,
+        expectedAmount: 150000,
+        collectedAmount: 75000,
         dueDateUtc: now.add(const Duration(days: 10)),
       ),
     ];
@@ -235,7 +272,7 @@ class PaymentRepositoryImpl implements PaymentRepository {
     try {
       final response = await _apiClient.put(
         '/api/payments/records/${paymentRecord.id}',
-        data: model.toUpsertPayload(),
+        data: model.toDetailsPayload(),
       );
       return PaymentRecordModel.fromJson(response);
     } on ApiException {

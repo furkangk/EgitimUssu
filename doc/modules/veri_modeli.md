@@ -21,6 +21,10 @@ updated: 2026-11-15
 
 > **P17 T4 (K-21):** `LessonOccurrenceException.Action=Completed` mevcut string kolonda tutulur; yeni tablo veya kolon yoktur. `OriginalStartAtUtc` oluşum anahtarıdır; `OverrideStartAtUtc/OverrideEndAtUtc` ertelenmiş saati tamamlamadan sonra da korur. Oturumun `OccurrenceStartUtc/PlannedStartAtUtc` alanları `LessonSessionDetails` okuma sözleşmesine eklendi; olay şeması değişmez.
 
+### P18 T1 — sistem sürümü
+
+`payments.payment_records`, `membership.user_subscriptions`, `study.study_streaks`, `study.study_topics`, `progress_tracking.topic_masteries`, `assignments.assignments`, `scheduling.lesson_schedules`, `students.teacher_student_links`, `students.student_profiles`, `parents.parent_child_links` kayıtlarında CLR `Version uint` → PostgreSQL sistem kolonu `xmin xid` eşlenir (`IVersioned`, concurrency token, OnAddOrUpdate). Bu adlar modül EF konfigürasyonuyla doğrulanır; yeni fiziksel kolon ve geriye doldurulacak veri yoktur. Sekiz `AddVersionToken` göçü Up/Down boş, snapshot güncel. Çakışmada iş/outbox/inbox yazmaları atomik geri alınır.
+
 ### P17 T5 şema ekleri
 
 `teachers.teacher_profiles`: `CancellationNoticeHours int NOT NULL DEFAULT 0`, `CancellationChargePercent numeric(5,2) NOT NULL DEFAULT 0` (`TeacherCancellationPolicy`). `payments.payment_records`: nullable `LessonScheduleId uuid`, `OccurrenceStartUtc timestamptz`; yalnız `ItemType='LateCancellation' AND LessonScheduleId IS NOT NULL` için `(LessonScheduleId, OccurrenceStartUtc)` UNIQUE (`CancellationOccurrenceCharges`). Çapraz modül FK yoktur. `scheduling.lesson_change_requests`: `(LessonScheduleId, OccurrenceStartAtUtc)` UNIQUE WHERE Status='Pending' AND anahtar IS NOT NULL; eski tekrarlar silinmeden Rejected yapılır (`PendingOccurrenceChangeRequest`). Üç migration’ın Down metotları kolon/indeks eklerini geri alır; talep geçmişindeki retleri geri çevirmek tekrar üretmemek için bilinçli olarak yapılmaz.
@@ -30,6 +34,8 @@ updated: 2026-11-15
 
 `reporting.teacher_monthly_items` PK: `(TeacherUserId, Year, Month, Kind, ItemId, OccurrenceStartUtc)`. `Kind=CancelledLesson` Single iptalde orijinal oluşum UTC anını taşır; diğer item'lar ve eski/toplu satırlar `1970-01-01T00:00:00Z` kullanır. `MonthlyCancellationOccurrences.Up` eski satırları epoch ile doldurur; Down seri başına tek iptal bırakır (epoch öncelikli, aksi halde en son oluşum), diğer item türleri kayıpsızdır. Kaynak modüle FK yoktur; olay + inbox ile beslenir.
 
+
+**P18 T3 (2026-11-15):** `payments.parent_payment_declarations` üzerinde `PaymentRecordId` için `Status = 'Declared'` koşullu unique indeks vardır; ödeme başına tek bekleyen beyan, veli kimliğinden bağımsızdır. `ParentPaymentDeclaration.Version` PostgreSQL `xmin` sistem kolonudur (yeni fiziksel kolon yok). `SinglePendingDeclaration` göçü en yeni `CreatedOnUtc`/büyük `Id` satırını koruyup fazla bekleyenleri Rejected yapar; ret olayları aynı transaction'da outbox'a girer. Down geçmiş retleri açmaz.
 
 ## 1. Modül Sınırı Kuralı (Önemli)
 
@@ -148,6 +154,7 @@ erDiagram
     LessonSession ||--o{ Assignment : "LessonSessionId"
     LessonSession ||--o| LessonNote : "LessonSessionId"
     LessonSession ||--o{ PaymentRecord : "RelatedLessonSessionId"
+    PaymentRecord ||--o{ PaymentTransaction : "PaymentRecordId"
     Assignment ||--o{ AssignmentSubmission : "öğrenci yükleme (önerilen)"
 
     Conversation ||--o{ ConversationParticipant : "önerilen"
@@ -185,6 +192,7 @@ erDiagram
 | | `LessonNote` (+`Visibility` — B-05 2026-07-18) | `Id` | `LessonSessionId` · `TeacherUserId` · `StudentId` | |
 | | `LessonResource` (ders kaynağı — dosya/bağlantı, M06-1 2026-09-03; `(TeacherUserId,IsActive)` + `(StudentId,IsActive)` indeksli, yumuşak silme) | `Id` | `TeacherUserId` · `StudentId?` (null = tüm öğrencilere açık) · `LessonSessionId?` | `Kind`, `StorageKey`, `FileName`, `ContentType`, `SizeBytes`, `Url`, `IsActive`, `ArchivedOnUtc?` |
 | Payments (`payments`) | `PaymentRecord` (M07-1: `OverdueMarkedOnUtc` `timestamptz?` — tarama turunun `Overdue` işaretlediği an) | `Id` | `TeacherUserId` · `StudentId` · `RelatedLessonSessionId?` | [m07](m07_payments.md) |
+| | `PaymentTransaction` (`payment_transactions`; Kind Collection/Refund, Amount numeric(18,2), Method, OccurredOnUtc, Note; `(PaymentRecordId, OccurredOnUtc)` indeks) | `Id` | `PaymentRecordId` → PaymentRecord (cascade); istemci kimliği ValueGeneratedNever | P18 T2: eski net tahsilat tek Migrated harekete göçer |
 | | `ParentPaymentDeclaration` (veli "ödedim" beyanı, Veli V-G; `Status` Declared/Confirmed/Rejected) | `Id` | `PaymentRecordId` → PaymentRecord · `ParentUserId`/`TeacherUserId` → UserAccount · `StudentId` → StudentProfile | |
 | Notifications (`notifications`) | `LessonReminder` | `Id` | `(LessonScheduleId, OccurrenceStartUtc, RecipientUserId)` UNIQUE · `TeacherUserId` · `StudentId` | [m11](m11_notifications.md) |
 | | `ParentNotification` (veli bildirimi, Veli V-E; `Type` WeeklySummary/NewAssignment/LessonCompleted/PaymentUpdate/LinkConnected/PaymentDeclared) | `Id` | `ParentUserId` → UserAccount · `StudentId` → StudentProfile | |
@@ -261,3 +269,9 @@ erDiagram
 *Güncelleme: 2026-11-15 — P17 T6: oluşum/alıcı anahtarlı hatırlatma, kayan 7 gün, kaynak uzlaştırması ve süre/tercih kapıları.*
 
 *Güncelleme: 2026-11-15 — P17 T8: haftalık yaşam döngüsü ve kapanış regresyonları.*
+
+*Güncelleme: 2026-11-15 — P18 Task 1: xmin model metadatası.*
+
+*Güncelleme: 2026-11-15 — P18 T2: PaymentTransaction çocuk tablosu ve tahsilat/iade aylık item türleri (4/5).*
+
+*Güncelleme: 2026-11-15 — P18 T3: beyan kısmi benzersizliği ve xmin.*

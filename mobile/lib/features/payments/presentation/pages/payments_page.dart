@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -10,6 +10,7 @@ import 'package:egitim_ussu_mobile/features/payments/presentation/widgets/collec
 import 'package:egitim_ussu_mobile/features/payments/presentation/widgets/finance_charts.dart';
 import 'package:egitim_ussu_mobile/features/payments/presentation/widgets/payment_filter_sheet.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/students_cubit.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_bottom_nav.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_page_header.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,13 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 
 /// Filtre sekmeleri → sunucu `status` değeri eşlemesi.
-const List<(String, String?)> _statusTabs = <(String, String?)>[
-  ('Tümü', null),
-  ('Ödenen', 'Paid'),
-  ('Bekleyen', 'Open'),
-  ('Geciken', 'Overdue'),
-];
+List<(String, String?)> _statusTabs(BuildContext context) =>
+    <(String, String?)>[
+      (AppLocalizations.of(context).finance_tumu, null),
+      (AppLocalizations.of(context).finance_odenen, 'Paid'),
+      (AppLocalizations.of(context).finance_bekleyen, 'Open'),
+      (AppLocalizations.of(context).finance_geciken, 'Overdue'),
+    ];
 
 class PaymentsPage extends StatefulWidget {
   const PaymentsPage({super.key});
@@ -39,6 +41,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+  String _currency = 'TRY';
 
   @override
   void initState() {
@@ -51,12 +54,14 @@ class _PaymentsPageState extends State<PaymentsPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _cubit.setLocalizations(AppLocalizations.of(context));
     final userId = context.read<AuthCubit>().state.session?.userId;
     if (userId == null) return;
     if (_cubit.state.records.isEmpty && !_cubit.state.isLoading) {
       _cubit.load(userId);
     }
-    if (_studentsCubit.state.students.isEmpty && !_studentsCubit.state.isLoading) {
+    if (_studentsCubit.state.students.isEmpty &&
+        !_studentsCubit.state.isLoading) {
       _studentsCubit.load(userId);
     }
   }
@@ -98,7 +103,10 @@ class _PaymentsPageState extends State<PaymentsPage> {
     if (userId != null) _cubit.load(userId);
   }
 
-  Future<void> _openFilterSheet(BuildContext context, PaymentFilters current) async {
+  Future<void> _openFilterSheet(
+    BuildContext context,
+    PaymentFilters current,
+  ) async {
     final result = await PaymentFilterSheet.show(
       context,
       filters: current,
@@ -112,7 +120,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     final session = context.select((AuthCubit c) => c.state.session);
     final teacherName = session?.fullName.trim().isNotEmpty == true
         ? session!.fullName
-        : 'Öğretmen';
+        : AppLocalizations.of(context).finance_ogretmen;
 
     return BlocProvider<PaymentsCubit>.value(
       value: _cubit,
@@ -138,6 +146,14 @@ class _PaymentsPageState extends State<PaymentsPage> {
           }
         },
         builder: (context, state) {
+          final currencies =
+              state.summary?.currencySummaries
+                  .map((s) => s.currency)
+                  .toList() ??
+              <String>[];
+          final currency = currencies.contains(_currency)
+              ? _currency
+              : (currencies.firstOrNull ?? 'TRY');
           return Scaffold(
             backgroundColor: AppColors.background,
             floatingActionButton: FloatingActionButton.extended(
@@ -146,12 +162,15 @@ class _PaymentsPageState extends State<PaymentsPage> {
               onPressed: () {
                 context.push('/payments/new').then((_) {
                   if (!context.mounted) return;
-                  final userId =
-                      context.read<AuthCubit>().state.session?.userId;
+                  final userId = context
+                      .read<AuthCubit>()
+                      .state
+                      .session
+                      ?.userId;
                   if (userId != null) _cubit.load(userId);
                 });
               },
-              label: const Text('Ödeme Ekle'),
+              label: Text(AppLocalizations.of(context).finance_odemeEkle),
               icon: const Icon(Icons.add_card_rounded),
             ),
             bottomNavigationBar: const AppBottomNav(current: AppNavTab.finance),
@@ -159,8 +178,11 @@ class _PaymentsPageState extends State<PaymentsPage> {
               child: RefreshIndicator(
                 color: AppColors.primary,
                 onRefresh: () {
-                  final userId =
-                      context.read<AuthCubit>().state.session?.userId;
+                  final userId = context
+                      .read<AuthCubit>()
+                      .state
+                      .session
+                      ?.userId;
                   if (userId != null) return _cubit.load(userId);
                   return Future<void>.value();
                 },
@@ -178,11 +200,35 @@ class _PaymentsPageState extends State<PaymentsPage> {
                             const SizedBox(height: 22),
                             if (state.summary == null && state.isLoading)
                               const _ShimmerSummary()
-                            else if (state.summary != null)
-                              _FinanceSummaryPanel(summary: state.summary!),
+                            else if (state.summary != null) ...[
+                              if (currencies.length > 1)
+                                DropdownButton<String>(
+                                  value: currency,
+                                  items: currencies
+                                      .map(
+                                        (c) => DropdownMenuItem(
+                                          value: c,
+                                          child: Text(c),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _currency = value);
+                                    }
+                                  },
+                                ),
+                              _FinanceSummaryPanel(
+                                summary: state.summary!,
+                                currency: currency,
+                              ),
+                            ],
                             if (state.summary != null) ...<Widget>[
                               const SizedBox(height: 14),
-                              _StatsSection(summary: state.summary!),
+                              _StatsSection(
+                                summary: state.summary!,
+                                currency: currency,
+                              ),
                             ],
                             const SizedBox(height: 16),
                             Row(
@@ -240,7 +286,8 @@ class _PaymentsPageState extends State<PaymentsPage> {
                           child: _ShimmerList(),
                         ),
                       )
-                    else if (state.errorMessage != null && state.records.isEmpty)
+                    else if (state.errorMessage != null &&
+                        state.records.isEmpty)
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -262,15 +309,21 @@ class _PaymentsPageState extends State<PaymentsPage> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: _hasAnyFilter(state.filters)
-                              ? const _EmptyPanel(
-                                  title: 'Sonuç bulunamadı',
-                                  subtitle:
-                                      'Arama veya filtreleri değiştirmeyi deneyin.',
+                              ? _EmptyPanel(
+                                  title: AppLocalizations.of(
+                                    context,
+                                  ).finance_sonucBulunamadi,
+                                  subtitle: AppLocalizations.of(
+                                    context,
+                                  ).finance_aramaVeyaFiltreleriDegistirmeyiDeneyin,
                                 )
-                              : const _EmptyPanel(
-                                  title: 'Ödeme kaydı yok',
-                                  subtitle:
-                                      'Sağ alttaki "Ödeme Ekle" ile ilk kaydı oluşturun.',
+                              : _EmptyPanel(
+                                  title: AppLocalizations.of(
+                                    context,
+                                  ).finance_odemeKaydiYok,
+                                  subtitle: AppLocalizations.of(
+                                    context,
+                                  ).finance_sagAlttakiOdemeEkleIleIlkKaydiOlusturun,
                                 ),
                         ),
                       )
@@ -278,12 +331,16 @@ class _PaymentsPageState extends State<PaymentsPage> {
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((context, index) {
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
                             final record = state.records[index];
                             return Padding(
                               padding: EdgeInsets.only(
-                                bottom:
-                                    index == state.records.length - 1 ? 0 : 12,
+                                bottom: index == state.records.length - 1
+                                    ? 0
+                                    : 12,
                               ),
                               child: _PaymentTile(
                                 record: record,
@@ -348,7 +405,7 @@ class _SearchField extends StatelessWidget {
       style: const TextStyle(fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         isDense: true,
-        hintText: 'Ödeme ara…',
+        hintText: AppLocalizations.of(context).finance_odemeAra,
         prefixIcon: const Icon(Icons.search_rounded, size: 20),
         suffixIcon: controller.text.isEmpty
             ? null
@@ -445,7 +502,9 @@ class _ActiveFilterChips extends StatelessWidget {
     if (filters.studentId != null) {
       chips.add(
         _Chip(
-          label: filters.studentLabel ?? 'Öğrenci',
+          label:
+              filters.studentLabel ??
+              AppLocalizations.of(context).finance_ogrenci,
           icon: Icons.person_rounded,
           onClear: onClearStudent,
         ),
@@ -474,11 +533,7 @@ class _ActiveFilterChips extends StatelessWidget {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.icon,
-    required this.onClear,
-  });
+  const _Chip({required this.label, required this.icon, required this.onClear});
 
   final String label;
   final IconData icon;
@@ -589,10 +644,14 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Column(
         children: <Widget>[
-          Icon(Icons.error_outline_rounded, size: 36, color: AppColors.accentRed),
+          Icon(
+            Icons.error_outline_rounded,
+            size: 36,
+            color: AppColors.accentRed,
+          ),
           const SizedBox(height: 10),
           Text(
-            'Ödemeler yüklenemedi',
+            AppLocalizations.of(context).finance_odemelerYuklenemedi,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -607,7 +666,10 @@ class _ErrorCard extends StatelessWidget {
             ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
-          TextButton(onPressed: onRetry, child: const Text('Tekrar Dene')),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(AppLocalizations.of(context).finance_tekrarDene),
+          ),
         ],
       ),
     );
@@ -617,9 +679,10 @@ class _ErrorCard extends StatelessWidget {
 // ── Finans özeti (sunucu aggregate'inden) ────────────────────────────────────
 
 class _FinanceSummaryPanel extends StatelessWidget {
-  const _FinanceSummaryPanel({required this.summary});
+  const _FinanceSummaryPanel({required this.summary, required this.currency});
 
   final PaymentSummary summary;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
@@ -634,7 +697,7 @@ class _FinanceSummaryPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Finans Özeti',
+            AppLocalizations.of(context).finance_finansOzeti,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,
@@ -642,7 +705,9 @@ class _FinanceSummaryPanel extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${summary.totalRecords} ödeme kaydı',
+            AppLocalizations.of(
+              context,
+            ).finance_paymentCount(summary.totalRecords),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Colors.white.withValues(alpha: 0.72),
               fontWeight: FontWeight.w600,
@@ -653,8 +718,11 @@ class _FinanceSummaryPanel extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Tahsil edilen',
-                  value: _money(summary.collectedTotal),
+                  label: AppLocalizations.of(context).finance_tahsilEdilen,
+                  value: _money(
+                    summary.forCurrency(currency)?.collectedAmountTotal ?? 0,
+                    currency,
+                  ),
                   icon: Icons.trending_up_rounded,
                   color: AppColors.accentGreen,
                 ),
@@ -662,8 +730,11 @@ class _FinanceSummaryPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Bekleyen',
-                  value: _money(summary.pendingTotal),
+                  label: AppLocalizations.of(context).finance_bekleyen,
+                  value: _money(
+                    summary.forCurrency(currency)?.pendingAmountTotal ?? 0,
+                    currency,
+                  ),
                   icon: Icons.schedule_rounded,
                   color: AppColors.amber,
                 ),
@@ -671,8 +742,11 @@ class _FinanceSummaryPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Geciken',
-                  value: _money(summary.overdueTotal),
+                  label: AppLocalizations.of(context).finance_geciken,
+                  value: _money(
+                    summary.forCurrency(currency)?.overdueAmountTotal ?? 0,
+                    currency,
+                  ),
                   icon: Icons.warning_amber_rounded,
                   color: AppColors.accentRed,
                 ),
@@ -743,9 +817,10 @@ class _SummaryMetric extends StatelessWidget {
 // ── İstatistikler (katlanabilir, varsayılan kapalı) ──────────────────────────
 
 class _StatsSection extends StatefulWidget {
-  const _StatsSection({required this.summary});
+  const _StatsSection({required this.summary, required this.currency});
 
   final PaymentSummary summary;
+  final String currency;
 
   @override
   State<_StatsSection> createState() => _StatsSectionState();
@@ -780,7 +855,7 @@ class _StatsSectionState extends State<_StatsSection> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'İstatistikler',
+                      AppLocalizations.of(context).finance_istatistikler,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w800,
@@ -788,7 +863,9 @@ class _StatsSectionState extends State<_StatsSection> {
                     ),
                   ),
                   Text(
-                    _expanded ? 'Gizle' : 'Göster',
+                    _expanded
+                        ? AppLocalizations.of(context).finance_gizle
+                        : AppLocalizations.of(context).finance_goster,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w700,
@@ -815,10 +892,14 @@ class _StatsSectionState extends State<_StatsSection> {
                   children: <Widget>[
                     const SizedBox(height: 12),
                     MonthlyCollectionCard(
-                      points: widget.summary.monthlyBreakdown,
+                      points: widget.summary.monthsForCurrency(widget.currency),
+                      currency: widget.currency,
                     ),
                     const SizedBox(height: 12),
-                    PaymentDistributionCard(summary: widget.summary),
+                    PaymentDistributionCard(
+                      summary: widget.summary.forCurrency(widget.currency),
+                      currency: widget.currency,
+                    ),
                   ],
                 )
               : const SizedBox(width: double.infinity),
@@ -854,7 +935,7 @@ class _PaymentTabs extends StatelessWidget {
             border: Border.all(color: AppColors.border),
           ),
           child: Row(
-            children: _statusTabs.map((tab) {
+            children: _statusTabs(context).map((tab) {
               final selected = tab.$2 == selectedStatus;
               return Expanded(
                 child: InkWell(
@@ -889,7 +970,7 @@ class _PaymentTabs extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 6, top: 10),
           child: Text(
-            '$resultCount kayıt',
+            AppLocalizations.of(context).finance_recordCount(resultCount),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w600,
@@ -943,14 +1024,14 @@ class _PaymentTile extends StatelessWidget {
         ? AppColors.accentBlue
         : AppColors.amber;
     final statusLabel = isPaid
-        ? 'Ödendi'
+        ? AppLocalizations.of(context).finance_odendi
         : isCancelled
-        ? 'İptal'
+        ? AppLocalizations.of(context).finance_iptal
         : isOverdue
-        ? 'Geciken'
+        ? AppLocalizations.of(context).finance_geciken
         : record.status == 'PartiallyPaid'
-        ? 'Kısmi'
-        : 'Bekleyen';
+        ? AppLocalizations.of(context).finance_kismi
+        : AppLocalizations.of(context).finance_bekleyen;
     final isUnpaid = !isPaid && !isCancelled;
     final amountValue = isPaid
         ? record.collectedAmount
@@ -958,10 +1039,10 @@ class _PaymentTile extends StatelessWidget {
         ? record.expectedAmount
         : record.outstandingAmount;
     final amountLabel = isPaid
-        ? 'Tahsil edilen'
+        ? AppLocalizations.of(context).finance_tahsilEdilen
         : isCancelled
-        ? 'Tutar'
-        : 'Kalan';
+        ? AppLocalizations.of(context).finance_tutar
+        : AppLocalizations.of(context).finance_kalan;
     final dueLabel = record.dueDateUtc != null
         ? _dateLabel(record.dueDateUtc!)
         : '';
@@ -1023,7 +1104,8 @@ class _PaymentTile extends StatelessWidget {
                                     dueLabel,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context).textTheme
+                                    style: Theme.of(context)
+                                        .textTheme
                                         .labelMedium
                                         ?.copyWith(
                                           color: AppColors.textSecondary,
@@ -1042,7 +1124,11 @@ class _PaymentTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Divider(height: 1, thickness: 1, color: AppColors.divider),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppColors.divider,
+                ),
                 const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -1062,7 +1148,7 @@ class _PaymentTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _money(amountValue),
+                            _money(amountValue, record.currency),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleLarge
@@ -1126,7 +1212,9 @@ class _CollectAction extends StatelessWidget {
                 ),
               const SizedBox(width: 8),
               Text(
-                isSaving ? 'İşleniyor…' : 'Tahsil Et',
+                isSaving
+                    ? AppLocalizations.of(context).finance_isleniyor
+                    : AppLocalizations.of(context).finance_tahsilEt,
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w800,
@@ -1243,19 +1331,10 @@ class _EmptyPanel extends StatelessWidget {
 
 // ── Yardımcılar ───────────────────────────────────────────────────────────────
 
-String _money(double amount) {
-  final formatted = NumberFormat.decimalPattern('tr_TR').format(amount.round());
-  return '$formatted TRY';
-}
-
-String _dateLabel(DateTime date) {
-  const months = <String>[
-    'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-    'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
-  ];
-  final local = date.toLocal();
-  return '${local.day} ${months[local.month - 1]} ${local.year}';
-}
+String _money(int amount, String currency) =>
+    Money(amount, currency).formatTr();
+String _dateLabel(DateTime date) =>
+    DateFormat('dd.MM.yyyy').format(date.toLocal());
 
 String _initials(String value) {
   final parts = value.trim().split(RegExp(r'\s+'));

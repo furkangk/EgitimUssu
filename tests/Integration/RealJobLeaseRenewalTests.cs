@@ -114,7 +114,10 @@ public sealed class RealJobLeaseRenewalTests(ContainerFixture fixture)
         using var envScope = UseInMemory($"job-lease-coverage-{Guid.NewGuid():N}");
         await using var factory = new WebApplicationFactory<Program>();
 
+        // IHostedService tek seferlik, HTTP öncesi migration/projeksiyon kapılarını da içerir.
+        // Zamanlayıcılı işler BackgroundService'dir; onlar kira/outbox korumasını korumalıdır.
         var jobs = factory.Services.GetServices<IHostedService>()
+            .OfType<BackgroundService>()
             .Where(service => service.GetType().Assembly.GetName().Name!.StartsWith("EgitimUssu", StringComparison.Ordinal))
             .ToArray();
 

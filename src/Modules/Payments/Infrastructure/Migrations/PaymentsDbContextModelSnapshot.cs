@@ -60,9 +60,18 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("PaymentRecordId");
+                    b.HasIndex("PaymentRecordId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_payment_declaration_pending")
+                        .HasFilter("\"Status\" = 'Declared'");
 
                     b.HasIndex("TeacherUserId", "Status");
 
@@ -137,6 +146,12 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                     b.Property<Guid>("TeacherUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LessonScheduleId", "OccurrenceStartUtc")
@@ -148,6 +163,42 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                     b.HasIndex("StudentId", "Status", "DueDateUtc");
 
                     b.ToTable("payment_records", "payments");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Payments.Domain.PaymentTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("OccurredOnUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PaymentRecordId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentRecordId", "OccurredOnUtc");
+
+                    b.ToTable("payment_transactions", "payments");
                 });
 
             modelBuilder.Entity("EgitimUssu.Shared.Infrastructure.Persistence.InboxMessage", b =>
@@ -312,6 +363,20 @@ namespace EgitimUssu.Modules.Payments.Infrastructure.Migrations
                         .HasFilter("\"SentOnUtc\" IS NULL AND \"DeadLetteredOnUtc\" IS NULL");
 
                     b.ToTable("outgoing_emails", "payments");
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Payments.Domain.PaymentTransaction", b =>
+                {
+                    b.HasOne("EgitimUssu.Modules.Payments.Domain.PaymentRecord", null)
+                        .WithMany("Transactions")
+                        .HasForeignKey("PaymentRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EgitimUssu.Modules.Payments.Domain.PaymentRecord", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }

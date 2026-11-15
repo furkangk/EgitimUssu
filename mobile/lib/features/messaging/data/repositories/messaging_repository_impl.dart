@@ -3,7 +3,8 @@ import 'package:egitim_ussu_mobile/features/messaging/domain/messaging_contracts
 
 /// M16 uçlarının Dio üzerinden okunması. Taraf **oturumdan** gelir; uçlar `{userId}` almaz.
 class MessagingRepositoryImpl implements MessagingRepository {
-  MessagingRepositoryImpl({required ApiClient apiClient}) : _apiClient = apiClient;
+  MessagingRepositoryImpl({required ApiClient apiClient})
+    : _apiClient = apiClient;
 
   final ApiClient _apiClient;
 
@@ -13,7 +14,8 @@ class MessagingRepositoryImpl implements MessagingRepository {
       value is num ? value.toInt() : int.tryParse('$value') ?? 0;
 
   static DateTime _date(dynamic value) =>
-      DateTime.tryParse('$value')?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+      DateTime.tryParse('$value')?.toUtc() ??
+      DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
   static DateTime? _dateOrNull(dynamic value) =>
       value == null ? null : DateTime.tryParse('$value')?.toUtc();
@@ -26,28 +28,30 @@ class MessagingRepositoryImpl implements MessagingRepository {
     return text.isEmpty ? null : text;
   }
 
-  static ConversationSummary _summary(Map<String, dynamic> json) => ConversationSummary(
-    id: '${json['id']}',
-    counterpartUserId: '${json['counterpartUserId']}',
-    counterpartRole: '${json['counterpartRole']}',
-    studentId: '${json['studentId']}',
-    lastMessageOnUtc: _date(json['lastMessageOnUtc']),
-    lastMessagePreview: _stringOrNull(json['lastMessagePreview']),
-    unreadCount: _int(json['unreadCount']),
-    isBlocked: json['isBlocked'] as bool? ?? false,
-  );
+  static ConversationSummary _summary(Map<String, dynamic> json) =>
+      ConversationSummary(
+        id: '${json['id']}',
+        counterpartUserId: '${json['counterpartUserId']}',
+        counterpartRole: '${json['counterpartRole']}',
+        studentId: '${json['studentId']}',
+        lastMessageOnUtc: _date(json['lastMessageOnUtc']),
+        lastMessagePreview: _stringOrNull(json['lastMessagePreview']),
+        unreadCount: _int(json['unreadCount']),
+        isBlocked: json['isBlocked'] as bool? ?? false,
+      );
 
-  static ConversationDetail _detail(Map<String, dynamic> json) => ConversationDetail(
-    id: '${json['id']}',
-    teacherUserId: '${json['teacherUserId']}',
-    counterpartUserId: '${json['counterpartUserId']}',
-    counterpartRole: '${json['counterpartRole']}',
-    studentId: '${json['studentId']}',
-    lastMessageOnUtc: _date(json['lastMessageOnUtc']),
-    lastMessagePreview: _stringOrNull(json['lastMessagePreview']),
-    isBlocked: json['isBlocked'] as bool? ?? false,
-    blockedByMe: json['blockedByMe'] as bool? ?? false,
-  );
+  static ConversationDetail _detail(Map<String, dynamic> json) =>
+      ConversationDetail(
+        id: '${json['id']}',
+        teacherUserId: '${json['teacherUserId']}',
+        counterpartUserId: '${json['counterpartUserId']}',
+        counterpartRole: '${json['counterpartRole']}',
+        studentId: '${json['studentId']}',
+        lastMessageOnUtc: _date(json['lastMessageOnUtc']),
+        lastMessagePreview: _stringOrNull(json['lastMessagePreview']),
+        isBlocked: json['isBlocked'] as bool? ?? false,
+        blockedByMe: json['blockedByMe'] as bool? ?? false,
+      );
 
   static ChatMessage _message(Map<String, dynamic> json) => ChatMessage(
     id: '${json['id']}',
@@ -61,7 +65,10 @@ class MessagingRepositoryImpl implements MessagingRepository {
   );
 
   @override
-  Future<List<ConversationSummary>> conversations({int skip = 0, int take = 30}) async {
+  Future<List<ConversationSummary>> conversations({
+    int skip = 0,
+    int take = 30,
+  }) async {
     final rows = await _apiClient.getList(
       '$_base/conversations',
       queryParameters: <String, dynamic>{'skip': skip, 'take': take},
@@ -86,13 +93,16 @@ class MessagingRepositoryImpl implements MessagingRepository {
   }
 
   @override
-  Future<ChatMessage> send({required String conversationId, required String body}) async =>
-      _message(
-        await _apiClient.post(
-          '$_base/conversations/$conversationId/messages',
-          data: <String, dynamic>{'body': body},
-        ),
-      );
+  Future<ChatMessage> send({
+    required String conversationId,
+    required String body,
+  }) async => _message(
+    await _apiClient.post(
+      idempotent: true,
+      '$_base/conversations/$conversationId/messages',
+      data: <String, dynamic>{'body': body},
+    ),
+  );
 
   @override
   Future<void> markRead(String conversationId) =>
@@ -105,6 +115,7 @@ class MessagingRepositoryImpl implements MessagingRepository {
     required String studentId,
   }) async => _detail(
     await _apiClient.post(
+      idempotent: true,
       '$_base/conversations',
       data: <String, dynamic>{
         'counterpartUserId': counterpartUserId,
@@ -115,10 +126,12 @@ class MessagingRepositoryImpl implements MessagingRepository {
   );
 
   @override
-  Future<ConversationDetail> block(String conversationId) async =>
-      _detail(await _apiClient.post('$_base/conversations/$conversationId/block'));
+  Future<ConversationDetail> block(String conversationId) async => _detail(
+    await _apiClient.post('$_base/conversations/$conversationId/block'),
+  );
 
   @override
-  Future<ConversationDetail> unblock(String conversationId) async =>
-      _detail(await _apiClient.post('$_base/conversations/$conversationId/unblock'));
+  Future<ConversationDetail> unblock(String conversationId) async => _detail(
+    await _apiClient.post('$_base/conversations/$conversationId/unblock'),
+  );
 }

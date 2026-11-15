@@ -22,13 +22,6 @@ class StudentDetailState extends Equatable {
   final String? errorMessage;
   final String? successMessage;
 
-  double get outstandingAmount {
-    return payments.fold<double>(
-      0,
-      (total, payment) => total + payment.outstandingAmount,
-    );
-  }
-
   StudentDetailState copyWith({
     bool? isLoading,
     bool? isSaving,

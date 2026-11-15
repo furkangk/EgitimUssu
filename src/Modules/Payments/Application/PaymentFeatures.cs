@@ -21,19 +21,14 @@ public sealed record CreatePaymentRecordCommand(
     string? Notes) : ICommand<Result<PaymentRecordResponse>>;
 
 public sealed record UpdatePaymentRecordCommand(
-    Guid PaymentRecordId,
-    Guid? RelatedLessonSessionId,
-    BillingItemType ItemType,
-    string Description,
-    string Currency,
-    decimal ExpectedAmount,
-    decimal CollectedAmount,
-    DateTime DueDateUtc,
-    DateTime? CollectedOnUtc,
-    PaymentStatus Status,
-    DateTime? BillingPeriodStartUtc,
-    DateTime? BillingPeriodEndUtc,
-    string? Notes) : ICommand<Result<PaymentRecordResponse>>;
+    Guid PaymentRecordId, string Description, decimal ExpectedAmount, DateTime DueDateUtc, string? Notes)
+    : ICommand<Result<PaymentRecordResponse>>;
+
+public sealed record AddCollectionCommand(Guid PaymentRecordId, decimal Amount, PaymentMethod Method, DateTime OccurredOnUtc, string? Note)
+    : ICommand<Result<PaymentRecordResponse>>;
+public sealed record RefundPaymentCommand(Guid PaymentRecordId, decimal Amount, PaymentMethod Method, DateTime OccurredOnUtc, string? Note)
+    : ICommand<Result<PaymentRecordResponse>>;
+public sealed record CancelPaymentCommand(Guid PaymentRecordId) : ICommand<Result<PaymentRecordResponse>>;
 
 public sealed record GetPaymentRecordByIdQuery(Guid PaymentRecordId) : IQuery<Result<PaymentRecordResponse>>;
 
@@ -79,7 +74,10 @@ public sealed record PaymentRecordResponse(
     bool IsOverdue,
     DateTime? BillingPeriodStartUtc,
     DateTime? BillingPeriodEndUtc,
-    string? Notes);
+    string? Notes,
+    IReadOnlyCollection<PaymentTransactionResponse> Transactions);
+
+public sealed record PaymentTransactionResponse(Guid Id, string Kind, decimal Amount, string Method, DateTime OccurredOnUtc, string? Note);
 
 public sealed record PaymentCurrencySummaryResponse(
     string Currency,
@@ -104,7 +102,8 @@ public sealed record PaymentMonthlyPointResponse(
     int Year,
     int Month,
     decimal ExpectedAmount,
-    decimal CollectedAmount);
+    decimal CollectedAmount,
+    string Currency);
 
 /// <summary>Sayfalı ödeme listesi + toplam eşleşen kayıt sayısı.</summary>
 public sealed record PagedPaymentRecordsResponse(
@@ -127,12 +126,14 @@ public sealed class CreatePaymentRecordCommandHandler : ICommandHandler<CreatePa
     private readonly IPaymentRecordRepository _repository;
     private readonly IIdGenerator _idGenerator;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public CreatePaymentRecordCommandHandler(IPaymentRecordRepository repository, IIdGenerator idGenerator, IClock clock)
+    public CreatePaymentRecordCommandHandler(IPaymentRecordRepository repository, IIdGenerator idGenerator, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _idGenerator = idGenerator;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<PaymentRecordResponse>> Handle(CreatePaymentRecordCommand command, CancellationToken cancellationToken)
@@ -149,7 +150,7 @@ public sealed class CreatePaymentRecordCommandHandler : ICommandHandler<CreatePa
             command.CollectedAmount,
             command.DueDateUtc,
             command.CollectedOnUtc,
-            command.Status,
+            PaymentStatus.Pending,
             command.BillingPeriodStartUtc,
             command.BillingPeriodEndUtc,
             command.Notes?.Trim(),
@@ -158,7 +159,7 @@ public sealed class CreatePaymentRecordCommandHandler : ICommandHandler<CreatePa
         await _repository.AddAsync(paymentRecord, cancellationToken);
         await _repository.SaveChangesAsync(cancellationToken);
 
-        return Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_clock.UtcNow));
+        return Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_calendar));
     }
 }
 
@@ -167,12 +168,14 @@ public sealed class UpdatePaymentRecordCommandHandler : ICommandHandler<UpdatePa
     private static readonly Error NotFound = new("payments.record_not_found", "Odeme kaydi bulunamadi.");
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
     private readonly IRequestEntityCache _entityCache;
 
-    public UpdatePaymentRecordCommandHandler(IPaymentRecordRepository repository, IClock clock, IRequestEntityCache entityCache)
+    public UpdatePaymentRecordCommandHandler(IPaymentRecordRepository repository, IClock clock, IRequestEntityCache entityCache, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
         _entityCache = entityCache;
     }
 
@@ -185,23 +188,12 @@ public sealed class UpdatePaymentRecordCommandHandler : ICommandHandler<UpdatePa
             return Result<PaymentRecordResponse>.Failure(NotFound);
         }
 
-        paymentRecord.UpdateManualTracking(
-            command.RelatedLessonSessionId,
-            command.ItemType,
-            command.Description.Trim(),
-            command.Currency.Trim().ToUpperInvariant(),
-            command.ExpectedAmount,
-            command.CollectedAmount,
-            command.DueDateUtc,
-            command.CollectedOnUtc,
-            command.Status,
-            command.BillingPeriodStartUtc,
-            command.BillingPeriodEndUtc,
-            command.Notes?.Trim(),
-            _clock.UtcNow);
+        var update = paymentRecord.UpdateDetails(command.Description, command.ExpectedAmount,
+            command.DueDateUtc, command.Notes, _clock.UtcNow);
+        if (update.IsFailure) return Result<PaymentRecordResponse>.Failure(update.Error);
 
         await _repository.SaveChangesAsync(cancellationToken);
-        return Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_clock.UtcNow));
+        return Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_calendar));
     }
 }
 
@@ -210,12 +202,14 @@ public sealed class GetPaymentRecordByIdQueryHandler : IQueryHandler<GetPaymentR
     private static readonly Error NotFound = new("payments.record_not_found", "Odeme kaydi bulunamadi.");
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
     private readonly IRequestEntityCache _entityCache;
 
-    public GetPaymentRecordByIdQueryHandler(IPaymentRecordRepository repository, IClock clock, IRequestEntityCache entityCache)
+    public GetPaymentRecordByIdQueryHandler(IPaymentRecordRepository repository, IClock clock, IRequestEntityCache entityCache, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
         _entityCache = entityCache;
     }
 
@@ -225,7 +219,7 @@ public sealed class GetPaymentRecordByIdQueryHandler : IQueryHandler<GetPaymentR
         var paymentRecord = await _entityCache.LoadPaymentRecordAsync(_repository, query.PaymentRecordId, cancellationToken);
         return paymentRecord is null
             ? Result<PaymentRecordResponse>.Failure(NotFound)
-            : Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_clock.UtcNow));
+            : Result<PaymentRecordResponse>.Success(paymentRecord.ToResponse(_calendar));
     }
 }
 
@@ -233,11 +227,13 @@ public sealed class ListPaymentRecordsForTeacherQueryHandler : IQueryHandler<Lis
 {
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public ListPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock)
+    public ListPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<PaymentRecordResponse>>> Handle(ListPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
@@ -248,7 +244,7 @@ public sealed class ListPaymentRecordsForTeacherQueryHandler : IQueryHandler<Lis
             .Where(record => !query.OutstandingOnly || record.IsOutstanding(now))
             .OrderBy(record => record.DueDateUtc)
             .ThenBy(record => record.Description)
-            .Select(record => record.ToResponse(now))
+            .Select(record => record.ToResponse(_calendar))
             .ToArray();
 
         return Result<IReadOnlyCollection<PaymentRecordResponse>>.Success(payload);
@@ -259,8 +255,8 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
 {
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
-
     private readonly ILocalCalendar _calendar;
+
 
     public GetTeacherPaymentSummaryQueryHandler(IPaymentRecordRepository repository, IClock clock, ILocalCalendar calendar)
     {
@@ -281,15 +277,15 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
                 var records = group.ToArray();
                 return new PaymentCurrencySummaryResponse(
                     group.Key,
-                    records.Count(record => record.Status == PaymentStatus.Pending && !record.IsOverdue(now)),
-                    records.Count(record => record.Status == PaymentStatus.PartiallyPaid && !record.IsOverdue(now)),
+                    records.Count(record => record.Status == PaymentStatus.Pending && !record.IsOverdue(_calendar)),
+                    records.Count(record => record.Status == PaymentStatus.PartiallyPaid && !record.IsOverdue(_calendar)),
                     records.Count(record => record.Status == PaymentStatus.Paid),
-                    records.Count(record => record.IsOverdue(now)),
+                    records.Count(record => record.IsOverdue(_calendar)),
                     records.Count(record => record.Status == PaymentStatus.Cancelled),
-                    records.Sum(record => record.ExpectedAmount),
+                    records.Where(record => record.Status != PaymentStatus.Cancelled).Sum(record => record.ExpectedAmount),
                     records.Sum(record => record.CollectedAmount),
                     records.Sum(record => record.GetOutstandingAmount()),
-                    records.Where(record => record.IsOverdue(now)).Sum(record => record.GetOutstandingAmount()));
+                    records.Where(record => record.IsOverdue(_calendar)).Sum(record => record.GetOutstandingAmount()));
             })
             .ToArray();
 
@@ -304,7 +300,7 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
 
     // Son 6 ayın (eskiden yeniye) beklenen/tahsil toplamı — vade ayına göre; iptaller hariç.
     // P16 T5 / N-11 (K-19): ay Türkiye ayıdır — "bu ay" ve kaydın vade ayı yerel tarihten (ayın 1'i 01:00 TR vadeli
-    // kayıt önceki aya düşmez). Para birimi boyutu P18 T3'te (bu kırılım henüz para birimlerini toplar).
+    // kayıt önceki aya düşmez). Her para birimi ayrı seri olarak döner.
     private static IReadOnlyCollection<PaymentMonthlyPointResponse> BuildMonthlyBreakdown(
         IReadOnlyCollection<PaymentRecord> records,
         ILocalCalendar calendar)
@@ -315,19 +311,22 @@ public sealed class GetTeacherPaymentSummaryQueryHandler : IQueryHandler<GetTeac
             .ToArray();
         var today = calendar.Today();
         var firstMonth = new DateOnly(today.Year, today.Month, 1);
-        var points = new List<PaymentMonthlyPointResponse>(6);
+        var currencies = records.Select(record => record.Currency).Distinct().OrderBy(currency => currency).ToArray();
+        var points = new List<PaymentMonthlyPointResponse>(6 * currencies.Length);
         for (var offset = 5; offset >= 0; offset--)
         {
             var month = firstMonth.AddMonths(-offset);
-            var inMonth = active
-                .Where(item => item.DueDate.Year == month.Year && item.DueDate.Month == month.Month)
-                .Select(item => item.Record)
-                .ToArray();
-            points.Add(new PaymentMonthlyPointResponse(
-                month.Year,
-                month.Month,
-                inMonth.Sum(record => record.ExpectedAmount),
-                inMonth.Sum(record => record.CollectedAmount)));
+            foreach (var currency in currencies)
+            {
+                var inMonth = active
+                    .Where(item => item.Record.Currency == currency && item.DueDate.Year == month.Year && item.DueDate.Month == month.Month)
+                    .Select(item => item.Record)
+                    .ToArray();
+                points.Add(new PaymentMonthlyPointResponse(
+                    month.Year, month.Month,
+                    inMonth.Sum(record => record.ExpectedAmount),
+                    inMonth.Sum(record => record.CollectedAmount), currency));
+            }
         }
 
         return points;
@@ -340,11 +339,13 @@ public sealed class SearchPaymentRecordsForTeacherQueryHandler : IQueryHandler<S
     private const int MaxTake = 100;
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public SearchPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock)
+    public SearchPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<PagedPaymentRecordsResponse>> Handle(SearchPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
@@ -377,7 +378,7 @@ public sealed class SearchPaymentRecordsForTeacherQueryHandler : IQueryHandler<S
                     return false;
                 }
 
-                return string.IsNullOrEmpty(query.Status) || MatchesStatus(record, query.Status, now);
+                return string.IsNullOrEmpty(query.Status) || MatchesStatus(record, query.Status, now, _calendar);
             })
             .OrderBy(record => record.DueDateUtc)
             .ThenBy(record => record.Description)
@@ -388,20 +389,20 @@ public sealed class SearchPaymentRecordsForTeacherQueryHandler : IQueryHandler<S
         var items = filtered
             .Skip(skip)
             .Take(take)
-            .Select(record => record.ToResponse(now))
+            .Select(record => record.ToResponse(_calendar))
             .ToArray();
 
         return Result<PagedPaymentRecordsResponse>.Success(
             new PagedPaymentRecordsResponse(items, filtered.Length));
     }
 
-    private static bool MatchesStatus(PaymentRecord record, string status, DateTime now) => status switch
+    private static bool MatchesStatus(PaymentRecord record, string status, DateTime now, ILocalCalendar calendar) => status switch
     {
         // Açık (gecikmemiş bakiyeli): Pending + PartiallyPaid — "Bekleyen" sekmesi.
-        "Open" => record.IsOutstanding(now) && !record.IsOverdue(now),
-        "Overdue" => record.IsOverdue(now),
-        "Pending" => record.Status == PaymentStatus.Pending && !record.IsOverdue(now),
-        "PartiallyPaid" => record.Status == PaymentStatus.PartiallyPaid && !record.IsOverdue(now),
+        "Open" => record.IsOutstanding(now) && !record.IsOverdue(calendar),
+        "Overdue" => record.IsOverdue(calendar),
+        "Pending" => record.Status == PaymentStatus.Pending && !record.IsOverdue(calendar),
+        "PartiallyPaid" => record.Status == PaymentStatus.PartiallyPaid && !record.IsOverdue(calendar),
         "Paid" => record.Status == PaymentStatus.Paid,
         "Cancelled" => record.Status == PaymentStatus.Cancelled,
         _ => true,
@@ -412,11 +413,13 @@ public sealed class ListFilteredPaymentRecordsForTeacherQueryHandler : IQueryHan
 {
     private readonly IPaymentRecordRepository _repository;
     private readonly IClock _clock;
+    private readonly ILocalCalendar _calendar;
 
-    public ListFilteredPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock)
+    public ListFilteredPaymentRecordsForTeacherQueryHandler(IPaymentRecordRepository repository, IClock clock, ILocalCalendar calendar)
     {
         _repository = repository;
         _clock = clock;
+        _calendar = calendar;
     }
 
     public async Task<Result<IReadOnlyCollection<PaymentRecordResponse>>> Handle(ListFilteredPaymentRecordsForTeacherQuery query, CancellationToken cancellationToken)
@@ -442,7 +445,7 @@ public sealed class ListFilteredPaymentRecordsForTeacherQueryHandler : IQueryHan
             }
 
             var isOutstanding = record.IsOutstanding(now);
-            var isOverdue = record.IsOverdue(now);
+            var isOverdue = record.IsOverdue(_calendar);
             var isPaid = record.Status == PaymentStatus.Paid;
 
             return (query.Outstanding && isOutstanding)
@@ -453,7 +456,7 @@ public sealed class ListFilteredPaymentRecordsForTeacherQueryHandler : IQueryHan
         var payload = filtered
             .OrderBy(x => x.DueDateUtc)
             .ThenBy(x => x.Description)
-            .Select(x => x.ToResponse(now))
+            .Select(x => x.ToResponse(_calendar))
             .ToArray();
 
         return Result<IReadOnlyCollection<PaymentRecordResponse>>.Success(payload);
@@ -462,7 +465,7 @@ public sealed class ListFilteredPaymentRecordsForTeacherQueryHandler : IQueryHan
 
 internal static class PaymentRecordMappings
 {
-    public static PaymentRecordResponse ToResponse(this PaymentRecord paymentRecord, DateTime now)
+    public static PaymentRecordResponse ToResponse(this PaymentRecord paymentRecord, ILocalCalendar calendar)
     {
         return new PaymentRecordResponse(
             paymentRecord.Id,
@@ -477,11 +480,13 @@ internal static class PaymentRecordMappings
             paymentRecord.GetOutstandingAmount(),
             paymentRecord.DueDateUtc,
             paymentRecord.CollectedOnUtc,
-            paymentRecord.GetDisplayStatus(now).ToString(),
-            paymentRecord.IsOverdue(now),
+            paymentRecord.GetDisplayStatus(calendar).ToString(),
+            paymentRecord.IsOverdue(calendar),
             paymentRecord.BillingPeriodStartUtc,
             paymentRecord.BillingPeriodEndUtc,
-            paymentRecord.Notes);
+            paymentRecord.Notes,
+            paymentRecord.Transactions.OrderBy(x => x.OccurredOnUtc).ThenBy(x => x.Id)
+                .Select(x => new PaymentTransactionResponse(x.Id, x.Kind.ToString(), x.Amount, x.Method.ToString(), x.OccurredOnUtc, x.Note)).ToArray());
     }
 
     public static decimal GetOutstandingAmount(this PaymentRecord paymentRecord)
@@ -500,14 +505,39 @@ internal static class PaymentRecordMappings
         return paymentRecord.GetOutstandingAmount() > 0;
     }
 
-    public static bool IsOverdue(this PaymentRecord paymentRecord, DateTime now)
+    public static bool IsOverdue(this PaymentRecord paymentRecord, ILocalCalendar calendar)
     {
         return paymentRecord.GetOutstandingAmount() > 0
-            && paymentRecord.DueDateUtc < now;
+            && calendar.ToLocalDate(paymentRecord.DueDateUtc) < calendar.Today();
     }
 
-    public static PaymentStatus GetDisplayStatus(this PaymentRecord paymentRecord, DateTime now)
+    public static PaymentStatus GetDisplayStatus(this PaymentRecord paymentRecord, ILocalCalendar calendar)
     {
-        return paymentRecord.IsOverdue(now) ? PaymentStatus.Overdue : paymentRecord.Status;
+        return paymentRecord.Status == PaymentStatus.Cancelled ? PaymentStatus.Cancelled
+            : paymentRecord.CollectedAmount >= paymentRecord.ExpectedAmount ? PaymentStatus.Paid
+            : paymentRecord.CollectedAmount > 0m ? PaymentStatus.PartiallyPaid
+            : paymentRecord.IsOverdue(calendar) ? PaymentStatus.Overdue : PaymentStatus.Pending;
+    }
+}
+
+public sealed class PaymentTransactionCommandHandler(IPaymentRecordRepository repository, IClock clock, IIdGenerator ids, IRequestEntityCache cache, ILocalCalendar calendar)
+    : ICommandHandler<AddCollectionCommand, Result<PaymentRecordResponse>>,
+      ICommandHandler<RefundPaymentCommand, Result<PaymentRecordResponse>>,
+      ICommandHandler<CancelPaymentCommand, Result<PaymentRecordResponse>>
+{
+    public Task<Result<PaymentRecordResponse>> Handle(AddCollectionCommand command, CancellationToken ct)
+        => Apply(command.PaymentRecordId, p => p.AddCollection(ids.New(), command.Amount, command.Method, command.OccurredOnUtc, command.Note, clock.UtcNow), ct);
+    public Task<Result<PaymentRecordResponse>> Handle(RefundPaymentCommand command, CancellationToken ct)
+        => Apply(command.PaymentRecordId, p => p.Refund(ids.New(), command.Amount, command.Method, command.OccurredOnUtc, command.Note, clock.UtcNow), ct);
+    public Task<Result<PaymentRecordResponse>> Handle(CancelPaymentCommand command, CancellationToken ct)
+        => Apply(command.PaymentRecordId, p => p.Cancel(clock.UtcNow), ct);
+    private async Task<Result<PaymentRecordResponse>> Apply(Guid id, Func<PaymentRecord, Result> action, CancellationToken ct)
+    {
+        var record = await cache.LoadPaymentRecordAsync(repository, id, ct);
+        if (record is null) return Result<PaymentRecordResponse>.Failure(new Error("payments.record_not_found", "Ödeme kaydı bulunamadı."));
+        var result = action(record);
+        if (result.IsFailure) return Result<PaymentRecordResponse>.Failure(result.Error);
+        await repository.SaveChangesAsync(ct);
+        return Result<PaymentRecordResponse>.Success(record.ToResponse(calendar));
     }
 }

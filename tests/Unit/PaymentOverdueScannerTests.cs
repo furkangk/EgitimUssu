@@ -2,6 +2,7 @@ using EgitimUssu.Modules.Payments.Domain;
 using EgitimUssu.Modules.Payments.Infrastructure;
 using EgitimUssu.Shared.Infrastructure.Messaging;
 using EgitimUssu.Shared.Kernel;
+using EgitimUssu.Shared.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -19,30 +20,30 @@ public sealed class PaymentOverdueScannerTests
     {
         // Vadesi geçmiş Pending → Overdue + olay
         var pendingPastDue = NewRecord(PaymentStatus.Pending, Now.AddDays(-1));
-        Assert.True(pendingPastDue.MarkOverdue(Now));
+        Assert.True(pendingPastDue.MarkOverdue(Now, new LocalCalendar("Europe/Istanbul", new FixedClock(Now))));
         Assert.Equal(PaymentStatus.Overdue, pendingPastDue.Status);
         Assert.Equal(Now, pendingPastDue.OverdueMarkedOnUtc);
         Assert.Contains(pendingPastDue.DomainEvents, domainEvent => domainEvent is PaymentBecameOverdueDomainEvent);
 
         // Vadesi geçmiş PartiallyPaid → Overdue
         var partialPastDue = NewRecord(PaymentStatus.PartiallyPaid, Now.AddDays(-3));
-        Assert.True(partialPastDue.MarkOverdue(Now));
+        Assert.True(partialPastDue.MarkOverdue(Now, new LocalCalendar("Europe/Istanbul", new FixedClock(Now))));
         Assert.Equal(PaymentStatus.Overdue, partialPastDue.Status);
 
         // Vadesi gelmemiş Pending → değişmez
         var pendingFuture = NewRecord(PaymentStatus.Pending, Now.AddDays(1));
-        Assert.False(pendingFuture.MarkOverdue(Now));
+        Assert.False(pendingFuture.MarkOverdue(Now, new LocalCalendar("Europe/Istanbul", new FixedClock(Now))));
         Assert.Equal(PaymentStatus.Pending, pendingFuture.Status);
         Assert.DoesNotContain(pendingFuture.DomainEvents, domainEvent => domainEvent is PaymentBecameOverdueDomainEvent);
 
         // Tahsil edilmiş kayıt → vadesi geçse de değişmez
         var paid = NewRecord(PaymentStatus.Paid, Now.AddDays(-5));
-        Assert.False(paid.MarkOverdue(Now));
+        Assert.False(paid.MarkOverdue(Now, new LocalCalendar("Europe/Istanbul", new FixedClock(Now))));
         Assert.Equal(PaymentStatus.Paid, paid.Status);
 
         // İptal edilmiş kayıt → değişmez
         var cancelled = NewRecord(PaymentStatus.Cancelled, Now.AddDays(-5));
-        Assert.False(cancelled.MarkOverdue(Now));
+        Assert.False(cancelled.MarkOverdue(Now, new LocalCalendar("Europe/Istanbul", new FixedClock(Now))));
         Assert.Equal(PaymentStatus.Cancelled, cancelled.Status);
     }
 
@@ -51,8 +52,8 @@ public sealed class PaymentOverdueScannerTests
     {
         var record = NewRecord(PaymentStatus.Pending, Now.AddDays(-1));
 
-        Assert.True(record.MarkOverdue(Now));
-        Assert.False(record.MarkOverdue(Now.AddHours(1)));
+        Assert.True(record.MarkOverdue(Now, new LocalCalendar("Europe/Istanbul", new FixedClock(Now))));
+        Assert.False(record.MarkOverdue(Now.AddHours(1), new LocalCalendar("Europe/Istanbul", new FixedClock(Now.AddHours(1)))));
         Assert.Equal(Now, record.OverdueMarkedOnUtc);
         Assert.Single(record.DomainEvents.OfType<PaymentBecameOverdueDomainEvent>());
     }
@@ -68,7 +69,7 @@ public sealed class PaymentOverdueScannerTests
             NewRecord(PaymentStatus.Pending, Now.AddDays(2)));
         await dbContext.SaveChangesAsync();
 
-        var processor = new PaymentOverdueScanProcessor(dbContext, new FixedClock(Now));
+        var processor = new PaymentOverdueScanProcessor(dbContext, new FixedClock(Now), new LocalCalendar("Europe/Istanbul", new FixedClock(Now)));
 
         var firstRun = await processor.ScanAsync();
         var secondRun = await processor.ScanAsync();
@@ -95,7 +96,7 @@ public sealed class PaymentOverdueScannerTests
             "Ders ücreti",
             "TRY",
             expectedAmount: 250m,
-            collectedAmount: status == PaymentStatus.PartiallyPaid ? 100m : 0m,
+            collectedAmount: status == PaymentStatus.Paid ? 250m : status == PaymentStatus.PartiallyPaid ? 100m : 0m,
             dueDateUtc,
             collectedOnUtc: null,
             status,
