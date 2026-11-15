@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/auth/presentation/cubit/auth_cubit.dart';
@@ -10,6 +11,7 @@ import 'package:egitim_ussu_mobile/features/scheduling/presentation/widgets/less
 import 'package:egitim_ussu_mobile/features/students/domain/student_contracts.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/student_detail_cubit.dart';
 import 'package:egitim_ussu_mobile/features/students/presentation/cubit/student_detail_state.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/state_views.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,7 +28,12 @@ class StudentDetailPage extends StatefulWidget {
 }
 
 class _StudentDetailPageState extends State<StudentDetailPage> {
-  static const _tabs = <String>['Genel', 'Dersler', 'Performans', 'Ödemeler'];
+  List<String> get _tabs => <String>[
+    AppLocalizations.of(context).finance_genel,
+    AppLocalizations.of(context).finance_dersler,
+    AppLocalizations.of(context).finance_performans,
+    AppLocalizations.of(context).finance_odemeler,
+  ];
 
   int _selectedTab = 0;
 
@@ -98,9 +105,14 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                     ),
                     Expanded(
                       child: EmptyStateView(
-                        title: 'Öğrenci bulunamadı',
+                        title: AppLocalizations.of(
+                          context,
+                        ).finance_ogrenciBulunamadi,
                         subtitle:
-                            state.errorMessage ?? 'Lutfen yeniden deneyin.',
+                            state.errorMessage ??
+                            AppLocalizations.of(
+                              context,
+                            ).finance_lutfenYenidenDeneyin,
                       ),
                     ),
                   ],
@@ -139,7 +151,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                         student,
                         state.lessons,
                         state.payments,
-                        state.outstandingAmount,
                       ),
                     ),
                   ),
@@ -176,14 +187,20 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const Text(
-              'Brans ekle',
+            Text(
+              AppLocalizations.of(context).finance_bransEkle,
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
             ),
             const SizedBox(height: 12),
-            _FormField(controller: subjectCtrl, label: 'Ders'),
+            _FormField(
+              controller: subjectCtrl,
+              label: AppLocalizations.of(context).finance_ders,
+            ),
             const SizedBox(height: 10),
-            _FormField(controller: targetCtrl, label: 'Hedef seviye'),
+            _FormField(
+              controller: targetCtrl,
+              label: AppLocalizations.of(context).finance_hedefSeviye,
+            ),
             const SizedBox(height: 16),
             FilledButton(
               key: const Key('student-subject-save'),
@@ -198,7 +215,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                       : targetCtrl.text.trim(),
                 );
               },
-              child: const Text('Ekle'),
+              child: Text(AppLocalizations.of(context).finance_ekle),
             ),
           ],
         ),
@@ -233,19 +250,21 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const Text(
-              'Veli bagla',
+            Text(
+              AppLocalizations.of(context).finance_veliBagla,
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Veli kayıtlı bir kullanıcı olmalıdır. Bağlantı onay bekler.',
+            Text(
+              AppLocalizations.of(
+                context,
+              ).finance_veliKayitliBirKullaniciOlmalidirBaglantiOnayBekler,
               style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
             _FormField(
               controller: parentCtrl,
-              label: 'Veli kullanici kimligi',
+              label: AppLocalizations.of(context).finance_veliKullaniciKimligi,
             ),
             const SizedBox(height: 16),
             FilledButton(
@@ -256,7 +275,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                 Navigator.pop(sheetContext);
                 cubit.linkParent(parentUserId);
               },
-              child: const Text('Bagla'),
+              child: Text(AppLocalizations.of(context).finance_link),
             ),
           ],
         ),
@@ -282,7 +301,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   Icons.edit_rounded,
                   color: AppColors.primary,
                 ),
-                title: const Text('Düzenle'),
+                title: Text(AppLocalizations.of(context).finance_duzenle),
                 onTap: () {
                   Navigator.pop(context);
                   _showEditSheet(context, student, cubit);
@@ -297,7 +316,11 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                       ? AppColors.accentRed
                       : AppColors.accentGreen,
                 ),
-                title: Text(student.isActive ? 'Pasifles' : 'Aktifles'),
+                title: Text(
+                  student.isActive
+                      ? AppLocalizations.of(context).finance_pasiflestir
+                      : AppLocalizations.of(context).finance_aktiflestir,
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   _confirmToggleActive(context, student, cubit);
@@ -335,17 +358,23 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-          willDeactivate ? 'Öğrenciyi Pasifleştir' : 'Öğrenciyi Aktifleştir',
+          willDeactivate
+              ? AppLocalizations.of(context).finance_ogrenciyiPasiflestir
+              : AppLocalizations.of(context).finance_ogrenciyiAktiflestir,
         ),
         content: Text(
           willDeactivate
-              ? '${student.fullName} pasif olarak isaretlenecek.'
-              : '${student.fullName} tekrar aktif hale getirilecek.',
+              ? AppLocalizations.of(
+                  context,
+                ).finance_deactivateStudent(student.fullName)
+              : AppLocalizations.of(
+                  context,
+                ).finance_activateStudent(student.fullName),
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('İptal'),
+            child: Text(AppLocalizations.of(context).finance_iptal),
           ),
           TextButton(
             onPressed: () {
@@ -357,7 +386,11 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                   ? AppColors.accentRed
                   : AppColors.accentGreen,
             ),
-            child: Text(willDeactivate ? 'Pasifles' : 'Aktifles'),
+            child: Text(
+              willDeactivate
+                  ? AppLocalizations.of(context).finance_pasiflestir
+                  : AppLocalizations.of(context).finance_aktiflestir,
+            ),
           ),
         ],
       ),
@@ -369,7 +402,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     StudentProfile student,
     List<LessonSchedule> lessons,
     List<PaymentRecord> payments,
-    double outstandingAmount,
   ) {
     return switch (_selectedTab) {
       0 => _OverviewTab(
@@ -390,7 +422,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       2 => _PerformanceTab(student: student, lessons: lessons),
       3 => _PaymentsTab(
         payments: payments,
-        outstandingAmount: outstandingAmount,
         onAddPayment: () => context.push('/payments'),
       ),
       _ => const SizedBox.shrink(),
@@ -450,7 +481,7 @@ class _TopBar extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Öğrenci Detayı',
+            AppLocalizations.of(context).finance_ogrenciDetayi,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -657,10 +688,7 @@ class _OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outstanding = payments.fold<double>(
-      0,
-      (total, payment) => total + payment.outstandingAmount,
-    );
+    final outstanding = _paymentTotals(payments, collected: false);
 
     return Column(
       children: <Widget>[
@@ -668,19 +696,19 @@ class _OverviewTab extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: _MetricCard(
-                label: 'Ders',
+                label: AppLocalizations.of(context).finance_ders,
                 value: lessons.length.toString(),
-                caption: 'Toplam kayit',
+                caption: AppLocalizations.of(context).finance_toplamKayit,
                 color: AppColors.accentBlue,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'Ödeme',
-                value: outstanding.toStringAsFixed(0),
-                caption: 'Bekleyen TRY',
-                color: outstanding > 0
+                label: AppLocalizations.of(context).finance_odeme,
+                value: outstanding,
+                caption: AppLocalizations.of(context).finance_bekleyen,
+                color: payments.any((p) => p.outstandingAmount > 0)
                     ? AppColors.amber
                     : AppColors.accentGreen,
               ),
@@ -692,19 +720,23 @@ class _OverviewTab extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: _MetricCard(
-                label: 'Hedef',
+                label: AppLocalizations.of(context).finance_hedef,
                 value: student.subjects.length.toString(),
-                caption: 'Ders hedefi',
+                caption: AppLocalizations.of(context).finance_dersHedefi,
                 color: AppColors.accentTeal,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'Durum',
-                value: outstanding > 0 ? 'Takip' : 'Temiz',
-                caption: outstanding > 0 ? 'Ödeme var' : 'Borcsuz',
-                color: outstanding > 0
+                label: AppLocalizations.of(context).finance_durum,
+                value: payments.any((p) => p.outstandingAmount > 0)
+                    ? AppLocalizations.of(context).finance_takip
+                    : AppLocalizations.of(context).finance_temiz,
+                caption: payments.any((p) => p.outstandingAmount > 0)
+                    ? AppLocalizations.of(context).finance_odemeVar
+                    : AppLocalizations.of(context).finance_borcsuz,
+                color: payments.any((p) => p.outstandingAmount > 0)
                     ? AppColors.accentRed
                     : AppColors.accentGreen,
               ),
@@ -713,27 +745,27 @@ class _OverviewTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _InfoCard(
-          title: 'Öğrenci notları',
+          title: AppLocalizations.of(context).finance_ogrenciNotlari,
           children: <Widget>[
             _InfoLine(
               icon: Icons.track_changes_rounded,
-              label: 'Hedef',
-              value: _emptyFallback(student.goalSummary),
+              label: AppLocalizations.of(context).finance_hedef,
+              value: _emptyFallback(context, student.goalSummary),
             ),
             _InfoLine(
               icon: Icons.timeline_rounded,
-              label: 'Seviye notu',
-              value: _emptyFallback(student.levelNotes),
+              label: AppLocalizations.of(context).finance_seviyeNotu,
+              value: _emptyFallback(context, student.levelNotes),
             ),
             _InfoLine(
               icon: Icons.mail_outline_rounded,
-              label: 'E-posta',
-              value: _emptyFallback(student.contactEmail),
+              label: AppLocalizations.of(context).finance_email,
+              value: _emptyFallback(context, student.contactEmail),
             ),
             _InfoLine(
               icon: Icons.phone_outlined,
-              label: 'Telefon',
-              value: _emptyFallback(student.contactPhone),
+              label: AppLocalizations.of(context).finance_phone,
+              value: _emptyFallback(context, student.contactPhone),
             ),
           ],
         ),
@@ -750,7 +782,7 @@ class _OverviewTab extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: _ActionButton(
-                label: 'Yeni Ders',
+                label: AppLocalizations.of(context).finance_yeniDers,
                 icon: Icons.calendar_month_rounded,
                 onTap: onPlanLesson,
               ),
@@ -758,7 +790,7 @@ class _OverviewTab extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _ActionButton(
-                label: 'Ödeme Ekle',
+                label: AppLocalizations.of(context).finance_odemeEkle,
                 icon: Icons.payments_rounded,
                 onTap: onAddPayment,
               ),
@@ -769,7 +801,7 @@ class _OverviewTab extends StatelessWidget {
         // D-08 (M16): Ogrenciyle sohbet. Ogrencinin KULLANICI kimligi bu ekranda yok
         // (profil kimligi var); karsi tarafi sunucu studentId'den cozer.
         _ActionButton(
-          label: 'Mesaj Gonder',
+          label: AppLocalizations.of(context).finance_mesajGonder,
           icon: Icons.chat_bubble_outline_rounded,
           onTap: () => openConversationAndGo(
             context,
@@ -781,10 +813,10 @@ class _OverviewTab extends StatelessWidget {
     );
   }
 
-  static String _emptyFallback(String? value) {
+  String _emptyFallback(BuildContext context, String? value) {
     final text = value?.trim();
     if (text == null || text.isEmpty) {
-      return 'Eklenmemis';
+      return AppLocalizations.of(context).finance_notAdded;
     }
     return text;
   }
@@ -804,15 +836,17 @@ class _LessonsTab extends StatelessWidget {
     return Column(
       children: <Widget>[
         _SectionHeader(
-          title: 'Dersler',
-          actionText: 'Yeni ders',
+          title: AppLocalizations.of(context).finance_dersler,
+          actionText: AppLocalizations.of(context).finance_yeniDers102,
           onActionTap: onPlanLesson,
         ),
         const SizedBox(height: 12),
         if (sortedLessons.isEmpty)
-          const EmptyStateView(
-            title: 'Ders kaydı yok',
-            subtitle: 'Bu öğrenci için planlı ders bulunamadı.',
+          EmptyStateView(
+            title: AppLocalizations.of(context).finance_dersKaydiYok,
+            subtitle: AppLocalizations.of(
+              context,
+            ).finance_buOgrenciIcinPlanliDersBulunamadi,
           )
         else
           ...List<Widget>.generate(sortedLessons.length, (index) {
@@ -847,45 +881,49 @@ class _PerformanceTab extends StatelessWidget {
     return Column(
       children: <Widget>[
         _InfoCard(
-          title: 'Performans özeti',
+          title: AppLocalizations.of(context).finance_performansOzeti,
           children: <Widget>[
             _ProgressLine(
-              label: 'Ders tamamlama',
+              label: AppLocalizations.of(context).finance_dersTamamlama,
               value: hasRealCompletion ? completionRatio : 0.72,
               valueText: hasRealCompletion
                   ? '%${(completionRatio * 100).round()}'
-                  : 'Takip basladi',
+                  : AppLocalizations.of(context).finance_takipBasladi,
               color: AppColors.accentGreen,
             ),
             const SizedBox(height: 14),
             _ProgressLine(
-              label: 'Hedef netligi',
+              label: AppLocalizations.of(context).finance_hedefNetligi,
               value: student.goalSummary?.trim().isNotEmpty == true
                   ? 0.9
                   : 0.35,
               valueText: student.goalSummary?.trim().isNotEmpty == true
-                  ? 'Net'
-                  : 'Eksik',
+                  ? AppLocalizations.of(context).finance_clearGoal
+                  : AppLocalizations.of(context).finance_missingGoal,
               color: AppColors.accentBlue,
             ),
             const SizedBox(height: 14),
             _ProgressLine(
-              label: 'Ders cesitliligi',
+              label: AppLocalizations.of(context).finance_dersCesitliligi,
               value: student.subjects.isEmpty
                   ? 0.2
                   : (student.subjects.length / 4).clamp(0.25, 1).toDouble(),
-              valueText: '${student.subjects.length} hedef',
+              valueText: AppLocalizations.of(
+                context,
+              ).finance_goalCount(student.subjects.length),
               color: AppColors.accentTeal,
             ),
           ],
         ),
         const SizedBox(height: 16),
         _InfoCard(
-          title: 'Ders hedefleri',
+          title: AppLocalizations.of(context).finance_dersHedefleri,
           children: student.subjects.isEmpty
               ? <Widget>[
-                  const Text(
-                    'Hedef ders eklenince performans takibi burada zenginlesir.',
+                  Text(
+                    AppLocalizations.of(
+                      context,
+                    ).finance_hedefDersEklenincePerformansTakibiBuradaZenginlesir,
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ]
@@ -904,22 +942,15 @@ class _PerformanceTab extends StatelessWidget {
 }
 
 class _PaymentsTab extends StatelessWidget {
-  const _PaymentsTab({
-    required this.payments,
-    required this.outstandingAmount,
-    required this.onAddPayment,
-  });
+  const _PaymentsTab({required this.payments, required this.onAddPayment});
 
   final List<PaymentRecord> payments;
-  final double outstandingAmount;
   final VoidCallback onAddPayment;
 
   @override
   Widget build(BuildContext context) {
-    final collectedAmount = payments.fold<double>(
-      0,
-      (total, payment) => total + payment.collectedAmount,
-    );
+    final collectedAmount = _paymentTotals(payments, collected: true);
+    final outstandingAmount = _paymentTotals(payments, collected: false);
 
     return Column(
       children: <Widget>[
@@ -927,19 +958,19 @@ class _PaymentsTab extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: _MetricCard(
-                label: 'Tahsil',
-                value: collectedAmount.toStringAsFixed(0),
-                caption: 'Toplam TRY',
+                label: AppLocalizations.of(context).finance_tahsil,
+                value: collectedAmount,
+                caption: AppLocalizations.of(context).finance_toplam,
                 color: AppColors.accentGreen,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _MetricCard(
-                label: 'Bekleyen',
-                value: outstandingAmount.toStringAsFixed(0),
-                caption: 'Toplam TRY',
-                color: outstandingAmount > 0
+                label: AppLocalizations.of(context).finance_bekleyen,
+                value: outstandingAmount,
+                caption: AppLocalizations.of(context).finance_toplam,
+                color: payments.any((p) => p.outstandingAmount > 0)
                     ? AppColors.amber
                     : AppColors.accentGreen,
               ),
@@ -948,15 +979,17 @@ class _PaymentsTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _SectionHeader(
-          title: 'Ödeme geçmişi',
-          actionText: 'Ödeme ekle',
+          title: AppLocalizations.of(context).finance_odemeGecmisi,
+          actionText: AppLocalizations.of(context).finance_odemeEkle114,
           onActionTap: onAddPayment,
         ),
         const SizedBox(height: 12),
         if (payments.isEmpty)
-          const EmptyStateView(
-            title: 'Ödeme kaydı yok',
-            subtitle: 'Bu öğrenci için tahsilat kaydı bulunamadı.',
+          EmptyStateView(
+            title: AppLocalizations.of(context).finance_odemeKaydiYok,
+            subtitle: AppLocalizations.of(
+              context,
+            ).finance_buOgrenciIcinTahsilatKaydiBulunamadi,
           )
         else
           ...List<Widget>.generate(payments.length, (index) {
@@ -1125,11 +1158,13 @@ class _SubjectTargetsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoCard(
-      title: 'Hedef dersler',
+      title: AppLocalizations.of(context).finance_hedefDersler,
       children: <Widget>[
         if (student.subjects.isEmpty)
-          const Text(
-            'Öğrenci hedefleri eklendiğinde burada görünür.',
+          Text(
+            AppLocalizations.of(
+              context,
+            ).finance_ogrenciHedefleriEklendigindeBuradaGorunur,
             style: TextStyle(color: AppColors.textSecondary),
           )
         else
@@ -1143,14 +1178,14 @@ class _SubjectTargetsCard extends StatelessWidget {
                       icon: Icons.menu_book_rounded,
                       label: target.subject,
                       value: target.targetLevel.isEmpty
-                          ? 'Hedef yok'
+                          ? AppLocalizations.of(context).finance_hedefYok
                           : target.targetLevel,
                     ),
                   ),
                   if (target.id.isNotEmpty)
                     IconButton(
                       key: Key('student-subject-remove-\${target.id}'),
-                      tooltip: 'Bransi sil',
+                      tooltip: AppLocalizations.of(context).finance_bransiSil,
                       onPressed: () => onRemove(target.id),
                       icon: const Icon(Icons.close_rounded),
                       color: AppColors.accentRed,
@@ -1166,7 +1201,7 @@ class _SubjectTargetsCard extends StatelessWidget {
             key: const Key('student-subject-add'),
             onPressed: onAdd,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Brans ekle'),
+            label: Text(AppLocalizations.of(context).finance_bransEkle),
           ),
         ),
       ],
@@ -1184,11 +1219,15 @@ class _ParentLinkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _InfoCard(
-      title: 'Veli',
+      title: AppLocalizations.of(context).finance_parent,
       children: <Widget>[
-        const Text(
-          'Kayıtlı bir veli kullanıcısını bu öğrenciye bağlayabilirsin. '
-          'Bağlantı onay bekler; onaylandıktan sonra veli öğrencinin gelişimini görür.',
+        Text(
+          AppLocalizations.of(
+                context,
+              ).finance_kayitliBirVeliKullanicisiniBuOgrenciyeBaglayabilirsi +
+              AppLocalizations.of(
+                context,
+              ).finance_baglantiOnayBeklerOnaylandiktanSonraVeliOgrencininG,
           style: TextStyle(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 6),
@@ -1198,7 +1237,7 @@ class _ParentLinkCard extends StatelessWidget {
             key: const Key('student-link-parent'),
             onPressed: onLinkParent,
             icon: const Icon(Icons.family_restroom_rounded),
-            label: const Text('Veli bagla'),
+            label: Text(AppLocalizations.of(context).finance_veliBagla),
           ),
         ),
       ],
@@ -1358,7 +1397,7 @@ class _PaymentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dueDate = payment.dueDateUtc == null
-        ? 'Tarih yok'
+        ? AppLocalizations.of(context).finance_tarihYok
         : DateFormat('dd.MM.yyyy').format(payment.dueDateUtc!.toLocal());
     final color = payment.outstandingAmount > 0
         ? AppColors.amber
@@ -1368,10 +1407,11 @@ class _PaymentCard extends StatelessWidget {
       leadingColor: color,
       icon: Icons.payments_rounded,
       title: payment.description,
-      subtitle: 'Vade: $dueDate',
+      subtitle: AppLocalizations.of(context).finance_dueDate(dueDate),
       trailing: _StatusPill(label: payment.status, color: color),
-      footer:
-          '${payment.outstandingAmount.toStringAsFixed(0)} ${payment.currency} bekleyen',
+      footer: AppLocalizations.of(context).finance_amountPending(
+        Money(payment.outstandingAmount, payment.currency).formatTr(),
+      ),
     );
   }
 }
@@ -1576,7 +1616,10 @@ class _TargetPerformanceRow extends StatelessWidget {
               ],
             ),
           ),
-          const _StatusPill(label: 'Aktif', color: AppColors.accentGreen),
+          _StatusPill(
+            label: AppLocalizations.of(context).finance_aktif,
+            color: AppColors.accentGreen,
+          ),
         ],
       ),
     );
@@ -1689,7 +1732,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Öğrenci Güncelle',
+                      AppLocalizations.of(context).finance_ogrenciGuncelle,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
@@ -1705,44 +1748,51 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
               const SizedBox(height: 16),
               _FormField(
                 controller: _fullNameCtrl,
-                label: 'Ad Soyad',
+                label: AppLocalizations.of(context).finance_adSoyad,
                 validator: (v) => (v == null || v.trim().length < 2)
-                    ? 'Ad soyad giriniz'
+                    ? AppLocalizations.of(context).finance_adSoyadGiriniz
                     : null,
               ),
               const SizedBox(height: 12),
               _FormField(
                 controller: _gradeLevelCtrl,
-                label: 'Sınıf / Seviye',
-                validator: (v) =>
-                    (v == null || v.trim().length < 2) ? 'Sınıf giriniz' : null,
+                label: AppLocalizations.of(context).finance_sinifSeviye,
+                validator: (v) => (v == null || v.trim().length < 2)
+                    ? AppLocalizations.of(context).finance_sinifGiriniz
+                    : null,
               ),
               const SizedBox(height: 12),
-              _FormField(controller: _subjectCtrl, label: 'Ders'),
+              _FormField(
+                controller: _subjectCtrl,
+                label: AppLocalizations.of(context).finance_ders,
+              ),
               const SizedBox(height: 12),
-              _FormField(controller: _targetLevelCtrl, label: 'Hedef Seviye'),
+              _FormField(
+                controller: _targetLevelCtrl,
+                label: AppLocalizations.of(context).finance_hedefSeviye129,
+              ),
               const SizedBox(height: 12),
               _FormField(
                 controller: _contactEmailCtrl,
-                label: 'E-posta',
+                label: AppLocalizations.of(context).finance_email,
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
               _FormField(
                 controller: _contactPhoneCtrl,
-                label: 'Telefon',
+                label: AppLocalizations.of(context).finance_phone,
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
               _FormField(
                 controller: _goalSummaryCtrl,
-                label: 'Hedef / Amaç',
+                label: AppLocalizations.of(context).finance_hedefAmac,
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
               _FormField(
                 controller: _levelNotesCtrl,
-                label: 'Seviye Notu',
+                label: AppLocalizations.of(context).finance_seviyeNotu131,
                 maxLines: 2,
               ),
               const SizedBox(height: 16),
@@ -1750,7 +1800,7 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Aktif Öğrenci',
+                      AppLocalizations.of(context).finance_aktifOgrenci,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -1776,8 +1826,8 @@ class _EditStudentSheetState extends State<_EditStudentSheet> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text(
-                    'Kaydet',
+                  child: Text(
+                    AppLocalizations.of(context).finance_kaydet,
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                   ),
                 ),
@@ -1855,4 +1905,18 @@ class _Pill extends StatelessWidget {
       ),
     );
   }
+}
+
+String _paymentTotals(List<PaymentRecord> payments, {required bool collected}) {
+  final totals = <String, int>{};
+  for (final p in payments) {
+    totals.update(
+      p.currency,
+      (v) => v + (collected ? p.collectedAmount : p.outstandingAmount),
+      ifAbsent: () => collected ? p.collectedAmount : p.outstandingAmount,
+    );
+  }
+  return totals.entries
+      .map((e) => Money(e.value, e.key).formatTr())
+      .join(' · ');
 }

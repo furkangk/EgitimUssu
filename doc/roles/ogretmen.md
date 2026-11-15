@@ -257,3 +257,9 @@ Kaynak: [`../_arsiv/ogretmen_rolu_fonksiyonel_dokuman_v1.md`](../_arsiv/ogretmen
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
 
 *Güncelleme: 2026-11-15 — P18 T3: para birimi özetleri ve beyan tekliği.*
+
+### P18 T4 — mobil finans
+
+Öğretmen `1.500` / `750,50` biçiminde tutar girebilir; kuruşlar korunur. Tahsilat ayrı bir hareket olarak kaydedilir, eski ekranın toplamı sunucuyu ezmez. Düzenlemede tahsilat ve para birimi kilitlidir; iptal ayrı komuttur ve net tahsilat varsa önce iade ister. Özet ve grafiklerde para birimi seçilir; öğrenci detayında TRY/USD ayrı metriklerdir. Ağ sonucu belirsizse aynı işlem tekrarında ilk anahtar/gövde korunur; uygulamayı kapatıp açma bu korumaya dahil değildir. Mobil iade formu ve veli beyanı ekranı bu görevde eklenmedi (beyan ekranı P21 T5).
+
+*Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*

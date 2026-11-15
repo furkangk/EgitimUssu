@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
@@ -41,6 +40,7 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     );
     try {
       final response = await _apiClient.post(
+        idempotent: true,
         '/api/scheduling/lessons',
         data: model.toCreatePayload(),
       );
@@ -129,6 +129,7 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     final lessonId = lesson.id;
     try {
       final response = await _apiClient.post(
+        idempotent: true,
         '/api/scheduling/lessons/$lessonId/cancel',
         data: LessonScheduleModel.cancelPayload(
           lesson: lesson,
@@ -264,6 +265,7 @@ class SchedulingRepositoryImpl implements SchedulingRepository {
     required StudyScheduleEntry entry,
   }) async {
     final response = await _apiClient.post(
+      idempotent: true,
       '/api/scheduling/students/$studentId/study-entries',
       data: StudyScheduleEntryModel.toPayload(entry),
     );

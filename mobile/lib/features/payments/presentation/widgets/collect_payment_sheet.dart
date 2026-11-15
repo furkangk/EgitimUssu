@@ -1,9 +1,10 @@
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/app_primary_button.dart';
 import 'package:egitim_ussu_mobile/shared/widgets/form_fields.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 /// "Tahsil Et" akışının formu. Öğretmen bu tahsilatta **ne kadar** aldığını girer;
 /// varsayılan kalan tutardır (tamamı). Daha azını girerse kısmi tahsilat olur.
@@ -13,8 +14,8 @@ class CollectPaymentSheet extends StatefulWidget {
 
   final PaymentRecord record;
 
-  static Future<double?> show(BuildContext context, PaymentRecord record) {
-    return showModalBottomSheet<double>(
+  static Future<int?> show(BuildContext context, PaymentRecord record) {
+    return showModalBottomSheet<int>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -30,7 +31,7 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
 
-  double get _outstanding => widget.record.outstandingAmount;
+  int get _outstanding => widget.record.outstandingAmount;
 
   @override
   void initState() {
@@ -50,10 +51,11 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
 
   /// Girilen tutar kalanın tamamına eşit mi (tam tahsilat)?
   bool get _isFull {
-    final value = double.tryParse(
-      _amountController.text.trim().replaceAll(',', '.'),
-    );
-    return value != null && (value - _outstanding).abs() < 0.001;
+    try {
+      return Money.parseTr(_amountController.text).minor == _outstanding;
+    } on FormatException {
+      return false;
+    }
   }
 
   void _fillFull() {
@@ -96,7 +98,7 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Tahsilat Kaydı',
+                  AppLocalizations.of(context).finance_tahsilatKaydi,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -113,17 +115,17 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                 ),
                 const SizedBox(height: 16),
                 _InfoRow(
-                  label: 'Beklenen',
+                  label: AppLocalizations.of(context).finance_beklenen,
                   value: _money(record.expectedAmount, record.currency),
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
-                  label: 'Tahsil edilen',
+                  label: AppLocalizations.of(context).finance_tahsilEdilen,
                   value: _money(record.collectedAmount, record.currency),
                 ),
                 const SizedBox(height: 8),
                 _InfoRow(
-                  label: 'Kalan',
+                  label: AppLocalizations.of(context).finance_kalan,
                   value: _money(_outstanding, record.currency),
                   emphasize: true,
                 ),
@@ -143,7 +145,9 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
-                          'veya kısmi tutar gir',
+                          AppLocalizations.of(
+                            context,
+                          ).finance_veyaKismiTutarGir,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(
@@ -161,8 +165,10 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                   key: _formKey,
                   child: AppTextField(
                     controller: _amountController,
-                    labelText: 'Bu tahsilat (${record.currency})',
-                    hintText: 'Alınan tutar',
+                    labelText: AppLocalizations.of(
+                      context,
+                    ).finance_collectionCurrency(record.currency),
+                    hintText: AppLocalizations.of(context).finance_alinanTutar,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -170,7 +176,10 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                AppPrimaryButton(label: 'Tahsilatı Kaydet', onPressed: _submit),
+                AppPrimaryButton(
+                  label: AppLocalizations.of(context).finance_tahsilatiKaydet,
+                  onPressed: _submit,
+                ),
               ],
             ),
           ),
@@ -181,29 +190,31 @@ class _CollectPaymentSheetState extends State<CollectPaymentSheet> {
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final amount = double.parse(
-      _amountController.text.trim().replaceAll(',', '.'),
-    );
+    final amount = Money.parseTr(_amountController.text).minor;
     Navigator.of(context).pop(amount);
   }
 
   String? _validateAmount(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Tutar girin.';
-    final amount = double.tryParse(value.trim().replaceAll(',', '.'));
-    if (amount == null || !amount.isFinite || amount <= 0) {
-      return 'Geçerli bir tutar girin.';
+    if (value == null || value.trim().isEmpty) {
+      return AppLocalizations.of(context).finance_tutarGirin;
     }
-    if (amount > _outstanding + 0.001) {
-      return 'Kalan tutardan (${_money(_outstanding, widget.record.currency)}) fazla olamaz.';
+    final int amount;
+    try {
+      amount = Money.parseTr(value).minor;
+    } on FormatException {
+      return AppLocalizations.of(context).finance_gecerliBirTutarGirin;
+    }
+    if (amount <= 0) {
+      return AppLocalizations.of(context).finance_gecerliBirTutarGirin;
+    }
+    if (amount > _outstanding) {
+      return AppLocalizations.of(context).finance_kalanTutardanFazlaOlamaz;
     }
     return null;
   }
 
-  static String _asInput(double amount) {
-    return amount == amount.roundToDouble()
-        ? amount.toStringAsFixed(0)
-        : amount.toStringAsFixed(2);
-  }
+  static String _asInput(int amount) =>
+      Money(amount).formatTr(withCurrency: false);
 }
 
 /// Kalanın tamamını tek dokunuşla dolduran belirgin, tam-genişlik hızlı seçim.
@@ -251,14 +262,16 @@ class _FullAmountButton extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Tamamını al',
+                      AppLocalizations.of(context).finance_tamaminiAl,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: fg,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     Text(
-                      'Kalanın tamamını tahsil et',
+                      AppLocalizations.of(
+                        context,
+                      ).finance_kalaninTamaminiTahsilEt,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: selected
                             ? Colors.white.withValues(alpha: 0.85)
@@ -322,7 +335,5 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-String _money(double amount, String currency) {
-  final formatted = NumberFormat.decimalPattern('tr_TR').format(amount);
-  return '$formatted $currency';
-}
+String _money(int amount, String currency) =>
+    Money(amount, currency).formatTr();

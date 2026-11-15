@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-
 import 'package:egitim_ussu_mobile/core/config/app_config.dart';
 import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/features/teacher_profile/data/models/teacher_profile_model.dart';
@@ -10,31 +9,40 @@ import 'package:flutter_test/flutter_test.dart';
 /// P04 Task 3 (M02-2/D-05): Profil fotoğrafı yükleme/indirme sözleşmesi.
 /// Kritik: fotoğraf **profil gövdesinde gönderilmez** (sunucu istemciden yazmaya izin vermiyor).
 void main() {
-  test('uploadProfilePhoto multipart ucuna gider ve indirme rotasini doner', () async {
-    final apiClient = _RecordingApiClient(
-      fileResponse: {'photoUrl': '/api/teachers/profiles/t-1/photo'},
-    );
+  test(
+    'uploadProfilePhoto multipart ucuna gider ve indirme rotasini doner',
+    () async {
+      final apiClient = _RecordingApiClient(
+        fileResponse: {'photoUrl': '/api/teachers/profiles/t-1/photo'},
+      );
+      final repository = TeacherRepositoryImpl(
+        apiClient: apiClient,
+        config: _config(),
+      );
+
+      final url = await repository.uploadProfilePhoto(
+        userId: 't-1',
+        filePath: '/tmp/foto.png',
+      );
+
+      expect(url, '/api/teachers/profiles/t-1/photo');
+      expect(apiClient.postedFilePath, '/api/teachers/profiles/t-1/photo');
+      expect(apiClient.postedLocalFile, '/tmp/foto.png');
+    },
+  );
+
+  test('yanit photoUrl tasimazsa rota yerel olarak turetilir', () async {
+    final apiClient = _RecordingApiClient(fileResponse: const {});
     final repository = TeacherRepositoryImpl(
       apiClient: apiClient,
       config: _config(),
     );
 
-    final url = await repository.uploadProfilePhoto(
-      userId: 't-1',
-      filePath: '/tmp/foto.png',
-    );
-
-    expect(url, '/api/teachers/profiles/t-1/photo');
-    expect(apiClient.postedFilePath, '/api/teachers/profiles/t-1/photo');
-    expect(apiClient.postedLocalFile, '/tmp/foto.png');
-  });
-
-  test('yanit photoUrl tasimazsa rota yerel olarak turetilir', () async {
-    final apiClient = _RecordingApiClient(fileResponse: const {});
-    final repository = TeacherRepositoryImpl(apiClient: apiClient, config: _config());
-
     expect(
-      await repository.uploadProfilePhoto(userId: 't-1', filePath: '/tmp/foto.png'),
+      await repository.uploadProfilePhoto(
+        userId: 't-1',
+        filePath: '/tmp/foto.png',
+      ),
       '/api/teachers/profiles/t-1/photo',
     );
   });
@@ -42,7 +50,10 @@ void main() {
   test('downloadProfilePhoto baytlari yetkili ucdan alir', () async {
     final bytes = Uint8List.fromList([1, 2, 3]);
     final apiClient = _RecordingApiClient(bytesResponse: bytes);
-    final repository = TeacherRepositoryImpl(apiClient: apiClient, config: _config());
+    final repository = TeacherRepositoryImpl(
+      apiClient: apiClient,
+      config: _config(),
+    );
 
     expect(await repository.downloadProfilePhoto('t-1'), bytes);
     expect(apiClient.requestedBytesPath, '/api/teachers/profiles/t-1/photo');
@@ -101,6 +112,9 @@ class _RecordingApiClient implements ApiClient {
     String path, {
     required String filePath,
     String field = 'file',
+    bool idempotent = false,
+    String? idempotencyKey,
+    String? retryIdentity,
   }) async {
     postedFilePath = path;
     postedLocalFile = filePath;

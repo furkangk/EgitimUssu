@@ -127,7 +127,7 @@
 
 **Doğrulama (2026-11-15):** İmza Release **0 uyarı/0 hata**; 4/4 yeni unit kırmızı → yeşil, ilgili 19 unit yeşil. PG ilk denemesinde davranışsız Version alanının göç drift’i test kurulumunu kesti; bu sonuç özellik kırmızısı sayılmadı. İmza alanı geçici ignore edilerek gerçek kırmızı görüldü: iki HTTP beyanı da200, bayat ret onayı ezdi, migration yok. Kısmi unique + xmin + dedup göçüyle ilk ikisi/göç yeşil; tüketici eksikliği ayrıca kırmızı → sonuç bildirimiyle yeşil. Göç SQL zarfları gerçek Notifications tüketicisine iki kez teslim edildi, yalnız iki doğru alıcı bildirimi; Down/Up retleri açmıyor ve olayları çoğaltmıyor. Son **bash scripts/test-with-docker.sh: 19 mimari / 1223 birim / 167 integration**, başarısız **0**, atlanan **0**. Release `-warnaserror --no-incremental` **0/0**; tool restore başarılı, drift **0**, **165 Down** (9 no-op). Doc health RED0, mevcut2YELLOW+1BLUE. Mobil kodu değişmedi/Flutter koşulmadı; N-11 mobil boyutu T4 açık. P18 **3/6**, merge/push yok.
 
-### Task 4: Mobil para ve idempotency (N-64, N-65, N-09 mobil)
+### Task 4: Mobil para ve idempotency (N-64, N-65, N-09 mobil) ✅
 
 **Files:**
 - Create: `mobile/lib/core/money/money.dart` (`Money { int minor; String currency; }`, `parseTr(String)` → `"1.500"`=150000, `"750,50"`=75050, `"1.500,5"`=150050; `formatTr`)
@@ -138,15 +138,33 @@
 - Modify: ödev teslimi, mesaj gönderme, ödeme oluşturma, ders oluşturma repository'leri (`idempotent: true`)
 - Test: `mobile/test/core/money/money_test.dart`, `mobile/test/core/network/idempotency_key_test.dart`, `mobile/test/features/payments/payment_form_parsing_test.dart`
 
-- [ ] **Step 1: Kırmızı testler** — `parseTr` tablo testi (`"1.500"`, `"1500"`, `"750,50"`, `"0,5"`, `"1.500,50"`, `"abc"`→hata, `"-5"`→hata); aynı işlem yeniden denendiğinde aynı anahtar, yeni işlemde farklı anahtar; tahsilat sheet'i yeni ucu çağırır ve toplam göndermez; ödeme formu `"1.500"` girişini 1.500,00 TL olarak gönderir.
-- [ ] **Step 2: Kırmızı gör** — `cd mobile && flutter test test/core/money test/core/network test/features/payments`
-- [ ] **Step 3: Uygula.** **Step 4: Yeşil gör** — `flutter test && flutter analyze --fatal-infos`
-- [ ] **Step 5: Doküman + commit** — `doc/architecture/mobile_flutter.md` (para + idempotency), `doc/pages/payment_form.md`, `payments_list.md`; rapor N-64/N-65 ✅.
+**T4 kapsam doğrulaması / karar (2026-11-15):** Para alanlarının adı korunur ama birimi artık açıkça **int kuruş** olur; tüm ödeme modelleri ve tüketicileri birlikte geçirilir. Gerçek `PaymentRepository` + üç test sahtesi tarandı. API tekrarında anahtar istekten önce üretilir; token yenileme aynı başlığı korur. Belirsiz ağ hatasında tek otomatik tekrar aynı anahtarı/payload'ı kullanır; iki ağ denemesi de sonuçsuzsa manuel tekrar için kullanıcı/uç/aynı içerik anahtarı ve orijinal gövdesi oturum belleğinde korunur; başarılı yanıttan sonra aynı içerikli yeni işlem yeni UUID alır. Hareket zamanı/ilk tahsil zamanı dışındaki alanlar retry kimliğini oluşturur; yeni not/tutar yeni işlemdir. Multipart dosya kimliği yol/boyut/değişiklik anını içerir. Uygulama yeniden başlatılınca devam eden işlem kurtarma bu görevde eklenmez. Çağıran ayrıca açık `idempotencyKey` kullanabilir. Multipart tekrarında FormData clone edilir. Sunucuda gövde özeti T5'tir; T4 bunu tamamlandı saymaz. Ödeme düzenlemesinde tahsilat/durum ve para birimi değiştirme kaldırılır; ilk tahsilat yeni kaydın create sözleşmesinde korunur, sonraki tahsilat/cancel niyet uçlarına gider. Grafikler seçilen para birimiyle filtrelenir.
+
+**Files (ek / kesin yollar):**
+- Modify: `mobile/lib/features/payments/domain/payment_contracts.dart`, `data/models/payment_model.dart`, `data/repositories/payment_repository_impl.dart`, `presentation/pages/payments_page.dart`, `presentation/widgets/finance_charts.dart`.
+- Modify: `mobile/lib/features/students/presentation/cubit/student_detail_state.dart`, `presentation/pages/student_detail_page.dart` (ödeme int tüketicileri + K-26).
+- Modify: `mobile/lib/features/assignments/data/repositories/assignment_repository_impl.dart`, `mobile/lib/features/messaging/data/repositories/messaging_repository_impl.dart`, `mobile/lib/features/scheduling/data/repositories/scheduling_repository_impl.dart` (oluşturma/gönderim/teslim anahtarları).
+- Modify: `mobile/test/features/payments/data/payment_model_test.dart`, `presentation/payments_cubit_test.dart`, `presentation/widgets/payment_sheet_layout_test.dart`, `mobile/test/features/dashboard/presentation/cubit/dashboard_cubit_test.dart` (repo sahte imzaları), `mobile/test/features/students/student_subject_link_test.dart`, `mobile/test/features/lesson_sessions/data/lesson_session_repository_impl_test.dart` (ApiClient override imzaları), `mobile/test/features/teacher_profile/photo_upload_test.dart` (postFile override).
+- Create: `mobile/test/core/network/write_repository_idempotency_test.dart` (gerçek repository taşıma sözleşmeleri), `mobile/test/features/payments/payment_currency_test.dart`, `payment_collection_request_test.dart`; Modify: `mobile/lib/l10n/app_tr.arb`, `app_en.arb`; Verify/Modify: ilgili mevcut ödeme repository testleri.
+- Modify: `mobile/lib/features/dashboard/presentation/cubit/dashboard_cubit.dart` (ayrı eski dashboard modeline kuruş→ana birim adaptörü; dashboard modeli P21 kapsamındadır).
+- Docs: `doc/modules/m07_payments.md`, `00_genel_bakis.md`, `doc/roles/ogretmen.md`, `doc/architecture/mobile_flutter.md`, `ux_rules.md`, `doc/pages/payment_form.md`, `payments_list.md`, `students_detail.md`, `doc/denetim/2026-11-13_kapsamli_proje_incelemesi.md`, bu plan; ayrı ilerleme commit'i `docs/superpowers/ILERLEME.md`.
+
+**Interfaces:** `Money(minor, currency)`, `Money.parseTr`, `Money.fromJson`, `toJsonAmount`, `formatTr`; `ApiClient.post/postFile/postMultipart(idempotent: false, idempotencyKey: null, retryIdentity: null)`; `PaymentRepository.addCollection(id, int amount, {int method=1, required DateTime occurredOnUtc, String? note, String? idempotencyKey})`, `cancelRecord(id)`; aylık nokta `currency`.
+
+- [x] **Step 0: İmza** — Money/ApiClient/repository yeni imzaları derlenen davranışsız iskeletle ekle; gerçek + üç sahteyi güncelle; analizle imzayı doğrula.
+- [x] **Step 1: Kırmızı testler** — `parseTr` tablo testi (`"1.500"`, `"1500"`, `"750,50"`, `"0,5"`, `"1.500,50"`, `"abc"`→hata, `"-5"`→hata); aynı işlem yeniden denendiğinde aynı anahtar, yeni işlemde farklı anahtar; tahsilat sheet'i yeni ucu çağırır ve toplam göndermez; ödeme formu `"1.500"` girişini 1.500,00 TL olarak gönderir.
+- [x] **Step 2: Kırmızı gör** — `cd mobile && flutter test test/core/money test/core/network test/features/payments`
+- [x] **Step 3: Uygula.** **Step 4: Yeşil gör** — `flutter test && flutter analyze --fatal-infos`
+- [x] **Step 5: Doküman + commit** — `doc/architecture/mobile_flutter.md` (para + idempotency), `doc/pages/payment_form.md`, `payments_list.md`; rapor N-64/N-65 ✅.
   ```bash
   git commit -m "fix(mobile): para kurus olarak, TR bicimi dogru ayristirilir, yazma isteklerinde Idempotency-Key (N-64, N-65)"
   ```
 
 ---
+
+**Doğrulama (2026-11-15):** İmza derlenebilirliği analizle kontrol edildi; önce bulunmayan postFile override'ı ve imza lint'leri düzeltildi (özellik kırmızısı sayılmadı). İlk test kurulumundaki yanlış AppConfig parametresi düzeltildikten sonra gerçek RED: **23 başarısız / 1 başarılı** (TR/JSON ayrıştırma, başlık/tekrar yokluğu ve tahsilatta eski PUT); aylık Currency/kuruş testi ayrıca RED → GREEN. Manuel tekrarın yeni UUID üretmesi ayrıca RED → aynı anahtar/orijinal gövde ile GREEN. Gerçek widget→repository→HTTP testleri form `1.500`→1500, edit kilitleri/yalnız ayrıntı PUT, sheet kuruş sonucu, TRY→USD özet+iki grafik ve İngilizce formu doğruladı. Bayat toplam testi sunucunun 300 tahsil/200 kalan yanıtını uygular; aşan tutar istemcide clamp'lenmez. Ödev dosya teslimi/mesaj/ders repository'lerinin gerçek taşıma başlıkları doğrulandı. Ek HTTP testinin eksik tarih yanıtı ve multipart yakalama hatası test kurulumu olarak düzeltildi.
+
+Son **Flutter 331 test**, başarısız **0**; `flutter analyze --fatal-infos` **No issues found**. `flutter pub get` başarılı. Aynı koşumda **bash scripts/test-with-docker.sh: 19 mimari / 1223 birim / 167 integration**, başarısız **0**, atlanan **0**; Release `-warnaserror --no-incremental` **0 uyarı/0 hata**, tool restore başarılı. Backend/migration değişmedi; drift/Down bu mobil görevde yeniden gerekmedi. Doc-health RED **0**, mevcut **2 YELLOW + 1 BLUE**. Platform dosyaları dışarıda. P18 **4/6**, sonraki yalnız T5; merge/push yok.
 
 ### Task 5: Idempotency anahtarında gövde özeti (N-55 idempotency)
 
@@ -182,3 +200,5 @@
 *Güncelleme: 2026-11-15 — P18 T2 tamamlandı; niyet komutları, veri/rapor geçişi ve regresyon kanıtları.*
 
 *Güncelleme: 2026-11-15 — P18 T3 tamamlandı; aylık Currency, tek bekleyen beyan, güvenli göç ve sonuç bildirimi. T4 mobil devri ve T6 senaryo sözleşme düzeltmesi kaydedildi.*
+
+*Güncelleme: 2026-11-15 — P18 T4 tamamlandı; mobil kuruş/niyet uçları/para birimi ve otomatik-manuel idempotency tekrarları.*

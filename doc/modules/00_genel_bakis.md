@@ -402,3 +402,7 @@ GET /api/matching/status   /api/reviews/status
 *Güncelleme: 2026-11-15 — P18 T2: ödeme hareketleri ve niyet komutları.*
 
 *Güncelleme: 2026-11-15 — P18 T3: aylık Currency boyutu, tek bekleyen beyan ve sonuç bildirimi.*
+
+**P18 T4 (mobil):** Yeni backend ucu eklenmedi. Mobil ödeme oluşturma/tahsilat/iptal idempotency anahtarı taşır; mevcut `/collections` ve `/cancel` POST'ları tüketilir, PUT yalnız ayrıntı gönderir. Ödeme modelleri int kuruş, para birimi seçimi özet ve iki grafiğe uygulanır. Öğrenci detay metrikleri de para birimi başınadır.
+
+*Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*

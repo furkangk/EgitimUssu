@@ -11,7 +11,7 @@ updated: 2026-11-15
 > **Kapsam:** Tüm ekranlarda geçerli UX kararları, etkileşim ilkeleri ve navigasyon kuralları.
 > Token değerleri → [`design_system.md`](design_system.md). Widget kataloğu → [`widgets.md`](widgets.md).
 >
-> **Güncelleme:** 2026-10-16
+> **Güncelleme:** 2026-11-15
 
 ---
 
@@ -55,6 +55,10 @@ Her rol için öncelik farklıdır — ekran tasarımı bunu yansıtır:
 - Tarih/saat → her zaman `AppDateTimeField` (native picker); kullanıcı elle yazmaz.
 
 ---
+
+### Finans girdisi (P18 T4)
+
+Türkçe para alanlarında nokta binlik, virgül ondalık ayracıdır. `1.500` her zaman 1.500,00'dır; belirsiz/bozuk gruplama ve ikiden çok ondalık reddedilir. Düzenleme formu tahsil edilen tutarı ve para birimini kilitler; yeni tahsilat listedeki ayrı eylemden girilir. Sonuç sunucu yanıtıyla gösterilir. Finans özeti ve grafiklerde tek para birimi seçilir, farklı para birimleri toplanmaz. Aynı mutasyon sürerken ikinci dokunma engellenir; belirsiz ağ sonucunun tekrarında aynı işlem anahtarı ve gövdesi korunur (uygulama belleği süresince).
 
 ## 4. Yükleme & Durum Yönetimi
 
@@ -149,3 +153,5 @@ Türkçe karaktersiz yazım ("Cikis yap", "Odeme hatirlatmalari") ürünün öze
 ---
 
 *UX Kuralları | Güncelleme: 2026-11-15 (hata sonrası kayıt tekrarında form verisini koruma) · 2026-09-05 (P13 Task 6 / D-19+D-20: §8 metin dili ve yazım kuralı — eksiksiz Türkçe, ARB'den metin, otomatik denetim) · 2026-06-27*
+
+*Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*

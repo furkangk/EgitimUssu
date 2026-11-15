@@ -44,6 +44,7 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
     );
     try {
       final response = await _apiClient.post(
+        idempotent: true,
         '/api/assignments/lesson-sessions/${followUpAssignment.lessonSessionId}/follow-up',
         data: model.toCreatePayload(),
       );
@@ -74,6 +75,7 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
   @override
   Future<AssignmentItem> completeAssignment(String assignmentId) async {
     final response = await _apiClient.post(
+      idempotent: true,
       '/api/assignments/$assignmentId/complete',
     );
     return AssignmentItemModel.fromJson(response);
@@ -85,6 +87,7 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
     String filePath,
   ) async {
     final response = await _apiClient.postFile(
+      idempotent: true,
       '/api/assignments/$assignmentId/submission',
       filePath: filePath,
     );
@@ -97,6 +100,7 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
     String? feedback,
   ) async {
     final response = await _apiClient.post(
+      idempotent: true,
       '/api/assignments/$assignmentId/approve',
       data: <String, dynamic>{'feedback': feedback},
     );
@@ -110,6 +114,7 @@ class AssignmentRepositoryImpl implements AssignmentRepository {
     String? feedback,
   ) async {
     final response = await _apiClient.post(
+      idempotent: true,
       '/api/assignments/$assignmentId/grade',
       data: <String, dynamic>{'score': score, 'feedback': feedback},
     );

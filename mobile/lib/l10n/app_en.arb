@@ -1,5 +1,5 @@
 {
-  "@@locale": "en",
+  "@locale": "en",
   "app_title": "EğitimÜssü",
   "auth_alreadyHaveAccount": "I already have an account ",
   "auth_backToRoleSelection": "Back to role selection",
@@ -278,5 +278,266 @@
   "cancellation_holiday": "Holiday",
   "cancellation_other": "Other",
   "cancellation_free": "Waive cancellation fee",
-  "cancellation_note": "Note (optional)"
+  "cancellation_note": "Note (optional)",
+  "finance_odemeyiDuzenle": "Edit Payment",
+  "finance_odemeEkle": "Add Payment",
+  "finance_aciklama": "Description",
+  "finance_odemeAciklamasi": "Payment description",
+  "finance_tutar": "Amount",
+  "finance_beklenenTutar": "Expected amount",
+  "finance_tahsilEdildi": "Collected",
+  "finance_alinanTutar": "Amount received",
+  "finance_sonOdemeTarihi": "Due date",
+  "finance_tarihSec": "Select date",
+  "finance_not": "Note",
+  "finance_odemeNotuIstegeBagli": "Payment note (optional)",
+  "finance_degisiklikleriKaydet": "Save Changes",
+  "finance_odemeyiKaydet": "Save Payment",
+  "finance_lutfenBirOgrenciSecin": "Please select a student.",
+  "finance_tahsilEdilenTutarBeklenenTutardanFazlaOlamaz": "Collected amount cannot exceed the expected amount.",
+  "finance_odemeyiIptalEt": "Cancel payment",
+  "finance_vazgec": "Cancel",
+  "finance_evetIptalEt": "Yes, cancel",
+  "finance_buAlanZorunlu": "This field is required.",
+  "finance_gecerliBirTutarGirin": "Enter a valid amount.",
+  "finance_ogrenci": "Student",
+  "finance_ogrenciSecin": "Select student",
+  "finance_ogrenciSecimiZorunlu": "Select a student.",
+  "finance_ders": "Lesson",
+  "finance_dersSecin": "Select lesson",
+  "finance_ogrenciDers": "Student / Lesson",
+  "finance_ogrenciVeDersDuzenlenemez": "Student and lesson cannot be changed.",
+  "finance_kayitliOgrenciBulunamadiOnceOgrenciEkleyin": "No students found. Add a student first.",
+  "finance_paraBirimi": "Currency",
+  "finance_odemeYontemi": "Payment method",
+  "finance_odemeYontemiSecin": "Select payment method",
+  "finance_nakit": "Cash",
+  "finance_bankaTransferi": "Bank transfer",
+  "finance_krediKarti": "Credit card",
+  "finance_tumu": "All",
+  "finance_odenen": "Paid",
+  "finance_bekleyen": "Pending",
+  "finance_geciken": "Overdue",
+  "finance_ogretmen": "Teacher",
+  "finance_sonucBulunamadi": "No results",
+  "finance_aramaVeyaFiltreleriDegistirmeyiDeneyin": "Try changing your search or filters.",
+  "finance_odemeKaydiYok": "No payment records",
+  "finance_sagAlttakiOdemeEkleIleIlkKaydiOlusturun": "Use Add Payment at the bottom right to create the first record.",
+  "finance_odemeAra": "Search payments…",
+  "finance_odemelerYuklenemedi": "Could not load payments",
+  "finance_tekrarDene": "Try Again",
+  "finance_finansOzeti": "Finance Summary",
+  "finance_tahsilEdilen": "Collected",
+  "finance_istatistikler": "Statistics",
+  "finance_gizle": "Hide",
+  "finance_goster": "Show",
+  "finance_odendi": "Paid",
+  "finance_iptal": "Cancelled",
+  "finance_kismi": "Partial",
+  "finance_kalan": "Remaining",
+  "finance_isleniyor": "Processing…",
+  "finance_tahsilEt": "Collect",
+  "finance_tahsilatKaydi": "Record Collection",
+  "finance_beklenen": "Expected",
+  "finance_veyaKismiTutarGir": "or enter a partial amount",
+  "finance_tahsilatiKaydet": "Save Collection",
+  "finance_tutarGirin": "Enter an amount.",
+  "finance_kalanTutardanFazlaOlamaz": "Cannot exceed the remaining amount.",
+  "finance_tamaminiAl": "Collect all",
+  "finance_kalaninTamaminiTahsilEt": "Collect the full remaining amount",
+  "finance_aylikTahsilat": "Monthly Collections",
+  "finance_tahsil": "Collected",
+  "finance_durumDagilimi": "Payment Distribution",
+  "finance_tutarBazinda": "By amount",
+  "finance_tahsilat": "collected",
+  "finance_genel": "Overview",
+  "finance_dersler": "Lessons",
+  "finance_performans": "Performance",
+  "finance_odemeler": "Payments",
+  "finance_ogrenciBulunamadi": "Student not found",
+  "finance_lutfenYenidenDeneyin": "Please try again.",
+  "finance_bransEkle": "Add subject",
+  "finance_hedefSeviye": "Target level",
+  "finance_ekle": "Add",
+  "finance_veliBagla": "Link parent",
+  "finance_veliKayitliBirKullaniciOlmalidirBaglantiOnayBekler": "The parent must be a registered user. The link requires approval.",
+  "finance_veliKullaniciKimligi": "Parent user ID",
+  "finance_duzenle": "Edit",
+  "finance_pasiflestir": "Deactivate",
+  "finance_aktiflestir": "Activate",
+  "finance_ogrenciyiPasiflestir": "Deactivate Student",
+  "finance_ogrenciyiAktiflestir": "Activate Student",
+  "finance_ogrenciDetayi": "Student Details",
+  "finance_toplamKayit": "Total records",
+  "finance_odeme": "Payment",
+  "finance_hedef": "Goal",
+  "finance_dersHedefi": "Lesson goal",
+  "finance_durum": "Status",
+  "finance_takip": "Follow-up",
+  "finance_temiz": "Clear",
+  "finance_odemeVar": "Payment due",
+  "finance_borcsuz": "No balance",
+  "finance_ogrenciNotlari": "Student notes",
+  "finance_seviyeNotu": "Level note",
+  "finance_yeniDers": "New Lesson",
+  "finance_mesajGonder": "Send Message",
+  "finance_yeniDers102": "New lesson",
+  "finance_dersKaydiYok": "No lessons",
+  "finance_buOgrenciIcinPlanliDersBulunamadi": "No scheduled lessons for this student.",
+  "finance_performansOzeti": "Performance summary",
+  "finance_dersTamamlama": "Lesson completion",
+  "finance_takipBasladi": "Tracking started",
+  "finance_hedefNetligi": "Goal clarity",
+  "finance_dersCesitliligi": "Subject variety",
+  "finance_dersHedefleri": "Lesson goals",
+  "finance_hedefDersEklenincePerformansTakibiBuradaZenginlesir": "Add target subjects to expand progress tracking here.",
+  "finance_toplam": "Total",
+  "finance_odemeGecmisi": "Payment history",
+  "finance_odemeEkle114": "Add payment",
+  "finance_buOgrenciIcinTahsilatKaydiBulunamadi": "No collection records found for this student.",
+  "finance_hedefDersler": "Target subjects",
+  "finance_ogrenciHedefleriEklendigindeBuradaGorunur": "Student goals will appear here when added.",
+  "finance_hedefYok": "No goal",
+  "finance_bransiSil": "Remove subject",
+  "finance_kayitliBirVeliKullanicisiniBuOgrenciyeBaglayabilirsi": "You can link a registered parent to this student. ",
+  "finance_baglantiOnayBeklerOnaylandiktanSonraVeliOgrencininG": "The link requires approval; the parent can see progress after approval.",
+  "finance_tarihYok": "No date",
+  "finance_aktif": "Active",
+  "finance_ogrenciGuncelle": "Update Student",
+  "finance_adSoyad": "Full name",
+  "finance_adSoyadGiriniz": "Enter full name",
+  "finance_sinifSeviye": "Grade / Level",
+  "finance_sinifGiriniz": "Enter grade",
+  "finance_hedefSeviye129": "Target Level",
+  "finance_hedefAmac": "Goal / Purpose",
+  "finance_seviyeNotu131": "Level Note",
+  "finance_aktifOgrenci": "Active Student",
+  "finance_kaydet": "Save",
+  "finance_odemelerYuklenemediLutfenTekrarDeneyin": "Could not load payments. Please try again.",
+  "finance_dahaFazlaKayitYuklenemedi": "Could not load more records.",
+  "finance_odemeKaydiOlusturuldu": "Payment created.",
+  "finance_odemeKaydiOlusturulamadiLutfenTekrarDeneyin": "Could not create payment. Please try again.",
+  "finance_odemeKaydiGuncellendi": "Payment updated.",
+  "finance_odemeKaydiGuncellenemediLutfenTekrarDeneyin": "Could not update payment. Please try again.",
+  "finance_odemeIptalEdildi": "Payment cancelled.",
+  "finance_odemeIptalEdilemediLutfenTekrarDeneyin": "Could not cancel payment. Please try again.",
+  "finance_tahsilatKaydedildi": "Collection saved.",
+  "finance_odemeGuncellenemediLutfenTekrarDeneyin": "Could not update payment. Please try again.",
+  "finance_lessonForStudent": "{subject} lesson — {name}",
+  "@finance_lessonForStudent": {
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_studentLesson": "{name}’s lesson",
+  "@finance_studentLesson": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_cancelConfirmation": "Cancel \"{description}\"? The record is retained and no balance remains.",
+  "@finance_cancelConfirmation": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_paymentCount": "{count} payment records",
+  "@finance_paymentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finance_recordCount": "{count} records",
+  "@finance_recordCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finance_collectionCurrency": "This collection ({currency})",
+  "@finance_collectionCurrency": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_monthlyTotal": "Last {count} months · total {amount}",
+  "@finance_monthlyTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_deactivateStudent": "{name} will be marked inactive.",
+  "@finance_deactivateStudent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_activateStudent": "{name} will be reactivated.",
+  "@finance_activateStudent": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_goalCount": "{count} goals",
+  "@finance_goalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "finance_dueDate": "Due: {date}",
+  "@finance_dueDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_amountPending": "{amount} pending",
+  "@finance_amountPending": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_methodNote": "Payment method: {method}",
+  "@finance_methodNote": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "finance_link": "Link",
+  "finance_email": "Email",
+  "finance_phone": "Phone",
+  "finance_notAdded": "Not added",
+  "finance_clearGoal": "Clear",
+  "finance_missingGoal": "Missing",
+  "finance_parent": "Parent"
 }

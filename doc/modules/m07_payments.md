@@ -57,7 +57,7 @@ Kapsam/silme olayında normal LessonFee kayıtlarının oturumu `ILessonSessionA
 
 **P18 T1 — eşzamanlılık (K-22):** `PaymentRecord` `IVersioned` uygular; `uint Version { get; private set; }` PostgreSQL’in ürettiği `xmin` (`xid`) sistem kolonuna eşlenir. `ModuleDbContext` tip modele eklenirken concurrency + OnAddOrUpdate konvansiyonunu uygular. Aynı sürümü okuyan iki yazmadan kaybeden `409 shared.concurrency_conflict` alır: “Kayıt siz düzenlerken değişti. Lütfen yenileyip tekrar deneyin.” `AddVersionToken` yalnız model metadatasını kaydeder; yeni kolon/veri göçü yoktur. Outbox hatayı normal backoff ile yeniden teslim eder; yeni scope güncel veriyi yükler, başarısız iş ve inbox aynı transaction’da geri alınır.
 
-**P18 T2 (2026-11-15):** Tahsilat/iade `PaymentTransaction` çocuk satırlarıdır; net toplam bu hareketlerden hesaplanıp kayıtta saklanır. PUT yalnız `Description`, `ExpectedAmount`, `DueDateUtc`, `Notes` alır. Eski ekranın `collectedAmount`, `status`, `currency` alanları yok sayılır; tahsilat ancak ayrı komutla değişir. Mobil tahsilat çağrısının geçişi **P18 T4**'tedir; eski mobil PUT'u yeni tahsilat kaydetmez.
+**P18 T2 (2026-11-15):** Tahsilat/iade `PaymentTransaction` çocuk satırlarıdır; net toplam bu hareketlerden hesaplanıp kayıtta saklanır. PUT yalnız `Description`, `ExpectedAmount`, `DueDateUtc`, `Notes` alır. Eski ekranın `collectedAmount`, `status`, `currency` alanları yok sayılır; tahsilat ancak ayrı komutla değişir. P18 T4 ile mobil tahsilat `/collections`, iptal `/cancel` POST uçlarına taşındı; PUT yalnız ayrıntıları gönderir.
 
 
 ### 2.1 🟢 Mevcut (koddan) — `PaymentRecord` (AggregateRoot<Guid>)
@@ -196,7 +196,7 @@ Tablo `parent_payment_declarations`. **Karar (2026-07-19):** beyan öğretmen te
 > `OutstandingAmount`, `IsOverdue` ve `Status` (görüntüleme statüsü) **hesaplanmış** alanlardır; `Status` yanıtta `GetDisplayStatus(calendar)` sonucudur (tutar ve yerel vade tablosu).
 
 **`TeacherPaymentSummaryResponse` (koddan):** `TeacherUserId, TotalRecords, CurrencySummaries[], MonthlyBreakdown[]`
-> `MonthlyBreakdown[]` = son 6 ayın `{ Year, Month, Currency, ExpectedAmount, CollectedAmount }` kırılımı (vade ayına göre, iptaller hariç) — mobil grafikleri besler. **P16 T5 / N-11 (2026-11-15):** ay **Türkiye yerel ayıdır** — "bu ay" ve kaydın vade ayı `ILocalCalendar`'dan (1 Aralık 01:00 TR vadeli kayıt Aralık'ta; eskiden UTC'de Kasım). **P18 T3:** Her mevcut para birimi için altı ayrı ay noktası üretilir; tutarlar asla para birimleri arasında toplanmaz. Boş ay o para biriminde sıfırdır; kayıt yoksa noktalar boştur. Tarih, ardından para birimi sırası kullanılır. Genel `CurrencySummaries` sözleşmesi korunmuştur. **Mobil geçiş T4:** Eski model Currency alanını yok sayıyor ve UI toplamları birleştiriyor; bu backend görevi mobil karışık-para gösterimini kapatmaz. Öğretmen panelinin (`dashboard-summary`, m14) gecikmiş toplamı artık para birimi bazında (`overduePaymentTotals`).
+> `MonthlyBreakdown[]` = son 6 ayın `{ Year, Month, Currency, ExpectedAmount, CollectedAmount }` kırılımı (vade ayına göre, iptaller hariç) — mobil grafikleri besler. **P16 T5 / N-11 (2026-11-15):** ay **Türkiye yerel ayıdır** — "bu ay" ve kaydın vade ayı `ILocalCalendar`'dan (1 Aralık 01:00 TR vadeli kayıt Aralık'ta; eskiden UTC'de Kasım). **P18 T3:** Her mevcut para birimi için altı ayrı ay noktası üretilir; tutarlar asla para birimleri arasında toplanmaz. Boş ay o para biriminde sıfırdır; kayıt yoksa noktalar boştur. Tarih, ardından para birimi sırası kullanılır. Genel `CurrencySummaries` sözleşmesi korunmuştur. **P18 T4 mobil:** Aylık model Currency alanını tüketir; özet/donut/aylık grafik seçilen para biriminden gösterilir. Tüm ödeme modelleri int kuruştur; JSON decimal dönüşümü yalnız Money yardımcısındadır. Öğretmen panelinin (`dashboard-summary`, m14) gecikmiş toplamı artık para birimi bazında (`overduePaymentTotals`).
 **`PagedPaymentRecordsResponse` (koddan):** `Items[] (PaymentRecordResponse), TotalCount`
 **`PaymentCurrencySummaryResponse` (koddan):** `Currency, PendingCount, PartialCount, PaidCount, OverdueCount, CancelledCount, ExpectedAmountTotal, CollectedAmountTotal, OutstandingAmountTotal, OverdueAmountTotal`
 > `PendingCount`/`PartialCount`, **gecikmemiş** kayıtları sayar; gecikmiş olanlar `OverdueCount`'a düşer.
@@ -280,9 +280,9 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 > `mobile/lib/features/payments`, `flutter_bloc` (Cubit).
 
 ### ✅ Yeni Eklenen (2026-07-06)
-- **Eski mobil tahsilat formu — P18 T4 geçişi bekliyor** (`CollectPaymentSheet`): "Tahsil Et" tek tıkla tamamı yerine tutar girişli form açar; **tam veya kısmi** tahsilat (`newCollected = min(collected + girilen, expected)` → `Paid`/`PartiallyPaid`). Kalandan fazlaya izin vermez. Mevcut toplam PUT’u yeni backend’de tahsilatı değiştirmez; T4’te collections komutuna taşınır.
-- **Kart → düzenleme**: Ödeme kartına dokununca (kartta sağda `chevron` ok) `PaymentFormPage` düzenleme modunda açılır (`PUT`). Düzenlemede **öğrenci ve ders salt-okunur** (kilitli); tutar/vade/açıklama/not değişebilir.
-- **Eski mobil iptal — P18 T4 geçişi bekliyor**: Düzenleme formunda iptal ikonu → onay dialogu → ödeme **silinmez**, `Status=Cancelled` olarak işaretlenir (`PaymentsCubit.cancel` → `PUT /records/{id}`). Bu eski PUT yeni backend’de iptal etmez; ayrı `/cancel` komutuna geçiş gerekir. Backend’de iptal edilmiş kayıt listede "İptal" görünür, açık bakiye/gecikme doğurmaz (`OutstandingAmount=0`). Kalıcı silme (hard delete) **bilinçli olarak yok**.
+- **Tahsilat formu — P18 T4:** `CollectPaymentSheet` TR tutarı kuruşa ayrıştırır ve yalnız yeni tahsilatın tutarını döndürür. `PaymentsCubit.collect` → `POST /records/{id}/collections`; toplam/durum istemcide hesaplanmaz. Yöntem varsayılan Cash=1'dir. Sunucunun güncel yanıtı kayıt satırını değiştirir.
+- **Kart → düzenleme:** `PaymentFormPage` öğrenci/ders/tahsilat/para birimini kilitler; PUT yalnız açıklama/beklenen tutar/vade/not gönderir. İlk tahsilat yalnız yeni kayıt formunda girilebilir.
+- **İptal — P18 T4:** Onay dialogu → `POST /records/{id}/cancel`; kayıt silinmez, iptalde açık bakiye sıfırdır. Net tahsilat pozitifse sunucu önce iade ister (mobil iade formu eklenmedi).
 - **Sunucu tarafı sayfalama + filtre**: Ödemeler sayfası artık listeyi `records/search` ile **sayfa sayfa** çeker (sonsuz kaydırma, `take=20`) + metin arama, durum sekmesi, öğrenci ve tarih-aralığı filtresi. Aggregate'ler (özet paneli + grafikler) `getSummary`'den gelir (sayfalıyken tüm kayıtlar client'ta olmaz).
 - **Finans grafikleri**: **katlanabilir "İstatistikler"** bölümünde (varsayılan kapalı) `MonthlyCollectionCard` (özetteki `MonthlyBreakdown`'dan) + `PaymentDistributionCard` (özet toplamlarından donut + tahsilat oranı %). Not: m14 dönemsel rapor hâlâ ayrı bir gelişim.
 
@@ -304,7 +304,7 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 - [ ] ⚠️ Veli ile paylaşım (`IsSharedWithParent`) + veli görünümü.
 - [x] Kalıcı `Overdue` otomasyonu (`PaymentOverdueScanner`, saatlik) + vade bildirimi (m11) — **M07-1, 2026-09-04**.
 - [x] Backend tahsilat/iade hareketleri + ayrıntı PUT koruması (P18 T2).
-- [ ] Mobil `CollectPaymentSheet` yeni `POST .../collections` ucuna geçirilecek (**P18 T4**); eski PUT tahsilatı değiştirmez.
+- [x] Mobil `CollectPaymentSheet` `POST .../collections` ucunu kullanır; yalnız bu tahsilat tutarı gönderilir, iptal ayrı `/cancel` komutudur (**P18 T4**).
 - [ ] ⚠️ M14 ile dönemsel gelir raporu/grafik.
 - [x] M05 tamamlama → otomatik `LessonFee` kaydı (`LessonSessionCompletedPaymentHandler`) — **M07-2, 2026-09-04**.
 
@@ -344,3 +344,13 @@ M05: LessonSessionCompletedDomainEvent — M07-2
 İlk tahsilat girişi de iki ondalık/range ve gelecek tahsilat tarihi doğrulamasından geçer. Değişmeyen vadede yalnız not düzenlemek yeni gecikme bildirimi üretmez; vade değişirse yeni gecikme dönemi başlayabilir.
 
 *Güncelleme: 2026-11-15 — P18 T3: para birimi bazlı aylık özet, tek bekleyen beyan, xmin ve veli sonuç bildirimi; mobil para birimi gösterimi T4 açık.*
+
+### P18 T4 mobil para ve yazma güvenliği
+
+`Money` kuruş ayrıştırma/gösterim/decimal JSON sınırının tek yeridir. `1.500`=150000 kuruş, `750,50`=75050. Üç ödeme modelinin Amount alanları int kuruştur. Mobil JSON number sınırında kuruş hassasiyetini korumak için en büyük desteklenen tutar 999.999.999.999,99'dur; taşma sessiz yuvarlanmaz, reddedilir. Öğrenci detayının ödeme metrikleri para birimi başına ayrı gösterilir. Dashboard'un ayrı eski ana-birim modeli yalnız Cubit adaptörüyle beslenir; kendi model/UI dönüşümü P21'de kalır.
+
+Ödeme oluşturma/tahsilat/iptal POST'ları UUID v4 `Idempotency-Key` taşır. Başarısız ağ denemesinde aynı anahtarla tek tekrar, iki sonuçsuz denemeden sonra aynı kullanıcı/uç/içerikle manuel tekrar ilk anahtar ve gövdeyi korur; başarılı işlemden sonraki aynı içerik yeni işlemdir. Koruma ApiClient belleğindedir, uygulama yeniden açılışı kurtarılmaz. Sunucu gövde özeti P18 T5'tir.
+
+*Güncelleme: 2026-11-15 — P18 T4: mobil kuruş, niyet uçları, para birimi seçimi ve tekrar anahtarı.*
+
+*Güncelleme: 2026-11-15 — P18 T4 mobil para ve idempotency.*

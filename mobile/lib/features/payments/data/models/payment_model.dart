@@ -1,3 +1,4 @@
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
 
 class PaymentRecordModel extends PaymentRecord {
@@ -26,9 +27,9 @@ class PaymentRecordModel extends PaymentRecord {
       studentId: json['studentId']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       currency: json['currency']?.toString() ?? 'TRY',
-      expectedAmount: (json['expectedAmount'] as num?)?.toDouble() ?? 0,
-      collectedAmount: (json['collectedAmount'] as num?)?.toDouble() ?? 0,
-      outstandingAmount: (json['outstandingAmount'] as num?)?.toDouble() ?? 0,
+      expectedAmount: Money.fromJson(json['expectedAmount']).minor,
+      collectedAmount: Money.fromJson(json['collectedAmount']).minor,
+      outstandingAmount: Money.fromJson(json['outstandingAmount']).minor,
       status: json['status']?.toString() ?? 'Pending',
       relatedLessonSessionId: json['relatedLessonSessionId']?.toString(),
       dueDateUtc: _parseDate(json['dueDateUtc']),
@@ -44,8 +45,8 @@ class PaymentRecordModel extends PaymentRecord {
     required String teacherUserId,
     required String studentId,
     required String description,
-    double expectedAmount = 750,
-    double collectedAmount = 0,
+    int expectedAmount = 75000,
+    int collectedAmount = 0,
     DateTime? dueDateUtc,
   }) {
     return PaymentRecordModel(
@@ -73,8 +74,8 @@ class PaymentRecordModel extends PaymentRecord {
       'itemType': _itemTypeToApi(itemType),
       'description': description,
       'currency': currency,
-      'expectedAmount': expectedAmount,
-      'collectedAmount': collectedAmount,
+      'expectedAmount': Money(expectedAmount, currency).toJsonAmount(),
+      'collectedAmount': Money(collectedAmount, currency).toJsonAmount(),
       'dueDateUtc': (dueDateUtc ?? DateTime.now().toUtc()).toIso8601String(),
       'collectedOnUtc': collectedOnUtc?.toIso8601String(),
       'status': _statusToApi(status),
@@ -83,6 +84,13 @@ class PaymentRecordModel extends PaymentRecord {
       'notes': notes,
     };
   }
+
+  Map<String, dynamic> toDetailsPayload() => {
+    'description': description,
+    'expectedAmount': Money(expectedAmount, currency).toJsonAmount(),
+    'dueDateUtc': dueDateUtc?.toUtc().toIso8601String(),
+    'notes': notes,
+  };
 
   static DateTime? _parseDate(Object? value) {
     if (value == null) {
@@ -143,13 +151,12 @@ class PaymentCurrencySummaryModel extends PaymentCurrencySummary {
       paidCount: json['paidCount'] as int? ?? 0,
       overdueCount: json['overdueCount'] as int? ?? 0,
       cancelledCount: json['cancelledCount'] as int? ?? 0,
-      expectedAmountTotal:
-          (json['expectedAmountTotal'] as num?)?.toDouble() ?? 0,
-      collectedAmountTotal:
-          (json['collectedAmountTotal'] as num?)?.toDouble() ?? 0,
-      outstandingAmountTotal:
-          (json['outstandingAmountTotal'] as num?)?.toDouble() ?? 0,
-      overdueAmountTotal: (json['overdueAmountTotal'] as num?)?.toDouble() ?? 0,
+      expectedAmountTotal: Money.fromJson(json['expectedAmountTotal']).minor,
+      collectedAmountTotal: Money.fromJson(json['collectedAmountTotal']).minor,
+      outstandingAmountTotal: Money.fromJson(
+        json['outstandingAmountTotal'],
+      ).minor,
+      overdueAmountTotal: Money.fromJson(json['overdueAmountTotal']).minor,
     );
   }
 }
@@ -158,16 +165,18 @@ class PaymentMonthlyPointModel extends PaymentMonthlyPoint {
   const PaymentMonthlyPointModel({
     required super.year,
     required super.month,
+    super.currency,
     required super.expectedAmount,
     required super.collectedAmount,
   });
 
   factory PaymentMonthlyPointModel.fromJson(Map<String, dynamic> json) {
     return PaymentMonthlyPointModel(
+      currency: json['currency']?.toString() ?? 'TRY',
       year: json['year'] as int? ?? 0,
       month: json['month'] as int? ?? 0,
-      expectedAmount: (json['expectedAmount'] as num?)?.toDouble() ?? 0,
-      collectedAmount: (json['collectedAmount'] as num?)?.toDouble() ?? 0,
+      expectedAmount: Money.fromJson(json['expectedAmount']).minor,
+      collectedAmount: Money.fromJson(json['collectedAmount']).minor,
     );
   }
 }
@@ -206,10 +215,10 @@ class PaymentSummaryModel extends PaymentSummary {
           paidCount: 1,
           overdueCount: 1,
           cancelledCount: 0,
-          expectedAmountTotal: 1500,
-          collectedAmountTotal: 750,
-          outstandingAmountTotal: 750,
-          overdueAmountTotal: 250,
+          expectedAmountTotal: 150000,
+          collectedAmountTotal: 75000,
+          outstandingAmountTotal: 75000,
+          overdueAmountTotal: 25000,
         ),
       ],
     );

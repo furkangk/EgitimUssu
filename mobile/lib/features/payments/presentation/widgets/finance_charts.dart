@@ -1,8 +1,9 @@
 import 'dart:math' as math;
-
+import 'package:egitim_ussu_mobile/core/money/money.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_shadows.dart';
 import 'package:egitim_ussu_mobile/features/payments/domain/payment_contracts.dart';
+import 'package:egitim_ussu_mobile/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -14,26 +15,25 @@ import 'package:intl/intl.dart';
 /// Son aylara ait **beklenen vs tahsil edilen** tutarı hafif, bağımlılıksız
 /// çubuk grafikle gösterir (arka plan = beklenen, dolu = tahsil edilen).
 class MonthlyCollectionCard extends StatelessWidget {
-  const MonthlyCollectionCard({super.key, required this.points});
+  const MonthlyCollectionCard({
+    super.key,
+    required this.points,
+    required this.currency,
+  });
 
   final List<PaymentMonthlyPoint> points;
-
-  static const List<String> _monthShort = <String>[
-    'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
-    'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
-  ];
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
-    final maxVal = points.fold<double>(0, (m, p) => math.max(m, p.expectedAmount));
-    final totalCollected = points.fold<double>(
-      0,
-      (t, p) => t + p.collectedAmount,
-    );
+    final maxVal = points.fold<int>(0, (m, p) => math.max(m, p.expectedAmount));
+    final totalCollected = points.fold<int>(0, (t, p) => t + p.collectedAmount);
 
     return _ChartCard(
-      title: 'Aylık Tahsilat',
-      subtitle: 'Son ${points.length} ay · toplam ${_money(totalCollected)}',
+      title: AppLocalizations.of(context).finance_aylikTahsilat,
+      subtitle: AppLocalizations.of(
+        context,
+      ).finance_monthlyTotal(points.length, _money(totalCollected, currency)),
       trailing: const _LegendDots(),
       child: SizedBox(
         height: 150,
@@ -93,7 +93,9 @@ class MonthlyCollectionCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       point.month >= 1 && point.month <= 12
-                          ? _monthShort[point.month - 1]
+                          ? DateFormat.MMM(
+                              Localizations.localeOf(context).toLanguageTag(),
+                            ).format(DateTime(point.year, point.month))
                           : '',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.textSecondary,
@@ -118,14 +120,14 @@ class _LegendDots extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: const <Widget>[
+      children: <Widget>[
         _Dot(color: AppColors.primary),
         SizedBox(width: 4),
-        _LegendText('Tahsil'),
+        _LegendText(AppLocalizations.of(context).finance_tahsil),
         SizedBox(width: 10),
         _Dot(color: AppColors.primaryLight),
         SizedBox(width: 4),
-        _LegendText('Beklenen'),
+        _LegendText(AppLocalizations.of(context).finance_beklenen),
       ],
     );
   }
@@ -136,15 +138,20 @@ class _LegendDots extends StatelessWidget {
 /// Ödemelerin tutar bazında dağılımını (tahsil edilen / bekleyen / geciken)
 /// donut grafikle gösterir; ortada genel **tahsilat oranı** yer alır.
 class PaymentDistributionCard extends StatelessWidget {
-  const PaymentDistributionCard({super.key, required this.summary});
+  const PaymentDistributionCard({
+    super.key,
+    required this.summary,
+    required this.currency,
+  });
 
-  final PaymentSummary summary;
+  final PaymentCurrencySummary? summary;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
-    final collected = summary.collectedTotal;
-    final pending = summary.pendingTotal;
-    final overdue = summary.overdueTotal;
+    final collected = summary?.collectedAmountTotal ?? 0;
+    final pending = summary?.pendingAmountTotal ?? 0;
+    final overdue = summary?.overdueAmountTotal ?? 0;
     final total = collected + pending + overdue;
     final rate = total <= 0 ? 0.0 : (collected / total) * 100;
 
@@ -155,8 +162,8 @@ class PaymentDistributionCard extends StatelessWidget {
     ];
 
     return _ChartCard(
-      title: 'Durum Dağılımı',
-      subtitle: 'Tutar bazında',
+      title: AppLocalizations.of(context).finance_durumDagilimi,
+      subtitle: AppLocalizations.of(context).finance_tutarBazinda,
       child: Row(
         children: <Widget>[
           SizedBox(
@@ -176,7 +183,7 @@ class PaymentDistributionCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'tahsilat',
+                      AppLocalizations.of(context).finance_tahsilat,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -194,20 +201,20 @@ class PaymentDistributionCard extends StatelessWidget {
               children: <Widget>[
                 _LegendRow(
                   color: AppColors.accentGreen,
-                  label: 'Tahsil edilen',
-                  value: _money(collected),
+                  label: AppLocalizations.of(context).finance_tahsilEdilen,
+                  value: _money(collected, currency),
                 ),
                 const SizedBox(height: 12),
                 _LegendRow(
                   color: AppColors.amber,
-                  label: 'Bekleyen',
-                  value: _money(pending),
+                  label: AppLocalizations.of(context).finance_bekleyen,
+                  value: _money(pending, currency),
                 ),
                 const SizedBox(height: 12),
                 _LegendRow(
                   color: AppColors.accentRed,
-                  label: 'Geciken',
-                  value: _money(overdue),
+                  label: AppLocalizations.of(context).finance_geciken,
+                  value: _money(overdue, currency),
                 ),
               ],
             ),
@@ -220,7 +227,7 @@ class PaymentDistributionCard extends StatelessWidget {
 
 class _DonutSegment {
   const _DonutSegment(this.value, this.color);
-  final double value;
+  final int value;
   final Color color;
 }
 
@@ -243,7 +250,7 @@ class _DonutPainter extends CustomPainter {
       ..color = AppColors.divider;
     canvas.drawCircle(center, radius, track);
 
-    final total = segments.fold<double>(0, (t, s) => t + s.value);
+    final total = segments.fold<int>(0, (t, s) => t + s.value);
     if (total <= 0) return;
 
     var start = -math.pi / 2;
@@ -401,18 +408,6 @@ class _LegendText extends StatelessWidget {
   }
 }
 
-String _money(double amount) {
-  final formatted = NumberFormat.decimalPattern('tr_TR').format(amount.round());
-  return '$formatted TRY';
-}
-
-/// Çubuk etiketleri için kısa gösterim: 1500 → "1,5B", 2.000.000 → "2M".
-String _compact(double amount) {
-  if (amount >= 1000000) {
-    return '${(amount / 1000000).toStringAsFixed(amount % 1000000 == 0 ? 0 : 1).replaceAll('.', ',')}M';
-  }
-  if (amount >= 1000) {
-    return '${(amount / 1000).toStringAsFixed(amount % 1000 == 0 ? 0 : 1).replaceAll('.', ',')}B';
-  }
-  return amount.round().toString();
-}
+String _money(int amount, String currency) =>
+    Money(amount, currency).formatTr();
+String _compact(int amount) => Money(amount).formatTr(withCurrency: false);

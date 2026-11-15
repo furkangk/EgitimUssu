@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:egitim_ussu_mobile/core/di/injector.dart';
 import 'package:egitim_ussu_mobile/core/network/api_exception.dart';
 import 'package:egitim_ussu_mobile/core/theme/app_colors.dart';
@@ -114,8 +113,8 @@ class DashboardCubit extends Cubit<DashboardState> {
           todayLessonCount: todayLessonCount,
           upcomingLessonCount: upcomingLessons.length,
           todayLessonDuration: todayLessonDuration,
-          outstandingAmount: firstCurrency?.outstandingAmountTotal ?? 0,
-          overdueAmount: firstCurrency?.overdueAmountTotal ?? 0,
+          outstandingAmount: (firstCurrency?.outstandingAmountTotal ?? 0) / 100,
+          overdueAmount: (firstCurrency?.overdueAmountTotal ?? 0) / 100,
           overdueCount: firstCurrency?.overdueCount ?? 0,
           outstandingCurrency: firstCurrency?.currency ?? 'TRY',
           upcomingLessons: upcomingLessons,

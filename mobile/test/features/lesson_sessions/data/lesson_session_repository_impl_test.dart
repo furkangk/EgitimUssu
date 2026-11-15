@@ -4,7 +4,6 @@ import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/data/repositories/lesson_session_repository_impl.dart';
 import 'package:egitim_ussu_mobile/features/lesson_sessions/domain/lesson_session_contracts.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import '../../../helpers.dart';
 
 void main() {
@@ -194,6 +193,9 @@ class _FakeApiClient extends ApiClient {
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? data,
+    bool idempotent = false,
+    String? idempotencyKey,
+    String? retryIdentity,
   }) async {
     lastPath = path;
     lastData = data;

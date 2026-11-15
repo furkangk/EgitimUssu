@@ -4,7 +4,6 @@ import 'package:egitim_ussu_mobile/core/network/api_client.dart';
 import 'package:egitim_ussu_mobile/features/students/data/models/student_model.dart';
 import 'package:egitim_ussu_mobile/features/students/data/repositories/student_repository_impl.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import '../../helpers.dart';
 
 /// P06 Task 9 (M03-1/M03-2): Öğrenci branş ekle/sil + veli bağlama sözleşmesi.
@@ -63,7 +62,10 @@ void main() {
 
     await repository.removeSubject(studentId: 'st-1', subjectId: 'sub-9');
 
-    expect(apiClient.lastDeletePath, '/api/students/profiles/st-1/subjects/sub-9');
+    expect(
+      apiClient.lastDeletePath,
+      '/api/students/profiles/st-1/subjects/sub-9',
+    );
   });
 
   test('linkParent veli kimligini govdede gonderir', () async {
@@ -101,6 +103,9 @@ class _FakeApiClient extends ApiClient {
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? data,
+    bool idempotent = false,
+    String? idempotencyKey,
+    String? retryIdentity,
   }) async {
     lastPath = path;
     lastData = data;
